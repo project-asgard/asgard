@@ -1,0 +1,1 @@
+# ASGarD - Adaptive Sparse Grid Discretization
