@@ -23,6 +23,7 @@ option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
 # FIXME allow user to provide cached tarballs
 ###############################################################################
 
+## BLAS/Lapack
 if (NOT ASGARD_BUILD_OPENBLAS)
   find_package (LAPACK)
   if (LAPACK_FOUND)
@@ -57,6 +58,16 @@ if (NOT LAPACK_FOUND)
   endif ()
 endif ()
 
+## Clara
+set (Clara_PATH ${CMAKE_SOURCE_DIR}/contrib/clara)
+if (NOT EXISTS ${Clara_PATH}/clara.hpp)
+  message (FATAL_ERROR "clara.hpp not found. Please add at ${Clara_PATH}")
+endif ()
+
+add_library (clara INTERFACE)
+target_include_directories (clara INTERFACE ${Clara_PATH})
+
+
 ###############################################################################
 ## Building asgard
 #
@@ -70,6 +81,7 @@ endif ()
 # define the components and how to build and link the components together
 set (components
   matlab_utilities
+  program_options
   tensors
 )
 
@@ -84,13 +96,17 @@ endif ()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
+target_link_libraries (program_options PRIVATE clara)
+
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
+
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
 
 set (main_app_link_deps
   matlab_utilities
+  program_options
   tensors
 )
 
