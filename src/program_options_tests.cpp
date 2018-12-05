@@ -4,17 +4,18 @@
 #include <iostream>
 #include <string>
 
-TEST_CASE("options constructor/getters", "[options]") {
-  SECTION("create from valid string") {
-
+TEST_CASE("options constructor/getters", "[options]")
+{
+  SECTION("create from valid string")
+  {
     // the golden values
     std::string pde_choice = "vlasov43";
-    PDE_opts pde = PDE_opts::vlasov43;
-    int level = 3;
-    int degree = 4;
-    int write = 1;
-    int vis = 1;
-    double cfl = 2.0;
+    PDE_opts pde           = PDE_opts::vlasov43;
+    int level              = 3;
+    int degree             = 4;
+    int write              = 1;
+    int vis                = 1;
+    double cfl             = 2.0;
 
     // set up test inputs directly from golden values
     std::vector<std::string> arguments = {"asgard",
@@ -30,11 +31,12 @@ TEST_CASE("options constructor/getters", "[options]") {
                                           std::to_string(vis),
                                           "-f",
                                           "-i",
-					  "-s",
+                                          "-s",
                                           "-c",
                                           std::to_string(cfl)};
     std::vector<char *> argv;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments)
+    {
       argv.push_back(const_cast<char *>(arg.data()));
     }
     argv.push_back(nullptr);
@@ -53,22 +55,23 @@ TEST_CASE("options constructor/getters", "[options]") {
     REQUIRE(o.is_valid());
   }
 
-  SECTION("run w/ defaults") {
-
-    int def_level = 2;
-    int def_degree = 3;
-    int def_num_steps = 10;
+  SECTION("run w/ defaults")
+  {
+    int def_level      = 2;
+    int def_degree     = 3;
+    int def_num_steps  = 10;
     int def_write_freq = 0;
-    int def_vis_freq = 0;
-    bool def_implicit = false;
+    int def_vis_freq   = 0;
+    bool def_implicit  = false;
     bool def_full_grid = false;
-    bool def_poisson = false;
-    double def_cfl = 0.1;
-    PDE_opts def_pde = PDE_opts::vlasov4;
+    bool def_poisson   = false;
+    double def_cfl     = 0.1;
+    PDE_opts def_pde   = PDE_opts::vlasov4;
 
     std::vector<std::string> arguments = {"asgard"};
     std::vector<char *> argv;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments)
+    {
       argv.push_back(const_cast<char *>(arg.data()));
     }
     argv.push_back(nullptr);
@@ -89,10 +92,12 @@ TEST_CASE("options constructor/getters", "[options]") {
     REQUIRE(o.is_valid());
   }
 
-  SECTION("out of range pde") {
+  SECTION("out of range pde")
+  {
     std::vector<std::string> arguments = {"asgard", "-p", "2 1337 4 u gg"};
     std::vector<char *> argv;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments)
+    {
       argv.push_back(const_cast<char *>(arg.data()));
     }
     argv.push_back(nullptr);
@@ -104,10 +109,12 @@ TEST_CASE("options constructor/getters", "[options]") {
     REQUIRE(!o.is_valid());
   }
 
-  SECTION("negative level") {
+  SECTION("negative level")
+  {
     std::vector<std::string> arguments = {"asgard", "-l=-2"};
     std::vector<char *> argv;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments)
+    {
       argv.push_back(const_cast<char *>(arg.data()));
     }
     argv.push_back(nullptr);
@@ -119,10 +126,12 @@ TEST_CASE("options constructor/getters", "[options]") {
     REQUIRE(!o.is_valid());
   }
 
-  SECTION("negative degree") {
+  SECTION("negative degree")
+  {
     std::vector<std::string> arguments = {"asgard", "-d=-2"};
     std::vector<char *> argv;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments)
+    {
       argv.push_back(const_cast<char *>(arg.data()));
     }
     argv.push_back(nullptr);
@@ -134,10 +143,12 @@ TEST_CASE("options constructor/getters", "[options]") {
     REQUIRE(!o.is_valid());
   }
 
-  SECTION("negative cfl") {
+  SECTION("negative cfl")
+  {
     std::vector<std::string> arguments = {"asgard", "-c=-2.0"};
     std::vector<char *> argv;
-    for (const auto &arg : arguments) {
+    for (const auto &arg : arguments)
+    {
       argv.push_back(const_cast<char *>(arg.data()));
     }
     argv.push_back(nullptr);
