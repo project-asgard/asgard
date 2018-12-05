@@ -17,20 +17,28 @@
 // vlasov43 = 4 (Non-linear vlasov-poisson : two-stream instability 2, Ex4.3 in
 // PDF)
 
-enum class PDE_opts { pde_user, vlasov4, vlasov7, vlasov8, vlasov5, vlasov43 };
+enum class PDE_opts
+{
+  pde_user,
+  vlasov4,
+  vlasov7,
+  vlasov8,
+  vlasov5,
+  vlasov43
+};
 typedef std::map<std::string, PDE_opts> pde_map_t;
 
-class Options {
-
+class Options
+{
 private:
-  int level = 2;                      // resolution
-  int degree = 3;                     // degree of legendre basis polynomials
-  int num_time_steps = 10;            // number of time loop iterations
-  int write_frequency = 0;            // write output every this many iterations
-  int visualization_frequency = 0;    // visualize output every this many iters
-  bool use_implicit_stepping = false; // enable implicit(/explicit) stepping
-  bool use_full_grid = false;         // enable full(/sparse) grid
-  bool do_poisson = false;            // do poisson solve for electric field
+  int level                   = 2;  // resolution
+  int degree                  = 3;  // degree of legendre basis polynomials
+  int num_time_steps          = 10; // number of time loop iterations
+  int write_frequency         = 0;  // write output every this many iterations
+  int visualization_frequency = 0;  // visualize output every this many iters
+  bool use_implicit_stepping  = false; // enable implicit(/explicit) stepping
+  bool use_full_grid          = false; // enable full(/sparse) grid
+  bool do_poisson             = false; // do poisson solve for electric field
   double cfl = 0.1; // the Courant-Friedrichs-Lewy (CFL) condition
 
   pde_map_t pde_mapping = {

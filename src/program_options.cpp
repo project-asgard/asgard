@@ -3,8 +3,8 @@
 #include "clara.hpp"
 #include <iostream>
 
-Options::Options(int argc, char **argv) {
-
+Options::Options(int argc, char **argv)
+{
   bool show_help = false;
 
   // Parsing...
@@ -34,43 +34,50 @@ Options::Options(int argc, char **argv) {
           "Frequency in steps for visualizing output");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
-  if (!result) {
+  if (!result)
+  {
     std::cerr << "Error in command line parsing: " << result.errorMessage()
               << std::endl;
     valid = false;
   }
-  if (show_help) {
-    std::cerr << cli << std::endl;
-  }
+  if (show_help) { std::cerr << cli << std::endl; }
 
   // Validation...
-  if (cfl < 0.0) {
+  if (cfl < 0.0)
+  {
     std::cerr << "CFL must be non-negative" << std::endl;
     valid = false;
   }
-  if (degree < 1) {
+  if (degree < 1)
+  {
     std::cerr << "Degree must be a natural number" << std::endl;
     valid = false;
   }
-  if (level < 1) {
+  if (level < 1)
+  {
     std::cerr << "Level must be a natural number" << std::endl;
     valid = false;
   }
-  if (num_time_steps < 1) {
+  if (num_time_steps < 1)
+  {
     std::cerr << "Number of timesteps must be a natural number" << std::endl;
     valid = false;
   }
 
   auto choice = pde_mapping.find(selected_pde);
-  if (choice == pde_mapping.end()) {
+  if (choice == pde_mapping.end())
+  {
     std::cerr << "Invalid pde choice; see options.hpp for valid choices"
               << std::endl;
     valid = false;
-  } else {
+  }
+  else
+  {
     pde_choice = pde_mapping.at(selected_pde);
   }
 
-  if (visualization_frequency < 0 || write_frequency < 0) {
+  if (visualization_frequency < 0 || write_frequency < 0)
+  {
     std::cerr << "Frequencies must be non-negative: " << std::endl;
     valid = false;
   }
@@ -80,7 +87,8 @@ int Options::get_level() const { return level; }
 int Options::get_degree() const { return degree; }
 int Options::get_time_steps() const { return num_time_steps; }
 int Options::get_write_frequency() const { return write_frequency; }
-int Options::get_visualization_frequency() const {
+int Options::get_visualization_frequency() const
+{
   return visualization_frequency;
 }
 bool Options::using_implicit() const { return use_implicit_stepping; }
