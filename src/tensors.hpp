@@ -170,6 +170,9 @@ public:
   //
   // utility functions
   //
+
+  matrix &update_col(int const, fk::vector const &);
+  matrix &update_col(int const, std::vector<double> const &);
   matrix &update_row(int const, fk::vector const &);
   matrix &update_row(int const, std::vector<double> const &);
   matrix &set_submatrix(int const row_idx, int const col_idx,

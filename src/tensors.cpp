@@ -564,6 +564,39 @@ double fk::matrix::determinant() const
 }
 
 //
+// Update a specific col of a matrix, given a fk::vector (overwrites original)
+//
+fk::matrix &fk::matrix::update_col(int const col_idx, fk::vector const &v)
+{
+  assert(nrows() == static_cast<int>(v.size()));
+  assert(col_idx < ncols());
+
+  int n{v.size()};
+  int one{1};
+  int stride = 1;
+  dcopy_(&n, v.data(), &one, data(0, col_idx), &stride);
+
+  return *this;
+}
+
+//
+// Update a specific col of a matrix, given a std::vector (overwrites original)
+//
+fk::matrix &
+fk::matrix::update_col(int const col_idx, std::vector<double> const &v)
+{
+  assert(nrows() == static_cast<int>(v.size()));
+  assert(col_idx < ncols());
+
+  int n{static_cast<int>(v.size())};
+  int one{1};
+  int stride = 1;
+  dcopy_(&n, const_cast<double *>(v.data()), &one, data(0, col_idx), &stride);
+
+  return *this;
+}
+
+//
 // Update a specific row of a matrix, given a fk::vector (overwrites original)
 //
 fk::matrix &fk::matrix::update_row(int const row_idx, fk::vector const &v)
