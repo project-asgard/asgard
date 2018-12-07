@@ -451,6 +451,33 @@ TEST_CASE("fk::matrix utilities", "[tensors]")
     {16.17, 26.27, 36.37},
   }; // clang-format on
 
+  SECTION("matrix update_col(fk::vector)")
+  {
+    // clang-format off
+    fk::matrix test {
+      {12.13, 22.23, 00.00},
+      {13.14, 23.24, 00.00},
+      {14.15, 24.25, 00.00},
+      {15.16, 25.26, 00.00},
+      {16.17, 26.27, 52.51},
+    }; // clang-format on
+    fk::vector testv{32.33, 33.34, 34.35, 35.36, 36.37};
+    REQUIRE(test.update_col(2, testv) == gold);
+  }
+  SECTION("matrix update_col(std::vector)")
+  {
+    // clang-format off
+    fk::matrix test {
+      {12.13, 22.23, 00.00},
+      {13.14, 23.24, 00.00},
+      {14.15, 24.25, 00.00},
+      {15.16, 25.26, 00.00},
+      {16.17, 26.27, 52.51},
+    }; // clang-format on
+    std::vector testv{32.33, 33.34, 34.35, 35.36, 36.37};
+    REQUIRE(test.update_col(2, testv) == gold);
+  }
+
   SECTION("matrix update_row(fk::vector)")
   {
     // clang-format off
