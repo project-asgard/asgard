@@ -619,8 +619,13 @@ fk::matrix::set(int const row_idx, int const col_idx, fk::matrix &submatrix)
   }
   return matrix;
 }
+
+//
+// Extract a rectangular submatrix from within the matrix
+//
+
 fk::matrix fk::matrix::extract(int const row_idx, int const col_idx,
-                               int const num_rows, int const num_cols)
+                               int const num_rows, int const num_cols) const
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -628,7 +633,7 @@ fk::matrix fk::matrix::extract(int const row_idx, int const col_idx,
   assert(col_idx + num_cols <= ncols_);
 
   fk::matrix submatrix(num_rows, num_cols);
-  fk::matrix &matrix = *this;
+  auto matrix = *this;
   for (auto i = 0; i < num_rows; ++i)
   {
     for (auto j = 0; j < num_cols; ++j)
