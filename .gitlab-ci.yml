@@ -1,0 +1,12 @@
+
+clang-format:
+  script:
+    - clang-format src/*
+
+catch2-tests:
+  script:
+    - mkdir build
+    - cd build
+    - cmake ..
+    - make
+    - ./tests
