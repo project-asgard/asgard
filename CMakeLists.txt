@@ -81,6 +81,7 @@ target_include_directories (clara INTERFACE ${Clara_PATH})
 # define the components and how to build and link the components together
 set (components
   matlab_utilities
+  pde
   program_options
   tensors
 )
@@ -105,7 +106,8 @@ target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 add_executable (asgard src/main.cpp)
 
 set (main_app_link_deps
-  matlab_utilities
+  matlab_utilities 
+  pde
   program_options
   tensors
 )

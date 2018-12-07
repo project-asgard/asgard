@@ -1,31 +1,9 @@
 #pragma once
 
+#include "pde.hpp"
 #include <map>
 #include <string>
 
-// vlasov4 = 0 (Non-linear vlasov-poisson : bump on tail instability, Ex4.1 in
-// PDF)
-//
-// vlasov7 = 1  (Linear vlasov : time dependent E)
-//
-// vlasov8 = 2  (Linear vlasov : time & space dependent E - see mathematica
-// file)
-//
-// vlasov5 = 3 // (Non-linear vlasov-poisson : two-stream instability 1, Ex4.2
-// in PDF)
-//
-// vlasov43 = 4 (Non-linear vlasov-poisson : two-stream instability 2, Ex4.3 in
-// PDF)
-
-enum class PDE_opts
-{
-  pde_user,
-  vlasov4,
-  vlasov7,
-  vlasov8,
-  vlasov5,
-  vlasov43
-};
 typedef std::map<std::string, PDE_opts> pde_map_t;
 
 class Options
