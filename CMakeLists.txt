@@ -123,8 +123,8 @@ target_include_directories (clara INTERFACE ${Clara_PATH})
 
 # define the components and how to build and link the components together
 set (components
+  element_table
   matlab_utilities
-  hash_table
   pde
   program_options
   tensors
