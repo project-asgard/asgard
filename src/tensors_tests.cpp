@@ -2,7 +2,9 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <fstream>
+#include <functional>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 
 TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]")
@@ -165,6 +167,29 @@ TEST_CASE("fk::vector utilities", "[tensors]")
     test_enlarged.resize(gold.size());
     REQUIRE(test_reduced == gold);
     REQUIRE(test_enlarged == gold_enlarged);
+  }
+
+  SECTION("vector transform")
+  {
+    fk::vector test{-1.0, 1.0, 2.0, 3.0};
+    fk::vector after{0.0, 2.0, 3.0, 4.0};
+    std::transform(test.begin(), test.end(), test.begin(),
+                   std::bind1st(std::plus<double>(), 1.0));
+    REQUIRE(test == after);
+  }
+
+  SECTION("vector maximum element")
+  {
+    fk::vector test{5.0, 6.0, 11.0, 8.0};
+    double max = 11.0;
+    REQUIRE(*std::max_element(test.begin(), test.end()) == max);
+  }
+
+  SECTION("vector sum of elements")
+  {
+    fk::vector test{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
+    double max = 36.0;
+    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == max);
   }
 } // end fk::vector utilities
 
@@ -452,6 +477,51 @@ TEST_CASE("fk::matrix utilities", "[tensors]")
     std::vector testv{16.17, 26.27, 36.37};
     REQUIRE(test.update_row(4, testv) == gold);
   }
+  SECTION("matrix set submatrix(row, col, submatrix)")
+  {
+    // clang-format off
+    fk::matrix test {
+      {12.13, 22.23, 32.33},
+      {13.14, 23.24, 33.34},
+      {14.15, 24.25, 34.35},
+      {15.16, 25.26, 35.36},
+      {00.00, 00.00, 35.36},
+    }; 
+    fk::matrix sub {
+      {-13.14, -23.24},
+      {-14.15, -24.25},
+      {-15.16, -25.26},
+    };
+    fk::matrix after_set {
+      {12.13, 22.23, 32.33},
+      {13.14, -13.14, -23.24},
+      {14.15, -14.15, -24.25},
+      {15.16, -15.16, -25.26},
+      {00.00, 00.00, 35.36},
+    }; // clang-format on
+
+    REQUIRE(test.set_submatrix(1, 1, sub) == after_set);
+  }
+
+  SECTION("matrix extract submatrix(row, col, nrows, ncols")
+  {
+    // clang-format off
+    fk::matrix test {
+      {12.13, 22.23, 32.33},
+      {13.14, 23.24, 33.34},
+      {14.15, 24.25, 34.35},
+      {15.16, 25.26, 35.36},
+      {00.00, 00.00, 35.36},
+    }; 
+    fk::matrix sub {
+      {13.14, 23.24},
+      {14.15, 24.25},
+      {15.16, 25.26},
+    }; // clang-format on
+
+    REQUIRE(test.extract_submatrix(1, 0, 3, 2) == sub);
+  }
+
   SECTION("print out the values")
   {
     // (effectively) redirect cout
@@ -484,4 +554,43 @@ TEST_CASE("fk::matrix utilities", "[tensors]")
         "1.617000000000e+01 2.627000000000e+01 3.637000000000e+01 \n");
     REQUIRE(test_string == golden_string);
   }
+
+  SECTION("matrix transform")
+  {
+    // clang-format off
+  fk::matrix test {
+   {0.0, 1.0, 2.0, 3.0},
+   {4.0, 5.0, 6.0, 7.0},
+  };
+  fk::matrix after {
+   {1.0, 2.0, 3.0, 4.0},
+   {5.0, 6.0, 7.0, 8.0},
+  }; // clang-format on 
+  std::transform(test.begin(), test.end(), test.begin(), std::bind1st(std::plus<double>(), 1.0));
+  REQUIRE(test == after);
+  }
+
+  SECTION("matrix maximum element") {
+  // clang-format off
+  fk::matrix test {
+   {1.0, 2.0, 3.0, 4.0},
+   {5.0, 6.0, 11.0, 8.0},
+  }; // clang-format on
+    double max = 11.0;
+
+    REQUIRE(*std::max_element(test.begin(), test.end()) == max);
+  }
+
+  SECTION("matrix sum of elements")
+  {
+    // clang-format off
+  fk::matrix test {
+   {1.0, 2.0, 3.0, 4.0},
+   {5.0, 6.0, 7.0, 8.0},
+  }; // clang-format on
+    double max = 36.0;
+
+    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == max);
+  }
+
 } // end fk::matrix utilities

@@ -107,6 +107,11 @@ public:
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
 
+  typedef double *iterator;
+  typedef const double *const_iterator;
+  iterator begin() { return data(); }
+  iterator end() { return data() + size(); }
+
 private:
   double *data_; //< pointer to elements
   int size_;     //< dimension
@@ -167,8 +172,17 @@ public:
   //
   matrix &update_row(int const, fk::vector const &);
   matrix &update_row(int const, std::vector<double> const &);
+  matrix &set_submatrix(int const row_idx, int const col_idx,
+                        fk::matrix const &submatrix);
+  matrix extract_submatrix(int const row_idx, int const col_idx,
+                           int const num_rows, int const num_cols) const;
   void print(std::string const label = "") const;
   void dump_to_octave(char const *name) const;
+
+  typedef double *iterator;
+  typedef const double *const_iterator;
+  iterator begin() { return data(); }
+  iterator end() { return data() + size(); }
 
 private:
   double *data_; //< pointer to elements
