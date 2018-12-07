@@ -173,8 +173,8 @@ public:
   matrix &update_row(int const, fk::vector const &);
   matrix &update_row(int const, std::vector<double> const &);
   matrix &
-  set(int const row_idx, int const col_idx, fk::matrix const &submatrix);
-  matrix extract(int const row_idx, int const col_idx, int const num_rows,
+  set_submatrix (int const row_idx, int const col_idx, fk::matrix const &submatrix);
+  matrix extract_submatrix(int const row_idx, int const col_idx, int const num_rows,
                  int const num_cols) const;
   void print(std::string const label = "") const;
   void dump_to_octave(char const *name) const;

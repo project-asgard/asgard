@@ -500,7 +500,7 @@ TEST_CASE("fk::matrix utilities", "[tensors]")
       {00.00, 00.00, 35.36},
     }; // clang-format on
 
-    REQUIRE(test.set(1, 1, sub) == after_set);
+    REQUIRE(test.set_submatrix(1, 1, sub) == after_set);
   }
 
   SECTION("matrix extract submatrix(row, col, nrows, ncols")
@@ -519,7 +519,7 @@ TEST_CASE("fk::matrix utilities", "[tensors]")
       {15.16, 25.26},
     }; // clang-format on
 
-    REQUIRE(test.extract(1, 0, 3, 2) == sub);
+    REQUIRE(test.extract_submatrix(1, 0, 3, 2) == sub);
   }
 
   SECTION("print out the values")

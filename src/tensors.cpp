@@ -601,7 +601,7 @@ fk::matrix::update_row(int const row_idx, std::vector<double> const &v)
 // Set a submatrix within the matrix, given another (smaller) matrix
 //
 
-fk::matrix &fk::matrix::set(int const row_idx, int const col_idx,
+fk::matrix &fk::matrix::set_submatrix(int const row_idx, int const col_idx,
                             fk::matrix const &submatrix)
 {
   assert(row_idx >= 0);
@@ -624,7 +624,7 @@ fk::matrix &fk::matrix::set(int const row_idx, int const col_idx,
 // Extract a rectangular submatrix from within the matrix
 //
 
-fk::matrix fk::matrix::extract(int const row_idx, int const col_idx,
+fk::matrix fk::matrix::extract_submatrix(int const row_idx, int const col_idx,
                                int const num_rows, int const num_cols) const
 {
   assert(row_idx >= 0);
