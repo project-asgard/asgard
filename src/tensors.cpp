@@ -601,18 +601,18 @@ fk::matrix::update_row(int const row_idx, std::vector<double> const &v)
 // Set a submatrix within the matrix, given another (smaller) matrix
 //
 
-fk::matrix &
-fk::matrix::set(int const row_idx, int const col_idx, fk::matrix &submatrix)
+fk::matrix &fk::matrix::set(int const row_idx, int const col_idx,
+                            fk::matrix const &submatrix)
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
-  assert(row_idx + submatrix.nrows_ <= nrows_);
-  assert(col_idx + submatrix.ncols_ <= ncols_);
+  assert(row_idx + submatrix.nrows() <= nrows());
+  assert(col_idx + submatrix.ncols() <= ncols());
 
   fk::matrix &matrix = *this;
-  for (auto i = 0; i < submatrix.nrows_; ++i)
+  for (auto i = 0; i < submatrix.nrows(); ++i)
   {
-    for (auto j = 0; j < submatrix.ncols_; ++j)
+    for (auto j = 0; j < submatrix.ncols(); ++j)
     {
       matrix(i + row_idx, j + col_idx) = submatrix(i, j);
     }
@@ -629,8 +629,8 @@ fk::matrix fk::matrix::extract(int const row_idx, int const col_idx,
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
-  assert(row_idx + num_rows <= nrows_);
-  assert(col_idx + num_cols <= ncols_);
+  assert(row_idx + num_rows <= nrows());
+  assert(col_idx + num_cols <= ncols());
 
   fk::matrix submatrix(num_rows, num_cols);
   auto matrix = *this;

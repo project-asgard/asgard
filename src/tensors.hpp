@@ -109,8 +109,8 @@ public:
 
   typedef double *iterator;
   typedef const double *const_iterator;
-  iterator begin() { return data_; }
-  iterator end() { return data_ + size_; }
+  iterator begin() { return data(); }
+  iterator end() { return data() + size(); }
 
 private:
   double *data_; //< pointer to elements
@@ -172,7 +172,8 @@ public:
   //
   matrix &update_row(int const, fk::vector const &);
   matrix &update_row(int const, std::vector<double> const &);
-  matrix &set(int const row_idx, int const col_idx, fk::matrix &submatrix);
+  matrix &
+  set(int const row_idx, int const col_idx, fk::matrix const &submatrix);
   matrix extract(int const row_idx, int const col_idx, int const num_rows,
                  int const num_cols) const;
   void print(std::string const label = "") const;
@@ -180,8 +181,8 @@ public:
 
   typedef double *iterator;
   typedef const double *const_iterator;
-  iterator begin() { return data_; }
-  iterator end() { return data_ + ncols_ * nrows_; }
+  iterator begin() { return data(); }
+  iterator end() { return data() + size(); }
 
 private:
   double *data_; //< pointer to elements
