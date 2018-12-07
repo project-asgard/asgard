@@ -452,6 +452,51 @@ TEST_CASE("fk::matrix utilities", "[tensors]")
     std::vector testv{16.17, 26.27, 36.37};
     REQUIRE(test.update_row(4, testv) == gold);
   }
+  SECTION("matrix set submatrix(row, col, submatrix)")
+  {
+    // clang-format off
+    fk::matrix test {
+      {12.13, 22.23, 32.33},
+      {13.14, 23.24, 33.34},
+      {14.15, 24.25, 34.35},
+      {15.16, 25.26, 35.36},
+      {00.00, 00.00, 35.36},
+    }; 
+    fk::matrix sub {
+      {-13.14, -23.24},
+      {-14.15, -24.25},
+      {-15.16, -25.26},
+    };
+    fk::matrix after_set {
+      {12.13, 22.23, 32.33},
+      {13.14, -13.14, -23.24},
+      {14.15, -14.15, -24.25},
+      {15.16, -15.16, -25.26},
+      {00.00, 00.00, 35.36},
+    }; // clang-format on
+
+    REQUIRE(test.set(1, 1, sub) == after_set);
+  }
+
+  SECTION("matrix extract submatrix(row, col, nrows, ncols")
+  {
+    // clang-format off
+    fk::matrix test {
+      {12.13, 22.23, 32.33},
+      {13.14, 23.24, 33.34},
+      {14.15, 24.25, 34.35},
+      {15.16, 25.26, 35.36},
+      {00.00, 00.00, 35.36},
+    }; 
+    fk::matrix sub {
+      {13.14, 23.24},
+      {14.15, 24.25},
+      {15.16, 25.26},
+    }; // clang-format on
+
+    REQUIRE(test.extract(1, 0, 3, 2) == sub);
+  }
+
   SECTION("print out the values")
   {
     // (effectively) redirect cout

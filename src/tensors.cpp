@@ -596,7 +596,50 @@ fk::matrix::update_row(int const row_idx, std::vector<double> const &v)
 
   return *this;
 }
+
 //
+// Set a submatrix within the matrix, given another (smaller) matrix
+//
+
+fk::matrix &
+fk::matrix::set(int const row_idx, int const col_idx, fk::matrix &submatrix)
+{
+  assert(row_idx >= 0);
+  assert(col_idx >= 0);
+  assert(row_idx + submatrix.nrows_ <= nrows_);
+  assert(col_idx + submatrix.ncols_ <= ncols_);
+
+  fk::matrix &matrix = *this;
+  for (auto i = 0; i < submatrix.nrows_; ++i)
+  {
+    for (auto j = 0; j < submatrix.ncols_; ++j)
+    {
+      matrix(i + row_idx, j + col_idx) = submatrix(i, j);
+    }
+  }
+  return matrix;
+}
+fk::matrix fk::matrix::extract(int const row_idx, int const col_idx,
+                               int const num_rows, int const num_cols)
+{
+  assert(row_idx >= 0);
+  assert(col_idx >= 0);
+  assert(row_idx + num_rows <= nrows_);
+  assert(col_idx + num_cols <= ncols_);
+
+  fk::matrix submatrix(num_rows, num_cols);
+  fk::matrix &matrix = *this;
+  for (auto i = 0; i < num_rows; ++i)
+  {
+    for (auto j = 0; j < num_cols; ++j)
+    {
+      submatrix(i, j) = matrix(i + row_idx, j + col_idx);
+    }
+  }
+
+  return submatrix;
+}
+
 // Prints out the values of a matrix
 // @return  Nothing
 //
