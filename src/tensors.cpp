@@ -602,7 +602,7 @@ fk::matrix::update_row(int const row_idx, std::vector<double> const &v)
 //
 
 fk::matrix &fk::matrix::set_submatrix(int const row_idx, int const col_idx,
-                            fk::matrix const &submatrix)
+                                      fk::matrix const &submatrix)
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -625,7 +625,8 @@ fk::matrix &fk::matrix::set_submatrix(int const row_idx, int const col_idx,
 //
 
 fk::matrix fk::matrix::extract_submatrix(int const row_idx, int const col_idx,
-                               int const num_rows, int const num_cols) const
+                                         int const num_rows,
+                                         int const num_cols) const
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
