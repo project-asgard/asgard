@@ -24,7 +24,7 @@ namespace fk
    uses unrolled loops for increments equal to one.
    -------------------------------------------------------------------------- */
 extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
-
+extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
 // --------------------------------------------------------------------------
 // matrix-vector multiply
 // y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y,
@@ -32,7 +32,9 @@ extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
 extern "C" void dgemv_(char const *trans, int *m, int *n, double *alpha,
                        double *A, int *lda, double *x, int *incx, double *beta,
                        double *y, int *incy);
-
+extern "C" void sgemv_(char const *trans, int *m, int *n, float *alpha,
+                       float *A, int *lda, float *x, int *incx, float *beta,
+                       float *y, int *incy);
 // --------------------------------------------------------------------------
 // matrix-matrix multiply
 // C := alpha*A*B + beta*C
@@ -40,6 +42,10 @@ extern "C" void dgemv_(char const *trans, int *m, int *n, double *alpha,
 extern "C" void dgemm_(char const *transa, char const *transb, int *m, int *n,
                        int *k, double *alpha, double *A, int *lda, double *B,
                        int *ldb, double *beta, double *C, int *ldc);
+extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
+                       int *k, double *alpha, double *A, int *lda, double *B,
+                       int *ldb, double *beta, double *C, int *ldc);
+
 
 //
 // Simple matrix multiply for non-float types
@@ -79,10 +85,16 @@ matrix_multiply(T *A, int const lda, T *B, int const ldb, T *C, int const ldc,
 extern "C" void
 dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
 
+extern "C" void
+sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
+
 // --------------------------------------------------------------------------
 // inverse of a matrix given its LU decomposition
 // --------------------------------------------------------------------------
 extern "C" void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work,
+                        int *lwork, int *info);
+
+extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
                         int *lwork, int *info);
 
 // forward declarations
