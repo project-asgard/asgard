@@ -46,7 +46,6 @@ extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
                        int *k, double *alpha, double *A, int *lda, double *B,
                        int *ldb, double *beta, double *C, int *ldc);
 
-
 //
 // Simple matrix multiply for non-float types
 // FIXME we will probably eventually need a version that does transpose
@@ -449,11 +448,6 @@ T fk::vector<T>::operator*(vector<T> const &right) const
 }
 
 //
-// utility functions
-//
-
-// TODO put in enable-if/specalize
-//
 // vector*matrix multiplication operator
 //
 template<typename T>
@@ -472,8 +466,6 @@ fk::vector<T> fk::vector<T>::operator*(fk::matrix<T> const &A) const
   int one_i = 1;
   T zero    = 0.0;
 
-  // TODO put in wrappers - no! specialize
-
   if constexpr (std::is_same<T, double>::value)
   {
     dgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
@@ -487,11 +479,17 @@ fk::vector<T> fk::vector<T>::operator*(fk::matrix<T> const &A) const
 
   else
   {
-    // TODO implement this!
+    fk::matrix<T> At = A.transpose();
+    matrix_multiply(At.data(), At.nrows(), X.data(), X.size(), Y.data(),
+                    Y.size(), At.nrows(), X.size(), one_i);
   }
 
   return Y;
 }
+
+//
+// utility functions
+//
 
 //
 // Prints out the values of a vector
@@ -825,7 +823,6 @@ fk::matrix<T> fk::matrix<T>::operator*(matrix<T> const &B) const
 // disabled for non-fp types; haven't written a routine to do it
 // @return  the inverted matrix
 //
-
 template<typename T>
 template<typename U>
 std::enable_if_t<std::is_floating_point<U>::value && std::is_same<T, U>::value,
