@@ -1,5 +1,5 @@
 #pragma once
-
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstring>
@@ -11,7 +11,7 @@
 
 /* tolerance for answer comparisons */
 #define TOL 1.0e-10
-//#define TOL std::numeric_limits<double>::epsilon() * 50
+//#define TOL std::numeric_limits<double>::epsilon() * 8
 
 namespace fk
 {
@@ -43,8 +43,8 @@ extern "C" void dgemm_(char const *transa, char const *transb, int *m, int *n,
                        int *k, double *alpha, double *A, int *lda, double *B,
                        int *ldb, double *beta, double *C, int *ldc);
 extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
-                       int *k, double *alpha, double *A, int *lda, double *B,
-                       int *ldb, double *beta, double *C, int *ldc);
+                       int *k, float *alpha, float *A, int *lda, float *B,
+                       int *ldb, float *beta, float *C, int *ldc);
 
 //
 // Simple matrix multiply for non-float types
@@ -462,26 +462,38 @@ fk::vector<T> fk::vector<T>::operator*(fk::matrix<T> const &A) const
   int m     = A.nrows();
   int n     = A.ncols();
   int lda   = m;
-  T one     = 1.0;
   int one_i = 1;
-  T zero    = 0.0;
 
   if constexpr (std::is_same<T, double>::value)
   {
+    T zero = 0.0;
+    T one  = 1.0;
     dgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
            &one_i);
   }
-  else if (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<T, float>::value)
   {
+    T zero = 0.0;
+    T one  = 1.0;
     sgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
            &one_i);
   }
 
   else
   {
-    fk::matrix<T> At = A.transpose();
-    matrix_multiply(At.data(), At.nrows(), X.data(), X.size(), Y.data(),
-                    Y.size(), At.nrows(), X.size(), one_i);
+    fk::matrix<T> At = A;
+    At.transpose();
+
+    // vectors don't have a leading dimension...
+    int ldv = 1;
+    n       = 1;
+
+    // simple matrix multiply routine doesn't have a transpose (yet)
+    // so the arguments are switched relative to the above BLAS calls
+    lda   = At.nrows();
+    m     = At.nrows();
+    int k = At.ncols();
+    matrix_multiply(At.data(), lda, X.data(), ldv, Y.data(), ldv, m, k, n);
   }
 
   return Y;
@@ -502,10 +514,17 @@ template<typename T>
 void fk::vector<T>::print(std::string const label) const
 {
   std::cout << label << '\n';
-  for (auto i = 0; i < size(); ++i)
-    std::cout << std::setw(12) << std::setprecision(4) << std::scientific
-              << std::right << (*this)(i);
-
+  if constexpr (std::is_floating_point<T>::value)
+  {
+    for (auto i = 0; i < size(); ++i)
+      std::cout << std::setw(12) << std::setprecision(4) << std::scientific
+                << std::right << (*this)(i);
+  }
+  else
+  {
+    for (auto i = 0; i < size(); ++i)
+      std::cout << std::right << (*this)(i) << " ";
+  }
   std::cout << '\n';
 }
 
@@ -798,16 +817,17 @@ fk::matrix<T> fk::matrix<T>::operator*(matrix<T> const &B) const
   int ldb = k;
   int ldc = lda;
 
-  T one  = 1.0;
-  T zero = 0.0;
-
   if constexpr (std::is_same<T, double>::value)
   {
+    T one  = 1.0;
+    T zero = 0.0;
     dgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
            C.data(), &ldc);
   }
-  else if (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<T, float>::value)
   {
+    T one  = 1.0;
+    T zero = 0.0;
     sgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
            C.data(), &ldc);
   }
@@ -938,7 +958,7 @@ fk::matrix<T>::update_col(int const col_idx, fk::vector<T> const &v)
 
   if constexpr (std::is_same<T, double>::value)
   { dcopy_(&n, v.data(), &one, data(0, col_idx), &stride); }
-  else if (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<T, float>::value)
   {
     scopy_(&n, v.data(), &one, data(0, col_idx), &stride);
   }
@@ -946,7 +966,7 @@ fk::matrix<T>::update_col(int const col_idx, fk::vector<T> const &v)
   {
     for (auto i = 0; i < n; ++i)
     {
-      data(0 + i, col_idx) = v(i);
+      (*this)(0 + i, col_idx) = v(i);
     }
   }
   return *this;
@@ -968,7 +988,7 @@ fk::matrix<T>::update_col(int const col_idx, std::vector<T> const &v)
 
   if constexpr (std::is_same<T, double>::value)
   { dcopy_(&n, const_cast<T *>(v.data()), &one, data(0, col_idx), &stride); }
-  else if (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<T, float>::value)
   {
     scopy_(&n, const_cast<T *>(v.data()), &one, data(0, col_idx), &stride);
   }
@@ -976,7 +996,7 @@ fk::matrix<T>::update_col(int const col_idx, std::vector<T> const &v)
   {
     for (auto i = 0; i < n; ++i)
     {
-      data(0 + i, col_idx) = v[i];
+      (*this)(0 + i, col_idx) = v[i];
     }
   }
 
@@ -1000,7 +1020,7 @@ fk::matrix<T>::update_row(int const row_idx, fk::vector<T> const &v)
 
   if constexpr (std::is_same<T, double>::value)
   { dcopy_(&n, v.data(), &one, data(row_idx, 0), &stride); }
-  else if (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<T, float>::value)
   {
     scopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
   }
@@ -1008,7 +1028,7 @@ fk::matrix<T>::update_row(int const row_idx, fk::vector<T> const &v)
   {
     for (auto i = 0; i < n; i++)
     {
-      data(row_idx, 0 + i) = v(i);
+      (*this)(row_idx, 0 + i) = v(i);
     }
   }
   return *this;
@@ -1030,7 +1050,7 @@ fk::matrix<T>::update_row(int const row_idx, std::vector<T> const &v)
 
   if constexpr (std::is_same<T, double>::value)
   { dcopy_(&n, const_cast<T *>(v.data()), &one, data(row_idx, 0), &stride); }
-  else if (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<T, float>::value)
   {
     scopy_(&n, const_cast<T *>(v.data()), &one, data(row_idx, 0), &stride);
   }
@@ -1038,7 +1058,7 @@ fk::matrix<T>::update_row(int const row_idx, std::vector<T> const &v)
   {
     for (auto i = 0; i < n; i++)
     {
-      data(row_idx, 0 + i) = v(i);
+      (*this)(row_idx, 0 + i) = v[i];
     }
   }
   return *this;
@@ -1050,7 +1070,7 @@ fk::matrix<T>::update_row(int const row_idx, std::vector<T> const &v)
 template<typename T>
 fk::matrix<T> &
 fk::matrix<T>::set_submatrix(int const row_idx, int const col_idx,
-                             matrix const &submatrix)
+                             matrix<T> const &submatrix)
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -1104,9 +1124,17 @@ void fk::matrix<T>::print(std::string label) const
   for (auto i = 0; i < nrows(); ++i)
   {
     for (auto j = 0; j < ncols(); ++j)
-      std::cout << std::setw(12) << std::setprecision(4) << std::scientific
-                << std::right << (*this)(i, j);
-
+    {
+      if constexpr (std::is_floating_point<T>::value)
+      {
+        std::cout << std::setw(12) << std::setprecision(4) << std::scientific
+                  << std::right << (*this)(i, j);
+      }
+      else
+      {
+        std::cout << (*this)(i, j) << " ";
+      }
+    }
     std::cout << '\n';
   }
 }
