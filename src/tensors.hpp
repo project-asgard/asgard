@@ -455,7 +455,6 @@ template<typename P>
 P fk::vector<P>::operator*(vector<P> const &right) const
 {
   assert(size() == right.size());
-  P ans           = 0.0;
   int n           = size();
   int one         = 1;
   vector const &X = (*this);
@@ -469,6 +468,7 @@ P fk::vector<P>::operator*(vector<P> const &right) const
   }
   else
   {
+    P ans = 0.0;
     for (auto i = 0; i < size(); ++i)
       ans += (*this)(i)*right(i);
     return ans;
@@ -764,8 +764,15 @@ bool fk::matrix<P>::operator==(matrix<P> const &other) const
   if (nrows() != other.nrows() || ncols() != other.ncols()) return false;
   for (auto j = 0; j < ncols(); ++j)
     for (auto i = 0; i < nrows(); ++i)
-      if (std::abs((*this)(i, j)) > TOL && std::abs(other(i, j)) > TOL)
-        if (std::abs((*this)(i, j) - other(i, j)) > TOL) { return false; }
+      if constexpr (std::is_floating_point<P>::value)
+      {
+        if (std::abs((*this)(i, j)) > TOL && std::abs(other(i, j)) > TOL)
+          if (std::abs((*this)(i, j) - other(i, j)) > TOL) { return false; }
+      }
+      else
+      {
+        if ((*this)(i, j) != other(i, j)) { return false; }
+      }
   return true;
 }
 
