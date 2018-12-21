@@ -158,6 +158,8 @@ public:
   // basic queries to private data
   //
   int size() const { return size_; }
+  // just get a pointer. cannot deref/assign. for e.g. blas
+  // use subscript operators for general purpose access
   P *data(int const elem = 0) const { return &data_[elem]; }
   //
   // utility functions
@@ -241,6 +243,8 @@ public:
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
   int size() const { return nrows() * ncols(); }
+  // just get a pointer. cannot deref/assign. for e.g. blas
+  // use subscript operators for general purpose access
   P *data(int const i = 0, int const j = 0) const
   {
     // return &data_[i * ncols() + j]; // row-major
@@ -351,7 +355,7 @@ fk::vector<P>::vector(vector<PP> const &a)
 {
   for (auto i = 0; i < a.size(); ++i)
   {
-    data_[i] = static_cast<P>(a(i));
+    (*this)(i) = static_cast<P>(a(i));
   }
 }
 
@@ -369,7 +373,7 @@ fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
   size_ = a.size();
   for (auto i = 0; i < a.size(); ++i)
   {
-    data_[i] = static_cast<P>(a(i));
+    (*this)(i) = static_cast<P>(a(i));
   }
 
   return *this;
