@@ -18,6 +18,10 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   // - the list initializing constructor working correctly
   // - operator== working correctly
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
+  // explicit types for testing converting copy operations
+  fk::vector<int> const goldi{2, 3, 4, 5, 6};
+  fk::vector<float> const goldf{2.0, 3.0, 4.0, 5.0, 6.0};
+  fk::vector<double> const goldd{2.0, 3.0, 4.0, 5.0, 6.0};
 
   SECTION("default constructor")
   {
@@ -51,6 +55,27 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     fk::vector<TestType> test(5);
     test = gold;
     REQUIRE(test == gold);
+  }
+  SECTION("converting copy construction")
+  {
+    fk::vector<int> testi(gold);
+    REQUIRE(testi == goldi);
+    fk::vector<float> testf(gold);
+    REQUIRE(testf == goldf);
+    fk::vector<double> testd(gold);
+    REQUIRE(testd == goldd);
+  }
+  SECTION("converting copy assignment")
+  {
+    fk::vector<int> testi(5);
+    testi = gold;
+    REQUIRE(testi == goldi);
+    fk::vector<float> testf(5);
+    testf = gold;
+    REQUIRE(testf == goldf);
+    fk::vector<double> testd(5);
+    testd = gold;
+    REQUIRE(testd == goldd);
   }
   SECTION("move construction")
   {
@@ -226,6 +251,27 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     {14, 24, 34},
     {15, 25, 35},
     {16, 26, 36},
+  };
+  fk::matrix<int> const goldi{
+    {12, 22, 32},
+    {13, 23, 33},
+    {14, 24, 34},
+    {15, 25, 35},
+    {16, 26, 36},
+  };
+  fk::matrix<float> const goldf{
+    {12.0, 22.0, 32.0},
+    {13.0, 23.0, 33.0},
+    {14.0, 24.0, 34.0},
+    {15.0, 25.0, 35.0},
+    {16.0, 26.0, 36.0},
+  };
+  fk::matrix<double> const goldd{
+    {12.0, 22.0, 32.0},
+    {13.0, 23.0, 33.0},
+    {14.0, 24.0, 34.0},
+    {15.0, 25.0, 35.0},
+    {16.0, 26.0, 36.0},
   }; // clang-format on
 
   SECTION("default constructor")
@@ -268,6 +314,27 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     fk::matrix<TestType> test(5, 3);
     test = gold;
     REQUIRE(test == gold);
+  }
+  SECTION("converting copy construction")
+  {
+    fk::matrix<int> testi(gold);
+    REQUIRE(testi == goldi);
+    fk::matrix<float> testf(gold);
+    REQUIRE(testf == goldf);
+    fk::matrix<double> testd(gold);
+    REQUIRE(testd == goldd);
+  }
+  SECTION("converting copy assignment")
+  {
+    fk::matrix<int> testi(5, 3);
+    testi = gold;
+    REQUIRE(testi == goldi);
+    fk::matrix<float> testf(5, 3);
+    testf = gold;
+    REQUIRE(testf == goldf);
+    fk::matrix<double> testd(5, 3);
+    testd = gold;
+    REQUIRE(testd == goldd);
   }
   SECTION("move construction")
   {
@@ -471,8 +538,8 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
 
       // we haven't implemented a matrix inversion routine for integral types;
       // that function is disabled for now in the class if instantiated for
-      // non-floating point type; code won't compile if this routine is called on
-      // integer matrix
+      // non-floating point type; code won't compile if this routine is called
+      // on integer matrix
     }
     else
     {

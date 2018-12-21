@@ -189,6 +189,11 @@ public:
 
   matrix(matrix<P> const &);
   matrix<P> &operator=(matrix<P> const &);
+  template<typename PP>
+  matrix(matrix<PP> const &);
+  template<typename PP>
+  matrix<P> &operator=(matrix<PP> const &);
+
   matrix(matrix<P> &&);
   matrix<P> &operator=(matrix<P> &&);
 
@@ -219,13 +224,13 @@ public:
   // clang-format off
   template<typename U = P>
   std::enable_if_t<
-    std::is_floating_point<U>::value && std::is_same<P, U>::value, 
+    std::is_floating_point<U>::value && std::is_same<P, U>::value,
   matrix<P> &> invert();
 
 
   template<typename U = P>
   std::enable_if_t<
-      std::is_floating_point<U>::value && std::is_same<P, U>::value, 
+      std::is_floating_point<U>::value && std::is_same<P, U>::value,
   P> determinant() const;
   // clang-format on
 
@@ -328,7 +333,7 @@ fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
 
   assert(size() == a.size());
 
-  size_ = a.size_;
+  size_ = a.size();
   memcpy(data_, a.data(), a.size() * sizeof(P));
 
   return *this;
@@ -357,11 +362,9 @@ template<typename P>
 template<typename PP>
 fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
 {
-  if (&a == this) return *this;
-
   assert(size() == a.size());
 
-  size_ = a.size_;
+  size_ = a.size();
   for (auto i = 0; i < a.size(); ++i)
   {
     data_[i] = static_cast<P>(a(i));
@@ -725,6 +728,42 @@ fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> const &a)
   nrows_ = a.nrows();
   ncols_ = a.ncols();
   memcpy(data_, a.data(), a.size() * sizeof(P));
+  return *this;
+}
+
+//
+// converting matrix copy constructor
+//
+template<typename P>
+template<typename PP>
+fk::matrix<P>::matrix(matrix<PP> const &a)
+    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
+{
+  for (auto j = 0; j < a.ncols(); ++j)
+    for (auto i = 0; i < a.nrows(); ++i)
+    {
+      (*this)(i, j) = static_cast<P>(a(i, j));
+    }
+}
+
+//
+// converting matrix copy assignment
+// this can probably be done better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P>
+template<typename PP>
+fk::matrix<P> &fk::matrix<P>::operator=(matrix<PP> const &a)
+{
+  assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
+
+  nrows_ = a.nrows();
+  ncols_ = a.ncols();
+  for (auto j = 0; j < a.ncols(); ++j)
+    for (auto i = 0; i < a.nrows(); ++i)
+    {
+      (*this)(i, j) = static_cast<P>(a(i, j));
+    }
   return *this;
 }
 
