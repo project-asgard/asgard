@@ -50,8 +50,8 @@ extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
 // Simple matrix multiply for non-float types
 // FIXME we will probably eventually need a version that does transpose
 //
-template<typename T>
-static void igemm_(T *A, int const lda, T *B, int const ldb, T *C,
+template<typename P>
+static void igemm_(P *A, int const lda, P *B, int const ldb, P *C,
                    int const ldc, int const m, int const k, int const n)
 {
   assert(m > 0);
@@ -65,7 +65,7 @@ static void igemm_(T *A, int const lda, T *B, int const ldb, T *C,
   {
     for (auto j = 0; j < n; ++j)
     {
-      T result = 0.0;
+      P result = 0.0;
       for (auto z = 0; z < k; ++z)
       {
         // result += A[i,k] * B[k,j]
@@ -96,59 +96,59 @@ extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
                         int *lwork, int *info);
 
 // forward declarations
-template<typename T>
+template<typename P>
 class vector;
-template<typename T>
+template<typename P>
 class matrix;
 
-template<typename T>
+template<typename P>
 class vector
 {
 public:
   vector();
   vector(int const size);
-  vector(std::initializer_list<T> list);
-  vector(std::vector<T> const &);
+  vector(std::initializer_list<P> list);
+  vector(std::vector<P> const &);
 
   ~vector();
 
-  vector(vector<T> const &);
-  vector<T> &operator=(vector<T> const &);
-  vector(vector<T> &&);
-  vector<T> &operator=(vector<T> &&);
+  vector(vector<P> const &);
+  vector<P> &operator=(vector<P> const &);
+  vector(vector<P> &&);
+  vector<P> &operator=(vector<P> &&);
 
   //
   // copy out of std::vector
   //
-  vector<T> &operator=(std::vector<T> const &);
+  vector<P> &operator=(std::vector<P> const &);
 
   //
   // copy into std::vector
   //
-  std::vector<T> to_std() const;
+  std::vector<P> to_std() const;
 
   //
   // subscripting operators
   //
-  T &operator()(int const);
-  T operator()(int const) const;
+  P &operator()(int const);
+  P operator()(int const) const;
   //
   // comparison operators
   //
-  bool operator==(vector<T> const &) const;
-  bool operator!=(vector<T> const &) const;
+  bool operator==(vector<P> const &) const;
+  bool operator!=(vector<P> const &) const;
   //
   // math operators
   //
-  vector<T> operator+(vector<T> const &right) const;
-  vector<T> operator-(vector<T> const &right) const;
-  T operator*(vector<T> const &)const;
-  vector<T> operator*(matrix<T> const &)const;
+  vector<P> operator+(vector<P> const &right) const;
+  vector<P> operator-(vector<P> const &right) const;
+  P operator*(vector<P> const &)const;
+  vector<P> operator*(matrix<P> const &)const;
   //
   // basic queries to private data
   //
   int size() const { return size_; }
-  T *data(int const elem = 0) const { return &data_[elem]; }
+  P *data(int const elem = 0) const { return &data_[elem]; }
   //
   // utility functions
   //
@@ -156,67 +156,67 @@ public:
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
 
-  typedef T *iterator;
-  typedef const T *const_iterator;
+  typedef P *iterator;
+  typedef const P *const_iterator;
   iterator begin() { return data(); }
   iterator end() { return data() + size(); }
 
 private:
-  T *data_;  //< pointer to elements
+  P *data_;  //< pointer to elements
   int size_; //< dimension
 };
 
-template<typename T>
+template<typename P>
 class matrix
 {
 public:
   matrix();
   matrix(int rows, int cols);
-  matrix(std::initializer_list<std::initializer_list<T>> list);
-  matrix(std::vector<T> const &);
+  matrix(std::initializer_list<std::initializer_list<P>> list);
+  matrix(std::vector<P> const &);
 
   ~matrix();
 
-  matrix(matrix<T> const &);
-  matrix<T> &operator=(matrix<T> const &);
-  matrix(matrix<T> &&);
-  matrix<T> &operator=(matrix<T> &&);
+  matrix(matrix<P> const &);
+  matrix<P> &operator=(matrix<P> const &);
+  matrix(matrix<P> &&);
+  matrix<P> &operator=(matrix<P> &&);
 
   //
   // copy out of std::vector
   //
-  matrix<T> &operator=(std::vector<T> const &);
+  matrix<P> &operator=(std::vector<P> const &);
   //
   // subscripting operators
   //
-  T &operator()(int const, int const);
-  T operator()(int const, int const) const;
+  P &operator()(int const, int const);
+  P operator()(int const, int const) const;
   //
   // comparison operators
   //
-  bool operator==(matrix<T> const &) const;
-  bool operator!=(matrix<T> const &) const;
+  bool operator==(matrix<P> const &) const;
+  bool operator!=(matrix<P> const &) const;
   //
   // math operators
   //
-  matrix<T> operator*(matrix<T> const &)const;
-  matrix<T> operator*(int const) const;
-  matrix<T> operator+(matrix<T> const &) const;
-  matrix<T> operator-(matrix<T> const &) const;
+  matrix<P> operator*(matrix<P> const &)const;
+  matrix<P> operator*(int const) const;
+  matrix<P> operator+(matrix<P> const &) const;
+  matrix<P> operator-(matrix<P> const &) const;
 
-  matrix<T> &transpose();
+  matrix<P> &transpose();
 
   // clang-format off
-  template<typename U = T>
+  template<typename U = P>
   std::enable_if_t<
-    std::is_floating_point<U>::value && std::is_same<T, U>::value, 
-  matrix<T> &> invert();
+    std::is_floating_point<U>::value && std::is_same<P, U>::value, 
+  matrix<P> &> invert();
 
 
-  template<typename U = T>
+  template<typename U = P>
   std::enable_if_t<
-      std::is_floating_point<U>::value && std::is_same<T, U>::value, 
-  T> determinant() const;
+      std::is_floating_point<U>::value && std::is_same<P, U>::value, 
+  P> determinant() const;
   // clang-format on
 
   //
@@ -225,7 +225,7 @@ public:
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
   int size() const { return nrows() * ncols(); }
-  T *data(int const i = 0, int const j = 0) const
+  P *data(int const i = 0, int const j = 0) const
   {
     // return &data_[i * ncols() + j]; // row-major
     return &data_[j * nrows() + i]; // column-major
@@ -234,24 +234,24 @@ public:
   // utility functions
   //
 
-  matrix<T> &update_col(int const, fk::vector<T> const &);
-  matrix<T> &update_col(int const, std::vector<T> const &);
-  matrix<T> &update_row(int const, fk::vector<T> const &);
-  matrix<T> &update_row(int const, std::vector<T> const &);
-  matrix<T> &set_submatrix(int const row_idx, int const col_idx,
-                           fk::matrix<T> const &submatrix);
-  matrix<T> extract_submatrix(int const row_idx, int const col_idx,
+  matrix<P> &update_col(int const, fk::vector<P> const &);
+  matrix<P> &update_col(int const, std::vector<P> const &);
+  matrix<P> &update_row(int const, fk::vector<P> const &);
+  matrix<P> &update_row(int const, std::vector<P> const &);
+  matrix<P> &set_submatrix(int const row_idx, int const col_idx,
+                           fk::matrix<P> const &submatrix);
+  matrix<P> extract_submatrix(int const row_idx, int const col_idx,
                               int const num_rows, int const num_cols) const;
   void print(std::string const label = "") const;
   void dump_to_octave(char const *name) const;
 
-  typedef T *iterator;
-  typedef const T *const_iterator;
+  typedef P *iterator;
+  typedef const P *const_iterator;
   iterator begin() { return data(); }
   iterator end() { return data() + size(); }
 
 private:
-  T *data_;   //< pointer to elements
+  P *data_;   //< pointer to elements
   int nrows_; //< row dimension
   int ncols_; //< column dimension
 };
@@ -263,35 +263,35 @@ private:
 // fk::vector class implementation starts here
 //
 //-----------------------------------------------------------------------------
-template<typename T>
-fk::vector<T>::vector() : data_{nullptr}, size_{0}
+template<typename P>
+fk::vector<P>::vector() : data_{nullptr}, size_{0}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
-template<typename T>
-fk::vector<T>::vector(int const size) : data_{new T[size]()}, size_{size}
+template<typename P>
+fk::vector<P>::vector(int const size) : data_{new P[size]()}, size_{size}
 {}
 
 // can also do this with variadic template constructor for constness
 // https://stackoverflow.com/a/5549918
 // but possibly this is "too clever" for our needs right now
 
-template<typename T>
-fk::vector<T>::vector(std::initializer_list<T> list)
-    : data_{new T[list.size()]}, size_{static_cast<int>(list.size())}
+template<typename P>
+fk::vector<P>::vector(std::initializer_list<P> list)
+    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())}
 {
   std::copy(list.begin(), list.end(), data_);
 }
 
-template<typename T>
-fk::vector<T>::vector(std::vector<T> const &v)
-    : data_{new T[v.size()]}, size_{static_cast<int>(v.size())}
+template<typename P>
+fk::vector<P>::vector(std::vector<P> const &v)
+    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())}
 {
   std::copy(v.begin(), v.end(), data_);
 }
 
-template<typename T>
-fk::vector<T>::~vector()
+template<typename P>
+fk::vector<P>::~vector()
 {
   delete[] data_;
 }
@@ -299,11 +299,11 @@ fk::vector<T>::~vector()
 //
 // vector copy constructor
 //
-template<typename T>
-fk::vector<T>::vector(vector<T> const &a)
-    : data_{new T[a.size_]}, size_{a.size_}
+template<typename P>
+fk::vector<P>::vector(vector<P> const &a)
+    : data_{new P[a.size_]}, size_{a.size_}
 {
-  std::memcpy(data_, a.data(), a.size() * sizeof(T));
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
 }
 
 //
@@ -311,15 +311,15 @@ fk::vector<T>::vector(vector<T> const &a)
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename T>
-fk::vector<T> &fk::vector<T>::operator=(vector<T> const &a)
+template<typename P>
+fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
 {
   if (&a == this) return *this;
 
   assert(size() == a.size());
 
   size_ = a.size_;
-  memcpy(data_, a.data(), a.size() * sizeof(T));
+  memcpy(data_, a.data(), a.size() * sizeof(P));
 
   return *this;
 }
@@ -329,8 +329,8 @@ fk::vector<T> &fk::vector<T>::operator=(vector<T> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
-template<typename T>
-fk::vector<T>::vector(vector<T> &&a) : data_{a.data_}, size_{a.size_}
+template<typename P>
+fk::vector<P>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
 {
   a.data_ = nullptr; // b/c a's destructor will be called
   a.size_ = 0;
@@ -339,15 +339,15 @@ fk::vector<T>::vector(vector<T> &&a) : data_{a.data_}, size_{a.size_}
 //
 // vector move assignment
 //
-template<typename T>
-fk::vector<T> &fk::vector<T>::operator=(vector &&a)
+template<typename P>
+fk::vector<P> &fk::vector<P>::operator=(vector &&a)
 {
   if (&a == this) return *this;
 
   assert(size() == a.size());
 
   size_ = a.size_;
-  T *temp{data_};
+  P *temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
   return *this;
@@ -356,36 +356,36 @@ fk::vector<T> &fk::vector<T>::operator=(vector &&a)
 //
 // copy out of std::vector
 //
-template<typename T>
-fk::vector<T> &fk::vector<T>::operator=(std::vector<T> const &v)
+template<typename P>
+fk::vector<P> &fk::vector<P>::operator=(std::vector<P> const &v)
 {
   assert(size() == static_cast<int>(v.size()));
-  std::memcpy(data_, v.data(), v.size() * sizeof(T));
+  std::memcpy(data_, v.data(), v.size() * sizeof(P));
   return *this;
 }
 
 //
 // copy into std::vector
 //
-template<typename T>
-std::vector<T> fk::vector<T>::to_std() const
+template<typename P>
+std::vector<P> fk::vector<P>::to_std() const
 {
-  return std::vector<T>(data(), data() + size());
+  return std::vector<P>(data(), data() + size());
 }
 
 // vector subscript operator
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
-template<typename T>
-T &fk::vector<T>::operator()(int i)
+template<typename P>
+P &fk::vector<P>::operator()(int i)
 {
   assert(i < size_);
   return data_[i];
 }
 
-template<typename T>
-T fk::vector<T>::operator()(int i) const
+template<typename P>
+P fk::vector<P>::operator()(int i) const
 {
   assert(i < size_);
   return data_[i];
@@ -394,8 +394,8 @@ T fk::vector<T>::operator()(int i) const
 //
 // vector comparison operators - set default tolerance above
 //
-template<typename T>
-bool fk::vector<T>::operator==(vector<T> const &other) const
+template<typename P>
+bool fk::vector<P>::operator==(vector<P> const &other) const
 {
   if (&other == this) return true;
   if (size() != other.size()) return false;
@@ -404,8 +404,8 @@ bool fk::vector<T>::operator==(vector<T> const &other) const
       if (std::abs((*this)(i)-other(i)) > TOL) { return false; }
   return true;
 }
-template<typename T>
-bool fk::vector<T>::operator!=(vector<T> const &other) const
+template<typename P>
+bool fk::vector<P>::operator!=(vector<P> const &other) const
 {
   return !(*this == other);
 }
@@ -413,11 +413,11 @@ bool fk::vector<T>::operator!=(vector<T> const &other) const
 //
 // vector addition operator
 //
-template<typename T>
-fk::vector<T> fk::vector<T>::operator+(vector<T> const &right) const
+template<typename P>
+fk::vector<P> fk::vector<P>::operator+(vector<P> const &right) const
 {
   assert(size() == right.size());
-  vector<T> ans(size());
+  vector<P> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i) + right(i);
   return ans;
@@ -426,11 +426,11 @@ fk::vector<T> fk::vector<T>::operator+(vector<T> const &right) const
 //
 // vector subtraction operator
 //
-template<typename T>
-fk::vector<T> fk::vector<T>::operator-(vector<T> const &right) const
+template<typename P>
+fk::vector<P> fk::vector<P>::operator-(vector<P> const &right) const
 {
   assert(size() == right.size());
-  vector<T> ans(size());
+  vector<P> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i)-right(i);
   return ans;
@@ -439,11 +439,11 @@ fk::vector<T> fk::vector<T>::operator-(vector<T> const &right) const
 //
 // vector*vector multiplication operator
 //
-template<typename T>
-T fk::vector<T>::operator*(vector<T> const &right) const
+template<typename P>
+P fk::vector<P>::operator*(vector<P> const &right) const
 {
   assert(size() == right.size());
-  T ans = 0.0;
+  P ans = 0.0;
   for (auto i = 0; i < size(); ++i)
     ans += (*this)(i)*right(i);
   return ans;
@@ -452,38 +452,38 @@ T fk::vector<T>::operator*(vector<T> const &right) const
 //
 // vector*matrix multiplication operator
 //
-template<typename T>
-fk::vector<T> fk::vector<T>::operator*(fk::matrix<T> const &A) const
+template<typename P>
+fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
 
   vector const &X = (*this);
-  vector<T> Y(A.ncols());
+  vector<P> Y(A.ncols());
 
   int m     = A.nrows();
   int n     = A.ncols();
   int lda   = m;
   int one_i = 1;
 
-  if constexpr (std::is_same<T, double>::value)
+  if constexpr (std::is_same<P, double>::value)
   {
-    T zero = 0.0;
-    T one  = 1.0;
+    P zero = 0.0;
+    P one  = 1.0;
     dgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
            &one_i);
   }
-  else if constexpr (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<P, float>::value)
   {
-    T zero = 0.0;
-    T one  = 1.0;
+    P zero = 0.0;
+    P one  = 1.0;
     sgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
            &one_i);
   }
 
   else
   {
-    fk::matrix<T> At = A;
+    fk::matrix<P> At = A;
     At.transpose();
 
     // vectors don't have a leading dimension...
@@ -512,11 +512,11 @@ fk::vector<T> fk::vector<T>::operator*(fk::matrix<T> const &A) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename T>
-void fk::vector<T>::print(std::string const label) const
+template<typename P>
+void fk::vector<P>::print(std::string const label) const
 {
   std::cout << label << '\n';
-  if constexpr (std::is_floating_point<T>::value)
+  if constexpr (std::is_floating_point<P>::value)
   {
     for (auto i = 0; i < size(); ++i)
       std::cout << std::setw(12) << std::setprecision(4) << std::scientific
@@ -538,8 +538,8 @@ void fk::vector<T>::print(std::string const label) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename T>
-void fk::vector<T>::dump_to_octave(char const *filename) const
+template<typename P>
+void fk::vector<P>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
@@ -553,14 +553,14 @@ void fk::vector<T>::dump_to_octave(char const *filename) const
 // resize the vector
 // (currently supports a subset of the std::vector.resize() interface)
 //
-template<typename T>
-void fk::vector<T>::resize(int const new_size)
+template<typename P>
+void fk::vector<P>::resize(int const new_size)
 {
   if (new_size == this->size()) return;
-  T *old_data{data_};
-  data_ = new T[new_size]();
+  P *old_data{data_};
+  data_ = new P[new_size]();
   if (size() > 0 && new_size > 0)
-    std::memcpy(data_, old_data, new_size * sizeof(T));
+    std::memcpy(data_, old_data, new_size * sizeof(P));
   size_ = new_size;
   delete[] old_data;
 }
@@ -571,21 +571,21 @@ void fk::vector<T>::resize(int const new_size)
 //
 //-----------------------------------------------------------------------------
 
-template<typename T>
-fk::matrix<T>::matrix() : data_{nullptr}, nrows_{0}, ncols_{0}
+template<typename P>
+fk::matrix<P>::matrix() : data_{nullptr}, nrows_{0}, ncols_{0}
 {}
 
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
 
-template<typename T>
-fk::matrix<T>::matrix(int M, int N)
-    : data_{new T[M * N]()}, nrows_{M}, ncols_{N}
+template<typename P>
+fk::matrix<P>::matrix(int M, int N)
+    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}
 {}
 
-template<typename T>
-fk::matrix<T>::matrix(std::initializer_list<std::initializer_list<T>> llist)
-    : data_{new T[llist.size() * llist.begin()->size()]},
+template<typename P>
+fk::matrix<P>::matrix(std::initializer_list<std::initializer_list<P>> llist)
+    : data_{new P[llist.size() * llist.begin()->size()]},
       nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
                                                   llist.begin()->size())}
 {
@@ -610,10 +610,10 @@ fk::matrix<T>::matrix(std::initializer_list<std::initializer_list<T>> llist)
 // purposes
 //
 
-template<typename T>
-fk::matrix<T>::matrix(std::vector<T> const &v) : data_{new T[v.size()]}
+template<typename P>
+fk::matrix<P>::matrix(std::vector<P> const &v) : data_{new P[v.size()]}
 {
-  T iptr;
+  P iptr;
   assert(std::modf(std::sqrt(v.size()), &iptr) == 0);
   nrows_ = std::sqrt(v.size());
   ncols_ = std::sqrt(v.size());
@@ -622,8 +622,8 @@ fk::matrix<T>::matrix(std::vector<T> const &v) : data_{new T[v.size()]}
       (*this)(i, j) = v[j + i * ncols()];
 }
 
-template<typename T>
-fk::matrix<T>::~matrix()
+template<typename P>
+fk::matrix<P>::~matrix()
 {
   delete[] data_;
 }
@@ -631,11 +631,11 @@ fk::matrix<T>::~matrix()
 //
 // matrix copy constructor
 //
-template<typename T>
-fk::matrix<T>::matrix(matrix<T> const &a)
-    : data_{new T[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
+template<typename P>
+fk::matrix<P>::matrix(matrix<P> const &a)
+    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
 {
-  memcpy(data_, a.data(), a.size() * sizeof(T));
+  memcpy(data_, a.data(), a.size() * sizeof(P));
 }
 
 //
@@ -643,8 +643,8 @@ fk::matrix<T>::matrix(matrix<T> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename T>
-fk::matrix<T> &fk::matrix<T>::operator=(matrix<T> const &a)
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> const &a)
 {
   if (&a == this) return *this;
 
@@ -652,7 +652,7 @@ fk::matrix<T> &fk::matrix<T>::operator=(matrix<T> const &a)
 
   nrows_ = a.nrows();
   ncols_ = a.ncols();
-  memcpy(data_, a.data(), a.size() * sizeof(T));
+  memcpy(data_, a.data(), a.size() * sizeof(P));
   return *this;
 }
 
@@ -662,8 +662,8 @@ fk::matrix<T> &fk::matrix<T>::operator=(matrix<T> const &a)
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
 
-template<typename T>
-fk::matrix<T>::matrix(matrix<T> &&a)
+template<typename P>
+fk::matrix<P>::matrix(matrix<P> &&a)
     : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}
 {
   a.data_  = nullptr; // b/c a's destructor will be called
@@ -674,8 +674,8 @@ fk::matrix<T>::matrix(matrix<T> &&a)
 //
 // matrix move assignment
 //
-template<typename T>
-fk::matrix<T> &fk::matrix<T>::operator=(matrix<T> &&a)
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> &&a)
 {
   if (&a == this) return *this;
 
@@ -683,7 +683,7 @@ fk::matrix<T> &fk::matrix<T>::operator=(matrix<T> &&a)
 
   nrows_ = a.nrows();
   ncols_ = a.ncols();
-  T *temp{data_};
+  P *temp{data_};
   data_   = a.data();
   a.data_ = temp; // b/c a's destructor will be called
   return *this;
@@ -692,8 +692,8 @@ fk::matrix<T> &fk::matrix<T>::operator=(matrix<T> &&a)
 //
 // copy out of std::vector - assumes the std::vector is column-major
 //
-template<typename T>
-fk::matrix<T> &fk::matrix<T>::operator=(std::vector<T> const &v)
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::operator=(std::vector<P> const &v)
 {
   assert(nrows() * ncols() == static_cast<int>(v.size()));
 
@@ -709,15 +709,15 @@ fk::matrix<T> &fk::matrix<T>::operator=(std::vector<T> const &v)
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
-template<typename T>
-T &fk::matrix<T>::operator()(int const i, int const j)
+template<typename P>
+P &fk::matrix<P>::operator()(int const i, int const j)
 {
   assert(i < nrows() && j < ncols());
   return *(data(i, j));
 }
 
-template<typename T>
-T fk::matrix<T>::operator()(int const i, int const j) const
+template<typename P>
+P fk::matrix<P>::operator()(int const i, int const j) const
 {
   assert(i < nrows() && j < ncols());
   return *(data(i, j));
@@ -726,8 +726,8 @@ T fk::matrix<T>::operator()(int const i, int const j) const
 //
 // matrix comparison operators - set default tolerance above
 //
-template<typename T>
-bool fk::matrix<T>::operator==(matrix<T> const &other) const
+template<typename P>
+bool fk::matrix<P>::operator==(matrix<P> const &other) const
 {
   if (&other == this) return true;
   if (nrows() != other.nrows() || ncols() != other.ncols()) return false;
@@ -738,8 +738,8 @@ bool fk::matrix<T>::operator==(matrix<T> const &other) const
   return true;
 }
 
-template<typename T>
-bool fk::matrix<T>::operator!=(matrix<T> const &other) const
+template<typename P>
+bool fk::matrix<P>::operator!=(matrix<P> const &other) const
 {
   return !(*this == other);
 }
@@ -747,12 +747,12 @@ bool fk::matrix<T>::operator!=(matrix<T> const &other) const
 //
 // matrix addition operator
 //
-template<typename T>
-fk::matrix<T> fk::matrix<T>::operator+(matrix<T> const &right) const
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator+(matrix<P> const &right) const
 {
   assert(nrows() == right.nrows() && ncols() == right.ncols());
 
-  matrix<T> ans(nrows(), ncols());
+  matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
   ans.ncols_ = ncols();
 
@@ -766,12 +766,12 @@ fk::matrix<T> fk::matrix<T>::operator+(matrix<T> const &right) const
 //
 // matrix subtraction operator
 //
-template<typename T>
-fk::matrix<T> fk::matrix<T>::operator-(matrix<T> const &right) const
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator-(matrix<P> const &right) const
 {
   assert(nrows() == right.nrows() && ncols() == right.ncols());
 
-  matrix<T> ans(nrows(), ncols());
+  matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
   ans.ncols_ = ncols();
 
@@ -785,10 +785,10 @@ fk::matrix<T> fk::matrix<T>::operator-(matrix<T> const &right) const
 //
 // matrix*integer multiplication operator
 //
-template<typename T>
-fk::matrix<T> fk::matrix<T>::operator*(int const right) const
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator*(int const right) const
 {
-  matrix<T> ans(nrows(), ncols());
+  matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
   ans.ncols_ = ncols();
 
@@ -802,8 +802,8 @@ fk::matrix<T> fk::matrix<T>::operator*(int const right) const
 //
 // matrix*matrix multiplication operator C[m,n] = A[m,k] * B[k,n]
 //
-template<typename T>
-fk::matrix<T> fk::matrix<T>::operator*(matrix<T> const &B) const
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator*(matrix<P> const &B) const
 {
   assert(ncols() == B.nrows()); // k == k
 
@@ -813,23 +813,23 @@ fk::matrix<T> fk::matrix<T>::operator*(matrix<T> const &B) const
   int n           = B.ncols();
   int k           = B.nrows();
 
-  matrix<T> C(m, n);
+  matrix<P> C(m, n);
 
   int lda = m;
   int ldb = k;
   int ldc = lda;
 
-  if constexpr (std::is_same<T, double>::value)
+  if constexpr (std::is_same<P, double>::value)
   {
-    T one  = 1.0;
-    T zero = 0.0;
+    P one  = 1.0;
+    P zero = 0.0;
     dgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
            C.data(), &ldc);
   }
-  else if constexpr (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<P, float>::value)
   {
-    T one  = 1.0;
-    T zero = 0.0;
+    P one  = 1.0;
+    P zero = 0.0;
     sgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
            C.data(), &ldc);
   }
@@ -845,8 +845,8 @@ fk::matrix<T> fk::matrix<T>::operator*(matrix<T> const &B) const
 // @return  the transposed matrix
 //
 // FIXME could be worthwhile to optimize the matrix transpose
-template<typename T>
-fk::matrix<T> &fk::matrix<T>::transpose()
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::transpose()
 {
   matrix temp(ncols(), nrows());
 
@@ -868,21 +868,21 @@ fk::matrix<T> &fk::matrix<T>::transpose()
 // disabled for non-fp types; haven't written a routine to do it
 // @return  the inverted matrix
 //
-template<typename T>
+template<typename P>
 template<typename U>
-std::enable_if_t<std::is_floating_point<U>::value && std::is_same<T, U>::value,
-                 fk::matrix<T> &>
-fk::matrix<T>::invert()
+std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
+                 fk::matrix<P> &>
+fk::matrix<P>::invert()
 {
   assert(nrows() == ncols());
 
   int *ipiv{new int[ncols()]};
   int lwork{nrows() * ncols()};
   int lda = ncols();
-  T *work{new T[nrows() * ncols()]};
+  P *work{new P[nrows() * ncols()]};
   int info;
 
-  if constexpr (std::is_same<T, double>::value)
+  if constexpr (std::is_same<P, double>::value)
   {
     dgetrf_(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
     dgetri_(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
@@ -911,11 +911,11 @@ fk::matrix<T>::invert()
 // @param[in]   mat   integer matrix (walker) to get determinant from
 // @return  the determinant (type double)
 //
-template<typename T>
+template<typename P>
 template<typename U>
-std::enable_if_t<std::is_floating_point<U>::value && std::is_same<T, U>::value,
-                 T>
-fk::matrix<T>::determinant() const
+std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
+                 P>
+fk::matrix<P>::determinant() const
 {
   assert(nrows() == ncols());
 
@@ -925,31 +925,31 @@ fk::matrix<T>::determinant() const
   int n   = ncols();
   int lda = ncols();
 
-  if constexpr (std::is_same<T, double>::value)
+  if constexpr (std::is_same<P, double>::value)
   { dgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info); } else
   {
     sgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
   }
 
-  T det    = 1.0;
+  P det    = 1.0;
   int sign = 1;
   for (auto i = 0; i < nrows(); ++i)
   {
     if (ipiv[i] != i + 1) sign *= -1;
     det *= temp(i, i);
   }
-  det *= static_cast<T>(sign);
+  det *= static_cast<P>(sign);
   delete[] ipiv;
   return det;
 }
 
 //
-// Update a specific col of a matrix, given a fk::vector<T> (overwrites
+// Update a specific col of a matrix, given a fk::vector<P> (overwrites
 // original)
 //
-template<typename T>
-fk::matrix<T> &
-fk::matrix<T>::update_col(int const col_idx, fk::vector<T> const &v)
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_col(int const col_idx, fk::vector<P> const &v)
 {
   assert(nrows() == static_cast<int>(v.size()));
   assert(col_idx < ncols());
@@ -958,9 +958,9 @@ fk::matrix<T>::update_col(int const col_idx, fk::vector<T> const &v)
   int one{1};
   int stride = 1;
 
-  if constexpr (std::is_same<T, double>::value)
+  if constexpr (std::is_same<P, double>::value)
   { dcopy_(&n, v.data(), &one, data(0, col_idx), &stride); }
-  else if constexpr (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<P, float>::value)
   {
     scopy_(&n, v.data(), &one, data(0, col_idx), &stride);
   }
@@ -977,9 +977,9 @@ fk::matrix<T>::update_col(int const col_idx, fk::vector<T> const &v)
 //
 // Update a specific col of a matrix, given a std::vector (overwrites original)
 //
-template<typename T>
-fk::matrix<T> &
-fk::matrix<T>::update_col(int const col_idx, std::vector<T> const &v)
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_col(int const col_idx, std::vector<P> const &v)
 {
   assert(nrows() == static_cast<int>(v.size()));
   assert(col_idx < ncols());
@@ -988,11 +988,11 @@ fk::matrix<T>::update_col(int const col_idx, std::vector<T> const &v)
   int one{1};
   int stride = 1;
 
-  if constexpr (std::is_same<T, double>::value)
-  { dcopy_(&n, const_cast<T *>(v.data()), &one, data(0, col_idx), &stride); }
-  else if constexpr (std::is_same<T, float>::value)
+  if constexpr (std::is_same<P, double>::value)
+  { dcopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride); }
+  else if constexpr (std::is_same<P, float>::value)
   {
-    scopy_(&n, const_cast<T *>(v.data()), &one, data(0, col_idx), &stride);
+    scopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
   }
   else
   {
@@ -1006,12 +1006,12 @@ fk::matrix<T>::update_col(int const col_idx, std::vector<T> const &v)
 }
 
 //
-// Update a specific row of a matrix, given a fk::vector<T> (overwrites
+// Update a specific row of a matrix, given a fk::vector<P> (overwrites
 // original)
 //
-template<typename T>
-fk::matrix<T> &
-fk::matrix<T>::update_row(int const row_idx, fk::vector<T> const &v)
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_row(int const row_idx, fk::vector<P> const &v)
 {
   assert(ncols() == v.size());
   assert(row_idx < nrows());
@@ -1020,9 +1020,9 @@ fk::matrix<T>::update_row(int const row_idx, fk::vector<T> const &v)
   int one{1};
   int stride = nrows();
 
-  if constexpr (std::is_same<T, double>::value)
+  if constexpr (std::is_same<P, double>::value)
   { dcopy_(&n, v.data(), &one, data(row_idx, 0), &stride); }
-  else if constexpr (std::is_same<T, float>::value)
+  else if constexpr (std::is_same<P, float>::value)
   {
     scopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
   }
@@ -1039,9 +1039,9 @@ fk::matrix<T>::update_row(int const row_idx, fk::vector<T> const &v)
 //
 // Update a specific row of a matrix, given a std::vector (overwrites original)
 //
-template<typename T>
-fk::matrix<T> &
-fk::matrix<T>::update_row(int const row_idx, std::vector<T> const &v)
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_row(int const row_idx, std::vector<P> const &v)
 {
   assert(ncols() == static_cast<int>(v.size()));
   assert(row_idx < nrows());
@@ -1050,11 +1050,11 @@ fk::matrix<T>::update_row(int const row_idx, std::vector<T> const &v)
   int one{1};
   int stride = nrows();
 
-  if constexpr (std::is_same<T, double>::value)
-  { dcopy_(&n, const_cast<T *>(v.data()), &one, data(row_idx, 0), &stride); }
-  else if constexpr (std::is_same<T, float>::value)
+  if constexpr (std::is_same<P, double>::value)
+  { dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride); }
+  else if constexpr (std::is_same<P, float>::value)
   {
-    scopy_(&n, const_cast<T *>(v.data()), &one, data(row_idx, 0), &stride);
+    scopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);
   }
   else
   {
@@ -1069,10 +1069,10 @@ fk::matrix<T>::update_row(int const row_idx, std::vector<T> const &v)
 //
 // Set a submatrix within the matrix, given another (smaller) matrix
 //
-template<typename T>
-fk::matrix<T> &
-fk::matrix<T>::set_submatrix(int const row_idx, int const col_idx,
-                             matrix<T> const &submatrix)
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::set_submatrix(int const row_idx, int const col_idx,
+                             matrix<P> const &submatrix)
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -1093,9 +1093,9 @@ fk::matrix<T>::set_submatrix(int const row_idx, int const col_idx,
 //
 // Extract a rectangular submatrix from within the matrix
 //
-template<typename T>
-fk::matrix<T>
-fk::matrix<T>::extract_submatrix(int const row_idx, int const col_idx,
+template<typename P>
+fk::matrix<P>
+fk::matrix<P>::extract_submatrix(int const row_idx, int const col_idx,
                                  int const num_rows, int const num_cols) const
 {
   assert(row_idx >= 0);
@@ -1119,15 +1119,15 @@ fk::matrix<T>::extract_submatrix(int const row_idx, int const col_idx,
 // Prints out the values of a matrix
 // @return  Nothing
 //
-template<typename T>
-void fk::matrix<T>::print(std::string label) const
+template<typename P>
+void fk::matrix<P>::print(std::string label) const
 {
   std::cout << label << '\n';
   for (auto i = 0; i < nrows(); ++i)
   {
     for (auto j = 0; j < ncols(); ++j)
     {
-      if constexpr (std::is_floating_point<T>::value)
+      if constexpr (std::is_floating_point<P>::value)
       {
         std::cout << std::setw(12) << std::setprecision(4) << std::scientific
                   << std::right << (*this)(i, j);
@@ -1151,8 +1151,8 @@ void fk::matrix<T>::print(std::string label) const
 //
 // @return  Nothing
 //
-template<typename T>
-void fk::matrix<T>::dump_to_octave(char const *filename) const
+template<typename P>
+void fk::matrix<P>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
