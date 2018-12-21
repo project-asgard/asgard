@@ -25,6 +25,12 @@ namespace fk
 extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
 extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
 // --------------------------------------------------------------------------
+// vector-vector multiply
+// y := alpha*A*x + beta*y
+// --------------------------------------------------------------------------
+extern "C" double ddot_(int *n, double *X, int *incx, double *Y, int *incy);
+extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
+// --------------------------------------------------------------------------
 // matrix-vector multiply
 // y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y,
 // --------------------------------------------------------------------------
@@ -449,10 +455,24 @@ template<typename P>
 P fk::vector<P>::operator*(vector<P> const &right) const
 {
   assert(size() == right.size());
-  P ans = 0.0;
-  for (auto i = 0; i < size(); ++i)
-    ans += (*this)(i)*right(i);
-  return ans;
+  P ans           = 0.0;
+  int n           = size();
+  int one         = 1;
+  vector const &X = (*this);
+  vector const &Y = right;
+
+  if constexpr (std::is_same<P, double>::value)
+  { return ddot_(&n, X.data(), &one, Y.data(), &one); }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    return sdot_(&n, X.data(), &one, Y.data(), &one);
+  }
+  else
+  {
+    for (auto i = 0; i < size(); ++i)
+      ans += (*this)(i)*right(i);
+    return ans;
+  }
 }
 
 //
@@ -486,7 +506,6 @@ fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
     sgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
            &one_i);
   }
-
   else
   {
     fk::matrix<P> At = A;
@@ -537,7 +556,7 @@ void fk::vector<P>::print(std::string const label) const
 }
 
 //
-// Dumps to file a vector that can be read data straight into octave
+// Dumps to file a vector that can be read straight into octave
 // Same as the matrix:: version
 //
 // @param[in]   label   a string label printed with the output
