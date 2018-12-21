@@ -4,35 +4,36 @@
 #include "tests_general.hpp"
 #include <vector>
 
-TEST_CASE("linspace() matches matlab implementation", "[matlab]")
+TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
+                   float, double)
 {
   SECTION("linspace(0,1) returns 100 elements")
   {
-    fk::vector<double> test = linspace<double>(0, 1);
+    fk::vector<TestType> test = linspace<TestType>(0, 1);
     REQUIRE(test.size() == 100);
   }
   SECTION("linspace(-1,1,9)")
   {
-    fk::vector<double> gold = readVectorFromTxtFile(
+    fk::vector<TestType> gold = readVectorFromTxtFile(
         "../testing/generated-inputs/linspace_neg1_1_9.dat");
     REQUIRE(gold.size() == 9);
-    fk::vector<double> test = linspace<double>(-1, 1, 9);
+    fk::vector<TestType> test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(1,-1,9)")
   {
-    fk::vector<double> gold = readVectorFromTxtFile(
+    fk::vector<TestType> gold = readVectorFromTxtFile(
         "../testing/generated-inputs/linspace_1_neg1_9.dat");
     REQUIRE(gold.size() == 9);
-    fk::vector<double> test = linspace<double>(1, -1, 9);
+    fk::vector<TestType> test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(-1,1,8)")
   {
-    fk::vector<double> gold = readVectorFromTxtFile(
+    fk::vector<TestType> gold = readVectorFromTxtFile(
         "../testing/generated-inputs/linspace_neg1_1_8.dat");
     REQUIRE(gold.size() == 8);
-    fk::vector<double> test = linspace<double>(-1, 1, 8);
+    fk::vector<TestType> test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);
   }
 }
@@ -145,9 +146,9 @@ TEST_CASE("readVectorFromTxtFile returns expected vector", "[matlab]")
   }
 }
 
-TEST_CASE("fk::readMatrixFromTxtFile returns expected vector", "[matlab]")
+TEST_CASE("readMatrixFromTxtFile returns expected vector", "[matlab]")
 {
-  SECTION("fk::readMatrixFromTxtFile gets 5,5 matrix")
+  SECTION("readMatrixFromTxtFile gets 5,5 matrix")
   {
     auto gold = fk::matrix<double>(5, 5);
     // generate the golden matrix
@@ -155,14 +156,13 @@ TEST_CASE("fk::readMatrixFromTxtFile returns expected vector", "[matlab]")
       for (int j = 0; j < 5; j++)
         gold(i, j) = 17.0 / (i + 1 + j);
 
-    fk::matrix<double> test = fk::readMatrixFromTxtFile(
+    fk::matrix<double> test = readMatrixFromTxtFile(
         "../testing/generated-inputs/readMatrixTxt_5x5.dat");
     REQUIRE(test == gold);
   }
-  SECTION("fk::readMatrixFromTxtFile fails on non-existent path")
+  SECTION("readMatrixFromTxtFile fails on non-existent path")
   {
-    fk::matrix<double> test =
-        fk::readMatrixFromTxtFile("this/path/does/not/exist");
+    fk::matrix<double> test = readMatrixFromTxtFile("this/path/does/not/exist");
     REQUIRE(test.size() == 0);
   }
 }

@@ -48,7 +48,7 @@
 //
 //-----------------------------------------------------------------------------
 template<typename P>
-fk::vector<P>
+std::enable_if_t<std::is_floating_point<P>::value, fk::vector<P>>
 linspace(P const start, P const end, unsigned int const num_elems = 100)
 {
   assert(num_elems > 1); // must have at least 2 elements
@@ -128,14 +128,11 @@ fk::matrix<P> eye(int const M, int const N)
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-std::vector<double> readVectorFromBinFile(std::string const &path);
+fk::vector<double> readVectorFromBinFile(std::string const &path);
 
 // read an octave vector from text file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-std::vector<double> readVectorFromTxtFile(std::string const &path);
+fk::vector<double> readVectorFromTxtFile(std::string const &path);
 
 // read an octave matrix from text file into a fk::matrix
-namespace fk
-{
-matrix<double> readMatrixFromTxtFile(std::string const &path);
-}
+fk::matrix<double> readMatrixFromTxtFile(std::string const &path);

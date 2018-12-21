@@ -119,6 +119,11 @@ public:
 
   vector(vector<P> const &);
   vector<P> &operator=(vector<P> const &);
+  template<typename PP>
+  vector(vector<PP> const &);
+  template<typename PP>
+  vector<P> &operator=(vector<PP> const &);
+
   vector(vector<P> &&);
   vector<P> &operator=(vector<P> &&);
 
@@ -325,6 +330,42 @@ fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
 
   size_ = a.size_;
   memcpy(data_, a.data(), a.size() * sizeof(P));
+
+  return *this;
+}
+
+//
+// converting vector copy constructor
+//
+template<typename P>
+template<typename PP>
+fk::vector<P>::vector(vector<PP> const &a)
+    : data_{new P[a.size()]}, size_{a.size()}
+{
+  for (auto i = 0; i < a.size(); ++i)
+  {
+    data_[i] = static_cast<P>(a(i));
+  }
+}
+
+//
+// converting vector copy assignment
+// this can probably be optimized better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P>
+template<typename PP>
+fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
+{
+  if (&a == this) return *this;
+
+  assert(size() == a.size());
+
+  size_ = a.size_;
+  for (auto i = 0; i < a.size(); ++i)
+  {
+    data_[i] = static_cast<P>(a(i));
+  }
 
   return *this;
 }

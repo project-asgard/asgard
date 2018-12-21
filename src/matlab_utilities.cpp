@@ -18,7 +18,7 @@
 // end
 //
 //-----------------------------------------------------------------------------
-std::vector<double> readVectorFromBinFile(std::string const &path)
+fk::vector<double> readVectorFromBinFile(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -35,7 +35,7 @@ std::vector<double> readVectorFromBinFile(std::string const &path)
   infile.seekg(0, std::ios::beg);
 
   // create output vector
-  std::vector<double> values;
+  fk::vector<double> values;
 
   unsigned int const num_values = bytes / sizeof(double);
   values.resize(num_values);
@@ -57,7 +57,7 @@ std::vector<double> readVectorFromBinFile(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-std::vector<double> readVectorFromTxtFile(std::string const &path)
+fk::vector<double> readVectorFromTxtFile(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -98,13 +98,13 @@ std::vector<double> readVectorFromTxtFile(std::string const &path)
   int const num_elems = (rows >= columns) ? rows : columns;
 
   // create output vector
-  std::vector<double> values;
+  fk::vector<double> values;
 
   values.resize(num_elems);
 
   for (auto i = 0; i < num_elems; ++i)
   {
-    infile >> values[i];
+    infile >> values(i);
   }
 
   return values;
@@ -120,7 +120,7 @@ std::vector<double> readVectorFromTxtFile(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::matrix<double> fk::readMatrixFromTxtFile(std::string const &path)
+fk::matrix<double> readMatrixFromTxtFile(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
