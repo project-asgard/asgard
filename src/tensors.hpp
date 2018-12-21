@@ -51,14 +51,13 @@ extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
 // FIXME we will probably eventually need a version that does transpose
 //
 template<typename T>
-static void
-matrix_multiply(T *A, int const lda, T *B, int const ldb, T *C, int const ldc,
-                int const m, int const k, int const n)
+static void igemm_(T *A, int const lda, T *B, int const ldb, T *C,
+                   int const ldc, int const m, int const k, int const n)
 {
   assert(m > 0);
   assert(k > 0);
   assert(n > 0);
-  assert(lda > 0);
+  assert(lda > 0); // FIXME Tyler says these could be more thorough
   assert(ldb > 0);
   assert(ldc > 0);
 
@@ -205,18 +204,21 @@ public:
   matrix<T> operator+(matrix<T> const &) const;
   matrix<T> operator-(matrix<T> const &) const;
 
-  template<typename U = T>
-  std::enable_if_t<std::is_floating_point<U>::value &&
-                       std::is_same<T, U>::value,
-                   matrix<T> &>
-  invert();
-
   matrix<T> &transpose();
+
+  // clang-format off
+  template<typename U = T>
+  std::enable_if_t<
+    std::is_floating_point<U>::value && std::is_same<T, U>::value, 
+  matrix<T> &> invert();
+
 
   template<typename U = T>
   std::enable_if_t<
-      std::is_floating_point<U>::value && std::is_same<T, U>::value, T>
-  determinant() const;
+      std::is_floating_point<U>::value && std::is_same<T, U>::value, 
+  T> determinant() const;
+  // clang-format on
+
   //
   // basic queries to private data
   //
@@ -493,7 +495,7 @@ fk::vector<T> fk::vector<T>::operator*(fk::matrix<T> const &A) const
     lda   = At.nrows();
     m     = At.nrows();
     int k = At.ncols();
-    matrix_multiply(At.data(), lda, X.data(), ldv, Y.data(), ldv, m, k, n);
+    igemm_(At.data(), lda, X.data(), ldv, Y.data(), ldv, m, k, n);
   }
 
   return Y;
@@ -833,9 +835,32 @@ fk::matrix<T> fk::matrix<T>::operator*(matrix<T> const &B) const
   }
   else
   {
-    matrix_multiply(A.data(), lda, B.data(), ldb, C.data(), ldc, m, k, n);
+    igemm_(A.data(), lda, B.data(), ldb, C.data(), ldc, m, k, n);
   }
   return C;
+}
+
+//
+// Transpose a matrix (overwrites original)
+// @return  the transposed matrix
+//
+// FIXME could be worthwhile to optimize the matrix transpose
+template<typename T>
+fk::matrix<T> &fk::matrix<T>::transpose()
+{
+  matrix temp(ncols(), nrows());
+
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      temp(j, i) = (*this)(i, j);
+
+  // inelegant manual "move assignment"
+  nrows_     = temp.nrows();
+  ncols_     = temp.ncols();
+  data_      = temp.data();
+  temp.data_ = nullptr;
+
+  return *this;
 }
 
 //
@@ -869,29 +894,6 @@ fk::matrix<T>::invert()
   }
   delete[] ipiv;
   delete[] work;
-  return *this;
-}
-
-//
-// Transpose a matrix (overwrites original)
-// @return  the transposed matrix
-//
-// FIXME could be worthwhile to optimize the matrix transpose
-template<typename T>
-fk::matrix<T> &fk::matrix<T>::transpose()
-{
-  matrix temp(ncols(), nrows());
-
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
-      temp(j, i) = (*this)(i, j);
-
-  // inelegant manual "move assignment"
-  nrows_     = temp.nrows();
-  ncols_     = temp.ncols();
-  data_      = temp.data();
-  temp.data_ = nullptr;
-
   return *this;
 }
 
