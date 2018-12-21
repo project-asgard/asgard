@@ -1,5 +1,5 @@
 #pragma once
-#include <array>
+#include "tensors.hpp"
 #include <vector>
 
 // --------------------------------------------------------------------------
@@ -62,6 +62,10 @@ public:
   //
   // Permutations builders
   //
+
+  // Given dims and n, produce dims-tuples whose sum <= n
+  static fk::matrix<int>
+  permutations_eq(int const dims, int const n, bool const order_by_n);
 
 private:
   int size_;

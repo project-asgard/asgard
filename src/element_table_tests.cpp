@@ -61,3 +61,5 @@ TEST_CASE("Permutations enumerators", "[element_table]")
     }
   }
 }
+
+TEST_CASE("Permutations builders", "[element_table]") {}
