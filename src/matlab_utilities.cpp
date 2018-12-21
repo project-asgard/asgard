@@ -25,7 +25,10 @@ fk::vector<double> readVectorFromBinFile(std::string const &path)
   infile.open(path, std::ios::in | std::ios::binary);
 
   // read failed, return empty
-  if (!infile) { return {}; }
+  if (!infile)
+  {
+    return {};
+  }
 
   std::streampos bytes;
 
@@ -64,7 +67,10 @@ fk::vector<double> readVectorFromTxtFile(std::string const &path)
   infile.open(path, std::ios::in);
 
   // read failed, return empty
-  if (!infile) { return {}; }
+  if (!infile)
+  {
+    return {};
+  }
 
   std::string tmp_str;
 
@@ -127,7 +133,10 @@ fk::matrix<double> readMatrixFromTxtFile(std::string const &path)
   infile.open(path, std::ios::in);
 
   // read failed, return empty
-  if (!infile) { return {}; }
+  if (!infile)
+  {
+    return {};
+  }
 
   std::string tmp_str;
 

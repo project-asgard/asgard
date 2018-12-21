@@ -40,7 +40,10 @@ Options::Options(int argc, char **argv)
               << std::endl;
     valid = false;
   }
-  if (show_help) { std::cerr << cli << std::endl; }
+  if (show_help)
+  {
+    std::cerr << cli << std::endl;
+  }
 
   // Validation...
   if (cfl < 0.0)

@@ -329,7 +329,8 @@ fk::vector<P>::vector(vector<P> const &a)
 template<typename P>
 fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
 {
-  if (&a == this) return *this;
+  if (&a == this)
+    return *this;
 
   assert(size() == a.size());
 
@@ -391,7 +392,8 @@ fk::vector<P>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
 template<typename P>
 fk::vector<P> &fk::vector<P>::operator=(vector &&a)
 {
-  if (&a == this) return *this;
+  if (&a == this)
+    return *this;
 
   assert(size() == a.size());
 
@@ -446,17 +448,25 @@ P fk::vector<P>::operator()(int i) const
 template<typename P>
 bool fk::vector<P>::operator==(vector<P> const &other) const
 {
-  if (&other == this) return true;
-  if (size() != other.size()) return false;
+  if (&other == this)
+    return true;
+  if (size() != other.size())
+    return false;
   for (auto i = 0; i < size(); ++i)
     if constexpr (std::is_floating_point<P>::value)
     {
       if (std::abs((*this)(i)) > TOL && std::abs(other(i)) > TOL)
-        if (std::abs((*this)(i)-other(i)) > TOL) { return false; }
+        if (std::abs((*this)(i)-other(i)) > TOL)
+        {
+          return false;
+        }
     }
     else
     {
-      if ((*this)(i) != other(i)) { return false; }
+      if ((*this)(i) != other(i))
+      {
+        return false;
+      }
     }
   return true;
 }
@@ -505,7 +515,9 @@ P fk::vector<P>::operator*(vector<P> const &right) const
   vector const &Y = right;
 
   if constexpr (std::is_same<P, double>::value)
-  { return ddot_(&n, X.data(), &one, Y.data(), &one); }
+  {
+    return ddot_(&n, X.data(), &one, Y.data(), &one);
+  }
   else if constexpr (std::is_same<P, float>::value)
   {
     return sdot_(&n, X.data(), &one, Y.data(), &one);
@@ -625,7 +637,8 @@ void fk::vector<P>::dump_to_octave(char const *filename) const
 template<typename P>
 void fk::vector<P>::resize(int const new_size)
 {
-  if (new_size == this->size()) return;
+  if (new_size == this->size())
+    return;
   P *old_data{data_};
   data_ = new P[new_size]();
   if (size() > 0 && new_size > 0)
@@ -721,7 +734,8 @@ fk::matrix<P>::matrix(matrix<P> const &a)
 template<typename P>
 fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> const &a)
 {
-  if (&a == this) return *this;
+  if (&a == this)
+    return *this;
 
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
@@ -788,7 +802,8 @@ fk::matrix<P>::matrix(matrix<P> &&a)
 template<typename P>
 fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> &&a)
 {
-  if (&a == this) return *this;
+  if (&a == this)
+    return *this;
 
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
@@ -840,18 +855,26 @@ P fk::matrix<P>::operator()(int const i, int const j) const
 template<typename P>
 bool fk::matrix<P>::operator==(matrix<P> const &other) const
 {
-  if (&other == this) return true;
-  if (nrows() != other.nrows() || ncols() != other.ncols()) return false;
+  if (&other == this)
+    return true;
+  if (nrows() != other.nrows() || ncols() != other.ncols())
+    return false;
   for (auto j = 0; j < ncols(); ++j)
     for (auto i = 0; i < nrows(); ++i)
       if constexpr (std::is_floating_point<P>::value)
       {
         if (std::abs((*this)(i, j)) > TOL && std::abs(other(i, j)) > TOL)
-          if (std::abs((*this)(i, j) - other(i, j)) > TOL) { return false; }
+          if (std::abs((*this)(i, j) - other(i, j)) > TOL)
+          {
+            return false;
+          }
       }
       else
       {
-        if ((*this)(i, j) != other(i, j)) { return false; }
+        if ((*this)(i, j) != other(i, j))
+        {
+          return false;
+        }
       }
   return true;
 }
@@ -1044,7 +1067,10 @@ fk::matrix<P>::determinant() const
   int lda = ncols();
 
   if constexpr (std::is_same<P, double>::value)
-  { dgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info); } else
+  {
+    dgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
+  }
+  else
   {
     sgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
   }
@@ -1053,7 +1079,8 @@ fk::matrix<P>::determinant() const
   int sign = 1;
   for (auto i = 0; i < nrows(); ++i)
   {
-    if (ipiv[i] != i + 1) sign *= -1;
+    if (ipiv[i] != i + 1)
+      sign *= -1;
     det *= temp(i, i);
   }
   det *= static_cast<P>(sign);
@@ -1077,7 +1104,9 @@ fk::matrix<P>::update_col(int const col_idx, fk::vector<P> const &v)
   int stride = 1;
 
   if constexpr (std::is_same<P, double>::value)
-  { dcopy_(&n, v.data(), &one, data(0, col_idx), &stride); }
+  {
+    dcopy_(&n, v.data(), &one, data(0, col_idx), &stride);
+  }
   else if constexpr (std::is_same<P, float>::value)
   {
     scopy_(&n, v.data(), &one, data(0, col_idx), &stride);
@@ -1107,7 +1136,9 @@ fk::matrix<P>::update_col(int const col_idx, std::vector<P> const &v)
   int stride = 1;
 
   if constexpr (std::is_same<P, double>::value)
-  { dcopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride); }
+  {
+    dcopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
+  }
   else if constexpr (std::is_same<P, float>::value)
   {
     scopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
@@ -1139,7 +1170,9 @@ fk::matrix<P>::update_row(int const row_idx, fk::vector<P> const &v)
   int stride = nrows();
 
   if constexpr (std::is_same<P, double>::value)
-  { dcopy_(&n, v.data(), &one, data(row_idx, 0), &stride); }
+  {
+    dcopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
+  }
   else if constexpr (std::is_same<P, float>::value)
   {
     scopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
@@ -1169,7 +1202,9 @@ fk::matrix<P>::update_row(int const row_idx, std::vector<P> const &v)
   int stride = nrows();
 
   if constexpr (std::is_same<P, double>::value)
-  { dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride); }
+  {
+    dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);
+  }
   else if constexpr (std::is_same<P, float>::value)
   {
     scopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);

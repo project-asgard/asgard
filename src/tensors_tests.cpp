@@ -526,7 +526,9 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
 
       test.invert();
       if constexpr (std::is_same<TestType, double>::value)
-      { REQUIRE(test == ans_double); }
+      {
+        REQUIRE(test == ans_double);
+      }
       else if constexpr (std::is_same<TestType, float>::value)
       {
         REQUIRE(test == ans_single);
