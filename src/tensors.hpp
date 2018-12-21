@@ -214,8 +214,9 @@ public:
   //
   // math operators
   //
-  matrix<P> operator*(matrix<P> const &)const;
   matrix<P> operator*(int const) const;
+  vector<P> operator*(vector<P> const &)const;
+  matrix<P> operator*(matrix<P> const &)const;
   matrix<P> operator+(matrix<P> const &) const;
   matrix<P> operator-(matrix<P> const &) const;
 
@@ -938,6 +939,46 @@ fk::matrix<P> fk::matrix<P>::operator*(int const right) const
       ans(i, j) = (*this)(i, j) * right;
 
   return ans;
+}
+
+//
+// matrix*vector multiplication operator
+//
+template<typename P>
+fk::vector<P> fk::matrix<P>::operator*(fk::vector<P> const &right) const
+{
+  // check dimension compatibility
+  assert(ncols() == right.size());
+
+  matrix<P> const &A = (*this);
+  vector<P> Y(A.nrows());
+
+  int m     = A.nrows();
+  int n     = A.ncols();
+  int lda   = m;
+  int one_i = 1;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    P one  = 1.0;
+    P zero = 0.0;
+    dgemv_("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero,
+           Y.data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    P one  = 1.0;
+    P zero = 0.0;
+    sgemv_("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero,
+           Y.data(), &one_i);
+  }
+  else
+  {
+    igemm_(A.data(), lda, right.data(), right.size(), Y.data(), Y.size(), m, n,
+           one_i);
+  }
+
+  return Y;
 }
 
 //

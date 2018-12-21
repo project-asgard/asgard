@@ -478,6 +478,20 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     }; // clang-format on
     REQUIRE((in * 4) == in_scaled);
   }
+  SECTION("matrix*vector multiplication")
+  {
+    // clang-format off
+    fk::matrix<TestType> const testm{
+      {12, 22, 32},
+      {13, 23, 33},
+      {14, 24, 34},
+      {15, 25, 35},
+      {16, 26, 36},
+    }; // clang-format on
+    fk::vector<TestType> const testv{2, 3, 4};
+    fk::vector<TestType> const gold{218, 227, 236, 245, 254};
+    REQUIRE((testm * testv) == gold);
+  }
   SECTION("matrix*matrix multiplication")
   {
     // I'm not factoring the golden matrix, so here's a new answer (calculated
