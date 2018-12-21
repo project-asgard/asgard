@@ -21,13 +21,29 @@ std::vector<int> element_table::get_coords(int const index) const
   return std::vector<int>(0);
 }
 
-/*
 //
-// Permutations functions to build level combinations
-// in prgs
+// Static helpers
+//
 
-static int permutations_eq_count(int dims, int n)
+// Given a cell and level coordinate, return a 1-dimensional index
+int element_table::get_1d_index(int const level, int const cell)
 {
+  assert(level >= 0);
+  assert(cell >= 0);
+
+  if (level == 0) { return 1; }
+  return static_cast<int>(std::pow(2, level - 1)) + cell + 1;
+}
+
+//
+// Permutation enumerators
+//
+
+// Given dims and n, produce the number of dims-tuples whose sum == n
+int element_table::permutations_eq_count(int const dims, int const n)
+{
+  assert(dims > 0);
+  assert(n >= 0);
   if (dims == 1) { return 1; }
 
   if (dims == 2) { return n + 1; }
@@ -41,16 +57,34 @@ static int permutations_eq_count(int dims, int n)
   return count;
 }
 
-static int permutations_leq_count(int dims, int n)
+// Given dims and n, produce the number of dims-tuples whose sum <= n
+int element_table::permutations_leq_count(int dims, int n)
 {
+  assert(dims > 0);
+  assert(n >= 0);
   int count = 0;
-
   for (auto i = 0; i <= n; ++i)
   {
     count += permutations_eq_count(dims, i);
   }
   return count;
 }
+
+// Given dims and n, produce the number of dims-tuples whose max element <= n
+int element_table::permutations_max_count(int const dims, int const n)
+{
+  assert(dims > 0);
+  assert(n >= 0);
+
+  return static_cast<int>(std::pow(n + 1, dims));
+}
+
+/*
+//
+// Permutations functions to build level combinations
+// in prgs
+
+
 
 
 //

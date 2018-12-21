@@ -35,6 +35,34 @@ public:
   std::vector<int> get_coords(int const index) const;
   int size() const { return size_; }
 
+  //
+  // Static helpers for element table construction
+  //
+
+  //
+  // Indexing functions
+  //
+
+  // Given a cell and level coordinate, return a 1-dimensional index
+  static int get_1d_index(int const level, int const cell);
+
+  //
+  // Permutations enumerators
+  //
+
+  // Given dims and n, produce the number of dims-tuples whose sum == n
+  static int permutations_eq_count(int const dims, int const n);
+
+  // Given dims and n, produce the number of dims-tuples whose sum <= n
+  static int permutations_leq_count(int const dims, int const n);
+
+  // Given dims and n, produce the number of dims-tuples whose max element <= n
+  static int permutations_max_count(int const dims, int const n);
+
+  //
+  // Permutations builders
+  //
+
 private:
   int size_;
 };

@@ -150,6 +150,7 @@ target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 add_executable (asgard src/main.cpp)
 
 set (main_app_link_deps
+  element_table
   matlab_utilities
   pde
   program_options
