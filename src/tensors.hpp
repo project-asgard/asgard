@@ -10,8 +10,7 @@
 #include <vector>
 
 /* tolerance for answer comparisons */
-#define TOL 1.0e-10
-//#define TOL std::numeric_limits<double>::epsilon() * 8
+#define TOL std::numeric_limits<P>::epsilon() * 2
 
 namespace fk
 {
@@ -400,8 +399,15 @@ bool fk::vector<P>::operator==(vector<P> const &other) const
   if (&other == this) return true;
   if (size() != other.size()) return false;
   for (auto i = 0; i < size(); ++i)
-    if (std::abs((*this)(i)) > TOL && std::abs(other(i)) > TOL)
-      if (std::abs((*this)(i)-other(i)) > TOL) { return false; }
+    if constexpr (std::is_floating_point<P>::value)
+    {
+      if (std::abs((*this)(i)) > TOL && std::abs(other(i)) > TOL)
+        if (std::abs((*this)(i)-other(i)) > TOL) { return false; }
+    }
+    else
+    {
+      if ((*this)(i) != other(i)) { return false; }
+    }
   return true;
 }
 template<typename P>
@@ -560,7 +566,13 @@ void fk::vector<P>::resize(int const new_size)
   P *old_data{data_};
   data_ = new P[new_size]();
   if (size() > 0 && new_size > 0)
-    std::memcpy(data_, old_data, new_size * sizeof(P));
+  {
+    if (size() < new_size)
+      std::memcpy(data_, old_data, size() * sizeof(P));
+    else
+      std::memcpy(data_, old_data, new_size * sizeof(P));
+  }
+
   size_ = new_size;
   delete[] old_data;
 }
