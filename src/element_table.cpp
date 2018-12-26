@@ -178,60 +178,46 @@ fk::matrix<int> element_table::permutations_leq(int const dims, int const n,
 
   return result;
 }
-/*
-//
-// Permutations functions to build level combinations
-// in prgs
 
-
-
-
-//
-// Given dims and n, produce dims-tuples whose sum is equal to n
-// TODO in prgs
-
-
-
-//
-// Given dims and n, produce dims-tuples whose sum is less than or equal to n
-//
-
-static fk::matrix permutations_leq(int const dims, int const n, bool const
-order_by_n)
+// Produce dims-tuples whose max element <= n (for full grid)
+fk::matrix<int>
+element_table::permutations_max(int const dims, int const n,
+                                bool const last_index_decreasing)
 {
+  assert(dims > 0);
+  assert(n >= 0);
 
-  int const rows_result = permutations_leq_count(dims, n);
-  fk::matrix result(rows_result, dims);
+  int const num_tuples = permutations_max_count(dims, n);
+  fk::matrix<int> result(num_tuples, dims);
 
-  if(order_by_n) {
-    int row_pos = 0;
-    for(auto i = 0; i<=n; ++i) {
-      int const num_rows = permutations_eq_count(dims, i);
-      fk::matrix partial = permutations_eq(dims, i);
-      result.set_submatrix(count, 0, partial);
-      row_pos += num_rows;
-    }
+  if (dims == 1)
+  {
+    std::vector<int> entries(n + 1);
+    std::iota(begin(entries), end(entries), 0);
+    if (last_index_decreasing) { std::reverse(begin(entries), end(entries)); }
+    result.update_col(0, entries);
     return result;
   }
 
-  if (dims == 1) {
-      std::vector<int> entries(n+1);
-      std::iota(begin(entries), end(entries), 0);
-      result.update_col(0, entries);
-      //for (auto i = 0; i < entries.size(); ++i) {
-      //    result[i] =i std::array<int,dims>{entries[i]};
-      //}
-      return result;
+  // recursively build the lower dim tuples
+  fk::matrix<int> lower_dims =
+      permutations_max(dims - 1, n, last_index_decreasing);
+  int const m = lower_dims.nrows();
+
+  for (auto i = 0; i <= n; ++i)
+  {
+    int const row_position = i * m;
+    int const rows         = m;
+    int const last_entry   = last_index_decreasing ? (n - i) : i;
+
+    fk::matrix<int> partial_result(rows, dims);
+    fk::matrix<int> lower_dims_i =
+        lower_dims.extract_submatrix(0, 0, m, dims - 1);
+    partial_result.set_submatrix(0, 0, lower_dims_i);
+    fk::vector<int> last_col = std::vector<int>(rows, last_entry);
+    partial_result.update_col(dims - 1, last_col);
+    result.set_submatrix(row_position, 0, partial_result);
   }
 
-  int row_pos = 0;
-  for(auto i = 0; i <= n; ++i) {
-      int const num_rows = permutations_leq_count(dims-1, n-i);
-      fk::matrix partial = permutations_leq(dims, i);
-      result.set_submatrix(count, 0, partial);
-      //std::vector<double> partial_last_col(
-      row_pos += num_rows;
-  }
+  return result;
 }
-
-*/

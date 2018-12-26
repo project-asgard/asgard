@@ -73,7 +73,7 @@ TEST_CASE("Permutations builders", "[element_table]")
 
   SECTION("permutations eq")
   {
-    //clang-format off
+    // clang-format off
     std::vector<fk::matrix<int>> const golds{
         {{0, 0, 0, 0, 0}},
         eye<int>(2),
@@ -92,7 +92,7 @@ TEST_CASE("Permutations builders", "[element_table]")
          {0, 1, 0, 0, 1},
          {0, 0, 1, 0, 1},
          {0, 0, 0, 1, 1},
-         {0, 0, 0, 0, 2}}}; //clang-format on
+         {0, 0, 0, 0, 2}}}; // clang-format on
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
@@ -102,21 +102,76 @@ TEST_CASE("Permutations builders", "[element_table]")
 
   SECTION("permutations leq")
   {
-    //clang-format off
+    // clang-format off
     std::vector<fk::matrix<int>> const golds{
         {{0, 0, 0, 0, 0}},
         {{0, 0}, {1, 0}, {0, 1}},
         {{0, 0}, {1, 0}, {0, 1}},
-        {{0, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {2, 0, 0, 0, 0}, {0, 1, 0, 0, 0},
-         {1, 1, 0, 0, 0}, {0, 2, 0, 0, 0}, {0, 0, 1, 0, 0}, {1, 0, 1, 0, 0},
-         {0, 1, 1, 0, 0}, {0, 0, 2, 0, 0}, {0, 0, 0, 1, 0}, {1, 0, 0, 1, 0},
-         {0, 1, 0, 1, 0}, {0, 0, 1, 1, 0}, {0, 0, 0, 2, 0}, {0, 0, 0, 0, 1},
-         {1, 0, 0, 0, 1}, {0, 1, 0, 0, 1}, {0, 0, 1, 0, 1}, {0, 0, 0, 1, 1},
-         {0, 0, 0, 0, 2}}}; //clang-format on
+        {{0, 0, 0, 0, 0}, 
+	 {1, 0, 0, 0, 0}, 
+	 {2, 0, 0, 0, 0}, 
+	 {0, 1, 0, 0, 0},
+         {1, 1, 0, 0, 0}, 
+	 {0, 2, 0, 0, 0}, 
+	 {0, 0, 1, 0, 0}, 
+	 {1, 0, 1, 0, 0},
+         {0, 1, 1, 0, 0}, 
+	 {0, 0, 2, 0, 0}, 
+	 {0, 0, 0, 1, 0}, 
+	 {1, 0, 0, 1, 0},
+         {0, 1, 0, 1, 0}, 
+	 {0, 0, 1, 1, 0}, 
+	 {0, 0, 0, 2, 0}, 
+	 {0, 0, 0, 0, 1},
+         {1, 0, 0, 0, 1}, 
+	 {0, 1, 0, 0, 1}, 
+	 {0, 0, 1, 0, 1}, 
+	 {0, 0, 0, 1, 1},
+         {0, 0, 0, 0, 2}}}; // clang-format on
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
       REQUIRE(t.permutations_leq(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+    }
+  }
+
+  SECTION("permutations max")
+  {
+    std::vector<int> const dims{5, 2, 2, 2};
+    std::vector<int> const ns{0, 1, 1, 3};
+    std::vector<bool> const ord_by_ns{false, false, true, true};
+
+    // clang-format off
+    std::vector<fk::matrix<int>> const golds{
+        {{0, 0, 0, 0, 0}},
+        {{0, 0},
+	 {1, 0},
+	 {0, 1}, 
+	 {1, 1}},
+	{{1, 1},
+	 {0, 1},
+	 {1, 0},
+	 {0, 0}},
+        {{3, 3},
+         {2, 3},
+         {1, 3},
+         {0, 3},
+         {3, 2},
+         {2, 2},
+         {1, 2},
+         {0, 2},
+         {3, 1},
+         {2, 1},
+         {1, 1},
+         {0, 1},
+         {3, 0},
+         {2, 0},
+         {1, 0},
+         {0, 0}}}; // clang-format on
+
+    for (size_t i = 0; i < golds.size(); ++i)
+    {
+      REQUIRE(t.permutations_max(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
     }
   }
 }

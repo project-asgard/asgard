@@ -50,26 +50,30 @@ public:
   // Permutations enumerators
   //
 
-  // Given dims and n, produce the number of dims-tuples whose sum == n
+  // Calculate the number of dims-tuples whose sum == n
   static int permutations_eq_count(int const dims, int const n);
 
-  // Given dims and n, produce the number of dims-tuples whose sum <= n
+  // Calculate the number of dims-tuples whose sum <= n
   static int permutations_leq_count(int const dims, int const n);
 
-  // Given dims and n, produce the number of dims-tuples whose max element <= n
+  // Calculate the number of dims-tuples whose max element <= n (for full grid)
   static int permutations_max_count(int const dims, int const n);
 
   //
   // Permutations builders
   //
 
-  // Given dims and n, produce dims-tuples whose sum == n
+  // Produce dims-tuples whose sum == n
   static fk::matrix<int>
   permutations_eq(int const dims, int const n, bool const order_by_n);
 
-  // Given dims and n, produce dims-tuples whose sum <= to n
+  // Produce dims-tuples whose sum <= to n
   static fk::matrix<int>
   permutations_leq(int const dims, int const n, bool const order_by_n);
+
+  // Produce dims-tuples whose max element <= n (for full grid)
+  static fk::matrix<int> permutations_max(int const dims, int const n,
+                                          bool const last_index_decreasing);
 
 private:
   int size_;
