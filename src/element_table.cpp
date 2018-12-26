@@ -66,6 +66,7 @@ int element_table::permutations_leq_count(int dims, int n)
 {
   assert(dims > 0);
   assert(n >= 0);
+
   int count = 0;
   for (auto i = 0; i <= n; ++i)
   {
@@ -91,6 +92,9 @@ int element_table::permutations_max_count(int const dims, int const n)
 fk::matrix<int> element_table::permutations_eq(int const dims, int const n,
                                                bool const order_by_n)
 {
+  assert(dims > 0);
+  assert(n >= 0);
+
   int const num_tuples = permutations_eq_count(dims, n);
   fk::matrix<int> result(num_tuples, dims);
 
@@ -128,6 +132,52 @@ fk::matrix<int> element_table::permutations_eq(int const dims, int const n,
   return result;
 }
 
+// Given dims and n, produce dims-tuples whose sum <= to n
+fk::matrix<int> element_table::permutations_leq(int const dims, int const n,
+                                                bool const order_by_n)
+{
+  assert(dims > 0);
+  assert(n >= 0);
+
+  int const num_tuples = permutations_leq_count(dims, n);
+  fk::matrix<int> result(num_tuples, dims);
+
+  if (order_by_n)
+  {
+    int counter = 0;
+    for (auto i = 0; i <= n; ++i)
+    {
+      int const rows = permutations_eq_count(dims, i);
+      result.set_submatrix(counter, 0, permutations_eq(dims, i, false));
+      counter += rows;
+    }
+    return result;
+  }
+
+  if (dims == 1)
+  {
+    std::vector<int> entries(n + 1);
+    std::iota(begin(entries), end(entries), 0);
+    result.update_col(0, entries);
+    return result;
+  }
+
+  int counter = 0;
+  for (auto i = 0; i <= n; ++i)
+  {
+    int const rows = permutations_leq_count(dims - 1, n - i);
+    fk::matrix<int> partial_result(rows, dims);
+    partial_result.set_submatrix(0, 0,
+                                 permutations_leq(dims - 1, n - i, order_by_n));
+    fk::vector<int> last_col = std::vector<int>(rows, i);
+    partial_result.update_col(dims - 1, last_col);
+    result.set_submatrix(counter, 0, partial_result);
+
+    counter += rows;
+  }
+
+  return result;
+}
 /*
 //
 // Permutations functions to build level combinations

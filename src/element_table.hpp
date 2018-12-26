@@ -63,9 +63,13 @@ public:
   // Permutations builders
   //
 
-  // Given dims and n, produce dims-tuples whose sum <= n
+  // Given dims and n, produce dims-tuples whose sum == n
   static fk::matrix<int>
   permutations_eq(int const dims, int const n, bool const order_by_n);
+
+  // Given dims and n, produce dims-tuples whose sum <= to n
+  static fk::matrix<int>
+  permutations_leq(int const dims, int const n, bool const order_by_n);
 
 private:
   int size_;

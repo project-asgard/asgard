@@ -66,6 +66,11 @@ TEST_CASE("Permutations enumerators", "[element_table]")
 TEST_CASE("Permutations builders", "[element_table]")
 {
   element_table t(0, 0, 0);
+
+  std::vector<int> const dims{5, 2, 2, 5};
+  std::vector<int> const ns{0, 1, 1, 2};
+  std::vector<bool> const ord_by_ns{false, false, true, false};
+
   SECTION("permutations eq")
   {
     //clang-format off
@@ -89,13 +94,29 @@ TEST_CASE("Permutations builders", "[element_table]")
          {0, 0, 0, 1, 1},
          {0, 0, 0, 0, 2}}}; //clang-format on
 
-    std::vector<int> const dims{5, 2, 2, 5};
-    std::vector<int> const ns{0, 1, 1, 2};
-    std::vector<bool> const ord_by_ns{false, false, true, false};
-
     for (size_t i = 0; i < golds.size(); ++i)
     {
       REQUIRE(t.permutations_eq(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+    }
+  }
+
+  SECTION("permutations leq")
+  {
+    //clang-format off
+    std::vector<fk::matrix<int>> const golds{
+        {{0, 0, 0, 0, 0}},
+        {{0, 0}, {1, 0}, {0, 1}},
+        {{0, 0}, {1, 0}, {0, 1}},
+        {{0, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {2, 0, 0, 0, 0}, {0, 1, 0, 0, 0},
+         {1, 1, 0, 0, 0}, {0, 2, 0, 0, 0}, {0, 0, 1, 0, 0}, {1, 0, 1, 0, 0},
+         {0, 1, 1, 0, 0}, {0, 0, 2, 0, 0}, {0, 0, 0, 1, 0}, {1, 0, 0, 1, 0},
+         {0, 1, 0, 1, 0}, {0, 0, 1, 1, 0}, {0, 0, 0, 2, 0}, {0, 0, 0, 0, 1},
+         {1, 0, 0, 0, 1}, {0, 1, 0, 0, 1}, {0, 0, 1, 0, 1}, {0, 0, 0, 1, 1},
+         {0, 0, 0, 0, 2}}}; //clang-format on
+
+    for (size_t i = 0; i < golds.size(); ++i)
+    {
+      REQUIRE(t.permutations_leq(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
     }
   }
 }
