@@ -87,7 +87,7 @@ int element_table::permutations_max_count(int const dims, int const n)
 // Permutations builders
 //
 
-// Given dims and n, produce dims-tuples whose sum <= n
+// Given dims and n, produce dims-tuples whose sum == n
 fk::matrix<int> element_table::permutations_eq(int const dims, int const n,
                                                bool const order_by_n)
 {
@@ -99,19 +99,32 @@ fk::matrix<int> element_table::permutations_eq(int const dims, int const n,
   int counter = 0;
   for (auto i = 0; i <= n; ++i)
   {
-    int partial_n;
-    if (order_by_n) { partial_n = i; }
+    int partial_sum;
+    int difference;
+
+    if (order_by_n)
+    {
+      partial_sum = i;
+      difference  = n - i;
+    }
     else
     {
-      partial_n = n - i;
+      partial_sum = n - i;
+      difference  = i;
     }
-    int const rows = permutations_eq_count(dims - 1, partial_n);
-    result.set_submatrix(counter, 0,
-                         permutations_eq(dims - 1, partial_n, order_by_n));
-    result(counter, dims - 1) = partial_n;
+
+    // build set of dims-1-tuples which sum to partial_sum,
+    // then append a column with difference to make a dims-tuple.
+    int const rows = permutations_eq_count(dims - 1, partial_sum);
+    fk::matrix<int> partial_result(rows, dims);
+    partial_result.set_submatrix(
+        0, 0, permutations_eq(dims - 1, partial_sum, order_by_n));
+    fk::vector<int> last_col = std::vector<int>(rows, difference);
+    partial_result.update_col(dims - 1, last_col);
+    result.set_submatrix(counter, 0, partial_result);
+
     counter += rows;
   }
-
   return result;
 }
 
