@@ -216,6 +216,19 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(test_enlarged == gold_enlarged);
   }
 
+  SECTION("vector concatenation")
+  {
+    fk::vector<TestType> test_left  = {2, 3, 4};
+    fk::vector<TestType> test_right = {5, 6};
+    fk::vector<TestType> empty;
+    fk::vector<TestType> gold_copy = gold;
+
+    REQUIRE(test_left.concat(test_right) == gold);
+    REQUIRE(empty.concat(gold) == gold);
+    empty.resize(0);
+    REQUIRE(gold_copy.concat(empty) == gold);
+  }
+
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};

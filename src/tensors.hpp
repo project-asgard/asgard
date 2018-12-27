@@ -167,7 +167,7 @@ public:
   void print(std::string const label = "") const;
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
-
+  vector<P> concat(vector<P> const &right);
   typedef P *iterator;
   typedef const P *const_iterator;
   iterator begin() { return data(); }
@@ -656,6 +656,17 @@ void fk::vector<P>::resize(int const new_size)
 
   size_ = new_size;
   delete[] old_data;
+}
+
+template<typename P>
+fk::vector<P> fk::vector<P>::concat(vector<P> const &right)
+{
+  int const old_size = this->size();
+  int const new_size = this->size() + right.size();
+  data_ = static_cast<P *>(std::realloc(data(), new_size * sizeof(P)));
+  size_ = new_size;
+  std::memcpy(data(old_size), right.data(), right.size() * sizeof(P));
+  return *this;
 }
 
 //-----------------------------------------------------------------------------
