@@ -1,5 +1,6 @@
 #pragma once
 #include "tensors.hpp"
+#include <cassert>
 #include <map>
 #include <vector>
 
@@ -32,9 +33,21 @@ class element_table
 {
 public:
   element_table(int const dim, int const level, bool const full_grid = false);
+
+  // forward lookup - returns the index of coordinates (positive), or -1 if not
+  // found
   int get_index(fk::vector<int> const coords) const;
+
+  // reverse lookup - returns coordinates at a certain index, or empty vector if
+  // out of range
   fk::vector<int> get_coords(int const index) const;
-  int size() const { return size_; }
+
+  // returns number of elements in table
+  int size() const
+  {
+    assert(forward_table.size() == reverse_table.size());
+    return forward_table.size();
+  }
 
   //
   // Static helpers for element table construction
@@ -80,7 +93,6 @@ public:
                                           bool const last_index_decreasing);
 
 private:
-  int size_;
   std::map<fk::vector<int>, int> forward_table;
-  std::map<int, fk::vector<int>> reverse_table;
+  std::vector<fk::vector<int>> reverse_table;
 };

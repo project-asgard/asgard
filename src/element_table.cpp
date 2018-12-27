@@ -10,16 +10,37 @@
 // static permutation/cell builder helpers to construct the table
 element_table::element_table(int const dim, int const level,
                              bool const full_grid)
-    : size_{0}
 {}
 
-// TODO forward lookup
-int element_table::get_index(fk::vector<int> const coords) const { return 0; }
+// forward lookup - returns the index of coordinates (positive), or -1 if not
+// found
+int element_table::get_index(fk::vector<int> const coords) const
+{
+  assert(coords.size() > 0);
+  try
+  {
+    return forward_table.at(coords);
+  }
+  catch (std::out_of_range)
+  {
+    return -1;
+  }
+  return 0;
+}
 
-// TODO reverse lookup
+// reverse lookup - returns coordinates at a certain index, or empty vector if
+// out of range
 fk::vector<int> element_table::get_coords(int const index) const
 {
-  return fk::vector<int>(0);
+  assert(index > 0);
+  if (static_cast<size_t>(index) < reverse_table.size())
+  {
+    return reverse_table[index];
+  }
+  else
+  {
+    return fk::vector<int>();
+  }
 }
 
 //
@@ -36,7 +57,10 @@ int element_table::get_1d_index(int const level, int const cell)
   assert(level >= 0);
   assert(cell >= 0);
 
-  if (level == 0) { return 1; }
+  if (level == 0)
+  {
+    return 1;
+  }
   return static_cast<int>(std::pow(2, level - 1)) + cell + 1;
 }
 
@@ -55,9 +79,15 @@ int element_table::permutations_eq_count(int const dims, int const n)
 {
   assert(dims > 0);
   assert(n >= 0);
-  if (dims == 1) { return 1; }
+  if (dims == 1)
+  {
+    return 1;
+  }
 
-  if (dims == 2) { return n + 1; }
+  if (dims == 2)
+  {
+    return n + 1;
+  }
 
   int count = 0;
   for (auto i = 0; i <= n; ++i)
@@ -105,7 +135,10 @@ fk::matrix<int> element_table::permutations_eq(int const dims, int const n,
   int const num_tuples = permutations_eq_count(dims, n);
   fk::matrix<int> result(num_tuples, dims);
 
-  if (dims == 1) { return fk::matrix<int>{{n}}; }
+  if (dims == 1)
+  {
+    return fk::matrix<int>{{n}};
+  }
 
   int counter = 0;
   for (auto i = 0; i <= n; ++i)
@@ -201,7 +234,10 @@ element_table::permutations_max(int const dims, int const n,
   {
     std::vector<int> entries(n + 1);
     std::iota(begin(entries), end(entries), 0);
-    if (last_index_decreasing) { std::reverse(begin(entries), end(entries)); }
+    if (last_index_decreasing)
+    {
+      std::reverse(begin(entries), end(entries));
+    }
     result.update_col(0, entries);
     return result;
   }
