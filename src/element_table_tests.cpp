@@ -23,6 +23,21 @@ TEST_CASE("Indexing functions", "[element_table]")
       REQUIRE(t.get_1d_index(levels[i], cells[i]) == golds[i]);
     }
   }
+  SECTION("cell index set builder")
+  {
+    std::vector<fk::vector<int>> levels_set = {{1}, {1, 2}, {2, 1}, {2, 3}};
+
+    std::vector<fk::matrix<int>> gold_set = {
+        {{0}},
+        {{0, 0}, {0, 1}},
+        {{0, 0}, {1, 0}},
+        {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}, {1, 2}, {0, 3}, {1, 3}}};
+
+    for (size_t i = 0; i < gold_set.size(); ++i)
+    {
+      REQUIRE(t.get_index_set(levels_set[i]) == gold_set[i]);
+    }
+  }
 }
 
 TEST_CASE("Permutations enumerators", "[element_table]")

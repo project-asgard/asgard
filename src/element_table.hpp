@@ -61,7 +61,7 @@ public:
   static int get_1d_index(int const level, int const cell);
 
   // Return the cell indices given a level tuple
-  static fk::matrix<int> get_index_set(fk::vector<int> levels);
+  static fk::matrix<int> get_index_set(fk::vector<int> const levels);
 
   //
   // Permutations enumerators

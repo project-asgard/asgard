@@ -1,7 +1,9 @@
 #include "element_table.hpp"
 
 #include "tensors.hpp"
+#include <algorithm>
 #include <array>
+#include <functional>
 #include <map>
 #include <numeric>
 #include <vector>
@@ -25,7 +27,6 @@ int element_table::get_index(fk::vector<int> const coords) const
   {
     return -1;
   }
-  return 0;
 }
 
 // reverse lookup - returns coordinates at a certain index, or empty vector if
@@ -64,10 +65,53 @@ int element_table::get_1d_index(int const level, int const cell)
   return static_cast<int>(std::pow(2, level - 1)) + cell + 1;
 }
 
-fk::matrix<int> element_table::get_index_set(fk::vector<int> levels)
+fk::matrix<int> element_table::get_index_set(fk::vector<int> const levels)
 {
-  fk::matrix<int> empty;
-  return empty;
+  assert(levels.size() > 0);
+  for (auto level : levels)
+  {
+    assert(level > 0);
+  }
+  int const dims = levels.size();
+
+  // get number of cells for each level coord
+  fk::vector<int> sizes(dims);
+  std::transform(levels.begin(), levels.end(), sizes.begin(), [](int level) {
+    return static_cast<int>(std::pow(2, std::max(0, level - 1)));
+  });
+
+  // total number of cells will be product of these
+  int total_size = 1;
+  total_size     = std::accumulate(sizes.begin(), sizes.end(), total_size,
+                               std::multiplies<int>());
+
+  fk::matrix<int> index_set(total_size, dims);
+
+  // base case
+  if (dims == 1)
+  {
+    std::vector<int> entries(total_size);
+    std::iota(begin(entries), end(entries), 0);
+    index_set.update_col(0, entries);
+    return index_set;
+  }
+
+  // recursively build index set
+  int const cells_this_dim = sizes(dims - 1);
+  int const rows_per_iter  = total_size / cells_this_dim;
+  for (auto i = 0; i < cells_this_dim; ++i)
+  {
+    int const row_pos = i * rows_per_iter;
+    fk::matrix<int> partial_result(rows_per_iter, dims);
+    fk::vector<int> partial_levels = levels;
+    partial_levels.resize(dims - 1);
+    partial_result.set_submatrix(0, 0, get_index_set(partial_levels));
+    std::vector<int> last_col(rows_per_iter, i);
+    partial_result.update_col(dims - 1, last_col);
+    index_set.set_submatrix(row_pos, 0, partial_result);
+  }
+
+  return index_set;
 }
 
 //
