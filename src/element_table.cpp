@@ -13,12 +13,12 @@ element_table::element_table(int const dim, int const level,
 {}
 
 // TODO forward lookup
-int element_table::get_index(std::vector<int> const coords) const { return 0; }
+int element_table::get_index(fk::vector<int> const coords) const { return 0; }
 
 // TODO reverse lookup
-std::vector<int> element_table::get_coords(int const index) const
+fk::vector<int> element_table::get_coords(int const index) const
 {
-  return std::vector<int>(0);
+  return fk::vector<int>(0);
 }
 
 //

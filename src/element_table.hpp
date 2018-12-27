@@ -31,8 +31,8 @@ class element_table
 {
 public:
   element_table(int const dim, int const level, bool const full_grid = false);
-  int get_index(std::vector<int> const coords) const;
-  std::vector<int> get_coords(int const index) const;
+  int get_index(fk::vector<int> const coords) const;
+  fk::vector<int> get_coords(int const index) const;
   int size() const { return size_; }
 
   //
