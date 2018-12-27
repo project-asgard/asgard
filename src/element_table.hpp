@@ -1,5 +1,6 @@
 #pragma once
 #include "tensors.hpp"
+#include <map>
 #include <vector>
 
 // --------------------------------------------------------------------------
@@ -40,11 +41,14 @@ public:
   //
 
   //
-  // Indexing functions
+  // Level/cell indexing functions
   //
 
   // Given a cell and level coordinate, return a 1-dimensional index
   static int get_1d_index(int const level, int const cell);
+
+  // Return the cell indices given a level tuple
+  static fk::matrix<int> get_index_set(fk::vector<int> levels);
 
   //
   // Permutations enumerators
@@ -77,4 +81,6 @@ public:
 
 private:
   int size_;
+  std::map<fk::vector<int>, int> forward_table;
+  std::map<int, fk::vector<int>> reverse_table;
 };

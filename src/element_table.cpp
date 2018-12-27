@@ -2,6 +2,7 @@
 
 #include "tensors.hpp"
 #include <array>
+#include <map>
 #include <numeric>
 #include <vector>
 
@@ -37,6 +38,12 @@ int element_table::get_1d_index(int const level, int const cell)
 
   if (level == 0) { return 1; }
   return static_cast<int>(std::pow(2, level - 1)) + cell + 1;
+}
+
+fk::matrix<int> element_table::get_index_set(fk::vector<int> levels)
+{
+  fk::matrix<int> empty;
+  return empty;
 }
 
 //
