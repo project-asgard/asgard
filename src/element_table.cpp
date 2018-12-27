@@ -9,7 +9,7 @@
 #include <vector>
 
 // Construct forward and reverse element tables
-element_table::element_table(int const dims, int const levels,
+element_table::element_table(int const levels, int const dims,
                              bool const full_grid)
 {
   assert(dims > 0);
@@ -19,7 +19,17 @@ element_table::element_table(int const dims, int const levels,
   fk::matrix<int> perm_table = full_grid
                                    ? permutations_max(dims, levels, false)
                                    : permutations_leq(dims, levels, false);
+  
 
+
+
+
+  // in the matlab, the tables sizes are precomputed/preallocated.
+  // I wrote the code to do that, however, this isn't a performance
+  // critical area (constructed only once at startup) and we'd need
+  // to explore the thread-safety of our tables / build a thread-safe
+  // table to see any benefit. -TM
+  
 
   // build tables
   int index = 0;
@@ -36,6 +46,7 @@ element_table::element_table(int const dims, int const levels,
     fk::matrix<int> index_set = get_index_set(levels);
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
+      // FIXME use row/col extraction here as well
       fk::matrix<int> cell_indices =
           index_set.extract_submatrix(cell_set, 0, 1, dims);
       fk::vector<int> cell_indices_(cell_indices.size());
@@ -46,7 +57,6 @@ element_table::element_table(int const dims, int const levels,
       fk::vector<int> key = levels;
       key.concat(cell_indices_);
       forward_table[key] = index++;
-
       // note the matlab code has an option to append 1d cell indices to the
       // reverse element table. //FIXME do we need to precompute or can we call
       // the 1d helper as needed?
@@ -74,7 +84,7 @@ int element_table::get_index(fk::vector<int> const coords) const
 // out of range
 fk::vector<int> element_table::get_coords(int const index) const
 {
-  assert(index > 0);
+  assert(index >= 0);
   if (static_cast<size_t>(index) < reverse_table.size())
   {
     return reverse_table[index];

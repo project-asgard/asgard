@@ -32,7 +32,7 @@
 class element_table
 {
 public:
-  element_table(int const dim, int const level, bool const full_grid = false);
+  element_table(int const levels, int const dims, bool const full_grid = false);
 
   // forward lookup - returns the index of coordinates (positive), or -1 if not
   // found.
@@ -50,7 +50,7 @@ public:
   }
 
   //
-  // Static helpers for element table construction
+  // Static helpers
   //
 
   //

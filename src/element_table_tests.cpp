@@ -4,6 +4,47 @@
 #include "tests_general.hpp"
 #include <vector>
 
+
+TEST_CASE("Constructor/accessors/size", "[element_table]") {
+  
+  int const levels = 1;
+  int const dims = 1;
+  bool const sparse = false;
+  element_table t(levels, dims, sparse);
+  fk::vector<int> element_0 = {0, 0};
+  fk::vector<int> element_1 = {1, 0};
+  REQUIRE(t.get_index(element_0) == 0);
+  REQUIRE(t.get_index(element_1) == 1);
+  REQUIRE(t.get_coords(0) == element_0);
+  REQUIRE(t.get_coords(1) == element_1);
+
+  int const levels_2 = 3;
+  int const dims_2 = 2;
+  bool const sparse_2 = false;
+  element_table t2(levels_2, dims_2, sparse_2);
+  fk::vector<int> element_17 = {0, 3, 0, 1};
+  REQUIRE(t2.get_index(element_17) == 17);
+  REQUIRE(t2.get_coords(17) == element_17);
+
+  int const levels_3 = 4;
+  int const dims_3 = 3;
+  bool const sparse_3 = true;
+  element_table t3(levels_3, dims_3, sparse_3);
+  fk::vector<int> element_4000 =
+  {4, 4, 4, 0, 4, 6};
+  REQUIRE(t3.get_index(element_4000) == 4000);
+  REQUIRE(t3.get_coords(4000) == element_4000);
+
+  SECTION("Size", "[element_table]") {
+  REQUIRE(t.size() == 2);
+  REQUIRE(t2.size() == 20);
+  REQUIRE(t3.size() == 4096);
+  }
+
+
+}
+
+
 // TEMPORARY TESTS FOR STATIC HELPERS
 //
 // these aren't part of the API and will be removed after class development
