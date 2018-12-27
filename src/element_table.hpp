@@ -35,7 +35,7 @@ public:
   element_table(int const dim, int const level, bool const full_grid = false);
 
   // forward lookup - returns the index of coordinates (positive), or -1 if not
-  // found
+  // found.
   int get_index(fk::vector<int> const coords) const;
 
   // reverse lookup - returns coordinates at a certain index, or empty vector if

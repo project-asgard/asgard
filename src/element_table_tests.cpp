@@ -10,7 +10,7 @@
 
 TEST_CASE("Indexing functions", "[element_table]")
 {
-  element_table t(0, 0, 0);
+  element_table t(4, 4, false);
   SECTION("one dimensional indexing function")
   {
     // test some vals calc'ed by hand :)
@@ -42,7 +42,7 @@ TEST_CASE("Indexing functions", "[element_table]")
 
 TEST_CASE("Permutations enumerators", "[element_table]")
 {
-  element_table t(0, 0, 0);
+  element_table t(4, 4, false);
   SECTION("permutations eq enumeration")
   {
     std::vector<int> const golds{1, 1, 1001, 4598126};
@@ -80,7 +80,7 @@ TEST_CASE("Permutations enumerators", "[element_table]")
 
 TEST_CASE("Permutations builders", "[element_table]")
 {
-  element_table t(0, 0, 0);
+  element_table t(4, 4, false);
 
   std::vector<int> const dims{5, 2, 2, 5};
   std::vector<int> const ns{0, 1, 1, 2};

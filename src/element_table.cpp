@@ -20,13 +20,38 @@ element_table::element_table(int const dims, int const levels,
                                    ? permutations_max(dims, levels, false)
                                    : permutations_leq(dims, levels, false);
 
+
+  // build tables
+  int index = 0;
   for (int row = 0; row < perm_table.nrows(); ++row)
   {
     // FIXME I need to be able to extract rows/cols from matrices
+    // to make this nice. PR is in.
+    fk::matrix<int> tuple = perm_table.extract_submatrix(row, 0, 1, dims);
+    fk::vector<int> levels(tuple.size());
+    for (auto i = 0; i < levels.size(); ++i)
+    {
+      levels(i) = tuple(0, i);
+    }
+    fk::matrix<int> index_set = get_index_set(levels);
+    for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
+    {
+      fk::matrix<int> cell_indices =
+          index_set.extract_submatrix(cell_set, 0, 1, dims);
+      fk::vector<int> cell_indices_(cell_indices.size());
+      for (auto i = 0; i < cell_indices.size(); ++i)
+      {
+        cell_indices_(i) = cell_indices(0, i);
+      }
+      fk::vector<int> key = levels;
+      key.concat(cell_indices_);
+      forward_table[key] = index++;
 
-    // int total_size = 1;
-    // total_size     = std::accumulate(sizes.begin(), sizes.end(), total_size,
-    //                           std::multiplies<int>());
+      // note the matlab code has an option to append 1d cell indices to the
+      // reverse element table. //FIXME do we need to precompute or can we call
+      // the 1d helper as needed?
+      reverse_table.push_back(key);
+    }
   }
 }
 
@@ -61,7 +86,7 @@ fk::vector<int> element_table::get_coords(int const index) const
 }
 
 //
-// Static helpers for construction
+// Static helpers
 //
 
 //
@@ -97,7 +122,7 @@ fk::matrix<int> element_table::get_index_set(fk::vector<int> const levels)
   assert(levels.size() > 0);
   for (auto level : levels)
   {
-    assert(level > 0);
+    assert(level >= 0);
   }
   int const dims = levels.size();
 
