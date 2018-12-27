@@ -57,6 +57,9 @@ public:
   // Level/cell indexing functions
   //
 
+  // Return number of cells for each level in vector
+  static fk::vector<int> get_cell_nums(fk::vector<int> levels);
+
   // Given a cell and level coordinate, return a 1-dimensional index
   static int get_1d_index(int const level, int const cell);
 

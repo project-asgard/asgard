@@ -8,13 +8,29 @@
 #include <numeric>
 #include <vector>
 
-// TODO this constructor will invoke the
-// static permutation/cell builder helpers to construct the table
-element_table::element_table(int const dim, int const level,
+// Construct forward and reverse element tables
+element_table::element_table(int const dims, int const levels,
                              bool const full_grid)
-{}
+{
+  assert(dims > 0);
+  assert(levels > 0);
 
-// forward lookup - returns the index of coordinates (positive), or -1 if not
+  // get permutation table of level coordinates
+  fk::matrix<int> perm_table = full_grid
+                                   ? permutations_max(dims, levels, false)
+                                   : permutations_leq(dims, levels, false);
+
+  for (int row = 0; row < perm_table.nrows(); ++row)
+  {
+    // FIXME I need to be able to extract rows/cols from matrices
+
+    // int total_size = 1;
+    // total_size     = std::accumulate(sizes.begin(), sizes.end(), total_size,
+    //                           std::multiplies<int>());
+  }
+}
+
+// Forward lookup - returns the index of coordinates (positive), or -1 if not
 // found
 int element_table::get_index(fk::vector<int> const coords) const
 {
@@ -29,7 +45,7 @@ int element_table::get_index(fk::vector<int> const coords) const
   }
 }
 
-// reverse lookup - returns coordinates at a certain index, or empty vector if
+// Reverse lookup - returns coordinates at a certain index, or empty vector if
 // out of range
 fk::vector<int> element_table::get_coords(int const index) const
 {
@@ -51,6 +67,17 @@ fk::vector<int> element_table::get_coords(int const index) const
 //
 // Indexing helpers
 //
+
+// Return number of cells for each level
+fk::vector<int> element_table::get_cell_nums(fk::vector<int> levels)
+{
+  assert(levels.size() > 0);
+  fk::vector<int> sizes(levels.size());
+  std::transform(levels.begin(), levels.end(), sizes.begin(), [](int level) {
+    return static_cast<int>(std::pow(2, std::max(0, level - 1)));
+  });
+  return sizes;
+}
 
 // Given a cell and level coordinate, return a 1-dimensional index
 int element_table::get_1d_index(int const level, int const cell)
@@ -75,10 +102,7 @@ fk::matrix<int> element_table::get_index_set(fk::vector<int> const levels)
   int const dims = levels.size();
 
   // get number of cells for each level coord
-  fk::vector<int> sizes(dims);
-  std::transform(levels.begin(), levels.end(), sizes.begin(), [](int level) {
-    return static_cast<int>(std::pow(2, std::max(0, level - 1)));
-  });
+  fk::vector<int> sizes = get_cell_nums(levels);
 
   // total number of cells will be product of these
   int total_size = 1;
