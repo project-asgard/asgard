@@ -127,6 +127,24 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     test(4) = 333;
     REQUIRE(test != gold);
   }
+  SECTION("less than operator")
+  {
+    fk::vector<TestType> const empty;
+    fk::vector<TestType> const gold_copy = gold;
+    fk::vector<TestType> const gold_prefix{1, 2, 3, 4};
+    fk::vector<TestType> const mismatch{2, 3, 5, 5, 6};
+    // equal vectors return false
+    REQUIRE(!(gold_copy < gold));
+    // empty range less than non-empty range
+    REQUIRE(empty < gold);
+    // a prefix is less than the complete range
+    REQUIRE(gold_prefix < gold);
+    // otherwise compare on first mismatch
+    REQUIRE(gold < mismatch);
+    // also, empty ranges are equal
+    REQUIRE(!(empty < empty));
+  }
+
   SECTION("addition operator")
   {
     fk::vector<TestType> const in1{1, 1, 1, 1, 1};
@@ -433,6 +451,24 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType> test(gold);
     test(4, 2) = 333;
     REQUIRE(test != gold);
+  }
+
+  SECTION("less than operator")
+  {
+    fk::matrix<TestType> const empty;
+    fk::matrix<TestType> const gold_copy = gold;
+    fk::matrix<TestType> const gold_prefix{{12, 13, 14}};
+    fk::matrix<TestType> const mismatch{{12, 13, 15}};
+    // equal vectors return false
+    REQUIRE(!(gold_copy < gold));
+    // empty range less than non-empty range
+    REQUIRE(empty < gold);
+    // a prefix is less than the complete range
+    REQUIRE(gold_prefix < gold);
+    // otherwise compare on first mismatch
+    REQUIRE(gold < mismatch);
+    // also, empty ranges are equal
+    REQUIRE(!(empty < empty));
   }
   SECTION("matrix+matrix addition")
   {

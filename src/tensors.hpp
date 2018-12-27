@@ -147,6 +147,7 @@ public:
   //
   bool operator==(vector<P> const &) const;
   bool operator!=(vector<P> const &) const;
+  bool operator<(vector<P> const &) const;
   //
   // math operators
   //
@@ -172,6 +173,8 @@ public:
   typedef const P *const_iterator;
   iterator begin() { return data(); }
   iterator end() { return data() + size(); }
+  const_iterator begin() const { return data(); }
+  const_iterator end() const { return data() + size(); }
 
 private:
   P *data_;  //< pointer to elements
@@ -213,6 +216,7 @@ public:
   //
   bool operator==(matrix<P> const &) const;
   bool operator!=(matrix<P> const &) const;
+  bool operator<(matrix<P> const &) const;
   //
   // math operators
   //
@@ -269,6 +273,8 @@ public:
   typedef const P *const_iterator;
   iterator begin() { return data(); }
   iterator end() { return data() + size(); }
+  const_iterator begin() const { return data(); }
+  const_iterator end() const { return data() + size(); }
 
 private:
   P *data_;   //< pointer to elements
@@ -479,6 +485,13 @@ template<typename P>
 bool fk::vector<P>::operator!=(vector<P> const &other) const
 {
   return !(*this == other);
+}
+
+template<typename P>
+bool fk::vector<P>::operator<(vector<P> const &other) const
+{
+  return std::lexicographical_compare(begin(), end(), other.begin(),
+                                      other.end());
 }
 
 //
@@ -899,6 +912,13 @@ template<typename P>
 bool fk::matrix<P>::operator!=(matrix<P> const &other) const
 {
   return !(*this == other);
+}
+
+template<typename P>
+bool fk::matrix<P>::operator<(matrix<P> const &other) const
+{
+  return std::lexicographical_compare(this->begin(), this->end(), other.begin(),
+                                      other.end());
 }
 
 //
