@@ -114,7 +114,7 @@ public:
   vector(int const size);
   vector(std::initializer_list<P> list);
   vector(std::vector<P> const &);
-
+  vector(fk::matrix<P> const &);
   ~vector();
 
   vector(vector<P> const &);
@@ -330,6 +330,25 @@ fk::vector<P>::vector(vector<P> const &a)
     : data_{new P[a.size_]}, size_{a.size_}
 {
   std::memcpy(data_, a.data(), a.size() * sizeof(P));
+}
+
+//
+// matrix conversion constructor
+// linearizes the matrix, i.e. stacks
+// the columns of the matrix into a
+// single vector
+//
+template<typename P>
+fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
+{
+  assert(mat.size() > 0);
+  size_ = mat.size();
+
+  int i = 0;
+  for (auto const &elem : mat)
+  {
+    (*this)(i++) = elem;
+  }
 }
 
 //
