@@ -45,6 +45,17 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     fk::vector<TestType> test(v);
     REQUIRE(test == gold);
   }
+  SECTION("construct from an fk::matrix")
+  {
+    fk::matrix<TestType> mat{{2}, {3}, {4}, {5}, {6}};
+    fk::vector<TestType> test(mat);
+    REQUIRE(test == gold);
+
+    fk::vector<TestType> gold_2 = {1, 2, 3, 4, 5, 6};
+    fk::matrix<TestType> mat_2{{1, 3, 5}, {2, 4, 6}};
+    fk::vector<TestType> test_2(mat_2);
+    REQUIRE(test_2 == gold_2);
+  }
   SECTION("copy construction")
   {
     fk::vector<TestType> test(gold);
