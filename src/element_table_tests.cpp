@@ -2,15 +2,15 @@
 
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
+#include <string>
 #include <vector>
 
-
-TEST_CASE("Constructor/accessors/size", "[element_table]") {
-  
+TEST_CASE("Constructor/accessors/size", "[element_table]")
+{
   int const levels = 1;
-  int const dims = 1;
-  bool const sparse = false;
-  element_table t(levels, dims, sparse);
+  int const dims   = 1;
+  Options o        = make_options({"-l", std::to_string(levels)});
+  element_table t(o, dims);
   fk::vector<int> element_0 = {0, 0};
   fk::vector<int> element_1 = {1, 0};
   REQUIRE(t.get_index(element_0) == 0);
@@ -19,40 +19,34 @@ TEST_CASE("Constructor/accessors/size", "[element_table]") {
   REQUIRE(t.get_coords(1) == element_1);
 
   int const levels_2 = 3;
-  int const dims_2 = 2;
-  bool const sparse_2 = false;
-  element_table t2(levels_2, dims_2, sparse_2);
+  int const dims_2   = 2;
+  Options o_2        = make_options({"-l", std::to_string(levels_2)});
+  element_table t_2(o_2, dims_2);
   fk::vector<int> element_17 = {0, 3, 0, 1};
-  REQUIRE(t2.get_index(element_17) == 17);
-  REQUIRE(t2.get_coords(17) == element_17);
+  REQUIRE(t_2.get_index(element_17) == 17);
+  REQUIRE(t_2.get_coords(17) == element_17);
 
   int const levels_3 = 4;
-  int const dims_3 = 3;
-  bool const sparse_3 = true;
-  element_table t3(levels_3, dims_3, sparse_3);
-  fk::vector<int> element_4000 =
-  {4, 4, 4, 0, 4, 6};
-  REQUIRE(t3.get_index(element_4000) == 4000);
-  REQUIRE(t3.get_coords(4000) == element_4000);
+  int const dims_3   = 3;
+  // test full grid
+  Options o_3 = make_options({"-l", std::to_string(levels_3), "-f"});
+  element_table t_3(o_3, dims_3);
+  fk::vector<int> element_4000 = {4, 4, 4, 0, 4, 6};
+  REQUIRE(t_3.get_index(element_4000) == 4000);
+  REQUIRE(t_3.get_coords(4000) == element_4000);
 
-  SECTION("Size", "[element_table]") {
-  REQUIRE(t.size() == 2);
-  REQUIRE(t2.size() == 20);
-  REQUIRE(t3.size() == 4096);
+  SECTION("Size", "[element_table]")
+  {
+    REQUIRE(t.size() == 2);
+    REQUIRE(t_2.size() == 20);
+    REQUIRE(t_3.size() == 4096);
   }
-
-
 }
 
-
-// TEMPORARY TESTS FOR STATIC HELPERS
-//
-// these aren't part of the API and will be removed after class development
-
-TEST_CASE("Indexing functions", "[element_table]")
+TEST_CASE("one-dimensional indexing", "[element_table]")
 {
-  element_table t(4, 4, false);
-  SECTION("one dimensional indexing function")
+  element_table t(make_options({}), 1);
+  SECTION("simple test for indexing function")
   {
     // test some vals calc'ed by hand :)
     std::vector<int> const golds{1, 1, 524389};
@@ -64,6 +58,25 @@ TEST_CASE("Indexing functions", "[element_table]")
       REQUIRE(t.get_1d_index(levels[i], cells[i]) == golds[i]);
     }
   }
+}
+
+// TEMPORARY TESTS FOR STATIC HELPERS
+//
+// these aren't part of the API and can be removed after class development
+// if we want to make these static functions private
+
+TEST_CASE("Lev/cell indexing functions", "[element_table]")
+{
+  element_table t(make_options({}), 1);
+
+  SECTION("levels to cell count")
+  {
+    fk::vector<int> const levels{0, 2, 1, 3};
+    fk::vector<int> const gold{1, 2, 1, 4};
+
+    REQUIRE(t.get_cell_nums(levels) == gold);
+  }
+
   SECTION("cell index set builder")
   {
     std::vector<fk::vector<int>> levels_set = {{1}, {1, 2}, {2, 1}, {2, 3}};
@@ -83,7 +96,7 @@ TEST_CASE("Indexing functions", "[element_table]")
 
 TEST_CASE("Permutations enumerators", "[element_table]")
 {
-  element_table t(4, 4, false);
+  element_table t(make_options({}), 1);
   SECTION("permutations eq enumeration")
   {
     std::vector<int> const golds{1, 1, 1001, 4598126};
@@ -121,7 +134,7 @@ TEST_CASE("Permutations enumerators", "[element_table]")
 
 TEST_CASE("Permutations builders", "[element_table]")
 {
-  element_table t(4, 4, false);
+  element_table t(make_options({}), 1);
 
   std::vector<int> const dims{5, 2, 2, 5};
   std::vector<int> const ns{0, 1, 1, 2};

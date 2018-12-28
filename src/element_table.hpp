@@ -1,4 +1,5 @@
 #pragma once
+#include "program_options.hpp"
 #include "tensors.hpp"
 #include <cassert>
 #include <map>
@@ -32,7 +33,7 @@
 class element_table
 {
 public:
-  element_table(int const levels, int const dims, bool const full_grid = false);
+  element_table(Options const opts, int const dims);
 
   // forward lookup - returns the index of coordinates (positive), or -1 if not
   // found.
@@ -49,8 +50,11 @@ public:
     return forward_table.size();
   }
 
+  // Given a cell and level coordinate, return a 1-dimensional index
+  int get_1d_index(int const level, int const cell) const;
+
   //
-  // Static helpers
+  // Static construction helpers
   //
 
   //
@@ -59,9 +63,6 @@ public:
 
   // Return number of cells for each level in vector
   static fk::vector<int> get_cell_nums(fk::vector<int> levels);
-
-  // Given a cell and level coordinate, return a 1-dimensional index
-  static int get_1d_index(int const level, int const cell);
 
   // Return the cell indices given a level tuple
   static fk::matrix<int> get_index_set(fk::vector<int> const levels);

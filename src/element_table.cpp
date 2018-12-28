@@ -1,5 +1,6 @@
 #include "element_table.hpp"
 
+#include "program_options.hpp"
 #include "tensors.hpp"
 #include <algorithm>
 #include <array>
@@ -9,9 +10,11 @@
 #include <vector>
 
 // Construct forward and reverse element tables
-element_table::element_table(int const levels, int const dims,
-                             bool const full_grid)
+element_table::element_table(Options const opts, int const dims)
 {
+  int const levels     = opts.get_level();
+  bool const full_grid = opts.using_full_grid();
+
   assert(dims > 0);
   assert(levels > 0);
 
@@ -19,43 +22,28 @@ element_table::element_table(int const levels, int const dims,
   fk::matrix<int> perm_table = full_grid
                                    ? permutations_max(dims, levels, false)
                                    : permutations_leq(dims, levels, false);
-  
-
-
-
 
   // in the matlab, the tables sizes are precomputed/preallocated.
   // I wrote the code to do that, however, this isn't a performance
   // critical area (constructed only once at startup) and we'd need
   // to explore the thread-safety of our tables / build a thread-safe
   // table to see any benefit. -TM
-  
 
   // build tables
   int index = 0;
   for (int row = 0; row < perm_table.nrows(); ++row)
   {
-    // FIXME I need to be able to extract rows/cols from matrices
-    // to make this nice. PR is in.
-    fk::matrix<int> tuple = perm_table.extract_submatrix(row, 0, 1, dims);
-    fk::vector<int> levels(tuple.size());
-    for (auto i = 0; i < levels.size(); ++i)
-    {
-      levels(i) = tuple(0, i);
-    }
+    fk::vector<int> levels    = perm_table.extract_submatrix(row, 0, 1, dims);
     fk::matrix<int> index_set = get_index_set(levels);
+
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
-      // FIXME use row/col extraction here as well
-      fk::matrix<int> cell_indices =
+      fk::vector<int> cell_indices =
           index_set.extract_submatrix(cell_set, 0, 1, dims);
-      fk::vector<int> cell_indices_(cell_indices.size());
-      for (auto i = 0; i < cell_indices.size(); ++i)
-      {
-        cell_indices_(i) = cell_indices(0, i);
-      }
+
       fk::vector<int> key = levels;
-      key.concat(cell_indices_);
+      key.concat(cell_indices);
+
       forward_table[key] = index++;
       // note the matlab code has an option to append 1d cell indices to the
       // reverse element table. //FIXME do we need to precompute or can we call
@@ -95,8 +83,21 @@ fk::vector<int> element_table::get_coords(int const index) const
   }
 }
 
+// Given a cell and level coordinate, return a 1-dimensional index
+int element_table::get_1d_index(int const level, int const cell) const
+{
+  assert(level >= 0);
+  assert(cell >= 0);
+
+  if (level == 0)
+  {
+    return 1;
+  }
+  return static_cast<int>(std::pow(2, level - 1)) + cell + 1;
+}
+
 //
-// Static helpers
+// Static construction helpers
 //
 
 //
@@ -112,19 +113,6 @@ fk::vector<int> element_table::get_cell_nums(fk::vector<int> levels)
     return static_cast<int>(std::pow(2, std::max(0, level - 1)));
   });
   return sizes;
-}
-
-// Given a cell and level coordinate, return a 1-dimensional index
-int element_table::get_1d_index(int const level, int const cell)
-{
-  assert(level >= 0);
-  assert(cell >= 0);
-
-  if (level == 0)
-  {
-    return 1;
-  }
-  return static_cast<int>(std::pow(2, level - 1)) + cell + 1;
 }
 
 fk::matrix<int> element_table::get_index_set(fk::vector<int> const levels)
