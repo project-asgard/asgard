@@ -17,7 +17,7 @@
 Options make_options(std::vector<std::string> const arguments)
 {
   std::vector<char *> argv;
-  argv.push_back("asgard");
+  argv.push_back(const_cast<char *>("asgard"));
   for (const auto &arg : arguments)
   {
     argv.push_back(const_cast<char *>(arg.data()));
