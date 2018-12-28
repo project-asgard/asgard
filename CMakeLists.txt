@@ -56,8 +56,8 @@ if (NOT ASGARD_BUILD_OPENBLAS)
 
   # search for blas/lapack packages providing cmake/pkgconfig
   if (NOT LINALG_LIBS)
-    find_package (LAPACK)
-    find_package (BLAS)
+    find_package (LAPACK QUIET)
+    find_package (BLAS QUIET)
     if (LAPACK_FOUND)
     #if (LAPACK_FOUND AND BLAS_FOUND)
       set (LINALG_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
