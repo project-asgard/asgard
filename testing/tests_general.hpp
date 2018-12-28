@@ -7,7 +7,9 @@
 #ifndef _tests_general_h_
 #define _tests_general_h_
 
+#include "../src/program_options.hpp"
 #include "catch.hpp"
+#include <string>
 #include <vector>
 
 // Someday I should come up with a more elegant solution here
@@ -27,7 +29,10 @@ void compareVectors(std::vector<P> a, std::vector<P> b)
   {
     for (size_t i = 0; i < a.size(); i++)
     {
-      if (a[i] != b[i]) { FAIL("" << a[i] << " != " << b[i]); }
+      if (a[i] != b[i])
+      {
+        FAIL("" << a[i] << " != " << b[i]);
+      }
     }
   }
 }
@@ -39,5 +44,7 @@ void compare2dVectors(std::vector<std::vector<P>> a,
   for (size_t i = 0; i < a.size(); i++)
     compareVectors(a[i], b[i]);
 }
+
+Options make_options(std::vector<std::string> const arguments);
 
 #endif
