@@ -100,6 +100,36 @@ TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]", float,
     REQUIRE(test == gold);
   }
 }
+
+TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
+                   int)
+{
+  SECTION("polyval(p = [3,2,1], x = [5,7,9])")
+  {
+    fk::vector<TestType> p{3, 2, 1};
+    fk::vector<TestType> x{5, 7, 9};
+    fk::vector<TestType> gold{86, 162, 262};
+    fk::vector<TestType> test = polyval(p, x);
+    REQUIRE(test == gold);
+  }
+  SECTION("polyval(p = [4, 0, 1, 2], x = 2")
+  {
+    fk::vector<TestType> p{4, 0, 1, 2};
+    TestType x    = 2;
+    TestType gold = 36;
+    TestType test = polyval(p, x);
+    REQUIRE(test == gold);
+  }
+  SECTION("polyval(p = [4, 0, 1, 2], x = 0")
+  {
+    fk::vector<TestType> p{4, 0, 1, 2};
+    TestType x    = 0;
+    TestType gold = 2;
+    TestType test = polyval(p, x);
+    REQUIRE(test == gold);
+  }
+}
+
 TEST_CASE("readVectorFromBinFile returns expected vector", "[matlab]")
 {
   SECTION("readVectorFromBinFile gets 100-element row vector")
