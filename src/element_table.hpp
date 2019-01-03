@@ -33,15 +33,14 @@
 class element_table
 {
 public:
-  element_table(Options const opts, int const dims);
+  element_table(Options const program_opts, int const num_dims);
 
   // forward lookup - returns the non-negative index of an element's
-  // coordinates, or -1 if not found. FIXME get rid of return code and assert
-  // instead
+  // coordinates, or -1 if not found.
   int get_index(fk::vector<int> const coords) const;
 
   // reverse lookup - returns coordinates at a certain index, or empty vector if
-  // out of range. FIXME get rid of return code and assert
+  // out of range.
   fk::vector<int> get_coords(int const index) const;
 
   // returns number of elements in table
@@ -56,40 +55,30 @@ public:
 
   //
   // Static construction helpers
+  // (these will likely become private at some point)
   //
 
   //
   // Level/cell indexing functions
   //
 
-  // Return number of cells for each level in a level tuple
-  static fk::vector<int> get_cell_nums(fk::vector<int> levels);
-
   // Return the cell indices given a level tuple
-  static fk::matrix<int> get_index_set(fk::vector<int> const levels);
+  static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
 
   //
   // Permutations counters
   //
 
-  // Count the number of n-tuples (n == 'num_dims') whose non-negative elements'
-  // sum == 'limit'
   static int count_eq_permutations(int const num_dims, int const limit);
 
-  // Count the number of n-tuples (where n == 'num_dims') whose non-negative
-  // elements' sum <= 'limit'
   static int count_leq_permutations(int const num_dims, int const limit);
 
-  // Count the number of n-tuples (where n == 'num_dims') whose non-negative max
-  // element <= 'limit' (for full grid only)
   static int count_max_permutations(int const num_dims, int const limit);
 
   //
   // Permutations builders
   //
 
-  // Produce n-tuples (n == 'num_dims') whose elements' are non-negative and
-  // their sum == 'limit'. Each tuple becomes a row of the output matrix
   static fk::matrix<int> get_eq_permutations(int const num_dims,
                                              int const limit,
                                              bool const order_by_n);
