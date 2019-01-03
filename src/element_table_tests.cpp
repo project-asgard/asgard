@@ -69,14 +69,6 @@ TEST_CASE("Lev/cell indexing functions", "[element_table]")
 {
   element_table t(make_options({}), 1);
 
-  SECTION("levels to cell count")
-  {
-    fk::vector<int> const levels{0, 2, 1, 3};
-    fk::vector<int> const gold{1, 2, 1, 4};
-
-    REQUIRE(t.get_cell_nums(levels) == gold);
-  }
-
   SECTION("cell index set builder")
   {
     std::vector<fk::vector<int>> levels_set = {{1}, {1, 2}, {2, 1}, {2, 3}};
@@ -89,7 +81,7 @@ TEST_CASE("Lev/cell indexing functions", "[element_table]")
 
     for (size_t i = 0; i < gold_set.size(); ++i)
     {
-      REQUIRE(t.get_index_set(levels_set[i]) == gold_set[i]);
+      REQUIRE(t.get_cell_index_set(levels_set[i]) == gold_set[i]);
     }
   }
 }
@@ -105,7 +97,7 @@ TEST_CASE("Permutations enumerators", "[element_table]")
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
-      REQUIRE(t.permutations_eq_count(dims[i], ns[i]) == golds[i]);
+      REQUIRE(t.count_eq_permutations(dims[i], ns[i]) == golds[i]);
     }
   }
   SECTION("permutations leq enumeration")
@@ -116,7 +108,7 @@ TEST_CASE("Permutations enumerators", "[element_table]")
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
-      REQUIRE(t.permutations_leq_count(dims[i], ns[i]) == golds[i]);
+      REQUIRE(t.count_leq_permutations(dims[i], ns[i]) == golds[i]);
     }
   }
   SECTION("permutations max enumeration")
@@ -127,7 +119,7 @@ TEST_CASE("Permutations enumerators", "[element_table]")
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
-      REQUIRE(t.permutations_max_count(dims[i], ns[i]) == golds[i]);
+      REQUIRE(t.count_max_permutations(dims[i], ns[i]) == golds[i]);
     }
   }
 }
@@ -165,7 +157,7 @@ TEST_CASE("Permutations builders", "[element_table]")
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
-      REQUIRE(t.permutations_eq(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+      REQUIRE(t.get_eq_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
     }
   }
 
@@ -200,7 +192,7 @@ TEST_CASE("Permutations builders", "[element_table]")
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
-      REQUIRE(t.permutations_leq(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+      REQUIRE(t.get_leq_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
     }
   }
 
@@ -240,7 +232,7 @@ TEST_CASE("Permutations builders", "[element_table]")
 
     for (size_t i = 0; i < golds.size(); ++i)
     {
-      REQUIRE(t.permutations_max(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+      REQUIRE(t.get_max_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
     }
   }
 }

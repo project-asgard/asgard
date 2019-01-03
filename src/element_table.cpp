@@ -58,10 +58,11 @@ element_table::element_table(Options const program_opts, int const num_dims)
       reverse_table.push_back(key);
     }
   }
+  assert(forward_table.size() == reverse_table.size());
 }
 
 // forward lookup - returns the non-negative index of an element's
-// coordinates, or -1 if not found.
+// coordinates
 int element_table::get_index(fk::vector<int> const coords) const
 {
   assert(coords.size() > 0);
@@ -69,8 +70,7 @@ int element_table::get_index(fk::vector<int> const coords) const
   return forward_table.at(coords);
 }
 
-// reverse lookup - returns coordinates at a certain index, or empty vector if
-// out of range.
+// reverse lookup - returns coordinates at a certain index
 fk::vector<int> element_table::get_coords(int const index) const
 {
   assert(index >= 0);
@@ -255,7 +255,7 @@ fk::matrix<int> element_table::get_eq_permutations(int const num_dims,
       difference  = i;
     }
 
-    // build set of num_dims-1-tuples which sum to partial_sum,
+    // build set of num_dims-1 sized tuples which sum to partial_sum,
     // then append a column with difference to make a num_dims-tuple.
     int const rows = count_eq_permutations(num_dims - 1, partial_sum);
     fk::matrix<int> partial_result(rows, num_dims);
@@ -270,9 +270,12 @@ fk::matrix<int> element_table::get_eq_permutations(int const num_dims,
   return result;
 }
 
-// Given num_dims and n, produce num_dims-tuples whose sum <= to n
-fk::matrix<int> element_table::permutations_leq(int const num_dims, int const limit,
-                                                bool const order_by_n)
+// Given the number of dimensions and a limit, produce n-tuples (n ==
+// 'num_dims') whose elements are non-negative and their sum <= 'limit'. Each
+// tuple becomes a row of the output matrix
+fk::matrix<int> element_table::get_leq_permutations(int const num_dims,
+                                                    int const limit,
+                                                    bool const order_by_n)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -286,12 +289,13 @@ fk::matrix<int> element_table::permutations_leq(int const num_dims, int const li
     for (auto i = 0; i <= limit; ++i)
     {
       int const rows = count_eq_permutations(num_dims, i);
-      result.set_submatrix(counter, 0, permutations_eq(num_dims, i, false));
+      result.set_submatrix(counter, 0, get_eq_permutations(num_dims, i, false));
       counter += rows;
     }
     return result;
   }
 
+  // the recursive base case
   if (num_dims == 1)
   {
     std::vector<int> entries(limit + 1);
@@ -305,8 +309,8 @@ fk::matrix<int> element_table::permutations_leq(int const num_dims, int const li
   {
     int const rows = count_leq_permutations(num_dims - 1, limit - i);
     fk::matrix<int> partial_result(rows, num_dims);
-    partial_result.set_submatrix(0, 0,
-                                 permutations_leq(num_dims - 1, limit - i, order_by_n));
+    partial_result.set_submatrix(
+        0, 0, get_leq_permutations(num_dims - 1, limit - i, order_by_n));
     fk::vector<int> last_col = std::vector<int>(rows, i);
     partial_result.update_col(num_dims - 1, last_col);
     result.set_submatrix(counter, 0, partial_result);
@@ -317,9 +321,11 @@ fk::matrix<int> element_table::permutations_leq(int const num_dims, int const li
   return result;
 }
 
-// Produce num_dims-tuples whose max element <= n (for full grid)
+// Given the number of dimensions and a limit, produce n-tuples (n ==
+// 'num_dims') whose elements are non-negative and the max element <= 'limit'
+// (for full grid only). Each tuple becomes a row of the output matrix
 fk::matrix<int>
-element_table::permutations_max(int const num_dims, int const limit,
+element_table::get_max_permutations(int const num_dims, int const limit,
                                 bool const last_index_decreasing)
 {
   assert(num_dims > 0);
@@ -342,7 +348,7 @@ element_table::permutations_max(int const num_dims, int const limit,
 
   // recursively build the lower dim tuples
   fk::matrix<int> lower_dims =
-      permutations_max(num_dims - 1, limit, last_index_decreasing);
+      get_max_permutations(num_dims - 1, limit, last_index_decreasing);
   int const m = lower_dims.nrows();
 
   for (auto i = 0; i <= limit; ++i)

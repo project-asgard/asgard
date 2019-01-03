@@ -35,15 +35,13 @@ class element_table
 public:
   element_table(Options const program_opts, int const num_dims);
 
-  // forward lookup - returns the non-negative index of an element's
-  // coordinates, or -1 if not found.
+  // forward lookup
   int get_index(fk::vector<int> const coords) const;
 
-  // reverse lookup - returns coordinates at a certain index, or empty vector if
-  // out of range.
+  // reverse lookup
   fk::vector<int> get_coords(int const index) const;
 
-  // returns number of elements in table
+  // returns the number of elements in table
   int size() const
   {
     assert(forward_table.size() == reverse_table.size());
@@ -58,16 +56,10 @@ public:
   // (these will likely become private at some point)
   //
 
-  //
-  // Level/cell indexing functions
-  //
-
   // Return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
 
-  //
   // Permutations counters
-  //
 
   static int count_eq_permutations(int const num_dims, int const limit);
 
@@ -75,23 +67,16 @@ public:
 
   static int count_max_permutations(int const num_dims, int const limit);
 
-  //
   // Permutations builders
-  //
 
   static fk::matrix<int> get_eq_permutations(int const num_dims,
                                              int const limit,
                                              bool const order_by_n);
 
-  // Produce n-tuples (n == 'num_dims') whose elements are non-negative and
-  // their sum <= 'limit'. Each tuple becomes a row of the output matrix
   static fk::matrix<int> get_leq_permutations(int const num_dims,
                                               int const limit,
                                               bool const order_by_n);
 
-  // Produce n-tuples (n == 'num_dims') whose elements are non-negative and the
-  // max element <= 'limit' (for full grid only). Each tuple becomes a row of
-  // the output matrix
   static fk::matrix<int> get_max_permutations(int const num_dims,
                                               int const limit,
                                               bool const last_index_decreasing);
