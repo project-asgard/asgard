@@ -183,6 +183,12 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     fk::vector<TestType> const gold{290, 490, 690};
     REQUIRE((testv * testm) == gold);
   }
+  SECTION("vector*scalar operator")
+  {
+    TestType scale = static_cast<TestType>(-2);
+    fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
+    REQUIRE((gold * scale) == gold_scaled);
+  }
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
