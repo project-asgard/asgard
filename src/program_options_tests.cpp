@@ -18,30 +18,10 @@ TEST_CASE("options constructor/getters", "[options]")
     double cfl             = 2.0;
 
     // set up test inputs directly from golden values
-    std::vector<std::string> arguments = {"asgard",
-                                          "-p",
-                                          pde_choice,
-                                          "-l",
-                                          std::to_string(level),
-                                          "-d",
-                                          std::to_string(degree),
-                                          "-w",
-                                          std::to_string(write),
-                                          "-z",
-                                          std::to_string(vis),
-                                          "-f",
-                                          "-i",
-                                          "-s",
-                                          "-c",
-                                          std::to_string(cfl)};
-    std::vector<char *> argv;
-    for (const auto &arg : arguments)
-    {
-      argv.push_back(const_cast<char *>(arg.data()));
-    }
-    argv.push_back(nullptr);
-
-    Options o(argv.size() - 1, argv.data());
+    Options o = make_options({"-p", pde_choice, "-l", std::to_string(level),
+                              "-d", std::to_string(degree), "-w",
+                              std::to_string(write), "-z", std::to_string(vis),
+                              "-f", "-i", "-s", "-c", std::to_string(cfl)});
 
     REQUIRE(o.get_degree() == degree);
     REQUIRE(o.get_level() == level);
@@ -51,7 +31,6 @@ TEST_CASE("options constructor/getters", "[options]")
     REQUIRE(o.do_poisson_solve());
     REQUIRE(o.get_cfl() == cfl);
     REQUIRE(o.get_selected_pde() == pde);
-
     REQUIRE(o.is_valid());
   }
 
@@ -68,15 +47,7 @@ TEST_CASE("options constructor/getters", "[options]")
     double def_cfl     = 0.1;
     PDE_opts def_pde   = PDE_opts::vlasov4;
 
-    std::vector<std::string> arguments = {"asgard"};
-    std::vector<char *> argv;
-    for (const auto &arg : arguments)
-    {
-      argv.push_back(const_cast<char *>(arg.data()));
-    }
-    argv.push_back(nullptr);
-
-    Options o(argv.size() - 1, argv.data());
+    Options o = make_options({});
 
     REQUIRE(o.get_degree() == def_degree);
     REQUIRE(o.get_level() == def_level);
@@ -88,73 +59,37 @@ TEST_CASE("options constructor/getters", "[options]")
     REQUIRE(o.do_poisson_solve() == def_poisson);
     REQUIRE(o.get_cfl() == def_cfl);
     REQUIRE(o.get_selected_pde() == def_pde);
-
     REQUIRE(o.is_valid());
   }
 
   SECTION("out of range pde")
   {
-    std::vector<std::string> arguments = {"asgard", "-p", "2 1337 4 u gg"};
-    std::vector<char *> argv;
-    for (const auto &arg : arguments)
-    {
-      argv.push_back(const_cast<char *>(arg.data()));
-    }
-    argv.push_back(nullptr);
-
     std::cerr.setstate(std::ios_base::failbit);
-    Options o(argv.size() - 1, argv.data());
+    Options o = make_options({"asgard", "-p", "2 1337 4 u gg"});
     std::cerr.clear();
-
     REQUIRE(!o.is_valid());
   }
 
   SECTION("negative level")
   {
-    std::vector<std::string> arguments = {"asgard", "-l=-2"};
-    std::vector<char *> argv;
-    for (const auto &arg : arguments)
-    {
-      argv.push_back(const_cast<char *>(arg.data()));
-    }
-    argv.push_back(nullptr);
-
     std::cerr.setstate(std::ios_base::failbit);
-    Options o(argv.size() - 1, argv.data());
+    Options o = make_options({"asgard", "-l=-2"});
     std::cerr.clear();
-
     REQUIRE(!o.is_valid());
   }
 
   SECTION("negative degree")
   {
-    std::vector<std::string> arguments = {"asgard", "-d=-2"};
-    std::vector<char *> argv;
-    for (const auto &arg : arguments)
-    {
-      argv.push_back(const_cast<char *>(arg.data()));
-    }
-    argv.push_back(nullptr);
-
     std::cerr.setstate(std::ios_base::failbit);
-    Options o(argv.size() - 1, argv.data());
+    Options o = make_options({"asgard", "-d=-2"});
     std::cerr.clear();
-
     REQUIRE(!o.is_valid());
   }
 
   SECTION("negative cfl")
   {
-    std::vector<std::string> arguments = {"asgard", "-c=-2.0"};
-    std::vector<char *> argv;
-    for (const auto &arg : arguments)
-    {
-      argv.push_back(const_cast<char *>(arg.data()));
-    }
-    argv.push_back(nullptr);
-
     std::cerr.setstate(std::ios_base::failbit);
-    Options o(argv.size() - 1, argv.data());
+    Options o = make_options({"asgard", "-c=-2.0"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }
