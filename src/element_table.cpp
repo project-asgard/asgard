@@ -12,7 +12,7 @@
 // Construct forward and reverse element tables
 element_table::element_table(Options const program_opts, int const num_dims)
 {
-  int const num_levels = program_opts.get_level();
+  int const num_levels     = program_opts.get_level();
   bool const use_full_grid = program_opts.using_full_grid();
 
   assert(num_dims > 0);
@@ -23,7 +23,7 @@ element_table::element_table(Options const program_opts, int const num_dims)
   // of some number of elements' coordinates
   fk::matrix<int> const perm_table =
       use_full_grid ? get_max_permutations(num_dims, num_levels, false)
-                : get_leq_permutations(num_dims, num_levels, false);
+                    : get_leq_permutations(num_dims, num_levels, false);
 
   // in the matlab, the tables sizes are precomputed/preallocated.
   // I wrote the code to do that, however, this isn't a performance
@@ -102,7 +102,8 @@ int element_table::get_1d_index(int const level, int const cell) const
 // Return the cell indices, given a level tuple
 // Each row in the returned matrix is the cell portion of an element's
 // coordinate
-fk::matrix<int> element_table::get_cell_index_set(fk::vector<int> const level_tuple)
+fk::matrix<int>
+element_table::get_cell_index_set(fk::vector<int> const level_tuple)
 {
   assert(level_tuple.size() > 0);
   for (auto const level : level_tuple)
@@ -326,7 +327,7 @@ fk::matrix<int> element_table::get_leq_permutations(int const num_dims,
 // (for full grid only). Each tuple becomes a row of the output matrix
 fk::matrix<int>
 element_table::get_max_permutations(int const num_dims, int const limit,
-                                bool const last_index_decreasing)
+                                    bool const last_index_decreasing)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
