@@ -333,21 +333,25 @@ fk::vector<P>::vector(vector<P> const &a)
 }
 
 //
-// matrix conversion constructor
-// linearizes the matrix, i.e. stacks
-// the columns of the matrix into a
-// single vector
+// matrix conversion constructor linearizes the matrix, i.e. stacks the columns
+// of the matrix into a single vector
 //
 template<typename P>
 fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 {
-  assert(mat.size() > 0);
   size_ = mat.size();
-
-  int i = 0;
-  for (auto const &elem : mat)
+  if((*this).size() == 0)
   {
-    (*this)(i++) = elem;
+    delete [] data_;
+    data_ = nullptr;
+  }
+  else
+  {
+    int i = 0;
+    for (auto const &elem : mat)
+    {
+      (*this)(i++) = elem;
+    }
   }
 }
 
