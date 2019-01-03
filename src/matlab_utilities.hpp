@@ -126,6 +126,51 @@ fk::matrix<P> eye(int const M, int const N)
   return id;
 }
 
+//-----------------------------------------------------------------------------
+// C++ implementation of subset of matlab polyval
+// Function for evaluating a polynomial.
+//
+// Returns the value of a polynomial p evaluated for
+// x / each element of x.
+// p is a vector of length n+1 whose elements are
+// the coefficients of the polynomial in descending powers.
+
+// y = p(0)*x^n + p(1)*x^(n-1) + ... + p(n-1)*x + p(n)
+//-----------------------------------------------------------------------------
+template<typename P>
+P polyval(fk::vector<P> const p, P const x)
+{
+  int const num_terms = p.size();
+  assert(num_terms > 0);
+
+  P y = static_cast<P>(0.0);
+  for (int i = 0; i < num_terms - 1; ++i)
+  {
+    int const deg = num_terms - i - 1;
+    y += p(i) * static_cast<P>(std::pow(x, deg));
+  }
+  y += p(num_terms - 1);
+
+  return y;
+}
+
+template<typename P>
+fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x)
+{
+  int const num_terms = p.size();
+  int const num_sols  = x.size();
+  assert(num_terms > 0);
+  assert(num_sols > 0);
+
+  fk::vector<P> solutions(num_sols);
+  for (int i = 0; i < num_sols; ++i)
+  {
+    solutions(i) = polyval(p, x(i));
+  }
+
+  return solutions;
+}
+
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
 fk::vector<double> readVectorFromBinFile(std::string const &path);
