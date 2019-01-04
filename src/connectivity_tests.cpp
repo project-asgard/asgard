@@ -1,11 +1,11 @@
-#include "element_table.hpp"
+#include "connectivity.hpp"
 
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 #include <string>
 #include <vector>
 
-TEST_CASE("Constructor/accessors/size", "[element_table]")
+TEST_CASE("element table constructor/accessors/size", "[connectivity]")
 {
   int const levels = 1;
   int const dims   = 1;
@@ -35,28 +35,11 @@ TEST_CASE("Constructor/accessors/size", "[element_table]")
   REQUIRE(t_3.get_index(element_4000) == 4000);
   REQUIRE(t_3.get_coords(4000) == element_4000);
 
-  SECTION("Size", "[element_table]")
+  SECTION("element table size", "[connectivity]")
   {
     REQUIRE(t.size() == 2);
     REQUIRE(t_2.size() == 20);
     REQUIRE(t_3.size() == 4096);
-  }
-}
-
-TEST_CASE("one-dimensional indexing", "[element_table]")
-{
-  element_table t(make_options({}), 1);
-  SECTION("simple test for indexing function")
-  {
-    // test some vals calc'ed by hand :)
-    std::vector<int> const golds{1, 1, 524389};
-    std::vector<int> const levels{0, 0, 20};
-    std::vector<int> const cells{0, 500, 100};
-
-    for (size_t i = 0; i < golds.size(); ++i)
-    {
-      REQUIRE(t.get_1d_index(levels[i], cells[i]) == golds[i]);
-    }
   }
 }
 
@@ -65,7 +48,7 @@ TEST_CASE("one-dimensional indexing", "[element_table]")
 // these aren't part of the API and can be removed after class development
 // if we want to make these static functions private
 
-TEST_CASE("Lev/cell indexing functions", "[element_table]")
+TEST_CASE("Lev/cell indexing functions", "[connectivity]")
 {
   element_table t(make_options({}), 1);
 
@@ -86,7 +69,7 @@ TEST_CASE("Lev/cell indexing functions", "[element_table]")
   }
 }
 
-TEST_CASE("Permutations enumerators", "[element_table]")
+TEST_CASE("Permutations enumerators", "[connectivity]")
 {
   element_table t(make_options({}), 1);
   SECTION("permutations eq enumeration")
@@ -124,7 +107,7 @@ TEST_CASE("Permutations enumerators", "[element_table]")
   }
 }
 
-TEST_CASE("Permutations builders", "[element_table]")
+TEST_CASE("Permutations builders", "[connectivity]")
 {
   element_table t(make_options({}), 1);
 
@@ -233,6 +216,22 @@ TEST_CASE("Permutations builders", "[element_table]")
     for (size_t i = 0; i < golds.size(); ++i)
     {
       REQUIRE(t.get_max_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+    }
+  }
+}
+
+TEST_CASE("one-dimensional indexing", "[connectivity]")
+{
+  SECTION("simple test for indexing function")
+  {
+    // test some vals calc'ed by hand :)
+    std::vector<int> const golds{0, 0, 524388};
+    std::vector<int> const levels{0, 0, 20};
+    std::vector<int> const cells{0, 500, 100};
+
+    for (size_t i = 0; i < golds.size(); ++i)
+    {
+      REQUIRE(get_1d_index(levels[i], cells[i]) == golds[i]);
     }
   }
 }

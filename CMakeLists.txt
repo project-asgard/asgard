@@ -42,7 +42,7 @@ include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 
 # define the components and how to build and link the components together
 set (components
-  element_table
+  connectivity
   matlab_utilities
   pde
   program_options
@@ -72,7 +72,7 @@ target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 add_executable (asgard src/main.cpp)
 
 set (main_app_link_deps
-  element_table
+  connectivity
   matlab_utilities
   pde
   program_options

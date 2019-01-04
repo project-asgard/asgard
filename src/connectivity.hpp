@@ -49,9 +49,6 @@ public:
     return forward_table.size();
   }
 
-  // Given a cell and level coordinate, return a 1-dimensional index
-  int get_1d_index(int const level, int const cell) const;
-
   //
   // Static construction helpers
   // (these will likely become private at some point)
@@ -88,3 +85,9 @@ private:
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
 };
+
+//
+// Connectivity functions
+//
+
+int get_1d_index(int const level, int const cell);
