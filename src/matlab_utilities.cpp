@@ -1,7 +1,7 @@
 
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
-
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <fstream>
@@ -114,6 +114,20 @@ fk::matrix<P> eye(int const M, int const N)
   for (auto i = 0; i < (M < N ? M : N); ++i)
     id(i, i) = 1.0;
   return id;
+}
+
+
+// find the indices in an fk::vector for which the predicate is true
+template<typename P>
+std::vector<int> find(fk::vector<P> const vect, std::function<bool(P)> pred)
+{
+  auto iter = vect.begin();
+  std::vector<int> result;
+  while ((iter = std::find_if(iter, vect.end(), pred)) != vect.end())
+  {
+    result.push_back(std::distance(vect.begin(), iter++));
+  }
+  return result;
 }
 
 //-----------------------------------------------------------------------------

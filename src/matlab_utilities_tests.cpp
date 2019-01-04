@@ -129,7 +129,27 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
     REQUIRE(test == gold);
   }
 }
-
+TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
+{
+  fk::vector<TestType> haystack{2, 3, 4, 5, 6};
+  SECTION("empty find")
+  {
+    std::vector<int> gold;
+    int const needle                         = 7;
+    std::function<bool(TestType)> greater_eq = [](TestType i) {
+      return i >= needle;
+    };
+    REQUIRE(find(haystack, greater_eq) == gold);
+  }
+  SECTION("find a group")
+  {
+    std::vector<int> gold                 = {0, 2, 4};
+    std::function<bool(TestType)> is_even = [](TestType i) {
+      return (static_cast<int>(i) % 2) == 0;
+    };
+    REQUIRE(find(haystack, is_even) == gold);
+  }
+}
 TEST_CASE("readVectorFromBinFile returns expected vector", "[matlab]")
 {
   SECTION("readVectorFromBinFile gets 100-element row vector")

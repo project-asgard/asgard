@@ -1,7 +1,9 @@
 #pragma once
 
+#include <functional>
 #include "tensors.hpp"
 #include <string>
+#include <vector>
 
 //-----------------------------------------------------------------------------
 //
@@ -14,6 +16,37 @@
 // - matlab/octave file IO
 //    - readVectorFromTxtFile (tested for octave)
 //    - readVectorFromBinFile (tested for octave and matlab)
+//
+//-----------------------------------------------------------------------------
+
+
+// matlab's "linspace(start, end, N)" function
+//-----------------------------------------------------------------------------
+//
+// c++ implementation of matlab (a subset of) linspace() function
+// initial c++ implementation by Tyler McDaniel
+//
+// -- linspace (START, END)
+// -- linspace (START, END, N)
+//     Return a row vector with N linearly spaced elements between START
+//     and END.
+//
+//     If the number of elements is greater than one, then the endpoints
+//     START and END are always included in the range.  If START is
+//     greater than END, the elements are stored in decreasing order.  If
+//     the number of points is not specified, a value of 100 is used.
+//
+//     The 'linspace' function returns a row vector when both START and
+//     END are scalars.
+//
+//  (unsupported)
+//     If one, or both, inputs are vectors, then
+//     'linspace' transforms them to column vectors and returns a matrix
+//     where each row is an independent sequence between
+//     'START(ROW_N), END(ROW_N)'.
+//
+//     For compatibility with MATLAB, return the second argument (END)
+//     when only a single value (N = 1) is requested.
 //
 //-----------------------------------------------------------------------------
 
@@ -31,6 +64,10 @@ P polyval(fk::vector<P> const p, P const x);
 
 template<typename P>
 fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
+
+// find the indices in an fk::vector for which the predicate is true
+template<typename P>
+std::vector<int> find(fk::vector<P> const vect, std::function<bool(P)> pred);
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
@@ -56,7 +93,9 @@ extern template fk::matrix<double> eye(int const M = 1);
 extern template fk::matrix<int> eye(int const M, int const N);
 extern template fk::matrix<float> eye(int const M, int const N);
 extern template fk::matrix<double> eye(int const M, int const N);
-
+extern template std::vector<int> find(fk::vector<float> const vect, std::function<bool(float)> pred);
+extern template std::vector<int> find(fk::vector<double> const vect, std::function<bool(double)> pred);
+extern template std::vector<int> find(fk::vector<int> const vect, std::function<bool(int)> pred);
 extern template int polyval(fk::vector<int> const p, int const x);
 extern template float polyval(fk::vector<float> const p, float const x);
 extern template double polyval(fk::vector<double> const p, double const x);
