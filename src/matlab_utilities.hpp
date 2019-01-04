@@ -196,14 +196,13 @@ std::array<fk::vector<P>, 2> legendre(fk::vector<P> const x, int const degree)
     legendre_prime.update_col(1, std::vector<P>(num_x, static_cast<P>(1.0)));
   }
 
-  // FIXME I don't know what these vector names mean
   if (degree >= 3)
   {
-    fk::vector<P> legendre_ml = legendre.extract_submatrix(0, 0, num_x, 1);
-    fk::vector<P> legendre_prime_ml =
+    fk::vector<P> legendre_n_1 = legendre.extract_submatrix(0, 0, num_x, 1);
+    fk::vector<P> legendre_prime_n_1 =
         legendre_prime.extract_submatrix(0, 0, num_x, 1);
-    fk::vector<P> legendre_n = legendre.extract_submatrix(0, 1, num_x, 1);
-    fk::vector<P> legendre_prime_n =
+    fk::vector<P> legendre_n_2 = legendre.extract_submatrix(0, 1, num_x, 1);
+    fk::vector<P> legendre_prime_n_2 =
         legendre_prime.extract_submatrix(0, 1, num_x, 1);
 
     // set remaining columns
@@ -214,30 +213,29 @@ std::array<fk::vector<P>, 2> legendre(fk::vector<P> const x, int const degree)
       int const column_index = i + 2;
 
       fk::vector<P> product(num_x);
-      std::transform(x.begin(), x.end(), legendre_ml.begin(), product.begin(),
+      std::transform(x.begin(), x.end(), legendre_n_1.begin(), product.begin(),
                      std::multiplies<P>());
 
       P factor = 1.0 / (n + 1.0);
 
-      // FIXME I don't know what these names mean, either
       fk::vector<P> legendre_col = (product * static_cast<P>(2.0 * n + 1.0)) -
-                                   (legendre_ml * static_cast<P>(n));
+                                   (legendre_n_1 * static_cast<P>(n));
       legendre_col = legendre_col * factor;
       legendre.update_col(column_index, legendre_col);
 
-      std::transform(x.begin(), x.end(), legendre_prime_ml.begin(),
+      std::transform(x.begin(), x.end(), legendre_prime_n_1.begin(),
                      product.begin(), std::multiplies<P>());
 
       fk::vector<P> legendre_prime_col =
-          (product + legendre_n) * static_cast<P>(2.0 * n + 1.0) -
-          legendre_prime_ml * static_cast<P>(n);
+          (product + legendre_n_2) * static_cast<P>(2.0 * n + 1.0) -
+          legendre_prime_n_1 * static_cast<P>(n);
       legendre_prime_col = legendre_prime_col * factor;
       legendre_prime.update_col(column_index, legendre_prime_col);
 
-      legendre_ml       = legendre_n;
-      legendre_n        = legendre_col;
-      legendre_prime_ml = legendre_prime_n;
-      legendre_prime_n  = legendre_prime_col;
+      legendre_n_1       = legendre_n_2;
+      legendre_n_2       = legendre_col;
+      legendre_prime_n_1 = legendre_prime_n_2;
+      legendre_prime_n_2 = legendre_prime_col;
     }
   }
 
