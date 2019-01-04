@@ -209,7 +209,10 @@ public:
     }
     return fx;
   }
-  static P source_0_time(P const time) { return static_cast<P>(1.0); }
+  static P source_0_time(P const time)
+  {
+    return static_cast<P>(1.0) + 0 * time;
+  }
 
   // Source 1
   static std::vector<P> source_1_x0(std::vector<P> const x)
@@ -346,62 +349,38 @@ public:
   //
   static std::vector<P> initial_condition_x0(std::vector<P> const x)
   {
-    return std::vector<P>();
+    return x;
   }
   static std::vector<P> initial_condition_v0(std::vector<P> const x)
   {
-    return std::vector<P>();
+    return x;
   }
 
   //
   // Specify exact solution vectors/time function...
   //
-  static std::vector<P> exact_solution_x0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static std::vector<P> exact_solution_v0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static P exact_time(P const time) { return static_cast<P>(0.0); }
+  static std::vector<P> exact_solution_x0(std::vector<P> const x) { return x; }
+  static std::vector<P> exact_solution_v0(std::vector<P> const x) { return x; }
+  static P exact_time(P const time) { return static_cast<P>(0.0 * time); }
 
   //
   // Specify source functions...
   //
 
   // Source 0
-  static std::vector<P> source_0_x0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static std::vector<P> source_0_v0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static P source_0_time(P const time) { return static_cast<P>(0.0); }
+  static std::vector<P> source_0_x0(std::vector<P> const x) { return x; }
+  static std::vector<P> source_0_v0(std::vector<P> const x) { return x; }
+  static P source_0_time(P const time) { return static_cast<P>(0.0 * time); }
 
   // Source 1
-  static std::vector<P> source_1_x0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static std::vector<P> source_1_v0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
+  static std::vector<P> source_1_x0(std::vector<P> const x) { return x; }
+  static std::vector<P> source_1_v0(std::vector<P> const x) { return x; }
   static P source_1_time(P const time) { return time; }
 
   // Source 2
-  static std::vector<P> source_2_x0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static std::vector<P> source_2_v0(std::vector<P> const x)
-  {
-    return std::vector<P>();
-  }
-  static P source_2_time(P const time) { return static_cast<P>(0.0); }
+  static std::vector<P> source_2_x0(std::vector<P> const x) { return x; }
+  static std::vector<P> source_2_v0(std::vector<P> const x) { return x; }
+  static P source_2_time(P const time) { return static_cast<P>(0.0 * time); }
 
   //
   // Specify electric field...
