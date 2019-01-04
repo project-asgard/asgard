@@ -1,7 +1,6 @@
 
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <fstream>

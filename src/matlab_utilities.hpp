@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <functional>
 #include "tensors.hpp"
 #include <string>
@@ -67,7 +68,7 @@ fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
 
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>
-std::vector<int> find(fk::vector<P> const vect, Func pred)
+fk::vector<int> find(fk::vector<P> const vect, Func pred)
 {
   auto iter = vect.begin();
   std::vector<int> result;
@@ -75,9 +76,36 @@ std::vector<int> find(fk::vector<P> const vect, Func pred)
   {
     result.push_back(std::distance(vect.begin(), iter++));
   }
+  return fk::vector<int>(result);
+}
+// find for a matrix. returns a two-column matrix
+// whose rows are (r, c) indices satisfying the predicate
+template<typename P, typename Func>
+fk::matrix<int> find(fk::matrix<P> const matrix, Func pred)
+{
+  auto iter    = matrix.begin();
+  int num_rows = matrix.nrows();
+
+  std::vector<int> result_rows;
+  std::vector<int> result_cols;
+
+  while ((iter = std::find_if(iter, matrix.end(), pred)) != matrix.end())
+  {
+    int const index = std::distance(matrix.begin(), iter++);
+    result_rows.push_back(index % num_rows);
+    result_cols.push_back(index / num_rows);
+  }
+  int const num_entries = result_rows.size();
+  if (num_entries == 0)
+  {
+    return fk::matrix<int>();
+  }
+  fk::matrix<int> result(num_entries, 2);
+  result.update_col(0, result_rows);
+  result.update_col(1, result_cols);
+
   return result;
 }
-
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector

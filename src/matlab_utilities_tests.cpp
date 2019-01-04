@@ -132,22 +132,34 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
 TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
 {
   fk::vector<TestType> haystack{2, 3, 4, 5, 6};
-  SECTION("empty find")
+
+  int const needle = 7;
+  auto greater_eq  = [needle](TestType i) { return i >= needle; };
+
+  auto is_even = [](TestType i) { return (static_cast<int>(i) % 2) == 0; };
+  SECTION("empty find -- vector")
   {
-    std::vector<int> gold;
-    int const needle                         = 7;
-    std::function<bool(TestType)> greater_eq = [](TestType i) {
-      return i >= needle;
-    };
+    fk::vector<int> gold;
     REQUIRE(find(haystack, greater_eq) == gold);
   }
-  SECTION("find a group")
+  SECTION("find a group -- vector")
   {
-    std::vector<int> gold                 = {0, 2, 4};
-    std::function<bool(TestType)> is_even = [](TestType i) {
-      return (static_cast<int>(i) % 2) == 0;
-    };
+    fk::vector<int> gold = {0, 2, 4};
     REQUIRE(find(haystack, is_even) == gold);
+  }
+
+  fk::matrix<TestType> haystack_mat{{2, 3}, {4, 5}, {6, 6}};
+  SECTION("empty find -- matrix")
+  {
+    fk::matrix<int> gold;
+    REQUIRE(find(haystack_mat, greater_eq) == gold);
+  }
+  SECTION("find a group -- vector")
+  {
+    //clang-format off
+    fk::matrix<int> gold = {{0, 0}, {1, 0}, {2, 0}, {2, 1}};
+    //clang-format on
+    REQUIRE(find(haystack_mat, is_even) == gold);
   }
 }
 TEST_CASE("readVectorFromBinFile returns expected vector", "[matlab]")
