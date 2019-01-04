@@ -349,9 +349,9 @@ template<typename P>
 fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 {
   size_ = mat.size();
-  if((*this).size() == 0)
+  if ((*this).size() == 0)
   {
-    delete [] data_;
+    delete[] data_;
     data_ = nullptr;
   }
   else
