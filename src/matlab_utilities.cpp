@@ -116,20 +116,6 @@ fk::matrix<P> eye(int const M, int const N)
   return id;
 }
 
-
-// find the indices in an fk::vector for which the predicate is true
-template<typename P>
-std::vector<int> find(fk::vector<P> const vect, std::function<bool(P)> pred)
-{
-  auto iter = vect.begin();
-  std::vector<int> result;
-  while ((iter = std::find_if(iter, vect.end(), pred)) != vect.end())
-  {
-    result.push_back(std::distance(vect.begin(), iter++));
-  }
-  return result;
-}
-
 //-----------------------------------------------------------------------------
 // C++ implementation of subset of matlab polyval
 // Function for evaluating a polynomial.

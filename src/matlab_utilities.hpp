@@ -66,8 +66,18 @@ template<typename P>
 fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
 
 // find the indices in an fk::vector for which the predicate is true
-template<typename P>
-std::vector<int> find(fk::vector<P> const vect, std::function<bool(P)> pred);
+template<typename P, typename Func>
+std::vector<int> find(fk::vector<P> const vect, Func pred)
+{
+  auto iter = vect.begin();
+  std::vector<int> result;
+  while ((iter = std::find_if(iter, vect.end(), pred)) != vect.end())
+  {
+    result.push_back(std::distance(vect.begin(), iter++));
+  }
+  return result;
+}
+
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
@@ -93,9 +103,6 @@ extern template fk::matrix<double> eye(int const M = 1);
 extern template fk::matrix<int> eye(int const M, int const N);
 extern template fk::matrix<float> eye(int const M, int const N);
 extern template fk::matrix<double> eye(int const M, int const N);
-extern template std::vector<int> find(fk::vector<float> const vect, std::function<bool(float)> pred);
-extern template std::vector<int> find(fk::vector<double> const vect, std::function<bool(double)> pred);
-extern template std::vector<int> find(fk::vector<int> const vect, std::function<bool(int)> pred);
 extern template int polyval(fk::vector<int> const p, int const x);
 extern template float polyval(fk::vector<float> const p, float const x);
 extern template double polyval(fk::vector<double> const p, double const x);
