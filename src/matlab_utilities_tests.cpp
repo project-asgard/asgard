@@ -130,40 +130,43 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
   }
 }
 
-TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double, float) {
+TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
+                   float)
+{
+  fk::vector<TestType> in = {-1.0};
 
-fk::vector<TestType> in = {-1.0};
-	
-SECTION("legendre(-1,0)") {
-
-  fk::matrix<TestType> poly_gold = {{1.0}};
-  fk::matrix<TestType> deriv_gold = {{0.0}}; 
-  int const degree = 0;
-  auto [deriv, poly] = legendre(in, degree);
-  REQUIRE(poly == poly_gold);
-  REQUIRE(deriv == deriv_gold);
-}
-SECTION("legendre(-1,1") {
- 
-  fk::matrix<TestType> poly_gold = {{-1.0}};
-  fk::matrix<TestType> deriv_gold = {{1.0}};
-  int const degree = 1;
-  auto [deriv, poly] = legendre(in, degree);
-  REQUIRE(poly == poly_gold);
-  REQUIRE(deriv == deriv_gold);
-}
-SECTION("legendre([-0.5, 0.8], 3)") {
-
-  fk::matrix<TestType> poly_gold = {{1.0, -0.866025403784439, -0.279508497187474},
-                                    {1.0, 1.385640646055102, 1.028591269649904}};
-  fk::matrix<TestType> deriv_gold = {{0.0, 1.732050807568877, -3.354101966249685},
-                                     {0.0, 1.732050807568877, 5.366563145999496}};
-  fk::vector<TestType> input = {-0.5, 0.8};
-  int const degree = 3;
-  auto [deriv, poly] = legendre(input, degree);
-  REQUIRE(poly == poly_gold);
-  REQUIRE(deriv == deriv_gold);
-}
+  SECTION("legendre(-1,0)")
+  {
+    fk::matrix<TestType> poly_gold  = {{1.0}};
+    fk::matrix<TestType> deriv_gold = {{0.0}};
+    int const degree                = 0;
+    auto [deriv, poly]              = legendre(in, degree);
+    REQUIRE(poly == poly_gold);
+    REQUIRE(deriv == deriv_gold);
+  }
+  SECTION("legendre(-1,1")
+  {
+    fk::matrix<TestType> poly_gold  = {{-1.0}};
+    fk::matrix<TestType> deriv_gold = {{1.0}};
+    int const degree                = 1;
+    auto [deriv, poly]              = legendre(in, degree);
+    REQUIRE(poly == poly_gold);
+    REQUIRE(deriv == deriv_gold);
+  }
+  SECTION("legendre([-0.5, 0.8], 3)")
+  {
+    fk::matrix<TestType> poly_gold = {
+        {1.0, -0.866025403784439, -0.279508497187474},
+        {1.0, 1.385640646055102, 1.028591269649904}};
+    fk::matrix<TestType> deriv_gold = {
+        {0.0, 1.732050807568877, -3.354101966249685},
+        {0.0, 1.732050807568877, 5.366563145999496}};
+    fk::vector<TestType> input = {-0.5, 0.8};
+    int const degree           = 3;
+    auto [deriv, poly]         = legendre(input, degree);
+    REQUIRE(poly == poly_gold);
+    REQUIRE(deriv == deriv_gold);
+  }
 }
 
 TEST_CASE("readVectorFromBinFile returns expected vector", "[matlab]")

@@ -35,8 +35,8 @@ extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
 // vector-scalar multiply
 // y := x*alpha
 // --------------------------------------------------------------------------
-extern "C" double dscal_(int *n, double alpha, double *X, int *incx);
-extern "C" float sscal_(int *n, float alpha, float *X, int *incx);
+extern "C" double dscal_(int *n, double *alpha, double *X, int *incx);
+extern "C" float sscal_(int *n, float *alpha, float *X, int *incx);
 
 // --------------------------------------------------------------------------
 // matrix-vector multiply
@@ -638,22 +638,23 @@ fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
 template<typename P>
 fk::vector<P> fk::vector<P>::operator*(P const x) const
 {
-  vector<P> a = *this;
-  int one_i   = 1;
-  int n       = a.size();
+  vector<P> a(*this);
+  int one_i = 1;
+  int n     = a.size();
+  P alpha   = x;
   if constexpr (std::is_same<P, double>::value)
   {
-    dscal_(&n, x, a.data(), &one_i);
+    dscal_(&n, &alpha, a.data(), &one_i);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sscal_(&n, x, a.data(), &one_i);
+    sscal_(&n, &alpha, a.data(), &one_i);
   }
   else
   {
     for (int i = 0; i < n; ++i)
     {
-      a(i) *= x;
+      a(i) *= alpha;
     }
   }
   return a;

@@ -218,9 +218,10 @@ std::array<fk::vector<P>, 2> legendre(fk::vector<P> const x, int const degree)
                      std::multiplies<P>());
 
       P factor = 1.0 / (n + 1.0);
-      x*factor;
+
       // FIXME I don't know what these names mean, either
-      fk::vector<P> legendre_col = (product * static_cast<P>(2.0 * n + 1.0))  - (legendre_ml * static_cast<P>(n));
+      fk::vector<P> legendre_col = (product * static_cast<P>(2.0 * n + 1.0)) -
+                                   (legendre_ml * static_cast<P>(n));
       legendre_col = legendre_col * factor;
       legendre.update_col(column_index, legendre_col);
 
@@ -228,7 +229,8 @@ std::array<fk::vector<P>, 2> legendre(fk::vector<P> const x, int const degree)
                      product.begin(), std::multiplies<P>());
 
       fk::vector<P> legendre_prime_col =
-         (product + legendre_n) * static_cast<P>(2.0 * n + 1.0)  - legendre_prime_ml * static_cast<P>(n);
+          (product + legendre_n) * static_cast<P>(2.0 * n + 1.0) -
+          legendre_prime_ml * static_cast<P>(n);
       legendre_prime_col = legendre_prime_col * factor;
       legendre_prime.update_col(column_index, legendre_prime_col);
 
@@ -255,18 +257,18 @@ std::array<fk::vector<P>, 2> legendre(fk::vector<P> const x, int const degree)
   // "zero out points out of range"
   auto iter = x.begin();
   while ((iter = std::find_if(iter, x.end(), [](P elem) {
-                   return elem < static_cast<P>(1.0) ||
-                          elem > static_cast<P>(1.0);
-                 })) != x.end())
+            return elem < static_cast<P>(1.0) || elem > static_cast<P>(1.0);
+          })) != x.end())
   {
     int index = std::distance(x.begin(), iter++);
-    legendre.update_row(index, std::vector<P>(std::max(degree,1), static_cast<P>(0.0)));
-    legendre_prime.update_row(index,
-                              std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
+    legendre.update_row(
+        index, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
+    legendre_prime.update_row(
+        index, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
   }
 
   // "scaling to use normalization"
-  legendre = legendre * static_cast<P>(std::sqrt(2.0));
+  legendre       = legendre * static_cast<P>(std::sqrt(2.0));
   legendre_prime = legendre_prime * static_cast<P>(std::sqrt(2.0));
 
   return {legendre, legendre_prime};
