@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include "matlab_utilities.hpp"
 #include <numeric>
 #include "tensors.hpp"
 #include <vector>
@@ -207,6 +208,91 @@ fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
     fk::vector<int> last_col = std::vector<int>(rows, last_entry);
     partial_result.update_col(num_dims - 1, last_col);
     result.set_submatrix(row_position, 0, partial_result);
+  }
+
+  return result;
+}
+
+//
+// Index finding functions
+//
+
+// count the number of rows in the matrix returned by the index finder
+int count_leq_max_indices(list_set lists, int const num_dims, int const max_sum,
+                          int const max_val)
+{
+  assert(lists.size() > 0);
+  assert(num_dims > 0);
+  assert(num_dims <= static_cast<int>(lists.size()));
+
+  // base case
+  if (num_dims == 1)
+  {
+    auto is_valid = [max_sum, max_val](int const &i) {
+      return (i <= max_sum) && (i <= max_val);
+    };
+    return find(lists[0], is_valid).size();
+  }
+
+  // recursive count
+  int count            = 0;
+  fk::vector<int> list = lists[num_dims - 1];
+  auto is_valid        = [max_val](int const &i) { return i <= max_val; };
+  auto valid_indices   = find(list, is_valid);
+  for (auto i = 0; i < valid_indices.size(); ++i)
+  {
+    int const balance = max_sum - list(i);
+    count += count_leq_max_indices(lists, num_dims - 1, balance, max_val);
+  }
+  return count;
+}
+
+// given a set of integer lists and a sum and value limit, build an n*num_lists
+// matrix whose elements are indices into the lists (column x contains an index
+// into list x). when elements are used to reference their corresponding list,
+// each row will contain a tuple whose sum is less than max_sum and whose
+// maximum value is less than max_val.
+// FIXME rework this description...
+fk::matrix<int> get_leq_max_indices(list_set lists, int const num_dims,
+                                    int const max_sum, int const max_val)
+{
+  assert(lists.size() > 0);
+  assert(num_dims > 0);
+  assert(num_dims <= static_cast<int>(lists.size()));
+
+  int const num_entries =
+      count_leq_max_indices(lists, num_dims, max_sum, max_val);
+  fk::matrix<int> result(num_entries, num_dims);
+
+  // base case
+  if (num_dims == 1)
+  {
+    auto is_valid = [max_sum, max_val](int const &i) {
+      return (i <= max_sum) && (i <= max_val);
+    };
+    fk::vector<int> indices = find(lists[0], is_valid);
+    result.update_col(0, indices);
+    return result;
+  }
+
+  // recursive build
+  int row_pos          = 0;
+  fk::vector<int> list = lists[num_dims - 1];
+  auto is_valid        = [max_val](int const &i) { return i <= max_val; };
+  auto valid_indices   = find(list, is_valid);
+
+  for (auto i = 0; i < valid_indices.size(); ++i)
+  {
+    int const balance = max_sum - list(i);
+    int const num_rows =
+        count_leq_max_indices(lists, num_dims - 1, balance, max_val);
+    fk::matrix<int> const partial_result =
+        get_leq_max_indices(lists, num_dims - 1, balance, max_val);
+    result.set_submatrix(row_pos, 0, partial_result);
+    fk::matrix<int> last_col(num_rows, 1);
+    last_col = std::vector<int>(num_rows, i);
+    result.set_submatrix(row_pos, num_dims - 1, last_col);
+    row_pos += num_rows;
   }
 
   return result;

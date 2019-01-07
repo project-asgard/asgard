@@ -38,6 +38,15 @@ TEST_CASE("Permutations enumerators", "[permutations]")
       REQUIRE(count_max_permutations(dims[i], ns[i]) == golds[i]);
     }
   }
+  SECTION("index leq max enumeration")
+  {
+    list_set lists{{0, 1}, {0, 3}, {0, 1}, {2, 5}};
+    int const max_sum = 5;
+    int const max_val = 3;
+    int const gold    = 5;
+    REQUIRE(count_leq_max_indices(lists, lists.size(), max_sum, max_val) ==
+            gold);
+  }
 }
 
 TEST_CASE("Permutations builders", "[permutations]")
@@ -148,5 +157,16 @@ TEST_CASE("Permutations builders", "[permutations]")
     {
       REQUIRE(get_max_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
     }
+  }
+  SECTION("index leq max build")
+  {
+    list_set lists{{0, 1}, {0, 3}, {0, 1}, {2, 5}};
+    int const max_sum = 5;
+    int const max_val = 3;
+    //clang-format off
+    fk::matrix<int> const gold = {
+        {0, 0, 0, 0}, {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {1, 0, 1, 0}};
+    //clang-format on
+    REQUIRE(get_leq_max_indices(lists, lists.size(), max_sum, max_val) == gold);
   }
 }

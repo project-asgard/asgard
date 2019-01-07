@@ -1,5 +1,6 @@
 #pragma once
 #include "tensors.hpp"
+#include <vector>
 
 // -----------------------------------------------------------------------------
 // permutations
@@ -26,3 +27,15 @@ fk::matrix<int> get_leq_permutations(int const num_dims, int const limit,
 
 fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
                                      bool const last_index_decreasing);
+
+// Index counter
+
+using list_set = std::vector<fk::vector<int>>;
+
+int count_leq_max_indices(list_set lists, int const num_dims, int const max_sum,
+                          int const max_val);
+
+// Index finder
+
+fk::matrix<int> get_leq_max_indices(list_set lists, int const num_dims,
+                                    int const max_sum, int const max_val);
