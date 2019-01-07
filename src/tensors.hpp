@@ -885,7 +885,7 @@ fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> &&a)
 }
 
 //
-// copy out of fk::vector - assumes the std::vector is column-major
+// copy out of fk::vector - assumes the vector is column-major
 //
 template<typename P>
 fk::matrix<P> &fk::matrix<P>::operator=(fk::vector<P> const &v)
