@@ -4,6 +4,7 @@
 #include "tensors.hpp"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <functional>
 #include <map>
 #include <numeric>
