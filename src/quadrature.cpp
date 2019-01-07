@@ -1,5 +1,11 @@
 #include "quadrature.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <functional>
+
 // Evaluate Legendre polynomials on an input domain, trimmed to [-1,1]
 // Virtually a direct translation of Ed's dlegendre2.m code
 //

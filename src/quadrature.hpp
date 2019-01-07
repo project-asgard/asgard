@@ -2,6 +2,8 @@
 
 #include "tensors.hpp"
 
+#include <array>
+
 template<typename P>
 std::enable_if_t<std::is_floating_point<P>::value, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const domain, int const degree);
