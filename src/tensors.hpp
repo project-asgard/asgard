@@ -197,7 +197,6 @@ public:
   matrix();
   matrix(int rows, int cols);
   matrix(std::initializer_list<std::initializer_list<P>> list);
-  matrix(std::vector<P> const &);
 
   ~matrix();
 
@@ -212,9 +211,9 @@ public:
   matrix<P> &operator=(matrix<P> &&);
 
   //
-  // copy out of std::vector
+  // copy out of fk::vector
   //
-  matrix<P> &operator=(std::vector<P> const &);
+  matrix<P> &operator=(fk::vector<P> const &);
   //
   // subscripting operators
   //
@@ -780,24 +779,6 @@ fk::matrix<P>::matrix(std::initializer_list<std::initializer_list<P>> llist)
   }
 }
 
-//
-// to enable conversions from std::vector to an assumed square matrix
-// this isn't meant to be very robust; more of a convenience for testing
-// purposes
-//
-
-template<typename P>
-fk::matrix<P>::matrix(std::vector<P> const &v) : data_{new P[v.size()]}
-{
-  P iptr;
-  assert(std::modf(std::sqrt(v.size()), &iptr) == 0);
-  nrows_ = std::sqrt(v.size());
-  ncols_ = std::sqrt(v.size());
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
-      (*this)(i, j) = v[j + i * ncols()];
-}
-
 template<typename P>
 fk::matrix<P>::~matrix()
 {
@@ -904,16 +885,16 @@ fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> &&a)
 }
 
 //
-// copy out of std::vector - assumes the std::vector is column-major
+// copy out of fk::vector - assumes the vector is column-major
 //
 template<typename P>
-fk::matrix<P> &fk::matrix<P>::operator=(std::vector<P> const &v)
+fk::matrix<P> &fk::matrix<P>::operator=(fk::vector<P> const &v)
 {
-  assert(nrows() * ncols() == static_cast<int>(v.size()));
+  assert(nrows() * ncols() == v.size());
 
   for (auto j = 0; j < ncols(); ++j)
     for (auto i = 0; i < nrows(); ++i)
-      (*this)(i, j) = v[j + i * ncols()];
+      (*this)(i, j) = v(j + i * ncols());
 
   return *this;
 }

@@ -418,16 +418,25 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
   SECTION("copy from std::vector")
   {
     // clang-format off
-    std::vector<TestType> v
+    std::vector<TestType> vstd
+      {12, 22, 32,
+       13, 23, 33,
+       14, 24, 34,
+       15, 25, 35,
+       16, 26, 36};
+    fk::vector<TestType> vfk
       {12, 22, 32,
        13, 23, 33,
        14, 24, 34,
        15, 25, 35,
        16, 26, 36};
     // clang-format on
-    fk::matrix<TestType> test(5, 3);
-    test = v;
-    REQUIRE(test == gold);
+    fk::matrix<TestType> teststd(5, 3);
+    teststd = fk::vector<TestType>{vstd};
+    REQUIRE(teststd == gold);
+    fk::matrix<TestType> testfk(5, 3);
+    testfk = vfk;
+    REQUIRE(testfk == gold);
   }
 } // end fk::matrix constructors, copy/move
 
