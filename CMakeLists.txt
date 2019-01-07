@@ -43,7 +43,9 @@ include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # define the components and how to build and link the components together
 set (components
   connectivity
+  element_table
   matlab_utilities
+  permutations
   pde
   program_options
   quadrature
@@ -59,6 +61,10 @@ if (build_OpenBLAS)
   set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
 endif ()
 
+target_link_libraries (connectivity PRIVATE element_table)
+
+target_link_libraries (element_table PRIVATE permutations)
+
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
 target_link_libraries (program_options PRIVATE clara)
@@ -73,6 +79,7 @@ add_executable (asgard src/main.cpp)
 
 set (main_app_link_deps
   connectivity
+  element_table
   matlab_utilities
   pde
   program_options
