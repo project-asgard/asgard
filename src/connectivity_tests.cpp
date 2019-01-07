@@ -23,17 +23,21 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
   {
     int const num_levels = 1;
     fk::matrix<int> gold = {{1, 1}, {1, 1}};
-    REQUIRE(connect_1d(num_levels) == gold);
+    REQUIRE(make_1d_connectivity(num_levels) == gold);
   }
   SECTION("one-dimensional connectivity function, levels = 3")
   {
     int const num_levels = 3;
-    //clang-format off
-    fk::matrix<int> gold = {{1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1},
-                            {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1},
-                            {1, 1, 1, 1, 1, 1, 0, 1}, {1, 1, 1, 1, 1, 1, 1, 0},
-                            {1, 1, 1, 1, 0, 1, 1, 1}, {1, 1, 1, 1, 1, 0, 1, 1}};
-    //clang-format on
-    REQUIRE(connect_1d(num_levels) == gold);
+    // clang-format off
+    fk::matrix<int> gold = {{1, 1, 1, 1, 1, 1, 1, 1}, 
+	    		    {1, 1, 1, 1, 1, 1, 1, 1},
+                            {1, 1, 1, 1, 1, 1, 1, 1}, 
+			    {1, 1, 1, 1, 1, 1, 1, 1},
+                            {1, 1, 1, 1, 1, 1, 0, 1}, 
+			    {1, 1, 1, 1, 1, 1, 1, 0},
+                            {1, 1, 1, 1, 0, 1, 1, 1}, 
+			    {1, 1, 1, 1, 1, 0, 1, 1}};
+    // clang-format on
+    REQUIRE(make_1d_connectivity(num_levels) == gold);
   }
 }

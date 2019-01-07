@@ -19,7 +19,7 @@ int get_1d_index(int const level, int const cell)
 }
 
 // Build connectivity for single dimension
-fk::matrix<int> connect_1d(int const num_levels)
+fk::matrix<int> make_1d_connectivity(int const num_levels)
 {
   assert(num_levels > 0);
 
@@ -103,4 +103,50 @@ fk::matrix<int> connect_1d(int const num_levels)
     }
   }
   return grid;
+}
+
+
+
+// Generate connectivity for num_dims dimensions
+//
+// From MATLAB:
+// This code is to generate the ndimensional connectivity...
+// Here, we consider the maximum connectivity, which includes all overlapping cells, neighbor cells, and the periodic boundary cells
+fk::matrix<int> make_connectivity(element_table table, int const num_dims, int const max_level_sum, int const max_level_val, bool const sort_J) {
+  
+  // step 1: generate 1d connectivity
+  int const num_levels = std::max(max_level_sum, max_level_val);
+  fk::matrix<int> connect_1d = make_1d_connectivity(num_levels);
+  std::vector<int> levels, cells;
+  
+  // step 2: 1d mesh, all possible combinations
+  for(auto i = 0; i <= num_levels; ++i) {
+	  int const num_cells = static_cast<int>(std::pow(2, std::max(0, i-1))) - 1;
+	  for(auto j = 0; j <= num_cells; ++i) {
+             levels.push_back(i);
+	     cells.push_back(j);
+	  }
+  fk::matrix<int> mesh_1d(levels.size(), 2);
+  mesh_1d.update_col(0, levels);
+  mesh_1d.update_col(1, cells);
+
+  // step 3: num_dims connectivity
+  // first, 2d connectivity...
+  for(auto i = 0; i < table.size(); ++i) {
+    fk::vector<int> coords = table.get_coords(i);
+    
+    // extract the cell portion of the coordinates...
+    fk::vector<int> cell_coords(num_dims);
+    for(auto j = num_dims; j < coords.size(); ++j) {
+	cell_coords(j - num_dims) = coords(j);
+    }
+
+
+
+
+
+  }
+
+
+
 }

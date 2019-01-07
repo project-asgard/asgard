@@ -1,9 +1,9 @@
 #pragma once
 
+#include "element_table.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
-#include <cassert>
 #include <map>
+#include "tensors.hpp"
 #include <vector>
 
 // -----------------------------------------------------------------------------
@@ -14,4 +14,5 @@
 
 // FIXME need to determine which of these need to be
 int get_1d_index(int const level, int const cell);
-fk::matrix<int> connect_1d(int const num_levels);
+fk::matrix<int> make_1d_connectivity(int const num_levels);
+fk::matrix<int> make_connectivity(element_table table, int const num_dims, int const max_level_sum, int const max_level_val, bool const sort_J = true);
