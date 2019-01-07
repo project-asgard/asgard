@@ -415,7 +415,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     test = std::move(moved);
     REQUIRE(test == gold);
   }
-  SECTION("copy from std::vector")
+  SECTION("copy from fk::vector")
   {
     // clang-format off
     std::vector<TestType> vstd
