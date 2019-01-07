@@ -1,6 +1,10 @@
 #include "connectivity.hpp"
 
+
 #include <cmath>
+
+#include "matlab_utilities.hpp"
+
 #include "tensors.hpp"
 #include <algorithm>
 #include <numeric>
@@ -126,6 +130,7 @@ fk::matrix<int> make_connectivity(element_table table, int const num_dims, int c
              levels.push_back(i);
 	     cells.push_back(j);
 	  }
+  }
   fk::matrix<int> mesh_1d(levels.size(), 2);
   mesh_1d.update_col(0, levels);
   mesh_1d.update_col(1, cells);
@@ -135,10 +140,12 @@ fk::matrix<int> make_connectivity(element_table table, int const num_dims, int c
   for(auto i = 0; i < table.size(); ++i) {
     fk::vector<int> coords = table.get_coords(i);
     
-    // extract the cell portion of the coordinates...
-    fk::vector<int> cell_coords(num_dims);
+    // iterate over the cell portion of the coordinates...
     for(auto j = num_dims; j < coords.size(); ++j) {
-	cell_coords(j - num_dims) = coords(j);
+	int const cell_coord = coords(j);
+        fk::vector<int> connect_row = connect_1d.extract_submatrix(cell_coord, 0, 1, connect_1d.ncols());
+	fk::vector<int> non_zeros = find(connect_row, [](int const& elem) {return elem != 0;});
+        
     }
 
 
