@@ -15,4 +15,7 @@
 // FIXME need to determine which of these need to be
 int get_1d_index(int const level, int const cell);
 fk::matrix<int> make_1d_connectivity(int const num_levels);
-fk::matrix<int> make_connectivity(element_table table, int const num_dims, int const max_level_sum, int const max_level_val, bool const sort_J = true);
+using list_set = std::vector<fk::vector<int>>;
+list_set make_connectivity(element_table table, int const num_dims,
+                           int const max_level_sum, int const max_level_val,
+                           bool const sort_connected = true);

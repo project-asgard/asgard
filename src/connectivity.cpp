@@ -2,9 +2,8 @@
 
 
 #include <cmath>
-
 #include "matlab_utilities.hpp"
-
+#include "permutations.hpp"
 #include "tensors.hpp"
 #include <algorithm>
 #include <numeric>
@@ -109,51 +108,86 @@ fk::matrix<int> make_1d_connectivity(int const num_levels)
   return grid;
 }
 
-
-
 // Generate connectivity for num_dims dimensions
 //
 // From MATLAB:
 // This code is to generate the ndimensional connectivity...
-// Here, we consider the maximum connectivity, which includes all overlapping cells, neighbor cells, and the periodic boundary cells
-fk::matrix<int> make_connectivity(element_table table, int const num_dims, int const max_level_sum, int const max_level_val, bool const sort_J) {
-  
+// Here, we consider the maximum connectivity, which includes all overlapping
+// cells, neighbor cells, and the periodic boundary cells
+list_set make_connectivity(element_table table, int const num_dims,
+                           int const max_level_sum, int const max_level_val,
+                           bool const sort_connected)
+{
+  list_set connectivity(table.size());
+
   // step 1: generate 1d connectivity
-  int const num_levels = std::max(max_level_sum, max_level_val);
-  fk::matrix<int> connect_1d = make_1d_connectivity(num_levels);
+  int const num_levels             = std::max(max_level_sum, max_level_val);
+  fk::matrix<int> const connect_1d = make_1d_connectivity(num_levels);
   std::vector<int> levels, cells;
-  
   // step 2: 1d mesh, all possible combinations
-  for(auto i = 0; i <= num_levels; ++i) {
-	  int const num_cells = static_cast<int>(std::pow(2, std::max(0, i-1))) - 1;
-	  for(auto j = 0; j <= num_cells; ++i) {
-             levels.push_back(i);
-	     cells.push_back(j);
-	  }
+  for (auto i = 0; i <= num_levels; ++i)
+  {
+    int const num_cells = static_cast<int>(std::pow(2, std::max(0, i - 1))) - 1;
+    for (auto j = 0; j <= num_cells; ++i)
+    {
+      levels.push_back(i);
+      cells.push_back(j);
+    }
   }
   fk::matrix<int> mesh_1d(levels.size(), 2);
   mesh_1d.update_col(0, levels);
   mesh_1d.update_col(1, cells);
 
   // step 3: num_dims connectivity
-  // first, 2d connectivity...
-  for(auto i = 0; i < table.size(); ++i) {
-    fk::vector<int> coords = table.get_coords(i);
-    
+  for (auto i = 0; i < table.size(); ++i)
+  {
+    fk::vector<int> const coords = table.get_coords(i);
+
+    list_set levels_lists, cells_lists;
     // iterate over the cell portion of the coordinates...
-    for(auto j = num_dims; j < coords.size(); ++j) {
-	int const cell_coord = coords(j);
-        fk::vector<int> connect_row = connect_1d.extract_submatrix(cell_coord, 0, 1, connect_1d.ncols());
-	fk::vector<int> non_zeros = find(connect_row, [](int const& elem) {return elem != 0;});
-        
+    for (auto dim = num_dims; dim < coords.size(); ++dim)
+    {
+      int const cell_coord = coords(dim);
+      fk::vector<int> const connect_row =
+          connect_1d.extract_submatrix(cell_coord, 0, 1, connect_1d.ncols());
+      fk::vector<int> const non_zeros =
+          find(connect_row, [](int const &elem) { return elem != 0; });
+      fk::vector<int> levels(non_zeros.size());
+      fk::vector<int> cells(non_zeros.size());
+      for (auto k = 0; k < non_zeros.size(); ++k)
+      {
+        levels(k) = mesh_1d(k, 1);
+        cells(k)  = mesh_1d(k, 2);
+      }
+      levels_lists.push_back(levels);
+      cells_lists.push_back(cells);
     }
 
+    fk::matrix<int> const index_matrix = get_leq_max_indices(
+        levels_lists, num_dims, max_level_sum, max_level_val);
+    fk::vector<int> connected_elements(index_matrix.nrows());
+    for (auto element = 0; element < index_matrix.nrows(); ++element)
+    {
+      fk::vector<int> key(num_dims * 2);
+      for (auto dim = 0; dim < index_matrix.ncols(); ++dim)
+      {
+        int const level_coord = levels_lists[dim](index_matrix(element, dim));
+        int const cell_coord  = cells_lists[dim](index_matrix(element, dim));
+        int const level_pos   = dim;
+        int const cell_pos    = dim + num_dims;
+        key(level_pos)        = level_coord;
+        key(cell_pos)         = cell_coord;
+      }
+      connected_elements(element) = table.get_index(key);
+    }
 
-
-
-
+    if (sort_connected)
+    {
+      std::sort(connected_elements.begin(), connected_elements.end(),
+                std::less<int>());
+    }
+    connectivity[i] = connected_elements;
   }
 
-
-
+  return connectivity;
 }
