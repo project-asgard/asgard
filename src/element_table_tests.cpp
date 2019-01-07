@@ -61,4 +61,3 @@ TEST_CASE("Static helper - cell builder", "[element_table]")
     }
   }
 }
-

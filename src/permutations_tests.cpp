@@ -1,5 +1,5 @@
-#include "permutations.hpp"
 #include "matlab_utilities.hpp"
+#include "permutations.hpp"
 #include "tests_general.hpp"
 #include <vector>
 

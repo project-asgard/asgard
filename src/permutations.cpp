@@ -69,9 +69,8 @@ int count_max_permutations(int const num_dims, int const limit)
 // Given the number of dimensions and a limit, produce n-tuples (where n ==
 // 'num_dims') whose elements' are non-negative and their sum == 'limit'. Each
 // tuple becomes a row of the output matrix
-fk::matrix<int> get_eq_permutations(int const num_dims,
-                                                   int const limit,
-                                                   bool const order_by_n)
+fk::matrix<int>
+get_eq_permutations(int const num_dims, int const limit, bool const order_by_n)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -119,9 +118,8 @@ fk::matrix<int> get_eq_permutations(int const num_dims,
 // Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and their sum <= 'limit'. Each
 // tuple becomes a row of the output matrix
-fk::matrix<int> get_leq_permutations(int const num_dims,
-                                                    int const limit,
-                                                    bool const order_by_n)
+fk::matrix<int>
+get_leq_permutations(int const num_dims, int const limit, bool const order_by_n)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -170,9 +168,8 @@ fk::matrix<int> get_leq_permutations(int const num_dims,
 // Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and the max element <= 'limit'
 // (for full grid only). Each tuple becomes a row of the output matrix
-fk::matrix<int>
-get_max_permutations(int const num_dims, int const limit,
-                                    bool const last_index_decreasing)
+fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
+                                     bool const last_index_decreasing)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
