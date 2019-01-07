@@ -1,5 +1,8 @@
 #pragma once
 
+#include "tensors.hpp"
+#include <string>
+
 //-----------------------------------------------------------------------------
 //
 // a collection of utility functions to make working with matlab-like
@@ -13,9 +16,6 @@
 //    - readVectorFromBinFile (tested for octave and matlab)
 //
 //-----------------------------------------------------------------------------
-
-#include "tensors.hpp"
-#include <string>
 
 template<typename P>
 std::enable_if_t<std::is_floating_point<P>::value, fk::vector<P>>

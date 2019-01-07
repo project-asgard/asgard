@@ -1,7 +1,6 @@
 #pragma once
 
 #include "tensors.hpp"
-
 #include <array>
 
 template<typename P>
