@@ -46,6 +46,7 @@ set (components
   matlab_utilities
   pde
   program_options
+  quadrature
   tensors
 )
 
@@ -62,6 +63,8 @@ target_link_libraries (matlab_utilities PUBLIC tensors)
 
 target_link_libraries (program_options PRIVATE clara)
 
+target_link_libraries (quadrature PRIVATE tensors)
+
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
 
@@ -73,6 +76,7 @@ set (main_app_link_deps
   matlab_utilities
   pde
   program_options
+  quadrature
   tensors
 )
 

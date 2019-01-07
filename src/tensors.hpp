@@ -30,6 +30,14 @@ extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
 // --------------------------------------------------------------------------
 extern "C" double ddot_(int *n, double *X, int *incx, double *Y, int *incy);
 extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
+
+// --------------------------------------------------------------------------
+// vector-scalar multiply
+// y := x*alpha
+// --------------------------------------------------------------------------
+extern "C" double dscal_(int *n, double *alpha, double *X, int *incx);
+extern "C" float sscal_(int *n, float *alpha, float *X, int *incx);
+
 // --------------------------------------------------------------------------
 // matrix-vector multiply
 // y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y,
@@ -155,6 +163,7 @@ public:
   vector<P> operator-(vector<P> const &right) const;
   P operator*(vector<P> const &)const;
   vector<P> operator*(matrix<P> const &)const;
+  vector<P> operator*(P const) const;
   //
   // basic queries to private data
   //
@@ -340,9 +349,9 @@ template<typename P>
 fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 {
   size_ = mat.size();
-  if((*this).size() == 0)
+  if ((*this).size() == 0)
   {
-    delete [] data_;
+    delete[] data_;
     data_ = nullptr;
   }
   else
@@ -623,6 +632,33 @@ fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
   return Y;
 }
 
+//
+// vector*scalar multiplication operator
+//
+template<typename P>
+fk::vector<P> fk::vector<P>::operator*(P const x) const
+{
+  vector<P> a(*this);
+  int one_i = 1;
+  int n     = a.size();
+  P alpha   = x;
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dscal_(&n, &alpha, a.data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sscal_(&n, &alpha, a.data(), &one_i);
+  }
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      a(i) *= alpha;
+    }
+  }
+  return a;
+}
 //
 // utility functions
 //
