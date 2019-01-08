@@ -118,7 +118,8 @@ list_set make_connectivity(element_table table, int const num_dims,
                            int const max_level_sum, int const max_level_val,
                            bool const sort_connected)
 {
-  list_set connectivity(table.size());
+  list_set connectivity;
+  connectivity.reserve(table.size());
 
   // step 1: generate 1d connectivity
   int const num_levels             = std::max(max_level_sum, max_level_val);
@@ -128,7 +129,7 @@ list_set make_connectivity(element_table table, int const num_dims,
   for (auto i = 0; i <= num_levels; ++i)
   {
     int const num_cells = static_cast<int>(std::pow(2, std::max(0, i - 1))) - 1;
-    for (auto j = 0; j <= num_cells; ++i)
+    for (auto j = 0; j <= num_cells; ++j)
     {
       levels.push_back(i);
       cells.push_back(j);
@@ -154,10 +155,11 @@ list_set make_connectivity(element_table table, int const num_dims,
           find(connect_row, [](int const &elem) { return elem != 0; });
       fk::vector<int> levels(non_zeros.size());
       fk::vector<int> cells(non_zeros.size());
+
       for (auto k = 0; k < non_zeros.size(); ++k)
       {
-        levels(k) = mesh_1d(k, 1);
-        cells(k)  = mesh_1d(k, 2);
+        levels(k) = mesh_1d(non_zeros(k), 0);
+        cells(k)  = mesh_1d(non_zeros(k), 1);
       }
       levels_lists.push_back(levels);
       cells_lists.push_back(cells);
@@ -165,6 +167,7 @@ list_set make_connectivity(element_table table, int const num_dims,
 
     fk::matrix<int> const index_matrix = get_leq_max_indices(
         levels_lists, num_dims, max_level_sum, max_level_val);
+
     fk::vector<int> connected_elements(index_matrix.nrows());
     for (auto element = 0; element < index_matrix.nrows(); ++element)
     {
@@ -186,7 +189,7 @@ list_set make_connectivity(element_table table, int const num_dims,
       std::sort(connected_elements.begin(), connected_elements.end(),
                 std::less<int>());
     }
-    connectivity[i] = connected_elements;
+    connectivity.push_back(connected_elements);
   }
 
   return connectivity;
