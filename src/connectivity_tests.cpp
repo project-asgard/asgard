@@ -57,10 +57,13 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     list_set connectivity = make_connectivity(t, dims, levels, levels);
     REQUIRE(connectivity == gold);
   }
-
-  // FIXME
   SECTION("2 dimensions, level 3, sparse grid")
   {
+     
+    // clang-format off
+    list_set gold = lis	  
+
+    // clang-format off
     int const levels = 3;
     int const dims   = 2;
     Options o        = make_options({"-l", std::to_string(levels), "-f"});
