@@ -2,36 +2,52 @@
 
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
+#include <string>
 
 TEST_CASE("element table constructor/accessors/size", "[element_table]")
 {
+  std::string out_base = "../testing/generated-inputs/element_table";
+
   int const levels = 1;
   int const dims   = 1;
   Options o        = make_options({"-l", std::to_string(levels)});
   element_table t(o, dims);
-  fk::vector<int> element_0 = {0, 0};
-  fk::vector<int> element_1 = {1, 0};
-  REQUIRE(t.get_index(element_0) == 0);
-  REQUIRE(t.get_index(element_1) == 1);
-  REQUIRE(t.get_coords(0) == element_0);
-  REQUIRE(t.get_coords(1) == element_1);
+
+  std::string test_base = out_base + "_1_1_SG_";
+  for (auto i = 0; i < t.size(); ++i)
+  {
+    std::string file_path = test_base + std::to_string(i + 1) + ".dat";
+    fk::vector<int> gold = readVectorFromTxtFile(file_path);
+    REQUIRE(t.get_coords(i) == gold);
+    REQUIRE(t.get_index(gold) == i);
+  }
 
   int const levels_2 = 3;
   int const dims_2   = 2;
   Options o_2        = make_options({"-l", std::to_string(levels_2)});
   element_table t_2(o_2, dims_2);
-  fk::vector<int> element_17 = {0, 3, 0, 1};
-  REQUIRE(t_2.get_index(element_17) == 17);
-  REQUIRE(t_2.get_coords(17) == element_17);
+  test_base = out_base + "_2_3_SG_";
+  for (auto i = 0; i < t_2.size(); ++i)
+  {
+    std::string file_path = test_base + std::to_string(i + 1) + ".dat";
+    fk::vector<int> gold = readVectorFromTxtFile(file_path);
+    REQUIRE(t_2.get_coords(i) == gold);
+    REQUIRE(t_2.get_index(gold) == i);
+  }
 
   int const levels_3 = 4;
   int const dims_3   = 3;
   // test full grid
   Options o_3 = make_options({"-l", std::to_string(levels_3), "-f"});
-  element_table t_3(o_3, dims_3);
-  fk::vector<int> element_4000 = {4, 4, 4, 0, 4, 6};
-  REQUIRE(t_3.get_index(element_4000) == 4000);
-  REQUIRE(t_3.get_coords(4000) == element_4000);
+  element_table t_3(o_3, dims_3); 
+  test_base = out_base + "_3_4_FG_";
+  for (auto i = 0; i < t_3.size(); ++i)
+  {
+    std::string file_path = test_base + std::to_string(i + 1) + ".dat";
+    fk::vector<int> gold = readVectorFromTxtFile(file_path);
+    REQUIRE(t_3.get_coords(i) == gold);
+    REQUIRE(t_3.get_index(gold) == i);
+  }
 
   SECTION("element table size", "[element_table]")
   {
