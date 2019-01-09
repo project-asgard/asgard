@@ -111,6 +111,9 @@ fk::matrix<int> find(fk::matrix<P> const matrix, Func pred)
 // note that fk::vector has a copy assignment overload from std::vector
 fk::vector<double> readVectorFromBinFile(std::string const &path);
 
+// read an octave double from text file
+double readScalarFromTxtFile(std::string const &path);
+
 // read an octave vector from text file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
 fk::vector<double> readVectorFromTxtFile(std::string const &path);

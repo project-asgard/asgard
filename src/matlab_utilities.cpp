@@ -203,6 +203,46 @@ fk::vector<double> readVectorFromBinFile(std::string const &path)
   // infile implicitly closed on exit
 }
 
+//
+// these ascii files can be generated in octave with, e.g.,
+//
+// w = 2
+// save outfile.dat w
+//
+// FIXME unsure what Matlab ascii files look like
+//
+//-----------------------------------------------------------------------------
+double readScalarFromTxtFile(std::string const &path)
+{
+  // open up the file
+  std::ifstream infile;
+  infile.open(path, std::ios::in);
+
+  // read failed, return empty
+  if (!infile)
+  {
+    return {};
+  }
+
+  std::string tmp_str;
+
+  getline(infile, tmp_str); // chomp the first line
+  getline(infile, tmp_str); // chomp the second line
+
+  // third line. expect "# type: scalar"
+  infile >> tmp_str; // chomp the '#'
+  infile >> tmp_str;
+  assert(tmp_str == "type:");
+  infile >> tmp_str;
+  assert(tmp_str == "scalar");
+
+  double value;
+
+  infile >> value;
+
+  return value;
+}
+
 //-----------------------------------------------------------------------------
 //
 // these ascii files can be generated in octave with, e.g.,

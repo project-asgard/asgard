@@ -3,119 +3,30 @@
 #include "tests_general.hpp"
 #include <vector>
 
-TEST_CASE("Permutations enumerators", "[permutations]")
-{
-  SECTION("permutations eq enumeration")
-  {
-    std::vector<int> const golds{1, 1, 1001, 4598126};
-    std::vector<int> const dims{1, 1, 5, 5};
-    std::vector<int> const ns{1, 10, 10, 100};
-
-    for (size_t i = 0; i < golds.size(); ++i)
-    {
-      REQUIRE(count_eq_permutations(dims[i], ns[i]) == golds[i]);
-    }
-  }
-  SECTION("permutations leq enumeration")
-  {
-    std::vector<int> const golds{2, 11, 3003, 96560646};
-    std::vector<int> const dims{1, 1, 5, 5};
-    std::vector<int> const ns{1, 10, 10, 100};
-
-    for (size_t i = 0; i < golds.size(); ++i)
-    {
-      REQUIRE(count_leq_permutations(dims[i], ns[i]) == golds[i]);
-    }
-  }
-  SECTION("permutations max enumeration")
-  {
-    std::vector<int> const golds{2, 11, 161051};
-    std::vector<int> const dims{1, 1, 5};
-    std::vector<int> const ns{1, 10, 10};
-
-    for (size_t i = 0; i < golds.size(); ++i)
-    {
-      REQUIRE(count_max_permutations(dims[i], ns[i]) == golds[i]);
-    }
-  }
-  SECTION("index leq max enumeration")
-  {
-    list_set lists{{0, 1}, {0, 3}, {0, 1}, {2, 5}};
-    int const max_sum = 5;
-    int const max_val = 3;
-    int const gold    = 5;
-    REQUIRE(count_leq_max_indices(lists, lists.size(), max_sum, max_val) ==
-            gold);
-  }
-}
-
 TEST_CASE("Permutations builders", "[permutations]")
 {
-  std::vector<int> const dims{5, 2, 2, 5};
-  std::vector<int> const ns{0, 1, 1, 2};
-  std::vector<bool> const ord_by_ns{false, false, true, false};
+  std::string zero = "0";
+  std::string one  = "1";
+  std::vector<int> const dims{1, 2, 4, 6};
+  std::vector<int> const ns{1, 4, 6, 8};
+  std::vector<bool> const ord_by_ns{false, true, false, true};
 
-  SECTION("permutations eq")
-  {
-    // clang-format off
-    std::vector<fk::matrix<int>> const golds{
-        {{0, 0, 0, 0, 0}},
-        eye<int>(2),
-        {{0, 1}, {1, 0}},
-        {{2, 0, 0, 0, 0},
-         {1, 1, 0, 0, 0},
-         {0, 2, 0, 0, 0},
-         {1, 0, 1, 0, 0},
-         {0, 1, 1, 0, 0},
-         {0, 0, 2, 0, 0},
-         {1, 0, 0, 1, 0},
-         {0, 1, 0, 1, 0},
-         {0, 0, 1, 1, 0},
-         {0, 0, 0, 2, 0},
-         {1, 0, 0, 0, 1},
-         {0, 1, 0, 0, 1},
-         {0, 0, 1, 0, 1},
-         {0, 0, 0, 1, 1},
-         {0, 0, 0, 0, 2}}}; // clang-format on
-
-    for (size_t i = 0; i < golds.size(); ++i)
-    {
-      REQUIRE(get_eq_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
-    }
-  }
+  SECTION("permutations eq") {}
 
   SECTION("permutations leq")
   {
-    // clang-format off
-    std::vector<fk::matrix<int>> const golds{
-        {{0, 0, 0, 0, 0}},
-        {{0, 0}, {1, 0}, {0, 1}},
-        {{0, 0}, {1, 0}, {0, 1}},
-        {{0, 0, 0, 0, 0},
-	 {1, 0, 0, 0, 0},
-	 {2, 0, 0, 0, 0},
-	 {0, 1, 0, 0, 0},
-         {1, 1, 0, 0, 0},
-	 {0, 2, 0, 0, 0},
-	 {0, 0, 1, 0, 0},
-	 {1, 0, 1, 0, 0},
-         {0, 1, 1, 0, 0},
-	 {0, 0, 2, 0, 0},
-	 {0, 0, 0, 1, 0},
-	 {1, 0, 0, 1, 0},
-         {0, 1, 0, 1, 0},
-	 {0, 0, 1, 1, 0},
-	 {0, 0, 0, 2, 0},
-	 {0, 0, 0, 0, 1},
-         {1, 0, 0, 0, 1},
-	 {0, 1, 0, 0, 1},
-	 {0, 0, 1, 0, 1},
-	 {0, 0, 0, 1, 1},
-         {0, 0, 0, 0, 2}}}; // clang-format on
-
-    for (size_t i = 0; i < golds.size(); ++i)
+    std::string out_base = "../testing/generated-inputs/perm_leq_";
+    for (size_t i = 0; i < dims.size(); ++i)
     {
-      REQUIRE(get_leq_permutations(dims[i], ns[i], ord_by_ns[i]) == golds[i]);
+      std::string file_base = out_base + std::to_string(dims[i]) + "_" +
+                              std::to_string(ns[i]) + "_" +
+                              (ord_by_ns[i] ? one : zero);
+      std::string file_path  = file_base + ".dat";
+      std::string count_path = file_base + "_count.dat";
+      fk::matrix<int> gold   = readMatrixFromTxtFile(file_path);
+      int count_gold = static_cast<int>(readScalarFromTxtFile(count_path));
+      REQUIRE(get_leq_permutations(dims[i], ns[i], ord_by_ns[i]) == gold);
+      REQUIRE(count_leq_permutations(dims[i], ns[i]) == count_gold);
     }
   }
 
