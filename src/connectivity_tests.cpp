@@ -79,6 +79,10 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     list_set gold;
     for (auto i = 0; i < num_elements; ++i)
     {
+      // the grid is nearly fully dense for this case;
+      // only the elements listed below have any gaps.
+      // so, I build a fully connected element and then
+      // remove the connections I don't want
       std::vector<int> element_i = fully_connected;
       auto start                 = element_i.begin();
       if (i == 4)
