@@ -97,3 +97,22 @@ for i=1:size(dims,2)
   save(filename, 'tuples');
   save(count_filename, 'count')
 end
+
+%index_leq_max
+
+filename = strcat(pwd, "/", "generated-inputs", "/", "index_leq_max_4d_10s_4m.dat");
+count_filename = strcat(pwd, "/", "generated-inputs", "/", "index_leq_max_4d_10s_4m_count.dat");
+
+level_sum = 10;
+level_max = 4;
+dim = 4;
+lists{1} = 2:3;
+lists{2} = 0:4;
+lists{3} = 0:3;
+lists{4} = 1:5;
+result = index_leq_max(dim, lists, level_sum, level_max);
+count = index_leq_max_count(dim, lists, level_sum, level_max);
+save(filename, 'result');
+save(count_filename, 'count');
+
+clear
