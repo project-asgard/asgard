@@ -146,9 +146,10 @@ list_set make_connectivity(element_table table, int const num_dims,
 
     list_set levels_lists, cells_lists;
     // iterate over the cell portion of the coordinates...
-    for (auto dim = num_dims; dim < coords.size(); ++dim)
+    for (auto dim = 0; dim < num_dims; ++dim)
     {
-      int const cell_coord = coords(dim);
+      int const cell_coord = get_1d_index(coords(dim), coords(dim + num_dims));
+
       fk::vector<int> const connect_row =
           connect_1d.extract_submatrix(cell_coord, 0, 1, connect_1d.ncols());
       fk::vector<int> const non_zeros =

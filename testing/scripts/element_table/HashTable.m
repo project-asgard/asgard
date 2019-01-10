@@ -1,4 +1,4 @@
-function [forwardHash,inverseHash] = HashTable(Lev,Dim,gridType)
+function [forwardHash,inverseHash] = HashTable(Lev,Dim,gridType, append_index_k)
 %-------------------------------------------------
 % Generate  multi-dimension Hash Table s.t n1+n2<=Lev
 % Input: Lev:: Level information
@@ -91,7 +91,7 @@ istartv(2:(ncase+1)) = istartv(2:(ncase+1)) + 1;
 % in the inverseHash{i}
 % the "key" has sufficient information to recompute this information
 % ------------------------------------------------------------------
-append_index_k = 0;
+%append_index_k = 0;
 index_k = zeros(1,Dim);
 
 % ------------------------------

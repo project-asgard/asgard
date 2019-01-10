@@ -104,12 +104,12 @@ end;
 %----------------------------
 % matrix for 2D connectivity
 %----------------------------
-ConnD_full=sparse(size(HASHInv,2));
-for i=1:size(ConnD,2)
-    ConnD_full(i,ConnD{i})=1;
-end
+%ConnD_full=sparse(size(HASHInv,2));
+%for i=1:size(ConnD,2)
+%    ConnD_full(i,ConnD{i})=1;
+%end
 
-figure;spy(ConnD_full)
-% return
+%figure;spy(ConnD_full)
+%return
 end
 
