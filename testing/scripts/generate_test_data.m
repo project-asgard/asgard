@@ -62,11 +62,36 @@ dims = [1, 2, 4, 6];
 ns = [1, 4, 6, 8];
 ords = [0, 1, 0, 1];
 
+% perm leq
 out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_leq_%d_%d_%d.dat");
 count_out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_leq_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_leq(dims(i), ns(i), ords(i));
   count = [perm_leq_count(dims(i), ns(i), ords(i))];
+  filename = sprintf(out_format, dims(i), ns(i), ords(i));
+  count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
+  save(filename, 'tuples');
+  save(count_filename, 'count')
+end
+
+%perm eq
+out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_eq_%d_%d_%d.dat");
+count_out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_eq_%d_%d_%d_count.dat");
+for i=1:size(dims,2)
+  tuples = perm_eq(dims(i), ns(i), ords(i));
+  count = [perm_eq_count(dims(i), ns(i), ords(i))];
+  filename = sprintf(out_format, dims(i), ns(i), ords(i));
+  count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
+  save(filename, 'tuples');
+  save(count_filename, 'count')
+end
+
+%perm max
+out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_max_%d_%d_%d.dat");
+count_out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_max_%d_%d_%d_count.dat");
+for i=1:size(dims,2)
+  tuples = perm_max(dims(i), ns(i), ords(i));
+  count = [perm_max_count(dims(i), ns(i), ords(i))];
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
