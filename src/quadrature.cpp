@@ -128,6 +128,21 @@ legendre(fk::vector<P> const domain, int const degree)
   return {legendre, legendre_prime};
 }
 
+// % lgwt.m
+// From the matlab:
+//%
+//% This script is for computing definite integrals using Legendre-Gauss
+//% Quadrature. Computes the Legendre-Gauss nodes and weights  on an interval
+//% [a,b] with truncation order N
+//%
+//% Suppose you have a continuous function f(x) which is defined on [a,b]
+//% which you can evaluate at any x in [a,b]. Simply evaluate it at all of
+//% the values contained in the x vector to obtain a vector f. Then compute
+//% the definite integral using sum(f.*w);
+//%
+//% Written by Greg von Winckel - 02/25/2004
+
+// return[0] are the roots, return[1] are the weights
 template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(const int n, const int a, const int b)
@@ -136,8 +151,8 @@ legendre_weights(const int n, const int a, const int b)
   assert(a < b);
 
   // prepare out vectors
-  fk::vector<P> x(n);
-  fk::vector<P> w(n);
+  fk::vector<P> roots(n);
+  fk::vector<P> weights(n);
 
   int const n_0 = n - 1;
   int const n_1 = n;
@@ -239,25 +254,25 @@ legendre_weights(const int n, const int a, const int b)
 
   //% Linear map from[-1,1] to [a,b]
   // x=(a*(1-y)+b*(1+y))/2;
-  std::transform(y.begin(), y.end(), x.begin(), [&](P &elem) {
+  std::transform(y.begin(), y.end(), roots.begin(), [&](P &elem) {
     return (a * (1 - elem) + b * (1 + elem)) / 2;
   });
 
   //% Compute the weights
   // w=(b-a)./((1-y.^2).*Lp.^2)*(N2/N1)^2;
-  std::transform(y.begin(), y.end(), legendre_p.begin(), w.begin(),
-                 [&](P &y_elem, P &Lp_elem) {
+  std::transform(y.begin(), y.end(), legendre_p.begin(), weights.begin(),
+                 [&](P &y_elem, P &lp_elem) {
                    return (b - a) /
-                          ((1 - std::pow(y_elem, 2)) * std::pow(Lp_elem, 2)) *
+                          ((1 - std::pow(y_elem, 2)) * std::pow(lp_elem, 2)) *
                           std::pow(static_cast<P>(n_1) / n_1, 2);
                  });
 
   // x=x(end:-1:1);
   // w=w(end:-1:1);
-  std::reverse(x.begin(), x.end());
-  std::reverse(w.begin(), w.end());
+  std::reverse(roots.begin(), roots.end());
+  std::reverse(weights.begin(), weights.end());
 
-  return std::array<fk::vector<P>, 2>{x, w};
+  return std::array<fk::vector<P>, 2>{roots, weights};
 }
 
 // explicit instatiations
