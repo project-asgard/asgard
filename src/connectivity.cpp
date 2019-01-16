@@ -1,11 +1,10 @@
 #include "connectivity.hpp"
 
-
-#include <cmath>
 #include "matlab_utilities.hpp"
 #include "permutations.hpp"
 #include "tensors.hpp"
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 
 // Given a cell and level coordinate, return a 1-dimensional index

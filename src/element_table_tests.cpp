@@ -17,7 +17,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   for (auto i = 0; i < t.size(); ++i)
   {
     std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold = readVectorFromTxtFile(file_path);
+    fk::vector<int> gold  = readVectorFromTxtFile(file_path);
     REQUIRE(t.get_coords(i) == gold);
     REQUIRE(t.get_index(gold) == i);
   }
@@ -30,7 +30,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   for (auto i = 0; i < t_2.size(); ++i)
   {
     std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold = readVectorFromTxtFile(file_path);
+    fk::vector<int> gold  = readVectorFromTxtFile(file_path);
     REQUIRE(t_2.get_coords(i) == gold);
     REQUIRE(t_2.get_index(gold) == i);
   }
@@ -39,12 +39,12 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   int const dims_3   = 3;
   // test full grid
   Options o_3 = make_options({"-l", std::to_string(levels_3), "-f"});
-  element_table t_3(o_3, dims_3); 
+  element_table t_3(o_3, dims_3);
   test_base = out_base + "_3_4_FG_";
   for (auto i = 0; i < t_3.size(); ++i)
   {
     std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold = readVectorFromTxtFile(file_path);
+    fk::vector<int> gold  = readVectorFromTxtFile(file_path);
     REQUIRE(t_3.get_coords(i) == gold);
     REQUIRE(t_3.get_index(gold) == i);
   }

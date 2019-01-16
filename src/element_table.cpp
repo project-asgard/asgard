@@ -1,11 +1,11 @@
 #include "element_table.hpp"
 
+#include "program_options.hpp"
+#include "tensors.hpp"
 #include <cmath>
 #include <functional>
 #include <map>
 #include <numeric>
-#include "program_options.hpp"
-#include "tensors.hpp"
 #include <vector>
 
 // Construct forward and reverse element tables

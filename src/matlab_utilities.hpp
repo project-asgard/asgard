@@ -1,8 +1,8 @@
 #pragma once
 
+#include "tensors.hpp"
 #include <algorithm>
 #include <functional>
-#include "tensors.hpp"
 #include <string>
 #include <vector>
 
@@ -19,7 +19,6 @@
 //    - readVectorFromBinFile (tested for octave and matlab)
 //
 //-----------------------------------------------------------------------------
-
 
 // matlab's "linspace(start, end, N)" function
 //-----------------------------------------------------------------------------

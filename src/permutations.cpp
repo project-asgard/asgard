@@ -1,11 +1,11 @@
 #include "permutations.hpp"
 
+#include "matlab_utilities.hpp"
+#include "tensors.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include "matlab_utilities.hpp"
 #include <numeric>
-#include "tensors.hpp"
 #include <vector>
 
 //
