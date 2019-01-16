@@ -179,7 +179,7 @@ legendre_weights(const int n, const int a, const int b)
   //% Legendre-Gauss Vandermonde Matrix
   // L=zeros(N1,N2);
   fk::matrix<P> legendre_gauss(n_1, n_2);
-  fk::vector<P> legendre_p(std::vector<P>(static_cast<P>(0.0), n_1));
+  fk::vector<P> legendre_p(n_1);
 
   //% Compute the zeros of the N+1 Legendre Polynomial
   // y0=2
@@ -198,7 +198,8 @@ legendre_weights(const int n, const int a, const int b)
   while (*std::max_element(diff.begin(), diff.end()) > eps)
   {
     // L(:,1)=1;
-    legendre_gauss.update_col(0, std::vector<P>(1.0));
+    legendre_gauss.update_col(
+        0, std::vector<P>(legendre_gauss.nrows(), static_cast<P>(1.0)));
 
     // L(:,2)=y;
     legendre_gauss.update_col(1, y);
@@ -214,9 +215,13 @@ legendre_weights(const int n, const int a, const int b)
       fk::vector<P> y_scaled = y * (static_cast<P>(2.0) * (i + 1) - 1);
       std::transform(y_scaled.begin(), y_scaled.end(), current.begin(),
                      current.begin(), std::multiplies<P>());
-
-      legendre_gauss.update_col(
-          i + 1, current - prev * i * (static_cast<P>(1.0) / (i + 1)));
+      // fk::vector<P> rhs = prev*i;
+      // rhs.print("rhs");
+      // current.print("lhs");
+      // fk::vector<P> new_col = ((current - prev)*i)*(static_cast<P>(1.0)/i+1);
+      // new_col.print(std::to_string(i));
+      legendre_gauss.update_col(i + 1, ((current - prev) * i) *
+                                           (static_cast<P>(1.0) / (i + 1)));
     }
 
     // Lp=(N2)*( L(:,N1)-y.*L(:,N2) )./(1-y.^2);
@@ -263,8 +268,9 @@ legendre_weights(const int n, const int a, const int b)
   std::transform(y.begin(), y.end(), legendre_p.begin(), weights.begin(),
                  [&](P &y_elem, P &lp_elem) {
                    return (b - a) /
-                          ((1 - std::pow(y_elem, 2)) * std::pow(lp_elem, 2)) *
-                          std::pow(static_cast<P>(n_1) / n_1, 2);
+                          ((static_cast<P>(1.0) - std::pow(y_elem, 2)) *
+                           std::pow(lp_elem, 2)) *
+                          std::pow(static_cast<P>(n_2) / n_1, 2);
                  });
 
   // x=x(end:-1:1);

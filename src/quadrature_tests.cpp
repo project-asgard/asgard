@@ -65,3 +65,16 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     relaxed_comparison(deriv, deriv_gold);
   }
 }
+
+TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
+                   float)
+{
+  // FIXME I'm going to fix this when I fix the above - TM
+  SECTION("simple stand in")
+  {
+    auto const [roots, weights] = legendre_weights<TestType>(2, -1, 1);
+    REQUIRE(roots ==
+            fk::vector<TestType>{-0.577350269189626, 0.577350269189626});
+    REQUIRE(weights == fk::vector<TestType>{1.0, 1.0});
+  }
+}
