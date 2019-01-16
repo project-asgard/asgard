@@ -591,6 +591,23 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType> test = in1 * in2;
     REQUIRE(test == ans);
   }
+  SECTION("matrix kron product")
+  {
+    // clang-format off
+
+    fk::matrix<TestType> const A {{1,2,3}};
+    fk::matrix<TestType> const B {{2,3},
+	                          {4,5},
+				  {6,7},
+				  {8,9}};
+    
+    fk::matrix<TestType> const ans {{2,3,4,6,6,9},
+	                            {4,5,8,10,12,15},
+				    {6,7,12,14,18,21},
+				    {8,9,16,18,24,27}};
+    // clang-format on
+    REQUIRE(A.kron(B) == ans);
+  }
   SECTION("matrix inverse")
   {
     if constexpr (std::is_floating_point<TestType>::value)

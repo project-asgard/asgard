@@ -136,6 +136,8 @@ public:
 
   matrix<P> &transpose();
 
+  matrix<P> kron(matrix<P> const &) const;
+
   // clang-format off
   template<typename U = P>
   std::enable_if_t<

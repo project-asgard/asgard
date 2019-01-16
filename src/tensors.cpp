@@ -932,6 +932,34 @@ fk::matrix<P> &fk::matrix<P>::transpose()
   return *this;
 }
 
+// Simple quad-loop kron prod
+// @return the product
+//
+// FIXME this is NOT optimized.
+// we will use the batch gemm method
+// for performance-critical (large)
+// krons
+template<typename P>
+fk::matrix<P> fk::matrix<P>::kron(matrix<P> const &B) const
+{
+  fk::matrix<P> C(nrows() * B.nrows(), ncols() * B.ncols());
+  for (auto i = 0; i < nrows(); ++i)
+  {
+    for (auto j = 0; j < ncols(); ++j)
+    {
+      for (auto k = 0; k < B.nrows(); ++k)
+      {
+        for (auto l = 0; l < B.ncols(); ++l)
+        {
+          C((i * B.nrows() + k), (j * B.ncols() + l)) +=
+              (*this)(i, j) * B(k, l);
+        }
+      }
+    }
+  }
+  return C;
+}
+
 //
 // Invert a square matrix (overwrites original)
 // disabled for non-fp types; haven't written a routine to do it
