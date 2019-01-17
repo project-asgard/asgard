@@ -10,7 +10,7 @@
 #
 # For blas/lapack, the order of preference is:
 #  1. build openblas if requested
-#  2. look under 'lib/' and 'lib64/' of the user-supplied path(s), if provided
+#  2. look under the user-supplied path(s), if provided
 #  3. search for blas/lapack libs providing cmake/pkgconfig (e.g. openblas)
 #  4. search the system for libblas.so and liblapack.so
 #  5. if no blas and/or lapack found, then build openblas
