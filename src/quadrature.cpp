@@ -9,7 +9,6 @@
 #include <cassert>
 #include <cmath>
 #include <functional>
-
 // Evaluate Legendre polynomials on an input domain, trimmed to [-1,1]
 // Virtually a direct translation of Ed's dlegendre2.m code
 //
@@ -210,13 +209,21 @@ legendre_weights(const int n, const int a, const int b)
     {
       fk::vector<P> const prev =
           legendre_gauss.extract_submatrix(0, i - 1, legendre_gauss.nrows(), 1);
-      fk::vector<P> current =
+      fk::vector<P> const current =
           legendre_gauss.extract_submatrix(0, i, legendre_gauss.nrows(), 1);
-      fk::vector<P> y_scaled = y * (static_cast<P>(2.0) * (i + 1) - 1);
-      std::transform(y_scaled.begin(), y_scaled.end(), current.begin(),
-                     current.begin(), std::multiplies<P>());
-      legendre_gauss.update_col(i + 1, ((current - prev) * i) *
-                                           (static_cast<P>(1.0) / (i + 1)));
+
+      fk::vector<P> next(current.size());
+
+      // this loop for setting the next column is a little obscure, but doing
+      // step by step with transforms was prohibitively slow when we invoke this
+      // function from multiwavelet gen.
+      P scale = (static_cast<P>(2.0) * (i + 1) - 1);
+      for (int j = 0; j < next.size(); ++j)
+      {
+        next(j) = ((y(j) * scale * current(j)) - (prev(j) * i)) /
+                  static_cast<P>(i + 1);
+      }
+      legendre_gauss.update_col(i + 1, next);
     }
 
     // Lp=(N2)*( L(:,N1)-y.*L(:,N2) )./(1-y.^2);

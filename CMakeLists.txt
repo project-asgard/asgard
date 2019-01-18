@@ -50,6 +50,7 @@ set (components
   program_options
   quadrature
   tensors
+  transformations
 )
 
 foreach (component IN LISTS components)
@@ -75,10 +76,13 @@ target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
 target_link_libraries (program_options PRIVATE clara)
 
+target_link_libraries (quadrature PRIVATE matlab_utilities)
+
 target_link_libraries (quadrature PRIVATE tensors)
 
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
+target_link_libraries (transformations PRIVATE quadrature)
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
@@ -91,6 +95,7 @@ set (main_app_link_deps
   program_options
   quadrature
   tensors
+  transformations
 )
 
 foreach (link_dep IN LISTS main_app_link_deps)
