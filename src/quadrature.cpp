@@ -128,9 +128,9 @@ legendre(fk::vector<P> const domain, int const degree)
   return {legendre, legendre_prime};
 }
 
-// % lgwt.m
 // From the matlab:
-//%
+
+//% lgwt.m
 //% This script is for computing definite integrals using Legendre-Gauss
 //% Quadrature. Computes the Legendre-Gauss nodes and weights  on an interval
 //% [a,b] with truncation order N
@@ -215,11 +215,6 @@ legendre_weights(const int n, const int a, const int b)
       fk::vector<P> y_scaled = y * (static_cast<P>(2.0) * (i + 1) - 1);
       std::transform(y_scaled.begin(), y_scaled.end(), current.begin(),
                      current.begin(), std::multiplies<P>());
-      // fk::vector<P> rhs = prev*i;
-      // rhs.print("rhs");
-      // current.print("lhs");
-      // fk::vector<P> new_col = ((current - prev)*i)*(static_cast<P>(1.0)/i+1);
-      // new_col.print(std::to_string(i));
       legendre_gauss.update_col(i + 1, ((current - prev) * i) *
                                            (static_cast<P>(1.0) / (i + 1)));
     }
