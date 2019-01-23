@@ -299,25 +299,25 @@ multi_wavelets<P>::multi_wavelets(int const degree)
 }
 
 template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_g0()
+fk::matrix<P> multi_wavelets<P>::get_g0() const
 {
   return g0;
 }
 
 template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_h0()
+fk::matrix<P> multi_wavelets<P>::get_h0() const
 {
   return h0;
 }
 
 template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_phi_co()
+fk::matrix<P> multi_wavelets<P>::get_phi_co() const
 {
   return phi_co;
 }
 
 template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_scalet_coefficients()
+fk::matrix<P> multi_wavelets<P>::get_scalet_coefficients() const
 {
   return scalet_coefficients;
 }
