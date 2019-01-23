@@ -1,9 +1,8 @@
 #pragma once
-
+#include "permutations.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
-#include <cassert>
 #include <map>
+#include "tensors.hpp"
 #include <vector>
 
 // -----------------------------------------------------------------------------
@@ -49,38 +48,9 @@ public:
     return forward_table.size();
   }
 
-  // Given a cell and level coordinate, return a 1-dimensional index
-  int get_1d_index(int const level, int const cell) const;
-
-  //
-  // Static construction helpers
-  // (these will likely become private at some point)
-  //
-
+  // Static construction helper
   // Return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
-
-  // Permutations counters
-
-  static int count_eq_permutations(int const num_dims, int const limit);
-
-  static int count_leq_permutations(int const num_dims, int const limit);
-
-  static int count_max_permutations(int const num_dims, int const limit);
-
-  // Permutations builders
-
-  static fk::matrix<int> get_eq_permutations(int const num_dims,
-                                             int const limit,
-                                             bool const order_by_n);
-
-  static fk::matrix<int> get_leq_permutations(int const num_dims,
-                                              int const limit,
-                                              bool const order_by_n);
-
-  static fk::matrix<int> get_max_permutations(int const num_dims,
-                                              int const limit,
-                                              bool const last_index_decreasing);
 
 private:
   // a map keyed on the element coordinates
