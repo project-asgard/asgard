@@ -7,9 +7,6 @@
 #include <cassert>
 #include <cmath>
 
-// temp
-#include <iostream>
-#include <numeric>
 template<typename ForwardIterator, typename P>
 static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
                          P const stride)
@@ -21,6 +18,7 @@ static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
   }
 }
 
+// FIXME add some meaningful variable names / comments from Tim's work
 template<typename P>
 multi_wavelets<P>::multi_wavelets(int const degree)
     : phi_co(degree * 2, degree), scalet_coefficients(degree, degree),
@@ -319,6 +317,18 @@ template<typename P>
 fk::matrix<P> multi_wavelets<P>::get_h0() const
 {
   return h0;
+}
+
+template<typename P>
+fk::matrix<P> multi_wavelets<P>::get_g1() const
+{
+  return g1;
+}
+
+template<typename P>
+fk::matrix<P> multi_wavelets<P>::get_h1() const
+{
+  return h1;
 }
 
 template<typename P>
