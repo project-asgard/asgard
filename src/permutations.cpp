@@ -236,10 +236,10 @@ int count_leq_max_indices(list_set const lists, int const num_dims,
   }
 
   // recursive count
-  int count            = 0;
-  fk::vector<int> list = lists[num_dims - 1];
-  auto is_valid        = [max_val](int const &i) { return i <= max_val; };
-  auto valid_indices   = find(list, is_valid);
+  int count                  = 0;
+  fk::vector<int> const list = lists[num_dims - 1];
+  auto is_valid              = [max_val](int const &i) { return i <= max_val; };
+  auto const valid_indices   = find(list, is_valid);
   for (auto i = 0; i < valid_indices.size(); ++i)
   {
     int const balance = max_sum - list(i);
@@ -278,10 +278,10 @@ fk::matrix<int> get_leq_max_indices(list_set const lists, int const num_dims,
   }
 
   // recursive build
-  int row_pos          = 0;
-  fk::vector<int> list = lists[num_dims - 1];
-  auto is_valid        = [max_val](int const &i) { return i <= max_val; };
-  auto valid_indices   = find(list, is_valid);
+  int row_pos                = 0;
+  fk::vector<int> const list = lists[num_dims - 1];
+  auto is_valid              = [max_val](int const &i) { return i <= max_val; };
+  auto const valid_indices   = find(list, is_valid);
 
   for (auto i = 0; i < valid_indices.size(); ++i)
   {
