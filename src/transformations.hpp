@@ -1,6 +1,9 @@
 #pragma once
 
+#include "element_table.hpp"
 #include "tensors.hpp"
+
+#include <vector>
 
 template<typename P>
 class multi_wavelets
@@ -22,6 +25,17 @@ public:
   fk::matrix<P> get_scalet_coefficients() const;
 };
 
-// suppress implicit instantiations later on
 extern template class multi_wavelets<double>;
 extern template class multi_wavelets<float>;
+
+template<typename P>
+fk::vector<P>
+combine_dimensions(Options const, element_table const &,
+                   std::vector<fk::vector<P> const> const &, P const);
+
+extern template fk::vector<double>
+combine_dimensions(Options const, element_table const &,
+                   std::vector<fk::vector<double> const> const &, double const);
+extern template fk::vector<float>
+combine_dimensions(Options const, element_table const &,
+                   std::vector<fk::vector<float> const> const &, float const);

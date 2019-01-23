@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <numeric>
 
 template<typename ForwardIterator, typename P>
 static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
@@ -251,9 +252,7 @@ multi_wavelets<P>::multi_wavelets(int const degree)
   }
 
   std::transform(phi_co.begin(), phi_co.end(), rep_mat.begin(), phi_co.begin(),
-                 [](P &elem_1, P &elem_2) {
-                   return elem_1 * elem_2;
-                 });
+                 [](P &elem_1, P &elem_2) { return elem_1 * elem_2; });
 
   // "determine the Two Scale Coeffecients"
 
@@ -345,3 +344,58 @@ fk::matrix<P> multi_wavelets<P>::get_scalet_coefficients() const
 
 template class multi_wavelets<double>;
 template class multi_wavelets<float>;
+
+// perform recursive kronecker product
+template<typename P>
+fk::vector<P>
+kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
+{
+  assert(num_prods > 0);
+  if (num_prods == 1)
+  {
+    return operands[0];
+  }
+  if (num_prods == 2)
+  {
+    return operands[1].kron(operands[0]);
+  }
+  return operands[num_prods - 1].kron(kron_d(operands, num_prods - 1));
+}
+
+template<typename P>
+fk::vector<P>
+combine_dimensions(Options const opts, element_table const &table,
+                   std::vector<fk::vector<P>> const &vectors, P const time)
+{
+  int const num_dims = vectors.size();
+  assert(num_dims > 0);
+
+  int const degree = opts.get_degree();
+  // int const deg_to_dims = static_cast<int>(std::pow(degree, num_dims));
+  fk::vector<P> combined;
+
+  for (int i = 0; i < table.size(); ++i)
+  {
+    std::vector<fk::vector<P>> kron_list;
+    fk::vector<int> coords = table.get_coords(i);
+    for (int j = 0; j < num_dims; ++j)
+    {
+      // iterating over cell coords;
+      // first num_dims entries in coords are level coords
+      int const id          = coords(num_dims * 2 + j);
+      int const index_start = id * degree;
+      int const index_end   = (id + 1) * degree;
+      kron_list.push_back(vectors[j].extract(index_start, index_end));
+    }
+    fk::vector<P> partial_result = kron_d(kron_list, kron_list.size()) * time;
+    combined.concat(partial_result);
+  }
+  return combined;
+}
+
+template fk::vector<double>
+combine_dimensions(Options const, element_table const &,
+                   std::vector<fk::vector<double>> const &, double const);
+template fk::vector<float>
+combine_dimensions(Options const, element_table const &,
+                   std::vector<fk::vector<float>> const &, float const);
