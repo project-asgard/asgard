@@ -11,7 +11,7 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
 {
   SECTION("simple test for indexing function")
   {
-    std::string base_path = "../testing/generated-inputs/get_1d_";
+    std::string base_path = "../testing/generated-inputs/connectivity/get_1d_";
 
     std::vector<int> const levels{0, 0, 5};
     std::vector<int> const cells{0, 1, 9};
@@ -27,7 +27,8 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
   }
   SECTION("one-dimensional connectivity function")
   {
-    std::string base_path = "../testing/generated-inputs/connect_1_";
+    std::string base_path =
+        "../testing/generated-inputs/connectivity/connect_1_";
 
     std::vector<int> const levels{1, 2, 8};
     for (size_t i = 0; i < levels.size(); ++i)
@@ -49,7 +50,8 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     list_set connectivity = make_connectivity(t, dims, levels, levels);
 
     list_set gold;
-    std::string base_path = "../testing/generated-inputs/connect_n_3_4_SG_";
+    std::string base_path =
+        "../testing/generated-inputs/connectivity/connect_n_3_4_SG_";
     for (size_t i = 0; i < connectivity.size(); ++i)
     {
       std::string file_path   = base_path + std::to_string(i + 1) + ".dat";
@@ -74,7 +76,8 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     list_set connectivity = make_connectivity(t, dims, levels * dims, levels);
 
     list_set gold;
-    std::string base_path = "../testing/generated-inputs/connect_n_2_3_FG_";
+    std::string base_path =
+        "../testing/generated-inputs/connectivity/connect_n_2_3_FG_";
     for (size_t i = 0; i < connectivity.size(); ++i)
     {
       std::string file_path   = base_path + std::to_string(i + 1) + ".dat";

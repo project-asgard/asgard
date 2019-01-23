@@ -6,7 +6,8 @@
 
 TEST_CASE("element table constructor/accessors/size", "[element_table]")
 {
-  std::string out_base = "../testing/generated-inputs/element_table";
+  std::string out_base =
+      "../testing/generated-inputs/element_table/element_table";
 
   int const levels = 1;
   int const dims   = 1;

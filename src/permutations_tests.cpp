@@ -13,7 +13,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("permutations eq")
   {
-    std::string out_base = "../testing/generated-inputs/perm_eq_";
+    std::string out_base = "../testing/generated-inputs/permutations/perm_eq_";
     for (size_t i = 0; i < dims.size(); ++i)
     {
       std::string file_base = out_base + std::to_string(dims[i]) + "_" +
@@ -40,7 +40,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("permutations leq")
   {
-    std::string out_base = "../testing/generated-inputs/perm_leq_";
+    std::string out_base = "../testing/generated-inputs/permutations/perm_leq_";
     for (size_t i = 0; i < dims.size(); ++i)
     {
       std::string file_base = out_base + std::to_string(dims[i]) + "_" +
@@ -58,7 +58,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("permutations max")
   {
-    std::string out_base = "../testing/generated-inputs/perm_max_";
+    std::string out_base = "../testing/generated-inputs/permutations/perm_max_";
     for (size_t i = 0; i < dims.size(); ++i)
     {
       std::string file_base = out_base + std::to_string(dims[i]) + "_" +
@@ -94,9 +94,9 @@ TEST_CASE("Permutations builders", "[permutations]")
   SECTION("index leq max - matlab computed example")
   {
     std::string gold_path =
-        "../testing/generated-inputs/index_leq_max_4d_10s_4m.dat";
-    std::string count_path =
-        "../testing/generated-inputs/index_leq_max_4d_10s_4m_count.dat";
+        "../testing/generated-inputs/permutations/index_leq_max_4d_10s_4m.dat";
+    std::string count_path = "../testing/generated-inputs/permutations/"
+                             "index_leq_max_4d_10s_4m_count.dat";
 
     fk::matrix<int> const gold = [=] {
       fk::matrix<int> indices = readMatrixFromTxtFile(gold_path);
