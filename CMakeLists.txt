@@ -61,7 +61,7 @@ if (build_OpenBLAS)
   set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
 endif ()
 
-target_link_libraries (connectivity PRIVATE element_table)
+target_link_libraries (connectivity PRIVATE element_table permutations)
 
 target_link_libraries (element_table PRIVATE permutations)
 
