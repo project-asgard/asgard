@@ -218,8 +218,9 @@ fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
 //
 
 // count the number of rows in the matrix returned by the index finder
-int count_leq_max_indices(list_set lists, int const num_dims, int const max_sum,
-                          int const max_val)
+// get_leq_max_indices() below
+int count_leq_max_indices(list_set const lists, int const num_dims,
+                          int const max_sum, int const max_val)
 {
   assert(lists.size() > 0);
   assert(num_dims > 0);
@@ -250,10 +251,11 @@ int count_leq_max_indices(list_set lists, int const num_dims, int const max_sum,
 // given a set of integer lists and a sum and value limit, build an n*num_lists
 // matrix whose elements are indices into the lists (column x contains an index
 // into list x). when elements are used to reference their corresponding list,
-// each row will contain a tuple whose sum is less than max_sum and whose
-// maximum value is less than max_val.
-// FIXME rework this description...
-fk::matrix<int> get_leq_max_indices(list_set lists, int const num_dims,
+// each row will contain a tuple whose dereferenced (into the original lists)
+// elements sum to less than max_sum and whose maximum value is less than
+// max_val.
+// num_dims is the initial number of lists at the start of the recursion
+fk::matrix<int> get_leq_max_indices(list_set const lists, int const num_dims,
                                     int const max_sum, int const max_val)
 {
   assert(lists.size() > 0);
