@@ -213,7 +213,89 @@ multi_wavelets<P>::multi_wavelets(int const degree)
 
     phi_co.update_row(row_pos, row);
     phi_co.update_row(row_pos + degree, row_2);
+  
+   }
+  
+  // build a degree by degree matrix with alternating rows
+  // of -1.0 and 1.0, then stack it vertically
+  fk::matrix<P> rep_mat(2*degree, degree);
+  std::vector<P> const pos_one(degree, static_cast<P>(1.0));
+  std::vector<P> const neg_one(degree, static_cast<P>(-1.0));
+  for(int i = 0; i < degree; ++i) {
+    if((i % 2) == 0) {
+        rep_mat.update_row(i, pos_one);
+	rep_mat.update_row(i + degree, pos_one);
+    } else {
+	rep_mat.update_row(i, neg_one);
+	rep_mat.update_row(i + degree, neg_one);
+    }
+  } 
+
+  // reverse the rows of degree by degree 
+  // vertical slices of phi_co
+  for(int i = 0; i < 2; ++i) {
+    fk::matrix<P> phi_co_part = phi_co.extract_submatrix(i*degree, 0, degree, degree);
+    std::reverse(phi_co_part.begin(), phi_co_part.end());
+    for(int j = 0; j < degree; ++j) {
+	fk::vector<P> phi_co_row = phi_co_part.extract_submatrix(j, 0, 1, degree);
+	std::reverse(phi_co_row.begin(), phi_co_row.end());
+	phi_co_part.update_row(j, phi_co_row);
+    }
+    phi_co.set_submatrix(i*degree, 0, phi_co_part);
   }
+
+  phi_co = rep_mat * phi_co;
+
+  // "determine the Two Scale Coeffecients"
+
+  fk::matrix<P> g0(degree, degree);
+  fk::matrix<P> h0(degree, degree);
+  fk::matrix<P> g1(degree, degree);
+  fk::matrix<P> h1(degree, degree);
+
+  fk::vector<P> const norm_legendre_roots = roots_plus_scaled;
+  fk::vector<P> const norm_legendre_minus = [&] {
+	fk::vector<P> norm_legendre = norm_legendre_roots;
+	std::transform(norm_legendre.begin(), norm_legendre.end(), norm_legendre.begin(),[](P& elem) {
+			return elem-static_cast<P>(1.0);});
+	return norm_legendre;
+  }();
+  fk::vector<P> const norm_legendre_two = [&] {
+	fk::vector<P> norm_legendre = norm_legendre_roots;
+	std::transform(norm_legendre.begin(), norm_legendre.end(), norm_legendre.begin(),[](P& elem) {
+			return (elem*static_cast<P>(2.0))-static_cast<P>(1.0);});
+	return norm_legendre;
+  }();
+
+
+  for (int row = 0; row < degree; ++row)
+  {
+    for (int col = 0; col < degree; ++col)
+    {
+      fk::vector<P> const elem_1 =
+          polyval(get_row(scalet_coefficients, row), norm_legendre_minus);
+      fk::vector<P> const elem_2 =
+          polyval(get_row(scalet_coefficients, col), norm_legendre_two);
+      h0(row, col) = weighted_sum_products(elem_1, elem_2) / std::sqrt(static_cast<P>(2.0));
+
+      fk::vector<P> const elem_3 =
+          polyval(get_row(scalet_coefficients, row), norm_legendre_roots);
+      h1(row, col) = weighted_sum_products(elem_3, elem_2) / std::sqrt(static_cast<P>(2.0));
+
+
+      fk::vector<P> const elem_4 =
+          polyval(get_row(phi_co, row), norm_legendre_minus);
+      g0(row, col) = weighted_sum_products(elem_4, elem_2) / std::sqrt(static_cast<P>(2.0));
+
+      fk::vector<P> const elem_5 =
+	      polyval(get_row(phi_co, row+degree), norm_legendre_roots);
+      g1(row, col) = weighted_sum_products(elem_5, elem_2) / std::sqrt(static_cast<P>(2.0));
+    }
+
+  }
+
+  return std::array<fk::matrix<P>, 
+
 }
 
 template<typename P>
