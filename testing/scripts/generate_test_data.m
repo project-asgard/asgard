@@ -12,16 +12,15 @@
 
 addpath(genpath(pwd));
 
-% directory for output files
-
-out_dir = strcat(pwd, "/", "generated-inputs", "/");
-disp(strcat("writing test files to: ", out_dir));
 
 % write output files for each component
-clear
+
 
 % element_table testing files
-out_format = strcat(pwd, "/", "generated-inputs", "/", "element_table_1_1_SG_%d.dat");
+element_dir = strcat(pwd, "/", "generated-inputs", "/", "element_table", "/")
+mkdir (element_dir)
+
+out_format = strcat(element_dir, "element_table_1_1_SG_%d.dat");
 level = 1;
 dim = 1;
 grid_type = 'SG';
@@ -31,9 +30,9 @@ for i=1:size(inv1,2)
   filename = sprintf(out_format, i);
   save(filename, 'coord')
 end
-  
 
-out_format = strcat(pwd, "/", "generated-inputs", "/", "element_table_2_3_SG_%d.dat");
+
+out_format = strcat(element_dir, "element_table_2_3_SG_%d.dat");
 level = 3;
 dim = 2;
 grid_type = 'SG';
@@ -43,8 +42,8 @@ for i=1:size(inv2,2)
   filename = sprintf(out_format, i);
   save(filename, 'coord')
 end
-  
-out_format = strcat(pwd, "/", "generated-inputs", "/", "element_table_3_4_FG_%d.dat");
+
+out_format = strcat(element_dir, "element_table_3_4_FG_%d.dat");
 level = 4;
 dim = 3;
 grid_type = 'FG';
@@ -58,13 +57,16 @@ end
 clear
 
 % permutations testing files
+permutations_dir = strcat(pwd, "/", "generated-inputs", "/", "permutations", "/")
+mkdir (permutations_dir)
+
 dims = [1, 2, 4, 6];
 ns = [1, 4, 6, 8];
 ords = [0, 1, 0, 1];
 
 % perm leq
-out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_leq_%d_%d_%d.dat");
-count_out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_leq_%d_%d_%d_count.dat");
+out_format = strcat(permutations_dir, "perm_leq_%d_%d_%d.dat");
+count_out_format = strcat(permutations_dir, "perm_leq_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_leq(dims(i), ns(i), ords(i));
   count = [perm_leq_count(dims(i), ns(i), ords(i))];
@@ -75,8 +77,8 @@ for i=1:size(dims,2)
 end
 
 %perm eq
-out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_eq_%d_%d_%d.dat");
-count_out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_eq_%d_%d_%d_count.dat");
+out_format = strcat(permutations_dir, "perm_eq_%d_%d_%d.dat");
+count_out_format = strcat(permutations_dir, "perm_eq_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_eq(dims(i), ns(i), ords(i));
   count = [perm_eq_count(dims(i), ns(i), ords(i))];
@@ -87,8 +89,8 @@ for i=1:size(dims,2)
 end
 
 %perm max
-out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_max_%d_%d_%d.dat");
-count_out_format = strcat(pwd, "/", "generated-inputs", "/", "perm_max_%d_%d_%d_count.dat");
+out_format = strcat(permutations_dir, "perm_max_%d_%d_%d.dat");
+count_out_format = strcat(permutations_dir, "perm_max_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_max(dims(i), ns(i), ords(i));
   count = [perm_max_count(dims(i), ns(i), ords(i))];
@@ -100,8 +102,8 @@ end
 
 %index_leq_max
 
-filename = strcat(pwd, "/", "generated-inputs", "/", "index_leq_max_4d_10s_4m.dat");
-count_filename = strcat(pwd, "/", "generated-inputs", "/", "index_leq_max_4d_10s_4m_count.dat");
+filename = strcat(permutations_dir, "index_leq_max_4d_10s_4m.dat");
+count_filename = strcat(permutations_dir, "index_leq_max_4d_10s_4m_count.dat");
 
 level_sum = 10;
 level_max = 4;
@@ -119,9 +121,11 @@ clear
 
 
 % connectivity testing files
+connectivcity_dir = strcat(pwd, "/", "generated-inputs", "/", "connectivity", "/")
+mkdir (connectivcity_dir)
 
 % 1d indexing
-out_format = strcat(pwd, "/", "generated-inputs", "/", "get_1d_%d_%d.dat");
+out_format = strcat(connectivcity_dir, "get_1d_%d_%d.dat");
 levs = [0, 0, 5];
 cells = [0, 1, 9];
 for i=1:size(levs,2)
@@ -131,7 +135,7 @@ save(filename, 'index');
 end
 
 % 1d connectivity
-out_format = strcat(pwd, "/", "generated-inputs", "/", "connect_1_%d.dat");
+out_format = strcat(connectivcity_dir, "connect_1_%d.dat");
 levs = [1, 2, 8];
 for i=1:size(levs,2)
 connectivity = full(Connect1D(levs(i)));
@@ -140,12 +144,12 @@ save(filename, 'connectivity');
 end
 
 % nd connectivity
-out_format = strcat(pwd, "/", "generated-inputs", "/", "connect_n_2_3_FG_%d.dat");
+out_format = strcat(connectivcity_dir, "connect_n_2_3_FG_%d.dat");
 dims = 2;
 levs = 3;
 grid = 'FG';
 lev_sum = 6;
-lev_max = 3; 
+lev_max = 3;
 [fwd, rev] = HashTable(levs, dims, grid, 1);
 connectivity = ConnectnD(dims, fwd, rev, lev_sum, lev_max);
 for i=1:size(connectivity, 2)
@@ -154,12 +158,12 @@ element = connectivity{i};
 save(filename, 'element');
 end
 
-out_format = strcat(pwd, "/", "generated-inputs", "/", "connect_n_3_4_SG_%d.dat");
+out_format = strcat(connectivcity_dir, "connect_n_3_4_SG_%d.dat");
 dims = 3;
 levs = 4;
 grid = 'SG';
 lev_sum = 4;
-lev_max = 4; 
+lev_max = 4;
 [fwd, rev] = HashTable(levs, dims, grid, 1);
 connectivity = ConnectnD(dims, fwd, rev, lev_sum, lev_max);
 for i=1:size(connectivity, 2)
