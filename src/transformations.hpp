@@ -5,12 +5,12 @@
 template<typename P>
 class multi_wavelets
 {
-  fk::matrix<P> h0;
-  fk::matrix<P> g0;
-  fk::matrix<P> h1;
-  fk::matrix<P> g1;
   fk::matrix<P> phi_co;
   fk::matrix<P> scalet_coefficients;
+  fk::matrix<P> g0;
+  fk::matrix<P> g1;
+  fk::matrix<P> h0;
+  fk::matrix<P> h1;
 
 public:
   multi_wavelets(int const degree);
