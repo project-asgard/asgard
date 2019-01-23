@@ -21,14 +21,19 @@ static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
 
 // FIXME add some meaningful variable names / comments from Tim's work
 template<typename P>
-multi_wavelets<P>::multi_wavelets(int const degree)
-    : phi_co(degree * 2, degree), scalet_coefficients(degree, degree),
-      g0(degree, degree), g1(degree, degree), h0(degree, degree),
-      h1(degree, degree)
+std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 {
   assert(degree > 0);
+
+  fk::matrix<P> g0(degree, degree);
+  fk::matrix<P> g1(degree, degree);
+  fk::matrix<P> h0(degree, degree);
+  fk::matrix<P> h1(degree, degree);
+  fk::matrix<P> phi_co(degree * 2, degree);
+  fk::matrix<P> scalet_coefficients(degree, degree);
+
   // get the quadrature stuff...for evaluating some integral? don't remember...
-  int const stepping           = static_cast<int>(std::pow(2, 10));
+  int const stepping           = static_cast<int>(std::pow(2, 6));
   P const step                 = static_cast<P>(2.0) / stepping;
   P const start                = -1.0;
   P const end                  = 1.0;
@@ -304,46 +309,15 @@ multi_wavelets<P>::multi_wavelets(int const degree)
                      std::sqrt(static_cast<P>(2.0));
     }
   }
+
+  return std::array<fk::matrix<P>, 6>{h0, h1,     g0,
+                                      g1, phi_co, scalet_coefficients};
 }
 
-template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_g0() const
-{
-  return g0;
-}
-
-template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_h0() const
-{
-  return h0;
-}
-
-template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_g1() const
-{
-  return g1;
-}
-
-template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_h1() const
-{
-  return h1;
-}
-
-template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_phi_co() const
-{
-  return phi_co;
-}
-
-template<typename P>
-fk::matrix<P> multi_wavelets<P>::get_scalet_coefficients() const
-{
-  return scalet_coefficients;
-}
-
-template class multi_wavelets<double>;
-template class multi_wavelets<float>;
+template std::array<fk::matrix<double>, 6>
+generate_multi_wavelets(int const degree);
+template std::array<fk::matrix<float>, 6>
+generate_multi_wavelets(int const degree);
 
 // perform recursive kronecker product
 template<typename P>

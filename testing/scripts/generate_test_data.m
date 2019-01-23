@@ -248,17 +248,21 @@ mkdir (transformations_dir);
 
 %multiwavelet file generation
 out_base = strcat(transformations_dir, "multiwavelet_1_");
-[h0,g0,scale_co,phi_co]=MultiwaveletGen(1);
+[h0,h1,g0,g1,scale_co,phi_co]=MultiwaveletGen(1);
 save(strcat(out_base, "h0.dat"), 'h0');
+save(strcat(out_base, "h1.dat"), 'h1');
 save(strcat(out_base, "g0.dat"), 'g0');
+save(strcat(out_base, "g1.dat"), 'g1');
 save(strcat(out_base, "scale_co.dat"), 'scale_co');
 save(strcat(out_base, "phi_co.dat"), 'phi_co');
 
 
 out_base = strcat(transformations_dir, "multiwavelet_3_");
-[h0,g0,scale_co,phi_co]=MultiwaveletGen(3);
+[h0,h1,g0,g1,scale_co,phi_co]=MultiwaveletGen(3);
 save(strcat(out_base, "h0.dat"), 'h0');
+save(strcat(out_base, "h1.dat"), 'h1');
 save(strcat(out_base, "g0.dat"), 'g0');
+save(strcat(out_base, "g1.dat"), 'g1');
 save(strcat(out_base, "scale_co.dat"), 'scale_co');
 save(strcat(out_base, "phi_co.dat"), 'phi_co');
 

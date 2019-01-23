@@ -82,7 +82,11 @@ target_link_libraries (quadrature PRIVATE tensors)
 
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
+target_link_libraries (transformations PRIVATE matlab_utilities)
+
 target_link_libraries (transformations PRIVATE quadrature)
+
+target_link_libraries (transformations PRIVATE tensors)
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)

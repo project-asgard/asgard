@@ -15,7 +15,7 @@
 // Someday I should come up with a more elegant solution here
 // https://github.com/catchorg/Catch2/blob/master/docs/assertions.md
 // https://github.com/catchorg/Catch2/blob/master/docs/matchers.md
-//
+// FIXME we hardly use std::vect...do we still need this?
 template<typename P>
 void compare_vectors(std::vector<P> a, std::vector<P> b)
 {
@@ -44,6 +44,7 @@ void compare_2d_vectors(std::vector<std::vector<P>> a,
   for (size_t i = 0; i < a.size(); i++)
     compare_vectors(a[i], b[i]);
 }
+
 
 options make_options(std::vector<std::string> const arguments);
 
