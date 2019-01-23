@@ -264,6 +264,16 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(gold_copy.concat(empty) == gold);
   }
 
+  SECTION("vector extract")
+  {
+    fk::vector<TestType> test_begin  = {2, 3, 4};
+    fk::vector<TestType> test_middle = {4, 5};
+    fk::vector<TestType> test_end    = {5, 6};
+
+    REQUIRE(test_begin == gold.extract(0, 2));
+    REQUIRE(test_middle == gold.extract(2, 3));
+    REQUIRE(test_end == gold.extract(3, 4));
+  }
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};

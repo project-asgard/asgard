@@ -553,6 +553,23 @@ fk::vector<P> fk::vector<P>::concat(vector<P> const &right)
   return *this;
 }
 
+// extract subvector, indices inclusive
+template<typename P>
+fk::vector<P> fk::vector<P>::extract(int const start, int const stop) const
+{
+  assert(start >= 0);
+  assert(stop < this->size());
+  assert(stop > start);
+
+  int const sub_size = stop - start + 1;
+  fk::vector<P> sub_vector(sub_size);
+  for (int i = 0; i < sub_size; ++i)
+  {
+    sub_vector(i) = (*this)(i + start);
+  }
+
+  return sub_vector;
+}
 //-----------------------------------------------------------------------------
 //
 // fk::matrix class implementation starts here
