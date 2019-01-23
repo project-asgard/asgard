@@ -189,6 +189,21 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
     REQUIRE((gold * scale) == gold_scaled);
   }
+  SECTION("vector kron product")
+  {
+    fk::vector<TestType> identity{1};
+    REQUIRE(identity.kron(gold) == gold);
+
+    fk::vector<TestType> repeat{1, 1};
+    fk::vector<TestType> gold_copy = gold;
+    REQUIRE(repeat.kron(gold) == gold_copy.concat(gold));
+
+    fk::vector<TestType> zeros(gold.size());
+    fk::vector<TestType> alternate{1, 0, 2, 0};
+    fk::vector<TestType> ans;
+    ans.concat(gold).concat(zeros).concat(gold * 2).concat(zeros);
+    REQUIRE(ans == alternate.kron(gold));
+  }
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)

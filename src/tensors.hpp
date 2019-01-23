@@ -64,6 +64,8 @@ public:
   P operator*(vector<P> const &)const;
   vector<P> operator*(matrix<P> const &)const;
   vector<P> operator*(P const) const;
+
+  vector<P> kron(vector<P> const &) const;
   //
   // basic queries to private data
   //
@@ -78,7 +80,7 @@ public:
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
   vector<P> extract(int const, int const) const;
-  vector<P> concat(vector<P> const &right);
+  vector<P> &concat(vector<P> const &right);
   typedef P *iterator;
   typedef const P *const_iterator;
   iterator begin() { return data(); }
