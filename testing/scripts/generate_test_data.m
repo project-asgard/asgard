@@ -174,7 +174,6 @@ end
 
 clear
 
-
 % matlab testing
 
 matlab_dir = strcat(pwd, "/", "generated-inputs", "/", "matlab_utilities", "/");
@@ -241,5 +240,27 @@ degree = 5;
 [deriv, poly] = dlegendre2(x, 5);
 save(strcat(out_format, 'deriv_linspace_5.dat'), 'deriv');
 save(strcat(out_format, 'poly_linspace_5.dat'), 'poly');
+
+
+% transformations testing files
+transformations_dir = strcat(pwd, "/", "generated-inputs", "/", "transformations", "/");
+mkdir (transformations_dir);
+
+%multiwavelet file generation
+out_base = strcat(transformations_dir, "multiwavelet_1_");
+[h0,g0,scale_co,phi_co]=MultiwaveletGen(1);
+save(strcat(out_base, "h0.dat"), 'h0');
+save(strcat(out_base, "g0.dat"), 'g0');
+save(strcat(out_base, "scale_co.dat"), 'scale_co');
+save(strcat(out_base, "phi_co.dat"), 'phi_co');
+
+
+out_base = strcat(transformations_dir, "multiwavelet_3_");
+[h0,g0,scale_co,phi_co]=MultiwaveletGen(3);
+save(strcat(out_base, "h0.dat"), 'h0');
+save(strcat(out_base, "g0.dat"), 'g0');
+save(strcat(out_base, "scale_co.dat"), 'scale_co');
+save(strcat(out_base, "phi_co.dat"), 'phi_co');
+
 
 clear
