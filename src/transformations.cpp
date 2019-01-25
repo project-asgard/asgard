@@ -1,5 +1,6 @@
 #include "transformations.hpp"
 
+#include "connectivity.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
@@ -351,7 +352,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
   }
   if (num_prods == 2)
   {
-    return operands[1].kron(operands[0]);
+    return operands[0].kron(operands[1]);
   }
   return operands[num_prods - 1].kron(kron_d(operands, num_prods - 1));
 }
@@ -376,9 +377,9 @@ combine_dimensions(Options const opts, element_table const &table,
     {
       // iterating over cell coords;
       // first num_dims entries in coords are level coords
-      int const id          = coords(num_dims * 2 + j);
+      int const id          = get_1d_index(coords(j), coords(j + num_dims));
       int const index_start = id * degree;
-      int const index_end   = (id + 1) * degree;
+      int const index_end   = ((id + 1) * degree) - 1;
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
     fk::vector<P> partial_result = kron_d(kron_list, kron_list.size()) * time;

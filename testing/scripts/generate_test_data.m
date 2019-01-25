@@ -246,7 +246,7 @@ save(strcat(out_format, 'poly_linspace_5.dat'), 'poly');
 transformations_dir = strcat(pwd, "/", "generated-inputs", "/", "transformations", "/");
 mkdir (transformations_dir);
 
-%multiwavelet file generation
+% multiwavelet file generation
 out_base = strcat(transformations_dir, "multiwavelet_1_");
 [h0,h1,g0,g1,scale_co,phi_co]=MultiwaveletGen(1);
 save(strcat(out_base, "h0.dat"), 'h0');
@@ -265,6 +265,15 @@ save(strcat(out_base, "g0.dat"), 'g0');
 save(strcat(out_base, "g1.dat"), 'g1');
 save(strcat(out_base, "scale_co.dat"), 'scale_co');
 save(strcat(out_base, "phi_co.dat"), 'phi_co');
+
+% combine dimensions file generation
+filename = strcat(transformations_dir, "combine_dim_dim2_deg2_lev3.dat");
+[fwd, back] = HashTable(3, 2, 'SG', 1);
+fd = {[1:16], [17:32]};
+ft = 2.0;
+deg = 2;
+ans = combine_dimensions_D(fd, ft, back, deg);
+save(filename, "ans");
 
 
 clear

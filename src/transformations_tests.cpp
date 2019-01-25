@@ -1,6 +1,7 @@
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 #include "transformations.hpp"
+#include <numeric>
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
@@ -82,5 +83,43 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     {
       relaxed_comparison(scale_co, m_scale_co);
     }
+  }
+}
+
+TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
+{
+  SECTION("Combine dimensions, dim = 2, deg = 2, lev = 3")
+  {
+    int const dim = 2;
+    int const lev = 3;
+    int const deg = 2;
+    std::string const filename =
+        "../testing/generated-inputs/transformations/combine_dim_dim" +
+        std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
+        std::to_string(lev) + ".dat";
+
+    fk::vector<TestType> const gold = readVectorFromTxtFile(filename);
+
+    Options const o =
+        make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
+    element_table const t(o, dim);
+
+    TestType const time = 2.0;
+
+    int const vect_size              = dim * static_cast<int>(std::pow(2, lev));
+    fk::vector<TestType> const dim_1 = [&] {
+      fk::vector<TestType> dim_1(vect_size);
+      std::iota(dim_1.begin(), dim_1.end(), static_cast<TestType>(1.0));
+      return dim_1;
+    }();
+    fk::vector<TestType> const dim_2 = [&] {
+      fk::vector<TestType> dim_2(vect_size);
+      std::iota(dim_2.begin(), dim_2.end(),
+                dim_1(dim_1.size() - 1) + static_cast<TestType>(1.0));
+      return dim_2;
+    }();
+    std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2};
+
+    REQUIRE(combine_dimensions(o, t, vectors, time) == gold);
   }
 }
