@@ -4,6 +4,15 @@
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
+  auto const relaxed_comparison = [](auto const first, auto const second) {
+    auto first_it = first.begin();
+    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
+      REQUIRE(Approx(*first_it++)
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 250) ==
+              second_elem);
+    });
+  };
+
   SECTION("Multiwavelet generation, degree = 1")
   {
     int const degree = 1;
@@ -28,12 +37,16 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
 
-    REQUIRE(Approx(h0) == m_h0(0, 0));
-    REQUIRE(Approx(h1) == m_h1(0, 0));
-    REQUIRE(Approx(g0) == m_g0(0, 0));
-    REQUIRE(Approx(g1) == m_g1(0, 0));
-    relaxed_comparison(phi_co, m_phi_co);
-    REQUIRE(Approx(scale_co) == m_scale_co(0, 0));
+    SECTION("degree = 1, h0") { REQUIRE(Approx(h0) == m_h0(0, 0)); }
+
+    SECTION("degree = 1, h1") { REQUIRE(Approx(h1) == m_h1(0, 0)); }
+    SECTION("degree = 1, g0") { REQUIRE(Approx(g0) == m_g0(0, 0)); }
+    SECTION("degree = 1, g1") { REQUIRE(Approx(g1) == m_g1(0, 0)); }
+    SECTION("degree = 1, phi_co") { relaxed_comparison(phi_co, m_phi_co); }
+    SECTION("degree = 1, scale_co")
+    {
+      REQUIRE(Approx(scale_co) == m_scale_co(0, 0));
+    }
   }
 
   SECTION("Multiwavelet generation, degree = 3")
@@ -42,6 +55,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     std::string out_base =
         "../testing/generated-inputs/transformations/multiwavelet_" +
         std::to_string(degree) + "_";
+
     std::string h0_string    = out_base + "h0.dat";
     std::string h1_string    = out_base + "h1.dat";
     std::string g0_string    = out_base + "g0.dat";
@@ -59,11 +73,14 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
 
-    relaxed_comparison(h0, m_h0);
-    REQUIRE(h1 == m_h1);
-    REQUIRE(g0 == m_g0);
-    REQUIRE(g1 == m_g1);
-    REQUIRE(phi_co == m_phi_co);
-    REQUIRE(scale_co == m_scale_co);
+    SECTION("degree = 3, h0") { relaxed_comparison(h0, m_h0); }
+    SECTION("degree = 3, h1") { relaxed_comparison(h1, m_h1); }
+    SECTION("degree = 3, g0") { relaxed_comparison(g0, m_g0); }
+    SECTION("degree = 3, g1") { relaxed_comparison(g1, m_g1); }
+    SECTION("degree = 3, phi_co") { relaxed_comparison(phi_co, m_phi_co); }
+    SECTION("degree = 3, scale_co")
+    {
+      relaxed_comparison(scale_co, m_scale_co);
+    }
   }
 }

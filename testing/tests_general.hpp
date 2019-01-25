@@ -45,7 +45,7 @@ void compare_2d_vectors(std::vector<std::vector<P>> a,
     compare_vectors(a[i], b[i]);
 }
 
-
 options make_options(std::vector<std::string> const arguments);
+
 
 #endif

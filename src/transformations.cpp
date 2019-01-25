@@ -256,6 +256,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     phi_co.set_submatrix(i * degree, 0, phi_co_part);
   }
 
+  // finally, multiply the two elementwise
   std::transform(phi_co.begin(), phi_co.end(), rep_mat.begin(), phi_co.begin(),
                  [](P &elem_1, P &elem_2) { return elem_1 * elem_2; });
 
@@ -309,6 +310,25 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                      std::sqrt(static_cast<P>(2.0));
     }
   }
+
+  // explicitly normalize to zero
+  auto const normalize = [](fk::matrix<P> &matrix) {
+    std::transform(matrix.begin(), matrix.end(), matrix.begin(), [](P &elem) {
+      if (std::abs(elem) <
+          static_cast<P>(1e-5)) // this value blessed by the math people
+      {
+        return static_cast<P>(0.0);
+      }
+      return elem;
+    });
+  };
+
+  normalize(h0);
+  normalize(h1);
+  normalize(g0);
+  normalize(g1);
+  normalize(phi_co);
+  normalize(scalet_coefficients);
 
   return std::array<fk::matrix<P>, 6>{h0, h1,     g0,
                                       g1, phi_co, scalet_coefficients};
