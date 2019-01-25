@@ -267,11 +267,29 @@ save(strcat(out_base, "scale_co.dat"), 'scale_co');
 save(strcat(out_base, "phi_co.dat"), 'phi_co');
 
 % combine dimensions file generation
-filename = strcat(transformations_dir, "combine_dim_dim2_deg2_lev3.dat");
-[fwd, back] = HashTable(3, 2, 'SG', 1);
+out_base = strcat(transformations_dir, "combine_dim_");
+
+filename = strcat(out_base, "dim2_deg2_lev3_sg.dat");
+lev = 3;
+dim = 2;
+deg = 2;
+
+[fwd, back] = HashTable(lev, dim, 'SG', 1);
 fd = {[1:16], [17:32]};
 ft = 2.0;
-deg = 2;
+
+ans = combine_dimensions_D(fd, ft, back, deg);
+save(filename, "ans");
+
+filename = strcat(out_base, "dim3_deg3_lev2_fg.dat");
+lev = 2;
+dim = 3;
+deg = 3;
+
+[fwd, back] = HashTable(lev, dim, 'FG', 1);
+fd = {[1:12], [13:24], [25:36]};
+ft = 2.5;
+
 ans = combine_dimensions_D(fd, ft, back, deg);
 save(filename, "ans");
 

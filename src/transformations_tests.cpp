@@ -96,7 +96,7 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
     std::string const filename =
         "../testing/generated-inputs/transformations/combine_dim_dim" +
         std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
-        std::to_string(lev) + ".dat";
+        std::to_string(lev) + "_sg.dat";
 
     fk::vector<TestType> const gold = readVectorFromTxtFile(filename);
 
@@ -119,6 +119,48 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
       return dim_2;
     }();
     std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2};
+
+    REQUIRE(combine_dimensions(o, t, vectors, time) == gold);
+  }
+
+  SECTION("Combine dimensions, dim = 3, deg = 3, lev = 2, full grid")
+  {
+    int const dim = 3;
+    int const lev = 2;
+    int const deg = 3;
+    std::string const filename =
+        "../testing/generated-inputs/transformations/combine_dim_dim" +
+        std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
+        std::to_string(lev) + "_fg.dat";
+
+    fk::vector<TestType> const gold = readVectorFromTxtFile(filename);
+
+    Options const o = make_options(
+        {"-d", std::to_string(deg), "-l", std::to_string(lev), "-f"});
+    element_table const t(o, dim);
+
+    TestType const time = 2.5;
+
+    int const vect_size              = dim * static_cast<int>(std::pow(2, lev));
+    fk::vector<TestType> const dim_1 = [&] {
+      fk::vector<TestType> dim_1(vect_size);
+      std::iota(dim_1.begin(), dim_1.end(), static_cast<TestType>(1.0));
+      return dim_1;
+    }();
+    fk::vector<TestType> const dim_2 = [&] {
+      fk::vector<TestType> dim_2(vect_size);
+      std::iota(dim_2.begin(), dim_2.end(),
+                dim_1(dim_1.size() - 1) + static_cast<TestType>(1.0));
+      return dim_2;
+    }();
+
+    fk::vector<TestType> const dim_3 = [&] {
+      fk::vector<TestType> dim_3(vect_size);
+      std::iota(dim_3.begin(), dim_3.end(),
+                dim_2(dim_2.size() - 1) + static_cast<TestType>(1.0));
+      return dim_3;
+    }();
+    std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2, dim_3};
 
     REQUIRE(combine_dimensions(o, t, vectors, time) == gold);
   }

@@ -30,7 +30,7 @@ for i=1:nHash
     
     tmp = A * B;
     
-    Index = Deg^2*(i-1)+1:Deg^2*i;
+    Index = Deg^nDims*(i-1)+1:Deg^nDims*i;
     fval(Index,1) = fval(Index,1) + tmp(:);
     
 end

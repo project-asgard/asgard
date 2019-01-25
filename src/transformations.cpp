@@ -354,7 +354,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
   {
     return operands[0].kron(operands[1]);
   }
-  return operands[num_prods - 1].kron(kron_d(operands, num_prods - 1));
+  return kron_d(operands, num_prods - 1).kron(operands[num_prods - 1]);
 }
 
 template<typename P>
