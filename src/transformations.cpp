@@ -394,3 +394,80 @@ combine_dimensions(Options const, element_table const &,
 template fk::vector<float>
 combine_dimensions(Options const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
+
+template<typename P>
+fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
+{
+  assert(degree > 0);
+  assert(num_levels > 0);
+
+  const int max_level = static_cast<int>(std::pow(2, num_levels));
+
+  // this is to get around unused warnings
+  // because can't unpack only some args w structured binding (until c++20)
+  auto const ignore = [](auto ignored) { (void)ignored; };
+  auto const [h0, h1_, g0, g1_, phi_co, scale_co] =
+      generate_multi_wavelets<P>(degree);
+  ignore(phi_co);
+  ignore(scale_co);
+  ignore(h1_);
+  ignore(g1_);
+
+  // now g1, h1 from g0, h0 -> may not need to do this? FIXME
+  fk::matrix<P> g1(degree, degree);
+  fk::matrix<P> h1(degree, degree);
+  for (int j_x = 1; j_x <= degree; j_x++)
+    for (int j_y = 1; j_y <= degree; j_y++)
+    {
+      g1(j_x - 1, j_y - 1) =
+          std::pow(-1.0, (degree + j_x + j_y - 2.0)) * g0(j_x - 1, j_y - 1);
+      h1(j_x - 1, j_y - 1) =
+          std::pow(-1.0, (j_x + j_y - 2.0)) * h0(j_x - 1, j_y - 1);
+    }
+
+  fk::matrix<P> fmwt(degree * max_level, degree * max_level);
+
+  fk::matrix<P> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
+                                    .set_submatrix(0, 0, h0)
+                                    .set_submatrix(0, h0.ncols(), h1);
+  fk::matrix<P> const g_block = fk::matrix<P>(g0.nrows(), g0.ncols() * 2)
+                                    .set_submatrix(0, 0, g0)
+                                    .set_submatrix(0, g0.ncols(), g1);
+
+  for (int i = 0; i < max_level / 2; ++i)
+  {
+    fmwt.set_submatrix(degree * i, 2 * degree * i, h_block);
+    fmwt.set_submatrix(degree * (i + max_level / 2), 2 * degree * i, g_block);
+  }
+
+  fk::matrix<P> fmwt_comp = eye<P>(degree * max_level, degree * max_level);
+
+  int const n = std::floor(std::log2(max_level));
+  for (int j = 1; j <= n; j++)
+  {
+    fk::matrix<P> cfmwt(degree * max_level, degree * max_level);
+    if (j == 1)
+    {
+      cfmwt = fmwt;
+    }
+    else
+    {
+      int const cn = std::pow(2.0, n - j + 1.0) * degree;
+
+      std::fill(cfmwt.begin(), cfmwt.end(), static_cast<P>(0.0));
+      cfmwt.set_submatrix(cn, cn, eye<P>(degree * max_level - cn));
+      cfmwt.set_submatrix(0, 0, fmwt.extract_submatrix(0, 0, cn / 2, cn));
+      cfmwt.set_submatrix(
+          cn / 2, 0,
+          fmwt.extract_submatrix(degree * max_level / 2, 0, cn / 2, cn));
+    }
+    fmwt_comp = cfmwt * fmwt_comp;
+  }
+
+  return fmwt_comp;
+}
+
+template fk::matrix<double>
+operator_two_scale(int const degree, int const num_levels);
+template fk::matrix<float>
+operator_two_scale(int const degree, int const num_levels);

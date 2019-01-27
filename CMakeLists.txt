@@ -77,15 +77,13 @@ target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 target_link_libraries (program_options PRIVATE clara)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities)
-
 target_link_libraries (quadrature PRIVATE tensors)
 
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
+target_link_libraries (transformations PRIVATE connectivity)
 target_link_libraries (transformations PRIVATE matlab_utilities)
-
 target_link_libraries (transformations PRIVATE quadrature)
-
 target_link_libraries (transformations PRIVATE tensors)
 
 # define the main application and its linking

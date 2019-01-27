@@ -294,4 +294,39 @@ ans = combine_dimensions_D(fd, ft, back, deg);
 save(filename, "ans");
 
 
+% operator two scale file generation
+out_base = strcat(transformations_dir, "operator_two_scale_");
+
+
+filename = strcat(out_base, "2_2.dat");
+degree = 2;
+level = 2;
+vect = OperatorTwoScale(degree, 2^level);
+save(filename, 'vect');
+
+filename = strcat(out_base, "2_3.dat");
+degree = 2;
+level = 3;
+vect = OperatorTwoScale(degree, 2^level);
+save(filename, 'vect');
+
+filename = strcat(out_base, "4_3.dat");
+degree = 4;
+level = 3;
+vect = OperatorTwoScale(degree, 2^level);
+save(filename, 'vect');
+
+
+filename = strcat(out_base, "5_5.dat");
+degree = 5;
+level = 5;
+vect = OperatorTwoScale(degree, 2^level);
+save(filename, 'vect');
+
+filename = strcat(out_base, "2_6.dat");
+degree = 2;
+level = 6;
+vect = OperatorTwoScale(degree, 2^level);
+save(filename, 'vect');
+
 clear

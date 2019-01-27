@@ -23,3 +23,11 @@ combine_dimensions(Options const, element_table const &,
 extern template fk::vector<float>
 combine_dimensions(Options const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
+
+template<typename P>
+fk::matrix<P> operator_two_scale(int const degree, int const num_levels);
+
+extern template fk::matrix<double>
+operator_two_scale(int const degree, int const num_levels);
+extern template fk::matrix<float>
+operator_two_scale(int const degree, int const num_levels);

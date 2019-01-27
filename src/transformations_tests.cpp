@@ -165,3 +165,79 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
     REQUIRE(combine_dimensions(o, t, vectors, time) == gold);
   }
 }
+
+// FIXME should be templated on float and double,
+// but having problems w/ comparison between
+// 1) performing arithmetic in double in octave -> convert to float
+// and 2) performing arithmetic in float in c++
+TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
+                   "[transformations]", double)
+{
+  auto const relaxed_comparison = [](auto const first, auto const second) {
+    auto first_it = first.begin();
+    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
+      /* REQUIRE(Approx(*first_it++)
+                   .epsilon(0.00001) ==
+               second_elem);
+ */
+      if (!(Approx(*first_it).epsilon(0.00001) == second_elem))
+      {
+        std::cout << *first_it << " : " << second_elem << std::endl;
+      }
+      first_it++;
+    });
+  };
+
+  SECTION("operator_two_scale(2, 2)")
+  {
+    int const degree          = 2;
+    int const levels          = 2;
+    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/transformations/operator_two_scale_" +
+        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    relaxed_comparison(gold, test);
+  }
+
+  SECTION("operator_two_scale(2, 3)")
+  {
+    int const degree          = 2;
+    int const levels          = 3;
+    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/transformations/operator_two_scale_" +
+        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    relaxed_comparison(gold, test);
+  }
+  SECTION("operator_two_scale(4, 3)")
+  {
+    int const degree          = 4;
+    int const levels          = 3;
+    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/transformations/operator_two_scale_" +
+        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    relaxed_comparison(gold, test);
+  }
+  SECTION("operator_two_scale(5, 5)")
+  {
+    int const degree          = 5;
+    int const levels          = 5;
+    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/transformations/operator_two_scale_" +
+        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    relaxed_comparison(gold, test);
+  }
+
+  SECTION("operator_two_scale(2, 6)")
+  {
+    int const degree          = 2;
+    int const levels          = 6;
+    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/transformations/operator_two_scale_" +
+        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    relaxed_comparison(gold, test);
+  }
+}
