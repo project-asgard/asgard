@@ -567,6 +567,18 @@ fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
   return *this;
 }
 
+// set a subvector beginning at provided index
+template<typename P>
+fk::vector<P>
+fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
+{
+  assert(index >= 0);
+  assert((index + sub_vector.size()) <= this->size());
+  std::memcpy(&(*this)(index), sub_vector.data(),
+              sub_vector.size() * sizeof(P));
+  return *this;
+}
+
 // extract subvector, indices inclusive
 template<typename P>
 fk::vector<P> fk::vector<P>::extract(int const start, int const stop) const
@@ -581,7 +593,6 @@ fk::vector<P> fk::vector<P>::extract(int const start, int const stop) const
   {
     sub_vector(i) = (*this)(i + start);
   }
-
   return sub_vector;
 }
 //-----------------------------------------------------------------------------

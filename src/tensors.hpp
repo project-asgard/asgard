@@ -79,6 +79,7 @@ public:
   void print(std::string const label = "") const;
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
+  vector<P> set(int const, vector<P> const);
   vector<P> extract(int const, int const) const;
   vector<P> &concat(vector<P> const &right);
   typedef P *iterator;

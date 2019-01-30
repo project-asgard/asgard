@@ -268,8 +268,8 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
   SECTION("vector concatenation")
   {
-    fk::vector<TestType> test_left  = {2, 3, 4};
-    fk::vector<TestType> test_right = {5, 6};
+    fk::vector<TestType> test_left        = {2, 3, 4};
+    fk::vector<TestType> const test_right = {5, 6};
     fk::vector<TestType> empty;
     fk::vector<TestType> gold_copy = gold;
 
@@ -278,12 +278,23 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     empty.resize(0);
     REQUIRE(gold_copy.concat(empty) == gold);
   }
+  SECTION("vector set")
+  {
+    fk::vector<TestType> vector(5);
 
+    fk::vector<TestType> const empty;
+    fk::vector<TestType> const begin  = {2, 3};
+    fk::vector<TestType> const middle = {3, 4, 5};
+    fk::vector<TestType> const end    = {6};
+
+    REQUIRE(vector.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
+            gold);
+  }
   SECTION("vector extract")
   {
-    fk::vector<TestType> test_begin  = {2, 3, 4};
-    fk::vector<TestType> test_middle = {4, 5};
-    fk::vector<TestType> test_end    = {5, 6};
+    fk::vector<TestType> const test_begin  = {2, 3, 4};
+    fk::vector<TestType> const test_middle = {4, 5};
+    fk::vector<TestType> const test_end    = {5, 6};
 
     REQUIRE(test_begin == gold.extract(0, 2));
     REQUIRE(test_middle == gold.extract(2, 3));
@@ -292,7 +303,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};
-    fk::vector<TestType> after{0, 2, 3, 4};
+    fk::vector<TestType> const after{0, 2, 3, 4};
     std::transform(test.begin(), test.end(), test.begin(),
                    std::bind1st(std::plus<TestType>(), 1));
     REQUIRE(test == after);
@@ -300,14 +311,14 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
   SECTION("vector maximum element")
   {
-    fk::vector<TestType> test{5, 6, 11, 8};
+    fk::vector<TestType> const test{5, 6, 11, 8};
     TestType max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
   }
 
   SECTION("vector sum of elements")
   {
-    fk::vector<TestType> test{1, 2, 3, 4, 5, 6, 7, 8};
+    fk::vector<TestType> const test{1, 2, 3, 4, 5, 6, 7, 8};
     TestType max = 36;
     REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == max);
   }
