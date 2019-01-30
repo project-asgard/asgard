@@ -329,4 +329,18 @@ level = 6;
 vect = OperatorTwoScale(degree, 2^level);
 save(filename, 'vect');
 
+% forward MWT test generation
+out_base = strcat(transformations_dir, "forward_transform_");
+
+filename = strcat(out_base, "2_2_neg1_pos1_double.dat");
+degree = 2;
+level = 2;
+l_min = -1.0;
+l_max = 1.0;
+double_it = @(n,x) (n*2);
+vect = forwardMWT(level, degree, l_min, l_max, double_it, 0);
+save(filename, 'vect');
+
 clear
+
+

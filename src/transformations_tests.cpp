@@ -166,8 +166,8 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
   }
 }
 
-// FIXME I am confident in my implementation, but we are still off after 12 dec
-// places or so
+// FIXME we are still off after 12 dec places or so in double prec.
+// need to think about these precision issues some more
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
@@ -175,8 +175,9 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
       REQUIRE(
-          Approx(*first_it++).epsilon(std::numeric_limits<float>::epsilon()) ==
+          Approx(*first_it++).epsilon(1e-4) ==
           second_elem);
+
     });
   };
 
@@ -186,10 +187,10 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     int const levels = 2;
     Options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
 
@@ -199,10 +200,10 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     int const levels = 3;
     Options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
   SECTION("operator_two_scale(4, 3)")
@@ -211,10 +212,10 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     int const levels = 3;
     Options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
   SECTION("operator_two_scale(5, 5)")
@@ -223,10 +224,10 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     int const levels = 5;
     Options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
 
@@ -236,10 +237,41 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     int const levels = 6;
     Options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
+  }
+}
+
+TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
+                   double, float)
+{
+  SECTION("transform(2, 2, -1, 1, double)")
+  {
+    int const degree     = 2;
+    int const levels     = 2;
+    auto const double_it = [](fk::vector<TestType> x) {
+      return x * static_cast<TestType>(2.0);
+    };
+    TestType const domain_min = -1.0;
+    TestType const domain_max = 1.0;
+    Options const o           = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+    fk::vector<TestType> const gold = readVectorFromTxtFile(
+        "../testing/generated-inputs/transformations/forward_transform_" +
+        std::to_string(degree) + "_" + std::to_string(levels) +
+        "_neg1_pos1_double.dat");
+
+    gold.print("gold!");
+
+    fk::vector<TestType> const test =
+        forward_transform<TestType>(o, domain_min, domain_max, double_it);
+    
+    test.print("test!");
+    
+    REQUIRE(gold == test);
+
   }
 }
