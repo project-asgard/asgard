@@ -298,9 +298,9 @@ P fk::vector<P>::operator()(int i) const
   return data_[i];
 }
 
-//
 // vector comparison operators - set default tolerance above
-//
+// see https://stackoverflow.com/a/253874/6595797
+// FIXME do we need to be more careful with these fp comparisons?
 template<typename P>
 bool fk::vector<P>::operator==(vector<P> const &other) const
 {
@@ -311,11 +311,10 @@ bool fk::vector<P>::operator==(vector<P> const &other) const
   for (auto i = 0; i < size(); ++i)
     if constexpr (std::is_floating_point<P>::value)
     {
-      if (std::abs((*this)(i)) > TOL && std::abs(other(i)) > TOL)
-        if (std::abs((*this)(i)-other(i)) > TOL)
-        {
-          return false;
-        }
+      if (std::abs((*this)(i)-other(i)) > TOL)
+      {
+        return false;
+      }
     }
     else
     {
@@ -732,9 +731,9 @@ P fk::matrix<P>::operator()(int const i, int const j) const
   return *(data(i, j));
 }
 
-//
 // matrix comparison operators - set default tolerance above
-//
+// see https://stackoverflow.com/a/253874/6595797
+// FIXME we may need to be more careful with these comparisons
 template<typename P>
 bool fk::matrix<P>::operator==(matrix<P> const &other) const
 {
@@ -746,11 +745,10 @@ bool fk::matrix<P>::operator==(matrix<P> const &other) const
     for (auto i = 0; i < nrows(); ++i)
       if constexpr (std::is_floating_point<P>::value)
       {
-        if (std::abs((*this)(i, j)) > TOL && std::abs(other(i, j)) > TOL)
-          if (std::abs((*this)(i, j) - other(i, j)) > TOL)
-          {
-            return false;
-          }
+        if (std::abs((*this)(i, j) - other(i, j)) > TOL)
+        {
+          return false;
+        }
       }
       else
       {
