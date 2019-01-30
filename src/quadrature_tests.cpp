@@ -5,23 +5,24 @@
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
-  fk::vector<TestType> in = {-1.0};
+  fk::vector<TestType> in = {-1};
 
   SECTION("legendre(-1,0)")
   {
     fk::matrix<TestType> poly_gold  = {{1.0}};
     fk::matrix<TestType> deriv_gold = {{0.0}};
     int const degree                = 0;
-    auto [deriv, poly]              = legendre(in, degree);
+    auto [poly, deriv]              = legendre(in, degree);
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
   }
   SECTION("legendre(-1,1")
   {
-    fk::matrix<TestType> poly_gold  = {{-1.0}};
-    fk::matrix<TestType> deriv_gold = {{1.0}};
+    fk::matrix<TestType> poly_gold  = {{1.0}};
+    fk::matrix<TestType> deriv_gold = {{0.0}};
     int const degree                = 1;
-    auto [deriv, poly]              = legendre(in, degree);
+    auto [poly, deriv]              = legendre(in, degree);
+    deriv.print();
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
   }
@@ -35,7 +36,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
         {0.0, 1.732050807568877, 5.366563145999496}};
     fk::vector<TestType> input = {-0.5, 0.8};
     int const degree           = 3;
-    auto [deriv, poly]         = legendre(input, degree);
+    auto [poly, deriv]         = legendre(input, degree);
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
   }

@@ -1,4 +1,7 @@
 #include "quadrature.hpp"
+#include <iostream>
+
+#include "matlab_utilities.hpp"
 
 #include <algorithm>
 #include <array>
@@ -55,7 +58,7 @@ legendre(fk::vector<P> const domain, int const degree)
 
       // element-wise multiplication
       fk::vector<P> product(domain.size());
-      std::transform(domain.begin(), domain.end(), legendre_n_2.begin(),
+      std::transform(domain.begin(), domain.end(), legendre_n_1.begin(),
                      product.begin(), std::multiplies<P>());
 
       P const factor = 1.0 / (n + 1.0);
@@ -65,7 +68,7 @@ legendre(fk::vector<P> const domain, int const degree)
       legendre_col = legendre_col * factor;
       legendre.update_col(column_index, legendre_col);
 
-      std::transform(domain.begin(), domain.end(), legendre_prime_n_2.begin(),
+      std::transform(domain.begin(), domain.end(), legendre_prime_n_1.begin(),
                      product.begin(), std::multiplies<P>());
 
       fk::vector<P> legendre_prime_col =
@@ -85,35 +88,44 @@ legendre(fk::vector<P> const domain, int const degree)
   // "normalizing"
   for (int i = 0; i < degree; ++i)
   {
-    P const norm_2 = 2.0 / (2.0 * i + 1.0);
-    P const dscale = 1.0 / std::sqrt(norm_2);
+    P const norm_2 = static_cast<P>(2.0) / (2.0 * i + 1.0);
+    P const dscale = static_cast<P>(1.0) / std::sqrt(norm_2);
 
-    fk::matrix<P> legendre_sub =
+    fk::vector<P> const legendre_sub =
         legendre.extract_submatrix(0, i, domain.size(), 1);
-    legendre.set_submatrix(0, i, legendre_sub * dscale);
+    legendre.update_col(i, legendre_sub * dscale);
 
-    fk::matrix<P> legendre_prime_sub =
+    fk::vector<P> const legendre_prime_sub =
         legendre_prime.extract_submatrix(0, i, domain.size(), 1);
-    legendre_prime.set_submatrix(0, i, legendre_sub * dscale);
+    legendre_prime.update_col(i, legendre_prime_sub * dscale);
   }
 
   // "zero out points out of range"
-  auto iter = domain.begin();
-  while ((iter = std::find_if(iter, domain.end(), [](P elem) {
-            return elem < static_cast<P>(1.0) || elem > static_cast<P>(1.0);
-          })) != domain.end())
+  fk::vector<int> const out_of_range = find(domain, [](P const &elem) {
+    return elem < static_cast<P>(-1.0) || elem > static_cast<P>(1.0);
+  });
+  for (int i : out_of_range)
   {
-    int const index = std::distance(domain.begin(), iter++);
     legendre.update_row(
-        index, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
+        i, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
     legendre_prime.update_row(
-        index, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
+        i, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
   }
 
-  // "scaling to use normalization"
-  legendre       = legendre * static_cast<P>(std::sqrt(2.0));
-  legendre_prime = legendre_prime * static_cast<P>(std::sqrt(2.0));
+  if (degree > 0)
+  {
+    // "scaling to use normalization
+    legendre       = legendre * static_cast<P>(std::sqrt(2.0));
+    legendre_prime = legendre_prime * static_cast<P>(std::sqrt(2.0));
+    std::transform(legendre.begin(), legendre.end(), legendre.begin(),
+                   std::bind(std::multiplies<P>(), std::placeholders::_1,
+                             std::sqrt(static_cast<P>(2.0))));
 
+    std::transform(legendre_prime.begin(), legendre_prime.end(),
+                   legendre_prime.begin(),
+                   std::bind(std::multiplies<P>(), std::placeholders::_1,
+                             std::sqrt(static_cast<P>(2.0))));
+  }
   return {legendre, legendre_prime};
 }
 
