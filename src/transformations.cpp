@@ -414,7 +414,7 @@ fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
   ignore(g1_);
 
   // now g1, h1 from g0, h0 -> may not need to do this? FIXME
-  fk::matrix<P> g1(degree, degree);
+  /*fk::matrix<P> g1(degree, degree);
   fk::matrix<P> h1(degree, degree);
   for (int j_x = 1; j_x <= degree; j_x++)
     for (int j_y = 1; j_y <= degree; j_y++)
@@ -424,7 +424,9 @@ fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
       h1(j_x - 1, j_y - 1) =
           std::pow(-1.0, (j_x + j_y - 2.0)) * h0(j_x - 1, j_y - 1);
     }
-
+*/
+  fk::matrix<P> h1 = h1_;
+  fk::matrix<P> g1 = g1_;
   fk::matrix<P> fmwt(degree * max_level, degree * max_level);
 
   fk::matrix<P> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
@@ -463,7 +465,10 @@ fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
     }
     fmwt_comp = cfmwt * fmwt_comp;
   }
-
+  std::transform(fmwt_comp.begin(), fmwt_comp.end(), fmwt_comp.begin(),
+                 [](P &elem) {
+                   return std::abs(elem) < 1e-12 ? static_cast<P>(0.0) : elem;
+                 });
   return fmwt_comp;
 }
 

@@ -144,5 +144,6 @@ for j=1:n
         
     end
     
+    FMWT_COMP(find(abs(FMWT_COMP)<1e-12))=0; % Blessed by David
 end
 

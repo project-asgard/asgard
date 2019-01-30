@@ -9,7 +9,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
       REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 250) ==
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1000) ==
               second_elem);
     });
   };
@@ -166,25 +166,17 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
   }
 }
 
-// FIXME should be templated on float and double,
-// but having problems w/ comparison between
-// 1) performing arithmetic in double in octave -> convert to float
-// and 2) performing arithmetic in float in c++
+// FIXME I am confident in my implementation, but we are still off after 12 dec places or so 
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      /* REQUIRE(Approx(*first_it++)
-                   .epsilon(0.00001) ==
-               second_elem);
- */
-      if (!(Approx(*first_it).epsilon(0.00001) == second_elem))
-      {
-        std::cout << *first_it << " : " << second_elem << std::endl;
-      }
-      first_it++;
+      REQUIRE(Approx(*first_it++)
+                  .epsilon(std::numeric_limits<float>::epsilon()) ==
+              second_elem);
+
     });
   };
 
