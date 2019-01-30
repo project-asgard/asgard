@@ -83,6 +83,7 @@ target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
 target_link_libraries (transformations PRIVATE connectivity)
 target_link_libraries (transformations PRIVATE matlab_utilities)
+target_link_libraries (transformations PRIVATE program_options)
 target_link_libraries (transformations PRIVATE quadrature)
 target_link_libraries (transformations PRIVATE tensors)
 

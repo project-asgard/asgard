@@ -7,6 +7,7 @@ template<typename P>
 std::enable_if_t<std::is_floating_point<P>::value, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const domain, int const degree);
 
+// return[0] are the roots, return[1] are the weights
 template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(int const n, int const a, int const b);

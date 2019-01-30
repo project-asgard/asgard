@@ -396,8 +396,11 @@ combine_dimensions(Options const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
 template<typename P>
-fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
+fk::matrix<P> operator_two_scale(Options const opts)
 {
+  int const degree     = opts.get_degree();
+  int const num_levels = opts.get_level();
+
   assert(degree > 0);
   assert(num_levels > 0);
 
@@ -406,27 +409,11 @@ fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until c++20)
   auto const ignore = [](auto ignored) { (void)ignored; };
-  auto const [h0, h1_, g0, g1_, phi_co, scale_co] =
+  auto const [h0, h1, g0, g1, phi_co, scale_co] =
       generate_multi_wavelets<P>(degree);
   ignore(phi_co);
   ignore(scale_co);
-  ignore(h1_);
-  ignore(g1_);
 
-  // now g1, h1 from g0, h0 -> may not need to do this? FIXME
-  /*fk::matrix<P> g1(degree, degree);
-  fk::matrix<P> h1(degree, degree);
-  for (int j_x = 1; j_x <= degree; j_x++)
-    for (int j_y = 1; j_y <= degree; j_y++)
-    {
-      g1(j_x - 1, j_y - 1) =
-          std::pow(-1.0, (degree + j_x + j_y - 2.0)) * g0(j_x - 1, j_y - 1);
-      h1(j_x - 1, j_y - 1) =
-          std::pow(-1.0, (j_x + j_y - 2.0)) * h0(j_x - 1, j_y - 1);
-    }
-*/
-  fk::matrix<P> h1 = h1_;
-  fk::matrix<P> g1 = g1_;
   fk::matrix<P> fmwt(degree * max_level, degree * max_level);
 
   fk::matrix<P> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
@@ -472,7 +459,5 @@ fk::matrix<P> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
-template fk::matrix<double>
-operator_two_scale(int const degree, int const num_levels);
-template fk::matrix<float>
-operator_two_scale(int const degree, int const num_levels);
+template fk::matrix<double> operator_two_scale(Options const opts);
+template fk::matrix<float> operator_two_scale(Options const opts);

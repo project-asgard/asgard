@@ -166,70 +166,80 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
   }
 }
 
-// FIXME I am confident in my implementation, but we are still off after 12 dec places or so 
+// FIXME I am confident in my implementation, but we are still off after 12 dec
+// places or so
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<float>::epsilon()) ==
-              second_elem);
-
+      REQUIRE(
+          Approx(*first_it++).epsilon(std::numeric_limits<float>::epsilon()) ==
+          second_elem);
     });
   };
 
   SECTION("operator_two_scale(2, 2)")
   {
-    int const degree          = 2;
-    int const levels          = 2;
+    int const degree = 2;
+    int const levels = 2;
+    Options const o  = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
     fk::matrix<TestType> gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
 
   SECTION("operator_two_scale(2, 3)")
   {
-    int const degree          = 2;
-    int const levels          = 3;
+    int const degree = 2;
+    int const levels = 3;
+    Options const o  = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
     fk::matrix<TestType> gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
   SECTION("operator_two_scale(4, 3)")
   {
-    int const degree          = 4;
-    int const levels          = 3;
+    int const degree = 4;
+    int const levels = 3;
+    Options const o  = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
     fk::matrix<TestType> gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
   SECTION("operator_two_scale(5, 5)")
   {
-    int const degree          = 5;
-    int const levels          = 5;
+    int const degree = 5;
+    int const levels = 5;
+    Options const o  = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
     fk::matrix<TestType> gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
 
   SECTION("operator_two_scale(2, 6)")
   {
-    int const degree          = 2;
-    int const levels          = 6;
+    int const degree = 2;
+    int const levels = 6;
+    Options const o  = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
     fk::matrix<TestType> gold = readMatrixFromTxtFile(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> test = operator_two_scale<TestType>(degree, levels);
+    fk::matrix<TestType> test = operator_two_scale<TestType>(o);
     relaxed_comparison(gold, test);
   }
 }
