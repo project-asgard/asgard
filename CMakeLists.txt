@@ -61,11 +61,17 @@ if (build_OpenBLAS)
   set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
 endif ()
 
-target_link_libraries (connectivity PRIVATE element_table permutations)
+target_link_libraries (connectivity
+  PRIVATE element_table matlab_utilities permutations tensors)
 
-target_link_libraries (element_table PRIVATE permutations)
+target_link_libraries (element_table
+  PRIVATE permutations program_options tensors)
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
+
+target_link_libraries (pde)
+
+target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
 target_link_libraries (program_options PRIVATE clara)
 
