@@ -94,16 +94,14 @@ fk::vector<P> forward_transform(Options const opts, P const domain_min,
 
     // get the f(v) initial condition at the quadrature points.
     fk::vector<P> f_here = function(x);
-
     assert(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
                    f_here.begin(), std::multiplies<P>());
 
-    basis.print("p_val");
     // generate the coefficients for DG basis
     fk::vector<P> coeffs = basis * f_here;
     f.set(i * degree, coeffs);
-    f.print("f");
+
   }
   f = f * (normalize / static_cast<P>(2.0));
 
