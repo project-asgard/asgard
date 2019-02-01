@@ -6,6 +6,15 @@
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
+  auto const relaxed_comparison = [](auto const first, auto const second) {
+    auto first_it = first.begin();
+    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
+      REQUIRE(Approx(*first_it++)
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
+              second_elem);
+    });
+  };
+
   SECTION("legendre(-1,0)")
   {
     fk::matrix<TestType> const poly_gold  = {{1.0}};
@@ -13,7 +22,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = {-1.0};
     int const degree              = 0;
-    auto [deriv, poly]            = legendre(in, degree);
+    auto [poly, deriv]            = legendre(in, degree);
 
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
@@ -28,7 +37,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = {-1.0};
     int const degree              = 2;
-    auto [deriv, poly]            = legendre(in, degree);
+    auto [poly, deriv]            = legendre(in, degree);
 
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
@@ -44,9 +53,9 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = linspace<TestType>(-2.0, 2.0, 20);
     int const degree              = 5;
-    auto [deriv, poly]            = legendre(in, degree);
+    auto [poly, deriv]            = legendre(in, degree);
 
-    REQUIRE(poly == poly_gold);
-    REQUIRE(deriv == deriv_gold);
+    relaxed_comparison(poly, poly_gold);
+    relaxed_comparison(deriv, deriv_gold);
   }
 }
