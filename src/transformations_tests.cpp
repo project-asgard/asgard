@@ -9,7 +9,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
       REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1000) ==
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e3) ==
               second_elem);
     });
   };
@@ -247,6 +247,15 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
+  auto const relaxed_comparison = [](auto const first, auto const second) {
+    auto first_it = first.begin();
+    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
+      REQUIRE(Approx(*first_it++)
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
+              second_elem);
+    });
+  };
+
   SECTION("transform(2, 2, -1, 1, double)")
   {
     int const degree     = 2;
@@ -265,7 +274,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(o, domain_min, domain_max, double_it);
-
-    REQUIRE(gold == test);
+    relaxed_comparison(gold, test);
+    // REQUIRE(gold == test);
   }
 }

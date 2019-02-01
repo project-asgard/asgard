@@ -316,7 +316,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   auto const normalize = [](fk::matrix<P> &matrix) {
     std::transform(matrix.begin(), matrix.end(), matrix.begin(), [](P &elem) {
       if (std::abs(elem) <
-          static_cast<P>(1e-5)) // this value blessed by the math people
+          static_cast<P>(1e-5)) // 1e-5 is the value blessed by the math people
       {
         return static_cast<P>(0.0);
       }
