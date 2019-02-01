@@ -17,8 +17,8 @@ addpath(genpath(pwd));
 
 
 % element_table testing files
-element_dir = strcat(pwd, "/", "generated-inputs", "/", "element_table", "/")
-mkdir (element_dir)
+element_dir = strcat(pwd, "/", "generated-inputs", "/", "element_table", "/");
+mkdir (element_dir);
 
 out_format = strcat(element_dir, "element_table_1_1_SG_%d.dat");
 level = 1;
@@ -57,8 +57,8 @@ end
 clear
 
 % permutations testing files
-permutations_dir = strcat(pwd, "/", "generated-inputs", "/", "permutations", "/")
-mkdir (permutations_dir)
+permutations_dir = strcat(pwd, "/", "generated-inputs", "/", "permutations", "/");
+mkdir (permutations_dir);
 
 dims = [1, 2, 4, 6];
 ns = [1, 4, 6, 8];
@@ -73,7 +73,7 @@ for i=1:size(dims,2)
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
-  save(count_filename, 'count')
+  save(count_filename, 'count');
 end
 
 %perm eq
@@ -85,7 +85,7 @@ for i=1:size(dims,2)
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
-  save(count_filename, 'count')
+  save(count_filename, 'count');
 end
 
 %perm max
@@ -97,7 +97,7 @@ for i=1:size(dims,2)
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
-  save(count_filename, 'count')
+  save(count_filename, 'count');
 end
 
 %index_leq_max
@@ -121,11 +121,11 @@ clear
 
 
 % connectivity testing files
-connectivcity_dir = strcat(pwd, "/", "generated-inputs", "/", "connectivity", "/")
-mkdir (connectivcity_dir)
+connectivity_dir = strcat(pwd, "/", "generated-inputs", "/", "connectivity", "/");
+mkdir (connectivity_dir);
 
 % 1d indexing
-out_format = strcat(connectivcity_dir, "get_1d_%d_%d.dat");
+out_format = strcat(connectivity_dir, "get_1d_%d_%d.dat");
 levs = [0, 0, 5];
 cells = [0, 1, 9];
 for i=1:size(levs,2)
@@ -135,7 +135,7 @@ save(filename, 'index');
 end
 
 % 1d connectivity
-out_format = strcat(connectivcity_dir, "connect_1_%d.dat");
+out_format = strcat(connectivity_dir, "connect_1_%d.dat");
 levs = [1, 2, 8];
 for i=1:size(levs,2)
 connectivity = full(Connect1D(levs(i)));
@@ -144,7 +144,7 @@ save(filename, 'connectivity');
 end
 
 % nd connectivity
-out_format = strcat(connectivcity_dir, "connect_n_2_3_FG_%d.dat");
+out_format = strcat(connectivity_dir, "connect_n_2_3_FG_%d.dat");
 dims = 2;
 levs = 3;
 grid = 'FG';
@@ -158,7 +158,7 @@ element = connectivity{i};
 save(filename, 'element');
 end
 
-out_format = strcat(connectivcity_dir, "connect_n_3_4_SG_%d.dat");
+out_format = strcat(connectivity_dir, "connect_n_3_4_SG_%d.dat");
 dims = 3;
 levs = 4;
 grid = 'SG';
@@ -171,5 +171,52 @@ filename = sprintf(out_format, i);
 element = connectivity{i};
 save(filename, 'element');
 end
+
+clear
+
+
+% matlab testing
+
+matlab_dir = strcat(pwd, "/", "generated-inputs", "/", "matlab_utilities", "/");
+mkdir (matlab_dir);
+
+% these are used to test linspace()
+
+out_format = strcat(matlab_dir, "linspace_");
+w1 = linspace(-1,1,9);
+w2 = linspace(1,-1,9);
+w3 = linspace(-1,1,8);
+save(strcat(out_format,'neg1_1_9.dat'), 'w1');
+save(strcat(out_format,'1_neg1_9.dat'), 'w2');
+save(strcat(out_format,'neg1_1_8.dat'), 'w3');
+
+% these are used to test read_vector_from_bin_file()
+
+out_format = strcat(matlab_dir, "read_vector_bin_");
+w = linspace(-1,1);
+wT = w';
+writeToFile(strcat(out_format, 'neg1_1_100.dat'), w);
+writeToFile(strcat(out_format, 'neg1_1_100T.dat'), wT);
+
+% these are used to test read_vector_from_txt_file()
+
+out_format = strcat(matlab_dir, "read_vector_txt_");
+w2 = linspace(-1,1);
+w2T = w';
+save(strcat(out_format, 'neg1_1_100.dat'), 'w2');
+save(strcat(out_format, 'neg1_1_100T.dat'), 'w2T');
+
+% these are used to test read_vector_from_txt_file()
+
+for i = 0:4; for j = 0:4
+  m(i+1,j+1) = 17/(i+1+j);
+endfor; endfor;
+
+save(strcat(matlab_dir, 'read_matrix_txt_5x5.dat'), 'm');
+
+% test read_scalar_from_txt_file()
+
+s = 42;
+save(strcat(matlab_dir, 'read_scalar_42.dat'), 's');
 
 clear
