@@ -100,6 +100,7 @@ fk::vector<P> forward_transform(Options const opts, P const domain_min,
 
     // generate the coefficients for DG basis
     fk::vector<P> coeffs = basis * f_here;
+
     f.set(i * degree, coeffs);
   }
   f = f * (normalize / static_cast<P>(2.0));
@@ -109,9 +110,14 @@ fk::vector<P> forward_transform(Options const opts, P const domain_min,
 
   // zero out near-zero values resulting from transform to wavelet space
   std::transform(f.begin(), f.end(), f.begin(), [](P &elem) {
-    return std::abs(elem) < std::numeric_limits<P>::epsilon() * 1e2
-               ? static_cast<P>(0.0)
-               : elem;
+    P const compare = [] {
+      if constexpr (std::is_same<P, double>::value)
+      {
+        return static_cast<P>(1e-12);
+      }
+      return static_cast<P>(1e-4);
+    }();
+    return std::abs(elem) < compare ? static_cast<P>(0.0) : elem;
   });
 
   return f;

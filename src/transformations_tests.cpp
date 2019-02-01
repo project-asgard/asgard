@@ -251,7 +251,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
       REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e4) ==
               second_elem);
     });
   };
@@ -263,8 +263,8 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     auto const double_it = [](fk::vector<TestType> x) {
       return x * static_cast<TestType>(2.0);
     };
-    TestType const domain_min = -1.0;
-    TestType const domain_max = 1.0;
+    TestType const domain_min = static_cast<TestType>(-1.0);
+    TestType const domain_max = static_cast<TestType>(1.0);
     Options const o           = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
     fk::vector<TestType> const gold = readVectorFromTxtFile(
@@ -275,6 +275,27 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(o, domain_min, domain_max, double_it);
     relaxed_comparison(gold, test);
-    // REQUIRE(gold == test);
+  }
+
+  SECTION("transform(3, 4, -2.5, 2.5, double plus)")
+  {
+    int const degree       = 3;
+    int const levels       = 4;
+    auto const double_plus = [](fk::vector<TestType> x) {
+      return x + (x * static_cast<TestType>(2.0));
+    };
+    TestType const domain_min = static_cast<TestType>(-2.5);
+    TestType const domain_max = static_cast<TestType>(2.5);
+    Options const o           = make_options(
+        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+    fk::vector<TestType> const gold = readVectorFromTxtFile(
+        "../testing/generated-inputs/transformations/forward_transform_" +
+        std::to_string(degree) + "_" + std::to_string(levels) +
+        "_neg2_5_pos2_5_doubleplus.dat");
+
+    fk::vector<TestType> const test =
+        forward_transform<TestType>(o, domain_min, domain_max, double_plus);
+
+    relaxed_comparison(gold, test);
   }
 }
