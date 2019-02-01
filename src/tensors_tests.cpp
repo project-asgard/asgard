@@ -570,7 +570,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     }; // clang-format on
     REQUIRE((in1 - in2) == gold);
   }
-  SECTION("matrix*integer multiplication")
+  SECTION("matrix*scalar multiplication")
   {
     // clang-format off
     fk::matrix<TestType> in {
@@ -587,7 +587,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {48, 52, 56},
       {60, 64, 68},
     }; // clang-format on
-    REQUIRE((in * 4) == in_scaled);
+    REQUIRE(in * 4 == in_scaled);
   }
   SECTION("matrix*vector multiplication")
   {

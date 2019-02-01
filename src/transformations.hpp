@@ -70,7 +70,6 @@ fk::vector<P> forward_transform(Options const opts, P const domain_min,
   P const normalize         = (domain_max - domain_min) / n;
   fk::matrix<P> const basis = [&roots = roots, degree, normalize] {
     fk::matrix<P> legendre_ = legendre<P>(roots, degree)[0];
-
     return legendre_.transpose() * (static_cast<P>(1.0) / std::sqrt(normalize));
   }();
 
@@ -85,22 +84,26 @@ fk::vector<P> forward_transform(Options const opts, P const domain_min,
     fk::vector<P> const x = [&roots = roots, normalize, domain_min, i]() {
       fk::vector<P> x(roots.size());
       // map quad_x from [-1,+1] to [domain_min,domain_max] physical domain.
-      std::transform(
-          x.begin(), x.end(), roots.begin(), x.begin(), [&](P &elem, P const & root) {
-            return elem + (normalize * (root / 2.0 + 1.0 / 2.0 + i) + domain_min);
-          });
+      std::transform(x.begin(), x.end(), roots.begin(), x.begin(),
+                     [&](P &elem, P const &root) {
+                       return elem + (normalize * (root / 2.0 + 1.0 / 2.0 + i) +
+                                      domain_min);
+                     });
       return x;
     }();
 
     // get the f(v) initial condition at the quadrature points.
     fk::vector<P> f_here = function(x);
+
     assert(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
                    f_here.begin(), std::multiplies<P>());
 
+    basis.print("p_val");
     // generate the coefficients for DG basis
     fk::vector<P> coeffs = basis * f_here;
     f.set(i * degree, coeffs);
+    f.print("f");
   }
   f = f * (normalize / static_cast<P>(2.0));
 

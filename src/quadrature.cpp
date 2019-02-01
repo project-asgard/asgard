@@ -115,14 +115,8 @@ legendre(fk::vector<P> const domain, int const degree)
   if (degree > 0)
   {
     // "scaling to use normalization
-    std::transform(legendre.begin(), legendre.end(), legendre.begin(),
-                   std::bind(std::multiplies<P>(), std::placeholders::_1,
-                             std::sqrt(static_cast<P>(2.0))));
-
-    std::transform(legendre_prime.begin(), legendre_prime.end(),
-                   legendre_prime.begin(),
-                   std::bind(std::multiplies<P>(), std::placeholders::_1,
-                             std::sqrt(static_cast<P>(2.0))));
+    legendre       = legendre * static_cast<P>(std::sqrt(2.0));
+    legendre_prime = legendre_prime * static_cast<P>(std::sqrt(2.0));
   }
   return {legendre, legendre_prime};
 }

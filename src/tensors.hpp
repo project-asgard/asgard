@@ -132,7 +132,7 @@ public:
   //
   // math operators
   //
-  matrix<P> operator*(int const) const;
+  matrix<P> operator*(P const) const;
   vector<P> operator*(vector<P> const &)const;
   matrix<P> operator*(matrix<P> const &)const;
   matrix<P> operator+(matrix<P> const &) const;

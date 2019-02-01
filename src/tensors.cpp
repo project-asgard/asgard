@@ -854,10 +854,10 @@ fk::matrix<P> fk::matrix<P>::operator-(matrix<P> const &right) const
 }
 
 //
-// matrix*integer multiplication operator
+// matrix*scalar multiplication operator
 //
 template<typename P>
-fk::matrix<P> fk::matrix<P>::operator*(int const right) const
+fk::matrix<P> fk::matrix<P>::operator*(P const right) const
 {
   matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
