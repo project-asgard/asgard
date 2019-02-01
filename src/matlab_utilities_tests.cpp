@@ -235,3 +235,14 @@ TEST_CASE("read_matrix_from_txt_file returns expected vector", "[matlab]")
     REQUIRE(test.size() == 0);
   }
 }
+
+TEST_CASE("read_scalar_from_txt_file returns expected value", "[matlab]")
+{
+  SECTION("get stored scalar")
+  {
+    double const gold = 42;
+    double const test = read_scalar_from_txt_file(
+        "../testing/generated-inputs/matlab_utilities/read_scalar_42.dat");
+    REQUIRE(gold == test);
+  }
+}
