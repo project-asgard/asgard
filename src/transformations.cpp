@@ -313,17 +313,32 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   }
 
   // explicitly normalize to zero
-  auto const normalize = [](fk::matrix<P> &matrix) {
-    std::transform(matrix.begin(), matrix.end(), matrix.begin(), [](P &elem) {
-      if (std::abs(elem) <
-          static_cast<P>(1e-5)) // 1e-5 is the value blessed by the math people
-      {
-        return static_cast<P>(0.0);
-      }
-      return elem;
-    });
-  };
+  /*auto const normalize = [](fk::matrix<P> &matrix) {
+     std::transform(matrix.begin(), matrix.end(), matrix.begin(), [](P &elem) {
+       if (std::abs(elem) <
+           static_cast<P>(1e-5)) // 1e-5 is the value blessed by the math people
+       {
+         return static_cast<P>(0.0);
+       }
+       return elem;
+     });
+   };
+ */
+  // explicitly normalize to zero
 
+  P const compare = [] {
+    if constexpr (std::is_same<P, double>::value)
+    {
+      return static_cast<P>(1e-12);
+    }
+    return static_cast<P>(1e-4);
+  }();
+  auto const normalize = [compare](fk::matrix<P> &matrix) {
+    std::transform(
+        matrix.begin(), matrix.end(), matrix.begin(), [compare](P &elem) {
+          return std::abs(elem) < compare ? static_cast<P>(0.0) : elem;
+        });
+  };
   normalize(h0);
   normalize(h1);
   normalize(g0);
