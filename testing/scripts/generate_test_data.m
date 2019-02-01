@@ -353,4 +353,21 @@ save(filename, 'vect');
 
 clear
 
+% generate quadrature test data
 
+quad_dir = strcat(pwd, "/", "generated-inputs", "/", "quadrature", "/");
+mkdir (quad_dir);
+
+% testing legendre_weights
+
+out_format = strcat(quad_dir, "lgwt_");
+[roots, weights] = lgwt(10, -1, 1);
+save(strcat(out_format, 'roots_10_neg1_1.dat'), 'roots');
+save(strcat(out_format, 'weights_10_neg1_1.dat'), 'weights');
+
+out_format = strcat(quad_dir, "lgwt_");
+[roots, weights] = lgwt(2^5, -5, 2);
+save(strcat(out_format, 'roots_32_neg5_2.dat'), 'roots');
+save(strcat(out_format, 'weights_32_neg5_2.dat'), 'weights');
+
+clear

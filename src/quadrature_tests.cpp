@@ -1,6 +1,7 @@
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 
+#include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
@@ -69,12 +70,46 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
                    float)
 {
-  // FIXME I'm going to fix this when I fix the above - TM
-  SECTION("simple stand in")
+  auto const relaxed_comparison = [](auto const first, auto const second) {
+    auto first_it = first.begin();
+    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
+      REQUIRE(Approx(*first_it++)
+                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
+              second_elem);
+    });
+  };
+
+  SECTION("lgwt(10, -1, 1)")
   {
-    auto const [roots, weights] = legendre_weights<TestType>(2, -1, 1);
-    REQUIRE(roots ==
-            fk::vector<TestType>{-0.577350269189626, 0.577350269189626});
-    REQUIRE(weights == fk::vector<TestType>{1.0, 1.0});
+    fk::matrix<TestType> const roots_gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/quadrature/lgwt_roots_10_neg1_1.dat");
+
+    fk::matrix<TestType> const weights_gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/quadrature/lgwt_weights_10_neg1_1.dat");
+
+    const int n                 = 10;
+    const int a                 = -1;
+    const int b                 = 1;
+    auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
+
+    relaxed_comparison(roots, roots_gold);
+    relaxed_comparison(weights, weights_gold);
+  }
+
+  SECTION("lgwt(32, -5, 2)")
+  {
+    fk::matrix<TestType> const roots_gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/quadrature/lgwt_roots_32_neg5_2.dat");
+
+    fk::matrix<TestType> const weights_gold = readMatrixFromTxtFile(
+        "../testing/generated-inputs/quadrature/lgwt_weights_32_neg5_2.dat");
+
+    const int n                 = 32;
+    const int a                 = -5;
+    const int b                 = 2;
+    auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
+
+    relaxed_comparison(roots, roots_gold);
+    relaxed_comparison(weights, weights_gold);
   }
 }
