@@ -220,3 +220,26 @@ s = 42;
 save(strcat(matlab_dir, 'read_scalar_42.dat'), 's');
 
 clear
+
+% quadrature testing
+
+quad_dir = strcat(pwd, "/", "generated-inputs", "/", "quadrature", "/");
+mkdir (quad_dir);
+
+% testing legendre poly/deriv
+
+out_format = strcat(quad_dir, "legendre_");
+
+x = [-1.0];
+degree = 2;
+[deriv, poly] = dlegendre2(x, degree);
+save(strcat(out_format, 'deriv_neg1_2.dat'), 'deriv');
+save(strcat(out_format, 'poly_neg1_2.dat'), 'poly');
+
+x = linspace(-2.0, 2.0, 20);
+degree = 5;
+[deriv, poly] = dlegendre2(x, 5);
+save(strcat(out_format, 'deriv_linspace_5.dat'), 'deriv');
+save(strcat(out_format, 'poly_linspace_5.dat'), 'poly');
+
+clear
