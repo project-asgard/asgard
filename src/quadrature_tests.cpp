@@ -22,7 +22,6 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     fk::matrix<TestType> deriv_gold = {{0.0}};
     int const degree                = 1;
     auto [poly, deriv]              = legendre(in, degree);
-    deriv.print();
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
   }

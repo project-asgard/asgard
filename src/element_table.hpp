@@ -1,8 +1,8 @@
 #pragma once
 #include "permutations.hpp"
 #include "program_options.hpp"
-#include <map>
 #include "tensors.hpp"
+#include <map>
 #include <vector>
 
 // -----------------------------------------------------------------------------
