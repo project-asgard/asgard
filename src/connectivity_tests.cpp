@@ -20,7 +20,7 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
     {
       std::string file_path = base_path + std::to_string(levels[i]) + "_" +
                               std::to_string(cells[i]) + ".dat";
-      int const gold = static_cast<int>(readScalarFromTxtFile(file_path));
+      int const gold = static_cast<int>(read_scalar_from_txt_file(file_path));
       // indexing function - adjust MATLAB indexing by -1
       REQUIRE(get_1d_index(levels[i], cells[i]) == gold - 1);
     }
@@ -34,7 +34,7 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
     for (size_t i = 0; i < levels.size(); ++i)
     {
       std::string file_path = base_path + std::to_string(levels[i]) + ".dat";
-      fk::matrix<int> const gold = readMatrixFromTxtFile(file_path);
+      fk::matrix<int> const gold = read_matrix_from_txt_file(file_path);
       REQUIRE(make_1d_connectivity(levels[i]) == gold);
     }
   }
@@ -45,7 +45,7 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
   {
     int const levels = 4;
     int const dims   = 3;
-    Options const o  = make_options({"-l", std::to_string(levels)});
+    options const o  = make_options({"-l", std::to_string(levels)});
     element_table const t(o, dims);
     list_set connectivity = make_connectivity(t, dims, levels, levels);
 
@@ -55,7 +55,7 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     for (size_t i = 0; i < connectivity.size(); ++i)
     {
       std::string file_path   = base_path + std::to_string(i + 1) + ".dat";
-      fk::vector<int> element = readVectorFromTxtFile(file_path);
+      fk::vector<int> element = read_vector_from_txt_file(file_path);
 
       // adjust matlab indexing
       std::transform(element.begin(), element.end(), element.begin(),
@@ -71,7 +71,7 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
   {
     int const levels = 3;
     int const dims   = 2;
-    Options const o  = make_options({"-l", std::to_string(levels), "-f"});
+    options const o  = make_options({"-l", std::to_string(levels), "-f"});
     element_table const t(o, dims);
     list_set connectivity = make_connectivity(t, dims, levels * dims, levels);
 
@@ -81,7 +81,7 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     for (size_t i = 0; i < connectivity.size(); ++i)
     {
       std::string file_path   = base_path + std::to_string(i + 1) + ".dat";
-      fk::vector<int> element = readVectorFromTxtFile(file_path);
+      fk::vector<int> element = read_vector_from_txt_file(file_path);
 
       // adjust matlab indexing
       std::transform(element.begin(), element.end(), element.begin(),

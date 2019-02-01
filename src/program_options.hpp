@@ -6,7 +6,7 @@
 
 typedef std::map<std::string, PDE_opts> pde_map_t;
 
-class Options
+class options
 {
 private:
   int level                   = 2;  // resolution
@@ -32,7 +32,7 @@ private:
   bool valid = true;
 
 public:
-  Options(int argc, char **argv);
+  options(int argc, char **argv);
   int get_level() const;
   int get_degree() const;
   int get_time_steps() const;

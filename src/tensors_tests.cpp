@@ -113,7 +113,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     std::vector<TestType> goldv{2, 3, 4, 5, 6};
     std::vector<TestType> testv;
     testv = gold.to_std();
-    compareVectors(testv, goldv);
+    compare_vectors(testv, goldv);
   }
 } // end fk::vector constructors, copy/move
 

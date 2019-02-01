@@ -17,7 +17,7 @@
 // https://github.com/catchorg/Catch2/blob/master/docs/matchers.md
 //
 template<typename P>
-void compareVectors(std::vector<P> a, std::vector<P> b)
+void compare_vectors(std::vector<P> a, std::vector<P> b)
 {
   if constexpr (std::is_floating_point<P>::value)
   {
@@ -38,13 +38,13 @@ void compareVectors(std::vector<P> a, std::vector<P> b)
 }
 
 template<typename P>
-void compare2dVectors(std::vector<std::vector<P>> a,
-                      std::vector<std::vector<P>> b)
+void compare_2d_vectors(std::vector<std::vector<P>> a,
+                        std::vector<std::vector<P>> b)
 {
   for (size_t i = 0; i < a.size(); i++)
-    compareVectors(a[i], b[i]);
+    compare_vectors(a[i], b[i]);
 }
 
-Options make_options(std::vector<std::string> const arguments);
+options make_options(std::vector<std::string> const arguments);
 
 #endif

@@ -171,7 +171,7 @@ fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x)
 // end
 //
 //-----------------------------------------------------------------------------
-fk::vector<double> readVectorFromBinFile(std::string const &path)
+fk::vector<double> read_vector_from_bin_file(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -212,7 +212,7 @@ fk::vector<double> readVectorFromBinFile(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-double readScalarFromTxtFile(std::string const &path)
+double read_scalar_from_txt_file(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -253,7 +253,7 @@ double readScalarFromTxtFile(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::vector<double> readVectorFromTxtFile(std::string const &path)
+fk::vector<double> read_vector_from_txt_file(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -319,7 +319,7 @@ fk::vector<double> readVectorFromTxtFile(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::matrix<double> readMatrixFromTxtFile(std::string const &path)
+fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
 {
   // open up the file
   std::ifstream infile;
