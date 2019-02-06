@@ -505,7 +505,6 @@ class dimension
   P const domain_max;
   int const level;
   int const degree;
-  fk::matrix<P> forward_transform;
   vector_func<P> const initial_condition;
 
 
@@ -525,12 +524,7 @@ class dimension
 	level(level),
 	degree(degree),
 	initial_condition(initial_condition)
-	{
-	  
-	
-	
-	}
-
+	{}
 };
 
 
@@ -541,7 +535,7 @@ enum class coefficient_type
   stiffness
 };
 
-enum class flux
+enum class flux_type
 {
   central,
   upwind,
@@ -559,19 +553,22 @@ enum class flux
 template<typename P>
 class term
 {
-/*public:
+public:
+  coefficient_type const coeff;
+  scalar_func<P> const g_func;
+  bool const time_dependent;
+  
+  //FIXME what is this? david?
+  //fk::vector<P> dat;
 
-  term(int const num_dims,
-      int const num_sources,
-      int const num_terms,
-      P const domain_mins[], // the mininimum grid value in each dimension
-      P const domain_maxs[], // the maximum grid value in each dimension
-      bool const do_poisson_solve,
-      bool const has_analytic_soln = false)
+  flux_type const flux;
 
-      : num_dims(num_dims),
-        num_sources(num_sources),
-
-*/
+  term(coefficient_type const coeff,
+      scalar_func<P> const g_func,
+      bool const time_dependent,
+      flux_type const flux)
+      : coeff(coeff),
+        g_func(g_func),
+	time_dependent(time_dependent){}
 };
 
