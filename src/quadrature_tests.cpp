@@ -28,7 +28,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = {-1.0};
     int const degree              = 0;
-    auto const [poly, deriv]            = legendre(in, degree);
+    auto const [poly, deriv]      = legendre(in, degree);
 
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
@@ -43,7 +43,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = {-1.0};
     int const degree              = 2;
-    auto const [poly, deriv]            = legendre(in, degree);
+    auto const [poly, deriv]      = legendre(in, degree);
 
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
@@ -59,7 +59,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = linspace<TestType>(-2.5, 3.0, 11);
 
-    int const degree   = 5;
+    int const degree         = 5;
     auto const [poly, deriv] = legendre(in, degree);
 
     relaxed_comparison(poly, poly_gold);
@@ -81,10 +81,10 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
 
   SECTION("lgwt(10, -1, 1)")
   {
-    fk::matrix<TestType> const roots_gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const roots_gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_roots_10_neg1_1.dat");
 
-    fk::matrix<TestType> const weights_gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const weights_gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_10_neg1_1.dat");
 
     const int n                 = 10;
@@ -98,10 +98,10 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
 
   SECTION("lgwt(32, -5, 2)")
   {
-    fk::matrix<TestType> const roots_gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const roots_gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_roots_32_neg5_2.dat");
 
-    fk::matrix<TestType> const weights_gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const weights_gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_32_neg5_2.dat");
 
     const int n                 = 32;

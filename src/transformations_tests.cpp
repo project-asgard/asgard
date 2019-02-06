@@ -27,13 +27,13 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     std::string phi_string   = out_base + "phi_co.dat";
     std::string scale_string = out_base + "scale_co.dat";
 
-    TestType h0 = static_cast<TestType>(readScalarFromTxtFile(h0_string));
-    TestType h1 = static_cast<TestType>(readScalarFromTxtFile(h1_string));
-    TestType g0 = static_cast<TestType>(readScalarFromTxtFile(g0_string));
-    TestType g1 = static_cast<TestType>(readScalarFromTxtFile(g1_string));
-    fk::matrix<TestType> phi_co = readMatrixFromTxtFile(phi_string);
+    TestType h0 = static_cast<TestType>(read_scalar_from_txt_file(h0_string));
+    TestType h1 = static_cast<TestType>(read_scalar_from_txt_file(h1_string));
+    TestType g0 = static_cast<TestType>(read_scalar_from_txt_file(g0_string));
+    TestType g1 = static_cast<TestType>(read_scalar_from_txt_file(g1_string));
+    fk::matrix<TestType> phi_co = read_matrix_from_txt_file(phi_string);
     TestType scale_co =
-        static_cast<TestType>(readScalarFromTxtFile(scale_string));
+        static_cast<TestType>(read_scalar_from_txt_file(scale_string));
 
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
@@ -64,12 +64,12 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     std::string phi_string   = out_base + "phi_co.dat";
     std::string scale_string = out_base + "scale_co.dat";
 
-    fk::matrix<TestType> h0       = readMatrixFromTxtFile(h0_string);
-    fk::matrix<TestType> h1       = readMatrixFromTxtFile(h1_string);
-    fk::matrix<TestType> g0       = readMatrixFromTxtFile(g0_string);
-    fk::matrix<TestType> g1       = readMatrixFromTxtFile(g1_string);
-    fk::matrix<TestType> phi_co   = readMatrixFromTxtFile(phi_string);
-    fk::matrix<TestType> scale_co = readMatrixFromTxtFile(scale_string);
+    fk::matrix<TestType> h0       = read_matrix_from_txt_file(h0_string);
+    fk::matrix<TestType> h1       = read_matrix_from_txt_file(h1_string);
+    fk::matrix<TestType> g0       = read_matrix_from_txt_file(g0_string);
+    fk::matrix<TestType> g1       = read_matrix_from_txt_file(g1_string);
+    fk::matrix<TestType> phi_co   = read_matrix_from_txt_file(phi_string);
+    fk::matrix<TestType> scale_co = read_matrix_from_txt_file(scale_string);
 
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
@@ -98,9 +98,9 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
         std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
         std::to_string(lev) + "_sg.dat";
 
-    fk::vector<TestType> const gold = readVectorFromTxtFile(filename);
+    fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
 
-    Options const o =
+    options const o =
         make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
     element_table const t(o, dim);
 
@@ -133,9 +133,9 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
         std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
         std::to_string(lev) + "_fg.dat";
 
-    fk::vector<TestType> const gold = readVectorFromTxtFile(filename);
+    fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
 
-    Options const o = make_options(
+    options const o = make_options(
         {"-d", std::to_string(deg), "-l", std::to_string(lev), "-f"});
     element_table const t(o, dim);
 
@@ -184,9 +184,9 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 2;
     int const levels = 2;
-    Options const o  = make_options(
+    options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
@@ -197,9 +197,9 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 2;
     int const levels = 3;
-    Options const o  = make_options(
+    options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
@@ -209,9 +209,9 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 4;
     int const levels = 3;
-    Options const o  = make_options(
+    options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
@@ -221,9 +221,9 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 5;
     int const levels = 5;
-    Options const o  = make_options(
+    options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
@@ -234,9 +234,9 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 2;
     int const levels = 6;
-    Options const o  = make_options(
+    options const o  = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::matrix<TestType> const gold = readMatrixFromTxtFile(
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
@@ -265,9 +265,9 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     };
     TestType const domain_min = static_cast<TestType>(-1.0);
     TestType const domain_max = static_cast<TestType>(1.0);
-    Options const o           = make_options(
+    options const o           = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::vector<TestType> const gold = readVectorFromTxtFile(
+    fk::vector<TestType> const gold = read_vector_from_txt_file(
         "../testing/generated-inputs/transformations/forward_transform_" +
         std::to_string(degree) + "_" + std::to_string(levels) +
         "_neg1_pos1_double.dat");
@@ -286,9 +286,9 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     };
     TestType const domain_min = static_cast<TestType>(-2.5);
     TestType const domain_max = static_cast<TestType>(2.5);
-    Options const o           = make_options(
+    options const o           = make_options(
         {"-d", std::to_string(degree), "-l", std::to_string(levels)});
-    fk::vector<TestType> const gold = readVectorFromTxtFile(
+    fk::vector<TestType> const gold = read_vector_from_txt_file(
         "../testing/generated-inputs/transformations/forward_transform_" +
         std::to_string(degree) + "_" + std::to_string(levels) +
         "_neg2_5_pos2_5_doubleplus.dat");

@@ -374,7 +374,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 
 template<typename P>
 fk::vector<P>
-combine_dimensions(Options const opts, element_table const &table,
+combine_dimensions(options const opts, element_table const &table,
                    std::vector<fk::vector<P>> const &vectors, P const time)
 {
   int const num_dims = vectors.size();
@@ -404,14 +404,14 @@ combine_dimensions(Options const opts, element_table const &table,
 }
 
 template fk::vector<double>
-combine_dimensions(Options const, element_table const &,
+combine_dimensions(options const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 template fk::vector<float>
-combine_dimensions(Options const, element_table const &,
+combine_dimensions(options const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
 template<typename P>
-fk::matrix<P> operator_two_scale(Options const opts)
+fk::matrix<P> operator_two_scale(options const opts)
 {
   int const degree     = opts.get_degree();
   int const num_levels = opts.get_level();
@@ -474,5 +474,5 @@ fk::matrix<P> operator_two_scale(Options const opts)
   return fmwt_comp;
 }
 
-template fk::matrix<double> operator_two_scale(Options const opts);
-template fk::matrix<float> operator_two_scale(Options const opts);
+template fk::matrix<double> operator_two_scale(options const opts);
+template fk::matrix<float> operator_two_scale(options const opts);

@@ -18,28 +18,28 @@ extern template std::array<fk::matrix<float>, 6>
 generate_multi_wavelets(int const degree);
 
 template<typename P>
-fk::vector<P> combine_dimensions(Options const, element_table const &,
+fk::vector<P> combine_dimensions(options const, element_table const &,
                                  std::vector<fk::vector<P>> const &, P const);
 
 extern template fk::vector<double>
-combine_dimensions(Options const, element_table const &,
+combine_dimensions(options const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 extern template fk::vector<float>
-combine_dimensions(Options const, element_table const &,
+combine_dimensions(options const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
 template<typename P>
-fk::matrix<P> operator_two_scale(Options const opts);
+fk::matrix<P> operator_two_scale(options const opts);
 
-extern template fk::matrix<double> operator_two_scale(Options const opts);
-extern template fk::matrix<float> operator_two_scale(Options const opts);
+extern template fk::matrix<double> operator_two_scale(options const opts);
+extern template fk::matrix<float> operator_two_scale(options const opts);
 
 // FIXME this interface is temporary. lmin, lmax, degree, and level
 // will all be encapsulated by a dimension argument (member of pde)
 // I haven't refitted the pde class yet, though, so that class doesn't
 // exist yet - TM
 template<typename P, typename F>
-fk::vector<P> forward_transform(Options const opts, P const domain_min,
+fk::vector<P> forward_transform(options const opts, P const domain_min,
                                 P const domain_max, F function)
 {
   int const num_levels = opts.get_level();
