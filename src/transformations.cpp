@@ -9,6 +9,10 @@
 #include <cmath>
 #include <numeric>
 
+//
+// set the range specified by first and last, starting with the supplied value
+// and incrementing that value by stride for each position in the range.
+//
 template<typename ForwardIterator, typename P>
 static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
                          P const stride)
@@ -428,6 +432,8 @@ fk::matrix<P> operator_two_scale(options const opts)
                                     .set_submatrix(0, 0, g0)
                                     .set_submatrix(0, g0.ncols(), g1);
 
+  // set the top vertical half of fmwt along the block diagonal with h_block
+  // the lower half is set in the same manner, but with g_block
   for (int i = 0; i < max_level / 2; ++i)
   {
     fmwt.set_submatrix(degree * i, 2 * degree * i, h_block);
