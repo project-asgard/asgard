@@ -55,7 +55,10 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     int const degree              = 5;
     auto [poly, deriv]            = legendre(in, degree);
-
+    
+    // the relaxed comparison is not because of difference in precision in calculations
+    // c++ float vs matlab. the reordered operations make very subtle differences requiring
+    // relaxed comparison for certain inputs (like these) 
     relaxed_comparison(poly, poly_gold);
     relaxed_comparison(deriv, deriv_gold);
   }
