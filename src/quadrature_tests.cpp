@@ -43,7 +43,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     REQUIRE(deriv == deriv_gold);
   }
 
-  SECTION("legendre(linspace (-2, 2, 20), 5)")
+  SECTION("legendre(linspace (-2.5, 3.0, 11), 5)")
   {
     fk::matrix<TestType> const poly_gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/legendre_poly_linspace_5.dat");
@@ -51,7 +51,8 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     fk::matrix<TestType> const deriv_gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/legendre_deriv_linspace_5.dat");
 
-    fk::vector<TestType> const in = linspace<TestType>(-2.0, 2.0, 20);
+    fk::vector<TestType> const in = linspace<TestType>(-2.5, 3.0, 11);
+
     int const degree              = 5;
     auto [poly, deriv]            = legendre(in, degree);
 

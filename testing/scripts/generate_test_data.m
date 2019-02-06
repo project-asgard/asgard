@@ -236,7 +236,7 @@ degree = 2;
 save(strcat(out_format, 'deriv_neg1_2.dat'), 'deriv');
 save(strcat(out_format, 'poly_neg1_2.dat'), 'poly');
 
-x = linspace(-2.0, 2.0, 20);
+x = linspace(-2.5, 3.0, 11);
 degree = 5;
 [deriv, poly] = dlegendre2(x, 5);
 save(strcat(out_format, 'deriv_linspace_5.dat'), 'deriv');
