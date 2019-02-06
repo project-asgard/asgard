@@ -3,7 +3,7 @@
 #include "clara.hpp"
 #include <iostream>
 
-Options::Options(int argc, char **argv)
+options::options(int argc, char **argv)
 {
   bool show_help = false;
 
@@ -86,17 +86,17 @@ Options::Options(int argc, char **argv)
   }
 }
 
-int Options::get_level() const { return level; }
-int Options::get_degree() const { return degree; }
-int Options::get_time_steps() const { return num_time_steps; }
-int Options::get_write_frequency() const { return write_frequency; }
-int Options::get_visualization_frequency() const
+int options::get_level() const { return level; }
+int options::get_degree() const { return degree; }
+int options::get_time_steps() const { return num_time_steps; }
+int options::get_write_frequency() const { return write_frequency; }
+int options::get_visualization_frequency() const
 {
   return visualization_frequency;
 }
-bool Options::using_implicit() const { return use_implicit_stepping; }
-bool Options::using_full_grid() const { return use_full_grid; }
-double Options::get_cfl() const { return cfl; }
-PDE_opts Options::get_selected_pde() const { return pde_choice; }
-bool Options::is_valid() const { return valid; }
-bool Options::do_poisson_solve() const { return do_poisson; }
+bool options::using_implicit() const { return use_implicit_stepping; }
+bool options::using_full_grid() const { return use_full_grid; }
+double options::get_cfl() const { return cfl; }
+PDE_opts options::get_selected_pde() const { return pde_choice; }
+bool options::is_valid() const { return valid; }
+bool options::do_poisson_solve() const { return do_poisson; }

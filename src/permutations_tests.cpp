@@ -27,12 +27,12 @@ TEST_CASE("Permutations builders", "[permutations]")
         if (i == 0)
         {
           int const gold_val =
-              static_cast<int>(readScalarFromTxtFile(file_path));
+              static_cast<int>(read_scalar_from_txt_file(file_path));
           return fk::matrix<int>{{gold_val}};
         }
-        return fk::matrix<int>(readMatrixFromTxtFile(file_path));
+        return fk::matrix<int>(read_matrix_from_txt_file(file_path));
       }();
-      int count_gold = static_cast<int>(readScalarFromTxtFile(count_path));
+      int count_gold = static_cast<int>(read_scalar_from_txt_file(count_path));
       REQUIRE(get_eq_permutations(dims[i], ns[i], ord_by_ns[i]) == gold);
       REQUIRE(count_eq_permutations(dims[i], ns[i]) == count_gold);
     }
@@ -48,9 +48,9 @@ TEST_CASE("Permutations builders", "[permutations]")
                               (ord_by_ns[i] ? one : zero);
       std::string file_path      = file_base + ".dat";
       std::string count_path     = file_base + "_count.dat";
-      fk::matrix<int> const gold = readMatrixFromTxtFile(file_path);
+      fk::matrix<int> const gold = read_matrix_from_txt_file(file_path);
       int const count_gold =
-          static_cast<int>(readScalarFromTxtFile(count_path));
+          static_cast<int>(read_scalar_from_txt_file(count_path));
       REQUIRE(get_leq_permutations(dims[i], ns[i], ord_by_ns[i]) == gold);
       REQUIRE(count_leq_permutations(dims[i], ns[i]) == count_gold);
     }
@@ -66,9 +66,9 @@ TEST_CASE("Permutations builders", "[permutations]")
                               (ord_by_ns[i] ? one : zero);
       std::string file_path      = file_base + ".dat";
       std::string count_path     = file_base + "_count.dat";
-      fk::matrix<int> const gold = readMatrixFromTxtFile(file_path);
+      fk::matrix<int> const gold = read_matrix_from_txt_file(file_path);
       int const count_gold =
-          static_cast<int>(readScalarFromTxtFile(count_path));
+          static_cast<int>(read_scalar_from_txt_file(count_path));
       REQUIRE(get_max_permutations(dims[i], ns[i], ord_by_ns[i]) == gold);
       REQUIRE(count_max_permutations(dims[i], ns[i]) == count_gold);
     }
@@ -99,14 +99,15 @@ TEST_CASE("Permutations builders", "[permutations]")
                              "index_leq_max_4d_10s_4m_count.dat";
 
     fk::matrix<int> const gold = [=] {
-      fk::matrix<int> indices = readMatrixFromTxtFile(gold_path);
+      fk::matrix<int> indices = read_matrix_from_txt_file(gold_path);
 
       // output values are indices; must adjust for matlab 1-indexing
       std::transform(indices.begin(), indices.end(), indices.begin(),
                      [](int &elem) { return elem - 1; });
       return indices;
     }();
-    int const count_gold = static_cast<int>(readScalarFromTxtFile(count_path));
+    int const count_gold =
+        static_cast<int>(read_scalar_from_txt_file(count_path));
 
     // clang-format off
     list_set lists{{2, 3}, 

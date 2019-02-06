@@ -15,8 +15,8 @@
 //    - linspace (scalar inputs only)
 //
 // - matlab/octave file IO
-//    - readVectorFromTxtFile (tested for octave)
-//    - readVectorFromBinFile (tested for octave and matlab)
+//    - read_vector_from_txt_file (tested for octave)
+//    - read_vector_from_bin_file (tested for octave and matlab)
 //
 //-----------------------------------------------------------------------------
 
@@ -108,17 +108,17 @@ fk::matrix<int> find(fk::matrix<P> const matrix, Func pred)
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-fk::vector<double> readVectorFromBinFile(std::string const &path);
+fk::vector<double> read_vector_from_bin_file(std::string const &path);
 
 // read an octave double from text file
-double readScalarFromTxtFile(std::string const &path);
+double read_scalar_from_txt_file(std::string const &path);
 
 // read an octave vector from text file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-fk::vector<double> readVectorFromTxtFile(std::string const &path);
+fk::vector<double> read_vector_from_txt_file(std::string const &path);
 
 // read an octave matrix from text file into a fk::matrix
-fk::matrix<double> readMatrixFromTxtFile(std::string const &path);
+fk::matrix<double> read_matrix_from_txt_file(std::string const &path);
 
 // suppress implicit instantiations
 extern template fk::vector<float> linspace(float const start, float const end,

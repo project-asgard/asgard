@@ -18,7 +18,7 @@ TEST_CASE("options constructor/getters", "[options]")
     double cfl             = 2.0;
 
     // set up test inputs directly from golden values
-    Options o = make_options({"-p", pde_choice, "-l", std::to_string(level),
+    options o = make_options({"-p", pde_choice, "-l", std::to_string(level),
                               "-d", std::to_string(degree), "-w",
                               std::to_string(write), "-z", std::to_string(vis),
                               "-f", "-i", "-s", "-c", std::to_string(cfl)});
@@ -47,7 +47,7 @@ TEST_CASE("options constructor/getters", "[options]")
     double def_cfl     = 0.1;
     PDE_opts def_pde   = PDE_opts::vlasov4;
 
-    Options o = make_options({});
+    options o = make_options({});
 
     REQUIRE(o.get_degree() == def_degree);
     REQUIRE(o.get_level() == def_level);
@@ -65,7 +65,7 @@ TEST_CASE("options constructor/getters", "[options]")
   SECTION("out of range pde")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    Options o = make_options({"asgard", "-p", "2 1337 4 u gg"});
+    options o = make_options({"asgard", "-p", "2 1337 4 u gg"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }
@@ -73,7 +73,7 @@ TEST_CASE("options constructor/getters", "[options]")
   SECTION("negative level")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    Options o = make_options({"asgard", "-l=-2"});
+    options o = make_options({"asgard", "-l=-2"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }
@@ -81,7 +81,7 @@ TEST_CASE("options constructor/getters", "[options]")
   SECTION("negative degree")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    Options o = make_options({"asgard", "-d=-2"});
+    options o = make_options({"asgard", "-d=-2"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }
@@ -89,7 +89,7 @@ TEST_CASE("options constructor/getters", "[options]")
   SECTION("negative cfl")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    Options o = make_options({"asgard", "-c=-2.0"});
+    options o = make_options({"asgard", "-c=-2.0"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }
