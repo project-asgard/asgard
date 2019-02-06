@@ -7,6 +7,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "tensors.hpp"
+
 //
 // The choices for supported PDE types
 //
@@ -479,3 +481,97 @@ std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
     exit(-1);
   }
 }
+
+enum class boundary_condition
+{
+  periodic, 
+  dirichlet,
+  neumann
+};
+
+// ---------------------------------------------------------------------------
+//
+// Dimension: holds all information for a single dimension in the pde
+//
+// ---------------------------------------------------------------------------
+
+template<typename P>
+class dimension
+{
+  public:
+  boundary_condition const left;
+  boundary_condition const right;
+  P const domain_min;
+  P const domain_max;
+  int const level;
+  int const degree;
+  fk::matrix<P> forward_transform;
+  vector_func<P> const initial_condition;
+
+
+  dimension(boundary_condition const left,
+  boundary_condition const right,
+  P const domain_min,
+  P const domain_max,
+  int const level,
+  int const degree,
+  vector_func<P> const initial_condition)
+
+
+      : left(left),
+        right(right),
+	domain_min(domain_min),
+	domain_max(domain_max),
+	level(level),
+	degree(degree),
+	initial_condition(initial_condition)
+	{
+	  
+	
+	
+	}
+
+};
+
+
+enum class coefficient_type
+{
+  grad, 
+  mass,
+  stiffness
+};
+
+enum class flux
+{
+  central,
+  upwind,
+  lax_friedrich
+};
+
+
+// ---------------------------------------------------------------------------
+//
+// Term: describes a single term in the pde for operator matrix
+// construction
+//
+// ---------------------------------------------------------------------------
+
+template<typename P>
+class term
+{
+/*public:
+
+  term(int const num_dims,
+      int const num_sources,
+      int const num_terms,
+      P const domain_mins[], // the mininimum grid value in each dimension
+      P const domain_maxs[], // the maximum grid value in each dimension
+      bool const do_poisson_solve,
+      bool const has_analytic_soln = false)
+
+      : num_dims(num_dims),
+        num_sources(num_sources),
+
+*/
+};
+
