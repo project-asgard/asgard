@@ -1,6 +1,6 @@
 #pragma once
-
 #include <cassert>
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -482,9 +482,15 @@ std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
   }
 }
 
+//----------------------------------------------------------------------------
+//
+// Define class members of PDE
+//
+//----------------------------------------------------------------------------
+
 enum class boundary_condition
 {
-  periodic, 
+  periodic,
   dirichlet,
   neumann
 };
@@ -498,7 +504,7 @@ enum class boundary_condition
 template<typename P>
 class dimension
 {
-  public:
+public:
   boundary_condition const left;
   boundary_condition const right;
   P const domain_min;
@@ -507,30 +513,19 @@ class dimension
   int const degree;
   vector_func<P> const initial_condition;
 
+  dimension(boundary_condition const left, boundary_condition const right,
+            P const domain_min, P const domain_max, int const level,
+            int const degree, vector_func<P> const initial_condition)
 
-  dimension(boundary_condition const left,
-  boundary_condition const right,
-  P const domain_min,
-  P const domain_max,
-  int const level,
-  int const degree,
-  vector_func<P> const initial_condition)
-
-
-      : left(left),
-        right(right),
-	domain_min(domain_min),
-	domain_max(domain_max),
-	level(level),
-	degree(degree),
-	initial_condition(initial_condition)
-	{}
+      : left(left), right(right), domain_min(domain_min),
+        domain_max(domain_max), level(level), degree(degree),
+        initial_condition(initial_condition)
+  {}
 };
-
 
 enum class coefficient_type
 {
-  grad, 
+  grad,
   mass,
   stiffness
 };
@@ -542,7 +537,6 @@ enum class flux_type
   lax_friedrich
 };
 
-
 // ---------------------------------------------------------------------------
 //
 // Term: describes a single term in the pde for operator matrix
@@ -553,22 +547,66 @@ enum class flux_type
 template<typename P>
 class term
 {
+  // this is to hold data that may
+  // change over the course of the
+  // simulation, from any source,
+  // that is used in operator construction.
+  //
+  // initialized to one if not provided at instantiation,
+  // which performs an identity operation where this is used,
+  // until set by outside source.
+  fk::vector<P> data;
+
 public:
   coefficient_type const coeff;
   scalar_func<P> const g_func;
   bool const time_dependent;
-  
-  //FIXME what is this? david?
-  //fk::vector<P> dat;
-
   flux_type const flux;
 
-  term(coefficient_type const coeff,
-      scalar_func<P> const g_func,
-      bool const time_dependent,
-      flux_type const flux)
-      : coeff(coeff),
-        g_func(g_func),
-	time_dependent(time_dependent){}
+  term(coefficient_type const coeff, scalar_func<P> const g_func,
+       bool const time_dependent, flux_type const flux, dimension<P> const dim,
+       fk::vector<P> const data)
+      : coeff(coeff), g_func(g_func), time_dependent(time_dependent), data(data)
+  {
+    int const degrees_freedom_1d =
+        dim.degree * static_cast<int>(std::pow(2, dim.level));
+    if (data.size() != 0)
+    {
+      assert(data.size() == degrees_freedom_1d);
+    }
+    else
+    {
+      data.resize(degrees_freedom_1d);
+      data = fk::vector<P>(std::vector<P>(
+          dim.degree * static_cast<int>(std::pow(2, dim.level)), 1.0));
+    }
+  }
+
+  void set_data(fk::vector<P> const new_data)
+  {
+    assert(new_data.size() == data.size());
+    data = new_data;
+  };
+  fk::vector<P> get_data() const { return data; };
 };
 
+// ---------------------------------------------------------------------------
+//
+// Source: a pde can have arbitrarily many, given that each has dimension-many
+// vector valued functions and one scalar valued function (for time)
+//
+// ---------------------------------------------------------------------------
+
+template<typename P>
+class source
+{
+public:
+  std::vector<vector_func<P>> const source_funcs;
+  scalar_func<P> const time_func;
+
+  source(std::vector<vector_func<P>> const source_funcs,
+         scalar_func<P> const time_func, int const num_dims)
+
+      : source_funcs(source_funcs), time_func(time_func)
+  {}
+};
