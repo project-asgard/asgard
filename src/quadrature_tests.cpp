@@ -6,6 +6,11 @@
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
+  // the relaxed comparison is due to:
+  // 1) difference in precision in calculations
+  // (c++ float/double vs matlab always double)
+  // 2) the reordered operations make very subtle differences
+  // requiring relaxed comparison for certain inputs
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
@@ -53,12 +58,9 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 
     fk::vector<TestType> const in = linspace<TestType>(-2.5, 3.0, 11);
 
-    int const degree              = 5;
-    auto [poly, deriv]            = legendre(in, degree);
-    
-    // the relaxed comparison is not because of difference in precision in calculations
-    // c++ float vs matlab. the reordered operations make very subtle differences requiring
-    // relaxed comparison for certain inputs (like these) 
+    int const degree   = 5;
+    auto [poly, deriv] = legendre(in, degree);
+
     relaxed_comparison(poly, poly_gold);
     relaxed_comparison(deriv, deriv_gold);
   }
