@@ -307,20 +307,6 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     }
   }
 
-  // explicitly normalize to zero
-  /*auto const normalize = [](fk::matrix<P> &matrix) {
-     std::transform(matrix.begin(), matrix.end(), matrix.begin(), [](P &elem) {
-       if (std::abs(elem) <
-           static_cast<P>(1e-5)) // 1e-5 is the value blessed by the math people
-       {
-         return static_cast<P>(0.0);
-       }
-       return elem;
-     });
-   };
- */
-  // explicitly normalize to zero
-
   P const compare = [] {
     if constexpr (std::is_same<P, double>::value)
     {
@@ -343,11 +329,6 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   return std::array<fk::matrix<P>, 6>{h0, h1,     g0,
                                       g1, phi_co, scalet_coefficients};
 }
-
-template std::array<fk::matrix<double>, 6>
-generate_multi_wavelets(int const degree);
-template std::array<fk::matrix<float>, 6>
-generate_multi_wavelets(int const degree);
 
 // perform recursive kronecker product
 template<typename P>
@@ -396,13 +377,6 @@ combine_dimensions(options const opts, element_table const &table,
   }
   return combined;
 }
-
-template fk::vector<double>
-combine_dimensions(options const, element_table const &,
-                   std::vector<fk::vector<double>> const &, double const);
-template fk::vector<float>
-combine_dimensions(options const, element_table const &,
-                   std::vector<fk::vector<float>> const &, float const);
 
 template<typename P>
 fk::matrix<P> operator_two_scale(options const opts)
@@ -467,6 +441,18 @@ fk::matrix<P> operator_two_scale(options const opts)
                  [](P &elem) { return std::abs(elem) < 1e-12 ? 0.0 : elem; });
   return fmwt_comp;
 }
+
+template std::array<fk::matrix<double>, 6>
+generate_multi_wavelets(int const degree);
+template std::array<fk::matrix<float>, 6>
+generate_multi_wavelets(int const degree);
+
+template fk::vector<double>
+combine_dimensions(options const, element_table const &,
+                   std::vector<fk::vector<double>> const &, double const);
+template fk::vector<float>
+combine_dimensions(options const, element_table const &,
+                   std::vector<fk::vector<float>> const &, float const);
 
 template fk::matrix<double> operator_two_scale(options const opts);
 template fk::matrix<float> operator_two_scale(options const opts);

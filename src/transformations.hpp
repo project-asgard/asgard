@@ -12,27 +12,12 @@
 template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree);
 
-extern template std::array<fk::matrix<double>, 6>
-generate_multi_wavelets(int const degree);
-extern template std::array<fk::matrix<float>, 6>
-generate_multi_wavelets(int const degree);
-
 template<typename P>
 fk::vector<P> combine_dimensions(options const, element_table const &,
                                  std::vector<fk::vector<P>> const &, P const);
 
-extern template fk::vector<double>
-combine_dimensions(options const, element_table const &,
-                   std::vector<fk::vector<double>> const &, double const);
-extern template fk::vector<float>
-combine_dimensions(options const, element_table const &,
-                   std::vector<fk::vector<float>> const &, float const);
-
 template<typename P>
 fk::matrix<P> operator_two_scale(options const opts);
-
-extern template fk::matrix<double> operator_two_scale(options const opts);
-extern template fk::matrix<float> operator_two_scale(options const opts);
 
 // FIXME this interface is temporary. lmin, lmax, degree, and level
 // will all be encapsulated by a dimension argument (member of pde)
@@ -48,6 +33,10 @@ fk::vector<P> forward_transform(options const opts, P const domain_min,
   assert(num_levels > 0);
   assert(degree > 0);
   assert(domain_max > domain_min);
+
+  // check to make sure the F function arg is a function type
+  // that will accept a vector argument. we have a check for its
+  // return below
   static_assert(std::is_invocable_v<decltype(function), fk::vector<P>>);
 
   // TODO may remove this call if want to create the FMWT matrix once and store
@@ -81,19 +70,21 @@ fk::vector<P> forward_transform(options const opts, P const domain_min,
 
   for (int i = 0; i < n; ++i)
   {
-    fk::vector<P> const x = [&roots = roots, normalize, domain_min, i]() {
-      fk::vector<P> x(roots.size());
-      // map quad_x from [-1,+1] to [domain_min,domain_max] physical domain.
-      std::transform(x.begin(), x.end(), roots.begin(), x.begin(),
-                     [&](P &elem, P const &root) {
+    // map quad_x from [-1,+1] to [domain_min,domain_max] physical domain.
+    fk::vector<P> const mapped_roots = [&roots = roots, normalize, domain_min,
+                                        i]() {
+      fk::vector<P> mapped_roots(roots.size());
+      std::transform(mapped_roots.begin(), mapped_roots.end(), roots.begin(),
+                     mapped_roots.begin(), [&](P &elem, P const &root) {
                        return elem + (normalize * (root / 2.0 + 1.0 / 2.0 + i) +
                                       domain_min);
                      });
-      return x;
+      return mapped_roots;
     }();
 
     // get the f(v) initial condition at the quadrature points.
-    fk::vector<P> f_here = function(x);
+    fk::vector<P> f_here = function(mapped_roots);
+    // ensuring function returns vector of appropriate size
     assert(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
                    f_here.begin(), std::multiplies<P>());
@@ -122,3 +113,18 @@ fk::vector<P> forward_transform(options const opts, P const domain_min,
 
   return f;
 }
+
+extern template std::array<fk::matrix<double>, 6>
+generate_multi_wavelets(int const degree);
+extern template std::array<fk::matrix<float>, 6>
+generate_multi_wavelets(int const degree);
+
+extern template fk::vector<double>
+combine_dimensions(options const, element_table const &,
+                   std::vector<fk::vector<double>> const &, double const);
+extern template fk::vector<float>
+combine_dimensions(options const, element_table const &,
+                   std::vector<fk::vector<float>> const &, float const);
+
+extern template fk::matrix<double> operator_two_scale(options const opts);
+extern template fk::matrix<float> operator_two_scale(options const opts);

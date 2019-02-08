@@ -569,7 +569,7 @@ fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
 
 // set a subvector beginning at provided index
 template<typename P>
-fk::vector<P>
+fk::vector<P> &
 fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
 {
   assert(index >= 0);

@@ -191,15 +191,15 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   }
   SECTION("vector kron product")
   {
-    fk::vector<TestType> identity{1};
+    fk::vector<TestType> const identity{1};
     REQUIRE(identity.kron(gold) == gold);
 
-    fk::vector<TestType> repeat{1, 1};
+    fk::vector<TestType> const repeat{1, 1};
     fk::vector<TestType> gold_copy = gold;
     REQUIRE(repeat.kron(gold) == gold_copy.concat(gold));
 
-    fk::vector<TestType> zeros(gold.size());
-    fk::vector<TestType> alternate{1, 0, 2, 0};
+    fk::vector<TestType> const zeros(gold.size());
+    fk::vector<TestType> const alternate{1, 0, 2, 0};
     fk::vector<TestType> ans;
     ans.concat(gold).concat(zeros).concat(gold * 2).concat(zeros);
     REQUIRE(ans == alternate.kron(gold));
