@@ -8,6 +8,7 @@ TEST_CASE("testing pde implementations", "[pde]")
 {
   SECTION("vlasov7 functions against golden values")
   {
+    auto pde = make_PDE<float>(PDE_opts::continuity_1);
     /*auto pde = make_PDE<float>(PDE_opts::vlasov7);
 
     std::vector<float> x = {1.0, 2.0, 3.0};
