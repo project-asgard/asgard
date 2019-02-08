@@ -357,7 +357,6 @@ combine_dimensions(options const opts, element_table const &table,
   assert(num_dims > 0);
 
   int const degree = opts.get_degree();
-  // int const deg_to_dims = static_cast<int>(std::pow(degree, num_dims));
   fk::vector<P> combined;
 
   for (int i = 0; i < table.size(); ++i)
