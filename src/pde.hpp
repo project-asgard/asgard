@@ -199,6 +199,9 @@ public:
 //
 // ----------------------------------------------------------------------------
 template<typename P>
+using term_set = std::vector<std::vector<term<P>>>;
+
+template<typename P>
 class PDE
 {
 public:
@@ -207,7 +210,7 @@ public:
       int const num_sources,
       int const num_terms,
       std::vector<dimension<P>> const dimensions, 
-      std::vector<term<P>> const terms,
+      term_set<P> const terms,
       std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
       scalar_func<P> const exact_time,
@@ -253,6 +256,12 @@ public:
     {
       assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
     }
+
+    // check all terms
+    for (std::vector<term<P>> const term_list : terms)
+    {
+      assert(term_list.size() == static_cast<unsigned>(num_dims));
+    }
   }
 
   // public but const data. no getters
@@ -260,7 +269,7 @@ public:
   int const num_sources;
   int const num_terms;
   std::vector<dimension<P>> const dimensions;
-  std::vector<term<P>> const terms;
+  term_set<P> const terms;
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
   scalar_func<P> const exact_time;
@@ -274,8 +283,8 @@ public:
 //
 // the "continuity 1" pde
 //
-//
-// It ... (FIXME explain properties like having an analytic solution, etc.)
+// 1D test case using continuity equation, i.e.,
+// df/dt + df/dx = 0
 //
 // ---------------------------------------------------------------------------
 template<typename P>
@@ -291,7 +300,7 @@ public:
   //
   // specify initial condition vector functions...
   //
-  static fk::vector<P> initial_condition_0(fk::vector<P> const x)
+  static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
   {
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
@@ -299,7 +308,7 @@ public:
   //
   // specify exact solution vectors/time function...
   //
-  static fk::vector<P> exact_solution_0(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
     std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
@@ -317,7 +326,7 @@ public:
   //
 
   // source 0
-  static fk::vector<P> source_dim0_0(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
     std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
@@ -328,10 +337,10 @@ public:
     return fx;
   }
 
-  static P source_dim0_0_time(P const time) { return std::sin(time); }
+  static P source_0_time(P const time) { return std::sin(time); }
 
   // source 1
-  static fk::vector<P> source_dim0_1(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
     std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
@@ -342,10 +351,7 @@ public:
     return fx;
   }
 
-  static P source_dim0_1_time(P const time)
-  {
-    return -2.0 * M_PI * std::sin(time);
-  }
+  static P source_1_time(P const time) { return -2.0 * M_PI * std::sin(time); }
 
   // g-funcs for terms (optional)
   static P g_func_0(P const x, P const time)
@@ -371,51 +377,204 @@ private:
   static int constexpr dim0_level              = 2;
   static int constexpr dim0_degree             = 2;
   inline static vector_func<P> const dim0_initial_condition =
-      &PDE_continuity_1::initial_condition_0;
+      &PDE_continuity_1::initial_condition_dim0;
   static auto constexpr dim0_name = "x";
   inline static dimension<P> const dim0 =
       dimension<P>(dim0_BCL, dim0_BCR, dim0_min, dim0_max, dim0_level,
                    dim0_degree, dim0_initial_condition, dim0_name);
 
   // define terms (1 in this case)
-  static coefficient_type constexpr term0_type  = coefficient_type::grad;
-  inline static g_func_type<P> const term0_func = &PDE_continuity_1::g_func_0;
-  static bool constexpr term0_time_dependent    = false;
-  inline static fk::vector<P> const term0_data; // empty in this case
-  static flux_type constexpr term0_flux = flux_type::central;
-  static auto constexpr term0_name      = "d_dx";
+  static coefficient_type constexpr term0_dim0_type = coefficient_type::grad;
+  inline static g_func_type<P> const term0_dim0_func =
+      &PDE_continuity_1::g_func_0;
+  static bool constexpr term0_dim0_time_dependent = false;
+  inline static fk::vector<P> const term0_dim0_data; // empty in this case
+  static flux_type constexpr term0_dim0_flux = flux_type::central;
+  static auto constexpr term0_dim0_name      = "d_dx";
 
   // TODO need to work on relationship with dimension....?
-  inline static term<P> const term0 =
-      term<P>(term0_type, term0_func, term0_time_dependent, term0_flux,
-              term0_data, term0_name, dim0);
+  inline static term<P> const term0_dim0 =
+      term<P>(term0_dim0_type, term0_dim0_func, term0_dim0_time_dependent,
+              term0_dim0_flux, term0_dim0_data, term0_dim0_name, dim0);
+  inline static const std::vector<term<P>> terms0 = {term0_dim0};
 
   // define sources
   inline static std::vector<vector_func<P>> const source0_funcs = {
-      &PDE_continuity_1::source_dim0_0};
+      &PDE_continuity_1::source_0_dim0};
   inline static scalar_func<P> const source0_time =
-      &PDE_continuity_1::source_dim0_0_time;
+      &PDE_continuity_1::source_0_time;
   inline static source<P> const source0 =
       source<P>(source0_funcs, source0_time);
 
   inline static std::vector<vector_func<P>> const source1_funcs = {
-      &PDE_continuity_1::source_dim0_1};
+      &PDE_continuity_1::source_1_dim0};
   inline static scalar_func<P> const source1_time =
-      &PDE_continuity_1::source_dim0_1_time;
+      &PDE_continuity_1::source_1_time;
   inline static source<P> const source1 =
       source<P>(source1_funcs, source1_time);
 
   // store PDE functions/information in members
   inline static std::vector<dimension<P>> const dimensions = {dim0};
-  inline static std::vector<term<P>> const terms           = {term0};
+  inline static term_set<P> const terms                    = {terms0};
   inline static std::vector<source<P>> const sources       = {source0, source1};
 
   inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
-      &PDE_continuity_1::exact_solution_0};
+      &PDE_continuity_1::exact_solution_dim0};
 
   inline static scalar_func<P> const _exact_scalar_func =
       &PDE_continuity_1::exact_time;
 };
+
+// ---------------------------------------------------------------------------
+//
+// the "continuity 2" pde
+//
+// 2D test case using continuity equation, i.e.,
+// df/dt + v_x * df/dx + v_y * df/dy == 0
+//
+// ---------------------------------------------------------------------------
+/*template<typename P>
+class PDE_continuity_2 : public PDE<P>
+{
+public:
+  PDE_continuity_2()
+      : PDE<P>(_num_dims, _num_sources, _num_terms, dimensions, terms, sources,
+               _exact_vector_funcs, _exact_scalar_func, _do_poisson_solve,
+               _has_analytic_soln)
+  {}
+
+  //
+  // specify initial condition vector functions...
+  //
+  static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
+  {
+    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+  }
+  static fk::vector<P> initial_condition_dim1(fk::vector<P> const x)
+  {
+    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+  }
+
+  //
+  // specify exact solution vectors/time function...
+  //
+  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::cos(M_PI * x);
+                   });
+    return fx;
+  }
+  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::sin(2.0 * M_PI * x);
+                   });
+    return fx;
+  }
+
+  static P exact_time(P const time) { return std::sin(2.0 * time); }
+
+  //
+  // specify source functions...
+  //
+
+  // source 0
+  static fk::vector<P> source_0_dim0(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::cos(M_PI * x);
+                   });
+    return fx;
+  }
+
+  static fk::vector<P> source_0_dim1(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::sin(2.0 * M_PI * x);
+                   });
+    return fx;
+  }
+
+  static P source_0_time(P const time) {
+          return 2.0 * std::cos(2.0 * time); }
+
+  // source 1
+  static fk::vector<P> source_1_dim0(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::cos(M_PI * x);
+                   });
+    return fx;
+  }
+
+  static fk::vector<P> source_1_dim1(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::cos(2.0 * M_PI * x);
+                   });
+    return fx;
+  }
+
+  static P source_1_time(P const time) {
+          return 2.0 * M_PI * std::sin(2.0 * time); }
+
+  // source 2
+  static fk::vector<P> source_2_dim0(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::sin(M_PI * x);
+                   });
+    return fx;
+  }
+
+  static fk::vector<P> source_2_dim1(fk::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                   [](P const &x, P const &fx) {
+                     ignore(fx);
+                     return std::sin(2.0 * M_PI * x);
+                   });
+    return fx;
+  }
+
+  static P source_2_time(P const time) {
+          return -M_PI * std::sin(2.0 * time); }
+
+
+  // g-funcs for terms (optional)
+  static P g_func_identity(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
+
+};*/
 
 // ---------------------------------------------------------------------------
 //
