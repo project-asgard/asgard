@@ -189,6 +189,21 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
     REQUIRE((gold * scale) == gold_scaled);
   }
+  SECTION("vector (as matrix) kron product")
+  {
+    fk::vector<TestType> const identity{1};
+    REQUIRE(identity.single_column_kron(gold) == gold);
+
+    fk::vector<TestType> const repeat{1, 1};
+    fk::vector<TestType> gold_copy = gold;
+    REQUIRE(repeat.single_column_kron(gold) == gold_copy.concat(gold));
+
+    fk::vector<TestType> const zeros(gold.size());
+    fk::vector<TestType> const alternate{1, 0, 2, 0};
+    fk::vector<TestType> ans;
+    ans.concat(gold).concat(zeros).concat(gold * 2).concat(zeros);
+    REQUIRE(ans == alternate.single_column_kron(gold));
+  }
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
@@ -253,8 +268,8 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
   SECTION("vector concatenation")
   {
-    fk::vector<TestType> test_left  = {2, 3, 4};
-    fk::vector<TestType> test_right = {5, 6};
+    fk::vector<TestType> test_left        = {2, 3, 4};
+    fk::vector<TestType> const test_right = {5, 6};
     fk::vector<TestType> empty;
     fk::vector<TestType> gold_copy = gold;
 
@@ -263,11 +278,32 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     empty.resize(0);
     REQUIRE(gold_copy.concat(empty) == gold);
   }
+  SECTION("vector set")
+  {
+    fk::vector<TestType> vector(5);
 
+    fk::vector<TestType> const empty;
+    fk::vector<TestType> const begin  = {2, 3};
+    fk::vector<TestType> const middle = {3, 4, 5};
+    fk::vector<TestType> const end    = {6};
+
+    REQUIRE(vector.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
+            gold);
+  }
+  SECTION("vector extract")
+  {
+    fk::vector<TestType> const test_begin  = {2, 3, 4};
+    fk::vector<TestType> const test_middle = {4, 5};
+    fk::vector<TestType> const test_end    = {5, 6};
+
+    REQUIRE(test_begin == gold.extract(0, 2));
+    REQUIRE(test_middle == gold.extract(2, 3));
+    REQUIRE(test_end == gold.extract(3, 4));
+  }
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};
-    fk::vector<TestType> after{0, 2, 3, 4};
+    fk::vector<TestType> const after{0, 2, 3, 4};
     std::transform(test.begin(), test.end(), test.begin(),
                    std::bind1st(std::plus<TestType>(), 1));
     REQUIRE(test == after);
@@ -275,14 +311,14 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
   SECTION("vector maximum element")
   {
-    fk::vector<TestType> test{5, 6, 11, 8};
+    fk::vector<TestType> const test{5, 6, 11, 8};
     TestType max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
   }
 
   SECTION("vector sum of elements")
   {
-    fk::vector<TestType> test{1, 2, 3, 4, 5, 6, 7, 8};
+    fk::vector<TestType> const test{1, 2, 3, 4, 5, 6, 7, 8};
     TestType max = 36;
     REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == max);
   }
@@ -534,7 +570,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     }; // clang-format on
     REQUIRE((in1 - in2) == gold);
   }
-  SECTION("matrix*integer multiplication")
+  SECTION("matrix*scalar multiplication")
   {
     // clang-format off
     fk::matrix<TestType> in {
@@ -551,7 +587,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {48, 52, 56},
       {60, 64, 68},
     }; // clang-format on
-    REQUIRE((in * 4) == in_scaled);
+    REQUIRE(in * 4 == in_scaled);
   }
   SECTION("matrix*vector multiplication")
   {
@@ -590,6 +626,23 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     // clang-format on
     fk::matrix<TestType> test = in1 * in2;
     REQUIRE(test == ans);
+  }
+  SECTION("matrix kron product")
+  {
+    // clang-format off
+
+    fk::matrix<TestType> const A {{1,2,3}};
+    fk::matrix<TestType> const B {{2,3},
+	                          {4,5},
+				  {6,7},
+				  {8,9}};
+    
+    fk::matrix<TestType> const ans {{2,3,4,6,6,9},
+	                            {4,5,8,10,12,15},
+				    {6,7,12,14,18,21},
+				    {8,9,16,18,24,27}};
+    // clang-format on
+    REQUIRE(A.kron(B) == ans);
   }
   SECTION("matrix inverse")
   {

@@ -64,6 +64,8 @@ public:
   P operator*(vector<P> const &)const;
   vector<P> operator*(matrix<P> const &)const;
   vector<P> operator*(P const) const;
+  vector<P> single_column_kron(vector<P> const &) const;
+
   //
   // basic queries to private data
   //
@@ -77,7 +79,9 @@ public:
   void print(std::string const label = "") const;
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
-  vector<P> concat(vector<P> const &right);
+  vector<P> &set(int const, vector<P> const);
+  vector<P> extract(int const, int const) const;
+  vector<P> &concat(vector<P> const &right);
   typedef P *iterator;
   typedef const P *const_iterator;
   iterator begin() { return data(); }
@@ -128,13 +132,15 @@ public:
   //
   // math operators
   //
-  matrix<P> operator*(int const) const;
+  matrix<P> operator*(P const) const;
   vector<P> operator*(vector<P> const &)const;
   matrix<P> operator*(matrix<P> const &)const;
   matrix<P> operator+(matrix<P> const &) const;
   matrix<P> operator-(matrix<P> const &) const;
 
   matrix<P> &transpose();
+
+  matrix<P> kron(matrix<P> const &) const;
 
   // clang-format off
   template<typename U = P>

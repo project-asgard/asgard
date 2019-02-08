@@ -471,6 +471,25 @@ fk::vector<P> fk::vector<P>::operator*(P const x) const
   }
   return a;
 }
+
+//
+// perform the matrix kronecker product by
+// interpreting vector operands/return vector
+// as single column matrices.
+//
+template<typename P>
+fk::vector<P> fk::vector<P>::single_column_kron(vector<P> const &right) const
+{
+  fk::vector<P> product((*this).size() * right.size());
+  for (int i = 0; i < (*this).size(); ++i)
+  {
+    for (int j = 0; j < right.size(); ++j)
+    {
+      product(i * right.size() + j) = (*this)(i)*right(j);
+    }
+  }
+  return product;
+}
 //
 // utility functions
 //
@@ -543,7 +562,7 @@ void fk::vector<P>::resize(int const new_size)
 }
 
 template<typename P>
-fk::vector<P> fk::vector<P>::concat(vector<P> const &right)
+fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
 {
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
@@ -553,6 +572,34 @@ fk::vector<P> fk::vector<P>::concat(vector<P> const &right)
   return *this;
 }
 
+// set a subvector beginning at provided index
+template<typename P>
+fk::vector<P> &
+fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
+{
+  assert(index >= 0);
+  assert((index + sub_vector.size()) <= this->size());
+  std::memcpy(&(*this)(index), sub_vector.data(),
+              sub_vector.size() * sizeof(P));
+  return *this;
+}
+
+// extract subvector, indices inclusive
+template<typename P>
+fk::vector<P> fk::vector<P>::extract(int const start, int const stop) const
+{
+  assert(start >= 0);
+  assert(stop < this->size());
+  assert(stop > start);
+
+  int const sub_size = stop - start + 1;
+  fk::vector<P> sub_vector(sub_size);
+  for (int i = 0; i < sub_size; ++i)
+  {
+    sub_vector(i) = (*this)(i + start);
+  }
+  return sub_vector;
+}
 //-----------------------------------------------------------------------------
 //
 // fk::matrix class implementation starts here
@@ -812,10 +859,10 @@ fk::matrix<P> fk::matrix<P>::operator-(matrix<P> const &right) const
 }
 
 //
-// matrix*integer multiplication operator
+// matrix*scalar multiplication operator
 //
 template<typename P>
-fk::matrix<P> fk::matrix<P>::operator*(int const right) const
+fk::matrix<P> fk::matrix<P>::operator*(P const right) const
 {
   matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
@@ -930,6 +977,34 @@ fk::matrix<P> &fk::matrix<P>::transpose()
   temp.data_ = nullptr;
 
   return *this;
+}
+
+// Simple quad-loop kron prod
+// @return the product
+//
+// FIXME this is NOT optimized.
+// we will use the batch gemm method
+// for performance-critical (large)
+// krons
+template<typename P>
+fk::matrix<P> fk::matrix<P>::kron(matrix<P> const &B) const
+{
+  fk::matrix<P> C(nrows() * B.nrows(), ncols() * B.ncols());
+  for (auto i = 0; i < nrows(); ++i)
+  {
+    for (auto j = 0; j < ncols(); ++j)
+    {
+      for (auto k = 0; k < B.nrows(); ++k)
+      {
+        for (auto l = 0; l < B.ncols(); ++l)
+        {
+          C((i * B.nrows() + k), (j * B.ncols() + l)) +=
+              (*this)(i, j) * B(k, l);
+        }
+      }
+    }
+  }
+  return C;
 }
 
 //
