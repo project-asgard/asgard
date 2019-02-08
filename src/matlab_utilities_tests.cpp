@@ -134,7 +134,8 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
   fk::vector<TestType> haystack{2, 3, 4, 5, 6};
 
   int const needle = 7;
-  auto greater_eq  = [needle](TestType i) { return i >= needle; };
+  // not capturing "needle" because https://stackoverflow.com/a/43468519
+  auto greater_eq = [](TestType i) { return i >= needle; };
 
   auto is_even = [](TestType i) { return (static_cast<int>(i) % 2) == 0; };
   SECTION("empty find -- vector")
