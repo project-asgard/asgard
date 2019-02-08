@@ -2,8 +2,6 @@
 #include <iostream>
 
 #include "matlab_utilities.hpp"
-
-#include "matlab_utilities.hpp"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -36,18 +34,18 @@ legendre(fk::vector<P> const domain, int const degree)
         1, std::vector<P>(domain.size(), static_cast<P>(1.0)));
   }
 
-  // if we are working to update column "n", then "_n_1" is the previous column
-  // (i.e. n-1), and "_n_2" is the one before that
+  // if we are working to update column "n", then "_order" is the previous
+  // column (i.e. n-1), and "_(order + 1)" is the one before that
   if (degree >= 3)
   {
     // initial values for n-1, n-2
-    fk::vector<P> legendre_n_1 =
+    fk::vector<P> legendre_order =
         legendre.extract_submatrix(0, 1, domain.size(), 1);
-    fk::vector<P> legendre_prime_n_1 =
+    fk::vector<P> legendre_prime_order =
         legendre_prime.extract_submatrix(0, 1, domain.size(), 1);
-    fk::vector<P> legendre_n_2 =
+    fk::vector<P> legendre_(order + 1) =
         legendre.extract_submatrix(0, 0, domain.size(), 1);
-    fk::vector<P> legendre_prime_n_2 =
+    fk::vector<P> legendre_prime_(order + 1) =
         legendre_prime.extract_submatrix(0, 0, domain.size(), 1);
 
     // set remaining columns
@@ -58,30 +56,30 @@ legendre(fk::vector<P> const domain, int const degree)
 
       // element-wise multiplication
       fk::vector<P> product(domain.size());
-      std::transform(domain.begin(), domain.end(), legendre_n_1.begin(),
+      std::transform(domain.begin(), domain.end(), legendre_order.begin(),
                      product.begin(), std::multiplies<P>());
 
       P const factor = 1.0 / (n + 1.0);
 
       fk::vector<P> legendre_col = (product * static_cast<P>(2.0 * n + 1.0)) -
-                                   (legendre_n_2 * static_cast<P>(n));
+                                   (legendre_(order + 1) * static_cast<P>(n));
       legendre_col = legendre_col * factor;
       legendre.update_col(column_index, legendre_col);
 
-      std::transform(domain.begin(), domain.end(), legendre_prime_n_1.begin(),
+      std::transform(domain.begin(), domain.end(), legendre_prime_order.begin(),
                      product.begin(), std::multiplies<P>());
 
       fk::vector<P> legendre_prime_col =
-          (product + legendre_n_1) * static_cast<P>(2.0 * n + 1.0) -
-          legendre_prime_n_2 * static_cast<P>(n);
+          (product + legendre_order) * static_cast<P>(2.0 * n + 1.0) -
+          legendre_prime_(order + 1) * static_cast<P>(n);
       legendre_prime_col = legendre_prime_col * factor;
       legendre_prime.update_col(column_index, legendre_prime_col);
 
       // update columns for next iteration
-      legendre_n_2       = legendre_n_1;
-      legendre_n_1       = legendre_col;
-      legendre_prime_n_2 = legendre_prime_n_1;
-      legendre_prime_n_1 = legendre_prime_col;
+      legendre_(order + 1)       = legendre_order;
+      legendre_order             = legendre_col;
+      legendre_prime_(order + 1) = legendre_prime_order;
+      legendre_prime_order       = legendre_prime_col;
     }
   }
 
@@ -138,51 +136,51 @@ legendre(fk::vector<P> const domain, int const degree)
 // return[0] are the roots, return[1] are the weights
 template<typename P>
 std::array<fk::vector<P>, 2>
-legendre_weights(const int n, const int a, const int b)
+legendre_weights(const int order, const int interval_start,
+                 const int interval_end)
 {
-  assert(n > 0);
-  assert(a < b);
+  assert(order > 0);
+  assert(interval_start < interval_end);
 
   // prepare out vectors
-  fk::vector<P> roots(n);
-  fk::vector<P> weights(n);
-
-  int const n_0 = n - 1;
-  int const n_1 = n;
-  int const n_2 = n + 1;
+  fk::vector<P> roots(order);
+  fk::vector<P> weights(order);
 
   // xu=linspace(-1,1,N1)';
   fk::vector<P> const xu =
-      linspace(static_cast<P>(-1.0), static_cast<P>(1.0), n_1);
+      linspace(static_cast<P>(-1.0), static_cast<P>(1.0), order);
 
   //% Initial guess
   // y=cos((2*(0:N)'+1)*pi/(2*N+2))+(0.27/N1)*sin(pi*xu*N/N2);
-  fk::vector<P> y = linspace(static_cast<P>(0.0), static_cast<P>(n_0), n_1);
+  fk::vector<P> y =
+      linspace(static_cast<P>(0.0), static_cast<P>((order - 1)), order);
   std::transform(y.begin(), y.end(), y.begin(), [&](P &elem) {
-    return std::cos((2 * elem + 1) * M_PI / static_cast<P>((2 * n_0 + 2)));
+    return std::cos((2 * elem + 1) * M_PI /
+                    static_cast<P>((2 * (order - 1) + 2)));
   });
 
   fk::vector<P> y2(xu);
   std::transform(y2.begin(), y2.end(), y2.begin(), [&](P &elem) {
-    return (static_cast<P>(0.27) / n_1) * std::sin(M_PI * elem * n_0 / n_2);
+    return (static_cast<P>(0.27) / order) *
+           std::sin(M_PI * elem * (order - 1) / (order + 1));
   });
 
   std::transform(y.begin(), y.end(), y2.begin(), y.begin(), std::plus<P>());
 
   //% Legendre-Gauss Vandermonde Matrix
   // L=zeros(N1,N2);
-  fk::matrix<P> legendre_gauss(n_1, n_2);
-  fk::vector<P> legendre_p(n_1);
+  fk::matrix<P> legendre_gauss(order, (order + 1));
+  fk::vector<P> legendre_p(order);
 
   //% Compute the zeros of the N+1 Legendre Polynomial
   // y0=2
-  fk::vector<P> y0(n_1);
+  fk::vector<P> y0(order);
   std::fill(y0.begin(), y0.end(), static_cast<P>(2.0));
   P const eps = std::numeric_limits<P>::epsilon();
 
   //% Iterate until new points are uniformly within epsilon of old points
   // while max(abs(y-y0))>eps
-  fk::vector<P> diff(n_1);
+  fk::vector<P> diff(order);
   auto const abs_diff = [&](P const &y_elem, P const &y0_elem) {
     return std::fabs(y_elem - y0_elem);
   };
@@ -199,7 +197,7 @@ legendre_weights(const int n, const int a, const int b)
 
     // for k=2:N1
     // we set the i+1th column of L at each iter
-    for (int i = 1; i < n_1; ++i)
+    for (int i = 1; i < order; ++i)
     {
       fk::vector<P> const prev =
           legendre_gauss.extract_submatrix(0, i - 1, legendre_gauss.nrows(), 1);
@@ -221,10 +219,10 @@ legendre_weights(const int n, const int a, const int b)
     }
 
     // Lp=(N2)*( L(:,N1)-y.*L(:,N2) )./(1-y.^2);
-    fk::vector<P> const legendre_n1 =
-        legendre_gauss.extract_submatrix(0, n_1 - 1, legendre_gauss.nrows(), 1);
-    fk::vector<P> legendre_n2 =
-        legendre_gauss.extract_submatrix(0, n_2 - 1, legendre_gauss.nrows(), 1);
+    fk::vector<P> const legendre_n1 = legendre_gauss.extract_submatrix(
+        0, order - 1, legendre_gauss.nrows(), 1);
+    fk::vector<P> legendre_n2 = legendre_gauss.extract_submatrix(
+        0, (order + 1) - 1, legendre_gauss.nrows(), 1);
     fk::vector<P> legendre_n2_scaled(legendre_n2.size());
     std::transform(legendre_n2.begin(), legendre_n2.end(), y.begin(),
                    legendre_n2_scaled.begin(), std::multiplies<P>());
@@ -235,7 +233,7 @@ legendre_weights(const int n, const int a, const int b)
           [](P &y, P &y_same) { return static_cast<P>(1.0) - y * y_same; });
       return copy_y;
     }();
-    legendre_p                  = (legendre_n1 - legendre_n2_scaled) * n_2;
+    legendre_p = (legendre_n1 - legendre_n2_scaled) * (order + 1);
     auto const element_division = [](P const &one, P const &two) {
       return one / two;
     };
@@ -256,17 +254,17 @@ legendre_weights(const int n, const int a, const int b)
   //% Linear map from[-1,1] to [a,b]
   // x=(a*(1-y)+b*(1+y))/2;
   std::transform(y.begin(), y.end(), roots.begin(), [&](P &elem) {
-    return (a * (1 - elem) + b * (1 + elem)) / 2;
+    return (interval_start * (1 - elem) + interval_end * (1 + elem)) / 2;
   });
 
   //% Compute the weights
   // w=(b-a)./((1-y.^2).*Lp.^2)*(N2/N1)^2;
   std::transform(y.begin(), y.end(), legendre_p.begin(), weights.begin(),
                  [&](P &y_elem, P &lp_elem) {
-                   return (b - a) /
+                   return (interval_end - interval_start) /
                           ((static_cast<P>(1.0) - std::pow(y_elem, 2)) *
                            std::pow(lp_elem, 2)) *
-                          std::pow(static_cast<P>(n_2) / n_1, 2);
+                          std::pow(static_cast<P>((order + 1)) / order, 2);
                  });
 
   // x=x(end:-1:1);
