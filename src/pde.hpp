@@ -1,9 +1,12 @@
 #pragma once
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <string>
 #include <typeinfo>
 #include <vector>
 
@@ -14,6 +17,12 @@
 //
 enum class PDE_opts
 {
+
+  continuity_1,
+  continuity_2,
+  continuity_3,
+  // FIXME the below have not been implemented according to the
+  // new specification. david is working on that in the matlab
   vlasov4,  // PDE corresponding to Fig. 4 in FIXME
   vlasov43, // PDE corresponding to Fig. 4.3 in FIXME
   vlasov5,  // PDE corresponding to Fig. 5 in FIXME
@@ -23,464 +32,26 @@ enum class PDE_opts
 };
 
 //
-// for passing around vector/scalar functions used by the PDE
+// map those choices to selection strings
+//
+using pde_map_t                    = std::map<std::string, PDE_opts>;
+static pde_map_t const pde_mapping = {{"continuity_1", PDE_opts::continuity_1},
+                                      {"continuity_2", PDE_opts::continuity_2},
+                                      {"continuity_3", PDE_opts::continuity_3},
+                                      {"pde_user", PDE_opts::pde_user},
+                                      {"vlasov4", PDE_opts::vlasov4},
+                                      {"vlasov7", PDE_opts::vlasov7},
+                                      {"vlasov8", PDE_opts::vlasov8},
+                                      {"vlasov5", PDE_opts::vlasov5},
+                                      {"vlasov43", PDE_opts::vlasov43}};
+
+//
+// for passing around vector/scalar-valued functions used by the PDE
 //
 template<typename P>
-using vector_func = std::function<std::vector<P>(std::vector<P> const)>;
+using vector_func = std::function<fk::vector<P>(fk::vector<P> const)>;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
-
-// ---------------------------------------------------------------------------
-//
-// abstract base class defining interface for PDEs
-//
-// ----------------------------------------------------------------------------
-template<typename P>
-class PDE
-{
-public:
-  // FIXME we will need these eventually
-  // std::vector<Term<P>> const terms;
-
-  // clang-format off
-  PDE(int const num_dims,
-      int const num_sources,
-      int const num_terms,
-      P const domain_mins[], // the mininimum grid value in each dimension
-      P const domain_maxs[], // the maximum grid value in each dimension
-      bool const do_poisson_solve,
-      bool const has_analytic_soln = false)
-
-      : num_dims(num_dims),
-        num_sources(num_sources),
-        num_terms(num_terms),
-        domain_mins(domain_mins, domain_mins+num_dims),
-        domain_maxs(domain_maxs, domain_maxs+num_dims),
-        do_poisson_solve(do_poisson_solve),
-        has_analytic_soln(has_analytic_soln)
-  // clang-format on
-  {
-    assert(num_dims > 0);
-    assert(num_sources >= 0);
-    assert(num_terms > 0);
-  }
-
-  // getters for PDE functions provided by the derived implementation
-  virtual std::vector<vector_func<P>> initial_condition_funcs() const = 0;
-  virtual std::vector<std::vector<vector_func<P>>>
-  source_vector_funcs() const                                     = 0;
-  virtual std::vector<scalar_func<P>> source_scalar_funcs() const = 0;
-  virtual std::vector<vector_func<P>> exact_vector_funcs() const
-  {
-    if (has_analytic_soln)
-      std::cout << "exact functions expected, but not provided. exiting."
-                << '\n';
-    else
-      std::cout << "PDE has not analytic solutions. exiting." << '\n';
-
-    exit(1);
-  }
-  virtual scalar_func<P> exact_scalar_func() const
-  {
-    if (has_analytic_soln)
-      std::cout << "exact functions expected, but not provided. exiting."
-                << '\n';
-    else
-      std::cout << "PDE has not analytic solutions. exiting." << '\n';
-
-    exit(1);
-  }
-
-  // public but const data. no getters
-  int const num_dims;
-  int const num_sources;
-  int const num_terms;
-  std::vector<P> const domain_mins;
-  std::vector<P> const domain_maxs;
-  bool const do_poisson_solve;
-  bool const has_analytic_soln;
-
-  virtual ~PDE() {}
-
-protected:
-  void verify() const
-  {
-    assert(num_dims > 0);
-    assert(num_sources >= 0);
-
-    assert(domain_mins.size() == static_cast<unsigned>(num_dims));
-    assert(domain_maxs.size() == static_cast<unsigned>(num_dims));
-
-    assert(initial_condition_funcs().size() == static_cast<unsigned>(num_dims));
-
-    if (has_analytic_soln)
-    {
-      assert(exact_vector_funcs().size() == static_cast<unsigned>(num_dims));
-      assert(typeid(exact_scalar_func()) == typeid(scalar_func<P>));
-    }
-
-    for (auto const &funcs : source_vector_funcs())
-    {
-      assert(funcs.size() == static_cast<unsigned>(num_dims));
-    }
-    assert(source_scalar_funcs().size() == static_cast<unsigned>(num_sources));
-  }
-};
-
-// ---------------------------------------------------------------------------
-//
-// the "Vlasov 7" pde
-//
-// This is the case corresponding to Figure 7 from FIXME
-//
-// It ... (FIXME explain properties like having an analytic solution, etc.)
-//
-// ---------------------------------------------------------------------------
-template<typename P>
-class PDE_vlasov7 : public PDE<P>
-{
-public:
-  PDE_vlasov7()
-      : PDE<P>(_num_dims, _num_sources, _num_terms, _domain_mins, _domain_maxs,
-               _do_poisson_solve, _has_analytic_soln)
-  {
-    PDE<P>::verify();
-  }
-
-  //
-  // Specify initial condition vector functions...
-  //
-  static std::vector<P> initial_condition_x0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back(elem * (_domain_maxs[0] - elem));
-    }
-    return fx;
-  }
-  static std::vector<P> initial_condition_v0(std::vector<P> const x)
-  {
-    return std::vector<P>(x.size(), static_cast<P>(0.0));
-  }
-
-  //
-  // Specify exact solution vectors/time function...
-  //
-  static std::vector<P> exact_solution_x0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back(elem * (static_cast<P>(1.0) - elem));
-    }
-    return fx;
-  }
-  static std::vector<P> exact_solution_v0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back((elem - _domain_maxs[1]) * (elem + _domain_maxs[1]));
-    }
-    return fx;
-  }
-  static P exact_time(P const time) { return time; }
-
-  //
-  // Specify source functions...
-  //
-
-  // Source 0
-  static std::vector<P> source_0_x0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back(elem * (static_cast<P>(1.0) - elem));
-    }
-    return fx;
-  }
-  static std::vector<P> source_0_v0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    P v_max = _domain_maxs[1];
-    for (P const &elem : x)
-    {
-      fx.push_back((elem - v_max) * (elem + v_max));
-    }
-    return fx;
-  }
-  static P source_0_time(P const time)
-  {
-    return static_cast<P>(1.0) + 0 * time;
-  }
-
-  // Source 1
-  static std::vector<P> source_1_x0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back(static_cast<P>(1.0) - static_cast<P>(2.0) * elem);
-    }
-    return fx;
-  }
-  static std::vector<P> source_1_v0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    P v_max = _domain_maxs[1];
-    for (P const &elem : x)
-    {
-      fx.push_back(elem * (elem - v_max) * (elem + v_max));
-    }
-    return fx;
-  }
-  static P source_1_time(P const time) { return time; }
-
-  // Source 2
-  static std::vector<P> source_2_x0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back(elem * (static_cast<P>(1.0) - elem));
-    }
-    return fx;
-  }
-  static std::vector<P> source_2_v0(std::vector<P> const x)
-  {
-    std::vector<P> fx;
-    for (P const &elem : x)
-    {
-      fx.push_back(static_cast<P>(2.0) * elem);
-    }
-    return fx;
-  }
-  static P source_2_time(P const time) { return time; }
-
-  //
-  // Specify electric field...
-  //
-  // FIXME don't know how we're handling applying a spec. electric field yet
-  // std::function<T(T, PARAMS<T>)> exactEx = [&](T x, PARAMS<T> p) {
-  // return 1.0; };
-  /*   std::vector<T> makeExactEx (std::vector<T> const & x) const override {
-         return std::vector<T>(x.size(), 1.0);
-     }*/
-
-  // std::function<T(T, PARAMS<T>)> exactEt = [&](T t, PARAMS<T> p) {
-  // return 1.0; }; T getExactEt(T t) const override {
-  //    return 1.0;
-  //}
-
-  //
-  // Implement the virtual accessors expected by the PDE<P> base
-  //
-  std::vector<vector_func<P>> initial_condition_funcs() const override
-  {
-    return _initial_condition_funcs;
-  }
-  std::vector<std::vector<vector_func<P>>> source_vector_funcs() const override
-  {
-    return _source_vector_funcs;
-  }
-  std::vector<scalar_func<P>> source_scalar_funcs() const override
-  {
-    return _source_scalar_funcs;
-  }
-  std::vector<vector_func<P>> exact_vector_funcs() const override
-  {
-    return _exact_vector_funcs;
-  }
-  scalar_func<P> exact_scalar_func() const override
-  {
-    return _exact_scalar_func;
-  }
-
-private:
-  static int constexpr _num_dims             = 2;
-  static int constexpr _num_sources          = 3;
-  static int constexpr _num_terms            = 2;
-  static bool constexpr _do_poisson_solve    = false;
-  static bool constexpr _has_analytic_soln   = true;
-  static P constexpr _domain_mins[_num_dims] = {0.0, -5.0};
-  static P constexpr _domain_maxs[_num_dims] = {1.0, 5.0};
-
-  //
-  // containers holding the function handles to the PDE functions
-  //
-  std::vector<vector_func<P>> _initial_condition_funcs = {
-      &PDE_vlasov7::initial_condition_x0, &PDE_vlasov7::initial_condition_v0};
-
-  std::vector<std::vector<vector_func<P>>> const _source_vector_funcs = {
-      {&PDE_vlasov7::source_0_x0, &PDE_vlasov7::source_0_v0},
-      {&PDE_vlasov7::source_1_x0, &PDE_vlasov7::source_1_v0},
-      {&PDE_vlasov7::source_2_x0, &PDE_vlasov7::source_2_v0}};
-
-  std::vector<scalar_func<P>> const _source_scalar_funcs = {
-      &PDE_vlasov7::source_0_time, &PDE_vlasov7::source_1_time,
-      &PDE_vlasov7::source_2_time};
-
-  std::vector<vector_func<P>> const _exact_vector_funcs = {
-      &PDE_vlasov7::exact_solution_x0, &PDE_vlasov7::exact_solution_v0};
-
-  scalar_func<P> const _exact_scalar_func = &PDE_vlasov7::exact_time;
-};
-
-// ---------------------------------------------------------------------------
-//
-// a user-defined PDE
-//
-// It requires ... FIXME
-//
-// ---------------------------------------------------------------------------
-template<typename P>
-class PDE_user : public PDE<P>
-{
-public:
-  PDE_user()
-      : PDE<P>(_num_dims, _num_sources, _num_terms, _domain_mins, _domain_maxs,
-               _do_poisson_solve, _has_analytic_soln)
-  {
-    PDE<P>::verify();
-  }
-
-  //
-  // Specify initial condition vector functions...
-  //
-  static std::vector<P> initial_condition_x0(std::vector<P> const x)
-  {
-    return x;
-  }
-  static std::vector<P> initial_condition_v0(std::vector<P> const x)
-  {
-    return x;
-  }
-
-  //
-  // Specify exact solution vectors/time function...
-  //
-  static std::vector<P> exact_solution_x0(std::vector<P> const x) { return x; }
-  static std::vector<P> exact_solution_v0(std::vector<P> const x) { return x; }
-  static P exact_time(P const time) { return static_cast<P>(0.0 * time); }
-
-  //
-  // Specify source functions...
-  //
-
-  // Source 0
-  static std::vector<P> source_0_x0(std::vector<P> const x) { return x; }
-  static std::vector<P> source_0_v0(std::vector<P> const x) { return x; }
-  static P source_0_time(P const time) { return static_cast<P>(0.0 * time); }
-
-  // Source 1
-  static std::vector<P> source_1_x0(std::vector<P> const x) { return x; }
-  static std::vector<P> source_1_v0(std::vector<P> const x) { return x; }
-  static P source_1_time(P const time) { return time; }
-
-  // Source 2
-  static std::vector<P> source_2_x0(std::vector<P> const x) { return x; }
-  static std::vector<P> source_2_v0(std::vector<P> const x) { return x; }
-  static P source_2_time(P const time) { return static_cast<P>(0.0 * time); }
-
-  //
-  // Specify electric field...
-  //
-  // FIXME don't know how we're handling applying a spec. electric field yet
-  // std::function<T(T, PARAMS<T>)> exactEx = [&](T x, PARAMS<T> p) {
-  // return 1.0; };
-  /*   std::vector<T> makeExactEx (std::vector<T> const & x) const override {
-         return std::vector<T>(x.size(), 1.0);
-     }*/
-
-  // std::function<T(T, PARAMS<T>)> exactEt = [&](T t, PARAMS<T> p) {
-  // return 1.0; }; T getExactEt(T t) const override {
-  //    return 1.0;
-  //}
-
-  //
-  // Implement the virtual accessors expected by the PDE<P> base
-  //
-  std::vector<vector_func<P>> initial_condition_funcs() const override
-  {
-    return _initial_condition_funcs;
-  }
-  std::vector<std::vector<vector_func<P>>> source_vector_funcs() const override
-  {
-    return _source_vector_funcs;
-  }
-  std::vector<scalar_func<P>> source_scalar_funcs() const override
-  {
-    return _source_scalar_funcs;
-  }
-  std::vector<vector_func<P>> exact_vector_funcs() const override
-  {
-    return _exact_vector_funcs;
-  }
-  scalar_func<P> exact_scalar_func() const override
-  {
-    return _exact_scalar_func;
-  }
-
-private:
-  static int constexpr _num_dims             = 2;
-  static int constexpr _num_sources          = 0;
-  static int constexpr _num_terms            = 0;
-  static bool constexpr _do_poisson_solve    = false;
-  static bool constexpr _has_analytic_soln   = false;
-  static P constexpr _domain_mins[_num_dims] = {0.0, 0.0};
-  static P constexpr _domain_maxs[_num_dims] = {0.0, 0.0};
-
-  //
-  // containers holding the function handles to the PDE functions
-  //
-  std::vector<vector_func<P>> _initial_condition_funcs = {
-      &PDE_user::initial_condition_x0, &PDE_user::initial_condition_v0};
-
-  std::vector<std::vector<vector_func<P>>> const _source_vector_funcs = {
-      {&PDE_user::source_0_x0, &PDE_user::source_0_v0},
-      {&PDE_user::source_1_x0, &PDE_user::source_1_v0},
-      {&PDE_user::source_2_x0, &PDE_user::source_2_v0}};
-
-  std::vector<scalar_func<P>> const _source_scalar_funcs = {
-      &PDE_user::source_0_time, &PDE_user::source_1_time,
-      &PDE_user::source_2_time};
-
-  std::vector<vector_func<P>> const _exact_vector_funcs = {
-      &PDE_user::exact_solution_x0, &PDE_user::exact_solution_v0};
-
-  scalar_func<P> const _exact_scalar_func = &PDE_user::exact_time;
-};
-
-// ---------------------------------------------------------------------------
-//
-// A free function factory for making pdes. eventually will want to change the
-// return for some of these once we implement them...
-//
-// ---------------------------------------------------------------------------
-template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
-{
-  switch (choice)
-  {
-  case PDE_opts::vlasov4:
-    return std::make_unique<PDE_vlasov7<P>>(); // FIXME
-  case PDE_opts::vlasov43:
-    return std::make_unique<PDE_vlasov7<P>>(); // FIXME
-  case PDE_opts::vlasov5:
-    return std::make_unique<PDE_vlasov7<P>>(); // FIXME
-  case PDE_opts::vlasov7:
-    return std::make_unique<PDE_vlasov7<P>>();
-  case PDE_opts::vlasov8:
-    return std::make_unique<PDE_vlasov7<P>>(); // FIXME
-  case PDE_opts::pde_user:
-    return std::make_unique<PDE_user<P>>();
-  default:
-    std::cout << "Invalid pde choice" << std::endl;
-    exit(-1);
-  }
-}
 
 //----------------------------------------------------------------------------
 //
@@ -512,14 +83,14 @@ public:
   int const level;
   int const degree;
   vector_func<P> const initial_condition;
-
+  std::string const name;
   dimension(boundary_condition const left, boundary_condition const right,
             P const domain_min, P const domain_max, int const level,
             int const degree, vector_func<P> const initial_condition)
 
       : left(left), right(right), domain_min(domain_min),
         domain_max(domain_max), level(level), degree(degree),
-        initial_condition(initial_condition)
+        initial_condition(initial_condition), name(name)
   {}
 };
 
@@ -562,11 +133,12 @@ public:
   scalar_func<P> const g_func;
   bool const time_dependent;
   flux_type const flux;
-
+  std::string const name;
   term(coefficient_type const coeff, scalar_func<P> const g_func,
        bool const time_dependent, flux_type const flux, dimension<P> const dim,
        fk::vector<P> const data)
-      : coeff(coeff), g_func(g_func), time_dependent(time_dependent), data(data)
+      : coeff(coeff), g_func(g_func), time_dependent(time_dependent),
+        data(data), name(name)
   {
     int const degrees_freedom_1d =
         dim.degree * static_cast<int>(std::pow(2, dim.level));
@@ -602,11 +174,367 @@ class source
 {
 public:
   std::vector<vector_func<P>> const source_funcs;
-  scalar_func<P> const time_func;
+  std::vector<scalar_func<P>> const time_func;
 
   source(std::vector<vector_func<P>> const source_funcs,
-         scalar_func<P> const time_func, int const num_dims)
+         std::vector<scalar_func<P>> const time_func)
 
       : source_funcs(source_funcs), time_func(time_func)
   {}
 };
+
+// ---------------------------------------------------------------------------
+//
+// abstract base class defining interface for PDEs
+//
+// ----------------------------------------------------------------------------
+template<typename P>
+class PDE
+{
+public:
+  // clang-format off
+  PDE(int const num_dims,
+      int const num_sources,
+      int const num_terms,
+      std::vector<dimension<P>> const dimensions, 
+      std::vector<term<P>> const terms,
+      std::vector<source<P>> const sources,
+      std::vector<vector_func<P>> const exact_vector_funcs,
+      scalar_func<P> const exact_time,
+      bool const do_poisson_solve = false,
+      bool const has_analytic_soln = false)
+      : num_dims(num_dims),
+        num_sources(num_sources),
+        num_terms(num_terms),
+	dimensions(dimensions),
+	terms(terms),
+	sources(sources),
+        do_poisson_solve(do_poisson_solve),
+        has_analytic_soln(has_analytic_soln)
+  // clang-format on
+  {
+    assert(num_dims > 0);
+    assert(num_sources >= 0);
+    assert(num_terms > 0);
+
+    assert(dimensions.size() == static_cast<unsigned>(num_dims));
+    assert(terms.size() == static_cast<unsigned>(num_terms));
+    assert(sources.size() == static_cast<unsigned>(num_sources));
+
+    // ensure analytic solution functions
+    // were provided if this flag is set
+    if (has_analytic_soln)
+    {
+      assert(exact_vector_funcs().size() == static_cast<unsigned>(num_dims));
+    }
+
+    // check all dimensions
+    for (dimension<P> const d : dimensions)
+    {
+      assert(d.degree > 0);
+      assert(d.level > 0);
+      assert(d.domain_max > d.domain_min);
+    }
+
+    // check all sources
+    for (source<P> const s : sources)
+    {
+      for (auto const &funcs : s.source_funcs)
+      {
+        assert(funcs.size() == static_cast<unsigned>(num_dims));
+      }
+
+      assert(s.time_funcs.size() == static_cast<unsigned>(num_dims));
+    }
+  }
+
+  /*
+    // getters for PDE info provided by the derived implementation
+    virtual std::vector<dimension<P>> get_dimensions() const = 0;
+    virtual std::vector<term<P>> get_terms() const           = 0;
+    virtual std::vector<source<P>> get_sources() const       = 0;
+
+    // optional, only for pdes with analytic solution
+    virtual std::vector<vector_func<P>> exact_vector_funcs() const
+    {
+      if (has_analytic_soln)
+        std::cout << "exact functions expected, but not provided. exiting."
+                  << std::endl;
+      else
+        std::cout << "PDE has not analytic solutions. exiting." << std::endl;
+
+      exit(1);
+    }
+    virtual scalar_func<P> exact_scalar_func() const
+    {
+      if (has_analytic_soln)
+        std::cout << "exact functions expected, but not provided. exiting."
+                  << std::endl;
+      else
+        std::cout << "PDE has not analytic solutions. exiting." << std::endl;
+
+      exit(1);
+    }
+  */
+  // public but const data. no getters
+  int const num_dims;
+  int const num_sources;
+  int const num_terms;
+  std::vector<dimension<P>> const dimensions;
+  std::vector<term<P>> const terms;
+  std::vector<source<P>> const sources;
+  std::vector<vector_func<P>> const exact_solution_funcs;
+  scalar_func<P> const exact_time;
+  bool const do_poisson_solve;
+  bool const has_analytic_soln;
+
+  virtual ~PDE() {}
+
+  /*protected:
+    void verify() const
+    {
+      assert(get_dimensions().size() == static_cast<unsigned>(num_dims));
+      assert(get_terms().size() == static_cast<unsigned>(num_terms));
+      assert(get_sources().size() == static_cast<unsigned>(num_sources));
+
+      // ensure analytic solution functions
+      // were provided if this flag is set
+      if (has_analytic_soln)
+      {
+        assert(exact_vector_funcs().size() == static_cast<unsigned>(num_dims));
+        assert(exact_scalar_func());
+      }
+
+      // check all dimensions
+      for (dimension<P> const d : get_dimensions())
+      {
+        assert(d.degree > 0);
+        assert(d.level > 0);
+        assert(d.domain_max > d.domain_min);
+      }
+
+      // check all sources
+      for (source<P> const s : get_sources())
+      {
+        for (auto const &funcs : s.source_funcs)
+        {
+          assert(funcs.size() == static_cast<unsigned>(num_dims));
+        }
+
+        assert(s.time_funcs.size() == static_cast<unsigned>(num_dims));
+      }
+    }*/
+};
+
+// ---------------------------------------------------------------------------
+//
+// the "continuity 1" pde
+//
+//
+// It ... (FIXME explain properties like having an analytic solution, etc.)
+//
+// ---------------------------------------------------------------------------
+template<typename P>
+class PDE_continuity_1 : public PDE<P>
+{
+public:
+  PDE_continuity_1()
+      : PDE<P>(_num_dims, _num_sources, _num_terms, dimensions, terms, sources,
+               _exact_vector_funcs, _exact_scalar_func, _do_poisson_solve,
+               _has_analytic_soln)
+  {
+    // PDE<P>::verify();
+  }
+
+  /*  std::vector<dimension<P>> get_dimensions() const override {
+          return dimensions;
+    }
+
+    std::vector<term<P>> get_terms() const override {
+          return terms;
+    }
+
+    std::vector<source<P>> get_sources() const override {
+          return sources;
+    }
+  */
+  //
+  // specify initial condition vector functions...
+  //
+  static fk::vector<P> initial_condition_0(fk::vector<P> const x)
+  {
+    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+  }
+
+  //
+  // specify exact solution vectors/time function...
+  //
+  static std::vector<P> exact_solution_0(std::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(
+        fx.begin(), fx.end(), x.begin(), fx.begin(),
+        [](P const &x, P const &fx) { return std::cos(2.0 * M_PI * x); });
+    return fx;
+  }
+
+  static P exact_time(P const time) { return std::sin(time); }
+
+  //
+  // specify source functions...
+  //
+
+  // source 0
+  static std::vector<P> source_dim0_0(std::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(
+        fx.begin(), fx.end(), x.begin(), fx.begin(),
+        [](P const &x, P const &fx) { return std::cos(2.0 * M_PI * x); });
+    return fx;
+  }
+
+  static P source_dim0_0_time(P const time) { return std::sin(time); }
+
+  // source 1
+  static std::vector<P> source_dim0_1(std::vector<P> const x)
+  {
+    fk::vector<P> fx(x.size());
+    std::transform(
+        fx.begin(), fx.end(), x.begin(), fx.begin(),
+        [](P const &x, P const &fx) { return std::sin(2.0 * M_PI * x); });
+    return fx;
+  }
+
+  static P source_dim0_1_time(P const time)
+  {
+    return -2.0 * M_PI * std::sin(time);
+  }
+
+  // g-funcs for terms (optional)
+  static scalar_func<P> g_func_0(P const x, P const time) { return 1.0; }
+
+  //
+  // implement the virtual accessors expected by the PDE<P> base
+  //
+
+  std::vector<vector_func<P>> exact_vector_funcs() const override
+  {
+    return _exact_vector_funcs;
+  }
+  scalar_func<P> exact_scalar_func() const override
+  {
+    return _exact_scalar_func;
+  }
+
+private:
+  static int constexpr _num_dims           = 1;
+  static int constexpr _num_sources        = 3;
+  static int constexpr _num_terms          = 2;
+  static bool constexpr _do_poisson_solve  = false;
+  static bool constexpr _has_analytic_soln = true;
+
+  // define dimensions
+  static bool constexpr dim0_BCL   = false;
+  static bool constexpr dim0_BCR   = false;
+  static P constexpr dim0_min      = -1.0;
+  static P constexpr dim0_max      = 1.0;
+  static int constexpr dim0_level  = 2;
+  static int constexpr dim0_degree = 2;
+  static vector_func<P> constexpr dim0_initial_condition =
+      &PDE_continuity_1::initial_condition_0;
+  static auto constexpr dim0_name = "x";
+  static dimension<P> constexpr dim0 =
+      dimension<P>(dim0_BCL, dim0_BCR, dim0_min, dim0_max, dim0_level,
+                   dim0_degree, dim0_initial_condition, dim0_name);
+
+  // define terms (1 in this case)
+  static coefficient_type constexpr term0_type = coefficient_type::grad;
+  static scalar_func<P> constexpr term0_func   = &PDE_continuity_1::g_func_0;
+  static bool constexpr term0_time_dependent   = false;
+  static fk::vector<P> term0_data; // empty in this case
+  static flux_type constexpr term0_flux = flux_type::central;
+  static auto constexpr term0_name      = "d_dx";
+  static term<P> constexpr term0 =
+      term<P>(term0_type, term0_func, term0_time_dependent, term0_data,
+              term0_flux, term0_name);
+
+  // define sources
+  static source<P> constexpr source0 = source<P>(
+      &PDE_continuity_1::source_dim0_0, &PDE_continuity_1::source_dim0_0_time);
+  static source<P> constexpr source1 = source<P>(
+      &PDE_continuity_1::source_dim0_0, &PDE_continuity_1::source_dim0_0_time);
+
+  //
+  // store PDE functions/information in members
+  //
+
+  std::vector<dimension<P>> const dimensions = {dim0};
+  std::vector<term<P>> const terms           = {term0};
+  std::vector<source<P>> const sources       = {source0, source1};
+
+  std::vector<vector_func<P>> const _exact_vector_funcs = {
+      &PDE_continuity_1::exact_solution_0};
+
+  scalar_func<P> const _exact_scalar_func = &PDE_continuity_1::exact_time;
+};
+
+// ---------------------------------------------------------------------------
+//
+// a user-defined PDE
+//
+// It requires ... FIXME
+//
+// ---------------------------------------------------------------------------
+// template<typename P>
+// class PDE_user : public PDE<P>
+//{
+
+// ---------------------------------------------------------------------------
+//
+// A free function factory for making pdes. eventually will want to change the
+// return for some of these once we implement them...
+//
+// ---------------------------------------------------------------------------
+template<typename P>
+std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
+{
+  switch (choice)
+  {
+  case PDE_opts::continuity_1:
+    return std::make_unique<PDE_continuity_1>;
+    // TODO not yet implemented, replace return with 2 and 3
+  case PDE_opts::continuity_2:
+    return std::make_unique<PDE_continuity_1>;
+  case PDE_opts::continuity_3:
+    return std::make_unique<PDE_continuity_1>;
+
+  case PDE_opts::vlasov4:
+
+    return std::make_unique<PDE_continuity_1>;
+
+  case PDE_opts::vlasov43:
+
+    return std::make_unique<PDE_continuity_1>;
+
+  case PDE_opts::vlasov5:
+
+    return std::make_unique<PDE_continuity_1>;
+
+  case PDE_opts::vlasov7:
+
+    return std::make_unique<PDE_continuity_1>;
+
+  case PDE_opts::vlasov8:
+
+    return std::make_unique<PDE_continuity_1>;
+
+  case PDE_opts::pde_user:
+
+    return std::make_unique<PDE_continuity_1>;
+
+  default:
+    std::cout << "Invalid pde choice" << std::endl;
+    exit(-1);
+  }
+}

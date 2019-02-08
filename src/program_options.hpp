@@ -4,11 +4,12 @@
 #include <map>
 #include <string>
 
-typedef std::map<std::string, PDE_opts> pde_map_t;
-
 class options
 {
 private:
+  // FIXME level and degree are unique to dimensions, will
+  // need to support inputting level and degree per dimensions
+  // in future
   int level                   = 2;  // resolution
   int degree                  = 3;  // degree of legendre basis polynomials
   int num_time_steps          = 10; // number of time loop iterations
@@ -19,10 +20,7 @@ private:
   bool do_poisson             = false; // do poisson solve for electric field
   double cfl = 0.1; // the Courant-Friedrichs-Lewy (CFL) condition
 
-  pde_map_t pde_mapping = {
-      {"pde_user", PDE_opts::pde_user}, {"vlasov4", PDE_opts::vlasov4},
-      {"vlasov7", PDE_opts::vlasov7},   {"vlasov8", PDE_opts::vlasov8},
-      {"vlasov5", PDE_opts::vlasov5},   {"vlasov43", PDE_opts::vlasov43}};
+  // default
   std::string selected_pde = "vlasov4";
 
   // pde to construct/evaluate
