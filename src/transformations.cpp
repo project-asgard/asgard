@@ -10,8 +10,9 @@
 #include <numeric>
 
 //
-// set the range specified by first and last, starting with the supplied value
-// and incrementing that value by stride for each position in the range.
+// set the range specified by first and last,
+// starting with the supplied value and incrementing
+// that value by stride for each position in the range.
 //
 template<typename ForwardIterator, typename P>
 static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
