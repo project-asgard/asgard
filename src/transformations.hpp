@@ -63,7 +63,7 @@ fk::vector<P> forward_transform(options const opts, P const domain_min,
   }();
 
   // this will be our return vector
-  fk::vector<P> f(degrees_freedom_1d);
+  fk::vector<P> transformed(degrees_freedom_1d);
 
   // initial condition for f
   // hate this name also TODO
@@ -92,26 +92,27 @@ fk::vector<P> forward_transform(options const opts, P const domain_min,
     // generate the coefficients for DG basis
     fk::vector<P> coeffs = basis * f_here;
 
-    f.set(i * degree, coeffs);
+    transformed.set(i * degree, coeffs);
   }
-  f = f * (normalize / static_cast<P>(2.0));
+  transformed = transformed * (normalize / 2.0);
 
   // transfer to multi-DG bases
-  f = forward_trans * f;
+  transformed = forward_trans * transformed;
 
   // zero out near-zero values resulting from transform to wavelet space
-  std::transform(f.begin(), f.end(), f.begin(), [](P &elem) {
-    P const compare = [] {
-      if constexpr (std::is_same<P, double>::value)
-      {
-        return static_cast<P>(1e-12);
-      }
-      return static_cast<P>(1e-4);
-    }();
-    return std::abs(elem) < compare ? static_cast<P>(0.0) : elem;
-  });
+  std::transform(transformed.begin(), transformed.end(), transformed.begin(),
+                 [](P &elem) {
+                   P const compare = [] {
+                     if constexpr (std::is_same<P, double>::value)
+                     {
+                       return static_cast<P>(1e-12);
+                     }
+                     return static_cast<P>(1e-4);
+                   }();
+                   return std::abs(elem) < compare ? static_cast<P>(0.0) : elem;
+                 });
 
-  return f;
+  return transformed;
 }
 
 extern template std::array<fk::matrix<double>, 6>
