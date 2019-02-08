@@ -134,6 +134,9 @@ legendre(fk::vector<P> const domain, int const degree)
 //% Written by Greg von Winckel - 02/25/2004
 
 // return[0] are the roots, return[1] are the weights
+
+// FIXME we need to rename "xu", "y", "y0", etc., with meaningful
+// variable names. need to discuss w tim.
 template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(const int order, const int interval_start,
