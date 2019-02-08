@@ -64,8 +64,8 @@ public:
   P operator*(vector<P> const &)const;
   vector<P> operator*(matrix<P> const &)const;
   vector<P> operator*(P const) const;
+  vector<P> single_column_kron(vector<P> const &) const;
 
-  vector<P> kron(vector<P> const &) const;
   //
   // basic queries to private data
   //

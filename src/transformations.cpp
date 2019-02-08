@@ -343,9 +343,10 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
   }
   if (num_prods == 2)
   {
-    return operands[0].kron(operands[1]);
+    return operands[0].single_column_kron(operands[1]);
   }
-  return kron_d(operands, num_prods - 1).kron(operands[num_prods - 1]);
+  return kron_d(operands, num_prods - 1)
+      .single_column_kron(operands[num_prods - 1]);
 }
 
 template<typename P>

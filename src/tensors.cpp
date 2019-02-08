@@ -472,8 +472,13 @@ fk::vector<P> fk::vector<P>::operator*(P const x) const
   return a;
 }
 
+//
+// perform the matrix kronecker product by
+// interpreting vector operands/return vector
+// as single column matrices.
+//
 template<typename P>
-fk::vector<P> fk::vector<P>::kron(vector<P> const &right) const
+fk::vector<P> fk::vector<P>::single_column_kron(vector<P> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
