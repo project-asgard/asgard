@@ -43,9 +43,9 @@ legendre(fk::vector<P> const domain, int const degree)
         legendre.extract_submatrix(0, 1, domain.size(), 1);
     fk::vector<P> legendre_prime_order =
         legendre_prime.extract_submatrix(0, 1, domain.size(), 1);
-    fk::vector<P> legendre_(order + 1) =
+    fk::vector<P> legendre_n_1 =
         legendre.extract_submatrix(0, 0, domain.size(), 1);
-    fk::vector<P> legendre_prime_(order + 1) =
+    fk::vector<P> legendre_prime_n_1 =
         legendre_prime.extract_submatrix(0, 0, domain.size(), 1);
 
     // set remaining columns
@@ -62,7 +62,7 @@ legendre(fk::vector<P> const domain, int const degree)
       P const factor = 1.0 / (n + 1.0);
 
       fk::vector<P> legendre_col = (product * static_cast<P>(2.0 * n + 1.0)) -
-                                   (legendre_(order + 1) * static_cast<P>(n));
+                                   (legendre_n_1 * static_cast<P>(n));
       legendre_col = legendre_col * factor;
       legendre.update_col(column_index, legendre_col);
 
@@ -71,15 +71,15 @@ legendre(fk::vector<P> const domain, int const degree)
 
       fk::vector<P> legendre_prime_col =
           (product + legendre_order) * static_cast<P>(2.0 * n + 1.0) -
-          legendre_prime_(order + 1) * static_cast<P>(n);
+          legendre_prime_n_1 * static_cast<P>(n);
       legendre_prime_col = legendre_prime_col * factor;
       legendre_prime.update_col(column_index, legendre_prime_col);
 
       // update columns for next iteration
-      legendre_(order + 1)       = legendre_order;
-      legendre_order             = legendre_col;
-      legendre_prime_(order + 1) = legendre_prime_order;
-      legendre_prime_order       = legendre_prime_col;
+      legendre_n_1         = legendre_order;
+      legendre_order       = legendre_col;
+      legendre_prime_n_1   = legendre_prime_order;
+      legendre_prime_order = legendre_prime_col;
     }
   }
 
@@ -165,7 +165,7 @@ legendre_weights(const int order, const int interval_start,
            std::sin(M_PI * elem * (order - 1) / (order + 1));
   });
 
-  std::transform(y.begin(), y.end(), y2.begin(), y.begin(), std::plus<P>());
+  y = y + y2;
 
   //% Legendre-Gauss Vandermonde Matrix
   // L=zeros(N1,N2);
