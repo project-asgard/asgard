@@ -1118,10 +1118,10 @@ std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
     return std::make_unique<PDE_continuity_1<P>>();
   case PDE_opts::continuity_2:
     return std::make_unique<PDE_continuity_2<P>>();
+  case PDE_opts::continuity_3:
+    return std::make_unique<PDE_continuity_3<P>>();
 
   // TODO not yet implemented, replace return with appropriate types
-  case PDE_opts::continuity_3:
-    return std::make_unique<PDE_continuity_1<P>>();
   case PDE_opts::vlasov4:
     return std::make_unique<PDE_continuity_1<P>>();
   case PDE_opts::vlasov43:
