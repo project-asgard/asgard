@@ -69,7 +69,7 @@ out_format = strcat(permutations_dir, "perm_leq_%d_%d_%d.dat");
 count_out_format = strcat(permutations_dir, "perm_leq_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_leq(dims(i), ns(i), ords(i));
-  count = [perm_leq_count(dims(i), ns(i), ords(i))];
+  count = perm_leq_count(dims(i), ns(i));
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
@@ -81,7 +81,7 @@ out_format = strcat(permutations_dir, "perm_eq_%d_%d_%d.dat");
 count_out_format = strcat(permutations_dir, "perm_eq_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_eq(dims(i), ns(i), ords(i));
-  count = [perm_eq_count(dims(i), ns(i), ords(i))];
+  count = perm_eq_count(dims(i), ns(i));
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
@@ -93,7 +93,7 @@ out_format = strcat(permutations_dir, "perm_max_%d_%d_%d.dat");
 count_out_format = strcat(permutations_dir, "perm_max_%d_%d_%d_count.dat");
 for i=1:size(dims,2)
   tuples = perm_max(dims(i), ns(i), ords(i));
-  count = [perm_max_count(dims(i), ns(i), ords(i))];
+  count = perm_max_count(dims(i), ns(i));
   filename = sprintf(out_format, dims(i), ns(i), ords(i));
   count_filename = sprintf(count_out_format, dims(i), ns(i), ords(i));
   save(filename, 'tuples');
@@ -209,7 +209,9 @@ save(strcat(out_format, 'neg1_1_100T.dat'), 'w2T');
 
 for i = 0:4; for j = 0:4
   m(i+1,j+1) = 17/(i+1+j);
-endfor; endfor;
+  %endfor; endfor;
+end
+end
 
 save(strcat(matlab_dir, 'read_matrix_txt_5x5.dat'), 'm');
 
@@ -378,18 +380,17 @@ pde_dir = strcat(pwd, "/", "generated-inputs", "/", "pde", "/");
 mkdir (pde_dir);
 
 % continuity 1
-
 out_format = strcat(pde_dir, "continuity_1_");
 
 pde = continuity1;
-x = -5.123;
-y_init = continuity1.dimensions{1}.init_cond_fn(x);
-y_source0_x = continuity1.sources{1}{1}(x);
-y_source0_t = continuity1.sources{1}{2}(x);
-y_source1_x = continuity1.sources{2}{1}(x);
-y_source1_t = continuity1.sources{2}{2}(x);
-y_exact_x = continuity1.analytic_solutions_1D{1}(x);
-y_exact_time = continuity1.analytic_solutions_1D{2}(x);
+x = 1.1;
+y_init = pde.dimensions{1}.init_cond_fn(x);
+y_source0_x = pde.sources{1}{1}(x);
+y_source0_t = pde.sources{1}{2}(x);
+y_source1_x = pde.sources{2}{1}(x);
+y_source1_t = pde.sources{2}{2}(x);
+y_exact_x = pde.analytic_solutions_1D{1}(x);
+y_exact_time = pde.analytic_solutions_1D{2}(x);
 save(strcat(out_format, 'initial_dim0.dat'), 'y_init');
 save(strcat(out_format, 'source0_dim0.dat'), 'y_source0_x');
 save(strcat(out_format, 'source0_time.dat'), 'y_source0_t');
@@ -397,6 +398,61 @@ save(strcat(out_format, 'source1_dim0.dat'), 'y_source1_x');
 save(strcat(out_format, 'source1_time.dat'), 'y_source1_t');
 save(strcat(out_format, 'exact_dim0.dat'), 'y_exact_x');
 save(strcat(out_format, 'exact_time.dat'), 'y_exact_time');
+
+clear
+
+% continuity 2
+pde_dir = strcat(pwd, "/", "generated-inputs", "/", "pde", "/");
+out_format = strcat(pde_dir, "continuity_2_");
+
+pde = continuity2;
+x = 2.2;
+for d=1:length(pde.dimensions)
+  y_init = pde.dimensions{d}.init_cond_fn(x);
+  save(strcat(out_format, sprintf('initial_dim%d.dat', d)), 'y_init');
+  y_exact = pde.analytic_solutions_1D{d}(x);
+  save(strcat(out_format, sprintf('exact_dim%d.dat', d)), 'y_exact');
+end
+y_exact_time = pde.analytic_solutions_1D{length(pde.analytic_solutions_1D)}(x);
+save(strcat(out_format, 'exact_time.dat'), 'y_exact_time');
+
+for s=1:length(pde.sources)
+  for d=1:length(pde.dimensions)
+    y_source = pde.sources{s}{d}(x);
+    save(strcat(out_format, sprintf('source%d_dim%d.dat',s,d)), 'y_source');
+  y_source_t = pde.sources{s}{length(pde.sources{s})}(x);
+  save(strcat(out_format, sprintf('source%d_time.dat',s)), 'y_source_t');
+  end
+end
+
+
+%% continuity 3
+pde_dir = strcat(pwd, "/", "generated-inputs", "/", "pde", "/");
+out_format = strcat(pde_dir, "continuity_3_");
+
+pde = continuity3;
+x = 3.3;
+for d=1:length(pde.dimensions)
+  y_init = pde.dimensions{d}.init_cond_fn(x);
+  save(strcat(out_format, sprintf('initial_dim%d.dat', d)), 'y_init');
+  y_exact = pde.analytic_solutions_1D{d}(x);
+  save(strcat(out_format, sprintf('exact_dim%d.dat', d)), 'y_exact');
+end
+y_exact_time = pde.analytic_solutions_1D{length(pde.analytic_solutions_1D)}(x);
+save(strcat(out_format, 'exact_time.dat'), 'y_exact_time');
+
+for s=1:length(pde.sources)
+  for d=1:length(pde.dimensions)
+    y_source = pde.sources{s}{d}(x);
+    save(strcat(out_format, sprintf('source%d_dim%d.dat',s,d)), 'y_source');
+  y_source_t = pde.sources{s}{length(pde.sources{s})}(x);
+  save(strcat(out_format, sprintf('source%d_time.dat',s)), 'y_source_t');
+  end
+end
+
+
+
+
 
 
 
