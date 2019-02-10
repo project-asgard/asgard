@@ -1,56 +1,74 @@
 #include "pde.hpp"
 
+#include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 #include <vector>
 
-// FIXME need to update these
-TEST_CASE("testing pde implementations", "[pde]")
-{
-  SECTION("vlasov7 functions against golden values")
+// TODO still need to figure out why we don't get exact matches between
+// matlab and c++...ugh
+auto relax_for_float = [](auto fx, auto gold) {
+  if constexpr (std::is_same<decltype(fx), double>::value)
   {
-    auto pde = make_PDE<float>(PDE_opts::continuity_1);
-    /*auto pde = make_PDE<float>(PDE_opts::vlasov7);
+    REQUIRE(fx == gold);
+  }
+  else
+  {
+    float relaxed_epsilon = std::numeric_limits<float>::epsilon() * 1e2;
+    REQUIRE(Approx(fx).epsilon(relaxed_epsilon) == gold);
+  }
+};
+TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
+                   float)
+{
+  auto const pde             = make_PDE<TestType>(PDE_opts::continuity_1);
+  std::string const base_dir = "../testing/generated-inputs/pde/continuity_1_";
+  fk::vector<TestType> const x = {5.123};
 
-    std::vector<float> x = {1.0, 2.0, 3.0};
-    float t              = 3.0;
+  SECTION("continuity 1 initial condition functions")
+  {
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      TestType const gold = read_scalar_from_txt_file(
+          base_dir + "initial_dim" + std::to_string(i) + ".dat");
 
-    std::vector<float> fx = {0.0, -2.0, -6.0};
-    std::vector<float> fv = {0.0, 0.0, 0.0};
+      TestType const fx = pde->dimensions[i].initial_condition(x)(0);
+      relax_for_float(fx, gold);
+    }
+  }
 
-    std::vector<float> ex = fx;
-    std::vector<float> ev = {-24.0, -21.0, -16.0};
-    float et              = t;
+  SECTION("continuity 1 exact solution functions")
+  {
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      TestType const gold = read_scalar_from_txt_file(
+          base_dir + "exact_dim" + std::to_string(i) + ".dat");
+      TestType const fx = pde->exact_vector_funcs[i](x)(0);
+      relax_for_float(fx, gold);
+    }
+    TestType const gold =
+        read_scalar_from_txt_file(base_dir + "exact_time.dat");
+    TestType const fx = pde->exact_time(x(0));
+    relax_for_float(fx, gold);
+  }
+  SECTION("continuity 1 source functions")
+  {
+    for (int i = 0; i < pde->num_sources; ++i)
+    {
+      std::string const source_string =
+          base_dir + "source" + std::to_string(i) + "_";
+      for (int j = 0; j < pde->num_dims; ++j)
+      {
+        std::string const full_path =
+            source_string + "dim" + std::to_string(j) + ".dat";
+        TestType const gold = read_scalar_from_txt_file(full_path);
+        TestType const fx   = pde->sources[i].source_funcs[j](x)(0);
 
-    std::vector<float> s0_x = fx;
-    std::vector<float> s0_v = ev;
-    float s0_t              = 1.0;
-
-    std::vector<float> s1_x = {-1.0, -3.0, -5.0};
-    std::vector<float> s1_v = {-24.0, -42.0, -48.0};
-    float s1_t              = t;
-
-    std::vector<float> s2_x = fx;
-    std::vector<float> s2_v = {2.0, 4.0, 6.0};
-    float s2_t              = t;
-
-    REQUIRE(fx == pde->initial_condition_funcs()[0](x));
-    REQUIRE(fv == pde->initial_condition_funcs()[1](x));
-
-    REQUIRE(ex == pde->exact_vector_funcs()[0](x));
-    REQUIRE(ev == pde->exact_vector_funcs()[1](x));
-    REQUIRE(et == pde->exact_scalar_func()(t));
-
-    REQUIRE(s0_x == pde->source_vector_funcs()[0][0](x));
-    REQUIRE(s0_v == pde->source_vector_funcs()[0][1](x));
-    REQUIRE(s0_t == pde->source_scalar_funcs()[0](t));
-
-    REQUIRE(s1_x == pde->source_vector_funcs()[1][0](x));
-    REQUIRE(s1_v == pde->source_vector_funcs()[1][1](x));
-    REQUIRE(s1_t == pde->source_scalar_funcs()[1](t));
-
-    REQUIRE(s2_x == pde->source_vector_funcs()[2][0](x));
-    REQUIRE(s2_v == pde->source_vector_funcs()[2][1](x));
-    REQUIRE(s2_t == pde->source_scalar_funcs()[2](t));
-    */
+        relax_for_float(fx, gold);
+      }
+      TestType const gold =
+          read_scalar_from_txt_file(source_string + "time.dat");
+      TestType const fx = pde->sources[i].time_func(x(0));
+      relax_for_float(fx, gold);
+    }
   }
 }

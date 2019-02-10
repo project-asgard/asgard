@@ -371,3 +371,33 @@ save(strcat(out_format, 'roots_32_neg5_2.dat'), 'roots');
 save(strcat(out_format, 'weights_32_neg5_2.dat'), 'weights');
 
 clear
+
+% pde testing
+
+pde_dir = strcat(pwd, "/", "generated-inputs", "/", "pde", "/");
+mkdir (pde_dir);
+
+% continuity 1
+
+out_format = strcat(pde_dir, "continuity_1_");
+
+pde = continuity1;
+x = -5.123;
+y_init = continuity1.dimensions{1}.init_cond_fn(x);
+y_source0_x = continuity1.sources{1}{1}(x);
+y_source0_t = continuity1.sources{1}{2}(x);
+y_source1_x = continuity1.sources{2}{1}(x);
+y_source1_t = continuity1.sources{2}{2}(x);
+y_exact_x = continuity1.analytic_solutions_1D{1}(x);
+y_exact_time = continuity1.analytic_solutions_1D{2}(x);
+save(strcat(out_format, 'initial_dim0.dat'), 'y_init');
+save(strcat(out_format, 'source0_dim0.dat'), 'y_source0_x');
+save(strcat(out_format, 'source0_time.dat'), 'y_source0_t');
+save(strcat(out_format, 'source1_dim0.dat'), 'y_source1_x');
+save(strcat(out_format, 'source1_time.dat'), 'y_source1_t');
+save(strcat(out_format, 'exact_dim0.dat'), 'y_exact_x');
+save(strcat(out_format, 'exact_time.dat'), 'y_exact_time');
+
+
+
+

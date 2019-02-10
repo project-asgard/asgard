@@ -311,11 +311,8 @@ public:
   static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::cos(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
     return fx;
   }
 
@@ -329,25 +326,19 @@ public:
   static fk::vector<P> source_0_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::cos(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
     return fx;
   }
 
-  static P source_0_time(P const time) { return std::sin(time); }
+  static P source_0_time(P const time) { return std::cos(time); }
 
   // source 1
   static fk::vector<P> source_1_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::sin(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
     return fx;
   }
 
