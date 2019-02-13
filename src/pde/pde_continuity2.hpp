@@ -31,9 +31,17 @@ public:
                _has_analytic_soln)
   {}
 
-  //
+private:
+  // these fields used to check correctness of specification
+  static int constexpr _num_dims           = 2;
+  static int constexpr _num_sources        = 3;
+  static int constexpr _num_terms          = 2;
+  static bool constexpr _do_poisson_solve  = false;
+  static bool constexpr _has_analytic_soln = true;
+
+  // function definitions...
+
   // specify initial condition vector functions...
-  //
   static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
   {
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
@@ -43,9 +51,7 @@ public:
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
 
-  //
   // specify exact solution vectors/time function...
-  //
   static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
@@ -63,9 +69,7 @@ public:
 
   static P exact_time(P const time) { return std::sin(2.0 * time); }
 
-  //
   // specify source functions...
-  //
 
   // source 0
   static fk::vector<P> source_0_dim0(fk::vector<P> const x)
@@ -136,13 +140,6 @@ public:
     return 1.0;
   }
 
-private:
-  static int constexpr _num_dims           = 2;
-  static int constexpr _num_sources        = 3;
-  static int constexpr _num_terms          = 2;
-  static bool constexpr _do_poisson_solve  = false;
-  static bool constexpr _has_analytic_soln = true;
-
   // define dimensions
   static boundary_condition constexpr dim0_BCL = boundary_condition::periodic;
   static boundary_condition constexpr dim0_BCR = boundary_condition::periodic;
@@ -169,6 +166,8 @@ private:
   inline static dimension<P> const dim1 =
       dimension<P>(dim1_BCL, dim1_BCR, dim1_min, dim1_max, dim1_level,
                    dim1_degree, dim1_initial_condition, dim1_name);
+
+  inline static std::vector<dimension<P>> const dimensions = {dim0, dim1};
 
   // define terms
 
@@ -222,6 +221,8 @@ private:
 
   inline static const std::vector<term<P>> terms1 = {term0_dim0, term0_dim1};
 
+  inline static term_set<P> const terms = {terms0, terms1};
+
   // define sources
   inline static std::vector<vector_func<P>> const source0_funcs = {
       source_0_dim0, source_0_dim1};
@@ -241,12 +242,10 @@ private:
   inline static source<P> const source2 =
       source<P>(source2_funcs, source2_time);
 
-  // store PDE functions/information in members
-  inline static std::vector<dimension<P>> const dimensions = {dim0, dim1};
-  inline static term_set<P> const terms                    = {terms0, terms1};
-  inline static std::vector<source<P>> const sources       = {source0, source1,
+  inline static std::vector<source<P>> const sources = {source0, source1,
                                                         source2};
 
+  // define exact soln
   inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
       exact_solution_dim0, exact_solution_dim1};
 

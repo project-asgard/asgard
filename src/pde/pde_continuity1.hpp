@@ -10,8 +10,8 @@
 #include <typeinfo>
 #include <vector>
 
-#include "../tensors.hpp"
 #include "pde_base.hpp"
+#include "tensors.hpp"
 
 // ---------------------------------------------------------------------------
 //
@@ -31,17 +31,25 @@ public:
                _has_analytic_soln)
   {}
 
-  //
+private:
+  // these fields will be checked against provided functions to make sure
+  // everything is specified correctly
+
+  static int constexpr _num_dims           = 1;
+  static int constexpr _num_sources        = 2;
+  static int constexpr _num_terms          = 1;
+  static bool constexpr _do_poisson_solve  = false;
+  static bool constexpr _has_analytic_soln = true;
+
+  // function definitions...
+
   // specify initial condition vector functions...
-  //
   static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
   {
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
 
-  //
   // specify exact solution vectors/time function...
-  //
   static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
@@ -52,9 +60,7 @@ public:
 
   static P exact_time(P const time) { return std::sin(time); }
 
-  //
   // specify source functions...
-  //
 
   // source 0
   static fk::vector<P> source_0_dim0(fk::vector<P> const x)
@@ -87,13 +93,6 @@ public:
     return 1.0;
   }
 
-private:
-  static int constexpr _num_dims           = 1;
-  static int constexpr _num_sources        = 2;
-  static int constexpr _num_terms          = 1;
-  static bool constexpr _do_poisson_solve  = false;
-  static bool constexpr _has_analytic_soln = true;
-
   // define dimensions
   static boundary_condition constexpr dim0_BCL = boundary_condition::periodic;
   static boundary_condition constexpr dim0_BCR = boundary_condition::periodic;
@@ -108,6 +107,8 @@ private:
       dimension<P>(dim0_BCL, dim0_BCR, dim0_min, dim0_max, dim0_level,
                    dim0_degree, dim0_initial_condition, dim0_name);
 
+  inline static std::vector<dimension<P>> const dimensions = {dim0};
+
   // define terms (1 in this case)
   static coefficient_type constexpr term0_dim0_type  = coefficient_type::grad;
   inline static g_func_type<P> const term0_dim0_func = g_func_0;
@@ -116,11 +117,12 @@ private:
   static flux_type constexpr term0_dim0_flux = flux_type::central;
   static auto constexpr term0_dim0_name      = "d_dx";
 
-  // TODO need to work on relationship with dimension....?
   inline static term<P> const term0_dim0 =
       term<P>(term0_dim0_type, term0_dim0_func, term0_dim0_time_dependent,
               term0_dim0_flux, term0_dim0_data, term0_dim0_name, dim0);
   inline static const std::vector<term<P>> terms0 = {term0_dim0};
+
+  inline static term_set<P> const terms = {terms0};
 
   // define sources
   inline static std::vector<vector_func<P>> const source0_funcs = {
@@ -135,11 +137,9 @@ private:
   inline static source<P> const source1 =
       source<P>(source1_funcs, source1_time);
 
-  // store PDE functions/information in members
-  inline static std::vector<dimension<P>> const dimensions = {dim0};
-  inline static term_set<P> const terms                    = {terms0};
-  inline static std::vector<source<P>> const sources       = {source0, source1};
+  inline static std::vector<source<P>> const sources = {source0, source1};
 
+  // define exact soln functions
   inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
       exact_solution_dim0};
 
