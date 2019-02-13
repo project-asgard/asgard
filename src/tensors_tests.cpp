@@ -7,6 +7,8 @@
 #include <numeric>
 #include <sstream>
 
+#include "matlab_utilities.hpp"
+
 // note using widening conversions to floating point type in order to use same
 // tests for integer type
 // FIXME look for another way to do this
@@ -648,37 +650,15 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   {
     if constexpr (std::is_floating_point<TestType>::value)
     {
-      // (square slices of) our golden matrix is singular, so here's another
-      // clang-format off
-    fk::matrix<double> const ans_double {
-       {-50.4950495049486321, 99.9999999999963762, -49.504950495047737},
-       {-49.9999999999981171, 99.9999999999963478, -49.9999999999982379},
-       {1321.00495049500046, -2627.9999999999045, 1307.99504950490405},
-    };
-    fk::matrix<float> const ans_single {
-       {-50.4952354431152344, 100.000373840332031, -49.5051422119140625},
-       {-50.0001907348632812, 100.000389099121094,  -50.0002021789550781},
-       {1321.0098876953125, -2628.010009765625, 1308.0001220703125},
-    };
-    fk::matrix<TestType> test {
-      {12.130, 14.150, 1.00},
-      {13.140, 13.150, 1.00},
-      {14.150, 12.130, 1.00},
-    }; // clang-format on
-
-      test.invert();
-      if constexpr (std::is_same<TestType, double>::value)
-      {
-        REQUIRE(test == ans_double);
-      }
-      else if constexpr (std::is_same<TestType, float>::value)
-      {
-        REQUIRE(test == ans_single);
-      }
-      else
-      {
-        FAIL("Tests only configured for float and double precisions");
-      }
+      // (square slices of) our golden matrix is singular, so here's a
+      // well conditioned one
+      fk::matrix<TestType> test{{0.767135868133925, -0.641484652834663},
+                                {0.641484652834663, 0.767135868133926}};
+      fk::matrix<TestType> test_copy(test);
+      test_copy.invert();
+      
+      // A * inv(A) == I
+      REQUIRE(test * test_copy == eye<TestType>(2));
 
       // we haven't implemented a matrix inversion routine for integral types;
       // that function is disabled for now in the class if instantiated for
