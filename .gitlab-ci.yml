@@ -3,6 +3,8 @@
 clang-format:
   script:
     - for bob in $(find src -type f) ; do diff ${bob} <(clang-format ${bob}) || exit ; done
+  only:
+    - merge-requests
 
 # run the unit tests for asgard
 catch2-tests:
@@ -12,3 +14,5 @@ catch2-tests:
     - cmake ..
     - make
     - ./tests
+  only:
+    - merge-requests
