@@ -1,7 +1,7 @@
 #pragma once
 
 #include "element_table.hpp"
-#include "program_options.hpp"
+#include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
 #include <algorithm>
@@ -13,22 +13,19 @@ template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree);
 
 template<typename P>
-fk::vector<P> combine_dimensions(options const, element_table const &,
+fk::vector<P> combine_dimensions(dimension<P> const, element_table const &,
                                  std::vector<fk::vector<P>> const &, P const);
 
 template<typename P>
-fk::matrix<P> operator_two_scale(options const opts);
+fk::matrix<P> operator_two_scale(dimension<P> const dim);
 
-// FIXME this interface is temporary. lmin, lmax, degree, and level
-// will all be encapsulated by a dimension argument (member of pde)
-// I haven't refitted the pde class yet, though, so that class doesn't
-// exist yet - TM
 template<typename P, typename F>
-fk::vector<P> forward_transform(options const opts, P const domain_min,
-                                P const domain_max, F function)
+fk::vector<P> forward_transform(dimension<P> const dim, F function)
 {
-  int const num_levels = opts.get_level();
-  int const degree     = opts.get_degree();
+  int const num_levels = dim.level;
+  int const degree     = dim.degree;
+  P const domain_min   = dim.domain_min;
+  P const domain_max   = dim.domain_max;
 
   assert(num_levels > 0);
   assert(degree > 0);
@@ -42,7 +39,7 @@ fk::vector<P> forward_transform(options const opts, P const domain_min,
   // TODO may remove this call if want to create the FMWT matrix once and store
   // it in the appropriate dimension object passed to this function
 
-  fk::matrix<P> const forward_trans = operator_two_scale<P>(opts);
+  fk::matrix<P> const forward_trans = operator_two_scale<P>(dim);
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
@@ -121,11 +118,11 @@ extern template std::array<fk::matrix<float>, 6>
 generate_multi_wavelets(int const degree);
 
 extern template fk::vector<double>
-combine_dimensions(options const, element_table const &,
+combine_dimensions(dimension<double> const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 extern template fk::vector<float>
-combine_dimensions(options const, element_table const &,
+combine_dimensions(dimension<float> const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
-extern template fk::matrix<double> operator_two_scale(options const opts);
-extern template fk::matrix<float> operator_two_scale(options const opts);
+extern template fk::matrix<double> operator_two_scale(dimension<double> const);
+extern template fk::matrix<float> operator_two_scale(dimension<float> const);

@@ -90,23 +90,23 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
 {
   SECTION("Combine dimensions, dim = 2, deg = 2, lev = 3")
   {
-    int const dim = 2;
-    int const lev = 3;
-    int const deg = 2;
+    int const dims = 2;
+    int const lev  = 3;
+    int const deg  = 2;
+
     std::string const filename =
         "../testing/generated-inputs/transformations/combine_dim_dim" +
-        std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
+        std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
         std::to_string(lev) + "_sg.dat";
 
     fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
-
-    options const o =
-        make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
-    element_table const t(o, dim);
-
+    dimension const dim             = make_dummy_dim<TestType>(lev, deg);
+    options const o                 = make_options(
+        {"-d", std::to_string(deg), "-l", std::to_string(lev), "-f"});
+    element_table const t(o, dims);
     TestType const time = 2.0;
 
-    int const vect_size              = dim * static_cast<int>(std::pow(2, lev));
+    int const vect_size = dims * static_cast<int>(std::pow(2, lev));
     fk::vector<TestType> const dim_1 = [&] {
       fk::vector<TestType> dim_1(vect_size);
       std::iota(dim_1.begin(), dim_1.end(), static_cast<TestType>(1.0));
@@ -120,28 +120,28 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
     }();
     std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2};
 
-    REQUIRE(combine_dimensions(o, t, vectors, time) == gold);
+    REQUIRE(combine_dimensions(dim, t, vectors, time) == gold);
   }
 
   SECTION("Combine dimensions, dim = 3, deg = 3, lev = 2, full grid")
   {
-    int const dim = 3;
-    int const lev = 2;
-    int const deg = 3;
+    int const dims = 3;
+    int const lev  = 2;
+    int const deg  = 3;
     std::string const filename =
         "../testing/generated-inputs/transformations/combine_dim_dim" +
-        std::to_string(dim) + "_deg" + std::to_string(deg) + "_lev" +
+        std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
         std::to_string(lev) + "_fg.dat";
 
     fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
 
-    options const o = make_options(
+    dimension const dim = make_dummy_dim<TestType>(lev, deg);
+    options const o     = make_options(
         {"-d", std::to_string(deg), "-l", std::to_string(lev), "-f"});
-    element_table const t(o, dim);
-
+    element_table const t(o, dims);
     TestType const time = 2.5;
 
-    int const vect_size              = dim * static_cast<int>(std::pow(2, lev));
+    int const vect_size = dims * static_cast<int>(std::pow(2, lev));
     fk::vector<TestType> const dim_1 = [&] {
       fk::vector<TestType> dim_1(vect_size);
       std::iota(dim_1.begin(), dim_1.end(), static_cast<TestType>(1.0));
@@ -162,7 +162,7 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
     }();
     std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2, dim_3};
 
-    REQUIRE(combine_dimensions(o, t, vectors, time) == gold);
+    REQUIRE(combine_dimensions(dim, t, vectors, time) == gold);
   }
 }
 
@@ -184,12 +184,13 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 2;
     int const levels = 2;
-    options const o  = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim = make_dummy_dim<TestType>(levels, degree);
+
     fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }
 
@@ -197,36 +198,39 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 2;
     int const levels = 3;
-    options const o  = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim = make_dummy_dim<TestType>(levels, degree);
+
     fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }
   SECTION("operator_two_scale(4, 3)")
   {
     int const degree = 4;
     int const levels = 3;
-    options const o  = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim = make_dummy_dim<TestType>(levels, degree);
+
     fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }
   SECTION("operator_two_scale(5, 5)")
   {
     int const degree = 5;
     int const levels = 5;
-    options const o  = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim = make_dummy_dim<TestType>(levels, degree);
+
     fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }
 
@@ -234,12 +238,13 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   {
     int const degree = 2;
     int const levels = 6;
-    options const o  = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim = make_dummy_dim<TestType>(levels, degree);
+
     fk::matrix<TestType> const gold = read_matrix_from_txt_file(
         "../testing/generated-inputs/transformations/operator_two_scale_" +
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
-    fk::matrix<TestType> const test = operator_two_scale<TestType>(o);
+    fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }
 }
@@ -265,15 +270,17 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     };
     TestType const domain_min = static_cast<TestType>(-1.0);
     TestType const domain_max = static_cast<TestType>(1.0);
-    options const o           = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim =
+        make_dummy_dim<TestType>(levels, degree, domain_min, domain_max);
+
     fk::vector<TestType> const gold = read_vector_from_txt_file(
         "../testing/generated-inputs/transformations/forward_transform_" +
         std::to_string(degree) + "_" + std::to_string(levels) +
         "_neg1_pos1_double.dat");
 
     fk::vector<TestType> const test =
-        forward_transform<TestType>(o, domain_min, domain_max, double_it);
+        forward_transform<TestType>(dim, double_it);
     relaxed_comparison(gold, test);
   }
 
@@ -286,15 +293,17 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     };
     TestType const domain_min = static_cast<TestType>(-2.5);
     TestType const domain_max = static_cast<TestType>(2.5);
-    options const o           = make_options(
-        {"-d", std::to_string(degree), "-l", std::to_string(levels)});
+
+    dimension const dim =
+        make_dummy_dim<TestType>(levels, degree, domain_min, domain_max);
+
     fk::vector<TestType> const gold = read_vector_from_txt_file(
         "../testing/generated-inputs/transformations/forward_transform_" +
         std::to_string(degree) + "_" + std::to_string(levels) +
         "_neg2_5_pos2_5_doubleplus.dat");
 
     fk::vector<TestType> const test =
-        forward_transform<TestType>(o, domain_min, domain_max, double_plus);
+        forward_transform<TestType>(dim, double_plus);
 
     relaxed_comparison(gold, test);
   }
