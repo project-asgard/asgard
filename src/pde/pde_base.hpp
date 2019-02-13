@@ -12,6 +12,11 @@
 
 #include "tensors.hpp"
 
+//
+// This file contains all of the interface and object definitions for our
+// representation of a PDE
+//
+
 // same pi used by matlab
 static double const PI = 3.141592653589793;
 

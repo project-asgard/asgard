@@ -10,8 +10,16 @@
 #include <typeinfo>
 #include <vector>
 
-#include "pde_all.hpp"
+#include "pde/pde_base.hpp"
+#include "pde/continuity1.hpp"
+#include "pde/continuity2.hpp"
+#include "pde/continuity3.hpp"
 #include "tensors.hpp"
+
+//
+// This file contains the PDE factory and the utilities to select the PDEs being
+// made available by the included implementations
+//
 
 //
 // the choices for supported PDE types
