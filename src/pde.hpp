@@ -368,17 +368,16 @@ private:
   static int constexpr dim0_level              = 2;
   static int constexpr dim0_degree             = 2;
   inline static vector_func<P> const dim0_initial_condition =
-      &PDE_continuity_1::initial_condition_dim0;
+      initial_condition_dim0;
   static auto constexpr dim0_name = "x";
   inline static dimension<P> const dim0 =
       dimension<P>(dim0_BCL, dim0_BCR, dim0_min, dim0_max, dim0_level,
                    dim0_degree, dim0_initial_condition, dim0_name);
 
   // define terms (1 in this case)
-  static coefficient_type constexpr term0_dim0_type = coefficient_type::grad;
-  inline static g_func_type<P> const term0_dim0_func =
-      &PDE_continuity_1::g_func_0;
-  static bool constexpr term0_dim0_time_dependent = false;
+  static coefficient_type constexpr term0_dim0_type  = coefficient_type::grad;
+  inline static g_func_type<P> const term0_dim0_func = g_func_0;
+  static bool constexpr term0_dim0_time_dependent    = false;
   inline static fk::vector<P> const term0_dim0_data; // empty in this case
   static flux_type constexpr term0_dim0_flux = flux_type::central;
   static auto constexpr term0_dim0_name      = "d_dx";
@@ -391,16 +390,14 @@ private:
 
   // define sources
   inline static std::vector<vector_func<P>> const source0_funcs = {
-      &PDE_continuity_1::source_0_dim0};
-  inline static scalar_func<P> const source0_time =
-      &PDE_continuity_1::source_0_time;
+      source_0_dim0};
+  inline static scalar_func<P> const source0_time = source_0_time;
   inline static source<P> const source0 =
       source<P>(source0_funcs, source0_time);
 
   inline static std::vector<vector_func<P>> const source1_funcs = {
-      &PDE_continuity_1::source_1_dim0};
-  inline static scalar_func<P> const source1_time =
-      &PDE_continuity_1::source_1_time;
+      source_1_dim0};
+  inline static scalar_func<P> const source1_time = source_1_time;
   inline static source<P> const source1 =
       source<P>(source1_funcs, source1_time);
 
@@ -410,10 +407,9 @@ private:
   inline static std::vector<source<P>> const sources       = {source0, source1};
 
   inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
-      &PDE_continuity_1::exact_solution_dim0};
+      exact_solution_dim0};
 
-  inline static scalar_func<P> const _exact_scalar_func =
-      &PDE_continuity_1::exact_time;
+  inline static scalar_func<P> const _exact_scalar_func = exact_time;
 };
 
 // ---------------------------------------------------------------------------
@@ -452,21 +448,15 @@ public:
   static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::cos(M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(M_PI * x); });
     return fx;
   }
   static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::sin(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
     return fx;
   }
 
@@ -480,22 +470,16 @@ public:
   static fk::vector<P> source_0_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::cos(M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(M_PI * x); });
     return fx;
   }
 
   static fk::vector<P> source_0_dim1(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::sin(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
     return fx;
   }
 
@@ -505,22 +489,16 @@ public:
   static fk::vector<P> source_1_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::cos(M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(M_PI * x); });
     return fx;
   }
 
   static fk::vector<P> source_1_dim1(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::cos(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
     return fx;
   }
 
@@ -533,22 +511,16 @@ public:
   static fk::vector<P> source_2_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::sin(M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::sin(M_PI * x); });
     return fx;
   }
 
   static fk::vector<P> source_2_dim1(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                   [](P const &x, P const &fx) {
-                     ignore(fx);
-                     return std::sin(2.0 * M_PI * x);
-                   });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
     return fx;
   }
 
@@ -578,7 +550,7 @@ private:
   static int constexpr dim0_level              = 2;
   static int constexpr dim0_degree             = 2;
   inline static vector_func<P> const dim0_initial_condition =
-      &PDE_continuity_2::initial_condition_dim0;
+      initial_condition_dim0;
   static auto constexpr dim0_name = "x";
   inline static dimension<P> const dim0 =
       dimension<P>(dim0_BCL, dim0_BCR, dim0_min, dim0_max, dim0_level,
@@ -591,7 +563,7 @@ private:
   static int constexpr dim1_level              = 2;
   static int constexpr dim1_degree             = 2;
   inline static vector_func<P> const dim1_initial_condition =
-      &PDE_continuity_2::initial_condition_dim1;
+      initial_condition_dim1;
   static auto constexpr dim1_name = "y";
   inline static dimension<P> const dim1 =
       dimension<P>(dim1_BCL, dim1_BCR, dim1_min, dim1_max, dim1_level,
@@ -600,10 +572,9 @@ private:
   // define terms
 
   // term 0
-  static coefficient_type constexpr term0_dim0_type = coefficient_type::grad;
-  inline static g_func_type<P> const term0_dim0_func =
-      &PDE_continuity_2::g_func_identity;
-  static bool constexpr term0_dim0_time_dependent = false;
+  static coefficient_type constexpr term0_dim0_type  = coefficient_type::grad;
+  inline static g_func_type<P> const term0_dim0_func = g_func_identity;
+  static bool constexpr term0_dim0_time_dependent    = false;
   inline static fk::vector<P> const term0_dim0_data; // empty in this case
   static flux_type constexpr term0_dim0_flux = flux_type::central;
   static auto constexpr term0_dim0_name      = "v_x.d_dx";
@@ -612,10 +583,9 @@ private:
       term<P>(term0_dim0_type, term0_dim0_func, term0_dim0_time_dependent,
               term0_dim0_flux, term0_dim0_data, term0_dim0_name, dim0);
 
-  static coefficient_type constexpr term0_dim1_type = coefficient_type::mass;
-  inline static g_func_type<P> const term0_dim1_func =
-      &PDE_continuity_2::g_func_identity;
-  static bool constexpr term0_dim1_time_dependent = false;
+  static coefficient_type constexpr term0_dim1_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term0_dim1_func = g_func_identity;
+  static bool constexpr term0_dim1_time_dependent    = false;
   inline static fk::vector<P> const term0_dim1_data; // empty in this case
   static flux_type constexpr term0_dim1_flux = flux_type::central;
   static auto constexpr term0_dim1_name      = "massY";
@@ -627,10 +597,9 @@ private:
   inline static const std::vector<term<P>> terms0 = {term0_dim0, term0_dim1};
 
   // term 1
-  static coefficient_type constexpr term1_dim0_type = coefficient_type::mass;
-  inline static g_func_type<P> const term1_dim0_func =
-      &PDE_continuity_2::g_func_identity;
-  static bool constexpr term1_dim0_time_dependent = false;
+  static coefficient_type constexpr term1_dim0_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term1_dim0_func = g_func_identity;
+  static bool constexpr term1_dim0_time_dependent    = false;
   inline static fk::vector<P> const term1_dim0_data; // empty in this case
   static flux_type constexpr term1_dim0_flux = flux_type::central;
   static auto constexpr term1_dim0_name      = "massX";
@@ -639,10 +608,9 @@ private:
       term<P>(term1_dim0_type, term1_dim0_func, term1_dim0_time_dependent,
               term1_dim0_flux, term1_dim0_data, term1_dim0_name, dim0);
 
-  static coefficient_type constexpr term1_dim1_type = coefficient_type::grad;
-  inline static g_func_type<P> const term1_dim1_func =
-      &PDE_continuity_2::g_func_identity;
-  static bool constexpr term1_dim1_time_dependent = false;
+  static coefficient_type constexpr term1_dim1_type  = coefficient_type::grad;
+  inline static g_func_type<P> const term1_dim1_func = g_func_identity;
+  static bool constexpr term1_dim1_time_dependent    = false;
   inline static fk::vector<P> const term1_dim1_data; // empty in this case
   static flux_type constexpr term1_dim1_flux = flux_type::central;
   static auto constexpr term1_dim1_name      = "massY";
@@ -655,23 +623,20 @@ private:
 
   // define sources
   inline static std::vector<vector_func<P>> const source0_funcs = {
-      &PDE_continuity_2::source_0_dim0, &PDE_continuity_2::source_0_dim1};
-  inline static scalar_func<P> const source0_time =
-      &PDE_continuity_2::source_0_time;
+      source_0_dim0, source_0_dim1};
+  inline static scalar_func<P> const source0_time = source_0_time;
   inline static source<P> const source0 =
       source<P>(source0_funcs, source0_time);
 
   inline static std::vector<vector_func<P>> const source1_funcs = {
-      &PDE_continuity_2::source_1_dim0, &PDE_continuity_2::source_1_dim1};
-  inline static scalar_func<P> const source1_time =
-      &PDE_continuity_2::source_1_time;
+      source_1_dim0, source_1_dim1};
+  inline static scalar_func<P> const source1_time = source_1_time;
   inline static source<P> const source1 =
       source<P>(source1_funcs, source1_time);
 
   inline static std::vector<vector_func<P>> const source2_funcs = {
-      &PDE_continuity_2::source_2_dim0, &PDE_continuity_2::source_2_dim1};
-  inline static scalar_func<P> const source2_time =
-      &PDE_continuity_2::source_2_time;
+      source_2_dim0, source_2_dim1};
+  inline static scalar_func<P> const source2_time = source_2_time;
   inline static source<P> const source2 =
       source<P>(source2_funcs, source2_time);
 
@@ -682,11 +647,9 @@ private:
                                                         source2};
 
   inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
-      &PDE_continuity_2::exact_solution_dim0,
-      &PDE_continuity_2::exact_solution_dim1};
+      exact_solution_dim0, exact_solution_dim1};
 
-  inline static scalar_func<P> const _exact_scalar_func =
-      &PDE_continuity_2::exact_time;
+  inline static scalar_func<P> const _exact_scalar_func = exact_time;
 };
 
 // ---------------------------------------------------------------------------
@@ -892,7 +855,7 @@ private:
   static int constexpr dim0_level              = 2;
   static int constexpr dim0_degree             = 2;
   inline static vector_func<P> const dim0_initial_condition =
-      &PDE_continuity_3::initial_condition_dim0;
+      initial_condition_dim0;
   static auto constexpr dim0_name = "x";
   inline static dimension<P> const dim0 =
       dimension<P>(dim0_BCL, dim0_BCR, dim0_min, dim0_max, dim0_level,
@@ -905,7 +868,7 @@ private:
   static int constexpr dim1_level              = 2;
   static int constexpr dim1_degree             = 2;
   inline static vector_func<P> const dim1_initial_condition =
-      &PDE_continuity_3::initial_condition_dim1;
+      initial_condition_dim1;
   static auto constexpr dim1_name = "y";
   inline static dimension<P> const dim1 =
       dimension<P>(dim1_BCL, dim1_BCR, dim1_min, dim1_max, dim1_level,
@@ -918,7 +881,7 @@ private:
   static int constexpr dim2_level              = 2;
   static int constexpr dim2_degree             = 2;
   inline static vector_func<P> const dim2_initial_condition =
-      &PDE_continuity_3::initial_condition_dim2;
+      initial_condition_dim2;
   static auto constexpr dim2_name = "z";
   inline static dimension<P> const dim2 =
       dimension<P>(dim2_BCL, dim2_BCR, dim2_min, dim2_max, dim2_level,
@@ -927,10 +890,9 @@ private:
   // define terms
 
   // term 0
-  static coefficient_type constexpr term0_dim0_type = coefficient_type::grad;
-  inline static g_func_type<P> const term0_dim0_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term0_dim0_time_dependent = false;
+  static coefficient_type constexpr term0_dim0_type  = coefficient_type::grad;
+  inline static g_func_type<P> const term0_dim0_func = g_func_identity;
+  static bool constexpr term0_dim0_time_dependent    = false;
   inline static fk::vector<P> const term0_dim0_data; // empty in this case
   static flux_type constexpr term0_dim0_flux = flux_type::central;
   static auto constexpr term0_dim0_name      = "v_x.d_dx";
@@ -939,10 +901,9 @@ private:
       term<P>(term0_dim0_type, term0_dim0_func, term0_dim0_time_dependent,
               term0_dim0_flux, term0_dim0_data, term0_dim0_name, dim0);
 
-  static coefficient_type constexpr term0_dim1_type = coefficient_type::mass;
-  inline static g_func_type<P> const term0_dim1_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term0_dim1_time_dependent = false;
+  static coefficient_type constexpr term0_dim1_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term0_dim1_func = g_func_identity;
+  static bool constexpr term0_dim1_time_dependent    = false;
   inline static fk::vector<P> const term0_dim1_data; // empty in this case
   static flux_type constexpr term0_dim1_flux = flux_type::central;
   static auto constexpr term0_dim1_name      = "massY";
@@ -951,10 +912,9 @@ private:
       term<P>(term0_dim1_type, term0_dim1_func, term0_dim1_time_dependent,
               term0_dim1_flux, term0_dim1_data, term0_dim1_name, dim1);
 
-  static coefficient_type constexpr term0_dim2_type = coefficient_type::mass;
-  inline static g_func_type<P> const term0_dim2_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term0_dim2_time_dependent = false;
+  static coefficient_type constexpr term0_dim2_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term0_dim2_func = g_func_identity;
+  static bool constexpr term0_dim2_time_dependent    = false;
   inline static fk::vector<P> const term0_dim2_data; // empty in this case
   static flux_type constexpr term0_dim2_flux = flux_type::central;
   static auto constexpr term0_dim2_name      = "massZ";
@@ -967,10 +927,9 @@ private:
                                                      term0_dim2};
 
   // term 1
-  static coefficient_type constexpr term1_dim0_type = coefficient_type::mass;
-  inline static g_func_type<P> const term1_dim0_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term1_dim0_time_dependent = false;
+  static coefficient_type constexpr term1_dim0_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term1_dim0_func = g_func_identity;
+  static bool constexpr term1_dim0_time_dependent    = false;
   inline static fk::vector<P> const term1_dim0_data; // empty in this case
   static flux_type constexpr term1_dim0_flux = flux_type::central;
   static auto constexpr term1_dim0_name      = "massX";
@@ -979,10 +938,9 @@ private:
       term<P>(term1_dim0_type, term1_dim0_func, term1_dim0_time_dependent,
               term1_dim0_flux, term1_dim0_data, term1_dim0_name, dim0);
 
-  static coefficient_type constexpr term1_dim1_type = coefficient_type::grad;
-  inline static g_func_type<P> const term1_dim1_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term1_dim1_time_dependent = false;
+  static coefficient_type constexpr term1_dim1_type  = coefficient_type::grad;
+  inline static g_func_type<P> const term1_dim1_func = g_func_identity;
+  static bool constexpr term1_dim1_time_dependent    = false;
   inline static fk::vector<P> const term1_dim1_data; // empty in this case
   static flux_type constexpr term1_dim1_flux = flux_type::central;
   static auto constexpr term1_dim1_name      = "v_y.d_dy";
@@ -991,10 +949,9 @@ private:
       term<P>(term1_dim1_type, term1_dim1_func, term1_dim1_time_dependent,
               term1_dim1_flux, term1_dim1_data, term1_dim1_name, dim1);
 
-  static coefficient_type constexpr term1_dim2_type = coefficient_type::mass;
-  inline static g_func_type<P> const term1_dim2_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term1_dim2_time_dependent = false;
+  static coefficient_type constexpr term1_dim2_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term1_dim2_func = g_func_identity;
+  static bool constexpr term1_dim2_time_dependent    = false;
   inline static fk::vector<P> const term1_dim2_data; // empty in this case
   static flux_type constexpr term1_dim2_flux = flux_type::central;
   static auto constexpr term1_dim2_name      = "massZ";
@@ -1007,10 +964,9 @@ private:
                                                      term0_dim2};
 
   // term 2
-  static coefficient_type constexpr term2_dim0_type = coefficient_type::mass;
-  inline static g_func_type<P> const term2_dim0_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term2_dim0_time_dependent = false;
+  static coefficient_type constexpr term2_dim0_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term2_dim0_func = g_func_identity;
+  static bool constexpr term2_dim0_time_dependent    = false;
   inline static fk::vector<P> const term2_dim0_data; // empty in this case
   static flux_type constexpr term2_dim0_flux = flux_type::central;
   static auto constexpr term2_dim0_name      = "massX";
@@ -1019,10 +975,9 @@ private:
       term<P>(term2_dim0_type, term2_dim0_func, term2_dim0_time_dependent,
               term2_dim0_flux, term2_dim0_data, term2_dim0_name, dim0);
 
-  static coefficient_type constexpr term2_dim1_type = coefficient_type::mass;
-  inline static g_func_type<P> const term2_dim1_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term2_dim1_time_dependent = false;
+  static coefficient_type constexpr term2_dim1_type  = coefficient_type::mass;
+  inline static g_func_type<P> const term2_dim1_func = g_func_identity;
+  static bool constexpr term2_dim1_time_dependent    = false;
   inline static fk::vector<P> const term2_dim1_data; // empty in this case
   static flux_type constexpr term2_dim1_flux = flux_type::central;
   static auto constexpr term2_dim1_name      = "massY";
@@ -1031,10 +986,9 @@ private:
       term<P>(term2_dim1_type, term2_dim1_func, term2_dim1_time_dependent,
               term2_dim1_flux, term2_dim1_data, term2_dim1_name, dim1);
 
-  static coefficient_type constexpr term2_dim2_type = coefficient_type::grad;
-  inline static g_func_type<P> const term2_dim2_func =
-      &PDE_continuity_3::g_func_identity;
-  static bool constexpr term2_dim2_time_dependent = false;
+  static coefficient_type constexpr term2_dim2_type  = coefficient_type::grad;
+  inline static g_func_type<P> const term2_dim2_func = g_func_identity;
+  static bool constexpr term2_dim2_time_dependent    = false;
   inline static fk::vector<P> const term2_dim2_data; // empty in this case
   static flux_type constexpr term2_dim2_flux = flux_type::central;
   static auto constexpr term2_dim2_name      = "v_z.d_dz";
@@ -1048,34 +1002,26 @@ private:
 
   // define sources
   inline static std::vector<vector_func<P>> const source0_funcs = {
-      &PDE_continuity_3::source_0_dim0, &PDE_continuity_3::source_0_dim1,
-      &PDE_continuity_3::source_0_dim2};
-  inline static scalar_func<P> const source0_time =
-      &PDE_continuity_3::source_0_time;
+      source_0_dim0, source_0_dim1, source_0_dim2};
+  inline static scalar_func<P> const source0_time = source_0_time;
   inline static source<P> const source0 =
       source<P>(source0_funcs, source0_time);
 
   inline static std::vector<vector_func<P>> const source1_funcs = {
-      &PDE_continuity_3::source_1_dim0, &PDE_continuity_3::source_1_dim1,
-      &PDE_continuity_3::source_1_dim2};
-  inline static scalar_func<P> const source1_time =
-      &PDE_continuity_3::source_1_time;
+      source_1_dim0, source_1_dim1, source_1_dim2};
+  inline static scalar_func<P> const source1_time = source_1_time;
   inline static source<P> const source1 =
       source<P>(source1_funcs, source1_time);
 
   inline static std::vector<vector_func<P>> const source2_funcs = {
-      &PDE_continuity_3::source_2_dim0, &PDE_continuity_3::source_2_dim1,
-      &PDE_continuity_3::source_2_dim2};
-  inline static scalar_func<P> const source2_time =
-      &PDE_continuity_3::source_2_time;
+      source_2_dim0, source_2_dim1, source_2_dim2};
+  inline static scalar_func<P> const source2_time = source_2_time;
   inline static source<P> const source2 =
       source<P>(source1_funcs, source2_time);
 
   inline static std::vector<vector_func<P>> const source3_funcs = {
-      &PDE_continuity_3::source_3_dim0, &PDE_continuity_3::source_3_dim1,
-      &PDE_continuity_3::source_3_dim2};
-  inline static scalar_func<P> const source3_time =
-      &PDE_continuity_3::source_3_time;
+      source_3_dim0, source_3_dim1, source_3_dim2};
+  inline static scalar_func<P> const source3_time = source_3_time;
   inline static source<P> const source3 =
       source<P>(source3_funcs, source3_time);
 
@@ -1086,12 +1032,9 @@ private:
                                                         source2, source3};
 
   inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
-      &PDE_continuity_3::exact_solution_dim0,
-      &PDE_continuity_3::exact_solution_dim1,
-      &PDE_continuity_3::exact_solution_dim2};
+      exact_solution_dim0, exact_solution_dim1, exact_solution_dim2};
 
-  inline static scalar_func<P> const _exact_scalar_func =
-      &PDE_continuity_3::exact_time;
+  inline static scalar_func<P> const _exact_scalar_func = exact_time;
 };
 
 // ---------------------------------------------------------------------------

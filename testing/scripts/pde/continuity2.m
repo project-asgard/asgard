@@ -14,7 +14,7 @@ dim_x.domainMax = +1;
 dim_x.lev = 2;
 dim_x.deg = 2;
 dim_x.FMWT = []; % Gets filled in later
-dim_x.init_cond_fn = @f0_x;
+dim_x.init_cond_fn = @c2_f0_x;
 
 dim_y.name = 'y';
 dim_y.BCL = 0; % periodic
@@ -24,7 +24,7 @@ dim_y.domainMax = +2;
 dim_y.lev = 2;
 dim_y.deg = 2;
 dim_y.FMWT = []; % Gets filled in later
-dim_y.init_cond_fn = @f0_y;
+dim_y.init_cond_fn = @c2_f0_y;
 
 %%
 % Add dimensions to the pde object
@@ -93,26 +93,9 @@ pde.params = params;
 % variation of each source term with each dimension and time.
 % Here we define 3 source terms.
 
-%%
-% Source term 1
-    function f = s1t(t);   f = 2*cos(2*t);    end
-    function f = s1x(x,p); f = cos(pi*x);     end
-    function f = s1y(y,p); f = sin(2*pi*y);   end
-source1 = {@s1x,@s1y,@s1t};
-
-%%
-% Source term 2
-    function f = s2t(t);   f = 2*pi*sin(2*t); end
-    function f = s2x(x,p); f = cos(pi*x);     end
-    function f = s2y(y,p); f = cos(2*pi*y);   end
-source2 = {@s2x,@s2y,@s2t};
-
-%%
-% Source term 3
-    function f = s3t(t);   f = -pi*sin(2*t);  end
-    function f = s3x(x,p); f = sin(pi*x);     end
-    function f = s3y(y,p); f = sin(2*pi*y);   end
-source3 = {@s3x,@s3y,@s3t};
+source1 = {@c2_s1x,@c2_s1y,@c2_s1t};
+source2 = {@c2_s2x,@c2_s2y,@c2_s2t};
+source3 = {@c2_s3x,@c2_s3y,@c2_s3t};
 
 %%
 % Add sources to the pde data structure
@@ -121,15 +104,11 @@ pde.sources = {source1,source2,source3};
 %% Define the analytic solution (optional).
 % This requires nDims+time function handles.
 
-function f = a_t(t);   f = sin(2*t);      end
-function f = a_x(x,p); f = cos(pi*x);     end
-function f = a_y(y,p); f = sin(2*pi*y);   end
-
-pde.analytic_solutions_1D = {@a_x,@a_y,@a_t};
+pde.analytic_solutions_1D = {@c2_a_x,@c2_a_y,@c2_a_t};
 
 %% Other workflow options that should perhpas not be in the PDE?
 
-pde.set_dt = @set_dt; % Function which accepts the pde (after being updated with CMD args).
+pde.set_dt = @c2_set_dt; % Function which accepts the pde (after being updated with CMD args).
 pde.solvePoisson = 0; % Controls the "workflow" ... something we still don't know how to do generally.
 pde.applySpecifiedE = 0; % Controls the "workflow" ... something we still don't know how to do generally.
 pde.implicit = 0; % Can likely be removed and be a runtime argument.
@@ -139,20 +118,41 @@ end
 
 %% Define the various input functions specified above.
 
-%%
+
 % Initial conditions for each dimension
 
-function f=f0_x(x,p); f=x.*0; end
-function f=f0_y(y,p); f=y.*0; end
+function f=c2_f0_x(x,p); f=x.*0; end
+function f=c2_f0_y(y,p); f=y.*0; end
 
-%%
+% Source term 1
+function f = c2_s1t(t);   f = 2*cos(2*t);    end
+function f = c2_s1x(x,p); f = cos(pi*x);     end
+function f = c2_s1y(y,p); f = sin(2*pi*y);   end
+
+% Source term 2
+function f = c2_s2t(t);   f = 2*pi*sin(2*t); end
+function f = c2_s2x(x,p); f = cos(pi*x);     end
+function f = c2_s2y(y,p); f = cos(2*pi*y);   end
+
+% Source term 3
+function f = c2_s3t(t);   f = -pi*sin(2*t);  end
+function f = c2_s3x(x,p); f = sin(pi*x);     end
+function f = c2_s3y(y,p); f = sin(2*pi*y);   end
+
+%% Define the analytic solution (optional).
+% This requires nDims+time function handles.
+function f = c2_a_t(t);   f = sin(2*t);      end
+function f = c2_a_x(x,p); f = cos(pi*x);     end
+function f = c2_a_y(y,p); f = sin(2*pi*y);   end
+
+
 % Function to set time step
-
-function dt=set_dt(pde)
+function dt = c2_set_dt(pde); 
 
 Lmax = pde.dimensions{1}.domainMax;
 LevX = pde.dimensions{1}.lev;
 CFL = pde.CFL;
-
 dt = Lmax/2^LevX*CFL;
+
+
 end

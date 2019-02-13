@@ -95,6 +95,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
   {
     for (int i = 0; i < pde->num_dims; ++i)
     {
+      std::cout << i << std::endl;
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->exact_vector_funcs[i](x)(0);
@@ -154,6 +155,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->exact_vector_funcs[i](x)(0);
+      std::cout << i << std::endl;
       relax_for_float(fx, gold);
     }
     TestType const gold =
