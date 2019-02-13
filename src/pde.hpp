@@ -10,10 +10,10 @@
 #include <typeinfo>
 #include <vector>
 
-#include "pde/pde_base.hpp"
 #include "pde/continuity1.hpp"
 #include "pde/continuity2.hpp"
 #include "pde/continuity3.hpp"
+#include "pde/pde_base.hpp"
 #include "tensors.hpp"
 
 //
