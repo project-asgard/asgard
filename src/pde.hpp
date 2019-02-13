@@ -12,6 +12,9 @@
 
 #include "tensors.hpp"
 
+// same pi used by matlab
+static double const PI = 3.141592653589793;
+
 // used to suppress warnings in unused variables
 auto const ignore = [](auto ignored) { (void)ignored; };
 
@@ -312,7 +315,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
+                   [](P const &x) { return std::cos(2.0 * PI * x); });
     return fx;
   }
 
@@ -327,7 +330,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
+                   [](P const &x) { return std::cos(2.0 * PI * x); });
     return fx;
   }
 
@@ -338,11 +341,11 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
-  static P source_1_time(P const time) { return -2.0 * M_PI * std::sin(time); }
+  static P source_1_time(P const time) { return -2.0 * PI * std::sin(time); }
 
   // g-funcs for terms (optional)
   static P g_func_0(P const x, P const time)
@@ -449,14 +452,14 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
   static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
@@ -471,7 +474,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
@@ -479,7 +482,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
@@ -490,7 +493,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
@@ -498,13 +501,13 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
+                   [](P const &x) { return std::cos(2.0 * PI * x); });
     return fx;
   }
 
   static P source_1_time(P const time)
   {
-    return 2.0 * M_PI * std::sin(2.0 * time);
+    return 2.0 * PI * std::sin(2.0 * time);
   }
 
   // source 2
@@ -512,7 +515,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(M_PI * x); });
+                   [](P const &x) { return std::sin(PI * x); });
     return fx;
   }
 
@@ -520,11 +523,11 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
-  static P source_2_time(P const time) { return -M_PI * std::sin(2.0 * time); }
+  static P source_2_time(P const time) { return -PI * std::sin(2.0 * time); }
 
   // g-funcs for terms (optional)
   static P g_func_identity(P const x, P const time)
@@ -692,14 +695,14 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
   static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
@@ -707,7 +710,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x / 3.0); });
+                   [](P const &x) { return std::cos(2.0 * PI * x / 3.0); });
     return fx;
   }
 
@@ -722,7 +725,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
@@ -730,7 +733,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
@@ -738,7 +741,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x / 3.0); });
+                   [](P const &x) { return std::cos(2.0 * PI * x / 3.0); });
     return fx;
   }
 
@@ -749,7 +752,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
@@ -757,7 +760,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x); });
+                   [](P const &x) { return std::cos(2.0 * PI * x); });
     return fx;
   }
 
@@ -765,21 +768,24 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x / 3.0); });
+                   [](P const &x) { return std::cos(2.0 * PI * x / 3.0); });
     return fx;
   }
 
   static P source_1_time(P const time)
   {
-    return 2.0 * M_PI * std::sin(2.0 * time);
+    return 2.0 * PI * std::sin(2.0 * time);
   }
 
   // source 2
   static fk::vector<P> source_2_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(M_PI * x); });
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const &x) {
+      std::cout << "blah" << std::endl;
+      std::cout << std::sin(PI * x) << std::endl;
+      return std::sin(PI * x);
+    });
     return fx;
   }
 
@@ -787,7 +793,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
@@ -795,18 +801,18 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x / 3.0); });
+                   [](P const &x) { return std::cos(2.0 * PI * x / 3.0); });
     return fx;
   }
 
-  static P source_2_time(P const time) { return -M_PI * std::sin(2.0 * time); }
+  static P source_2_time(P const time) { return -PI * std::sin(2.0 * time); }
 
   // source 3
   static fk::vector<P> source_3_dim0(fk::vector<P> const x)
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(M_PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
@@ -814,7 +820,7 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * M_PI * x); });
+                   [](P const &x) { return std::sin(2.0 * PI * x); });
     return fx;
   }
 
@@ -822,13 +828,13 @@ public:
   {
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * M_PI * x / 3.0); });
+                   [](P const &x) { return std::sin(2.0 * PI * x / 3.0); });
     return fx;
   }
 
   static P source_3_time(P const time)
   {
-    return -2.0 / 3.0 * M_PI * std::sin(2.0 * time);
+    return -2.0 / 3.0 * PI * std::sin(2.0 * time);
   }
 
   // g-funcs for terms (optional)
@@ -1017,7 +1023,7 @@ private:
       source_2_dim0, source_2_dim1, source_2_dim2};
   inline static scalar_func<P> const source2_time = source_2_time;
   inline static source<P> const source2 =
-      source<P>(source1_funcs, source2_time);
+      source<P>(source2_funcs, source2_time);
 
   inline static std::vector<vector_func<P>> const source3_funcs = {
       source_3_dim0, source_3_dim1, source_3_dim2};
