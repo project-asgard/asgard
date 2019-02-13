@@ -161,7 +161,6 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
         TestType const fx   = pde->sources[i].source_funcs[j](x)(0);
-        pde->sources[i].source_funcs[j](x).print("return");
         relaxed_compare(fx, gold);
       }
 

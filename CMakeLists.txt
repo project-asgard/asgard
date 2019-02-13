@@ -53,6 +53,9 @@ set (components
   transformations
 )
 
+include_directories( ${CMAKE_SOURCE_DIR}/src
+		     ${CMAKE_SOURCE_DIR}/src/pde )
+
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
 endforeach ()
@@ -61,6 +64,7 @@ if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
   set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
 endif ()
+
 
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
@@ -83,6 +87,8 @@ target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 target_link_libraries (transformations 
   PRIVATE connectivity matlab_utilities program_options
   quadrature tensors)
+
+
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
@@ -121,5 +127,5 @@ if (ASGARD_BUILD_TESTS)
   enable_testing ()
   add_test (all-tests tests)
 else ()
-  message (WARNING "warning: tests will not be built.")
+	message (WARNING "warning: tests will not be built.")
 endif ()
