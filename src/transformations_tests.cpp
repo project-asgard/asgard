@@ -100,9 +100,10 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
         std::to_string(lev) + "_sg.dat";
 
     fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
-    dimension const dim             = make_dummy_dim<TestType>(lev, deg);
-    options const o                 = make_options(
-        {"-d", std::to_string(deg), "-l", std::to_string(lev), "-f"});
+
+    dimension const dim = make_dummy_dim<TestType>(lev, deg);
+    options const o =
+        make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
     element_table const t(o, dims);
     TestType const time = 2.0;
 
