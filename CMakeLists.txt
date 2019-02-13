@@ -53,9 +53,6 @@ set (components
   transformations
 )
 
-include_directories( ${CMAKE_SOURCE_DIR}/src
-		     ${CMAKE_SOURCE_DIR}/src/pde )
-
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
 endforeach ()
@@ -84,7 +81,7 @@ target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
-target_link_libraries (transformations 
+target_link_libraries (transformations
   PRIVATE connectivity matlab_utilities program_options
   quadrature tensors)
 
@@ -127,5 +124,5 @@ if (ASGARD_BUILD_TESTS)
   enable_testing ()
   add_test (all-tests tests)
 else ()
-	message (WARNING "warning: tests will not be built.")
+  message (WARNING "warning: tests will not be built.")
 endif ()

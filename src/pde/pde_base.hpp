@@ -10,7 +10,7 @@
 #include <typeinfo>
 #include <vector>
 
-#include "tensors.hpp"
+#include "../tensors.hpp"
 
 //
 // This file contains all of the interface and object definitions for our

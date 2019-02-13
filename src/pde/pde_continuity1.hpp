@@ -10,8 +10,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "../tensors.hpp"
 #include "pde_base.hpp"
-#include "tensors.hpp"
 
 // ---------------------------------------------------------------------------
 //
