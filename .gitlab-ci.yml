@@ -1,8 +1,10 @@
 
+# let's make sure the source is formatted
 clang-format:
   script:
     - clang-format src/*
 
+# run the unit tests for asgard
 catch2-tests:
   script:
     - mkdir build
