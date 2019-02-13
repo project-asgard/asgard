@@ -2,7 +2,7 @@
 # let's make sure the source is formatted
 clang-format:
   script:
-    - clang-format src/*
+    - for bob in $(ls src/*) ; do diff ${bob} <(clang-format ${bob}) || exit ; done
 
 # run the unit tests for asgard
 catch2-tests:
