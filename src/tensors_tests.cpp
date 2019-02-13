@@ -656,7 +656,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
                                 {0.641484652834663, 0.767135868133926}};
       fk::matrix<TestType> test_copy(test);
       test_copy.invert();
-      
+
       // A * inv(A) == I
       REQUIRE(test * test_copy == eye<TestType>(2));
 
