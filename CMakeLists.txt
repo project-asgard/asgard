@@ -62,6 +62,7 @@ if (build_OpenBLAS)
   set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
 endif ()
 
+
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
 
@@ -70,7 +71,7 @@ target_link_libraries (element_table
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
-target_link_libraries (pde)
+target_link_libraries (pde PRIVATE tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
@@ -80,9 +81,11 @@ target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
-target_link_libraries (transformations 
+target_link_libraries (transformations
   PRIVATE connectivity matlab_utilities program_options
   quadrature tensors)
+
+
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
