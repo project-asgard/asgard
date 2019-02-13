@@ -7,9 +7,9 @@
 #ifndef _tests_general_h_
 #define _tests_general_h_
 
+#include "../src/pde.hpp"
 #include "../src/program_options.hpp"
 #include "catch.hpp"
-#include "pde.hpp"
 #include <string>
 #include <vector>
 
