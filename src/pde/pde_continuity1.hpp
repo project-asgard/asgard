@@ -15,33 +15,36 @@
 
 // ---------------------------------------------------------------------------
 //
-// the "continuity 1" pde
+// the "continuity 1d" pde
 //
 // 1D test case using continuity equation, i.e.,
 // df/dt + df/dx = 0
 //
 // ---------------------------------------------------------------------------
 template<typename P>
-class PDE_continuity_1 : public PDE<P>
+class PDE_continuity_1d : public PDE<P>
 {
 public:
-  PDE_continuity_1()
-      : PDE<P>(_num_dims, _num_sources, _num_terms, dimensions, terms, sources,
-               _exact_vector_funcs, _exact_scalar_func, _do_poisson_solve,
-               _has_analytic_soln)
+  PDE_continuity_1d()
+      : PDE<P>(num_dims_, num_sources_, num_terms_, dimensions, terms, sources,
+               exact_vector_funcs_, exact_scalar_func_, do_poisson_solve_,
+               has_analytic_soln_)
   {}
 
 private:
   // these fields will be checked against provided functions to make sure
   // everything is specified correctly
 
-  static int constexpr _num_dims           = 1;
-  static int constexpr _num_sources        = 2;
-  static int constexpr _num_terms          = 1;
-  static bool constexpr _do_poisson_solve  = false;
-  static bool constexpr _has_analytic_soln = true;
+  static int constexpr num_dims_           = 1;
+  static int constexpr num_sources_        = 2;
+  static int constexpr num_terms_          = 1;
+  static bool constexpr do_poisson_solve_  = false;
+  static bool constexpr has_analytic_soln_ = true;
 
-  // function definitions...
+  //
+  // function definitions needed to build up the "dimension", "term", and
+  // "source" member objects below for this PDE
+  //
 
   // specify initial condition vector functions...
   static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
@@ -140,8 +143,8 @@ private:
   inline static std::vector<source<P>> const sources = {source0, source1};
 
   // define exact soln functions
-  inline static std::vector<vector_func<P>> const _exact_vector_funcs = {
+  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       exact_solution_dim0};
 
-  inline static scalar_func<P> const _exact_scalar_func = exact_time;
+  inline static scalar_func<P> const exact_scalar_func_ = exact_time;
 };

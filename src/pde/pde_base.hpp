@@ -31,10 +31,12 @@ using scalar_func = std::function<P(P const)>;
 
 //----------------------------------------------------------------------------
 //
-// Define class members of PDE
+// Define member classes of the PDE type: dimension, term, source
 //
 //----------------------------------------------------------------------------
 
+// just a small enumeration of the possibly boundary condition types needed in
+// the following 'dimension' member class
 enum class boundary_condition
 {
   periodic,
@@ -102,28 +104,13 @@ using g_func_type = std::function<P(P const, P const)>;
 template<typename P>
 class term
 {
-  // this is to hold data that may
-  // change over the course of the
-  // simulation, from any source,
-  // that is used in operator construction.
-  //
-  // initialized to one if not provided at instantiation,
-  // which performs an identity operation where this is used,
-  // until set by outside source.
-  fk::vector<P> data;
-
 public:
-  coefficient_type const coeff;
-  g_func_type<P> const g_func;
-  bool const time_dependent;
-  flux_type const flux;
-  std::string const name;
   term(coefficient_type const coeff, g_func_type<P> const g_func,
        bool const time_dependent, flux_type const flux,
        fk::vector<P> const data, std::string const name,
        dimension<P> const owning_dim)
-      : data(data), coeff(coeff), g_func(g_func),
-        time_dependent(time_dependent), flux(flux), name(name)
+      : coeff(coeff), g_func(g_func), time_dependent(time_dependent),
+        flux(flux), name(name), data_(data)
   {
     int const degrees_freedom_1d =
         owning_dim.degree * static_cast<int>(std::pow(2, owning_dim.level));
@@ -133,8 +120,8 @@ public:
     }
     else
     {
-      this->data.resize(degrees_freedom_1d);
-      this->data = fk::vector<P>(std::vector<P>(
+      this->data_.resize(degrees_freedom_1d);
+      this->data_ = fk::vector<P>(std::vector<P>(
           owning_dim.degree * static_cast<int>(std::pow(2, owning_dim.level)),
           1.0));
     }
@@ -142,10 +129,25 @@ public:
 
   void set_data(fk::vector<P> const new_data)
   {
-    assert(new_data.size() == data.size());
-    data = new_data;
+    assert(new_data.size() == data_.size());
+    data_ = new_data;
   };
-  fk::vector<P> get_data() const { return data; };
+  fk::vector<P> get_data() const { return data_; };
+
+  // public but const data. no getters
+  coefficient_type const coeff;
+  g_func_type<P> const g_func;
+  bool const time_dependent;
+  flux_type const flux;
+  std::string const name;
+
+private:
+  // this is to hold data that may change over the course of the simulation,
+  // from any source, that is used in operator construction.
+  //
+  // initialized to one if not provided at instantiation, which performs an
+  // identity operation where this is used, until set by outside source.
+  fk::vector<P> data_;
 };
 
 // ---------------------------------------------------------------------------
@@ -159,14 +161,15 @@ template<typename P>
 class source
 {
 public:
-  std::vector<vector_func<P>> const source_funcs;
-  scalar_func<P> const time_func;
-
   source(std::vector<vector_func<P>> const source_funcs,
          scalar_func<P> const time_func)
 
       : source_funcs(source_funcs), time_func(time_func)
   {}
+
+  // public but const data. no getters
+  std::vector<vector_func<P>> const source_funcs;
+  scalar_func<P> const time_func;
 };
 
 // ---------------------------------------------------------------------------
@@ -185,7 +188,7 @@ public:
   PDE(int const num_dims,
       int const num_sources,
       int const num_terms,
-      std::vector<dimension<P>> const dimensions, 
+      std::vector<dimension<P>> const dimensions,
       term_set<P> const terms,
       std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
@@ -212,8 +215,7 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
-    // ensure analytic solution functions
-    // were provided if this flag is set
+    // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln)
     {
       assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));

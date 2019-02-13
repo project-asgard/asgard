@@ -65,25 +65,25 @@ std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
   switch (choice)
   {
   case PDE_opts::continuity_1:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   case PDE_opts::continuity_2:
-    return std::make_unique<PDE_continuity_2<P>>();
+    return std::make_unique<PDE_continuity_2d<P>>();
   case PDE_opts::continuity_3:
-    return std::make_unique<PDE_continuity_3<P>>();
+    return std::make_unique<PDE_continuity_3d<P>>();
 
   // TODO not yet implemented, replace return with appropriate types
   case PDE_opts::vlasov4:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   case PDE_opts::vlasov43:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   case PDE_opts::vlasov5:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   case PDE_opts::vlasov7:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   case PDE_opts::vlasov8:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   case PDE_opts::pde_user:
-    return std::make_unique<PDE_continuity_1<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>();
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);

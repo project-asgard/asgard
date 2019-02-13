@@ -15,31 +15,34 @@
 
 // ---------------------------------------------------------------------------
 //
-// the "continuity 2" pde
+// the "continuity 2d" pde
 //
 // 2D test case using continuity equation, i.e.,
 // df/dt + v_x * df/dx + v_y * df/dy == 0
 //
 // ---------------------------------------------------------------------------
 template<typename P>
-class PDE_continuity_2 : public PDE<P>
+class PDE_continuity_2d : public PDE<P>
 {
 public:
-  PDE_continuity_2()
-      : PDE<P>(_num_dims, _num_sources, _num_terms, dimensions, terms, sources,
-               _exact_vector_funcs, _exact_scalar_func, _do_poisson_solve,
-               _has_analytic_soln)
+  PDE_continuity_2d()
+      : PDE<P>(num_dims_, num_sources_, num_terms_, dimensions, terms, sources,
+               _exact_vector_funcs, _exact_scalar_func, do_poisson_solve_,
+               has_analytic_soln_)
   {}
 
 private:
   // these fields used to check correctness of specification
-  static int constexpr _num_dims           = 2;
-  static int constexpr _num_sources        = 3;
-  static int constexpr _num_terms          = 2;
-  static bool constexpr _do_poisson_solve  = false;
-  static bool constexpr _has_analytic_soln = true;
+  static int constexpr num_dims_           = 2;
+  static int constexpr num_sources_        = 3;
+  static int constexpr num_terms_          = 2;
+  static bool constexpr do_poisson_solve_  = false;
+  static bool constexpr has_analytic_soln_ = true;
 
-  // function definitions...
+  //
+  // function definitions needed to build up the "dimension", "term", and
+  // "source" member objects below for this PDE
+  //
 
   // specify initial condition vector functions...
   static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
