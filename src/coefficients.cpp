@@ -126,14 +126,18 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     // setup numerical flux choice/boundary conditions
     auto const [row_indices, col_indices] =
         flux_or_boundary_indices(dim, term_1D, i);
-  };
+    // FIXME finish this func
+    fk::matrix<P> const flux_op = get_flux_operator(dim, term_1D, i);
+  }
+  
+  // transform matrix to wavelet space
 
   return fk::matrix<P>();
 }
 
 template<typename P>
 std::array<fk::matrix<P>, 2>
-flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
+static flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
                          int const index)
 {
   // helper tools
@@ -238,6 +242,13 @@ flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
     return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
   }
 }
+
+
+template<typename P>
+fk::matrix<P>
+static get_flux_operator(dimension<P> const dim, term<P> const term_1D,
+                         int const index)
+{};
 
 template fk::matrix<float> generate_coefficients(dimension<float> const dim,
                                                  term<float> const term_1D,
