@@ -57,56 +57,6 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
       fk::matrix<P>(forward_trans).transpose();
   fk::vector<P> const data_real = forward_trans_transpose * term_1D.get_data();
 
-  // define three small tools I'll need
-  // limited subset of matlab meshgrid functionality
-  auto const meshgrid = [](int const start, int const length) -> fk::matrix<P> {
-    fk::matrix<P> mesh(length, length);
-    fk::vector<P> const row = [=]() {
-      fk::vector<P> row(length);
-      std::iota(row.begin(), row.end(), start);
-      return row;
-    }();
-    for (int i = 0; i < mesh.nrows(); ++i)
-    {
-      mesh.update_row(i, row);
-    }
-    return mesh;
-  };
-
-  // horizontally concatenate set of matrices w/ same number of rows
-  auto const horz_matrix_concat =
-      [](std::vector<fk::matrix<P>> const matrices) -> fk::matrix<P> {
-    assert(matrices.size() > 0);
-    auto const [nrows, ncols] = [&]() {
-      int row_accum   = 0;
-      int const ncols = matrices[0].ncols();
-      for (auto const &mat : matrices)
-      {
-        row_accum += mat.nrows();
-        assert(mat.ncols() == ncols);
-      }
-      return std::array<int, 2>{row_accum, ncols};
-    }();
-    fk::matrix<P> concat(nrows, ncols);
-    int col_index = 0;
-    for (auto const &mat : matrices)
-    {
-      concat.set_submatrix(0, col_index += ncols, mat);
-    }
-    return concat;
-  };
-  // form a matrix that is ncols copies of the source vector appended
-  // horizontally
-  auto const expand = [](fk::vector<P> const source,
-                         int const ncols) -> fk::matrix<P> {
-    fk::matrix<P> expanded(source.size(), ncols);
-    for (int i = 0; i < ncols; ++i)
-    {
-      expanded.update_col(i, source);
-    }
-    return expanded;
-  };
-
   for (int i = 0; i < two_to_level; ++i)
   {
     // get index for current, next, prev.
@@ -133,7 +83,21 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     }();
 
     // perform volume integral to get a degree x degree block //FIXME is this
-    // corrrect?
+    // correct? - FIXME extract this!
+
+    // little helper tool
+    // form a matrix that is ncols copies of the source vector appended
+    // horizontally
+    auto const expand = [](fk::vector<P> const source,
+                           int const ncols) -> fk::matrix<P> {
+      fk::matrix<P> expanded(source.size(), ncols);
+      for (int i = 0; i < ncols; ++i)
+      {
+        expanded.update_col(i, source);
+      }
+      return expanded;
+    };
+
     fk::matrix<P> const block = [&, &weights = weights]() {
       fk::matrix<P> block(dim.degree, dim.degree);
       //  expand to perform elementwise mult with basis
@@ -145,7 +109,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
                                        : basis_prime_transpose;
       fk::matrix<P> middle_factor =
           term_1D.coeff == coefficient_type::stiffness ? basis_prime : basis;
-      // form blck
+      // form block
       for (int i = 0; i < middle_factor.nrows(); ++i)
       {
         for (int j = 0; j < middle_factor.ncols(); ++j)
@@ -156,9 +120,123 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
       }
       return (factor * block) * (normalized_domain / 2.0);
     }();
-  }
+
+    coefficients.set_submatrix(current, current, block);
+
+    // setup numerical flux choice/boundary conditions
+    auto const [row_indices, col_indices] =
+        flux_or_boundary_indices(dim, term_1D, i);
+  };
 
   return fk::matrix<P>();
+}
+
+template<typename P>
+std::array<fk::matrix<P>, 2>
+flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
+                         int const index)
+{
+  // helper tools
+  // horizontally concatenate set of matrices w/ same number of rows
+  auto const horz_matrix_concat =
+      [](std::vector<fk::matrix<P>> const matrices) -> fk::matrix<P> {
+    assert(matrices.size() > 0);
+    auto const [nrows, ncols] = [&]() {
+      int row_accum   = 0;
+      int const ncols = matrices[0].ncols();
+      for (auto const &mat : matrices)
+      {
+        row_accum += mat.nrows();
+        assert(mat.ncols() == ncols);
+      }
+      return std::array<int, 2>{row_accum, ncols};
+    }();
+    fk::matrix<P> concat(nrows, ncols);
+    int col_index = 0;
+    for (auto const &mat : matrices)
+    {
+      concat.set_submatrix(0, col_index += ncols, mat);
+    }
+    return concat;
+  };
+
+  // limited subset of matlab meshgrid functionality
+  auto const meshgrid = [](int const start, int const length) -> fk::matrix<P> {
+    fk::matrix<P> mesh(length, length);
+    fk::vector<P> const row = [=]() {
+      fk::vector<P> row(length);
+      std::iota(row.begin(), row.end(), start);
+      return row;
+    }();
+    for (int i = 0; i < mesh.nrows(); ++i)
+    {
+      mesh.update_row(i, row);
+    }
+    return mesh;
+  };
+
+  int const two_to_lev           = static_cast<int>(std::pow(2, dim.level));
+  int const prev                 = (index - 1) * dim.degree;
+  int const curr                 = index * dim.degree;
+  int const next                 = (index + 1) * dim.degree;
+  fk::matrix<P> const prev_mesh  = meshgrid(prev, dim.degree);
+  fk::matrix<P> const curr_mesh  = meshgrid(curr, dim.degree);
+  fk::matrix<P> const curr_trans = fk::matrix<P>(curr_mesh).transpose();
+  fk::matrix<P> const next_mesh  = meshgrid(next, dim.degree);
+
+  // interior elements - setup for flux
+  if (index < two_to_lev - 1 && index > 0)
+  {
+    fk::matrix<P> const row_indices =
+        horz_matrix_concat({prev_mesh, curr_mesh, curr_mesh, next_mesh});
+    fk::matrix<P> const col_indices =
+        horz_matrix_concat({curr_trans, curr_trans, curr_trans, curr_trans});
+    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+  }
+
+  // boundary elements - use boundary conditions
+  //
+  if (dim.left == boundary_condition::periodic ||
+      dim.right == boundary_condition::periodic)
+  {
+    fk::matrix<P> const col_indices =
+        horz_matrix_concat({curr_trans, curr_trans, curr_trans, curr_trans});
+    // left boundary
+    if (index == 0)
+    {
+      fk::matrix<P> const end_mesh =
+          meshgrid(dim.degree * (two_to_lev - 1), dim.degree);
+      fk::matrix<P> const row_indices =
+          horz_matrix_concat({end_mesh, curr_mesh, curr_mesh, next_mesh});
+      return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+      // right boundary
+    }
+    else
+    {
+      fk::matrix<P> const start_mesh = meshgrid(0, dim.degree);
+      fk::matrix<P> const row_indices =
+          horz_matrix_concat({prev_mesh, curr_mesh, curr_mesh, start_mesh});
+      return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+    }
+  }
+
+  // other boundary conditions use same indexing
+  fk::matrix<P> const col_indices =
+      horz_matrix_concat({curr_trans, curr_trans, curr_trans});
+  // left boundary
+  if (index == 0)
+  {
+    fk::matrix<P> const row_indices =
+        horz_matrix_concat({curr_mesh, curr_mesh, next_mesh});
+    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+    // right boundary
+  }
+  else
+  {
+    fk::matrix<P> const row_indices =
+        horz_matrix_concat({prev_mesh, curr_mesh, curr_mesh});
+    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+  }
 }
 
 template fk::matrix<float> generate_coefficients(dimension<float> const dim,
