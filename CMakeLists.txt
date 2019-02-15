@@ -64,7 +64,7 @@ if (build_OpenBLAS)
 endif ()
 
 target_link_libraries (coefficients
-  PRIVATE pde quadrature tensors)
+  PRIVATE pde quadrature tensors transformations)
 
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
