@@ -29,14 +29,6 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
   // get quadrature points and weights.
   auto const [roots, weights] = legendre_weights<P>(quad_num, -1.0, 1.0);
 
-  // compute the trace values (values at the left and right of each element for
-  // all k) trace_left is 1 by degree trace_right is 1 by degree
-  // FIXME should these be vectors?
-  fk::matrix<P> const trace_left =
-      legendre<P>(fk::vector<P>({-1.0}), dim.degree)[0];
-  fk::matrix<P> const trace_right =
-      legendre<P>(fk::vector<P>({1.0}), dim.degree)[0];
-
   // get the basis functions and derivatives for all k
   auto const [legendre_poly, legendre_prime] = legendre(roots, dim.degree);
 
@@ -66,18 +58,21 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const roots_i = [&, roots = roots]() {
-      std::transform(
-          roots.begin(), roots.end(), roots.begin(), [&](P const elem) {
-            return ((elem + 1) / 2 + i) * normalized_domain + dim.domain_min;
-          });
-      return roots;
+      fk::vector<P> roots_copy = roots;
+      std::transform(roots_copy.begin(), roots_copy.end(), roots_copy.begin(),
+                     [&](P const elem) {
+                       return ((elem + 1) / 2 + i) * normalized_domain +
+                              dim.domain_min;
+                     });
+      return roots_copy;
     }();
 
     // get realspace data at quadrature points, w/ g_func applied
     fk::vector<P> const data_real_quad = [&]() {
       fk::vector<P> data_real_quad =
           basis * data_real.extract(current, current + dim.degree);
-      std::transform(data_real.begin(), data_real.end(), data_real.begin(),
+      std::transform(data_real_quad.begin(), data_real_quad.end(),
+                     data_real_quad.begin(),
                      std::bind2nd(term_1D.g_func, time));
       return data_real_quad;
     }();
@@ -129,16 +124,15 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     // FIXME finish this func
     fk::matrix<P> const flux_op = get_flux_operator(dim, term_1D, i);
   }
-  
+
   // transform matrix to wavelet space
 
   return fk::matrix<P>();
 }
 
 template<typename P>
-std::array<fk::matrix<P>, 2>
-static flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
-                         int const index)
+std::array<fk::matrix<P>, 2> static flux_or_boundary_indices(
+    dimension<P> const dim, term<P> const term_1D, int const index)
 {
   // helper tools
   // horizontally concatenate set of matrices w/ same number of rows
@@ -243,12 +237,33 @@ static flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
   }
 }
 
-
 template<typename P>
-fk::matrix<P>
-static get_flux_operator(dimension<P> const dim, term<P> const term_1D,
-                         int const index)
-{};
+fk::matrix<P> static get_flux_operator(dimension<P> const dim,
+                                       term<P> const term_1D, int const index)
+{
+  // compute the trace values (values at the left and right of each element for
+  // all k) trace_left is 1 by degree trace_right is 1 by degree
+  // FIXME should these be vectors?
+  fk::matrix<P> const trace_left =
+      legendre<P>(fk::vector<P>({-1.0}), dim.degree)[0];
+  fk::matrix<P> const trace_right =
+      legendre<P>(fk::vector<P>({1.0}), dim.degree)[0];
+
+  // build default average and jump operators
+  /*
+  val_AVG = (1/h) * [-p_L'*p_R/2  -p_L'*p_L/2, ...   % for x1 (left side)
+      p_R'*p_R/2   p_R'*p_L/2];      % for x2 (right side)
+
+  val_JMP = (1/h) * [ p_L'*p_R    -p_L'*p_L, ...     % for x1 (left side)
+      -p_R'*p_R     p_R'*p_L  ]/2;    % for x2 (right side)
+
+  %%
+  % Combine AVG and JMP to give choice of flux for this operator type
+
+  val_FLUX = val_AVG + val_JMP / 2 * LF;
+*/
+  return fk::matrix<P>();
+};
 
 template fk::matrix<float> generate_coefficients(dimension<float> const dim,
                                                  term<float> const term_1D,
