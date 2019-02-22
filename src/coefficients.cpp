@@ -6,6 +6,222 @@
 #include "transformations.hpp"
 #include <numeric>
 
+// helper functions
+
+// stitch matrices together side by side (all must have same # rows)
+template<typename P>
+static fk::matrix<P>
+horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
+{
+  assert(matrices.size() > 0);
+  auto const [nrows, ncols] = [&]() {
+    int row_accum   = 0;
+    int const ncols = matrices[0].ncols();
+    for (auto const &mat : matrices)
+    {
+      row_accum += mat.nrows();
+      assert(mat.ncols() == ncols);
+    }
+    return std::array<int, 2>{row_accum, ncols};
+  }();
+  fk::matrix<P> concat(nrows, ncols);
+  int col_index = 0;
+  for (auto const &mat : matrices)
+  {
+    concat.set_submatrix(0, col_index += ncols, mat);
+  }
+  return concat;
+}
+
+// limited subset of matlab meshgrid
+template<typename P>
+static fk::matrix<P> meshgrid(int const start, int const length)
+{
+  fk::matrix<P> mesh(length, length);
+  fk::vector<P> const row = [=]() {
+    fk::vector<P> row(length);
+    std::iota(row.begin(), row.end(), start);
+    return row;
+  }();
+  for (int i = 0; i < mesh.nrows(); ++i)
+  {
+    mesh.update_row(i, row);
+  }
+  return mesh;
+}
+
+// get indices where flux should be applied
+template<typename P>
+static std::array<fk::matrix<P>, 2>
+flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
+                         int const index)
+{
+  int const two_to_lev           = static_cast<int>(std::pow(2, dim.level));
+  int const prev                 = (index - 1) * dim.degree;
+  int const curr                 = index * dim.degree;
+  int const next                 = (index + 1) * dim.degree;
+  fk::matrix<P> const prev_mesh  = meshgrid<P>(prev, dim.degree);
+  fk::matrix<P> const curr_mesh  = meshgrid<P>(curr, dim.degree);
+  fk::matrix<P> const curr_trans = fk::matrix<P>(curr_mesh).transpose();
+  fk::matrix<P> const next_mesh  = meshgrid<P>(next, dim.degree);
+
+  // interior elements - setup for flux
+  if (index < two_to_lev - 1 && index > 0)
+  {
+    fk::matrix<P> const row_indices =
+        horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh, next_mesh});
+    fk::matrix<P> const col_indices =
+        horz_matrix_concat<P>({curr_trans, curr_trans, curr_trans, curr_trans});
+    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+  }
+
+  // boundary elements - use boundary conditions
+  //
+  if (dim.left == boundary_condition::periodic ||
+      dim.right == boundary_condition::periodic)
+  {
+    fk::matrix<P> const col_indices =
+        horz_matrix_concat<P>({curr_trans, curr_trans, curr_trans, curr_trans});
+    // left boundary
+    if (index == 0)
+    {
+      fk::matrix<P> const end_mesh =
+          meshgrid<P>(dim.degree * (two_to_lev - 1), dim.degree);
+      fk::matrix<P> const row_indices =
+          horz_matrix_concat<P>({end_mesh, curr_mesh, curr_mesh, next_mesh});
+      return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+      // right boundary
+    }
+    else
+    {
+      fk::matrix<P> const start_mesh = meshgrid<P>(0, dim.degree);
+      fk::matrix<P> const row_indices =
+          horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh, start_mesh});
+      return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+    }
+  }
+
+  // other boundary conditions use same indexing
+  fk::matrix<P> const col_indices =
+      horz_matrix_concat<P>({curr_trans, curr_trans, curr_trans});
+  // left boundary
+  if (index == 0)
+  {
+    fk::matrix<P> const row_indices =
+        horz_matrix_concat<P>({curr_mesh, curr_mesh, next_mesh});
+    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+    // right boundary
+  }
+  else
+  {
+    fk::matrix<P> const row_indices =
+        horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh});
+    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
+  }
+}
+
+template<typename P>
+static fk::matrix<P>
+get_flux_operator(dimension<P> const dim, term<P> const term_1D,
+                  P const normalize, int const index)
+{
+  int const two_to_lev = static_cast<int>(std::pow(2, dim.level));
+  // compute the trace values (values at the left and right of each element for
+  // all k) trace_left is 1 by degree trace_right is 1 by degree
+  fk::matrix<P> const trace_left =
+      legendre<P>(fk::vector<P>({-1.0}), dim.degree)[0];
+  fk::matrix<P> const trace_right =
+      legendre<P>(fk::vector<P>({1.0}), dim.degree)[0];
+
+  fk::matrix<P> const trace_left_t = [&] {
+    fk::matrix<P> trace_left_transpose = trace_left;
+    trace_left_transpose.transpose();
+    return trace_left_transpose;
+  }();
+
+  fk::matrix<P> const trace_right_t = [&] {
+    fk::matrix<P> trace_right_transpose = trace_right;
+    trace_right_transpose.transpose();
+    return trace_right_transpose;
+  }();
+
+  // build default average and jump operators
+  fk::matrix<P> const avg_op =
+      horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_right,
+                             (trace_left_t * -1.0) * trace_left,
+                             trace_right_t * trace_right,
+                             trace_right_t * trace_left}) *
+      (1.0 / 2.0 * normalize);
+
+  fk::matrix<P> const jmp_op =
+      horz_matrix_concat<P>(
+          {trace_left_t * trace_right, (trace_left_t * -1.0) * trace_left,
+           (trace_right_t * -1.0) * trace_right, trace_right_t * trace_left}) *
+      (1.0 / 2.0 * normalize);
+
+  // cover boundary conditions
+
+  if (index == 0 && (dim.left == boundary_condition::dirichlet ||
+                     dim.left == boundary_condition::neumann))
+  {
+    fk::matrix<P> const avg_op =
+        horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_left,
+                               trace_right_t * trace_right,
+                               trace_right_t * trace_left}) *
+        (1.0 / 2.0 * normalize);
+
+    fk::matrix<P> const jmp_op =
+        horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_left,
+                               (trace_right_t * -1.0) * trace_right,
+                               trace_right_t * trace_left}) *
+        (1.0 / 2.0 * normalize);
+  }
+
+  if ((index == (two_to_lev - 1)) &&
+      (dim.right == boundary_condition::dirichlet ||
+       dim.right == boundary_condition::neumann))
+  {
+    fk::matrix<P> const avg_op =
+        horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_right,
+                               (trace_left_t * -1.0) * trace_left,
+                               trace_right_t * trace_right}) *
+        (1.0 / 2.0 * normalize);
+
+    fk::matrix<P> const jmp_op =
+        horz_matrix_concat<P>({trace_left_t * trace_right,
+                               (trace_left_t * -1.0) * trace_left,
+                               (trace_right_t * -1.0) * trace_right}) *
+        (1.0 / 2.0 * normalize);
+  }
+
+  fk::matrix<P> flux_op =
+      avg_op + ((jmp_op * (1.0 / 2.0)) * term_1D.get_flux_scale());
+
+  return flux_op;
+}
+
+// apply flux operator at given indices
+template<typename P>
+static fk::matrix<P> &
+apply_flux_operator(fk::matrix<P> const row_indices,
+                    fk::matrix<P> const col_indices, fk::matrix<P> const flux,
+                    fk::matrix<P> &coeff)
+{
+  assert(row_indices.nrows() == col_indices.nrows() == flux.nrows());
+  assert(row_indices.ncols() == row_indices.ncols() == flux.ncols());
+
+  for (int i = 0; i < flux.nrows(); ++i)
+  {
+    for (int j = 0; j < flux.ncols(); ++j)
+    {
+      int const row   = row_indices(i, j);
+      int const col   = col_indices(i, j);
+      coeff(row, col) = coeff(row, col) - flux(i, j);
+    }
+  }
+  return coeff;
+}
+
 // construct 1D coefficient matrix
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
@@ -67,10 +283,11 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
       return roots_copy;
     }();
 
-    // get realspace data at quadrature points, w/ g_func applied
     fk::vector<P> const data_real_quad = [&]() {
+      // get realspace data at quadrature points
       fk::vector<P> data_real_quad =
           basis * data_real.extract(current, current + dim.degree);
+      // apply g_func
       std::transform(data_real_quad.begin(), data_real_quad.end(),
                      data_real_quad.begin(),
                      std::bind2nd(term_1D.g_func, time));
@@ -119,151 +336,24 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     coefficients.set_submatrix(current, current, block);
 
     // setup numerical flux choice/boundary conditions
-    auto const [row_indices, col_indices] =
-        flux_or_boundary_indices(dim, term_1D, i);
-    // FIXME finish this func
-    fk::matrix<P> const flux_op = get_flux_operator(dim, term_1D, i);
+    // FIXME is this grad only? not sure yet
+    if (term_1D.coeff == coefficient_type::grad)
+    {
+      auto const [row_indices, col_indices] =
+          flux_or_boundary_indices(dim, term_1D, i);
+
+      fk::matrix<P> const flux_op =
+          get_flux_operator(dim, term_1D, normalized_domain, i);
+      coefficients =
+          apply_flux_operator(row_indices, col_indices, flux_op, coefficients);
+    }
   }
 
   // transform matrix to wavelet space
-
-  return fk::matrix<P>();
+  // FIXME does stiffness not need this transform?
+  coefficients = forward_trans * coefficients * forward_trans_transpose;
+  return coefficients;
 }
-
-template<typename P>
-std::array<fk::matrix<P>, 2> static flux_or_boundary_indices(
-    dimension<P> const dim, term<P> const term_1D, int const index)
-{
-  // helper tools
-  // horizontally concatenate set of matrices w/ same number of rows
-  auto const horz_matrix_concat =
-      [](std::vector<fk::matrix<P>> const matrices) -> fk::matrix<P> {
-    assert(matrices.size() > 0);
-    auto const [nrows, ncols] = [&]() {
-      int row_accum   = 0;
-      int const ncols = matrices[0].ncols();
-      for (auto const &mat : matrices)
-      {
-        row_accum += mat.nrows();
-        assert(mat.ncols() == ncols);
-      }
-      return std::array<int, 2>{row_accum, ncols};
-    }();
-    fk::matrix<P> concat(nrows, ncols);
-    int col_index = 0;
-    for (auto const &mat : matrices)
-    {
-      concat.set_submatrix(0, col_index += ncols, mat);
-    }
-    return concat;
-  };
-
-  // limited subset of matlab meshgrid functionality
-  auto const meshgrid = [](int const start, int const length) -> fk::matrix<P> {
-    fk::matrix<P> mesh(length, length);
-    fk::vector<P> const row = [=]() {
-      fk::vector<P> row(length);
-      std::iota(row.begin(), row.end(), start);
-      return row;
-    }();
-    for (int i = 0; i < mesh.nrows(); ++i)
-    {
-      mesh.update_row(i, row);
-    }
-    return mesh;
-  };
-
-  int const two_to_lev           = static_cast<int>(std::pow(2, dim.level));
-  int const prev                 = (index - 1) * dim.degree;
-  int const curr                 = index * dim.degree;
-  int const next                 = (index + 1) * dim.degree;
-  fk::matrix<P> const prev_mesh  = meshgrid(prev, dim.degree);
-  fk::matrix<P> const curr_mesh  = meshgrid(curr, dim.degree);
-  fk::matrix<P> const curr_trans = fk::matrix<P>(curr_mesh).transpose();
-  fk::matrix<P> const next_mesh  = meshgrid(next, dim.degree);
-
-  // interior elements - setup for flux
-  if (index < two_to_lev - 1 && index > 0)
-  {
-    fk::matrix<P> const row_indices =
-        horz_matrix_concat({prev_mesh, curr_mesh, curr_mesh, next_mesh});
-    fk::matrix<P> const col_indices =
-        horz_matrix_concat({curr_trans, curr_trans, curr_trans, curr_trans});
-    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
-  }
-
-  // boundary elements - use boundary conditions
-  //
-  if (dim.left == boundary_condition::periodic ||
-      dim.right == boundary_condition::periodic)
-  {
-    fk::matrix<P> const col_indices =
-        horz_matrix_concat({curr_trans, curr_trans, curr_trans, curr_trans});
-    // left boundary
-    if (index == 0)
-    {
-      fk::matrix<P> const end_mesh =
-          meshgrid(dim.degree * (two_to_lev - 1), dim.degree);
-      fk::matrix<P> const row_indices =
-          horz_matrix_concat({end_mesh, curr_mesh, curr_mesh, next_mesh});
-      return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
-      // right boundary
-    }
-    else
-    {
-      fk::matrix<P> const start_mesh = meshgrid(0, dim.degree);
-      fk::matrix<P> const row_indices =
-          horz_matrix_concat({prev_mesh, curr_mesh, curr_mesh, start_mesh});
-      return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
-    }
-  }
-
-  // other boundary conditions use same indexing
-  fk::matrix<P> const col_indices =
-      horz_matrix_concat({curr_trans, curr_trans, curr_trans});
-  // left boundary
-  if (index == 0)
-  {
-    fk::matrix<P> const row_indices =
-        horz_matrix_concat({curr_mesh, curr_mesh, next_mesh});
-    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
-    // right boundary
-  }
-  else
-  {
-    fk::matrix<P> const row_indices =
-        horz_matrix_concat({prev_mesh, curr_mesh, curr_mesh});
-    return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
-  }
-}
-
-template<typename P>
-fk::matrix<P> static get_flux_operator(dimension<P> const dim,
-                                       term<P> const term_1D, int const index)
-{
-  // compute the trace values (values at the left and right of each element for
-  // all k) trace_left is 1 by degree trace_right is 1 by degree
-  // FIXME should these be vectors?
-  fk::matrix<P> const trace_left =
-      legendre<P>(fk::vector<P>({-1.0}), dim.degree)[0];
-  fk::matrix<P> const trace_right =
-      legendre<P>(fk::vector<P>({1.0}), dim.degree)[0];
-
-  // build default average and jump operators
-  /*
-  val_AVG = (1/h) * [-p_L'*p_R/2  -p_L'*p_L/2, ...   % for x1 (left side)
-      p_R'*p_R/2   p_R'*p_L/2];      % for x2 (right side)
-
-  val_JMP = (1/h) * [ p_L'*p_R    -p_L'*p_L, ...     % for x1 (left side)
-      -p_R'*p_R     p_R'*p_L  ]/2;    % for x2 (right side)
-
-  %%
-  % Combine AVG and JMP to give choice of flux for this operator type
-
-  val_FLUX = val_AVG + val_JMP / 2 * LF;
-*/
-  return fk::matrix<P>();
-};
 
 template fk::matrix<float> generate_coefficients(dimension<float> const dim,
                                                  term<float> const term_1D,

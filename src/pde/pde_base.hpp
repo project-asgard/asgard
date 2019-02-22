@@ -125,6 +125,14 @@ public:
           owning_dim.degree * static_cast<int>(std::pow(2, owning_dim.level)),
           1.0));
     }
+    if(flux == flux_type::central) {
+        flux_scale = 0.0;
+    } else if (flux == flux_type::upwind) {
+	flux_scale = 1.0;
+    } else {
+	flux_scale = 0.0;
+    }
+
   }
 
   void set_data(fk::vector<P> const new_data)
@@ -133,6 +141,15 @@ public:
     data_ = new_data;
   };
   fk::vector<P> get_data() const { return data_; };
+
+
+  void set_flux_scale(P const dfdu)
+  {
+    assert(flux == flux_type::lax_friedrich);
+    flux_scale = dfdu;
+  };
+  P get_flux_scale() const { return flux_scale; };
+
 
   // public but const data. no getters
   coefficient_type const coeff;
@@ -148,6 +165,13 @@ private:
   // initialized to one if not provided at instantiation, which performs an
   // identity operation where this is used, until set by outside source.
   fk::vector<P> data_;
+
+
+  // scale the jump operator in coefficient construction by this amount,
+  // determined by flux type. 0 or 1 for central or upwind, respectively,
+  // and df/du for lax freidrich. should not be set after construction for
+  // central or upwind.
+  P flux_scale;
 };
 
 // ---------------------------------------------------------------------------
