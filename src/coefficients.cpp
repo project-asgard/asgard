@@ -15,20 +15,21 @@ horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
 {
   assert(matrices.size() > 0);
   auto const [nrows, ncols] = [&]() {
-    int row_accum   = 0;
-    int const ncols = matrices[0].ncols();
+    int col_accum   = 0;
+    int const nrows = matrices[0].nrows();
     for (auto const &mat : matrices)
     {
-      row_accum += mat.nrows();
-      assert(mat.ncols() == ncols);
+      col_accum += mat.ncols();
+      assert(mat.nrows() == nrows);
     }
-    return std::array<int, 2>{row_accum, ncols};
+    return std::array<int, 2>{nrows, col_accum};
   }();
   fk::matrix<P> concat(nrows, ncols);
   int col_index = 0;
   for (auto const &mat : matrices)
   {
-    concat.set_submatrix(0, col_index += ncols, mat);
+    concat.set_submatrix(0, col_index, mat);
+    col_index += mat.ncols();
   }
   return concat;
 }
@@ -53,8 +54,7 @@ static fk::matrix<P> meshgrid(int const start, int const length)
 // get indices where flux should be applied
 template<typename P>
 static std::array<fk::matrix<P>, 2>
-flux_or_boundary_indices(dimension<P> const dim, term<P> const term_1D,
-                         int const index)
+flux_or_boundary_indices(dimension<P> const dim, int const index)
 {
   int const two_to_lev           = static_cast<int>(std::pow(2, dim.level));
   int const prev                 = (index - 1) * dim.degree;
@@ -207,8 +207,10 @@ apply_flux_operator(fk::matrix<P> const row_indices,
                     fk::matrix<P> const col_indices, fk::matrix<P> const flux,
                     fk::matrix<P> &coeff)
 {
-  assert(row_indices.nrows() == col_indices.nrows() == flux.nrows());
-  assert(row_indices.ncols() == row_indices.ncols() == flux.ncols());
+  assert(row_indices.nrows() == col_indices.nrows());
+  assert(row_indices.nrows() == flux.nrows());
+  assert(row_indices.ncols() == row_indices.ncols());
+  assert(row_indices.ncols() == flux.ncols());
 
   for (int i = 0; i < flux.nrows(); ++i)
   {
@@ -267,10 +269,8 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
 
   for (int i = 0; i < two_to_level; ++i)
   {
-    // get index for current, next, prev.
+    // get index for current element
     int const current = dim.degree * i;
-    int const prev    = dim.degree * (i - 1);
-    int const next    = dim.degree * (i + 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const roots_i = [&, roots = roots]() {
@@ -286,7 +286,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     fk::vector<P> const data_real_quad = [&]() {
       // get realspace data at quadrature points
       fk::vector<P> data_real_quad =
-          basis * data_real.extract(current, current + dim.degree);
+          basis * data_real.extract(current, current + dim.degree - 1);
       // apply g_func
       std::transform(data_real_quad.begin(), data_real_quad.end(),
                      data_real_quad.begin(),
@@ -330,7 +330,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
               data_expand(i, j) * middle_factor(i, j) * weights_expand(i, j);
         }
       }
-      return (factor * block) * (normalized_domain / 2.0);
+      return (factor * middle_factor) * (normalized_domain / 2.0);
     }();
 
     coefficients.set_submatrix(current, current, block);
@@ -339,8 +339,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     // FIXME is this grad only? not sure yet
     if (term_1D.coeff == coefficient_type::grad)
     {
-      auto const [row_indices, col_indices] =
-          flux_or_boundary_indices(dim, term_1D, i);
+      auto const [row_indices, col_indices] = flux_or_boundary_indices(dim, i);
 
       fk::matrix<P> const flux_op =
           get_flux_operator(dim, term_1D, normalized_domain, i);
