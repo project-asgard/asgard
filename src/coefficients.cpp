@@ -51,6 +51,55 @@ static fk::matrix<P> meshgrid(int const start, int const length)
   return mesh;
 }
 
+// perform volume integral to get degree x degree block
+template<typename P>
+static fk::matrix<P>
+volume_integral(dimension<P> const dim, term<P> const term_1D,
+                fk::matrix<P> const basis, fk::matrix<P> const basis_prime,
+                fk::vector<P> const weights, fk::vector<P> const data,
+                P const normalized_domain)
+{
+  fk::matrix<P> const basis_transpose = fk::matrix<P>(basis).transpose();
+  fk::matrix<P> const basis_prime_transpose =
+      fk::matrix<P>(basis_prime).transpose();
+  // little helper tool
+  // form a matrix that is ncols copies of the source vector appended
+  // horizontally
+  auto const expand = [](fk::vector<P> const source,
+                         int const ncols) -> fk::matrix<P> {
+    fk::matrix<P> expanded(source.size(), ncols);
+    for (int i = 0; i < ncols; ++i)
+    {
+      expanded.update_col(i, source);
+    }
+    return expanded;
+  };
+
+  fk::matrix<P> const block = [&, &weights = weights]() {
+    fk::matrix<P> block(dim.degree, dim.degree);
+    //  expand to perform elementwise mult with basis
+    fk::matrix<P> const data_expand    = expand(data, dim.degree);
+    fk::matrix<P> const weights_expand = expand(weights, dim.degree);
+    // select factors based on coefficient type
+    fk::matrix<P> const factor = term_1D.coeff == coefficient_type::mass
+                                     ? basis_transpose
+                                     : basis_prime_transpose;
+    fk::matrix<P> middle_factor =
+        term_1D.coeff == coefficient_type::stiffness ? basis_prime : basis;
+    // form block
+    for (int i = 0; i < middle_factor.nrows(); ++i)
+    {
+      for (int j = 0; j < middle_factor.ncols(); ++j)
+      {
+        middle_factor(i, j) =
+            data_expand(i, j) * middle_factor(i, j) * weights_expand(i, j);
+      }
+    }
+    return (factor * middle_factor) * (normalized_domain / 2.0);
+  }();
+  return block;
+}
+
 // get indices where flux should be applied
 template<typename P>
 static std::array<fk::matrix<P>, 2>
@@ -93,6 +142,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
       // right boundary
     }
     else
+
     {
       fk::matrix<P> const start_mesh = meshgrid<P>(0, dim.degree);
       fk::matrix<P> const row_indices =
@@ -256,9 +306,6 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
   fk::matrix<P> const basis_prime =
       legendre_prime *
       (1.0 / std::sqrt(normalized_domain) * 2.0 / normalized_domain);
-  fk::matrix<P> const basis_transpose = fk::matrix<P>(basis).transpose();
-  fk::matrix<P> const basis_prime_transpose =
-      fk::matrix<P>(basis_prime).transpose();
 
   // convert term input data from wavelet space to realspace
 
@@ -295,44 +342,12 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     }();
 
     // perform volume integral to get a degree x degree block //FIXME is this
-    // correct? - FIXME extract this!
+    // description correct?
+    fk::matrix<P> const block =
+        volume_integral(dim, term_1D, basis, basis_prime, weights,
+                        data_real_quad, normalized_domain);
 
-    // little helper tool
-    // form a matrix that is ncols copies of the source vector appended
-    // horizontally
-    auto const expand = [](fk::vector<P> const source,
-                           int const ncols) -> fk::matrix<P> {
-      fk::matrix<P> expanded(source.size(), ncols);
-      for (int i = 0; i < ncols; ++i)
-      {
-        expanded.update_col(i, source);
-      }
-      return expanded;
-    };
-
-    fk::matrix<P> const block = [&, &weights = weights]() {
-      fk::matrix<P> block(dim.degree, dim.degree);
-      //  expand to perform elementwise mult with basis
-      fk::matrix<P> const data_expand    = expand(data_real_quad, dim.degree);
-      fk::matrix<P> const weights_expand = expand(weights, dim.degree);
-      // select factors based on coefficient type
-      fk::matrix<P> const factor = term_1D.coeff == coefficient_type::mass
-                                       ? basis_transpose
-                                       : basis_prime_transpose;
-      fk::matrix<P> middle_factor =
-          term_1D.coeff == coefficient_type::stiffness ? basis_prime : basis;
-      // form block
-      for (int i = 0; i < middle_factor.nrows(); ++i)
-      {
-        for (int j = 0; j < middle_factor.ncols(); ++j)
-        {
-          middle_factor(i, j) =
-              data_expand(i, j) * middle_factor(i, j) * weights_expand(i, j);
-        }
-      }
-      return (factor * middle_factor) * (normalized_domain / 2.0);
-    }();
-
+    // set the block at the correct position
     coefficients.set_submatrix(current, current, block);
 
     // setup numerical flux choice/boundary conditions
