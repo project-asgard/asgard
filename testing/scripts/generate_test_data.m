@@ -444,8 +444,17 @@ for s=1:length(pde.sources)
   end
 end
 
+clear
+% coefficient testing
 
+coeff_dir = strcat(pwd, "/", "generated-inputs", "/", "coefficients", "/");
+mkdir (coeff_dir);
 
+% test case 1: continuity1's term
+pde = continuity1;
+pde.dimensions{1}.FMWT = OperatorTwoScale(pde.dimensions{1}.deg,2^pde.dimensions{1}.lev);
+mat = coeff_matrix(0, pde.dimensions{1}, pde.terms{1}{1});
+save(strcat(coeff_dir,'continuity1_coefficients.dat'), 'mat');
 
 
 

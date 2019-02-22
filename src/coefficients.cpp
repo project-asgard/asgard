@@ -117,9 +117,9 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
   // interior elements - setup for flux
   if (index < two_to_lev - 1 && index > 0)
   {
-    fk::matrix<P> const row_indices =
-        horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh, next_mesh});
     fk::matrix<P> const col_indices =
+        horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh, next_mesh});
+    fk::matrix<P> const row_indices =
         horz_matrix_concat<P>({curr_trans, curr_trans, curr_trans, curr_trans});
     return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
   }
@@ -129,14 +129,14 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
   if (dim.left == boundary_condition::periodic ||
       dim.right == boundary_condition::periodic)
   {
-    fk::matrix<P> const col_indices =
+    fk::matrix<P> const row_indices =
         horz_matrix_concat<P>({curr_trans, curr_trans, curr_trans, curr_trans});
     // left boundary
     if (index == 0)
     {
       fk::matrix<P> const end_mesh =
           meshgrid<P>(dim.degree * (two_to_lev - 1), dim.degree);
-      fk::matrix<P> const row_indices =
+      fk::matrix<P> const col_indices =
           horz_matrix_concat<P>({end_mesh, curr_mesh, curr_mesh, next_mesh});
       return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
       // right boundary
@@ -145,26 +145,26 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
 
     {
       fk::matrix<P> const start_mesh = meshgrid<P>(0, dim.degree);
-      fk::matrix<P> const row_indices =
+      fk::matrix<P> const col_indices =
           horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh, start_mesh});
       return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
     }
   }
 
   // other boundary conditions use same indexing
-  fk::matrix<P> const col_indices =
+  fk::matrix<P> const row_indices =
       horz_matrix_concat<P>({curr_trans, curr_trans, curr_trans});
   // left boundary
   if (index == 0)
   {
-    fk::matrix<P> const row_indices =
+    fk::matrix<P> const col_indices =
         horz_matrix_concat<P>({curr_mesh, curr_mesh, next_mesh});
     return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
     // right boundary
   }
   else
   {
-    fk::matrix<P> const row_indices =
+    fk::matrix<P> const col_indices =
         horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh});
     return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
   }
@@ -201,13 +201,13 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
                              (trace_left_t * -1.0) * trace_left,
                              trace_right_t * trace_right,
                              trace_right_t * trace_left}) *
-      (1.0 / 2.0 * normalize);
+      (0.5 * 1.0 / normalize);
 
   fk::matrix<P> const jmp_op =
       horz_matrix_concat<P>(
           {trace_left_t * trace_right, (trace_left_t * -1.0) * trace_left,
            (trace_right_t * -1.0) * trace_right, trace_right_t * trace_left}) *
-      (1.0 / 2.0 * normalize);
+      (0.5 * 1.0 / normalize);
 
   // cover boundary conditions
 
@@ -218,13 +218,13 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
         horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_left,
                                trace_right_t * trace_right,
                                trace_right_t * trace_left}) *
-        (1.0 / 2.0 * normalize);
+        (0.5 * 1.0 / normalize);
 
     fk::matrix<P> const jmp_op =
         horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_left,
                                (trace_right_t * -1.0) * trace_right,
                                trace_right_t * trace_left}) *
-        (1.0 / 2.0 * normalize);
+        (0.5 * 1.0 / normalize);
   }
 
   if ((index == (two_to_lev - 1)) &&
@@ -235,13 +235,13 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
         horz_matrix_concat<P>({(trace_left_t * -1.0) * trace_right,
                                (trace_left_t * -1.0) * trace_left,
                                trace_right_t * trace_right}) *
-        (1.0 / 2.0 * normalize);
+        (0.5 * 1.0 / normalize);
 
     fk::matrix<P> const jmp_op =
         horz_matrix_concat<P>({trace_left_t * trace_right,
                                (trace_left_t * -1.0) * trace_left,
                                (trace_right_t * -1.0) * trace_right}) *
-        (1.0 / 2.0 * normalize);
+        (0.5 * 1.0 / normalize);
   }
 
   fk::matrix<P> flux_op =
@@ -259,7 +259,7 @@ apply_flux_operator(fk::matrix<P> const row_indices,
 {
   assert(row_indices.nrows() == col_indices.nrows());
   assert(row_indices.nrows() == flux.nrows());
-  assert(row_indices.ncols() == row_indices.ncols());
+  assert(row_indices.ncols() == col_indices.ncols());
   assert(row_indices.ncols() == flux.ncols());
 
   for (int i = 0; i < flux.nrows(); ++i)
@@ -346,10 +346,12 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     fk::matrix<P> const block =
         volume_integral(dim, term_1D, basis, basis_prime, weights,
                         data_real_quad, normalized_domain);
-
     // set the block at the correct position
-    coefficients.set_submatrix(current, current, block);
-
+    fk::matrix<P> const curr_block =
+        coefficients.extract_submatrix(current, current, dim.degree,
+                                       dim.degree) +
+        block;
+    coefficients.set_submatrix(current, current, curr_block);
     // setup numerical flux choice/boundary conditions
     // FIXME is this grad only? not sure yet
     if (term_1D.coeff == coefficient_type::grad)
@@ -366,6 +368,22 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
   // transform matrix to wavelet space
   // FIXME does stiffness not need this transform?
   coefficients = forward_trans * coefficients * forward_trans_transpose;
+
+  // zero out near-zero values after conversion to wavelet space
+
+  P const compare = [] {
+    if constexpr (std::is_same<P, double>::value)
+    {
+      return static_cast<P>(1e-8);
+    }
+    return static_cast<P>(1e-5);
+  }();
+  auto const normalize = [compare](fk::matrix<P> &matrix) {
+    std::transform(
+        matrix.begin(), matrix.end(), matrix.begin(),
+        [compare](P &elem) { return std::abs(elem) < compare ? 0.0 : elem; });
+  };
+  normalize(coefficients);
   return coefficients;
 }
 
