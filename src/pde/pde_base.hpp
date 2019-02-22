@@ -58,8 +58,6 @@ public:
   boundary_condition const right;
   P const domain_min;
   P const domain_max;
-  int const level;
-  int const degree;
   vector_func<P> const initial_condition;
   std::string const name;
   dimension(boundary_condition const left, boundary_condition const right,
@@ -71,6 +69,25 @@ public:
         domain_max(domain_max), level(level), degree(degree),
         initial_condition(initial_condition), name(name)
   {}
+
+  void set_level(int level) {
+
+	 assert(level > 0);
+	 this->level = level;
+  }
+  
+  void set_degree(int degree) {
+
+	 assert(degree > 0);
+	 this->degree = degree;
+  }
+  int get_level() const { return level;}
+  int get_degree() const { return degree;}
+private:
+
+  int level;
+  int degree;
+
 };
 
 enum class coefficient_type
@@ -112,8 +129,14 @@ public:
       : coeff(coeff), g_func(g_func), time_dependent(time_dependent),
         flux(flux), name(name), data_(data)
   {
+    set_data(owning_dim, data);
+  }
+
+  void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
+  {
     int const degrees_freedom_1d =
-        owning_dim.degree * static_cast<int>(std::pow(2, owning_dim.level));
+        owning_dim.get_degree() *
+        static_cast<int>(std::pow(2, owning_dim.get_level()));
     if (data.size() != 0)
     {
       assert(data.size() == degrees_freedom_1d);
@@ -121,17 +144,12 @@ public:
     else
     {
       this->data_.resize(degrees_freedom_1d);
-      this->data_ = fk::vector<P>(std::vector<P>(
-          owning_dim.degree * static_cast<int>(std::pow(2, owning_dim.level)),
-          1.0));
+      this->data_ = fk::vector<P>(
+          std::vector<P>(degrees_freedom_1d,
+                         1.0));
     }
   }
 
-  void set_data(fk::vector<P> const new_data)
-  {
-    assert(new_data.size() == data_.size());
-    data_ = new_data;
-  };
   fk::vector<P> get_data() const { return data_; };
 
   // public but const data. no getters
@@ -224,8 +242,8 @@ public:
     // check all dimensions
     for (dimension<P> const d : dimensions)
     {
-      assert(d.degree > 0);
-      assert(d.level > 0);
+      assert(d.get_degree() > 0);
+      assert(d.get_level() > 0);
       assert(d.domain_max > d.domain_min);
     }
 
@@ -246,8 +264,7 @@ public:
   int const num_dims;
   int const num_sources;
   int const num_terms;
-  std::vector<dimension<P>> const dimensions;
-  term_set<P> const terms;
+
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
   scalar_func<P> const exact_time;
@@ -255,4 +272,33 @@ public:
   bool const has_analytic_soln;
 
   virtual ~PDE() {}
+
+  std::vector<dimension<P>> get_dimensions() const { return dimensions; }
+  term_set<P> get_terms() const { return terms; }
+
+protected:
+  void set_dimensions(std::vector<dimension<P>> const dimensions)
+  {
+    for (dimension<P> const d : dimensions)
+    {
+      assert(d.get_degree() > 0);
+      assert(d.get_level() > 0);
+      assert(d.domain_max > d.domain_min);
+    }
+    this->dimensions = dimensions;
+  }
+
+  void set_terms(term_set<P> const terms)
+  {
+    for (std::vector<term<P>> const term_list : terms)
+    {
+      assert(term_list.size() == static_cast<unsigned>(num_dims));
+    }
+    this->terms = terms;
+  }
+
+
+private:
+  std::vector<dimension<P>> dimensions;
+  term_set<P> terms;
 };

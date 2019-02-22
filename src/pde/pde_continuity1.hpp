@@ -25,11 +25,49 @@ template<typename P>
 class PDE_continuity_1d : public PDE<P>
 {
 public:
-  PDE_continuity_1d()
+  PDE_continuity_1d(int const num_levels = -1, int const degree = -1)
       : PDE<P>(num_dims_, num_sources_, num_terms_, dimensions, terms, sources,
                exact_vector_funcs_, exact_scalar_func_, do_poisson_solve_,
                has_analytic_soln_)
-  {}
+  {
+    // if default lev/degree not used
+    if (num_levels > 0 || degree > 0)
+    {
+      std::vector<dimension<P>> dims = dimensions;
+      if (num_levels > 0)
+      {
+        // FIXME -- temp -- eventually independent levels for each dim will be
+        // supported
+        for (dimension<P> d : dims)
+        {
+          d.set_level(num_levels);
+        }
+      }
+
+      if (degree > 0)
+      {
+        // FIXME -- temp -- eventually independent levels for each dim will be
+        // supported
+        std::vector<dimension<P>> dims = dimensions;
+        for (dimension<P> d : dims)
+        {
+          d.set_level(num_levels);
+        }
+      }
+
+      term_set<P> terms = terms;
+      for (std::vector<term<P>> term_list : terms)
+      {
+        for (int i = 0; i < term_list.size(); ++i)
+        {
+          term_list[i].set_data(dims[i], fk::vector<P>());
+        }
+      }
+
+      PDE<P>::set_dimensions(dims);
+      PDE<P>::set_terms(terms);
+    }
+  }
 
 private:
   // these fields will be checked against provided functions to make sure

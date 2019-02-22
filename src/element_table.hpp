@@ -24,7 +24,7 @@
 // - to build a full grid, all potentional level combinations are included in
 //   the table; that is, all dimension-length permutations of integers less
 //   than or equal to the number of levels selected for the simulation are
-//   valid level components.
+//   valid.get_level() components.
 // - to build a sparse grid, we apply some rule to omit some of these
 //   permutations. currently, we cull level combinations whose sum is greater
 //   than the number of levels selected for the simulation.

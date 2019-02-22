@@ -22,7 +22,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->dimensions[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
       relaxed_compare(fx, gold);
     }
   }
@@ -75,7 +75,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->dimensions[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
       relaxed_compare(fx, gold);
     }
   }
@@ -130,7 +130,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
 
-      TestType const fx = pde->dimensions[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
       relaxed_compare(fx, gold);
     }
   }
