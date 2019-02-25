@@ -1,4 +1,6 @@
 #pragma once
+#include "../matlab_utilities.hpp"
+#include "../tensors.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -9,8 +11,6 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
-
-#include "../tensors.hpp"
 
 //
 // This file contains all of the interface and object definitions for our
@@ -135,6 +135,13 @@ public:
         flux(flux), name(name), data_(data)
   {
     set_data(owning_dim, data);
+
+    int const degrees_freedom_1d =
+        owning_dim.get_degree() *
+        static_cast<int>(std::pow(2, owning_dim.get_level()));
+
+    // initialize coefficient matrix to identity
+    this->coefficients = eye<P>(degrees_freedom_1d);
   }
 
   void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
@@ -174,6 +181,14 @@ public:
   };
   P get_flux_scale() const { return flux_scale; };
 
+  void set_coefficients(fk::matrix<P> const new_coefficients)
+  {
+    assert(coefficients.nrows() == new_coefficients.nrows());
+    assert(coefficients.ncols() == new_coefficients.ncols());
+    this->coefficients = new_coefficients;
+  }
+  fk::matrix<P> get_coefficients() const { return coefficients; }
+
   // public but const data. no getters
   coefficient_type const coeff;
   g_func_type<P> const g_func;
@@ -194,6 +209,9 @@ private:
   // and df/du for lax freidrich. should not be set after construction for
   // central or upwind.
   P flux_scale;
+
+  // operator matrix for this term at a single dimension
+  fk::matrix<P> coefficients;
 };
 
 // ---------------------------------------------------------------------------

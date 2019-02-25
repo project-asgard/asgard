@@ -74,7 +74,7 @@ target_link_libraries (element_table
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
-target_link_libraries (pde PRIVATE tensors)
+target_link_libraries (pde PRIVATE matlab_utilities tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 

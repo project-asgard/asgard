@@ -105,10 +105,10 @@ template<typename P>
 static std::array<fk::matrix<P>, 2>
 flux_or_boundary_indices(dimension<P> const dim, int const index)
 {
-  int const two_to_lev           = static_cast<int>(std::pow(2, dim.get_level()));
-  int const prev                 = (index - 1) * dim.get_degree();
-  int const curr                 = index * dim.get_degree();
-  int const next                 = (index + 1) * dim.get_degree();
+  int const two_to_lev = static_cast<int>(std::pow(2, dim.get_level()));
+  int const prev       = (index - 1) * dim.get_degree();
+  int const curr       = index * dim.get_degree();
+  int const next       = (index + 1) * dim.get_degree();
   fk::matrix<P> const prev_mesh  = meshgrid<P>(prev, dim.get_degree());
   fk::matrix<P> const curr_mesh  = meshgrid<P>(curr, dim.get_degree());
   fk::matrix<P> const curr_trans = fk::matrix<P>(curr_mesh).transpose();
@@ -298,7 +298,8 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
   auto const [roots, weights] = legendre_weights<P>(quad_num, -1.0, 1.0);
 
   // get the basis functions and derivatives for all k
-  auto const [legendre_poly, legendre_prime] = legendre(roots, dim.get_degree());
+  auto const [legendre_poly, legendre_prime] =
+      legendre(roots, dim.get_degree());
 
   // these matrices are quad_num by degree
   fk::matrix<P> const basis =
