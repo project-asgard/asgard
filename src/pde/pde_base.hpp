@@ -151,18 +151,21 @@ public:
       this->data_.resize(degrees_freedom_1d);
       this->data_ = fk::vector<P>(std::vector<P>(degrees_freedom_1d, 1.0));
     }
-    if(flux == flux_type::central) {
-        flux_scale = 0.0;
-    } else if (flux == flux_type::upwind) {
-	flux_scale = 1.0;
-    } else {
-	flux_scale = 0.0;
+    if (flux == flux_type::central)
+    {
+      flux_scale = 0.0;
     }
-
+    else if (flux == flux_type::upwind)
+    {
+      flux_scale = 1.0;
+    }
+    else
+    {
+      flux_scale = 0.0;
+    }
   }
 
   fk::vector<P> get_data() const { return data_; };
-
 
   void set_flux_scale(P const dfdu)
   {
@@ -170,7 +173,6 @@ public:
     flux_scale = dfdu;
   };
   P get_flux_scale() const { return flux_scale; };
-
 
   // public but const data. no getters
   coefficient_type const coeff;
@@ -186,7 +188,6 @@ private:
   // initialized to one if not provided at instantiation, which performs an
   // identity operation where this is used, until set by outside source.
   fk::vector<P> data_;
-
 
   // scale the jump operator in coefficient construction by this amount,
   // determined by flux type. 0 or 1 for central or upwind, respectively,

@@ -20,6 +20,6 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
       "../testing/generated-inputs/coefficients/continuity1_coefficients.dat";
   fk::matrix<TestType> const gold = read_matrix_from_txt_file(filename);
   fk::matrix<TestType> const test = generate_coefficients<TestType>(
-      continuity1->dimensions[0], continuity1->terms[0][0], 0.0);
+      continuity1->get_dimensions()[0], continuity1->get_terms()[0][0], 0.0);
   relaxed_comparison(gold, test);
 }

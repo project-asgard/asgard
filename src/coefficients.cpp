@@ -76,10 +76,10 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
   };
 
   fk::matrix<P> const block = [&, &weights = weights]() {
-    fk::matrix<P> block(dim.degree, dim.degree);
+    fk::matrix<P> block(dim.get_degree(), dim.get_degree());
     //  expand to perform elementwise mult with basis
-    fk::matrix<P> const data_expand    = expand(data, dim.degree);
-    fk::matrix<P> const weights_expand = expand(weights, dim.degree);
+    fk::matrix<P> const data_expand    = expand(data, dim.get_degree());
+    fk::matrix<P> const weights_expand = expand(weights, dim.get_degree());
     // select factors based on coefficient type
     fk::matrix<P> const factor = term_1D.coeff == coefficient_type::mass
                                      ? basis_transpose
@@ -105,14 +105,14 @@ template<typename P>
 static std::array<fk::matrix<P>, 2>
 flux_or_boundary_indices(dimension<P> const dim, int const index)
 {
-  int const two_to_lev           = static_cast<int>(std::pow(2, dim.level));
-  int const prev                 = (index - 1) * dim.degree;
-  int const curr                 = index * dim.degree;
-  int const next                 = (index + 1) * dim.degree;
-  fk::matrix<P> const prev_mesh  = meshgrid<P>(prev, dim.degree);
-  fk::matrix<P> const curr_mesh  = meshgrid<P>(curr, dim.degree);
+  int const two_to_lev           = static_cast<int>(std::pow(2, dim.get_level()));
+  int const prev                 = (index - 1) * dim.get_degree();
+  int const curr                 = index * dim.get_degree();
+  int const next                 = (index + 1) * dim.get_degree();
+  fk::matrix<P> const prev_mesh  = meshgrid<P>(prev, dim.get_degree());
+  fk::matrix<P> const curr_mesh  = meshgrid<P>(curr, dim.get_degree());
   fk::matrix<P> const curr_trans = fk::matrix<P>(curr_mesh).transpose();
-  fk::matrix<P> const next_mesh  = meshgrid<P>(next, dim.degree);
+  fk::matrix<P> const next_mesh  = meshgrid<P>(next, dim.get_degree());
 
   // interior elements - setup for flux
   if (index < two_to_lev - 1 && index > 0)
@@ -135,7 +135,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
     if (index == 0)
     {
       fk::matrix<P> const end_mesh =
-          meshgrid<P>(dim.degree * (two_to_lev - 1), dim.degree);
+          meshgrid<P>(dim.get_degree() * (two_to_lev - 1), dim.get_degree());
       fk::matrix<P> const col_indices =
           horz_matrix_concat<P>({end_mesh, curr_mesh, curr_mesh, next_mesh});
       return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
@@ -144,7 +144,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
     else
 
     {
-      fk::matrix<P> const start_mesh = meshgrid<P>(0, dim.degree);
+      fk::matrix<P> const start_mesh = meshgrid<P>(0, dim.get_degree());
       fk::matrix<P> const col_indices =
           horz_matrix_concat<P>({prev_mesh, curr_mesh, curr_mesh, start_mesh});
       return std::array<fk::matrix<P>, 2>{row_indices, col_indices};
@@ -175,13 +175,13 @@ static fk::matrix<P>
 get_flux_operator(dimension<P> const dim, term<P> const term_1D,
                   P const normalize, int const index)
 {
-  int const two_to_lev = static_cast<int>(std::pow(2, dim.level));
+  int const two_to_lev = static_cast<int>(std::pow(2, dim.get_level()));
   // compute the trace values (values at the left and right of each element for
   // all k) trace_left is 1 by degree trace_right is 1 by degree
   fk::matrix<P> const trace_left =
-      legendre<P>(fk::vector<P>({-1.0}), dim.degree)[0];
+      legendre<P>(fk::vector<P>({-1.0}), dim.get_degree())[0];
   fk::matrix<P> const trace_right =
-      legendre<P>(fk::vector<P>({1.0}), dim.degree)[0];
+      legendre<P>(fk::vector<P>({1.0}), dim.get_degree())[0];
 
   fk::matrix<P> const trace_left_t = [&] {
     fk::matrix<P> trace_left_transpose = trace_left;
@@ -285,9 +285,9 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
-  int const two_to_level    = static_cast<int>(std::pow(2, dim.level));
+  int const two_to_level    = static_cast<int>(std::pow(2, dim.get_level()));
   P const normalized_domain = (dim.domain_max - dim.domain_min) / two_to_level;
-  int const degrees_freedom_1d = dim.degree * two_to_level;
+  int const degrees_freedom_1d = dim.get_degree() * two_to_level;
   fk::matrix<P> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
   // set number of quatrature points (should this be order dependent?)
@@ -298,7 +298,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
   auto const [roots, weights] = legendre_weights<P>(quad_num, -1.0, 1.0);
 
   // get the basis functions and derivatives for all k
-  auto const [legendre_poly, legendre_prime] = legendre(roots, dim.degree);
+  auto const [legendre_poly, legendre_prime] = legendre(roots, dim.get_degree());
 
   // these matrices are quad_num by degree
   fk::matrix<P> const basis =
@@ -317,7 +317,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
   for (int i = 0; i < two_to_level; ++i)
   {
     // get index for current element
-    int const current = dim.degree * i;
+    int const current = dim.get_degree() * i;
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const roots_i = [&, roots = roots]() {
@@ -333,7 +333,7 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
     fk::vector<P> const data_real_quad = [&]() {
       // get realspace data at quadrature points
       fk::vector<P> data_real_quad =
-          basis * data_real.extract(current, current + dim.degree - 1);
+          basis * data_real.extract(current, current + dim.get_degree() - 1);
       // apply g_func
       std::transform(data_real_quad.begin(), data_real_quad.end(),
                      data_real_quad.begin(),
@@ -348,8 +348,8 @@ fk::matrix<P> generate_coefficients(dimension<P> const dim,
                         data_real_quad, normalized_domain);
     // set the block at the correct position
     fk::matrix<P> const curr_block =
-        coefficients.extract_submatrix(current, current, dim.degree,
-                                       dim.degree) +
+        coefficients.extract_submatrix(current, current, dim.get_degree(),
+                                       dim.get_degree()) +
         block;
     coefficients.set_submatrix(current, current, curr_block);
     // setup numerical flux choice/boundary conditions

@@ -22,8 +22,8 @@ fk::matrix<P> operator_two_scale(dimension<P> const dim);
 template<typename P, typename F>
 fk::vector<P> forward_transform(dimension<P> const dim, F function)
 {
-  int const num_levels = dim.level;
-  int const degree     = dim.degree;
+  int const num_levels = dim.get_level();
+  int const degree     = dim.get_degree();
   P const domain_min   = dim.domain_min;
   P const domain_max   = dim.domain_max;
 

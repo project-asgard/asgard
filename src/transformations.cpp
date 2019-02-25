@@ -359,7 +359,7 @@ combine_dimensions(dimension<P> const dim, element_table const &table,
   int const num_dims = vectors.size();
   assert(num_dims > 0);
 
-  int const degree = dim.degree;
+  int const degree = dim.get_degree();
   fk::vector<P> combined;
 
   for (int i = 0; i < table.size(); ++i)
@@ -384,8 +384,8 @@ combine_dimensions(dimension<P> const dim, element_table const &table,
 template<typename P>
 fk::matrix<P> operator_two_scale(dimension<P> const dim)
 {
-  int const degree     = dim.degree;
-  int const num_levels = dim.level;
+  int const degree     = dim.get_degree();
+  int const num_levels = dim.get_level();
 
   assert(degree > 0);
   assert(num_levels > 0);
