@@ -49,6 +49,9 @@ enum class boundary_condition
 // Dimension: holds all information for a single dimension in the pde
 //
 // ---------------------------------------------------------------------------
+// forward dec
+template<typename P>
+class PDE;
 
 template<typename P>
 class dimension
@@ -66,28 +69,30 @@ public:
             std::string const name)
 
       : left(left), right(right), domain_min(domain_min),
-        domain_max(domain_max), level(level), degree(degree),
-        initial_condition(initial_condition), name(name)
+        domain_max(domain_max), initial_condition(initial_condition),
+        name(name), level(level), degree(degree)
   {}
 
-  void set_level(int level) {
+  int get_level() const { return level; }
+  int get_degree() const { return degree; }
 
-	 assert(level > 0);
-	 this->level = level;
-  }
-  
-  void set_degree(int degree) {
-
-	 assert(degree > 0);
-	 this->degree = degree;
-  }
-  int get_level() const { return level;}
-  int get_degree() const { return degree;}
 private:
+  void set_level(int level)
+  {
+    assert(level > 0);
+    this->level = level;
+  }
+
+  void set_degree(int degree)
+  {
+    assert(degree > 0);
+    this->degree = degree;
+  }
 
   int level;
   int degree;
 
+  friend class PDE<P>;
 };
 
 enum class coefficient_type
@@ -144,9 +149,7 @@ public:
     else
     {
       this->data_.resize(degrees_freedom_1d);
-      this->data_ = fk::vector<P>(
-          std::vector<P>(degrees_freedom_1d,
-                         1.0));
+      this->data_ = fk::vector<P>(std::vector<P>(degrees_freedom_1d, 1.0));
     }
   }
 
@@ -203,7 +206,9 @@ class PDE
 {
 public:
   // clang-format off
-  PDE(int const num_dims,
+  PDE(int const num_levels,
+      int const degree,
+      int const num_dims,
       int const num_sources,
       int const num_terms,
       std::vector<dimension<P>> const dimensions,
@@ -216,13 +221,13 @@ public:
       : num_dims(num_dims),
         num_sources(num_sources),
         num_terms(num_terms),
-	dimensions(dimensions),
-	terms(terms),
 	sources(sources),
         exact_vector_funcs(exact_vector_funcs),
 	exact_time(exact_time),
 	do_poisson_solve(do_poisson_solve),
-        has_analytic_soln(has_analytic_soln)
+        has_analytic_soln(has_analytic_soln),
+	dimensions(dimensions),
+	terms(terms)
   // clang-format on
   {
     assert(num_dims > 0);
@@ -239,6 +244,30 @@ public:
       assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
     }
 
+    // modify for appropriate level/degree
+    // if default lev/degree not used
+    if (num_levels > 0 || degree > 0)
+    {
+      // FIXME -- temp -- eventually independent levels for each dim will be
+
+      for (dimension<P> d : this->dimensions)
+      {
+        if (num_levels > 0)
+          d.set_level(num_levels);
+        if (degree > 0)
+          d.set_degree(degree);
+        d.set_degree(degree);
+      }
+
+      for (std::vector<term<P>> term_list : this->terms)
+      {
+        // positive, bounded size - safe compare
+        for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
+        {
+          term_list[i].set_data(this->dimensions[i], fk::vector<P>());
+        }
+      }
+    }
     // check all dimensions
     for (dimension<P> const d : dimensions)
     {
@@ -260,7 +289,7 @@ public:
     }
   }
 
-  // public but const data. no getters
+  // public but const data.
   int const num_dims;
   int const num_sources;
   int const num_terms;
@@ -275,28 +304,6 @@ public:
 
   std::vector<dimension<P>> get_dimensions() const { return dimensions; }
   term_set<P> get_terms() const { return terms; }
-
-protected:
-  void set_dimensions(std::vector<dimension<P>> const dimensions)
-  {
-    for (dimension<P> const d : dimensions)
-    {
-      assert(d.get_degree() > 0);
-      assert(d.get_level() > 0);
-      assert(d.domain_max > d.domain_min);
-    }
-    this->dimensions = dimensions;
-  }
-
-  void set_terms(term_set<P> const terms)
-  {
-    for (std::vector<term<P>> const term_list : terms)
-    {
-      assert(term_list.size() == static_cast<unsigned>(num_dims));
-    }
-    this->terms = terms;
-  }
-
 
 private:
   std::vector<dimension<P>> dimensions;

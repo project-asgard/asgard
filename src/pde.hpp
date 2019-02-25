@@ -91,7 +91,8 @@ std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
 }
 
 template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice, int const level, int const degree)
+std::unique_ptr<PDE<P>>
+make_PDE(PDE_opts choice, int const level, int const degree)
 {
   switch (choice)
   {
