@@ -141,7 +141,9 @@ public:
         static_cast<int>(std::pow(2, owning_dim.get_level()));
 
     // initialize coefficient matrix to identity
+    this->coefficients = fk::matrix<P>(degrees_freedom_1d, degrees_freedom_1d);
     this->coefficients = eye<P>(degrees_freedom_1d);
+
   }
 
   void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
