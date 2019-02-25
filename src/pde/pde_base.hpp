@@ -140,9 +140,7 @@ public:
         owning_dim.get_degree() *
         static_cast<int>(std::pow(2, owning_dim.get_level()));
 
-    // initialize coefficient matrix to identity
-    this->coefficients = fk::matrix<P>(degrees_freedom_1d, degrees_freedom_1d);
-    this->coefficients = eye<P>(degrees_freedom_1d);
+    set_coefficients(owning_dim, eye<P>(degrees_freedom_1d));
 
   }
 
@@ -183,11 +181,15 @@ public:
   };
   P get_flux_scale() const { return flux_scale; };
 
-  void set_coefficients(fk::matrix<P> const new_coefficients)
+  void set_coefficients(dimension<P> const owning_dim, fk::matrix<P> const new_coefficients)
   {
-    assert(coefficients.nrows() == new_coefficients.nrows());
-    assert(coefficients.ncols() == new_coefficients.ncols());
-    this->coefficients = new_coefficients;
+    
+    int const degrees_freedom_1d =
+        owning_dim.get_degree() *
+        static_cast<int>(std::pow(2, owning_dim.get_level()));
+    assert(degrees_freedom_1d == new_coefficients.nrows());
+    assert(degrees_freedom_1d == new_coefficients.ncols());
+    this->coefficients.resize(degrees_freedom_1d, degrees_freedom_1d) = new_coefficients;
   }
   fk::matrix<P> get_coefficients() const { return coefficients; }
 

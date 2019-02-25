@@ -17,8 +17,8 @@
 #include "tensors.hpp"
 
 //
-// this file contains the PDE factory and the utilities to 
-// select the PDEs being made available by the included 
+// this file contains the PDE factory and the utilities to
+// select the PDEs being made available by the included
 // implementations
 //
 
@@ -63,7 +63,7 @@ static pde_map_t const pde_mapping = {{"continuity_1", PDE_opts::continuity_1},
 
 template<typename P>
 std::unique_ptr<PDE<P>>
-make_PDE(PDE_opts choice, int const level=-1, int const degree=-1)
+make_PDE(PDE_opts choice, int const level = -1, int const degree = -1)
 {
   switch (choice)
   {

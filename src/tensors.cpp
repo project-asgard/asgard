@@ -1223,6 +1223,22 @@ fk::matrix<P>::update_row(int const row_idx, std::vector<P> const &v)
 }
 
 //
+// Resize, clearing all data
+//
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::resize(int const rows, int const cols)
+{
+  assert(rows >= 0);
+  assert(cols >= 0);
+  if(rows == 0) assert (cols == 0);
+  delete[] data_;
+  data_  = new P[rows * cols]();
+  nrows_ = rows;
+  ncols_ = cols;
+  return *this;
+}
+
+//
 // Set a submatrix within the matrix, given another (smaller) matrix
 //
 template<typename P>

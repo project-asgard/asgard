@@ -176,6 +176,7 @@ public:
   matrix<P> &update_col(int const, std::vector<P> const &);
   matrix<P> &update_row(int const, fk::vector<P> const &);
   matrix<P> &update_row(int const, std::vector<P> const &);
+  matrix<P> &resize(int const, int const);
   matrix<P> &set_submatrix(int const row_idx, int const col_idx,
                            fk::matrix<P> const &submatrix);
   matrix<P> extract_submatrix(int const row_idx, int const col_idx,

@@ -764,6 +764,19 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     std::vector<TestType> testv{16, 26, 36};
     REQUIRE(test.update_row(4, testv) == gold);
   }
+
+  SECTION("matrix resize (clear)")
+  {
+    fk::matrix<TestType> gold_copy = gold;
+    gold_copy.resize(2,1);
+    // clang-format off
+    fk::matrix<TestType> const test {
+      {0},
+      {0},
+      }; 
+    // clang-format on
+    REQUIRE(gold_copy == test);
+  }
   SECTION("matrix set submatrix(row, col, submatrix)")
   {
     // clang-format off
