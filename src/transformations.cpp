@@ -349,15 +349,17 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
       .single_column_kron(operands[num_prods - 1]);
 }
 
+// FIXME this function will need to change once dimensions can have different
+// degree...
 template<typename P>
 fk::vector<P>
-combine_dimensions(options const opts, element_table const &table,
+combine_dimensions(dimension<P> const dim, element_table const &table,
                    std::vector<fk::vector<P>> const &vectors, P const time)
 {
   int const num_dims = vectors.size();
   assert(num_dims > 0);
 
-  int const degree = opts.get_degree();
+  int const degree = dim.degree;
   fk::vector<P> combined;
 
   for (int i = 0; i < table.size(); ++i)
@@ -380,10 +382,10 @@ combine_dimensions(options const opts, element_table const &table,
 }
 
 template<typename P>
-fk::matrix<P> operator_two_scale(options const opts)
+fk::matrix<P> operator_two_scale(dimension<P> const dim)
 {
-  int const degree     = opts.get_degree();
-  int const num_levels = opts.get_level();
+  int const degree     = dim.degree;
+  int const num_levels = dim.level;
 
   assert(degree > 0);
   assert(num_levels > 0);
@@ -449,11 +451,11 @@ template std::array<fk::matrix<float>, 6>
 generate_multi_wavelets(int const degree);
 
 template fk::vector<double>
-combine_dimensions(options const, element_table const &,
+combine_dimensions(dimension<double> const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 template fk::vector<float>
-combine_dimensions(options const, element_table const &,
+combine_dimensions(dimension<float> const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
-template fk::matrix<double> operator_two_scale(options const opts);
-template fk::matrix<float> operator_two_scale(options const opts);
+template fk::matrix<double> operator_two_scale(dimension<double> const opts);
+template fk::matrix<float> operator_two_scale(dimension<float> const opts);
