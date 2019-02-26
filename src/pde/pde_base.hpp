@@ -141,7 +141,6 @@ public:
         static_cast<int>(std::pow(2, owning_dim.get_level()));
 
     set_coefficients(owning_dim, eye<P>(degrees_freedom_1d));
-
   }
 
   void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
@@ -181,15 +180,16 @@ public:
   };
   P get_flux_scale() const { return flux_scale; };
 
-  void set_coefficients(dimension<P> const owning_dim, fk::matrix<P> const new_coefficients)
+  void set_coefficients(dimension<P> const owning_dim,
+                        fk::matrix<P> const new_coefficients)
   {
-    
     int const degrees_freedom_1d =
         owning_dim.get_degree() *
         static_cast<int>(std::pow(2, owning_dim.get_level()));
     assert(degrees_freedom_1d == new_coefficients.nrows());
     assert(degrees_freedom_1d == new_coefficients.ncols());
-    this->coefficients.resize(degrees_freedom_1d, degrees_freedom_1d) = new_coefficients;
+    this->coefficients.resize(degrees_freedom_1d, degrees_freedom_1d) =
+        new_coefficients;
   }
   fk::matrix<P> get_coefficients() const { return coefficients; }
 
@@ -297,16 +297,15 @@ public:
     {
       // FIXME -- temp -- eventually independent levels for each dim will be
 
-      for (dimension<P> d : this->dimensions)
+      for (dimension<P> &d : this->dimensions)
       {
         if (num_levels > 0)
           d.set_level(num_levels);
         if (degree > 0)
           d.set_degree(degree);
-        d.set_degree(degree);
       }
 
-      for (std::vector<term<P>> term_list : this->terms)
+      for (std::vector<term<P>> &term_list : this->terms)
       {
         // positive, bounded size - safe compare
         for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
@@ -316,7 +315,7 @@ public:
       }
     }
     // check all dimensions
-    for (dimension<P> const d : dimensions)
+    for (dimension<P> const d : this->dimensions)
     {
       assert(d.get_degree() > 0);
       assert(d.get_level() > 0);
@@ -324,13 +323,13 @@ public:
     }
 
     // check all sources
-    for (source<P> const s : sources)
+    for (source<P> const s : this->sources)
     {
       assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
     }
 
     // check all terms
-    for (std::vector<term<P>> const term_list : terms)
+    for (std::vector<term<P>> const term_list : this->terms)
     {
       assert(term_list.size() == static_cast<unsigned>(num_dims));
     }
