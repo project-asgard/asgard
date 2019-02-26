@@ -1230,7 +1230,8 @@ fk::matrix<P> &fk::matrix<P>::resize(int const rows, int const cols)
 {
   assert(rows >= 0);
   assert(cols >= 0);
-  if(rows == 0) assert (cols == 0);
+  if (rows == 0)
+    assert(cols == 0);
   delete[] data_;
   data_  = new P[rows * cols]();
   nrows_ = rows;
