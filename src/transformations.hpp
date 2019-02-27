@@ -16,8 +16,8 @@ template<typename P>
 fk::vector<P> combine_dimensions(dimension<P> const, element_table const &,
                                  std::vector<fk::vector<P>> const &, P const);
 
-template<typename P>
-fk::matrix<P> operator_two_scale(dimension<P> const dim);
+template<typename P, typename R = P>
+fk::matrix<R> operator_two_scale(dimension<P> const dim);
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(dimension<P> const dim, F function)
@@ -126,3 +126,5 @@ combine_dimensions(dimension<float> const, element_table const &,
 
 extern template fk::matrix<double> operator_two_scale(dimension<double> const);
 extern template fk::matrix<float> operator_two_scale(dimension<float> const);
+extern template fk::matrix<float> operator_two_scale(dimension<double> const);
+extern template fk::matrix<double> operator_two_scale(dimension<float> const);

@@ -222,7 +222,7 @@ private:
       term<P>(term1_dim1_type, term1_dim1_func, term1_dim1_time_dependent,
               term1_dim1_flux, term1_dim1_data, term1_dim1_name, dim1);
 
-  inline static const std::vector<term<P>> terms1 = {term0_dim0, term0_dim1};
+  inline static const std::vector<term<P>> terms1 = {term1_dim0, term1_dim1};
 
   inline static term_set<P> const terms = {terms0, terms1};
 

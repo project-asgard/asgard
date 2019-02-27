@@ -324,8 +324,8 @@ private:
       term<P>(term1_dim2_type, term1_dim2_func, term1_dim2_time_dependent,
               term1_dim2_flux, term1_dim2_data, term1_dim2_name, dim2);
 
-  inline static const std::vector<term<P>> terms1 = {term0_dim0, term0_dim1,
-                                                     term0_dim2};
+  inline static const std::vector<term<P>> terms1 = {term1_dim0, term1_dim1,
+                                                     term1_dim2};
 
   // term 2
   static coefficient_type constexpr term2_dim0_type  = coefficient_type::mass;
