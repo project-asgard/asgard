@@ -445,18 +445,57 @@ for s=1:length(pde.sources)
 end
 
 clear
-% coefficient testing
 
+% coefficient testing
 coeff_dir = strcat(pwd, "/", "generated-inputs", "/", "coefficients", "/");
 mkdir (coeff_dir);
 
-% test case 1: continuity1's term
+% continuity1 term
 pde = continuity1;
 pde.dimensions{1}.FMWT = OperatorTwoScale(pde.dimensions{1}.deg,2^pde.dimensions{1}.lev);
 mat = coeff_matrix(0, pde.dimensions{1}, pde.terms{1}{1});
 save(strcat(coeff_dir,'continuity1_coefficients.dat'), 'mat');
 
+% continuity2 terms
+pde = continuity2;
+level = 4;
+degree = 3;
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
 
+out_format = strcat(coeff_dir, 'continuity2_coefficients_l4_d3_%d_%d.dat');
+%doesn't matter, the term is time independent...
+time = 1.0;
+for t=1:length(pde.terms)
+  for d=1:length(pde.dimensions)
+    coeff_mat = coeff_matrix(t,pde.dimensions{d},pde.terms{t}{d});
+    save(sprintf(out_format,t,d), 'coeff_mat');
+  end
+end
+
+% continuity3 terms
+pde = continuity3;
+level = 3;
+degree = 5;
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+
+out_format = strcat(coeff_dir, 'continuity3_coefficients_l3_d5_%d_%d.dat');
+%doesn't matter, the term is time independent...
+time = 1.0;
+for t=1:length(pde.terms)
+  for d=1:length(pde.dimensions)
+    coeff_mat = coeff_matrix(t,pde.dimensions{d},pde.terms{t}{d});
+    save(sprintf(out_format,t,d), 'coeff_mat');
+  end
+end
+clear
 
 
 
