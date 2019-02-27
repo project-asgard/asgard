@@ -36,8 +36,8 @@ TEST_CASE("options constructor/getters", "[options]")
 
   SECTION("run w/ defaults")
   {
-    int def_level      = 2;
-    int def_degree     = 3;
+    int def_level      = -1;
+    int def_degree     = -1;
     int def_num_steps  = 10;
     int def_write_freq = 0;
     int def_vis_freq   = 0;

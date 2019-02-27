@@ -60,7 +60,8 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
 
 TEST_CASE("Static helper - cell builder", "[element_table]")
 {
-  element_table t(make_options({}), 1);
+  element_table t(
+      make_options({"-l", std::to_string(3), "-d", std::to_string(2)}), 1);
 
   SECTION("cell index set builder")
   {
