@@ -64,6 +64,7 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
       fk::matrix<double>(basis).transpose();
   fk::matrix<double> const basis_prime_transpose =
       fk::matrix<double>(basis_prime).transpose();
+
   // little helper tool
   // form a matrix that is ncols copies of the source vector appended
   // horizontally
@@ -294,7 +295,8 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
   int const degrees_freedom_1d = dim.get_degree() * two_to_level;
   fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
-  // set number of quatrature points (should this be order dependent?)
+  // set number of quatrature points
+  // FIXME should this be order dependent?
   // FIXME is this a global quantity??
   int const quad_num = 10;
 
@@ -359,6 +361,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
                                        dim.get_degree()) +
         block;
     coefficients.set_submatrix(current, current, curr_block);
+
     // setup numerical flux choice/boundary conditions
     // FIXME is this grad only? not sure yet
     if (term_1D.coeff == coefficient_type::grad)
@@ -377,11 +380,11 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
   coefficients = forward_trans * coefficients * forward_trans_transpose;
 
   // zero out near-zero values after conversion to wavelet space
-  double const compare = 1e-6;
-  auto const normalize = [compare](fk::matrix<double> &matrix) {
+  double const threshold = 1e-6;
+  auto const normalize = [threshold](fk::matrix<double> &matrix) {
     std::transform(matrix.begin(), matrix.end(), matrix.begin(),
-                   [compare](double &elem) {
-                     return std::abs(elem) < compare ? 0.0 : elem;
+                   [threshold](double &elem) {
+                     return std::abs(elem) < threshold ? 0.0 : elem;
                    });
   };
   normalize(coefficients);

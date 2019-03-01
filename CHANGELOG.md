@@ -15,12 +15,12 @@
 
 ## v0.0.1 (TBD)
 
-- [ ] initial structure of the setup code
+- [x] initial structure of the setup code
     - [x] permutations, connectivity component (merged 23 Jan 2019)
-    - [ ] transformations component
-    - [ ] missing quadrature and matlab utilities test input generation
-    - [ ] updated PDE spec for arbitrary dimension
-    - [ ] operator matrices
+    - [x] transformations component (merged 08 Feb 2019)
+    - [x] missing quadrature/utilities test inputs (merged 06 Feb 2019)
+    - [x] updated PDE spec for arbitrary dimension (merged 13 Feb 2019)
+    - [x] operator matrices (merged 01 Mar 2019)
 - [ ] views for fk::tensors
 - [ ] batching for fk::tensors (views)
 - [ ] time loop
