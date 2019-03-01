@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <fstream>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -370,6 +371,61 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   return values;
 }
 
+
+
+// stitch matrices together side by side (all must have same # rows)
+template<typename P>
+fk::matrix<P>
+horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
+{
+  assert(matrices.size() > 0);
+  auto const [nrows, ncols] = [&]() {
+    int col_accum   = 0;
+    int const nrows = matrices[0].nrows();
+    for (auto const &mat : matrices)
+    {
+      col_accum += mat.ncols();
+      assert(mat.nrows() == nrows);
+    }
+    return std::array<int, 2>{nrows, col_accum};
+  }();
+  fk::matrix<P> concat(nrows, ncols);
+  int col_index = 0;
+  for (auto const &mat : matrices)
+  {
+    concat.set_submatrix(0, col_index, mat);
+    col_index += mat.ncols();
+  }
+  return concat;
+}
+
+//
+// limited subset of matlab meshgrid
+// first, creates a vector of size length.
+// at each index i of this vector, the value is start + i
+// the return is a size x size matrix whose rows are copies
+// of this vector.
+//
+// the matlab version of meshgrid is more flexible, accepting
+// a range as the argument and returning both the horizontal
+// and vertical duplication of that range.
+//
+fk::matrix<int> meshgrid(int const start, int const length)
+{
+  assert(length > 0);
+  fk::matrix<int> mesh(length, length);
+  fk::vector<int> const row = [=]() {
+    fk::vector<int> row(length);
+    std::iota(row.begin(), row.end(), start);
+    return row;
+  }();
+  for (int i = 0; i < mesh.nrows(); ++i)
+  {
+    mesh.update_row(i, row);
+  }
+  return mesh;
+}
+
 // explicit instantiations
 template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
@@ -393,3 +449,10 @@ template fk::vector<float>
 polyval(fk::vector<float> const p, fk::vector<float> const x);
 template fk::vector<double>
 polyval(fk::vector<double> const p, fk::vector<double> const x);
+
+template fk::matrix<int>
+horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);
+template fk::matrix<float>
+horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
+template fk::matrix<double>
+horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);

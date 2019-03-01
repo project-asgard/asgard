@@ -129,6 +129,59 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
     REQUIRE(test == gold);
   }
 }
+
+
+TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", float, double,
+                   int)
+{
+  
+  // clang-format off
+  fk::matrix<TestType> const gold {{3, 2, 1},
+				   {1, 2, 3},
+				   {2, 1, 3}};
+  // clang-format on
+
+  SECTION("horz_matrix_concat(single element)")
+  {
+
+    REQUIRE(horz_matrix_concat<TestType>({gold}) == gold);
+  }
+  SECTION("horz_matrix_concat(multiple elements)")
+  {
+
+    fk::matrix<TestType> const column_one  {{3},{1},{2}};
+    fk::matrix<TestType> const column_two  {{2},{2},{1}}; 
+    fk::matrix<TestType> const column_three{{1},{3},{3}};
+    
+    std::vector<fk::matrix<TestType>> const test({column_one, column_two, column_three});
+    REQUIRE(horz_matrix_concat<TestType>(test) == gold);
+  }
+}
+
+TEST_CASE("meshgrid", "[matlab]")
+{
+  SECTION("length 1 case")
+  {
+    fk::matrix<int> const gold {{-4}};
+    int const start = -4;
+    int const length = 1;
+    REQUIRE(meshgrid(start, length) == gold);
+  }
+  SECTION("longer case")
+  {
+    // clang-format off
+    fk::matrix<int> const gold {{-3, -2, -1},
+			        {-3, -2, -1},
+				{-3, -2, -1}};
+    // clang-format on
+    int const start = -3;
+    int const length = 3;
+    REQUIRE(meshgrid(start, length) == gold);
+  }
+}
+
+
+
 TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
 {
   fk::vector<TestType> haystack{2, 3, 4, 5, 6};

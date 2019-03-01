@@ -1,55 +1,13 @@
 #include "coefficients.hpp"
 
 #include "pde.hpp"
+#include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
 #include "transformations.hpp"
 #include <numeric>
 
-// helper functions
-
-// stitch matrices together side by side (all must have same # rows)
-template<typename P>
-static fk::matrix<P>
-horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
-{
-  assert(matrices.size() > 0);
-  auto const [nrows, ncols] = [&]() {
-    int col_accum   = 0;
-    int const nrows = matrices[0].nrows();
-    for (auto const &mat : matrices)
-    {
-      col_accum += mat.ncols();
-      assert(mat.nrows() == nrows);
-    }
-    return std::array<int, 2>{nrows, col_accum};
-  }();
-  fk::matrix<P> concat(nrows, ncols);
-  int col_index = 0;
-  for (auto const &mat : matrices)
-  {
-    concat.set_submatrix(0, col_index, mat);
-    col_index += mat.ncols();
-  }
-  return concat;
-}
-
-// limited subset of matlab meshgrid
-template<typename P>
-static fk::matrix<P> meshgrid(int const start, int const length)
-{
-  fk::matrix<P> mesh(length, length);
-  fk::vector<P> const row = [=]() {
-    fk::vector<P> row(length);
-    std::iota(row.begin(), row.end(), start);
-    return row;
-  }();
-  for (int i = 0; i < mesh.nrows(); ++i)
-  {
-    mesh.update_row(i, row);
-  }
-  return mesh;
-}
+// static helper functions
 
 // perform volume integral to get degree x degree block
 template<typename P>
@@ -112,10 +70,10 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
   int const prev       = (index - 1) * dim.get_degree();
   int const curr       = index * dim.get_degree();
   int const next       = (index + 1) * dim.get_degree();
-  fk::matrix<int> const prev_mesh  = meshgrid<int>(prev, dim.get_degree());
-  fk::matrix<int> const curr_mesh  = meshgrid<int>(curr, dim.get_degree());
+  fk::matrix<int> const prev_mesh  = meshgrid(prev, dim.get_degree());
+  fk::matrix<int> const curr_mesh  = meshgrid(curr, dim.get_degree());
   fk::matrix<int> const curr_trans = fk::matrix<int>(curr_mesh).transpose();
-  fk::matrix<int> const next_mesh  = meshgrid<int>(next, dim.get_degree());
+  fk::matrix<int> const next_mesh  = meshgrid(next, dim.get_degree());
 
   // interior elements - setup for flux
   if (index < two_to_lev - 1 && index > 0)
@@ -138,7 +96,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
     if (index == 0)
     {
       fk::matrix<int> const end_mesh =
-          meshgrid<int>(dim.get_degree() * (two_to_lev - 1), dim.get_degree());
+          meshgrid(dim.get_degree() * (two_to_lev - 1), dim.get_degree());
       fk::matrix<int> const col_indices =
           horz_matrix_concat<int>({end_mesh, curr_mesh, curr_mesh, next_mesh});
       return std::array<fk::matrix<int>, 2>{row_indices, col_indices};
@@ -147,7 +105,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
     else
 
     {
-      fk::matrix<int> const start_mesh  = meshgrid<int>(0, dim.get_degree());
+      fk::matrix<int> const start_mesh  = meshgrid(0, dim.get_degree());
       fk::matrix<int> const col_indices = horz_matrix_concat<int>(
           {prev_mesh, curr_mesh, curr_mesh, start_mesh});
       return std::array<fk::matrix<int>, 2>{row_indices, col_indices};
