@@ -147,21 +147,20 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
   fk::matrix<double> const trace_right_t = fk::matrix<double>(trace_right).transpose();
 
   // build default average and jump operators
-  fk::matrix<double> const avg_op =
+  fk::matrix<double> avg_op =
       horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_right,
                                   (trace_left_t * -1.0) * trace_left,
                                   trace_right_t * trace_right,
                                   trace_right_t * trace_left}) *
       (0.5 * 1.0 / normalize);
 
-  fk::matrix<double> const jmp_op =
+  fk::matrix<double> jmp_op =
       horz_matrix_concat<double>(
           {trace_left_t * trace_right, (trace_left_t * -1.0) * trace_left,
            (trace_right_t * -1.0) * trace_right, trace_right_t * trace_left}) *
       (0.5 * 1.0 / normalize);
 
-  // cover boundary conditions
-
+  // cover boundary conditions, overwriting avg and jmp if necessary
   if (index == 0 && (dim.left == boundary_condition::dirichlet ||
                      dim.left == boundary_condition::neumann))
   {
@@ -202,11 +201,12 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
   return flux_op;
 }
 
-// apply flux operator at given indices
-static fk::matrix<double> &
+// apply flux operator to coeff at indices specified by
+// row indices and col indices 
+static fk::matrix<double>
 apply_flux_operator(fk::matrix<int> const row_indices,
                     fk::matrix<int> const col_indices,
-                    fk::matrix<double> const flux, fk::matrix<double> &coeff)
+                    fk::matrix<double> const flux, fk::matrix<double> coeff)
 {
   assert(row_indices.nrows() == col_indices.nrows());
   assert(row_indices.nrows() == flux.nrows());
