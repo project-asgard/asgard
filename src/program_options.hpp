@@ -10,9 +10,8 @@ private:
   // FIXME level and degree are unique to dimensions, will
   // need to support inputting level and degree per dimensions
   // in future
-  int level = -1; // resolution. -1 loads default from pde
-  int degree =
-      -1; // degree of legendre basis polynomials. -1 loads default from pde
+  int level = -1; // resolution. -1 loads default in pde
+  int degree = -1; // deg of legendre basis polys. -1 loads default in pde
   int num_time_steps          = 10; // number of time loop iterations
   int write_frequency         = 0;  // write output every this many iterations
   int visualization_frequency = 0;  // visualize output every this many iters

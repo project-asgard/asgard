@@ -1,6 +1,5 @@
 #pragma once
-#include "../matlab_utilities.hpp"
-#include "../tensors.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -12,6 +11,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "../matlab_utilities.hpp"
+#include "../tensors.hpp"
 //
 // This file contains all of the interface and object definitions for our
 // representation of a PDE
@@ -271,8 +272,8 @@ public:
 	exact_time(exact_time),
 	do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln),
-	dimensions(dimensions),
-	terms(terms)
+	dimensions_(dimensions),
+	terms_(terms)
   // clang-format on
   {
     assert(num_dims > 0);
@@ -295,7 +296,7 @@ public:
     {
       // FIXME -- temp -- eventually independent levels for each dim will be
 
-      for (dimension<P> &d : this->dimensions)
+      for (dimension<P> &d : dimensions_)
       {
         if (num_levels > 0)
           d.set_level(num_levels);
@@ -303,17 +304,17 @@ public:
           d.set_degree(degree);
       }
 
-      for (std::vector<term<P>> &term_list : this->terms)
+      for (std::vector<term<P>> &term_list : terms_)
       {
         // positive, bounded size - safe compare
         for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
         {
-          term_list[i].set_data(this->dimensions[i], fk::vector<P>());
+          term_list[i].set_data(dimensions_[i], fk::vector<P>());
         }
       }
     }
     // check all dimensions
-    for (dimension<P> const d : this->dimensions)
+    for (dimension<P> const d : dimensions_)
     {
       assert(d.get_degree() > 0);
       assert(d.get_level() > 0);
@@ -327,7 +328,7 @@ public:
     }
 
     // check all terms
-    for (std::vector<term<P>> const term_list : this->terms)
+    for (std::vector<term<P>> const term_list : terms_)
     {
       assert(term_list.size() == static_cast<unsigned>(num_dims));
     }
@@ -346,10 +347,10 @@ public:
 
   virtual ~PDE() {}
 
-  std::vector<dimension<P>> get_dimensions() const { return dimensions; }
-  term_set<P> get_terms() const { return terms; }
+  std::vector<dimension<P>> get_dimensions() const { return dimensions_; }
+  term_set<P> get_terms() const { return terms_; }
 
 private:
-  std::vector<dimension<P>> dimensions;
-  term_set<P> terms;
+  std::vector<dimension<P>> dimensions_;
+  term_set<P> terms_;
 };
