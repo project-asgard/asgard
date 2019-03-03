@@ -36,8 +36,7 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
     return expanded;
   };
 
-  fk::matrix<double> const block = [&, &weights = weights]() {
-    fk::matrix<double> block(dim.get_degree(), dim.get_degree());
+
     //  expand to perform elementwise mult with basis
     fk::matrix<double> const data_expand    = expand(data, dim.get_degree());
     fk::matrix<double> const weights_expand = expand(weights, dim.get_degree());
@@ -56,8 +55,8 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
             data_expand(i, j) * middle_factor(i, j) * weights_expand(i, j);
       }
     }
-    return (factor * middle_factor) * (normalized_domain / 2.0);
-  }();
+  fk::matrix<double> const block = (factor * middle_factor) * (normalized_domain / 2.0);
+
   return block;
 }
 
