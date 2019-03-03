@@ -66,13 +66,13 @@ static std::array<fk::matrix<int>, 2>
 flux_or_boundary_indices(dimension<P> const dim, int const index)
 {
   int const two_to_lev = static_cast<int>(std::pow(2, dim.get_level()));
-  int const prev       = (index - 1) * dim.get_degree();
-  int const curr       = index * dim.get_degree();
-  int const next       = (index + 1) * dim.get_degree();
-  fk::matrix<int> const prev_mesh  = meshgrid(prev, dim.get_degree());
-  fk::matrix<int> const curr_mesh  = meshgrid(curr, dim.get_degree());
+  int const previous_index       = (index - 1) * dim.get_degree();
+  int const current_index       = index * dim.get_degree();
+  int const next_index       = (index + 1) * dim.get_degree();
+  fk::matrix<int> const prev_mesh  = meshgrid(previous_index, dim.get_degree());
+  fk::matrix<int> const curr_mesh  = meshgrid(current_index, dim.get_degree());
   fk::matrix<int> const curr_trans = fk::matrix<int>(curr_mesh).transpose();
-  fk::matrix<int> const next_mesh  = meshgrid(next, dim.get_degree());
+  fk::matrix<int> const next_mesh  = meshgrid(next_index, dim.get_degree());
 
   // interior elements - setup for flux
   if (index < two_to_lev - 1 && index > 0)
