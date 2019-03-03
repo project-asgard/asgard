@@ -143,17 +143,8 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
   fk::matrix<double> const trace_right =
       legendre<double>(fk::vector<double>({1.0}), dim.get_degree())[0];
 
-  fk::matrix<double> const trace_left_t = [&] {
-    fk::matrix<double> trace_left_transpose = trace_left;
-    trace_left_transpose.transpose();
-    return trace_left_transpose;
-  }();
-
-  fk::matrix<double> const trace_right_t = [&] {
-    fk::matrix<double> trace_right_transpose = trace_right;
-    trace_right_transpose.transpose();
-    return trace_right_transpose;
-  }();
+  fk::matrix<double> const trace_left_t = fk::matrix<double>(trace_left).transpose();
+  fk::matrix<double> const trace_right_t = fk::matrix<double>(trace_right).transpose();
 
   // build default average and jump operators
   fk::matrix<double> const avg_op =
@@ -174,13 +165,13 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
   if (index == 0 && (dim.left == boundary_condition::dirichlet ||
                      dim.left == boundary_condition::neumann))
   {
-    fk::matrix<double> const avg_op =
+       avg_op =
         horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_left,
                                     trace_right_t * trace_right,
                                     trace_right_t * trace_left}) *
         (0.5 * 1.0 / normalize);
 
-    fk::matrix<double> const jmp_op =
+       jmp_op =
         horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_left,
                                     (trace_right_t * -1.0) * trace_right,
                                     trace_right_t * trace_left}) *
@@ -191,13 +182,13 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
       (dim.right == boundary_condition::dirichlet ||
        dim.right == boundary_condition::neumann))
   {
-    fk::matrix<double> const avg_op =
+       avg_op =
         horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_right,
                                     (trace_left_t * -1.0) * trace_left,
                                     trace_right_t * trace_right}) *
         (0.5 * 1.0 / normalize);
 
-    fk::matrix<double> const jmp_op =
+       jmp_op =
         horz_matrix_concat<double>({trace_left_t * trace_right,
                                     (trace_left_t * -1.0) * trace_left,
                                     (trace_right_t * -1.0) * trace_right}) *
