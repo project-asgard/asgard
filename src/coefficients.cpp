@@ -10,6 +10,9 @@
 // static helper functions
 
 // perform volume integral to get degree x degree block
+// FIXME this name, and description, are temporary -
+// we need Tim or someone to clear this up a bit.
+// issue open for this.
 template<typename P>
 static fk::matrix<double>
 volume_integral(dimension<P> const dim, term<P> const term_1D,
@@ -61,6 +64,7 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
 }
 
 // get indices where flux should be applied
+// FIXME Can tim or someone help us understand inputs/outputs here?
 template<typename P>
 static std::array<fk::matrix<int>, 2>
 flux_or_boundary_indices(dimension<P> const dim, int const index)
@@ -130,6 +134,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
   }
 }
 
+//FIXME issue opened to clarify this function's purpose/inputs & outputs
 template<typename P>
 static fk::matrix<double>
 get_flux_operator(dimension<P> const dim, term<P> const term_1D,
@@ -202,7 +207,7 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
 }
 
 // apply flux operator to coeff at indices specified by
-// row indices and col indices 
+// row indices and col indices FIXME elaborate?
 static fk::matrix<double>
 apply_flux_operator(fk::matrix<int> const row_indices,
                     fk::matrix<int> const col_indices,
@@ -228,8 +233,7 @@ apply_flux_operator(fk::matrix<int> const row_indices,
 // construct 1D coefficient matrix
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
-// coefficient matricies.
-
+// coefficient matricies
 template<typename P>
 fk::matrix<double>
 generate_coefficients(dimension<P> const dim, term<P> const term_1D,
