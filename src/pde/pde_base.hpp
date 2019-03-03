@@ -126,6 +126,8 @@ using g_func_type = std::function<P(P const, P const)>;
 template<typename P>
 class term
 {
+
+
 public:
   term(coefficient_type const coeff, g_func_type<P> const g_func,
        bool const time_dependent, flux_type const flux,
@@ -135,19 +137,12 @@ public:
         flux(flux), name(name), data_(data)
   {
     set_data(owning_dim, data);
-
-    int const degrees_freedom_1d =
-        owning_dim.get_degree() *
-        static_cast<int>(std::pow(2, owning_dim.get_level()));
-
-    set_coefficients(owning_dim, eye<P>(degrees_freedom_1d));
+    set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
   }
 
   void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
   {
-    int const degrees_freedom_1d =
-        owning_dim.get_degree() *
-        static_cast<int>(std::pow(2, owning_dim.get_level()));
+    int const degrees_freedom_1d = degrees_freedom(owning_dim);
     if (data.size() != 0)
     {
       assert(data.size() == degrees_freedom_1d);
@@ -159,15 +154,15 @@ public:
     }
     if (flux == flux_type::central)
     {
-      flux_scale = 0.0;
+      flux_scale_ = 0.0;
     }
     else if (flux == flux_type::upwind)
     {
-      flux_scale = 1.0;
+      flux_scale_ = 1.0;
     }
     else
     {
-      flux_scale = 0.0;
+      flux_scale_ = 0.0;
     }
   }
 
@@ -176,22 +171,25 @@ public:
   void set_flux_scale(P const dfdu)
   {
     assert(flux == flux_type::lax_friedrich);
-    flux_scale = dfdu;
+    flux_scale_ = dfdu;
   };
-  P get_flux_scale() const { return flux_scale; };
+  P get_flux_scale() const { return flux_scale_; };
 
   void set_coefficients(dimension<P> const owning_dim,
                         fk::matrix<P> const new_coefficients)
   {
-    int const degrees_freedom_1d =
-        owning_dim.get_degree() *
-        static_cast<int>(std::pow(2, owning_dim.get_level()));
+    int const degrees_freedom_1d = degrees_freedom(owning_dim);
     assert(degrees_freedom_1d == new_coefficients.nrows());
     assert(degrees_freedom_1d == new_coefficients.ncols());
-    this->coefficients.resize(degrees_freedom_1d, degrees_freedom_1d) =
+    this->coefficients_.clear_and_resize(degrees_freedom_1d, degrees_freedom_1d) =
         new_coefficients;
   }
-  fk::matrix<P> get_coefficients() const { return coefficients; }
+  fk::matrix<P> get_coefficients() const { return coefficients_; }
+
+  // small helper to return degrees of freedom given dimension
+  int degrees_freedom (dimension<P> const d) {
+  return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
+  };
 
   // public but const data. no getters
   coefficient_type const coeff;
@@ -212,10 +210,10 @@ private:
   // determined by flux type. 0 or 1 for central or upwind, respectively,
   // and df/du for lax freidrich. should not be set after construction for
   // central or upwind.
-  P flux_scale;
+  P flux_scale_;
 
   // operator matrix for this term at a single dimension
-  fk::matrix<P> coefficients;
+  fk::matrix<P> coefficients_;
 };
 
 // ---------------------------------------------------------------------------

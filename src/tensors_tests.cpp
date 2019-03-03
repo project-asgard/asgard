@@ -765,10 +765,10 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     REQUIRE(test.update_row(4, testv) == gold);
   }
 
-  SECTION("matrix resize (clear)")
+  SECTION("matrix clear and resize")
   {
     fk::matrix<TestType> gold_copy = gold;
-    gold_copy.resize(2, 1);
+    gold_copy.clear_and_resize(2, 1);
     // clang-format off
     fk::matrix<TestType> const test {
       {0},

@@ -1223,15 +1223,16 @@ fk::matrix<P>::update_row(int const row_idx, std::vector<P> const &v)
 }
 
 //
-// Resize, clearing all data
+// Resize, clearing all data FIXME when templating on ownership,
+// this function will need to restrict callers to sizing up
 //
 template<typename P>
-fk::matrix<P> &fk::matrix<P>::resize(int const rows, int const cols)
+fk::matrix<P> &fk::matrix<P>::clear_and_resize(int const rows, int const cols)
 {
   assert(rows >= 0);
   assert(cols >= 0);
-  if (rows == 0)
-    assert(cols == 0);
+  if (rows == 0 || cols == 0)
+    assert(cols == rows);
   delete[] data_;
   data_  = new P[rows * cols]();
   nrows_ = rows;
