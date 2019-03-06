@@ -71,7 +71,7 @@ public:
 
       : left(left), right(right), domain_min(domain_min),
         domain_max(domain_max), initial_condition(initial_condition),
-        name(name), level(level), degree(degree)
+        name(name), level_(level), degree_(degree)
   {}
 
   int get_level() const { return level; }
@@ -90,8 +90,8 @@ private:
     this->degree = degree;
   }
 
-  int level;
-  int degree;
+  int level_;
+  int degree_;
 
   friend class PDE<P>;
 };
@@ -127,8 +127,6 @@ using g_func_type = std::function<P(P const, P const)>;
 template<typename P>
 class term
 {
-
-
 public:
   term(coefficient_type const coeff, g_func_type<P> const g_func,
        bool const time_dependent, flux_type const flux,

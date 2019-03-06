@@ -21,7 +21,7 @@
     - [x] transformations component (merged 08 Feb 2019)
     - [x] missing quadrature/utilities test inputs (merged 06 Feb 2019)
     - [x] updated PDE spec for arbitrary dimension (merged 13 Feb 2019)
-    - [x] operator matrices (merged 04 Mar 2019)
+    - [x] operator matrices (merged 06 Mar 2019)
 - [ ] views for fk::tensors
 - [ ] batching for fk::tensors (views)
 - [ ] dimension agnostic kronecker products
