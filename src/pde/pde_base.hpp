@@ -145,6 +145,7 @@ public:
     if (data.size() != 0)
     {
       assert(data.size() == degrees_freedom_1d);
+      data_ = data;
     }
     else
     {
