@@ -180,14 +180,15 @@ public:
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     assert(degrees_freedom_1d == new_coefficients.nrows());
     assert(degrees_freedom_1d == new_coefficients.ncols());
-    this->coefficients_.clear_and_resize(degrees_freedom_1d, degrees_freedom_1d) =
-        new_coefficients;
+    this->coefficients_.clear_and_resize(degrees_freedom_1d,
+                                         degrees_freedom_1d) = new_coefficients;
   }
   fk::matrix<P> get_coefficients() const { return coefficients_; }
 
   // small helper to return degrees of freedom given dimension
-  int degrees_freedom (dimension<P> const d) {
-  return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
+  int degrees_freedom(dimension<P> const d)
+  {
+    return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   };
 
   // public but const data. no getters

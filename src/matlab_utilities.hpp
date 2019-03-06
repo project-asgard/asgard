@@ -122,8 +122,7 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path);
 
 // stitch matrices having equal # of rows together horizontally
 template<typename P>
-fk::matrix<P>
-horz_matrix_concat(std::vector<fk::matrix<P>> const matrices);
+fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices);
 
 // limited subset of matbal meshgrid
 fk::matrix<int> meshgrid(int const start, int const length);
@@ -152,7 +151,6 @@ extern template fk::vector<float>
 polyval(fk::vector<float> const p, fk::vector<float> const x);
 extern template fk::vector<double>
 polyval(fk::vector<double> const p, fk::vector<double> const x);
-
 
 extern template fk::matrix<int>
 horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);

@@ -371,12 +371,9 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   return values;
 }
 
-
-
 // stitch matrices together side by side (all must have same # rows)
 template<typename P>
-fk::matrix<P>
-horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
+fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
 {
   assert(matrices.size() > 0);
   auto const [nrows, ncols] = [&]() {

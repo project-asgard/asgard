@@ -1,7 +1,7 @@
 #include "coefficients.hpp"
 
-#include "pde.hpp"
 #include "matlab_utilities.hpp"
+#include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
 #include "transformations.hpp"
@@ -39,26 +39,26 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
     return expanded;
   };
 
-
-    //  expand to perform elementwise mult with basis
-    fk::matrix<double> const data_expand    = expand(data, dim.get_degree());
-    fk::matrix<double> const weights_expand = expand(weights, dim.get_degree());
-    // select factors based on coefficient type
-    fk::matrix<double> const factor = term_1D.coeff == coefficient_type::mass
-                                          ? basis_transpose
-                                          : basis_prime_transpose;
-    fk::matrix<double> middle_factor =
-        term_1D.coeff == coefficient_type::stiffness ? basis_prime : basis;
-    // form block
-    for (int i = 0; i < middle_factor.nrows(); ++i)
+  //  expand to perform elementwise mult with basis
+  fk::matrix<double> const data_expand    = expand(data, dim.get_degree());
+  fk::matrix<double> const weights_expand = expand(weights, dim.get_degree());
+  // select factors based on coefficient type
+  fk::matrix<double> const factor = term_1D.coeff == coefficient_type::mass
+                                        ? basis_transpose
+                                        : basis_prime_transpose;
+  fk::matrix<double> middle_factor =
+      term_1D.coeff == coefficient_type::stiffness ? basis_prime : basis;
+  // form block
+  for (int i = 0; i < middle_factor.nrows(); ++i)
+  {
+    for (int j = 0; j < middle_factor.ncols(); ++j)
     {
-      for (int j = 0; j < middle_factor.ncols(); ++j)
-      {
-        middle_factor(i, j) =
-            data_expand(i, j) * middle_factor(i, j) * weights_expand(i, j);
-      }
+      middle_factor(i, j) =
+          data_expand(i, j) * middle_factor(i, j) * weights_expand(i, j);
     }
-  fk::matrix<double> const block = (factor * middle_factor) * (normalized_domain / 2.0);
+  }
+  fk::matrix<double> const block =
+      (factor * middle_factor) * (normalized_domain / 2.0);
 
   return block;
 }
@@ -69,10 +69,10 @@ template<typename P>
 static std::array<fk::matrix<int>, 2>
 flux_or_boundary_indices(dimension<P> const dim, int const index)
 {
-  int const two_to_lev = static_cast<int>(std::pow(2, dim.get_level()));
-  int const previous_index       = (index - 1) * dim.get_degree();
-  int const current_index       = index * dim.get_degree();
-  int const next_index       = (index + 1) * dim.get_degree();
+  int const two_to_lev     = static_cast<int>(std::pow(2, dim.get_level()));
+  int const previous_index = (index - 1) * dim.get_degree();
+  int const current_index  = index * dim.get_degree();
+  int const next_index     = (index + 1) * dim.get_degree();
   fk::matrix<int> const prev_mesh  = meshgrid(previous_index, dim.get_degree());
   fk::matrix<int> const curr_mesh  = meshgrid(current_index, dim.get_degree());
   fk::matrix<int> const curr_trans = fk::matrix<int>(curr_mesh).transpose();
@@ -134,7 +134,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
   }
 }
 
-//FIXME issue opened to clarify this function's purpose/inputs & outputs
+// FIXME issue opened to clarify this function's purpose/inputs & outputs
 template<typename P>
 static fk::matrix<double>
 get_flux_operator(dimension<P> const dim, term<P> const term_1D,
@@ -148,8 +148,10 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
   fk::matrix<double> const trace_right =
       legendre<double>(fk::vector<double>({1.0}), dim.get_degree())[0];
 
-  fk::matrix<double> const trace_left_t = fk::matrix<double>(trace_left).transpose();
-  fk::matrix<double> const trace_right_t = fk::matrix<double>(trace_right).transpose();
+  fk::matrix<double> const trace_left_t =
+      fk::matrix<double>(trace_left).transpose();
+  fk::matrix<double> const trace_right_t =
+      fk::matrix<double>(trace_right).transpose();
 
   // build default average and jump operators
   fk::matrix<double> avg_op =
@@ -169,30 +171,27 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
   if (index == 0 && (dim.left == boundary_condition::dirichlet ||
                      dim.left == boundary_condition::neumann))
   {
-       avg_op =
-        horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_left,
-                                    trace_right_t * trace_right,
-                                    trace_right_t * trace_left}) *
-        (0.5 * 1.0 / normalize);
+    avg_op = horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_left,
+                                         trace_right_t * trace_right,
+                                         trace_right_t * trace_left}) *
+             (0.5 * 1.0 / normalize);
 
-       jmp_op =
-        horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_left,
-                                    (trace_right_t * -1.0) * trace_right,
-                                    trace_right_t * trace_left}) *
-        (0.5 * 1.0 / normalize);
+    jmp_op = horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_left,
+                                         (trace_right_t * -1.0) * trace_right,
+                                         trace_right_t * trace_left}) *
+             (0.5 * 1.0 / normalize);
   }
 
   if ((index == (two_to_lev - 1)) &&
       (dim.right == boundary_condition::dirichlet ||
        dim.right == boundary_condition::neumann))
   {
-       avg_op =
-        horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_right,
-                                    (trace_left_t * -1.0) * trace_left,
-                                    trace_right_t * trace_right}) *
-        (0.5 * 1.0 / normalize);
+    avg_op = horz_matrix_concat<double>({(trace_left_t * -1.0) * trace_right,
+                                         (trace_left_t * -1.0) * trace_left,
+                                         trace_right_t * trace_right}) *
+             (0.5 * 1.0 / normalize);
 
-       jmp_op =
+    jmp_op =
         horz_matrix_concat<double>({trace_left_t * trace_right,
                                     (trace_left_t * -1.0) * trace_left,
                                     (trace_right_t * -1.0) * trace_right}) *
@@ -208,10 +207,10 @@ get_flux_operator(dimension<P> const dim, term<P> const term_1D,
 
 // apply flux operator to coeff at indices specified by
 // row indices and col indices FIXME elaborate?
-static fk::matrix<double>
-apply_flux_operator(fk::matrix<int> const row_indices,
-                    fk::matrix<int> const col_indices,
-                    fk::matrix<double> const flux, fk::matrix<double> coeff)
+static fk::matrix<double> apply_flux_operator(fk::matrix<int> const row_indices,
+                                              fk::matrix<int> const col_indices,
+                                              fk::matrix<double> const flux,
+                                              fk::matrix<double> coeff)
 {
   assert(row_indices.nrows() == col_indices.nrows());
   assert(row_indices.nrows() == flux.nrows());
@@ -333,7 +332,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
 
   // zero out near-zero values after conversion to wavelet space
   double const threshold = 1e-6;
-  auto const normalize = [threshold](fk::matrix<double> &matrix) {
+  auto const normalize   = [threshold](fk::matrix<double> &matrix) {
     std::transform(matrix.begin(), matrix.end(), matrix.begin(),
                    [threshold](double &elem) {
                      return std::abs(elem) < threshold ? 0.0 : elem;
