@@ -17,8 +17,9 @@
 #include "tensors.hpp"
 
 //
-// This file contains the PDE factory and the utilities to select the PDEs being
-// made available by the included implementations
+// this file contains the PDE factory and the utilities to
+// select the PDEs being made available by the included
+// implementations
 //
 
 //
@@ -59,31 +60,33 @@ static pde_map_t const pde_mapping = {{"continuity_1", PDE_opts::continuity_1},
 // return for some of these once we implement them...
 //
 // ---------------------------------------------------------------------------
+
 template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(PDE_opts choice)
+std::unique_ptr<PDE<P>>
+make_PDE(PDE_opts choice, int const level = -1, int const degree = -1)
 {
   switch (choice)
   {
   case PDE_opts::continuity_1:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   case PDE_opts::continuity_2:
-    return std::make_unique<PDE_continuity_2d<P>>();
+    return std::make_unique<PDE_continuity_2d<P>>(level, degree);
   case PDE_opts::continuity_3:
-    return std::make_unique<PDE_continuity_3d<P>>();
+    return std::make_unique<PDE_continuity_3d<P>>(level, degree);
 
   // TODO not yet implemented, replace return with appropriate types
   case PDE_opts::vlasov4:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   case PDE_opts::vlasov43:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   case PDE_opts::vlasov5:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   case PDE_opts::vlasov7:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   case PDE_opts::vlasov8:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   case PDE_opts::pde_user:
-    return std::make_unique<PDE_continuity_1d<P>>();
+    return std::make_unique<PDE_continuity_1d<P>>(level, degree);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);

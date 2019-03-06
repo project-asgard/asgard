@@ -344,11 +344,11 @@ vect = forwardMWT(level, degree, l_min, l_max, double_it, 0);
 save(filename, 'vect');
 
 
-filename = strcat(out_base, "3_4_neg2_5_pos_2_5_doubleplus.dat");
+filename = strcat(out_base, "3_4_neg2_pos2_doubleplus.dat");
 degree = 3;
 level = 4;
-l_min = -2.5;
-l_max = 2.5;
+l_min = -2.0;
+l_max = 2.0;
 double_plus = @(n,x) (n + n*2);
 vect = forwardMWT(level, degree, l_min, l_max, double_plus, 0);
 save(filename, 'vect');
@@ -444,10 +444,58 @@ for s=1:length(pde.sources)
   end
 end
 
+clear
 
+% coefficient testing
+coeff_dir = strcat(pwd, "/", "generated-inputs", "/", "coefficients", "/");
+mkdir (coeff_dir);
 
+% continuity1 term
+pde = continuity1;
+pde.dimensions{1}.FMWT = OperatorTwoScale(pde.dimensions{1}.deg,2^pde.dimensions{1}.lev);
+mat = coeff_matrix(0, pde.dimensions{1}, pde.terms{1}{1});
+save(strcat(coeff_dir,'continuity1_coefficients.dat'), 'mat');
 
+% continuity2 terms
+pde = continuity2;
+level = 4;
+degree = 3;
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
 
+out_format = strcat(coeff_dir, 'continuity2_coefficients_l4_d3_%d_%d.dat');
+%doesn't matter, the term is time independent...
+time = 1.0;
+for t=1:length(pde.terms)
+  for d=1:length(pde.dimensions)
+    coeff_mat = coeff_matrix(t,pde.dimensions{d},pde.terms{t}{d});
+    save(sprintf(out_format,t,d), 'coeff_mat');
+  end
+end
+
+% continuity3 terms
+pde = continuity3;
+level = 3;
+degree = 5;
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+
+out_format = strcat(coeff_dir, 'continuity3_coefficients_l3_d5_%d_%d.dat');
+%doesn't matter, the term is time independent...
+time = 1.0;
+for t=1:length(pde.terms)
+  for d=1:length(pde.dimensions)
+    coeff_mat = coeff_matrix(t,pde.dimensions{d},pde.terms{t}{d});
+    save(sprintf(out_format,t,d), 'coeff_mat');
+  end
+end
+clear
 
 
 

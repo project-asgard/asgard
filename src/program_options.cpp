@@ -51,12 +51,12 @@ options::options(int argc, char **argv)
     std::cerr << "CFL must be non-negative" << std::endl;
     valid = false;
   }
-  if (degree < 1)
+  if (degree < 1 && degree != -1)
   {
     std::cerr << "Degree must be a natural number" << std::endl;
     valid = false;
   }
-  if (level < 1)
+  if (level < 1 && level != -1)
   {
     std::cerr << "Level must be a natural number" << std::endl;
     valid = false;

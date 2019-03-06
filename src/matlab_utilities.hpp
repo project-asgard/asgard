@@ -120,6 +120,13 @@ fk::vector<double> read_vector_from_txt_file(std::string const &path);
 // read an octave matrix from text file into a fk::matrix
 fk::matrix<double> read_matrix_from_txt_file(std::string const &path);
 
+// stitch matrices having equal # of rows together horizontally
+template<typename P>
+fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices);
+
+// limited subset of matbal meshgrid
+fk::matrix<int> meshgrid(int const start, int const length);
+
 // suppress implicit instantiations
 extern template fk::vector<float> linspace(float const start, float const end,
                                            unsigned int const num_elems = 100);
@@ -133,6 +140,7 @@ extern template fk::matrix<double> eye(int const M = 1);
 extern template fk::matrix<int> eye(int const M, int const N);
 extern template fk::matrix<float> eye(int const M, int const N);
 extern template fk::matrix<double> eye(int const M, int const N);
+
 extern template int polyval(fk::vector<int> const p, int const x);
 extern template float polyval(fk::vector<float> const p, float const x);
 extern template double polyval(fk::vector<double> const p, double const x);
@@ -143,3 +151,10 @@ extern template fk::vector<float>
 polyval(fk::vector<float> const p, fk::vector<float> const x);
 extern template fk::vector<double>
 polyval(fk::vector<double> const p, fk::vector<double> const x);
+
+extern template fk::matrix<int>
+horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);
+extern template fk::matrix<float>
+horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
+extern template fk::matrix<double>
+horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);

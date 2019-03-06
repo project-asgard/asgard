@@ -42,6 +42,7 @@ include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 
 # define the components and how to build and link the components together
 set (components
+  coefficients
   connectivity
   element_table
   matlab_utilities
@@ -62,6 +63,8 @@ if (build_OpenBLAS)
   set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
 endif ()
 
+target_link_libraries (coefficients
+  PRIVATE pde matlab_utilities quadrature tensors transformations)
 
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
@@ -71,7 +74,7 @@ target_link_libraries (element_table
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
-target_link_libraries (pde PRIVATE tensors)
+target_link_libraries (pde PRIVATE matlab_utilities tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
@@ -82,15 +85,14 @@ target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
 target_link_libraries (transformations
-  PRIVATE connectivity matlab_utilities program_options
+  PRIVATE connectivity matlab_utilities pde program_options
   quadrature tensors)
-
-
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
 
 set (main_app_link_deps
+  coefficients
   connectivity
   element_table
   matlab_utilities

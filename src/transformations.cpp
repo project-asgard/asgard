@@ -349,15 +349,17 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
       .single_column_kron(operands[num_prods - 1]);
 }
 
+// FIXME this function will need to change once dimensions can have different
+// degree...
 template<typename P>
 fk::vector<P>
-combine_dimensions(options const opts, element_table const &table,
+combine_dimensions(dimension<P> const dim, element_table const &table,
                    std::vector<fk::vector<P>> const &vectors, P const time)
 {
   int const num_dims = vectors.size();
   assert(num_dims > 0);
 
-  int const degree = opts.get_degree();
+  int const degree = dim.get_degree();
   fk::vector<P> combined;
 
   for (int i = 0; i < table.size(); ++i)
@@ -379,11 +381,11 @@ combine_dimensions(options const opts, element_table const &table,
   return combined;
 }
 
-template<typename P>
-fk::matrix<P> operator_two_scale(options const opts)
+template<typename P, typename R>
+fk::matrix<R> operator_two_scale(dimension<P> const dim)
 {
-  int const degree     = opts.get_degree();
-  int const num_levels = opts.get_level();
+  int const degree     = dim.get_degree();
+  int const num_levels = dim.get_level();
 
   assert(degree > 0);
   assert(num_levels > 0);
@@ -394,16 +396,16 @@ fk::matrix<P> operator_two_scale(options const opts)
   // because can't unpack only some args w structured binding (until c++20)
   auto const ignore = [](auto ignored) { (void)ignored; };
   auto const [h0, h1, g0, g1, phi_co, scale_co] =
-      generate_multi_wavelets<P>(degree);
+      generate_multi_wavelets<R>(degree);
   ignore(phi_co);
   ignore(scale_co);
 
-  fk::matrix<P> fmwt(degree * max_level, degree * max_level);
+  fk::matrix<R> fmwt(degree * max_level, degree * max_level);
 
-  fk::matrix<P> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
+  fk::matrix<R> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
                                     .set_submatrix(0, 0, h0)
                                     .set_submatrix(0, h0.ncols(), h1);
-  fk::matrix<P> const g_block = fk::matrix<P>(g0.nrows(), g0.ncols() * 2)
+  fk::matrix<R> const g_block = fk::matrix<P>(g0.nrows(), g0.ncols() * 2)
                                     .set_submatrix(0, 0, g0)
                                     .set_submatrix(0, g0.ncols(), g1);
 
@@ -415,12 +417,12 @@ fk::matrix<P> operator_two_scale(options const opts)
     fmwt.set_submatrix(degree * (i + max_level / 2), 2 * degree * i, g_block);
   }
 
-  fk::matrix<P> fmwt_comp = eye<P>(degree * max_level, degree * max_level);
+  fk::matrix<R> fmwt_comp = eye<P>(degree * max_level, degree * max_level);
 
   int const n = std::floor(std::log2(max_level));
   for (int j = 1; j <= n; j++)
   {
-    fk::matrix<P> cfmwt(degree * max_level, degree * max_level);
+    fk::matrix<R> cfmwt(degree * max_level, degree * max_level);
     if (j == 1)
     {
       cfmwt = fmwt;
@@ -439,7 +441,7 @@ fk::matrix<P> operator_two_scale(options const opts)
     fmwt_comp = cfmwt * fmwt_comp;
   }
   std::transform(fmwt_comp.begin(), fmwt_comp.end(), fmwt_comp.begin(),
-                 [](P &elem) { return std::abs(elem) < 1e-12 ? 0.0 : elem; });
+                 [](R &elem) { return std::abs(elem) < 1e-12 ? 0.0 : elem; });
   return fmwt_comp;
 }
 
@@ -449,11 +451,13 @@ template std::array<fk::matrix<float>, 6>
 generate_multi_wavelets(int const degree);
 
 template fk::vector<double>
-combine_dimensions(options const, element_table const &,
+combine_dimensions(dimension<double> const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 template fk::vector<float>
-combine_dimensions(options const, element_table const &,
+combine_dimensions(dimension<float> const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
-template fk::matrix<double> operator_two_scale(options const opts);
-template fk::matrix<float> operator_two_scale(options const opts);
+template fk::matrix<double> operator_two_scale(dimension<double> const opts);
+template fk::matrix<float> operator_two_scale(dimension<float> const opts);
+template fk::matrix<float> operator_two_scale(dimension<double> const opts);
+template fk::matrix<double> operator_two_scale(dimension<float> const opts);
