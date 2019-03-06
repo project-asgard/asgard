@@ -344,11 +344,11 @@ vect = forwardMWT(level, degree, l_min, l_max, double_it, 0);
 save(filename, 'vect');
 
 
-filename = strcat(out_base, "3_4_neg2_5_pos_2_5_doubleplus.dat");
+filename = strcat(out_base, "3_4_neg2_pos2_doubleplus.dat");
 degree = 3;
 level = 4;
-l_min = -2.5;
-l_max = 2.5;
+l_min = -2.0;
+l_max = 2.0;
 double_plus = @(n,x) (n + n*2);
 vect = forwardMWT(level, degree, l_min, l_max, double_plus, 0);
 save(filename, 'vect');

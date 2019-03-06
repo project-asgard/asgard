@@ -74,20 +74,20 @@ public:
         name(name), level_(level), degree_(degree)
   {}
 
-  int get_level() const { return level; }
-  int get_degree() const { return degree; }
+  int get_level() const { return level_; }
+  int get_degree() const { return degree_; }
 
 private:
   void set_level(int level)
   {
     assert(level > 0);
-    this->level = level;
+    level_ = level;
   }
 
   void set_degree(int degree)
   {
     assert(degree > 0);
-    this->degree = degree;
+    degree_ = degree;
   }
 
   int level_;
