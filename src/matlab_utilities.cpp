@@ -7,6 +7,7 @@
 #include <numeric>
 #include <string>
 #include <vector>
+#include <array>
 
 // matlab's "linspace(start, end, N)" function
 //-----------------------------------------------------------------------------

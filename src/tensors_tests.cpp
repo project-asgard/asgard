@@ -8,6 +8,7 @@
 #include <sstream>
 
 #include "matlab_utilities.hpp"
+using namespace std::placeholders;
 
 // note using widening conversions to floating point type in order to use same
 // tests for integer type
@@ -625,9 +626,9 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     fk::vector<TestType, mem_type::view> test_v(test_copy);
     fk::vector<TestType> const after{0, 2, 3, 4};
     std::transform(test.begin(), test.end(), test.begin(),
-                   std::bind1st(std::plus<TestType>(), 1));
+                   std::bind(std::plus<TestType>(), _1, 1));
     std::transform(test_v.begin(), test_v.end(), test_v.begin(),
-                   std::bind1st(std::plus<TestType>(), 1));
+                   std::bind(std::plus<TestType>(), _1, 1));
     REQUIRE(test == after);
     REQUIRE(test_copy == after);
     REQUIRE(test_v == after);
@@ -1216,7 +1217,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
    {1, 2, 3, 4},
    {5, 6, 7, 8},
   }; // clang-format on 
-  std::transform(test.begin(), test.end(), test.begin(), std::bind1st(std::plus<TestType>(), 1));
+  std::transform(test.begin(), test.end(), test.begin(), std::bind(std::plus<TestType>(), _1, 1));
   REQUIRE(test == after);
   }
 
