@@ -27,7 +27,8 @@ static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
 
 // generate_multi_wavelets routine creates wavelet basis (phi_co)
 // then uses these to generate the two-scale coefficients which can be
-// used (outside of this routine) to
+// used (outside of this routine) to construct the forward multi-wavelet
+// transform
 template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 {
@@ -44,22 +45,10 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // stepping sets accuracy
   // In this routine there are two intervals for the quadrature
   // Negative one to zero ---- and zero to one
-  int const stepping  = static_cast<int>(std::pow(2, 6));
-  P const step        = 1.0 / stepping;
-  P const start       = -1.0;
-  P const middle      = 0.0;
-  P const end         = 1.0;
-  int const num_steps = static_cast<int>((middle - start) / step);
-  fk::vector<P> const x_coord_neg1to0 = [=] {
-    fk::vector<P> x(num_steps);
-    strided_iota(x.begin(), x.end(), start, step);
-    return x;
-  }();
-  fk::vector<P> const x_coord_0to1 = [=] {
-    fk::vector<P> x(num_steps);
-    strided_iota(x.begin(), x.end(), middle, step);
-    return x;
-  }();
+  int const stepping = static_cast<int>(std::pow(2, 6));
+  P const start      = -1.0;
+  P const middle     = 0.0;
+  P const end        = 1.0;
 
   // Step 1 of 2 in creating scalets
   // generate Legendre polynomial coefficients
