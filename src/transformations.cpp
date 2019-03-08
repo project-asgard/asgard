@@ -27,7 +27,7 @@ static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
 
 // generate_multi_wavelets routine creates wavelet basis (phi_co)
 // then uses these to generate the two-scale coefficients which can be
-// used (outside of this routine) to 
+// used (outside of this routine) to
 template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 {
@@ -44,12 +44,12 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // stepping sets accuracy
   // In this routine there are two intervals for the quadrature
   // Negative one to zero ---- and zero to one
-  int const stepping           = static_cast<int>(std::pow(2, 6));
-  P const step                 = 1.0 / stepping;
-  P const start                = -1.0;
-  P const middle               = 0.0;
-  P const end                  = 1.0;
-  int const num_steps          = static_cast<int>((middle - start) / step);
+  int const stepping  = static_cast<int>(std::pow(2, 6));
+  P const step        = 1.0 / stepping;
+  P const start       = -1.0;
+  P const middle      = 0.0;
+  P const end         = 1.0;
+  int const num_steps = static_cast<int>((middle - start) / step);
   fk::vector<P> const x_coord_neg1to0 = [=] {
     fk::vector<P> x(num_steps);
     strided_iota(x.begin(), x.end(), start, step);
@@ -63,23 +63,30 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 
   // Step 1 of 2 in creating scalets
   // generate Legendre polynomial coefficients
-  // size_legendre degree+2 is used so that this algorithm will 
+  // size_legendre degree+2 is used so that this algorithm will
   // work with degree 0
-  int const size_legendre = degree+2;
+  int const size_legendre = degree + 2;
   fk::matrix<P> legendre(size_legendre, size_legendre);
   legendre(0, size_legendre - 1) = 1.0;
   legendre(1, size_legendre - 2) = 1.0;
-  for (int row_pos = 0; row_pos < degree-2; ++row_pos)
+  for (int row_pos = 0; row_pos < degree - 2; ++row_pos)
   {
     // single row matrix; using matrix here for set submatrix
-    fk::matrix<P> const P_row_pos = legendre.extract_submatrix(row_pos+1,0,1,size_legendre);
-    fk::matrix<P> const P_row_pos_minus1 = legendre.extract_submatrix(row_pos,0,1,size_legendre);
-    fk::matrix<P> row_shift(1,size_legendre);
-    row_shift.set_submatrix(0,size_legendre-row_pos-3,P_row_pos.extract_submatrix(0,size_legendre-row_pos-2,1,row_pos+2));
-    legendre.update_row(row_pos + 2, 
-          row_shift*((2.0*(row_pos+1.0)+1.0)/((row_pos+1.0)+1.0))-P_row_pos_minus1*((row_pos+1.0)/((row_pos+1.0)+1.0)));
+    fk::matrix<P> const P_row_pos =
+        legendre.extract_submatrix(row_pos + 1, 0, 1, size_legendre);
+    fk::matrix<P> const P_row_pos_minus1 =
+        legendre.extract_submatrix(row_pos, 0, 1, size_legendre);
+    fk::matrix<P> row_shift(1, size_legendre);
+    row_shift.set_submatrix(
+        0, size_legendre - row_pos - 3,
+        P_row_pos.extract_submatrix(0, size_legendre - row_pos - 2, 1,
+                                    row_pos + 2));
+    legendre.update_row(
+        row_pos + 2,
+        row_shift * ((2.0 * (row_pos + 1.0) + 1.0) / ((row_pos + 1.0) + 1.0)) -
+            P_row_pos_minus1 * ((row_pos + 1.0) / ((row_pos + 1.0) + 1.0)));
   }
-  
+
   // Step 2 of 2 in creating the scalets
   // scale the matrix phi_j = sqrt(2*j+1)*P_j(2*x-1)
   // where P_j is Legendre polynomial of degree j
@@ -99,7 +106,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                           int const row_pos) -> fk::vector<P> {
     return mat.extract_submatrix(row_pos, 0, 1, mat.ncols());
   };
-  
+
   // Formulation of phi_co before orthogonalization begins
   // phi_co is the coefficients of the polynomials
   //        f_j = |  x^(j-1) on (0,1)
@@ -121,7 +128,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 
   phi_co.set_submatrix(0, 0, norm_co * -1);
   phi_co.set_submatrix(degree, 0, norm_co);
- 
+
   auto const weighted_sum_products = [&](fk::vector<P> const vect_1,
                                          fk::vector<P> const vect_2) -> P {
     P sum = 0.0;
@@ -131,7 +138,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     }
     return sum * 0.5;
   };
-  
+
   // Gram-Schmidt orthogonalization of phi_co
   // with respect to scalets
   for (int row_pos = 0; row_pos < degree; ++row_pos)
@@ -160,7 +167,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // Gram-Schmidt orthogonalization of phi_co
   // with respect to each degree less than itself
   // e.g. row k is orthogonalized with respect to rows k-1, k-2 to zero
-  // row k+degree is orthogonalized with respect to rows 
+  // row k+degree is orthogonalized with respect to rows
   // k+degree-1, k+degree-2, to degree
   for (int row_pos = 1; row_pos < degree; ++row_pos)
   {
@@ -273,7 +280,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                  [](P &elem_1, P &elem_2) { return elem_1 * elem_2; });
 
   // Calculate Two-Scale Coefficients
-  
+
   fk::vector<P> const norm_legendre_roots = roots_0to1;
   fk::vector<P> const norm_legendre_minus = [&] {
     fk::vector<P> norm_legendre = norm_legendre_roots;
@@ -288,7 +295,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                    [](P &elem) { return elem * 2.0 - 1.0; });
     return norm_legendre;
   }();
-  
+
   // Sums to directly generate H0, H1, G0, G1
   for (int row = 0; row < degree; ++row)
   {
