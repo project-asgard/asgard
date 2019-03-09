@@ -112,6 +112,7 @@ extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
 //
 //-----------------------------------------------------------------------------
 template<typename P, mem_type mem>
+template<mem_type, typename>
 fk::vector<P, mem>::vector() : data_{nullptr}, size_{0}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
@@ -148,7 +149,7 @@ fk::vector<P, mem>::~vector()
 // vector copy constructor for like types
 //
 template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P> const &a)
+fk::vector<P, mem>::vector(vector<P, mem> const &a)
     : data_{new P[a.size_]}, size_{a.size_}
 {
   std::memcpy(data_, a.data(), a.size() * sizeof(P));
@@ -478,7 +479,8 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 // as single column matrices.
 //
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::single_column_kron(vector<P> const &right) const
+fk::vector<P>
+fk::vector<P, mem>::single_column_kron(vector<P> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
@@ -504,7 +506,11 @@ fk::vector<P> fk::vector<P, mem>::single_column_kron(vector<P> const &right) con
 template<typename P, mem_type mem>
 void fk::vector<P, mem>::print(std::string const label) const
 {
-  std::cout << label << '\n';
+  if constexpr (mem == mem_type::owner)
+    std::cout << label << "(owner)" << '\n';
+  else
+    std::cout << label << "(view)" << '\n';
+
   if constexpr (std::is_floating_point<P>::value)
   {
     for (auto i = 0; i < size(); ++i)
@@ -1341,7 +1347,8 @@ void fk::matrix<P>::dump_to_octave(char const *filename) const
 }
 
 // explicit instatiations
-template class fk::vector<double>;
+template class fk::vector<double>; // implies fk::vector<double,
+                                   // mem_type::owner>
 template class fk::vector<float>;
 template class fk::vector<int>;
 template class fk::matrix<double>;
@@ -1385,3 +1392,12 @@ template fk::matrix<float> &fk::matrix<float>::invert();
 template fk::matrix<double> &fk::matrix<double>::invert();
 template float fk::matrix<float>::determinant() const;
 template double fk::matrix<double>::determinant() const;
+
+// added for mem_type support
+template fk::vector<int, mem_type::owner>::vector();
+template fk::vector<float, mem_type::owner>::vector();
+template fk::vector<double, mem_type::owner>::vector();
+
+// template class fk::vector<double, mem_type::view>; // get the non-default
+// mem_type::view template class fk::vector<float, mem_type::view>; template
+// class fk::vector<int, mem_type::view>;

@@ -18,7 +18,7 @@ using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 namespace fk
 {
 // forward declarations
-template<typename P, mem_type mem = mem_type::owner> //default to be an owner
+template<typename P, mem_type mem = mem_type::owner> // default to be an owner
 class vector;
 template<typename P>
 class matrix;
@@ -27,6 +27,7 @@ template<typename P, mem_type mem>
 class vector
 {
 public:
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector();
   explicit vector(int const size);
   vector(std::initializer_list<P> list);
@@ -34,7 +35,7 @@ public:
   vector(fk::matrix<P> const &);
   ~vector();
 
-  vector(vector<P> const &);
+  vector(vector<P, mem> const &);
   vector<P> &operator=(vector<P> const &);
   template<typename PP>
   vector(vector<PP> const &);
@@ -209,6 +210,7 @@ private:
 } // namespace fk
 
 // suppress implicit instantiations later on
+// implies fk::vector<double, mem_type::owner>
 extern template class fk::vector<double>;
 extern template class fk::vector<float>;
 extern template class fk::vector<int>;
@@ -261,3 +263,14 @@ extern template fk::matrix<float> &fk::matrix<float>::invert();
 extern template fk::matrix<double> &fk::matrix<double>::invert();
 extern template float fk::matrix<float>::determinant() const;
 extern template double fk::matrix<double>::determinant() const;
+
+// added for mem_type support
+extern template fk::vector<int, mem_type::owner>::vector();
+extern template fk::vector<float, mem_type::owner>::vector();
+extern template fk::vector<double, mem_type::owner>::vector();
+
+// extern template class fk::vector<double, mem_type::view>; // get the
+// non-default
+//                                                          // mem_type::view
+// extern template class fk::vector<float, mem_type::view>;
+// extern template class fk::vector<int, mem_type::view>;
