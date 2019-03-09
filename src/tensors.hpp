@@ -6,15 +6,24 @@
 /* tolerance for answer comparisons */
 #define TOL std::numeric_limits<P>::epsilon() * 2
 
+enum class mem_type
+{
+  owner,
+  view
+};
+
+template<mem_type mem>
+using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
+
 namespace fk
 {
 // forward declarations
-template<typename P>
+template<typename P, mem_type mem = mem_type::owner> //default to be an owner
 class vector;
 template<typename P>
 class matrix;
 
-template<typename P>
+template<typename P, mem_type mem>
 class vector
 {
 public:

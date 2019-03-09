@@ -111,44 +111,44 @@ extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
 // fk::vector class implementation starts here
 //
 //-----------------------------------------------------------------------------
-template<typename P>
-fk::vector<P>::vector() : data_{nullptr}, size_{0}
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector() : data_{nullptr}, size_{0}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
-template<typename P>
-fk::vector<P>::vector(int const size) : data_{new P[size]()}, size_{size}
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(int const size) : data_{new P[size]()}, size_{size}
 {}
 
 // can also do this with variadic template constructor for constness
 // https://stackoverflow.com/a/5549918
 // but possibly this is "too clever" for our needs right now
 
-template<typename P>
-fk::vector<P>::vector(std::initializer_list<P> list)
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(std::initializer_list<P> list)
     : data_{new P[list.size()]}, size_{static_cast<int>(list.size())}
 {
   std::copy(list.begin(), list.end(), data_);
 }
 
-template<typename P>
-fk::vector<P>::vector(std::vector<P> const &v)
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(std::vector<P> const &v)
     : data_{new P[v.size()]}, size_{static_cast<int>(v.size())}
 {
   std::copy(v.begin(), v.end(), data_);
 }
 
-template<typename P>
-fk::vector<P>::~vector()
+template<typename P, mem_type mem>
+fk::vector<P, mem>::~vector()
 {
   delete[] data_;
 }
 
 //
-// vector copy constructor
+// vector copy constructor for like types
 //
-template<typename P>
-fk::vector<P>::vector(vector<P> const &a)
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P> const &a)
     : data_{new P[a.size_]}, size_{a.size_}
 {
   std::memcpy(data_, a.data(), a.size() * sizeof(P));
@@ -158,8 +158,8 @@ fk::vector<P>::vector(vector<P> const &a)
 // matrix conversion constructor linearizes the matrix, i.e. stacks the columns
 // of the matrix into a single vector
 //
-template<typename P>
-fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 {
   size_ = mat.size();
   if ((*this).size() == 0)
@@ -182,8 +182,8 @@ fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename P>
-fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
+template<typename P, mem_type mem>
+fk::vector<P> &fk::vector<P, mem>::operator=(vector<P> const &a)
 {
   if (&a == this)
     return *this;
@@ -199,9 +199,9 @@ fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
 //
 // converting vector copy constructor
 //
-template<typename P>
+template<typename P, mem_type mem>
 template<typename PP>
-fk::vector<P>::vector(vector<PP> const &a)
+fk::vector<P, mem>::vector(vector<PP> const &a)
     : data_{new P[a.size()]}, size_{a.size()}
 {
   for (auto i = 0; i < a.size(); ++i)
@@ -215,9 +215,9 @@ fk::vector<P>::vector(vector<PP> const &a)
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename P>
+template<typename P, mem_type mem>
 template<typename PP>
-fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
+fk::vector<P> &fk::vector<P, mem>::operator=(vector<PP> const &a)
 {
   assert(size() == a.size());
 
@@ -235,8 +235,8 @@ fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
-template<typename P>
-fk::vector<P>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
 {
   a.data_ = nullptr; // b/c a's destructor will be called
   a.size_ = 0;
@@ -245,8 +245,8 @@ fk::vector<P>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
 //
 // vector move assignment
 //
-template<typename P>
-fk::vector<P> &fk::vector<P>::operator=(vector &&a)
+template<typename P, mem_type mem>
+fk::vector<P> &fk::vector<P, mem>::operator=(vector<P> &&a)
 {
   if (&a == this)
     return *this;
@@ -263,8 +263,8 @@ fk::vector<P> &fk::vector<P>::operator=(vector &&a)
 //
 // copy out of std::vector
 //
-template<typename P>
-fk::vector<P> &fk::vector<P>::operator=(std::vector<P> const &v)
+template<typename P, mem_type mem>
+fk::vector<P> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
 {
   assert(size() == static_cast<int>(v.size()));
   std::memcpy(data_, v.data(), v.size() * sizeof(P));
@@ -274,8 +274,8 @@ fk::vector<P> &fk::vector<P>::operator=(std::vector<P> const &v)
 //
 // copy into std::vector
 //
-template<typename P>
-std::vector<P> fk::vector<P>::to_std() const
+template<typename P, mem_type mem>
+std::vector<P> fk::vector<P, mem>::to_std() const
 {
   return std::vector<P>(data(), data() + size());
 }
@@ -284,15 +284,15 @@ std::vector<P> fk::vector<P>::to_std() const
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
-template<typename P>
-P &fk::vector<P>::operator()(int i)
+template<typename P, mem_type mem>
+P &fk::vector<P, mem>::operator()(int i)
 {
   assert(i < size_);
   return data_[i];
 }
 
-template<typename P>
-P fk::vector<P>::operator()(int i) const
+template<typename P, mem_type mem>
+P fk::vector<P, mem>::operator()(int i) const
 {
   assert(i < size_);
   return data_[i];
@@ -301,8 +301,8 @@ P fk::vector<P>::operator()(int i) const
 // vector comparison operators - set default tolerance above
 // see https://stackoverflow.com/a/253874/6595797
 // FIXME do we need to be more careful with these fp comparisons?
-template<typename P>
-bool fk::vector<P>::operator==(vector<P> const &other) const
+template<typename P, mem_type mem>
+bool fk::vector<P, mem>::operator==(vector<P> const &other) const
 {
   if (&other == this)
     return true;
@@ -325,14 +325,14 @@ bool fk::vector<P>::operator==(vector<P> const &other) const
     }
   return true;
 }
-template<typename P>
-bool fk::vector<P>::operator!=(vector<P> const &other) const
+template<typename P, mem_type mem>
+bool fk::vector<P, mem>::operator!=(vector<P> const &other) const
 {
   return !(*this == other);
 }
 
-template<typename P>
-bool fk::vector<P>::operator<(vector<P> const &other) const
+template<typename P, mem_type mem>
+bool fk::vector<P, mem>::operator<(vector<P> const &other) const
 {
   return std::lexicographical_compare(begin(), end(), other.begin(),
                                       other.end());
@@ -341,8 +341,8 @@ bool fk::vector<P>::operator<(vector<P> const &other) const
 //
 // vector addition operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator+(vector<P> const &right) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator+(vector<P> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -354,8 +354,8 @@ fk::vector<P> fk::vector<P>::operator+(vector<P> const &right) const
 //
 // vector subtraction operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator-(vector<P> const &right) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator-(vector<P> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -367,8 +367,8 @@ fk::vector<P> fk::vector<P>::operator-(vector<P> const &right) const
 //
 // vector*vector multiplication operator
 //
-template<typename P>
-P fk::vector<P>::operator*(vector<P> const &right) const
+template<typename P, mem_type mem>
+P fk::vector<P, mem>::operator*(vector<P> const &right) const
 {
   assert(size() == right.size());
   int n           = size();
@@ -396,8 +396,8 @@ P fk::vector<P>::operator*(vector<P> const &right) const
 //
 // vector*matrix multiplication operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
@@ -447,8 +447,8 @@ fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
 //
 // vector*scalar multiplication operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator*(P const x) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 {
   vector<P> a(*this);
   int one_i = 1;
@@ -477,8 +477,8 @@ fk::vector<P> fk::vector<P>::operator*(P const x) const
 // interpreting vector operands/return vector
 // as single column matrices.
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::single_column_kron(vector<P> const &right) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::single_column_kron(vector<P> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
@@ -501,8 +501,8 @@ fk::vector<P> fk::vector<P>::single_column_kron(vector<P> const &right) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename P>
-void fk::vector<P>::print(std::string const label) const
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::print(std::string const label) const
 {
   std::cout << label << '\n';
   if constexpr (std::is_floating_point<P>::value)
@@ -527,8 +527,8 @@ void fk::vector<P>::print(std::string const label) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename P>
-void fk::vector<P>::dump_to_octave(char const *filename) const
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
@@ -542,8 +542,8 @@ void fk::vector<P>::dump_to_octave(char const *filename) const
 // resize the vector
 // (currently supports a subset of the std::vector.resize() interface)
 //
-template<typename P>
-void fk::vector<P>::resize(int const new_size)
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::resize(int const new_size)
 {
   if (new_size == this->size())
     return;
@@ -561,8 +561,8 @@ void fk::vector<P>::resize(int const new_size)
   delete[] old_data;
 }
 
-template<typename P>
-fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
+template<typename P, mem_type mem>
+fk::vector<P> &fk::vector<P, mem>::concat(vector<P> const &right)
 {
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
@@ -573,9 +573,9 @@ fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
 }
 
 // set a subvector beginning at provided index
-template<typename P>
+template<typename P, mem_type mem>
 fk::vector<P> &
-fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
+fk::vector<P, mem>::set(int const index, fk::vector<P> const sub_vector)
 {
   assert(index >= 0);
   assert((index + sub_vector.size()) <= this->size());
@@ -585,8 +585,8 @@ fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
 }
 
 // extract subvector, indices inclusive
-template<typename P>
-fk::vector<P> fk::vector<P>::extract(int const start, int const stop) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
 {
   assert(start >= 0);
   assert(stop < this->size());
