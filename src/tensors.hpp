@@ -36,19 +36,19 @@ public:
   ~vector();
 
   vector(vector<P, mem> const &);
-  vector<P> &operator=(vector<P> const &);
+  vector<P, mem> &operator=(vector<P, mem> const &);
   template<typename PP>
   vector(vector<PP> const &);
   template<typename PP>
-  vector<P> &operator=(vector<PP> const &);
+  vector<P, mem> &operator=(vector<PP> const &);
 
-  vector(vector<P> &&);
-  vector<P> &operator=(vector<P> &&);
+  vector(vector<P, mem> &&);
+  vector<P, mem> &operator=(vector<P, mem> &&);
 
   //
   // copy out of std::vector
   //
-  vector<P> &operator=(std::vector<P> const &);
+  vector<P, mem> &operator=(std::vector<P> const &);
 
   //
   // copy into std::vector
@@ -63,18 +63,18 @@ public:
   //
   // comparison operators
   //
-  bool operator==(vector<P> const &) const;
-  bool operator!=(vector<P> const &) const;
-  bool operator<(vector<P> const &) const;
+  bool operator==(vector<P, mem> const &) const;
+  bool operator!=(vector<P, mem> const &) const;
+  bool operator<(vector<P, mem> const &) const;
   //
   // math operators
   //
-  vector<P> operator+(vector<P> const &right) const;
-  vector<P> operator-(vector<P> const &right) const;
-  P operator*(vector<P> const &)const;
-  vector<P> operator*(matrix<P> const &)const;
-  vector<P> operator*(P const) const;
-  vector<P> single_column_kron(vector<P> const &) const;
+  vector<P, mem> operator+(vector<P, mem> const &right) const;
+  vector<P, mem> operator-(vector<P, mem> const &right) const;
+  P operator*(vector<P, mem> const &)const;
+  vector<P, mem> operator*(matrix<P> const &)const;
+  vector<P, mem> operator*(P const) const;
+  vector<P, mem> single_column_kron(vector<P, mem> const &) const;
 
   //
   // basic queries to private data
@@ -89,9 +89,9 @@ public:
   void print(std::string const label = "") const;
   void dump_to_octave(char const *) const;
   void resize(int const size = 0);
-  vector<P> &set(int const, vector<P> const);
-  vector<P> extract(int const, int const) const;
-  vector<P> &concat(vector<P> const &right);
+  vector<P, mem> &set(int const, vector<P, mem> const);
+  vector<P, mem> extract(int const, int const) const;
+  vector<P, mem> &concat(vector<P, mem> const &right);
   typedef P *iterator;
   typedef const P *const_iterator;
   iterator begin() { return data(); }
@@ -265,12 +265,13 @@ extern template float fk::matrix<float>::determinant() const;
 extern template double fk::matrix<double>::determinant() const;
 
 // added for mem_type support
-extern template fk::vector<int, mem_type::owner>::vector();
+
+extern template fk::vector<int, mem_type::owner>::vector(); // needed b/c of
+                                                            // sfinae decl
 extern template fk::vector<float, mem_type::owner>::vector();
 extern template fk::vector<double, mem_type::owner>::vector();
 
-// extern template class fk::vector<double, mem_type::view>; // get the
-// non-default
-//                                                          // mem_type::view
-// extern template class fk::vector<float, mem_type::view>;
-// extern template class fk::vector<int, mem_type::view>;
+extern template class fk::vector<double, mem_type::view>; // get the non-default
+                                                          // mem_type::view
+extern template class fk::vector<float, mem_type::view>;
+extern template class fk::vector<int, mem_type::view>;

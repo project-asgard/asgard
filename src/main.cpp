@@ -21,14 +21,10 @@ int main(int argc, char **argv)
   fk::vector<double, mem_type::owner> E(2);
   E.print("E");
 
-  // doesn't work because we haven't explicitly instantiated all of the
-  // (non-templated) methods using
-  // 'extern template class fk::vector<double, mem_type::view>'
-  // This, however doesn't work either because anything that takes a vector as
-  // an argument will get that argument as an owner, and so a different type,
-  // and so can't access private members. This needs to be cleaned up.
-  //
-  // fk::vector<double, mem_type::view> F(2);
-  // F.print("F");
+  // views are enabled, but behave exactly as owners (except print out that they
+  // are a view)
+  fk::vector<double, mem_type::view> F(2);
+  F.print("F");
+
   return 0;
 }

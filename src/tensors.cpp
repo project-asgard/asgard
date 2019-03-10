@@ -184,7 +184,7 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem>
-fk::vector<P> &fk::vector<P, mem>::operator=(vector<P> const &a)
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 {
   if (&a == this)
     return *this;
@@ -218,7 +218,7 @@ fk::vector<P, mem>::vector(vector<PP> const &a)
 //
 template<typename P, mem_type mem>
 template<typename PP>
-fk::vector<P> &fk::vector<P, mem>::operator=(vector<PP> const &a)
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP> const &a)
 {
   assert(size() == a.size());
 
@@ -237,7 +237,7 @@ fk::vector<P> &fk::vector<P, mem>::operator=(vector<PP> const &a)
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
 template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
+fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
 {
   a.data_ = nullptr; // b/c a's destructor will be called
   a.size_ = 0;
@@ -247,7 +247,7 @@ fk::vector<P, mem>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
 // vector move assignment
 //
 template<typename P, mem_type mem>
-fk::vector<P> &fk::vector<P, mem>::operator=(vector<P> &&a)
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
 {
   if (&a == this)
     return *this;
@@ -265,7 +265,7 @@ fk::vector<P> &fk::vector<P, mem>::operator=(vector<P> &&a)
 // copy out of std::vector
 //
 template<typename P, mem_type mem>
-fk::vector<P> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
 {
   assert(size() == static_cast<int>(v.size()));
   std::memcpy(data_, v.data(), v.size() * sizeof(P));
@@ -303,7 +303,7 @@ P fk::vector<P, mem>::operator()(int i) const
 // see https://stackoverflow.com/a/253874/6595797
 // FIXME do we need to be more careful with these fp comparisons?
 template<typename P, mem_type mem>
-bool fk::vector<P, mem>::operator==(vector<P> const &other) const
+bool fk::vector<P, mem>::operator==(vector<P, mem> const &other) const
 {
   if (&other == this)
     return true;
@@ -327,13 +327,13 @@ bool fk::vector<P, mem>::operator==(vector<P> const &other) const
   return true;
 }
 template<typename P, mem_type mem>
-bool fk::vector<P, mem>::operator!=(vector<P> const &other) const
+bool fk::vector<P, mem>::operator!=(vector<P, mem> const &other) const
 {
   return !(*this == other);
 }
 
 template<typename P, mem_type mem>
-bool fk::vector<P, mem>::operator<(vector<P> const &other) const
+bool fk::vector<P, mem>::operator<(vector<P, mem> const &other) const
 {
   return std::lexicographical_compare(begin(), end(), other.begin(),
                                       other.end());
@@ -343,10 +343,11 @@ bool fk::vector<P, mem>::operator<(vector<P> const &other) const
 // vector addition operator
 //
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::operator+(vector<P> const &right) const
+fk::vector<P, mem> fk::vector<P, mem>::
+operator+(vector<P, mem> const &right) const
 {
   assert(size() == right.size());
-  vector<P> ans(size());
+  vector<P, mem> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i) + right(i);
   return ans;
@@ -356,10 +357,11 @@ fk::vector<P> fk::vector<P, mem>::operator+(vector<P> const &right) const
 // vector subtraction operator
 //
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::operator-(vector<P> const &right) const
+fk::vector<P, mem> fk::vector<P, mem>::
+operator-(vector<P, mem> const &right) const
 {
   assert(size() == right.size());
-  vector<P> ans(size());
+  vector<P, mem> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i)-right(i);
   return ans;
@@ -369,7 +371,7 @@ fk::vector<P> fk::vector<P, mem>::operator-(vector<P> const &right) const
 // vector*vector multiplication operator
 //
 template<typename P, mem_type mem>
-P fk::vector<P, mem>::operator*(vector<P> const &right) const
+P fk::vector<P, mem>::operator*(vector<P, mem> const &right) const
 {
   assert(size() == right.size());
   int n           = size();
@@ -398,13 +400,13 @@ P fk::vector<P, mem>::operator*(vector<P> const &right) const
 // vector*matrix multiplication operator
 //
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
+fk::vector<P, mem> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
 
   vector const &X = (*this);
-  vector<P> Y(A.ncols());
+  vector<P, mem> Y(A.ncols());
 
   int m     = A.nrows();
   int n     = A.ncols();
@@ -449,9 +451,9 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
 // vector*scalar multiplication operator
 //
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
+fk::vector<P, mem> fk::vector<P, mem>::operator*(P const x) const
 {
-  vector<P> a(*this);
+  vector<P, mem> a(*this);
   int one_i = 1;
   int n     = a.size();
   P alpha   = x;
@@ -479,10 +481,10 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 // as single column matrices.
 //
 template<typename P, mem_type mem>
-fk::vector<P>
-fk::vector<P, mem>::single_column_kron(vector<P> const &right) const
+fk::vector<P, mem>
+fk::vector<P, mem>::single_column_kron(vector<P, mem> const &right) const
 {
-  fk::vector<P> product((*this).size() * right.size());
+  fk::vector<P, mem> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
   {
     for (int j = 0; j < right.size(); ++j)
@@ -568,7 +570,7 @@ void fk::vector<P, mem>::resize(int const new_size)
 }
 
 template<typename P, mem_type mem>
-fk::vector<P> &fk::vector<P, mem>::concat(vector<P> const &right)
+fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, mem> const &right)
 {
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
@@ -580,8 +582,8 @@ fk::vector<P> &fk::vector<P, mem>::concat(vector<P> const &right)
 
 // set a subvector beginning at provided index
 template<typename P, mem_type mem>
-fk::vector<P> &
-fk::vector<P, mem>::set(int const index, fk::vector<P> const sub_vector)
+fk::vector<P, mem> &
+fk::vector<P, mem>::set(int const index, fk::vector<P, mem> const sub_vector)
 {
   assert(index >= 0);
   assert((index + sub_vector.size()) <= this->size());
@@ -592,14 +594,15 @@ fk::vector<P, mem>::set(int const index, fk::vector<P> const sub_vector)
 
 // extract subvector, indices inclusive
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
+fk::vector<P, mem>
+fk::vector<P, mem>::extract(int const start, int const stop) const
 {
   assert(start >= 0);
   assert(stop < this->size());
   assert(stop > start);
 
   int const sub_size = stop - start + 1;
-  fk::vector<P> sub_vector(sub_size);
+  fk::vector<P, mem> sub_vector(sub_size);
   for (int i = 0; i < sub_size; ++i)
   {
     sub_vector(i) = (*this)(i + start);
@@ -1398,6 +1401,7 @@ template fk::vector<int, mem_type::owner>::vector();
 template fk::vector<float, mem_type::owner>::vector();
 template fk::vector<double, mem_type::owner>::vector();
 
-// template class fk::vector<double, mem_type::view>; // get the non-default
-// mem_type::view template class fk::vector<float, mem_type::view>; template
-// class fk::vector<int, mem_type::view>;
+template class fk::vector<double, mem_type::view>; // get the non-default
+                                                   // mem_type::view
+template class fk::vector<float, mem_type::view>;
+template class fk::vector<int, mem_type::view>;
