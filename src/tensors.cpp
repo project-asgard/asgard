@@ -139,22 +139,6 @@ fk::vector<P, mem>::vector(std::vector<P> const &v)
   std::copy(v.begin(), v.end(), data_);
 }
 
-template<typename P, mem_type mem>
-fk::vector<P, mem>::~vector()
-{
-  delete[] data_;
-}
-
-//
-// vector copy constructor for like types
-//
-template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P, mem> const &a)
-    : data_{new P[a.size_]}, size_{a.size_}
-{
-  std::memcpy(data_, a.data(), a.size() * sizeof(P));
-}
-
 //
 // matrix conversion constructor linearizes the matrix, i.e. stacks the columns
 // of the matrix into a single vector
@@ -178,13 +162,31 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
   }
 }
 
+template<typename P, mem_type mem>
+fk::vector<P, mem>::~vector()
+{
+  delete[] data_;
+}
+
+//
+// vector copy constructor for like types
+//
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P, mem>::vector(vector<P, omem> const &a)
+    : data_{new P[a.size_]}, size_{a.size_}
+{
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
+}
+
 //
 // vector copy assignment
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
+template<mem_type omem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, omem> const &a)
 {
   if (&a == this)
     return *this;
@@ -201,8 +203,8 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 // converting vector copy constructor
 //
 template<typename P, mem_type mem>
-template<typename PP>
-fk::vector<P, mem>::vector(vector<PP> const &a)
+template<typename PP, mem_type omem>
+fk::vector<P, mem>::vector(vector<PP, omem> const &a)
     : data_{new P[a.size()]}, size_{a.size()}
 {
   for (auto i = 0; i < a.size(); ++i)
@@ -217,8 +219,8 @@ fk::vector<P, mem>::vector(vector<PP> const &a)
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem>
-template<typename PP>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP> const &a)
+template<typename PP, mem_type omem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
 {
   assert(size() == a.size());
 
@@ -237,7 +239,8 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP> const &a)
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
 template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
+template<mem_type omem>
+fk::vector<P, mem>::vector(vector<P, omem> &&a) : data_{a.data_}, size_{a.size_}
 {
   a.data_ = nullptr; // b/c a's destructor will be called
   a.size_ = 0;
@@ -247,7 +250,8 @@ fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
 // vector move assignment
 //
 template<typename P, mem_type mem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
+template<mem_type omem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, omem> &&a)
 {
   if (&a == this)
     return *this;
@@ -1405,3 +1409,18 @@ template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view
 template class fk::vector<float, mem_type::view>;
 template class fk::vector<int, mem_type::view>;
+
+template fk::vector<double, mem_type::owner>::vector(
+    vector<double, mem_type::owner> &&);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<float, mem_type::owner> &&);
+template fk::vector<int, mem_type::owner>::vector(
+    vector<int, mem_type::owner> &&);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<double, mem_type::owner> &&);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<float, mem_type::owner> &&);
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<int, mem_type::owner> &&);

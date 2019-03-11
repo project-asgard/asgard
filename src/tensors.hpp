@@ -15,6 +15,9 @@ enum class mem_type
 template<mem_type mem>
 using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 
+template<mem_type mem>
+using enable_for_view = std::enable_if_t<mem == mem_type::view>;
+
 namespace fk
 {
 // forward declarations
@@ -35,15 +38,23 @@ public:
   vector(fk::matrix<P> const &);
   ~vector();
 
-  vector(vector<P, mem> const &);
-  vector<P, mem> &operator=(vector<P, mem> const &);
-  template<typename PP>
-  vector(vector<PP> const &);
-  template<typename PP>
-  vector<P, mem> &operator=(vector<PP> const &);
+  // same to same precision copy constructor/assignment
+  template<mem_type omem>
+  vector(vector<P, omem> const &);
+  template<mem_type omem>
+  vector<P, mem> &operator=(vector<P, omem> const &);
 
-  vector(vector<P, mem> &&);
-  vector<P, mem> &operator=(vector<P, mem> &&);
+  // converting precision copy constructor/assignment
+  template<typename PP, mem_type omem>
+  vector(vector<PP, omem> const &);
+  template<typename PP, mem_type omem>
+  vector<P, mem> &operator=(vector<PP, omem> const &);
+
+  // same to same move precision constructor/assignment
+  template<mem_type omem>
+  vector(vector<P, omem> &&);
+  template<mem_type omem>
+  vector<P, mem> &operator=(vector<P, omem> &&);
 
   //
   // copy out of std::vector
@@ -275,3 +286,18 @@ extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view
 extern template class fk::vector<float, mem_type::view>;
 extern template class fk::vector<int, mem_type::view>;
+
+extern template fk::vector<double, mem_type::owner>::vector(
+    vector<double, mem_type::owner> &&);
+extern template fk::vector<float, mem_type::owner>::vector(
+    vector<float, mem_type::owner> &&);
+extern template fk::vector<int, mem_type::owner>::vector(
+    vector<int, mem_type::owner> &&);
+extern template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<double, mem_type::owner> &&);
+extern template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<float, mem_type::owner> &&);
+extern template fk::vector<int, mem_type::owner> &
+fk::vector<int, mem_type::owner>::operator=(vector<int, mem_type::owner> &&);
