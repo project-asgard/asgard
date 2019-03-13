@@ -30,12 +30,16 @@ template<typename P, mem_type mem>
 class vector
 {
 public:
+  // FIXME disable all constructors for views
+  // unless we decide to add one for views instead
+  // of an extract function
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector();
   explicit vector(int const size);
   vector(std::initializer_list<P> list);
   vector(std::vector<P> const &);
   vector(fk::matrix<P> const &);
+
   ~vector();
 
   // constructor/assignment (required to be same to same T==T)
@@ -43,10 +47,12 @@ public:
   vector<P, mem> &operator=(vector<P, mem> const &);
 
   // move precision constructor/assignment (required to be same to same)
+  // FIXME disable for view
   vector(vector<P, mem> &&);
   vector<P, mem> &operator=(vector<P, mem> &&);
 
   // converting constructor/assignment overloads
+  // FIXME disable for view (constructor only)
   template<typename PP, mem_type omem>
   vector(vector<PP, omem> const &);
   template<typename PP, mem_type omem>
@@ -76,12 +82,20 @@ public:
   //
   // math operators
   //
-  vector<P, mem> operator+(vector<P, mem> const &right) const;
-  vector<P, mem> operator-(vector<P, mem> const &right) const;
-  P operator*(vector<P, mem> const &)const;
+  // FIXME these return an owner - we need to allocate new space for results
+  // could change to provide pre-allocated region for results
+
+  template<mem_type omem>
+  vector<P, mem> operator+(vector<P, omem> const &right) const;
+  template<mem_type omem>
+  vector<P, mem> operator-(vector<P, omem> const &right) const;
+  template<mem_type omem>
+  P operator*(vector<P, omem> const &)const;
   vector<P, mem> operator*(matrix<P> const &)const;
   vector<P, mem> operator*(P const) const;
-  vector<P, mem> single_column_kron(vector<P, mem> const &) const;
+
+  template<mem_type omem>
+  vector<P, mem> single_column_kron(vector<P, omem> const &) const;
 
   //
   // basic queries to private data
@@ -89,16 +103,26 @@ public:
   int size() const { return size_; }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
+  // FIXME need to offset for view
   P *data(int const elem = 0) const { return &data_[elem]; }
   //
   // utility functions
   //
   void print(std::string const label = "") const;
   void dump_to_octave(char const *) const;
+  // FIXME disable if views exist
+  // FIXME owner only
   void resize(int const size = 0);
-  vector<P, mem> &set(int const, vector<P, mem> const);
+  template<mem_type omem>
+  vector<P, mem> &set(int const, vector<P, omem> const);
+  // FIXME how does this play w extract view?
+  // for now, this one returns an owner, extract view
+  // extracts...a view
   vector<P, mem> extract(int const, int const) const;
-  vector<P, mem> &concat(vector<P, mem> const &right);
+  // FIXME concat only works for owners
+  template<mem_type omem>
+  vector<P, mem> &concat(vector<P, omem> const &right);
+
   typedef P *iterator;
   typedef const P *const_iterator;
   iterator begin() { return data(); }
@@ -107,6 +131,7 @@ public:
   const_iterator end() const { return data() + size(); }
 
 private:
+  // TODO template on ownership
   P *data_;  //< pointer to elements
   int size_; //< dimension
 };
@@ -232,6 +257,15 @@ extern template fk::vector<float>::vector(vector<double> const &);
 extern template fk::vector<double>::vector(vector<int> const &);
 extern template fk::vector<double>::vector(vector<float> const &);
 
+extern template fk::vector<int>::vector(vector<float, mem_type::view> const &);
+extern template fk::vector<int>::vector(vector<double, mem_type::view> const &);
+extern template fk::vector<float>::vector(vector<int, mem_type::view> const &);
+extern template fk::vector<float>::vector(
+    vector<double, mem_type::view> const &);
+extern template fk::vector<double>::vector(vector<int, mem_type::view> const &);
+extern template fk::vector<double>::vector(
+    vector<float, mem_type::view> const &);
+
 extern template fk::vector<int> &fk::vector<int>::
 operator=(vector<float> const &);
 extern template fk::vector<int> &fk::vector<int>::
@@ -282,3 +316,173 @@ extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view
 extern template class fk::vector<float, mem_type::view>;
 extern template class fk::vector<int, mem_type::view>;
+
+extern template fk::vector<double> fk::vector<double>::
+operator+(fk::vector<double, mem_type::view> const &right) const;
+extern template fk::vector<float> fk::vector<float>::
+operator+(fk::vector<float, mem_type::view> const &right) const;
+extern template fk::vector<int> fk::vector<int>::
+operator+(fk::vector<int, mem_type::view> const &right) const;
+
+extern template fk::vector<double> fk::vector<double>::
+operator+(fk::vector<double> const &right) const;
+extern template fk::vector<float> fk::vector<float>::
+operator+(fk::vector<float> const &right) const;
+extern template fk::vector<int> fk::vector<int>::
+operator+(fk::vector<int> const &right) const;
+
+extern template fk::vector<double, mem_type::view>
+fk::vector<double, mem_type::view>::
+operator+(fk::vector<double, mem_type::view> const &right) const;
+extern template fk::vector<float, mem_type::view>
+fk::vector<float, mem_type::view>::
+operator+(fk::vector<float, mem_type::view> const &right) const;
+extern template fk::vector<int, mem_type::view>
+fk::vector<int, mem_type::view>::
+operator+(fk::vector<int, mem_type::view> const &right) const;
+
+extern template fk::vector<double, mem_type::view>
+fk::vector<double, mem_type::view>::
+operator+(fk::vector<double> const &right) const;
+extern template fk::vector<float, mem_type::view>
+fk::vector<float, mem_type::view>::
+operator+(fk::vector<float> const &right) const;
+extern template fk::vector<int, mem_type::view>
+fk::vector<int, mem_type::view>::operator+(fk::vector<int> const &right) const;
+
+extern template fk::vector<double> fk::vector<double>::
+operator-(fk::vector<double, mem_type::view> const &right) const;
+extern template fk::vector<float> fk::vector<float>::
+operator-(fk::vector<float, mem_type::view> const &right) const;
+extern template fk::vector<int> fk::vector<int>::
+operator-(fk::vector<int, mem_type::view> const &right) const;
+
+extern template fk::vector<double> fk::vector<double>::
+operator-(fk::vector<double> const &right) const;
+extern template fk::vector<float> fk::vector<float>::
+operator-(fk::vector<float> const &right) const;
+extern template fk::vector<int> fk::vector<int>::
+operator-(fk::vector<int> const &right) const;
+
+extern template fk::vector<double, mem_type::view>
+fk::vector<double, mem_type::view>::
+operator-(fk::vector<double, mem_type::view> const &right) const;
+extern template fk::vector<float, mem_type::view>
+fk::vector<float, mem_type::view>::
+operator-(fk::vector<float, mem_type::view> const &right) const;
+extern template fk::vector<int, mem_type::view>
+fk::vector<int, mem_type::view>::
+operator-(fk::vector<int, mem_type::view> const &right) const;
+
+extern template fk::vector<double, mem_type::view>
+fk::vector<double, mem_type::view>::
+operator-(fk::vector<double> const &right) const;
+extern template fk::vector<float, mem_type::view>
+fk::vector<float, mem_type::view>::
+operator-(fk::vector<float> const &right) const;
+extern template fk::vector<int, mem_type::view>
+fk::vector<int, mem_type::view>::operator-(fk::vector<int> const &right) const;
+
+extern template double fk::vector<double>::
+operator*(fk::vector<double, mem_type::view> const &right) const;
+extern template float fk::vector<float>::
+operator*(fk::vector<float, mem_type::view> const &right) const;
+extern template int fk::vector<int>::
+operator*(fk::vector<int, mem_type::view> const &right) const;
+
+extern template double fk::vector<double>::
+operator*(fk::vector<double> const &right) const;
+extern template float fk::vector<float>::
+operator*(fk::vector<float> const &right) const;
+extern template int fk::vector<int>::
+operator*(fk::vector<int> const &right) const;
+
+extern template double fk::vector<double, mem_type::view>::
+operator*(fk::vector<double, mem_type::view> const &right) const;
+extern template float fk::vector<float, mem_type::view>::
+operator*(fk::vector<float, mem_type::view> const &right) const;
+extern template int fk::vector<int, mem_type::view>::
+operator*(fk::vector<int, mem_type::view> const &right) const;
+
+extern template double fk::vector<double, mem_type::view>::
+operator*(fk::vector<double> const &right) const;
+extern template float fk::vector<float, mem_type::view>::
+operator*(fk::vector<float> const &right) const;
+extern template int fk::vector<int, mem_type::view>::
+operator*(fk::vector<int> const &right) const;
+
+extern template fk::vector<double> fk::vector<double>::single_column_kron(
+    fk::vector<double, mem_type::view> const &right) const;
+extern template fk::vector<float> fk::vector<float>::single_column_kron(
+    fk::vector<float, mem_type::view> const &right) const;
+extern template fk::vector<int> fk::vector<int>::single_column_kron(
+    fk::vector<int, mem_type::view> const &right) const;
+
+extern template fk::vector<double>
+fk::vector<double>::single_column_kron(fk::vector<double> const &right) const;
+extern template fk::vector<float>
+fk::vector<float>::single_column_kron(fk::vector<float> const &right) const;
+extern template fk::vector<int>
+fk::vector<int>::single_column_kron(fk::vector<int> const &right) const;
+
+extern template fk::vector<double> &
+fk::vector<double>::concat(fk::vector<double> const &right);
+extern template fk::vector<float> &
+fk::vector<float>::concat(fk::vector<float> const &right);
+extern template fk::vector<int> &
+fk::vector<int>::concat(fk::vector<int> const &right);
+
+extern template fk::vector<double> &
+fk::vector<double>::concat(fk::vector<double, mem_type::view> const &right);
+extern template fk::vector<float> &
+fk::vector<float>::concat(fk::vector<float, mem_type::view> const &right);
+extern template fk::vector<int> &
+fk::vector<int>::concat(fk::vector<int, mem_type::view> const &right);
+
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::concat(fk::vector<double> const &right);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::concat(fk::vector<float> const &right);
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::concat(fk::vector<int> const &right);
+
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::concat(
+    fk::vector<double, mem_type::view> const &right);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::concat(
+    fk::vector<float, mem_type::view> const &right);
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::concat(
+    fk::vector<int, mem_type::view> const &right);
+
+extern template fk::vector<double> &
+fk::vector<double>::set(int const, fk::vector<double> const);
+extern template fk::vector<float> &
+fk::vector<float>::set(int const, fk::vector<float> const);
+extern template fk::vector<int> &
+fk::vector<int>::set(int const, fk::vector<int> const);
+
+extern template fk::vector<double> &
+fk::vector<double>::set(int const, fk::vector<double, mem_type::view> const);
+extern template fk::vector<float> &
+fk::vector<float>::set(int const, fk::vector<float, mem_type::view> const);
+extern template fk::vector<int> &
+fk::vector<int>::set(int const, fk::vector<int, mem_type::view> const);
+
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::set(int const, fk::vector<double> const);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::set(int const, fk::vector<float> const);
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::set(int const, fk::vector<int> const);
+
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::set(
+    int const, fk::vector<double, mem_type::view> const);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::set(int const,
+                                       fk::vector<float, mem_type::view> const);
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::set(int const,
+                                     fk::vector<int, mem_type::view> const);
