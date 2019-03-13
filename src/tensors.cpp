@@ -172,8 +172,7 @@ fk::vector<P, mem>::~vector()
 // vector copy constructor for like types
 //
 template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P, mem>::vector(vector<P, omem> const &a)
+fk::vector<P, mem>::vector(vector<P, mem> const &a)
     : data_{new P[a.size_]}, size_{a.size_}
 {
   std::memcpy(data_, a.data(), a.size() * sizeof(P));
@@ -185,8 +184,7 @@ fk::vector<P, mem>::vector(vector<P, omem> const &a)
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, omem> const &a)
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 {
   if (&a == this)
     return *this;
@@ -196,6 +194,36 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, omem> const &a)
   size_ = a.size();
   memcpy(data_, a.data(), a.size() * sizeof(P));
 
+  return *this;
+}
+
+//
+// vector move constructor
+// this can probably be done better. see:
+// http://stackoverflow.com/questions/3106110/what-are-move-semantics
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
+{
+  a.data_ = nullptr; // b/c a's destructor will be called
+  a.size_ = 0;
+}
+
+//
+// vector move assignment
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
+{
+  if (&a == this)
+    return *this;
+
+  assert(size() == a.size());
+
+  size_ = a.size_;
+  P *temp{data_};
+  data_   = a.data_;
+  a.data_ = temp; // b/c a's destructor will be called
   return *this;
 }
 
@@ -230,38 +258,6 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
     (*this)(i) = static_cast<P>(a(i));
   }
 
-  return *this;
-}
-
-//
-// vector move constructor
-// this can probably be done better. see:
-// http://stackoverflow.com/questions/3106110/what-are-move-semantics
-//
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P, mem>::vector(vector<P, omem> &&a) : data_{a.data_}, size_{a.size_}
-{
-  a.data_ = nullptr; // b/c a's destructor will be called
-  a.size_ = 0;
-}
-
-//
-// vector move assignment
-//
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, omem> &&a)
-{
-  if (&a == this)
-    return *this;
-
-  assert(size() == a.size());
-
-  size_ = a.size_;
-  P *temp{data_};
-  data_   = a.data_;
-  a.data_ = temp; // b/c a's destructor will be called
   return *this;
 }
 
@@ -1409,18 +1405,3 @@ template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view
 template class fk::vector<float, mem_type::view>;
 template class fk::vector<int, mem_type::view>;
-
-template fk::vector<double, mem_type::owner>::vector(
-    vector<double, mem_type::owner> &&);
-template fk::vector<float, mem_type::owner>::vector(
-    vector<float, mem_type::owner> &&);
-template fk::vector<int, mem_type::owner>::vector(
-    vector<int, mem_type::owner> &&);
-template fk::vector<double, mem_type::owner> &
-fk::vector<double, mem_type::owner>::
-operator=(vector<double, mem_type::owner> &&);
-template fk::vector<float, mem_type::owner> &
-fk::vector<float, mem_type::owner>::
-operator=(vector<float, mem_type::owner> &&);
-template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
-operator=(vector<int, mem_type::owner> &&);

@@ -38,23 +38,19 @@ public:
   vector(fk::matrix<P> const &);
   ~vector();
 
-  // same to same precision copy constructor/assignment
-  template<mem_type omem>
-  vector(vector<P, omem> const &);
-  template<mem_type omem>
-  vector<P, mem> &operator=(vector<P, omem> const &);
+  // constructor/assignment (required to be same to same T==T)
+  vector(vector<P, mem> const &);
+  vector<P, mem> &operator=(vector<P, mem> const &);
 
-  // converting precision copy constructor/assignment
+  // move precision constructor/assignment (required to be same to same)
+  vector(vector<P, mem> &&);
+  vector<P, mem> &operator=(vector<P, mem> &&);
+
+  // converting constructor/assignment overloads
   template<typename PP, mem_type omem>
   vector(vector<PP, omem> const &);
   template<typename PP, mem_type omem>
   vector<P, mem> &operator=(vector<PP, omem> const &);
-
-  // same to same move precision constructor/assignment
-  template<mem_type omem>
-  vector(vector<P, omem> &&);
-  template<mem_type omem>
-  vector<P, mem> &operator=(vector<P, omem> &&);
 
   //
   // copy out of std::vector
@@ -286,18 +282,3 @@ extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view
 extern template class fk::vector<float, mem_type::view>;
 extern template class fk::vector<int, mem_type::view>;
-
-extern template fk::vector<double, mem_type::owner>::vector(
-    vector<double, mem_type::owner> &&);
-extern template fk::vector<float, mem_type::owner>::vector(
-    vector<float, mem_type::owner> &&);
-extern template fk::vector<int, mem_type::owner>::vector(
-    vector<int, mem_type::owner> &&);
-extern template fk::vector<double, mem_type::owner> &
-fk::vector<double, mem_type::owner>::
-operator=(vector<double, mem_type::owner> &&);
-extern template fk::vector<float, mem_type::owner> &
-fk::vector<float, mem_type::owner>::
-operator=(vector<float, mem_type::owner> &&);
-extern template fk::vector<int, mem_type::owner> &
-fk::vector<int, mem_type::owner>::operator=(vector<int, mem_type::owner> &&);
