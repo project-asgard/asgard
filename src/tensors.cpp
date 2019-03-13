@@ -228,7 +228,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
 }
 
 //
-// converting vector copy constructor
+// converting vector constructor
 //
 template<typename P, mem_type mem>
 template<typename PP, mem_type omem>
@@ -242,7 +242,7 @@ fk::vector<P, mem>::vector(vector<PP, omem> const &a)
 }
 
 //
-// converting vector copy assignment
+// converting vector assignment overload
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
@@ -307,6 +307,32 @@ bool fk::vector<P, mem>::operator==(vector<P, mem> const &other) const
 {
   if (&other == this)
     return true;
+  if (size() != other.size())
+    return false;
+  for (auto i = 0; i < size(); ++i)
+    if constexpr (std::is_floating_point<P>::value)
+    {
+      if (std::abs((*this)(i)-other(i)) > TOL)
+      {
+        return false;
+      }
+    }
+    else
+    {
+      if ((*this)(i) != other(i))
+      {
+        return false;
+      }
+    }
+  return true;
+}
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
+{
+  if constexpr (omem == mem)
+    if (&other == this)
+      return true;
   if (size() != other.size())
     return false;
   for (auto i = 0; i < size(); ++i)
@@ -1420,6 +1446,131 @@ template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view
 template class fk::vector<float, mem_type::view>;
 template class fk::vector<int, mem_type::view>;
+
+
+template fk::vector<int, mem_type::view>::vector(
+    vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::view>::vector(
+    vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::view>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view>::vector(
+    vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::view>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::view>::vector(
+    vector<float, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+template fk::vector<int, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+template fk::vector<float, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+template fk::vector<float, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+template fk::vector<double, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+
+template fk::vector<int, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+template fk::vector<int, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+template fk::vector<double, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<float, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+
+template bool fk::vector<double, mem_type::view>::
+operator==(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator==(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator==(vector<int, mem_type::owner> const &) const;
+
+
 
 template fk::vector<double> fk::vector<double>::
 operator+(fk::vector<double, mem_type::view> const &right) const;

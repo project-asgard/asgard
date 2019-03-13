@@ -53,9 +53,9 @@ public:
 
   // converting constructor/assignment overloads
   // FIXME disable for view (constructor only)
-  template<typename PP, mem_type omem>
+  template<typename PP, mem_type omem = mem>
   vector(vector<PP, omem> const &);
-  template<typename PP, mem_type omem>
+  template<typename PP, mem_type omem = mem>
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
   //
@@ -77,6 +77,8 @@ public:
   // comparison operators
   //
   bool operator==(vector<P, mem> const &) const;
+  template<mem_type omem>
+  bool operator==(vector<P, omem> const &) const;
   bool operator!=(vector<P, mem> const &) const;
   bool operator<(vector<P, mem> const &) const;
   //
@@ -316,6 +318,123 @@ extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view
 extern template class fk::vector<float, mem_type::view>;
 extern template class fk::vector<int, mem_type::view>;
+
+extern template fk::vector<int, mem_type::view>::vector(
+    vector<float, mem_type::view> const &);
+extern template fk::vector<int, mem_type::view>::vector(
+    vector<double, mem_type::view> const &);
+extern template fk::vector<float, mem_type::view>::vector(
+    vector<int, mem_type::view> const &);
+extern template fk::vector<float, mem_type::view>::vector(
+    vector<double, mem_type::view> const &);
+extern template fk::vector<double, mem_type::view>::vector(
+    vector<int, mem_type::view> const &);
+extern template fk::vector<double, mem_type::view>::vector(
+    vector<float, mem_type::view> const &);
+
+extern template fk::vector<int, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+extern template fk::vector<int, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+extern template fk::vector<float, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+extern template fk::vector<float, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+extern template fk::vector<double, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+extern template fk::vector<double, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+
+extern template fk::vector<int, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+extern template fk::vector<int, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+extern template fk::vector<float, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+extern template fk::vector<float, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+extern template fk::vector<double, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+extern template fk::vector<double, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+
+extern template fk::vector<int, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+extern template fk::vector<int, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+extern template fk::vector<float, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+extern template fk::vector<float, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+extern template fk::vector<double, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+extern template fk::vector<double, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+
+extern template fk::vector<int, mem_type::owner> &
+fk::vector<int, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+extern template fk::vector<int, mem_type::owner> &
+fk::vector<int, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+extern template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+extern template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+extern template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+extern template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+
+extern template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+extern template fk::vector<int, mem_type::owner> &
+fk::vector<int, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+extern template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+extern template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+extern template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+extern template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+
+extern template bool fk::vector<double, mem_type::view>::
+operator==(vector<double, mem_type::owner> const &) const;
+extern template bool fk::vector<float, mem_type::view>::
+operator==(vector<float, mem_type::owner> const &) const;
+extern template bool fk::vector<int, mem_type::view>::
+operator==(vector<int, mem_type::owner> const &) const;
+
 
 extern template fk::vector<double> fk::vector<double>::
 operator+(fk::vector<double, mem_type::view> const &right) const;

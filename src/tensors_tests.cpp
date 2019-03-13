@@ -12,6 +12,7 @@
 // note using widening conversions to floating point type in order to use same
 // tests for integer type
 // FIXME look for another way to do this
+
 TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
                    float, double, int)
 {
@@ -20,6 +21,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   // - the list initializing constructor working correctly
   // - operator== working correctly
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
+
   // explicit types for testing converting copy operations
   fk::vector<int> const goldi{2, 3, 4, 5, 6};
   fk::vector<float> const goldf{2.0, 3.0, 4.0, 5.0, 6.0};
@@ -28,73 +30,143 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   SECTION("default constructor")
   {
     fk::vector<TestType> test;
+    // fk::vector<TestType, mem_type::view> test_v; // disabled
     REQUIRE(test.size() == 0);
   }
   SECTION("give me some size, initialized to zero")
   {
     fk::vector<TestType> test(5);
+    fk::vector<TestType, mem_type::view> test_v(5);
     fk::vector<TestType> zeros{0, 0, 0, 0, 0};
     REQUIRE(test == zeros);
+    REQUIRE(test_v == zeros);
   }
   SECTION("constructor from list initialization")
   {
     fk::vector<TestType> test{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> test_v{2, 3, 4, 5, 6};
     REQUIRE(test == gold);
+    REQUIRE(test_v == gold);
   }
   SECTION("construct from a std::vector")
   {
     std::vector<TestType> v{2, 3, 4, 5, 6};
     fk::vector<TestType> test(v);
+    fk::vector<TestType, mem_type::view> test_v(v);
     REQUIRE(test == gold);
+    REQUIRE(test_v == gold);
   }
   SECTION("construct from an fk::matrix")
   {
     fk::matrix<TestType> mat{{2}, {3}, {4}, {5}, {6}};
     fk::vector<TestType> test(mat);
+    fk::vector<TestType, mem_type::view> test_v(mat);
     REQUIRE(test == gold);
+    REQUIRE(test_v == gold);
 
     fk::vector<TestType> gold_2 = {1, 2, 3, 4, 5, 6};
     fk::matrix<TestType> mat_2{{1, 3, 5}, {2, 4, 6}};
     fk::vector<TestType> test_2(mat_2);
-    REQUIRE(test_2 == gold_2);
+    fk::vector<TestType, mem_type::view> test_2_v(mat_2);
+    REQUIRE(test_2_v == gold_2);
   }
   SECTION("copy construction")
   {
     fk::vector<TestType> test(gold);
+    // fk::vector<TestType, mem_type::view> test_v(gold); // ill-defined
     REQUIRE(test == gold);
   }
   SECTION("copy assignment")
   {
     fk::vector<TestType> test(5);
+    fk::vector<TestType, mem_type::view> test_v(5);
     test = gold;
+    // test_v = gold; // ill-defined; covered below by converting ctor
     REQUIRE(test == gold);
   }
-  SECTION("converting copy construction")
+  SECTION("converting construction (from owners)")
   {
     fk::vector<int> testi(gold);
+    fk::vector<int, mem_type::view> testi_v(gold);
     REQUIRE(testi == goldi);
+    REQUIRE(testi_v == goldi);
     fk::vector<float> testf(gold);
+    fk::vector<float, mem_type::view> testf_v(gold);
     REQUIRE(testf == goldf);
+    REQUIRE(testf_v == goldf);
     fk::vector<double> testd(gold);
+    fk::vector<double, mem_type::view> testd_v(gold);
     REQUIRE(testd == goldd);
+    REQUIRE(testd_v == goldd);
   }
-  SECTION("converting copy assignment")
+  SECTION("converting construction (from views)")
+  {
+    fk::vector<TestType, mem_type::view> const gold{2, 3, 4, 5, 6};
+    fk::vector<int> testi(gold);
+    fk::vector<int, mem_type::view> testi_v(gold);
+    REQUIRE(testi == goldi);
+    REQUIRE(testi_v == goldi);
+    fk::vector<float> testf(gold);
+    fk::vector<float, mem_type::view> testf_v(gold);
+    REQUIRE(testf == goldf);
+    REQUIRE(testf_v == goldf);
+    fk::vector<double> testd(gold);
+    fk::vector<double, mem_type::view> testd_v(gold);
+    REQUIRE(testd == goldd);
+    REQUIRE(testd_v == goldd);
+  }
+  SECTION("converting assignment (from owners)")
   {
     fk::vector<int> testi(5);
-    testi = gold;
+    fk::vector<int, mem_type::view> testi_v(5);
+    testi   = gold;
+    testi_v = gold;
     REQUIRE(testi == goldi);
+    REQUIRE(testi_v == goldi);
     fk::vector<float> testf(5);
-    testf = gold;
+    fk::vector<float, mem_type::view> testf_v(5);
+    testf   = gold;
+    testf_v = gold;
     REQUIRE(testf == goldf);
+    REQUIRE(testf_v == goldf);
     fk::vector<double> testd(5);
-    testd = gold;
+    fk::vector<double, mem_type::view> testd_v(5);
+    testd   = gold;
+    testd_v = gold;
     REQUIRE(testd == goldd);
+    REQUIRE(testd_v == goldd);
+  }
+  SECTION("converting assignment (from views)")
+  {
+    fk::vector<TestType, mem_type::view> const gold{2, 3, 4, 5, 6};
+    fk::vector<int> testi(5);
+    fk::vector<int, mem_type::view> testi_v(5);
+    testi   = gold;
+    testi_v = gold;
+    REQUIRE(testi == goldi);
+    REQUIRE(testi_v == goldi);
+    fk::vector<float> testf(5);
+    fk::vector<float, mem_type::view> testf_v(5);
+    testf   = gold;
+    testf_v = gold;
+    REQUIRE(testf == goldf);
+    REQUIRE(testf_v == goldf);
+    fk::vector<double> testd(5);
+    fk::vector<double, mem_type::view> testd_v(5);
+    testd   = gold;
+    testd_v = gold;
+    REQUIRE(testd == goldd);
+    REQUIRE(testd_v == goldd);
   }
   SECTION("move construction")
   {
     fk::vector<TestType> moved{2, 3, 4, 5, 6};
     fk::vector<TestType> test(std::move(moved));
     REQUIRE(test == gold);
+    // FIXME we need to pay attention here; is this what we want?
+    fk::vector<TestType, mem_type::view> moved_v{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> test_v(std::move(moved_v));
+    REQUIRE(test_v == gold);
   }
   SECTION("move assignment")
   {
@@ -102,13 +174,20 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     fk::vector<TestType> test(5);
     test = std::move(moved);
     REQUIRE(test == gold);
+    // FIXME we need to pay attention here; is this what we want?
+    fk::vector<TestType, mem_type::view> moved_v{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> test_v(5);
+    test_v = std::move(moved_v);
+    REQUIRE(test_v == gold);
   }
   SECTION("copy from std::vector")
   {
     std::vector<TestType> v{2, 3, 4, 5, 6};
     fk::vector<TestType> test(5);
-    test = v;
-    REQUIRE(test == gold);
+    fk::vector<TestType, mem_type::view> test_v(5);
+    test   = v;
+    test_v = v;
+    REQUIRE(test_v == gold);
   }
   SECTION("copy into std::vector")
   {
@@ -116,6 +195,10 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     std::vector<TestType> testv;
     testv = gold.to_std();
     compare_vectors(testv, goldv);
+    fk::vector<TestType> gold_v{2, 3, 4, 5, 6};
+    std::vector<TestType> testv_v;
+    testv_v = gold_v.to_std();
+    compare_vectors(testv_v, goldv);
   }
 } // end fk::vector constructors, copy/move
 
