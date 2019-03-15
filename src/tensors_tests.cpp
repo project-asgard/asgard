@@ -363,38 +363,65 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
-  SECTION("size(): the number of elements") { REQUIRE(gold.size() == 5); }
-  SECTION("data(): const addr to element") { REQUIRE(*gold.data(4) == 6); }
+  fk::vector<TestType, mem_type::view> const gold_v(gold);
+  SECTION("size(): the number of elements")
+  {
+    REQUIRE(gold.size() == 5);
+    REQUIRE(gold_v.size() == 5);
+  }
+  SECTION("data(): const addr to element")
+  {
+    REQUIRE(*gold.data(4) == 6);
+    REQUIRE(*gold_v.data(4) == 6);
+  }
   SECTION("print out the values")
   {
     // (effectively) redirect cout
     std::streambuf *old_cout_stream_buf = std::cout.rdbuf();
     std::ostringstream test_str;
-    std::cout.rdbuf(test_str.rdbuf());
+    std::ostringstream test_str_v;
+
     // generate the output (into test_str)
+    std::cout.rdbuf(test_str.rdbuf());
     gold.print("golden vector");
+    std::cout.rdbuf(test_str_v.rdbuf());
+    gold_v.print("golden vector");
+
     // restore cout destination
     std::cout.rdbuf(old_cout_stream_buf);
-    std::string golden_string;
+    std::string golden_string, golden_string_v;
     if constexpr (std::is_floating_point<TestType>::value)
     {
-      golden_string = "golden vector\n  2.0000e+00  3.0000e+00  "
+      golden_string = "golden vector(owner)\n  2.0000e+00  3.0000e+00  "
                       "4.0000e+00  5.0000e+00  6.0000e+00\n";
+      golden_string_v = "golden vector(view)\n  2.0000e+00  3.0000e+00  "
+                        "4.0000e+00  5.0000e+00  6.0000e+00\n";
     }
     else
     {
-      golden_string = "golden vector\n2 3 "
+      golden_string = "golden vector(owner)\n2 3 "
                       "4 5 6 \n";
+
+      golden_string_v = "golden vector(view)\n2 3 "
+                        "4 5 6 \n";
     }
     REQUIRE(test_str.str() == golden_string);
+    REQUIRE(test_str_v.str() == golden_string_v);
   }
   SECTION("dump to octave")
   {
     gold.dump_to_octave("test_out.dat");
+    gold_v.dump_to_octave("test_out_v.dat");
     std::ifstream data_stream("test_out.dat");
-    std::string test_string((std::istreambuf_iterator<char>(data_stream)),
-                            std::istreambuf_iterator<char>());
+    std::ifstream data_stream_v("test_out_v.dat");
+    std::string const test_string((std::istreambuf_iterator<char>(data_stream)),
+                                  std::istreambuf_iterator<char>());
+    std::string const test_string_v(
+        (std::istreambuf_iterator<char>(data_stream_v)),
+        std::istreambuf_iterator<char>());
     std::remove("test_out.dat");
+    std::remove("test_out_v.dat");
+
     std::string golden_string;
     if constexpr (std::is_floating_point<TestType>::value)
     {
@@ -408,41 +435,97 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     }
 
     REQUIRE(test_string == golden_string);
+    REQUIRE(test_string_v == golden_string);
   }
   SECTION("vector resize")
   {
     fk::vector<TestType> test_reduced{2, 3, 4, 5, 6, 7, 8};
+    fk::vector<TestType, mem_type::view> test_reduced_v(test_reduced);
+
     fk::vector<TestType> const gold_enlarged{2, 3, 4, 0, 0};
+
     fk::vector<TestType> test_enlarged{2, 3, 4};
+    fk::vector<TestType, mem_type::view> test_enlarged_v(test_enlarged);
+
     test_reduced.resize(gold.size());
     test_enlarged.resize(gold.size());
+    test_reduced_v.resize(gold.size());
+    test_enlarged_v.resize(gold.size());
+
     REQUIRE(test_reduced == gold);
     REQUIRE(test_enlarged == gold_enlarged);
+
+    REQUIRE(test_reduced_v == gold);
+    REQUIRE(test_enlarged_v == gold_enlarged);
   }
 
   SECTION("vector concatenation")
   {
-    fk::vector<TestType> test_left        = {2, 3, 4};
+    fk::vector<TestType> test_left = {2, 3, 4};
+    fk::vector<TestType, mem_type::view> test_left_v(test_left);
     fk::vector<TestType> const test_right = {5, 6};
-    fk::vector<TestType> empty;
-    fk::vector<TestType> gold_copy = gold;
+    fk::vector<TestType, mem_type::view> const test_right_v(test_right);
 
     REQUIRE(test_left.concat(test_right) == gold);
+    REQUIRE(test_left_v.concat(test_right) == gold);
+
+    test_left.resize(3)   = fk::vector<TestType>({2, 3, 4});
+    test_left_v.resize(3) = test_left;
+
+    REQUIRE(test_left.concat(test_right_v) == gold);
+    REQUIRE(test_left_v.concat(test_right_v) == gold);
+
+    fk::vector<TestType> empty;
+    fk::vector<TestType, mem_type::view> empty_v(empty);
+    fk::vector<TestType> gold_copy = gold;
+    fk::vector<TestType, mem_type::view> gold_copy_v(gold_copy);
+
     REQUIRE(empty.concat(gold) == gold);
     empty.resize(0);
+    REQUIRE(empty.concat(gold_v) == gold);
+    empty.resize(0);
+    REQUIRE(empty_v.concat(gold) == gold);
+    empty_v.resize(0);
+    REQUIRE(empty_v.concat(gold_v) == gold);
+    empty_v.resize(0);
+
     REQUIRE(gold_copy.concat(empty) == gold);
+    gold_copy = gold;
+    REQUIRE(gold_copy.concat(empty_v) == gold);
+    gold_copy = gold;
+    REQUIRE(gold_copy_v.concat(empty) == gold);
+    gold_copy_v = gold_copy;
+    REQUIRE(gold_copy_v.concat(empty_v) == gold);
   }
   SECTION("vector set")
   {
     fk::vector<TestType> vector(5);
+    fk::vector<TestType, mem_type::view> vector_v(vector);
 
     fk::vector<TestType> const empty;
     fk::vector<TestType> const begin  = {2, 3};
     fk::vector<TestType> const middle = {3, 4, 5};
     fk::vector<TestType> const end    = {6};
 
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    fk::vector<TestType, mem_type::view> const begin_v(begin);
+    fk::vector<TestType, mem_type::view> const middle_v(middle);
+    fk::vector<TestType, mem_type::view> const end_v(end);
+
     REQUIRE(vector.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
             gold);
+    vector = fk::vector<TestType>(5);
+    REQUIRE(
+        vector.set(0, begin_v).set(0, empty_v).set(1, middle_v).set(4, end) ==
+        gold);
+    vector = fk::vector<TestType>(5);
+    REQUIRE(vector_v.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
+            gold);
+    vector_v = vector;
+    REQUIRE(vector_v.set(0, begin_v)
+                .set(0, empty_v)
+                .set(1, middle_v)
+                .set(4, end_v) == gold);
   }
   SECTION("vector extract")
   {
@@ -453,28 +536,40 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(test_begin == gold.extract(0, 2));
     REQUIRE(test_middle == gold.extract(2, 3));
     REQUIRE(test_end == gold.extract(3, 4));
+
+    REQUIRE(test_begin == gold_v.extract(0, 2));
+    REQUIRE(test_middle == gold_v.extract(2, 3));
+    REQUIRE(test_end == gold_v.extract(3, 4));
   }
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};
+    fk::vector<TestType, mem_type::view> test_v(test);
     fk::vector<TestType> const after{0, 2, 3, 4};
     std::transform(test.begin(), test.end(), test.begin(),
                    std::bind1st(std::plus<TestType>(), 1));
+    std::transform(test_v.begin(), test_v.end(), test_v.begin(),
+                   std::bind1st(std::plus<TestType>(), 1));
     REQUIRE(test == after);
+    REQUIRE(test_v == after);
   }
 
   SECTION("vector maximum element")
   {
     fk::vector<TestType> const test{5, 6, 11, 8};
-    TestType max = 11;
+    fk::vector<TestType, mem_type::view> const test_v(test);
+    TestType const max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
+    REQUIRE(*std::max_element(test_v.begin(), test_v.end()) == max);
   }
 
   SECTION("vector sum of elements")
   {
     fk::vector<TestType> const test{1, 2, 3, 4, 5, 6, 7, 8};
-    TestType max = 36;
-    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == max);
+    fk::vector<TestType, mem_type::view> const test_v(test);
+    TestType const sum = 36;
+    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == sum);
+    REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0.0) == sum);
   }
 } // end fk::vector utilities
 

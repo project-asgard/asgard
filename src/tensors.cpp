@@ -581,10 +581,10 @@ void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 // (currently supports a subset of the std::vector.resize() interface)
 //
 template<typename P, mem_type mem>
-void fk::vector<P, mem>::resize(int const new_size)
+fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
 {
   if (new_size == this->size())
-    return;
+    return *this;
   P *old_data{data_};
   data_ = new P[new_size]();
   if (size() > 0 && new_size > 0)
@@ -597,6 +597,7 @@ void fk::vector<P, mem>::resize(int const new_size)
 
   size_ = new_size;
   delete[] old_data;
+  return *this;
 }
 
 template<typename P, mem_type mem>

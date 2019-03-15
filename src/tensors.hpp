@@ -114,7 +114,7 @@ public:
   void dump_to_octave(char const *) const;
   // FIXME disable if views exist
   // FIXME owner only
-  void resize(int const size = 0);
+  fk::vector<P, mem> &resize(int const size = 0);
   template<mem_type omem>
   vector<P, mem> &set(int const, vector<P, omem> const);
   // FIXME how does this play w extract view?
