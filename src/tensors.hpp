@@ -435,6 +435,12 @@ operator==(vector<float, mem_type::owner> const &) const;
 extern template bool fk::vector<int, mem_type::view>::
 operator==(vector<int, mem_type::owner> const &) const;
 
+extern template bool fk::vector<double>::
+operator==(vector<double, mem_type::view> const &) const;
+extern template bool fk::vector<float>::
+operator==(vector<float, mem_type::view> const &) const;
+extern template bool fk::vector<int>::
+operator==(vector<int, mem_type::view> const &) const;
 
 extern template fk::vector<double> fk::vector<double>::
 operator+(fk::vector<double, mem_type::view> const &right) const;

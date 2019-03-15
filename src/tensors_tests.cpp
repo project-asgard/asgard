@@ -205,89 +205,158 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
 TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
+
   SECTION("subscript operator (modifying)")
   {
     fk::vector<TestType> test(5);
+    fk::vector<TestType, mem_type::view> test_v(test);
     // clang-format off
     test(0) = 2; test(1) = 3; test(2) = 4; test(3) = 5; test(4) = 6;
+    test_v(0) = 2; test_v(1) = 3; test_v(2) = 4; test_v(3) = 5; test_v(4) = 6;
     // clang-format on
     REQUIRE(test == gold);
-    TestType val = test(4);
+    REQUIRE(test_v == gold);
+    TestType const val   = test(4);
+    TestType const val_v = test_v(4);
     REQUIRE(val == 6);
+    REQUIRE(val_v == 6);
   }
-  SECTION("subscript operator (const)") { REQUIRE(gold(4) == 6); }
+  SECTION("subscript operator (const)")
+  {
+    REQUIRE(gold(4) == 6);
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    REQUIRE(gold_v(4) == 6);
+  }
   SECTION("comparison operator") // this gets used in every REQUIRE
   SECTION("comparison (negated) operator")
   {
     fk::vector<TestType> test(gold);
-    test(4) = 333;
+    fk::vector<TestType, mem_type::view> test_v(gold);
+    fk::vector<TestType> const empty;
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+
+    test(4)   = 333;
+    test_v(4) = 333;
+
     REQUIRE(test != gold);
+    REQUIRE(test_v != gold);
+    REQUIRE(empty != gold);
+    REQUIRE(empty_v != gold);
   }
   SECTION("less than operator")
   {
     fk::vector<TestType> const empty;
-    fk::vector<TestType> const gold_copy = gold;
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    ;
+    fk::vector<TestType> const gold_copy                   = gold;
+    fk::vector<TestType, mem_type::view> const gold_copy_v = gold;
+
     fk::vector<TestType> const gold_prefix{1, 2, 3, 4};
+    fk::vector<TestType, mem_type::view> const gold_prefix_v(gold_prefix);
     fk::vector<TestType> const mismatch{2, 3, 5, 5, 6};
+    fk::vector<TestType, mem_type::view> const mismatch_v(mismatch);
+
     // equal vectors return false
     REQUIRE(!(gold_copy < gold));
+    REQUIRE(!(gold_copy_v < gold));
     // empty range less than non-empty range
     REQUIRE(empty < gold);
+    REQUIRE(empty_v < gold);
     // a prefix is less than the complete range
     REQUIRE(gold_prefix < gold);
+    REQUIRE(gold_prefix_v < gold);
     // otherwise compare on first mismatch
     REQUIRE(gold < mismatch);
+    REQUIRE(gold < mismatch_v);
     // also, empty ranges are equal
     REQUIRE(!(empty < empty));
+    REQUIRE(!(empty < empty_v));
   }
 
   SECTION("addition operator")
   {
     fk::vector<TestType> const in1{1, 1, 1, 1, 1};
+    fk::vector<TestType, mem_type::view> const in1_v(in1);
     fk::vector<TestType> const in2{1, 2, 3, 4, 5};
+    fk::vector<TestType, mem_type::view> const in2_v(in2);
     REQUIRE((in1 + in2) == gold);
+    REQUIRE((in1_v + in2_v) == gold);
+    REQUIRE((in1 + in2_v) == gold);
+    REQUIRE((in1_v + in2) == gold);
   }
   SECTION("subtraction operator")
   {
     fk::vector<TestType> const in1{3, 4, 5, 6, 7};
+    fk::vector<TestType, mem_type::view> const in1_v(in1);
     fk::vector<TestType> const in2{1, 1, 1, 1, 1};
+    fk::vector<TestType, mem_type::view> const in2_v(in2);
     REQUIRE((in1 - in2) == gold);
+    REQUIRE((in1_v - in2_v) == gold);
+    REQUIRE((in1 - in2_v) == gold);
+    REQUIRE((in1_v - in2) == gold);
   }
-  SECTION("vector*vector operator") { REQUIRE((gold * gold) == 90); }
+  SECTION("vector*vector operator")
+  {
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    REQUIRE((gold * gold) == 90);
+    REQUIRE((gold_v * gold_v) == 90);
+    REQUIRE((gold_v * gold) == 90);
+    REQUIRE((gold * gold_v) == 90);
+  }
   SECTION("vector*matrix operator")
   {
     // clang-format off
-    fk::matrix<TestType> const testm{
+    fk::matrix<TestType> const test_mat{
       {12, 22, 32},
       {13, 23, 33},
       {14, 24, 34},
       {15, 25, 35},
       {16, 26, 36},
     }; // clang-format on
-    fk::vector<TestType> const testv{2, 3, 4, 5, 6};
+    fk::vector<TestType> const test_vect{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
     fk::vector<TestType> const gold{290, 490, 690};
-    REQUIRE((testv * testm) == gold);
+
+    REQUIRE((test_vect * test_mat) == gold);
+    REQUIRE((test_vect_v * test_mat) == gold);
   }
   SECTION("vector*scalar operator")
   {
-    TestType scale = static_cast<TestType>(-2);
+    TestType const scale = static_cast<TestType>(-2);
     fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
     REQUIRE((gold * scale) == gold_scaled);
+    REQUIRE((gold_v * scale) == gold_scaled);
   }
   SECTION("vector (as matrix) kron product")
   {
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+
     fk::vector<TestType> const identity{1};
+    fk::vector<TestType, mem_type::view> const identity_v(identity);
     REQUIRE(identity.single_column_kron(gold) == gold);
+    REQUIRE(identity_v.single_column_kron(gold) == gold);
+    REQUIRE(identity.single_column_kron(gold_v) == gold);
+    REQUIRE(identity_v.single_column_kron(gold_v) == gold);
 
     fk::vector<TestType> const repeat{1, 1};
-    fk::vector<TestType> gold_copy = gold;
-    REQUIRE(repeat.single_column_kron(gold) == gold_copy.concat(gold));
+    fk::vector<TestType, mem_type::view> const repeat_v(repeat);
+    fk::vector<TestType> const gold_repeated =
+        fk::vector<TestType>(gold).concat(gold);
+    REQUIRE(repeat.single_column_kron(gold) == gold_repeated);
+    REQUIRE(repeat.single_column_kron(gold_v) == gold_repeated);
+    REQUIRE(repeat_v.single_column_kron(gold) == gold_repeated);
+    REQUIRE(repeat_v.single_column_kron(gold_v) == gold_repeated);
 
     fk::vector<TestType> const zeros(gold.size());
     fk::vector<TestType> const alternate{1, 0, 2, 0};
-    fk::vector<TestType> ans;
-    ans.concat(gold).concat(zeros).concat(gold * 2).concat(zeros);
+    fk::vector<TestType, mem_type::view> const alternate_v(alternate);
+    fk::vector<TestType> const ans =
+        fk::vector<TestType>(gold).concat(zeros).concat(gold * 2).concat(zeros);
     REQUIRE(ans == alternate.single_column_kron(gold));
+    REQUIRE(ans == alternate_v.single_column_kron(gold_v));
+    REQUIRE(ans == alternate_v.single_column_kron(gold));
+    REQUIRE(ans == alternate.single_column_kron(gold_v));
   }
 } // end fk::vector operators
 

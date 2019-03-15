@@ -1447,7 +1447,6 @@ template class fk::vector<double, mem_type::view>; // get the non-default
 template class fk::vector<float, mem_type::view>;
 template class fk::vector<int, mem_type::view>;
 
-
 template fk::vector<int, mem_type::view>::vector(
     vector<float, mem_type::view> const &);
 template fk::vector<int, mem_type::view>::vector(
@@ -1473,7 +1472,7 @@ template fk::vector<double, mem_type::view>::vector(
     vector<int, mem_type::owner> const &);
 template fk::vector<double, mem_type::view>::vector(
     vector<float, mem_type::owner> const &);
-
+/*
 template fk::vector<int, mem_type::owner>::vector(
     vector<float, mem_type::view> const &);
 template fk::vector<int, mem_type::owner>::vector(
@@ -1486,7 +1485,7 @@ template fk::vector<double, mem_type::owner>::vector(
     vector<int, mem_type::view> const &);
 template fk::vector<double, mem_type::owner>::vector(
     vector<float, mem_type::view> const &);
-
+*/
 template fk::vector<int, mem_type::view>::vector(
     vector<int, mem_type::owner> const &);
 template fk::vector<int, mem_type::owner>::vector(
@@ -1570,7 +1569,12 @@ operator==(vector<float, mem_type::owner> const &) const;
 template bool fk::vector<int, mem_type::view>::
 operator==(vector<int, mem_type::owner> const &) const;
 
-
+template bool fk::vector<double>::
+operator==(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float>::
+operator==(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int>::
+operator==(vector<int, mem_type::view> const &) const;
 
 template fk::vector<double> fk::vector<double>::
 operator+(fk::vector<double, mem_type::view> const &right) const;
@@ -1668,6 +1672,26 @@ template fk::vector<float>
 fk::vector<float>::single_column_kron(fk::vector<float> const &right) const;
 template fk::vector<int>
 fk::vector<int>::single_column_kron(fk::vector<int> const &right) const;
+
+template fk::vector<double, mem_type::view>
+fk::vector<double, mem_type::view>::single_column_kron(
+    fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float, mem_type::view>
+fk::vector<float, mem_type::view>::single_column_kron(
+    fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int, mem_type::view>
+fk::vector<int, mem_type::view>::single_column_kron(
+    fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double, mem_type::view>
+fk::vector<double, mem_type::view>::single_column_kron(
+    fk::vector<double> const &right) const;
+template fk::vector<float, mem_type::view>
+fk::vector<float, mem_type::view>::single_column_kron(
+    fk::vector<float> const &right) const;
+template fk::vector<int, mem_type::view>
+fk::vector<int, mem_type::view>::single_column_kron(
+    fk::vector<int> const &right) const;
 
 template fk::vector<double> &
 fk::vector<double>::concat(fk::vector<double> const &right);
