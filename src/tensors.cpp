@@ -127,6 +127,7 @@ fk::vector<P, mem>::vector(int const size) : data_{new P[size]()}, size_{size}
 // but possibly this is "too clever" for our needs right now
 
 template<typename P, mem_type mem>
+template<mem_type, typename>
 fk::vector<P, mem>::vector(std::initializer_list<P> list)
     : data_{new P[list.size()]}, size_{static_cast<int>(list.size())}
 {
@@ -1446,6 +1447,11 @@ template fk::vector<double, mem_type::owner>::vector();
 template fk::vector<int, mem_type::owner>::vector(int const);
 template fk::vector<float, mem_type::owner>::vector(int const);
 template fk::vector<double, mem_type::owner>::vector(int const);
+template fk::vector<int, mem_type::owner>::vector(std::initializer_list<int>);
+template fk::vector<float, mem_type::owner>::vector(
+    std::initializer_list<float>);
+template fk::vector<double, mem_type::owner>::vector(
+    std::initializer_list<double>);
 
 template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view
