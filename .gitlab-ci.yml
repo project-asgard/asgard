@@ -1,17 +1,35 @@
 
+stages:
+  - checks
+  - unit-tests
+
 # let's make sure the source is formatted
 clang-format:
+  stage: checks
   script:
     - for bob in $(find src -type f) ; do diff ${bob} <(clang-format ${bob}) || exit ; done
 #  only:
 #    - merge-requests
 
-# run the unit tests for asgard
-catch2-tests:
+# run the unit tests for asgard (gcc and clang)
+catch2-gcc-tests:
+  stage: unit-tests
   script:
     - mkdir build
     - cd build
-    - cmake ..
+    - cmake -DCMAKE_CXX_COMPILER=g++ ..
+    - make
+    - ./tests
+#  only:
+#    - merge-requests
+
+# run the unit tests for asgard (clang)
+catch2-clang-tests:
+  stage: unit-tests
+  script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_CXX_COMPILER=clang++ ..
     - make
     - ./tests
 #  only:
