@@ -23,8 +23,8 @@ int main(int argc, char **argv)
 
   // views are enabled, but behave exactly as owners (except print out that they
   // are a view)
-  fk::vector<double, mem_type::view> F(2);
-  F.print("F");
+  // fk::vector<double, mem_type::view> F(2); // sfinae'd away as expected
+  // F.print("F");
 
   return 0;
 }

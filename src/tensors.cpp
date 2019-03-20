@@ -118,6 +118,7 @@ fk::vector<P, mem>::vector() : data_{nullptr}, size_{0}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem>
+template<mem_type, typename>
 fk::vector<P, mem>::vector(int const size) : data_{new P[size]()}, size_{size}
 {}
 
@@ -374,7 +375,7 @@ fk::vector<P, mem> fk::vector<P, mem>::
 operator+(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
-  vector<P, mem> ans(size());
+  vector<P> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i) + right(i);
   return ans;
@@ -389,7 +390,7 @@ fk::vector<P, mem> fk::vector<P, mem>::
 operator-(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
-  vector<P, mem> ans(size());
+  vector<P> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i)-right(i);
   return ans;
@@ -435,7 +436,7 @@ fk::vector<P, mem> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
   assert(size() == A.nrows());
 
   vector const &X = (*this);
-  vector<P, mem> Y(A.ncols());
+  vector<P> Y(A.ncols());
 
   int m     = A.nrows();
   int n     = A.ncols();
@@ -514,7 +515,7 @@ template<mem_type omem>
 fk::vector<P, mem>
 fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
 {
-  fk::vector<P, mem> product((*this).size() * right.size());
+  fk::vector<P> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
   {
     for (int j = 0; j < right.size(); ++j)
@@ -635,7 +636,7 @@ fk::vector<P, mem>::extract(int const start, int const stop) const
   assert(stop > start);
 
   int const sub_size = stop - start + 1;
-  fk::vector<P, mem> sub_vector(sub_size);
+  fk::vector<P> sub_vector(sub_size);
   for (int i = 0; i < sub_size; ++i)
   {
     sub_vector(i) = (*this)(i + start);
@@ -1442,6 +1443,9 @@ template fk::vector<int, mem_type::owner>::vector(); // needed b/c of
                                                      // sfinae decl
 template fk::vector<float, mem_type::owner>::vector();
 template fk::vector<double, mem_type::owner>::vector();
+template fk::vector<int, mem_type::owner>::vector(int const);
+template fk::vector<float, mem_type::owner>::vector(int const);
+template fk::vector<double, mem_type::owner>::vector(int const);
 
 template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view

@@ -35,6 +35,7 @@ public:
   // of an extract function
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector();
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   explicit vector(int const size);
   vector(std::initializer_list<P> list);
   vector(std::vector<P> const &);
@@ -313,6 +314,9 @@ extern template fk::vector<int, mem_type::owner>::vector(); // needed b/c of
                                                             // sfinae decl
 extern template fk::vector<float, mem_type::owner>::vector();
 extern template fk::vector<double, mem_type::owner>::vector();
+extern template fk::vector<int, mem_type::owner>::vector(int const);
+extern template fk::vector<float, mem_type::owner>::vector(int const);
+extern template fk::vector<double, mem_type::owner>::vector(int const);
 
 extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view

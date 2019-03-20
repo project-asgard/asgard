@@ -36,10 +36,9 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   SECTION("give me some size, initialized to zero")
   {
     fk::vector<TestType> test(5);
-    fk::vector<TestType, mem_type::view> test_v(5);
+    // fk::vector<TestType, mem_type::view> test_v(5); //disabled
     fk::vector<TestType> zeros{0, 0, 0, 0, 0};
     REQUIRE(test == zeros);
-    REQUIRE(test_v == zeros);
   }
   SECTION("constructor from list initialization")
   {
@@ -79,7 +78,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   SECTION("copy assignment")
   {
     fk::vector<TestType> test(5);
-    fk::vector<TestType, mem_type::view> test_v(5);
+    fk::vector<TestType, mem_type::view> test_v(test);
     test = gold;
     // test_v = gold; // ill-defined; covered below by converting ctor
     REQUIRE(test == gold);
@@ -118,19 +117,19 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   SECTION("converting assignment (from owners)")
   {
     fk::vector<int> testi(5);
-    fk::vector<int, mem_type::view> testi_v(5);
+    fk::vector<int, mem_type::view> testi_v(testi);
     testi   = gold;
     testi_v = gold;
     REQUIRE(testi == goldi);
     REQUIRE(testi_v == goldi);
     fk::vector<float> testf(5);
-    fk::vector<float, mem_type::view> testf_v(5);
+    fk::vector<float, mem_type::view> testf_v(testf);
     testf   = gold;
     testf_v = gold;
     REQUIRE(testf == goldf);
     REQUIRE(testf_v == goldf);
     fk::vector<double> testd(5);
-    fk::vector<double, mem_type::view> testd_v(5);
+    fk::vector<double, mem_type::view> testd_v(testd);
     testd   = gold;
     testd_v = gold;
     REQUIRE(testd == goldd);
@@ -140,19 +139,19 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   {
     fk::vector<TestType, mem_type::view> const gold{2, 3, 4, 5, 6};
     fk::vector<int> testi(5);
-    fk::vector<int, mem_type::view> testi_v(5);
+    fk::vector<int, mem_type::view> testi_v(testi);
     testi   = gold;
     testi_v = gold;
     REQUIRE(testi == goldi);
     REQUIRE(testi_v == goldi);
     fk::vector<float> testf(5);
-    fk::vector<float, mem_type::view> testf_v(5);
+    fk::vector<float, mem_type::view> testf_v(testf);
     testf   = gold;
     testf_v = gold;
     REQUIRE(testf == goldf);
     REQUIRE(testf_v == goldf);
     fk::vector<double> testd(5);
-    fk::vector<double, mem_type::view> testd_v(5);
+    fk::vector<double, mem_type::view> testd_v(testd);
     testd   = gold;
     testd_v = gold;
     REQUIRE(testd == goldd);
@@ -176,7 +175,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(test == gold);
     // FIXME we need to pay attention here; is this what we want?
     fk::vector<TestType, mem_type::view> moved_v{2, 3, 4, 5, 6};
-    fk::vector<TestType, mem_type::view> test_v(5);
+    fk::vector<TestType, mem_type::view> test_v(moved_v);
     test_v = std::move(moved_v);
     REQUIRE(test_v == gold);
   }
@@ -184,7 +183,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   {
     std::vector<TestType> v{2, 3, 4, 5, 6};
     fk::vector<TestType> test(5);
-    fk::vector<TestType, mem_type::view> test_v(5);
+    fk::vector<TestType, mem_type::view> test_v(test);
     test   = v;
     test_v = v;
     REQUIRE(test_v == gold);
