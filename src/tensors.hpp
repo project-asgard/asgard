@@ -39,7 +39,9 @@ public:
   explicit vector(int const size);
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector(std::initializer_list<P> list);
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector(std::vector<P> const &);
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector(fk::matrix<P> const &);
 
   ~vector();
@@ -324,6 +326,18 @@ extern template fk::vector<float, mem_type::owner>::vector(
     std::initializer_list<float>);
 extern template fk::vector<double, mem_type::owner>::vector(
     std::initializer_list<double>);
+extern template fk::vector<int, mem_type::owner>::vector(
+    std::vector<int> const &);
+extern template fk::vector<float, mem_type::owner>::vector(
+    std::vector<float> const &);
+extern template fk::vector<double, mem_type::owner>::vector(
+    std::vector<double> const &);
+extern template fk::vector<int, mem_type::owner>::vector(
+    fk::matrix<int> const &);
+extern template fk::vector<float, mem_type::owner>::vector(
+    fk::matrix<float> const &);
+extern template fk::vector<double, mem_type::owner>::vector(
+    fk::matrix<double> const &);
 
 extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view

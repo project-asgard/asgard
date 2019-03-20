@@ -135,6 +135,7 @@ fk::vector<P, mem>::vector(std::initializer_list<P> list)
 }
 
 template<typename P, mem_type mem>
+template<mem_type, typename>
 fk::vector<P, mem>::vector(std::vector<P> const &v)
     : data_{new P[v.size()]}, size_{static_cast<int>(v.size())}
 {
@@ -146,6 +147,7 @@ fk::vector<P, mem>::vector(std::vector<P> const &v)
 // of the matrix into a single vector
 //
 template<typename P, mem_type mem>
+template<mem_type, typename>
 fk::vector<P, mem>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
 {
   size_ = mat.size();
@@ -1452,6 +1454,14 @@ template fk::vector<float, mem_type::owner>::vector(
     std::initializer_list<float>);
 template fk::vector<double, mem_type::owner>::vector(
     std::initializer_list<double>);
+template fk::vector<int, mem_type::owner>::vector(std::vector<int> const &);
+template fk::vector<float, mem_type::owner>::vector(std::vector<float> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    std::vector<double> const &);
+template fk::vector<int, mem_type::owner>::vector(fk::matrix<int> const &);
+template fk::vector<float, mem_type::owner>::vector(fk::matrix<float> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    fk::matrix<double> const &);
 
 template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view
