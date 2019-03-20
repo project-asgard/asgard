@@ -66,6 +66,15 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     // fk::vector<TestType, mem_type::view> test_2_v(mat_2); // disabled
     REQUIRE(test_2 == gold_2);
   }
+  SECTION("view construction from owner with size")
+  {
+    fk::vector<TestType> gold = {2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> test0(gold, 0, gold.size() - 1);
+    REQUIRE(test0 == gold);
+    fk::vector<TestType> gold2 = {3, 4, 5};
+    fk::vector<TestType, mem_type::view> test1(gold, 1, 3);
+    REQUIRE(test1 == gold2);
+  }
   SECTION("copy construction")
   {
     fk::vector<TestType> test(gold);

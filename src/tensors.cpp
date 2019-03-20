@@ -166,6 +166,31 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
   }
 }
 
+// vector view constructor given a start and total length
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start,
+                           int const stop)
+{
+  assert(start >= 0);
+  assert(stop <= vec.size() - 1);
+  size_ = stop - start + 1;
+  data_ = new P[(*this).size()];
+  if ((*this).size() == 0)
+  {
+    delete[] data_;
+    data_ = nullptr;
+  }
+  else
+  {
+    int i = 0;
+    for (int j = start; j <= stop; ++j)
+    {
+      (*this)(i++) = vec(j);
+    }
+  }
+}
+
 template<typename P, mem_type mem>
 fk::vector<P, mem>::~vector()
 {
@@ -1462,6 +1487,12 @@ template fk::vector<int, mem_type::owner>::vector(fk::matrix<int> const &);
 template fk::vector<float, mem_type::owner>::vector(fk::matrix<float> const &);
 template fk::vector<double, mem_type::owner>::vector(
     fk::matrix<double> const &);
+template fk::vector<int, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &, int const, int const);
+template fk::vector<float, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &, int const, int const);
+template fk::vector<double, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &, int const, int const);
 
 template class fk::vector<double, mem_type::view>; // get the non-default
                                                    // mem_type::view

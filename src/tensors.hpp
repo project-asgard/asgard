@@ -44,6 +44,9 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector(fk::matrix<P> const &);
 
+  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  vector(vector<P, mem_type::owner> const &, int const start, int const stop);
+
   ~vector();
 
   // constructor/assignment (required to be same to same T==T)
@@ -338,6 +341,12 @@ extern template fk::vector<float, mem_type::owner>::vector(
     fk::matrix<float> const &);
 extern template fk::vector<double, mem_type::owner>::vector(
     fk::matrix<double> const &);
+extern template fk::vector<int, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &, int const, int const);
+extern template fk::vector<float, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &, int const, int const);
+extern template fk::vector<double, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &, int const, int const);
 
 extern template class fk::vector<double, mem_type::view>; // get the non-default
                                                           // mem_type::view
