@@ -100,16 +100,16 @@ public:
   // could change to provide pre-allocated region for results
 
   template<mem_type omem>
-  vector<P, mem> operator+(vector<P, omem> const &right) const;
+  vector<P> operator+(vector<P, omem> const &right) const;
   template<mem_type omem>
-  vector<P, mem> operator-(vector<P, omem> const &right) const;
+  vector<P> operator-(vector<P, omem> const &right) const;
   template<mem_type omem>
   P operator*(vector<P, omem> const &)const;
-  vector<P, mem> operator*(matrix<P> const &)const;
-  vector<P, mem> operator*(P const) const;
+  vector<P> operator*(matrix<P> const &)const;
+  vector<P> operator*(P const) const;
 
   template<mem_type omem>
-  vector<P, mem> single_column_kron(vector<P, omem> const &) const;
+  vector<P> single_column_kron(vector<P, omem> const &) const;
 
   //
   // basic queries to private data
@@ -132,7 +132,7 @@ public:
   // FIXME how does this play w extract view?
   // for now, this one returns an owner, extract view
   // extracts...a view
-  vector<P, mem> extract(int const, int const) const;
+  vector<P> extract(int const, int const) const;
   // FIXME concat only works for owners
   template<mem_type omem>
   vector<P, mem> &concat(vector<P, omem> const &right);
@@ -496,24 +496,19 @@ operator+(fk::vector<float> const &right) const;
 extern template fk::vector<int> fk::vector<int>::
 operator+(fk::vector<int> const &right) const;
 
-extern template fk::vector<double, mem_type::view>
-fk::vector<double, mem_type::view>::
+extern template fk::vector<double> fk::vector<double, mem_type::view>::
 operator+(fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float, mem_type::view>
-fk::vector<float, mem_type::view>::
+extern template fk::vector<float> fk::vector<float, mem_type::view>::
 operator+(fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int, mem_type::view>
-fk::vector<int, mem_type::view>::
+extern template fk::vector<int> fk::vector<int, mem_type::view>::
 operator+(fk::vector<int, mem_type::view> const &right) const;
 
-extern template fk::vector<double, mem_type::view>
-fk::vector<double, mem_type::view>::
+extern template fk::vector<double> fk::vector<double, mem_type::view>::
 operator+(fk::vector<double> const &right) const;
-extern template fk::vector<float, mem_type::view>
-fk::vector<float, mem_type::view>::
+extern template fk::vector<float> fk::vector<float, mem_type::view>::
 operator+(fk::vector<float> const &right) const;
-extern template fk::vector<int, mem_type::view>
-fk::vector<int, mem_type::view>::operator+(fk::vector<int> const &right) const;
+extern template fk::vector<int> fk::vector<int, mem_type::view>::
+operator+(fk::vector<int> const &right) const;
 
 extern template fk::vector<double> fk::vector<double>::
 operator-(fk::vector<double, mem_type::view> const &right) const;
@@ -529,24 +524,19 @@ operator-(fk::vector<float> const &right) const;
 extern template fk::vector<int> fk::vector<int>::
 operator-(fk::vector<int> const &right) const;
 
-extern template fk::vector<double, mem_type::view>
-fk::vector<double, mem_type::view>::
+extern template fk::vector<double> fk::vector<double, mem_type::view>::
 operator-(fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float, mem_type::view>
-fk::vector<float, mem_type::view>::
+extern template fk::vector<float> fk::vector<float, mem_type::view>::
 operator-(fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int, mem_type::view>
-fk::vector<int, mem_type::view>::
+extern template fk::vector<int> fk::vector<int, mem_type::view>::
 operator-(fk::vector<int, mem_type::view> const &right) const;
 
-extern template fk::vector<double, mem_type::view>
-fk::vector<double, mem_type::view>::
+extern template fk::vector<double> fk::vector<double, mem_type::view>::
 operator-(fk::vector<double> const &right) const;
-extern template fk::vector<float, mem_type::view>
-fk::vector<float, mem_type::view>::
+extern template fk::vector<float> fk::vector<float, mem_type::view>::
 operator-(fk::vector<float> const &right) const;
-extern template fk::vector<int, mem_type::view>
-fk::vector<int, mem_type::view>::operator-(fk::vector<int> const &right) const;
+extern template fk::vector<int> fk::vector<int, mem_type::view>::
+operator-(fk::vector<int> const &right) const;
 
 extern template double fk::vector<double>::
 operator*(fk::vector<double, mem_type::view> const &right) const;
@@ -576,12 +566,12 @@ operator*(fk::vector<float> const &right) const;
 extern template int fk::vector<int, mem_type::view>::
 operator*(fk::vector<int> const &right) const;
 
-extern template fk::vector<double> fk::vector<double>::single_column_kron(
-    fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float> fk::vector<float>::single_column_kron(
-    fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int> fk::vector<int>::single_column_kron(
-    fk::vector<int, mem_type::view> const &right) const;
+extern template fk::vector<double>
+fk::vector<double>::single_column_kron(fk::vector<double> const &right) const;
+extern template fk::vector<float>
+fk::vector<float>::single_column_kron(fk::vector<float> const &right) const;
+extern template fk::vector<int>
+fk::vector<int>::single_column_kron(fk::vector<int> const &right) const;
 
 extern template fk::vector<double>
 fk::vector<double>::single_column_kron(fk::vector<double> const &right) const;

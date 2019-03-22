@@ -368,7 +368,8 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
-  fk::vector<TestType, mem_type::view> const gold_v(gold);
+  fk::vector<TestType, mem_type::view> const gold_v(
+      gold); // increases ref_count
   SECTION("size(): the number of elements")
   {
     REQUIRE(gold.size() == 5);
@@ -398,14 +399,14 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     if constexpr (std::is_floating_point<TestType>::value)
     {
       golden_string =
-          "golden vector(owner, ref_count = 0)\n  2.0000e+00  3.0000e+00  "
+          "golden vector(owner, ref_count = 2)\n  2.0000e+00  3.0000e+00  "
           "4.0000e+00  5.0000e+00  6.0000e+00\n";
       golden_string_v = "golden vector(view)\n  2.0000e+00  3.0000e+00  "
                         "4.0000e+00  5.0000e+00  6.0000e+00\n";
     }
     else
     {
-      golden_string = "golden vector(owner, ref_count = 0)\n2 3 "
+      golden_string = "golden vector(owner, ref_count = 2)\n2 3 "
                       "4 5 6 \n";
 
       golden_string_v = "golden vector(view)\n2 3 "
