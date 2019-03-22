@@ -113,13 +113,15 @@ extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
 //-----------------------------------------------------------------------------
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem>::vector() : data_{nullptr}, size_{0}
+fk::vector<P, mem>::vector()
+    : data_{nullptr}, size_{0}, ref_count_{std::make_shared<int>(0)}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(int const size) : data_{new P[size]()}, size_{size}
+fk::vector<P, mem>::vector(int const size)
+    : data_{new P[size]()}, size_{size}, ref_count_{std::make_shared<int>(0)}
 {}
 
 // can also do this with variadic template constructor for constness
@@ -129,7 +131,8 @@ fk::vector<P, mem>::vector(int const size) : data_{new P[size]()}, size_{size}
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(std::initializer_list<P> list)
-    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())}
+    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())},
+      ref_count_{std::make_shared<int>(0)}
 {
   std::copy(list.begin(), list.end(), data_);
 }
@@ -137,7 +140,8 @@ fk::vector<P, mem>::vector(std::initializer_list<P> list)
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(std::vector<P> const &v)
-    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())}
+    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())},
+      ref_count_{std::make_shared<int>(0)}
 {
   std::copy(v.begin(), v.end(), data_);
 }
@@ -148,7 +152,8 @@ fk::vector<P, mem>::vector(std::vector<P> const &v)
 //
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
+fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
+    : data_{new P[mat.size()]}, ref_count_{std::make_shared<int>(0)}
 {
   size_ = mat.size();
   if ((*this).size() == 0)
@@ -171,6 +176,7 @@ template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start,
                            int const stop)
+    : ref_count_{vec.ref_count_}
 {
   assert(start >= 0);
   assert(stop <= vec.size() - 1);
@@ -194,6 +200,8 @@ fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start,
 template<typename P, mem_type mem>
 fk::vector<P, mem>::~vector()
 {
+  if constexpr (mem == mem_type::owner)
+    assert(ref_count_.use_count() == 1);
   delete[] data_;
 }
 
@@ -264,6 +272,8 @@ template<typename PP, mem_type omem>
 fk::vector<P, mem>::vector(vector<PP, omem> const &a)
     : data_{new P[a.size()]}, size_{a.size()}
 {
+  if constexpr (mem == mem_type::view)
+    ref_count_ = a.ref_count_;
   for (auto i = 0; i < a.size(); ++i)
   {
     (*this)(i) = static_cast<P>(a(i));
@@ -568,7 +578,8 @@ template<typename P, mem_type mem>
 void fk::vector<P, mem>::print(std::string const label) const
 {
   if constexpr (mem == mem_type::owner)
-    std::cout << label << "(owner)" << '\n';
+    std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
+              << ")" << '\n';
   else
     std::cout << label << "(view)" << '\n';
 

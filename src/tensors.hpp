@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,10 @@ template<typename P, mem_type mem>
 class vector
 {
 public:
+  // all types of vectors are mutual friends
+  template<typename, mem_type>
+  friend class vector;
+
   // FIXME disable all constructors for views
   // unless we decide to add one for views instead
   // of an extract function
@@ -143,6 +148,7 @@ private:
   // TODO template on ownership
   P *data_;  //< pointer to elements
   int size_; //< dimension
+  std::shared_ptr<int> ref_count_ = nullptr;
 };
 
 template<typename P>
