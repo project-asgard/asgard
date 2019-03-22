@@ -34,6 +34,10 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 {
   assert(degree > 0);
 
+  // These are the function outputs
+  // g0,g1,h0, and h1 are two-scale coefficients
+  // The returned phi_co is the wavelet basis
+  // scalet_coefficients are the scaling function basis
   fk::matrix<P> g0(degree, degree);
   fk::matrix<P> g1(degree, degree);
   fk::matrix<P> h0(degree, degree);
@@ -43,28 +47,36 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 
   // Set up parameters for quadrature - used for inner product evaluation
   // stepping sets accuracy
-  // In this routine there are two intervals for the quadrature
-  // Negative one to zero ---- and zero to one
+  // In this routine there are three intervals for the quadrature
+  // Negative one to zero --zero to one -- and negative one to one
+  // since this is done on the "reference element" -1 to 1
+  // the intervals are fixed to be (-1,0), (0,1), and (-1,1)
   int const stepping = static_cast<int>(std::pow(2, 6));
-  P const start      = -1.0;
-  P const middle     = 0.0;
-  P const end        = 1.0;
+  P const neg1       = -1.0;
+  P const zero       = 0.0;
+  P const one        = 1.0;
 
   // Step 1 of 2 in creating scalets
   // generate Legendre polynomial coefficients
   // size_legendre degree+2 is used so that this algorithm will
   // work with degree 0
+  // the recurrence relation used here can be found at
+  // http://mathworld.wolfram.com/LegendrePolynomial.html equation (43)
   int const size_legendre = degree + 2;
   fk::matrix<P> legendre(size_legendre, size_legendre);
   legendre(0, size_legendre - 1) = 1.0;
   legendre(1, size_legendre - 2) = 1.0;
   for (int row_pos = 0; row_pos < degree - 2; ++row_pos)
   {
+    // The Legendre polynomial of order row_pos+2 is constructed
+    // from Legendre polynomial order row_pos and row_pos+1
     // single row matrix; using matrix here for set submatrix
     fk::matrix<P> const P_row_pos =
         legendre.extract_submatrix(row_pos + 1, 0, 1, size_legendre);
     fk::matrix<P> const P_row_pos_minus1 =
         legendre.extract_submatrix(row_pos, 0, 1, size_legendre);
+
+    // Shifting in matrix form is equivalent to multiplying by x
     fk::matrix<P> row_shift(1, size_legendre);
     row_shift.set_submatrix(
         0, size_legendre - row_pos - 3,
@@ -86,10 +98,13 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     legendre.update_row(row_pos, row * std::sqrt(2.0 * (row_pos) + 1));
   }
 
+  // Roots and weights of Legendre polynomials on (-1,0), (0,1), and (-1,1)
   auto const [roots_neg1to0, weights_neg1to0] = legendre_weights<P>(
-      stepping, static_cast<int>(start), static_cast<int>(middle));
+      stepping, static_cast<int>(neg1), static_cast<int>(zero));
   auto const [roots_0to1, weights_0to1] = legendre_weights<P>(
-      stepping, static_cast<int>(middle), static_cast<int>(end));
+      stepping, static_cast<int>(zero), static_cast<int>(one));
+  auto const [roots_neg1to1, weights_neg1to1] = legendre_weights<P>(
+      stepping, static_cast<int>(neg1), static_cast<int>(one));
 
   auto const get_row = [](fk::matrix<P> const mat,
                           int const row_pos) -> fk::vector<P> {
@@ -119,17 +134,23 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   phi_co.set_submatrix(degree, 0, norm_co);
 
   auto const weighted_sum_products = [&](fk::vector<P> const vect_1,
-                                         fk::vector<P> const vect_2) -> P {
+                                         fk::vector<P> const vect_2,
+                                         fk::vector<P> const weights) -> P {
     P sum = 0.0;
-    for (int i = 0; i < weights_neg1to0.size(); ++i)
+    for (int i = 0; i < weights.size(); ++i)
     {
-      sum += vect_1(i) * vect_2(i) * weights_neg1to0(i);
+      sum += vect_1(i) * vect_2(i) * weights(i);
     }
     return sum * 0.5;
   };
 
   // Gram-Schmidt orthogonalization of phi_co
   // with respect to scalets
+  // The inner products are taken of:
+  // elem_1 - phi_co from -1 to 0
+  // elem_2 - scalet_coefficients (Legendre Poly.) from -1 to 0
+  // elem_3 - phi_co from 0 to 1
+  // elem_4 - scalet_coefficients (Legendre Poly.) from 0 to 1
   for (int row_pos = 0; row_pos < degree; ++row_pos)
   {
     fk::vector<P> proj(degree);
@@ -144,8 +165,8 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
       fk::vector<P> const elem_4 =
           polyval(get_row(scalet_coefficients, row_2), roots_0to1);
 
-      P const sum = weighted_sum_products(elem_1, elem_2) +
-                    weighted_sum_products(elem_3, elem_4);
+      P const sum = weighted_sum_products(elem_1, elem_2, weights_neg1to0) +
+                    weighted_sum_products(elem_3, elem_4, weights_0to1);
       proj = proj + (get_row(scalet_coefficients, row_2) * sum);
     }
     phi_co.update_row(row_pos, (get_row(phi_co, row_pos) - proj));
@@ -158,6 +179,14 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // e.g. row k is orthogonalized with respect to rows k-1, k-2 to zero
   // row k+degree is orthogonalized with respect to rows
   // k+degree-1, k+degree-2, to degree
+  // The inner products are taken of:
+  // elem_1 - phi_co from -1 to 0 of order k
+  // elem_2 - phi_co from -1 to 0 of order k-1
+  // elem_3 - phi_co from 0 to 1 - of order k
+  // elem_4 - phi_co from 0 to 1 - of order k-1
+  // sum_1 is the inner product of polynomial degree k
+  //    with polynomial degree k-1
+  // sum_2 is the norm of polynomial degree k-1
   for (int row_pos = 1; row_pos < degree; ++row_pos)
   {
     fk::vector<P> proj_1(degree);
@@ -173,18 +202,11 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
       fk::vector<P> const elem_4 =
           polyval(get_row(phi_co, row_2 + degree), roots_0to1);
 
-      P const sum_1 = weighted_sum_products(elem_1, elem_2) +
-                      weighted_sum_products(elem_3, elem_4);
+      P const sum_1 = weighted_sum_products(elem_1, elem_2, weights_neg1to0) +
+                      weighted_sum_products(elem_3, elem_4, weights_0to1);
 
-      fk::vector<P> const elem_5 =
-          polyval(get_row(phi_co, row_2), roots_neg1to0);
-      fk::vector<P> const elem_6 = elem_5;
-      fk::vector<P> const elem_7 =
-          polyval(get_row(phi_co, row_2 + degree), roots_0to1);
-      fk::vector<P> const elem_8 = elem_7;
-
-      P const sum_2 = weighted_sum_products(elem_5, elem_6) +
-                      weighted_sum_products(elem_7, elem_8);
+      P const sum_2 = weighted_sum_products(elem_2, elem_2, weights_neg1to0) +
+                      weighted_sum_products(elem_4, elem_4, weights_0to1);
 
       fk::vector<P> proj_1_add = get_row(phi_co, row_2) * sum_1;
       fk::vector<P> proj_2_add = get_row(phi_co, row_2 + degree) * sum_1;
@@ -207,13 +229,11 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   {
     fk::vector<P> const elem_1 =
         polyval(get_row(phi_co, row_pos), roots_neg1to0);
-    fk::vector<P> const elem_2 = elem_1;
-    fk::vector<P> const elem_3 =
+    fk::vector<P> const elem_2 =
         polyval(get_row(phi_co, row_pos + degree), roots_0to1);
-    fk::vector<P> const elem_4 = elem_3;
 
-    P const sum = weighted_sum_products(elem_1, elem_2) +
-                  weighted_sum_products(elem_3, elem_4);
+    P const sum = weighted_sum_products(elem_1, elem_1, weights_neg1to0) +
+                  weighted_sum_products(elem_2, elem_2, weights_0to1);
 
     fk::vector<P> row   = get_row(phi_co, row_pos);
     fk::vector<P> row_2 = get_row(phi_co, row_pos + degree);
@@ -270,47 +290,54 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 
   // Calculate Two-Scale Coefficients
 
-  fk::vector<P> const norm_legendre_roots = roots_0to1;
-  fk::vector<P> const norm_legendre_minus = [&] {
-    fk::vector<P> norm_legendre = norm_legendre_roots;
-    std::transform(norm_legendre.begin(), norm_legendre.end(),
-                   norm_legendre.begin(), [](P &elem) { return elem - 1.0; });
-    return norm_legendre;
-  }();
-  fk::vector<P> const norm_legendre_two = [&] {
-    fk::vector<P> norm_legendre = norm_legendre_roots;
-    std::transform(norm_legendre.begin(), norm_legendre.end(),
-                   norm_legendre.begin(),
-                   [](P &elem) { return elem * 2.0 - 1.0; });
-    return norm_legendre;
-  }();
-
   // Sums to directly generate H0, H1, G0, G1
+  //  H0 and H1 are the "coarsening coefficients"
+  //  These describe how two adjacent locations of a higher (finer resolution)
+  //  level sum to give a lower (more coarse resolution) level coefficients
+  //  G0 and G1 are the "refining or detail coefficients"
+  //  These describe how lower level (more coarse resolution)
+  //  is split into two higher (finer resolution) level coefficients
+  //  H0 is the inner product of the scaling functions of two successive
+  //   levels - thus the difference in roots
+  // elem_1 is the scalet functions on (-1,0)
+  // elem_2 is the scalet function of a lower level and therefore spans (-1,1)
+  //  H1 is also the inner product of the scaling functions of two successive
+  //   levels - thus the difference in roots
+  // elem_3 is the scalet functions on (0,1)
+  //  G0 is the inner product of the wavelet functions of one level
+  //   with the scalet functions of a lower level
+  //   - thus the difference in roots
+  // elem_4 is the wavelet functions on (-1,0)
+  //  G1 is also the inner product of the wavelet functions of one level
+  //   with the scalet functions of a lower level
+  // elem_5 is the scalet functions on (0,1)
+
   for (int row = 0; row < degree; ++row)
   {
     for (int col = 0; col < degree; ++col)
     {
       fk::vector<P> const elem_1 =
-          polyval(get_row(scalet_coefficients, row), norm_legendre_minus);
+          polyval(get_row(scalet_coefficients, row), roots_neg1to0);
       fk::vector<P> const elem_2 =
-          polyval(get_row(scalet_coefficients, col), norm_legendre_two);
-      h0(row, col) =
-          2.0 * weighted_sum_products(elem_1, elem_2) / std::sqrt(2.0);
+          polyval(get_row(scalet_coefficients, col), roots_neg1to1);
+      h0(row, col) = 2.0 *
+                     weighted_sum_products(elem_1, elem_2, weights_neg1to0) /
+                     std::sqrt(2.0);
 
       fk::vector<P> const elem_3 =
-          polyval(get_row(scalet_coefficients, row), norm_legendre_roots);
-      h1(row, col) =
-          2.0 * weighted_sum_products(elem_3, elem_2) / std::sqrt(2.0);
+          polyval(get_row(scalet_coefficients, row), roots_0to1);
+      h1(row, col) = 2.0 * weighted_sum_products(elem_3, elem_2, weights_0to1) /
+                     std::sqrt(2.0);
 
-      fk::vector<P> const elem_4 =
-          polyval(get_row(phi_co, row), norm_legendre_minus);
-      g0(row, col) =
-          2.0 * weighted_sum_products(elem_4, elem_2) / std::sqrt(2.0);
+      fk::vector<P> const elem_4 = polyval(get_row(phi_co, row), roots_neg1to0);
+      g0(row, col)               = 2.0 *
+                     weighted_sum_products(elem_4, elem_2, weights_neg1to0) /
+                     std::sqrt(2.0);
 
       fk::vector<P> const elem_5 =
-          polyval(get_row(phi_co, row + degree), norm_legendre_roots);
-      g1(row, col) =
-          2.0 * weighted_sum_products(elem_5, elem_2) / std::sqrt(2.0);
+          polyval(get_row(phi_co, row + degree), roots_0to1);
+      g1(row, col) = 2.0 * weighted_sum_products(elem_5, elem_2, weights_0to1) /
+                     std::sqrt(2.0);
     }
   }
 
