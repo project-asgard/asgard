@@ -19,7 +19,7 @@ class vector
 {
 public:
   vector();
-  vector(int const size);
+  explicit vector(int const size);
   vector(std::initializer_list<P> list);
   vector(std::vector<P> const &);
   vector(fk::matrix<P> const &);
