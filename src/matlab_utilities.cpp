@@ -1,13 +1,13 @@
 
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <numeric>
 #include <string>
 #include <vector>
-#include <array>
 
 // matlab's "linspace(start, end, N)" function
 //-----------------------------------------------------------------------------

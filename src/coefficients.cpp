@@ -6,7 +6,6 @@
 #include "tensors.hpp"
 #include "transformations.hpp"
 #include <numeric>
-using namespace std::placeholders;
 
 // static helper functions
 
@@ -298,7 +297,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
       // apply g_func
       std::transform(data_real_quad.begin(), data_real_quad.end(),
                      data_real_quad.begin(),
-                     std::bind(term_1D.g_func, _1, time));
+                     std::bind(term_1D.g_func, std::placeholders::_1, time));
       return data_real_quad;
     }();
 
