@@ -174,28 +174,36 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
 // vector view constructor given a start and total length
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start,
-                           int const stop)
+fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
+                           int const stop_index)
     : ref_count_{vec.ref_count_}
 {
-  assert(start >= 0);
-  assert(stop <= vec.size() - 1);
-  size_ = stop - start + 1;
-  data_ = new P[(*this).size()];
-  if ((*this).size() == 0)
+  data_ = nullptr;
+  size_ = 0;
+
+  if (vec.size() > 0)
   {
-    delete[] data_;
-    data_ = nullptr;
-  }
-  else
-  {
+    assert(start_index >= 0);
+    assert(stop_index < vec.size());
+    assert(stop_index >= start_index);
+
+    size_ = stop_index - start_index + 1;
+    data_ = new P[(*this).size()];
     int i = 0;
-    for (int j = start; j <= stop; ++j)
+    for (int j = start_index; j <= stop_index; ++j)
     {
       (*this)(i++) = vec(j);
     }
   }
 }
+
+// delegating constructor to extract view from owner. overload for default case
+// of viewing the entire owner
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::vector<P> const &a)
+    : vector(a, 0, std::max(0, a.size() - 1))
+{}
 
 template<typename P, mem_type mem>
 fk::vector<P, mem>::~vector()
@@ -206,7 +214,7 @@ fk::vector<P, mem>::~vector()
 }
 
 //
-// vector copy constructor for like types
+// vector copy constructor for like types (owners only)
 //
 template<typename P, mem_type mem>
 fk::vector<P, mem>::vector(vector<P, mem> const &a)
@@ -252,7 +260,6 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 template<typename P, mem_type mem>
 fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
 {
-  // FIXME is this the right thing
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
   a.data_ = nullptr; // b/c a's destructor will be called
@@ -284,15 +291,11 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
 // converting vector constructor
 //
 template<typename P, mem_type mem>
-template<typename PP, mem_type omem>
+template<typename PP, mem_type omem, mem_type, typename>
 fk::vector<P, mem>::vector(vector<PP, omem> const &a)
-    : data_{new P[a.size()]}, size_{a.size()}
+    : data_{new P[a.size()]}, size_{a.size()}, ref_count_{
+                                                   std::make_shared<int>(0)}
 {
-  // increment the ref_count only if creating a view
-  if constexpr (mem == mem_type::view)
-    ref_count_ = a.ref_count_;
-  else
-    ref_count_ = std::make_shared<int>(0);
   for (auto i = 0; i < a.size(); ++i)
   {
     (*this)(i) = static_cast<P>(a(i));
@@ -311,11 +314,6 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
   assert(size() == a.size());
 
   size_ = a.size();
-  // increment the ref_count only if creating a view
-  if constexpr (mem == mem_type::view)
-    ref_count_ = a.ref_count_;
-  else
-    ref_count_ = std::make_shared<int>(0);
   for (auto i = 0; i < a.size(); ++i)
   {
     (*this)(i) = static_cast<P>(a(i));
@@ -366,30 +364,6 @@ P fk::vector<P, mem>::operator()(int i) const
 // see https://stackoverflow.com/a/253874/6595797
 // FIXME do we need to be more careful with these fp comparisons?
 template<typename P, mem_type mem>
-bool fk::vector<P, mem>::operator==(vector<P, mem> const &other) const
-{
-  if (&other == this)
-    return true;
-  if (size() != other.size())
-    return false;
-  for (auto i = 0; i < size(); ++i)
-    if constexpr (std::is_floating_point<P>::value)
-    {
-      if (std::abs((*this)(i)-other(i)) > TOL)
-      {
-        return false;
-      }
-    }
-    else
-    {
-      if ((*this)(i) != other(i))
-      {
-        return false;
-      }
-    }
-  return true;
-}
-template<typename P, mem_type mem>
 template<mem_type omem>
 bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
 {
@@ -416,13 +390,15 @@ bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
   return true;
 }
 template<typename P, mem_type mem>
-bool fk::vector<P, mem>::operator!=(vector<P, mem> const &other) const
+template<mem_type omem>
+bool fk::vector<P, mem>::operator!=(vector<P, omem> const &other) const
 {
   return !(*this == other);
 }
 
 template<typename P, mem_type mem>
-bool fk::vector<P, mem>::operator<(vector<P, mem> const &other) const
+template<mem_type omem>
+bool fk::vector<P, mem>::operator<(vector<P, omem> const &other) const
 {
   return std::lexicographical_compare(begin(), end(), other.begin(),
                                       other.end());
@@ -467,15 +443,14 @@ P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
   int n           = size();
   int one         = 1;
   vector const &X = (*this);
-  vector const &Y = right;
 
   if constexpr (std::is_same<P, double>::value)
   {
-    return ddot_(&n, X.data(), &one, Y.data(), &one);
+    return ddot_(&n, X.data(), &one, right.data(), &one);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return sdot_(&n, X.data(), &one, Y.data(), &one);
+    return sdot_(&n, X.data(), &one, right.data(), &one);
   }
   else
   {
@@ -1531,31 +1506,6 @@ template class fk::vector<double, mem_type::view>; // get the non-default
 template class fk::vector<float, mem_type::view>;
 template class fk::vector<int, mem_type::view>;
 
-template fk::vector<int, mem_type::view>::vector(
-    vector<float, mem_type::view> const &);
-template fk::vector<int, mem_type::view>::vector(
-    vector<double, mem_type::view> const &);
-template fk::vector<float, mem_type::view>::vector(
-    vector<int, mem_type::view> const &);
-template fk::vector<float, mem_type::view>::vector(
-    vector<double, mem_type::view> const &);
-template fk::vector<double, mem_type::view>::vector(
-    vector<int, mem_type::view> const &);
-template fk::vector<double, mem_type::view>::vector(
-    vector<float, mem_type::view> const &);
-
-template fk::vector<int, mem_type::view>::vector(
-    vector<float, mem_type::owner> const &);
-template fk::vector<int, mem_type::view>::vector(
-    vector<double, mem_type::owner> const &);
-template fk::vector<float, mem_type::view>::vector(
-    vector<int, mem_type::owner> const &);
-template fk::vector<float, mem_type::view>::vector(
-    vector<double, mem_type::owner> const &);
-template fk::vector<double, mem_type::view>::vector(
-    vector<int, mem_type::owner> const &);
-template fk::vector<double, mem_type::view>::vector(
-    vector<float, mem_type::owner> const &);
 /*
 template fk::vector<int, mem_type::owner>::vector(
     vector<float, mem_type::view> const &);
@@ -1659,6 +1609,73 @@ template bool fk::vector<float>::
 operator==(vector<float, mem_type::view> const &) const;
 template bool fk::vector<int>::
 operator==(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::operator==(vector<double> const &) const;
+template bool fk::vector<float>::operator==(vector<float> const &) const;
+template bool fk::vector<int>::operator==(vector<int> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator==(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator==(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator==(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::
+operator!=(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float>::
+operator!=(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int>::
+operator!=(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double>::
+operator!=(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float>::
+operator!=(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int>::
+operator!=(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator!=(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator!=(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator!=(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator!=(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator!=(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator!=(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::
+operator<(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float>::
+operator<(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int>::
+operator<(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator<(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator<(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator<(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::
+operator<(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float>::
+operator<(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int>::
+operator<(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator<(vector<double> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator<(vector<float> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator<(vector<int> const &) const;
 
 template fk::vector<double> fk::vector<double>::
 operator+(fk::vector<double, mem_type::view> const &right) const;

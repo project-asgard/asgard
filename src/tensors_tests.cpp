@@ -92,33 +92,33 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   SECTION("converting construction (from owners)")
   {
     fk::vector<int> testi(gold);
-    fk::vector<int, mem_type::view> testi_v(gold);
+    // fk::vector<int, mem_type::view> testi_v(gold); // disabled
     REQUIRE(testi == goldi);
-    REQUIRE(testi_v == goldi);
+    // REQUIRE(testi_v == goldi);
     fk::vector<float> testf(gold);
-    fk::vector<float, mem_type::view> testf_v(gold);
+    // fk::vector<float, mem_type::view> testf_v(gold);
     REQUIRE(testf == goldf);
-    REQUIRE(testf_v == goldf);
+    // REQUIRE(testf_v == goldf);
     fk::vector<double> testd(gold);
-    fk::vector<double, mem_type::view> testd_v(gold);
+    // fk::vector<double, mem_type::view> testd_v(gold);
     REQUIRE(testd == goldd);
-    REQUIRE(testd_v == goldd);
+    // REQUIRE(testd_v == goldd);
   }
   SECTION("converting construction (from views)")
   {
     fk::vector<TestType, mem_type::view> const gold_v(gold);
     fk::vector<int> testi(gold_v);
-    fk::vector<int, mem_type::view> testi_v(gold_v);
+    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
     REQUIRE(testi == goldi);
-    REQUIRE(testi_v == goldi);
+    // REQUIRE(testi_v == goldi);
     fk::vector<float> testf(gold_v);
-    fk::vector<float, mem_type::view> testf_v(gold_v);
+    // fk::vector<float, mem_type::view> testf_v(gold_v);
     REQUIRE(testf == goldf);
-    REQUIRE(testf_v == goldf);
+    // REQUIRE(testf_v == goldf);
     fk::vector<double> testd(gold_v);
-    fk::vector<double, mem_type::view> testd_v(gold_v);
+    // fk::vector<double, mem_type::view> testd_v(gold_v);
     REQUIRE(testd == goldd);
-    REQUIRE(testd_v == goldd);
+    // REQUIRE(testd_v == goldd);
   }
   SECTION("converting assignment (from owners)")
   {
@@ -253,8 +253,8 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     fk::vector<TestType> const empty;
     fk::vector<TestType, mem_type::view> const empty_v(empty);
     ;
-    fk::vector<TestType> const gold_copy                   = gold;
-    fk::vector<TestType, mem_type::view> const gold_copy_v = gold;
+    fk::vector<TestType> const gold_copy = gold;
+    fk::vector<TestType, mem_type::view> const gold_copy_v(gold);
 
     fk::vector<TestType> const gold_prefix{1, 2, 3, 4};
     fk::vector<TestType, mem_type::view> const gold_prefix_v(gold_prefix);
