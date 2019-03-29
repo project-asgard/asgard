@@ -126,17 +126,16 @@ public:
   //
   void print(std::string const label = "") const;
   void dump_to_octave(char const *) const;
-  // FIXME disable if views exist
-  // FIXME owner only
+
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   fk::vector<P, mem> &resize(int const size = 0);
+
   template<mem_type omem>
   vector<P, mem> &set(int const, vector<P, omem> const);
-  // FIXME how does this play w extract view?
-  // for now, this one returns an owner, extract view
-  // extracts...a view
+
   vector<P> extract(int const, int const) const;
-  // FIXME concat only works for owners
-  template<mem_type omem>
+
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector<P, mem> &concat(vector<P, omem> const &right);
 
   typedef P *iterator;
@@ -644,23 +643,6 @@ fk::vector<float>::concat(fk::vector<float, mem_type::view> const &right);
 extern template fk::vector<int> &
 fk::vector<int>::concat(fk::vector<int, mem_type::view> const &right);
 
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::concat(fk::vector<double> const &right);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::concat(fk::vector<float> const &right);
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::concat(fk::vector<int> const &right);
-
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::concat(
-    fk::vector<double, mem_type::view> const &right);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::concat(
-    fk::vector<float, mem_type::view> const &right);
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::concat(
-    fk::vector<int, mem_type::view> const &right);
-
 extern template fk::vector<double> &
 fk::vector<double>::set(int const, fk::vector<double> const);
 extern template fk::vector<float> &
@@ -691,3 +673,7 @@ fk::vector<float, mem_type::view>::set(int const,
 extern template fk::vector<int, mem_type::view> &
 fk::vector<int, mem_type::view>::set(int const,
                                      fk::vector<int, mem_type::view> const);
+
+extern template fk::vector<double> &fk::vector<double>::resize(int const size);
+extern template fk::vector<float> &fk::vector<float>::resize(int const size);
+extern template fk::vector<int> &fk::vector<int>::resize(int const size);

@@ -187,13 +187,8 @@ fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
     assert(stop_index < vec.size());
     assert(stop_index >= start_index);
 
+    data_ = vec.data_ + start_index;
     size_ = stop_index - start_index + 1;
-    data_ = new P[(*this).size()];
-    int i = 0;
-    for (int j = start_index; j <= stop_index; ++j)
-    {
-      (*this)(i++) = vec(j);
-    }
   }
 }
 
@@ -209,12 +204,14 @@ template<typename P, mem_type mem>
 fk::vector<P, mem>::~vector()
 {
   if constexpr (mem == mem_type::owner)
+  {
     assert(ref_count_.use_count() == 1);
-  delete[] data_;
+    delete[] data_;
+  }
 }
 
 //
-// vector copy constructor for like types (owners only)
+// vector copy constructor for like types (like types only)
 //
 template<typename P, mem_type mem>
 fk::vector<P, mem>::vector(vector<P, mem> const &a)
@@ -618,6 +615,7 @@ void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 // (currently supports a subset of the std::vector.resize() interface)
 //
 template<typename P, mem_type mem>
+template<mem_type, typename>
 fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
 {
   if (new_size == this->size())
@@ -638,7 +636,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
 }
 
 template<typename P, mem_type mem>
-template<mem_type omem>
+template<mem_type omem, mem_type, typename>
 fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 {
   int const old_size = this->size();
@@ -1805,23 +1803,6 @@ fk::vector<float>::concat(fk::vector<float, mem_type::view> const &right);
 template fk::vector<int> &
 fk::vector<int>::concat(fk::vector<int, mem_type::view> const &right);
 
-template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::concat(fk::vector<double> const &right);
-template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::concat(fk::vector<float> const &right);
-template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::concat(fk::vector<int> const &right);
-
-template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::concat(
-    fk::vector<double, mem_type::view> const &right);
-template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::concat(
-    fk::vector<float, mem_type::view> const &right);
-template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::concat(
-    fk::vector<int, mem_type::view> const &right);
-
 template fk::vector<double> &
 fk::vector<double>::set(int const, fk::vector<double> const);
 template fk::vector<float> &
@@ -1852,3 +1833,6 @@ fk::vector<float, mem_type::view>::set(int const,
 template fk::vector<int, mem_type::view> &
 fk::vector<int, mem_type::view>::set(int const,
                                      fk::vector<int, mem_type::view> const);
+template fk::vector<double> &fk::vector<double>::resize(int const size);
+template fk::vector<float> &fk::vector<float>::resize(int const size);
+template fk::vector<int> &fk::vector<int>::resize(int const size);
