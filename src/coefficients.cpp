@@ -297,7 +297,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
       // apply g_func
       std::transform(data_real_quad.begin(), data_real_quad.end(),
                      data_real_quad.begin(),
-                     std::bind2nd(term_1D.g_func, time));
+                     std::bind(term_1D.g_func, std::placeholders::_1, time));
       return data_real_quad;
     }();
 
