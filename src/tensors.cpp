@@ -867,7 +867,9 @@ bool fk::matrix<P>::operator==(matrix<P> const &other) const
     for (auto i = 0; i < nrows(); ++i)
       if constexpr (std::is_floating_point<P>::value)
       {
-        if (std::abs((*this)(i, j) - other(i, j)) > TOL)
+        P a = (*this)(i, j);
+        P b = other(i, j);
+        if (std::abs(a - b) > TOL * std::max(std::abs(a), std::abs(b)))
         {
           return false;
         }
