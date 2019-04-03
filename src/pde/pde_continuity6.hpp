@@ -119,6 +119,11 @@ private:
 
   static P exact_time(P const time) { return std::sin(targ * time); }
 
+  // define exact soln
+  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
+      exact_solution_x,  exact_solution_y,  exact_solution_z,
+      exact_solution_vx, exact_solution_vy, exact_solution_vz};
+
   // specify source functions...
 
   // source 0
@@ -234,7 +239,7 @@ private:
   }
   static P source_1_time(P const time)
   {
-    return 0.5 * PI * std::cos(targ * time);
+    return 0.5 * PI * std::sin(targ * time);
   }
   inline static source<P> const source1_ =
       source<P>({source_1_x, source_1_y, source_1_z, source_1_vx, source_1_vy,
@@ -750,10 +755,6 @@ private:
 
   inline static term_set<P> const terms_ = {terms0_, terms1_, terms2_,
                                             terms3_, terms4_, terms5_};
-
-  // define exact soln
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_x, exact_solution_y, exact_solution_z};
 
   inline static scalar_func<P> const exact_scalar_func_ = exact_time;
 };

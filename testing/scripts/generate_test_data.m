@@ -422,7 +422,7 @@ for s=1:length(pde.sources)
 end
 
 
-%% continuity 3
+% continuity 3
 out_format = strcat(pde_dir, "continuity_3_");
 pde = continuity3;
 x = 3.3;
@@ -443,6 +443,30 @@ for s=1:length(pde.sources)
   save(strcat(out_format, sprintf('source%d_time.dat',s-1)), 'y_source_t');
   end
 end
+
+
+% continuity 6
+out_format = strcat(pde_dir, "continuity_6_");
+pde = continuity6;
+x = 6.6;
+for d=1:length(pde.dimensions)
+  y_init = pde.dimensions{d}.init_cond_fn(x);
+  save(strcat(out_format, sprintf('initial_dim%d.dat', d-1)), 'y_init');
+  y_exact = pde.analytic_solutions_1D{d}(x);
+  save(strcat(out_format, sprintf('exact_dim%d.dat', d-1)), 'y_exact');
+end
+y_exact_time = pde.analytic_solutions_1D{length(pde.analytic_solutions_1D)}(x);
+save(strcat(out_format, 'exact_time.dat'), 'y_exact_time');
+
+for s=1:length(pde.sources)
+  for d=1:length(pde.dimensions)
+    y_source = pde.sources{s}{d}(x);
+    save(strcat(out_format, sprintf('source%d_dim%d.dat',s-1,d-1)), 'y_source');
+  y_source_t = pde.sources{s}{length(pde.sources{s})}(x);
+  save(strcat(out_format, sprintf('source%d_time.dat',s-1)), 'y_source_t');
+  end
+end
+
 
 clear
 
