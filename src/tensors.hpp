@@ -257,423 +257,1424 @@ private:
 
 } // namespace fk
 
-// suppress implicit instantiations later on
-// implies fk::vector<double, mem_type::owner>
-extern template class fk::vector<double>;
-extern template class fk::vector<float>;
-extern template class fk::vector<int>;
-extern template class fk::matrix<double>;
-extern template class fk::matrix<float>;
-extern template class fk::matrix<int>;
+//
+// This would otherwise be the start of the tensors.cpp, if we were still doing
+// the explicit instantiations
+//
 
-extern template fk::vector<int>::vector(vector<float> const &);
-extern template fk::vector<int>::vector(vector<double> const &);
-extern template fk::vector<float>::vector(vector<int> const &);
-extern template fk::vector<float>::vector(vector<double> const &);
-extern template fk::vector<double>::vector(vector<int> const &);
-extern template fk::vector<double>::vector(vector<float> const &);
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 
-extern template fk::vector<int>::vector(vector<float, mem_type::view> const &);
-extern template fk::vector<int>::vector(vector<double, mem_type::view> const &);
-extern template fk::vector<float>::vector(vector<int, mem_type::view> const &);
-extern template fk::vector<float>::vector(
-    vector<double, mem_type::view> const &);
-extern template fk::vector<double>::vector(vector<int, mem_type::view> const &);
-extern template fk::vector<double>::vector(
-    vector<float, mem_type::view> const &);
+namespace fk
+{
+// ==========================================================================
+// external declarations for calling blas routines linked with -lblas
+// ==========================================================================
 
-extern template fk::vector<int> &fk::vector<int>::
-operator=(vector<float> const &);
-extern template fk::vector<int> &fk::vector<int>::
-operator=(vector<double> const &);
-extern template fk::vector<float> &fk::vector<float>::
-operator=(vector<int> const &);
-extern template fk::vector<float> &fk::vector<float>::
-operator=(vector<double> const &);
-extern template fk::vector<double> &fk::vector<double>::
-operator=(vector<int> const &);
-extern template fk::vector<double> &fk::vector<double>::
-operator=(vector<float> const &);
+/* --------------------------------------------------------------------------
+   DCOPY copies a vector, x, to a vector, y.
+   uses unrolled loops for increments equal to one.
+   -------------------------------------------------------------------------- */
+extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
+extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
+// --------------------------------------------------------------------------
+// vector-vector multiply
+// y := alpha*A*x + beta*y
+// --------------------------------------------------------------------------
+extern "C" double ddot_(int *n, double *X, int *incx, double *Y, int *incy);
+extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
 
-extern template fk::matrix<int>::matrix(matrix<float> const &);
-extern template fk::matrix<int>::matrix(matrix<double> const &);
-extern template fk::matrix<float>::matrix(matrix<int> const &);
-extern template fk::matrix<float>::matrix(matrix<double> const &);
-extern template fk::matrix<double>::matrix(matrix<int> const &);
-extern template fk::matrix<double>::matrix(matrix<float> const &);
+// --------------------------------------------------------------------------
+// vector-scalar multiply
+// y := x*alpha
+// --------------------------------------------------------------------------
+extern "C" double dscal_(int *n, double *alpha, double *X, int *incx);
+extern "C" float sscal_(int *n, float *alpha, float *X, int *incx);
 
-extern template fk::matrix<int> &fk::matrix<int>::
-operator=(matrix<float> const &);
-extern template fk::matrix<int> &fk::matrix<int>::
-operator=(matrix<double> const &);
-extern template fk::matrix<float> &fk::matrix<float>::
-operator=(matrix<int> const &);
-extern template fk::matrix<float> &fk::matrix<float>::
-operator=(matrix<double> const &);
-extern template fk::matrix<double> &fk::matrix<double>::
-operator=(matrix<int> const &);
-extern template fk::matrix<double> &fk::matrix<double>::
-operator=(matrix<float> const &);
+// --------------------------------------------------------------------------
+// matrix-vector multiply
+// y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y,
+// --------------------------------------------------------------------------
+extern "C" void dgemv_(char const *trans, int *m, int *n, double *alpha,
+                       double *A, int *lda, double *x, int *incx, double *beta,
+                       double *y, int *incy);
+extern "C" void sgemv_(char const *trans, int *m, int *n, float *alpha,
+                       float *A, int *lda, float *x, int *incx, float *beta,
+                       float *y, int *incy);
+// --------------------------------------------------------------------------
+// matrix-matrix multiply
+// C := alpha*A*B + beta*C
+// --------------------------------------------------------------------------
+extern "C" void dgemm_(char const *transa, char const *transb, int *m, int *n,
+                       int *k, double *alpha, double *A, int *lda, double *B,
+                       int *ldb, double *beta, double *C, int *ldc);
+extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
+                       int *k, float *alpha, float *A, int *lda, float *B,
+                       int *ldb, float *beta, float *C, int *ldc);
 
-// remove these when matrix::invert()/determinatn() is availble for ints
-extern template fk::matrix<float> &fk::matrix<float>::invert();
-extern template fk::matrix<double> &fk::matrix<double>::invert();
-extern template float fk::matrix<float>::determinant() const;
-extern template double fk::matrix<double>::determinant() const;
+//
+// Simple matrix multiply for non-float types
+// FIXME we will probably eventually need a version that does transpose
+//
+template<typename P>
+static void igemm_(P *A, int const lda, P *B, int const ldb, P *C,
+                   int const ldc, int const m, int const k, int const n)
+{
+  assert(m > 0);
+  assert(k > 0);
+  assert(n > 0);
+  assert(lda > 0); // FIXME Tyler says these could be more thorough
+  assert(ldb > 0);
+  assert(ldc > 0);
 
-// added for mem_type support
+  for (auto i = 0; i < m; ++i)
+  {
+    for (auto j = 0; j < n; ++j)
+    {
+      P result = 0.0;
+      for (auto z = 0; z < k; ++z)
+      {
+        // result += A[i,k] * B[k,j]
+        result += A[z * lda + i] * B[j * ldb + z];
+      }
+      // C[i,j] += result
+      C[j * ldc + i] += result;
+    }
+  }
+}
 
-extern template class fk::vector<float, mem_type::view>;
-extern template class fk::vector<int, mem_type::view>;
-extern template class fk::vector<double, mem_type::view>; // get the non-default
-                                                          // mem_type::view
+// --------------------------------------------------------------------------
+// LU decomposition of a general matrix
+// --------------------------------------------------------------------------
+extern "C" void
+dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
 
-extern template fk::vector<int, mem_type::owner>::vector(); // needed b/c of
-                                                            // sfinae decl
-extern template fk::vector<float, mem_type::owner>::vector();
-extern template fk::vector<double, mem_type::owner>::vector();
+extern "C" void
+sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
 
-extern template fk::vector<int, mem_type::owner>::vector(int const);
-extern template fk::vector<float, mem_type::owner>::vector(int const);
-extern template fk::vector<double, mem_type::owner>::vector(int const);
+// --------------------------------------------------------------------------
+// inverse of a matrix given its LU decomposition
+// --------------------------------------------------------------------------
+extern "C" void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work,
+                        int *lwork, int *info);
 
-extern template fk::vector<int, mem_type::owner>::vector(
-    std::initializer_list<int>);
-extern template fk::vector<float, mem_type::owner>::vector(
-    std::initializer_list<float>);
-extern template fk::vector<double, mem_type::owner>::vector(
-    std::initializer_list<double>);
+extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
+                        int *lwork, int *info);
 
-extern template fk::vector<int, mem_type::owner>::vector(
-    std::vector<int> const &);
-extern template fk::vector<float, mem_type::owner>::vector(
-    std::vector<float> const &);
-extern template fk::vector<double, mem_type::owner>::vector(
-    std::vector<double> const &);
+} // namespace fk
 
-extern template fk::vector<int, mem_type::owner>::vector(
-    fk::matrix<int> const &);
-extern template fk::vector<float, mem_type::owner>::vector(
-    fk::matrix<float> const &);
-extern template fk::vector<double, mem_type::owner>::vector(
-    fk::matrix<double> const &);
+//-----------------------------------------------------------------------------
+//
+// fk::vector class implementation starts here
+//
+//-----------------------------------------------------------------------------
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector()
+    : data_{nullptr}, size_{0}, ref_count_{std::make_shared<int>(0)}
+{}
+// right now, initializing with zero for e.g. passing in answer vectors to blas
+// but this is probably slower if needing to declare in a perf. critical region
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(int const size)
+    : data_{new P[size]()}, size_{size}, ref_count_{std::make_shared<int>(0)}
+{}
 
-// view from owner
-extern template fk::vector<int, mem_type::view>::vector(
-    vector<int, mem_type::owner> const &, int const, int const);
-extern template fk::vector<float, mem_type::view>::vector(
-    vector<float, mem_type::owner> const &, int const, int const);
-extern template fk::vector<double, mem_type::view>::vector(
-    vector<double, mem_type::owner> const &, int const, int const);
+// can also do this with variadic template constructor for constness
+// https://stackoverflow.com/a/5549918
+// but possibly this is "too clever" for our needs right now
 
-extern template fk::vector<int, mem_type::owner>::vector(
-    vector<float, mem_type::view> const &);
-extern template fk::vector<int, mem_type::owner>::vector(
-    vector<double, mem_type::view> const &);
-extern template fk::vector<float, mem_type::owner>::vector(
-    vector<int, mem_type::view> const &);
-extern template fk::vector<float, mem_type::owner>::vector(
-    vector<double, mem_type::view> const &);
-extern template fk::vector<double, mem_type::owner>::vector(
-    vector<int, mem_type::view> const &);
-extern template fk::vector<double, mem_type::owner>::vector(
-    vector<float, mem_type::view> const &);
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(std::initializer_list<P> list)
+    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())},
+      ref_count_{std::make_shared<int>(0)}
+{
+  std::copy(list.begin(), list.end(), data_);
+}
 
-extern template fk::vector<int, mem_type::view>::vector(
-    vector<int, mem_type::owner> const &);
-extern template fk::vector<int, mem_type::owner>::vector(
-    vector<int, mem_type::view> const &);
-extern template fk::vector<float, mem_type::view>::vector(
-    vector<float, mem_type::owner> const &);
-extern template fk::vector<float, mem_type::owner>::vector(
-    vector<float, mem_type::view> const &);
-extern template fk::vector<double, mem_type::view>::vector(
-    vector<double, mem_type::owner> const &);
-extern template fk::vector<double, mem_type::owner>::vector(
-    vector<double, mem_type::view> const &);
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(std::vector<P> const &v)
+    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())},
+      ref_count_{std::make_shared<int>(0)}
+{
+  std::copy(v.begin(), v.end(), data_);
+}
 
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::
-operator=(vector<float, mem_type::owner> const &);
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::
-operator=(vector<double, mem_type::owner> const &);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::
-operator=(vector<int, mem_type::owner> const &);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::
-operator=(vector<double, mem_type::owner> const &);
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::
-operator=(vector<int, mem_type::owner> const &);
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::
-operator=(vector<float, mem_type::owner> const &);
+//
+// matrix conversion constructor linearizes the matrix, i.e. stacks the columns
+// of the matrix into a single vector
+//
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
+    : data_{new P[mat.size()]}, ref_count_{std::make_shared<int>(0)}
+{
+  size_ = mat.size();
+  if ((*this).size() == 0)
+  {
+    delete[] data_;
+    data_ = nullptr;
+  }
+  else
+  {
+    int i = 0;
+    for (auto const &elem : mat)
+    {
+      (*this)(i++) = elem;
+    }
+  }
+}
 
-extern template fk::vector<int, mem_type::owner> &
-fk::vector<int, mem_type::owner>::
-operator=(vector<float, mem_type::view> const &);
-extern template fk::vector<int, mem_type::owner> &
-fk::vector<int, mem_type::owner>::
-operator=(vector<double, mem_type::view> const &);
-extern template fk::vector<float, mem_type::owner> &
-fk::vector<float, mem_type::owner>::
-operator=(vector<int, mem_type::view> const &);
-extern template fk::vector<float, mem_type::owner> &
-fk::vector<float, mem_type::owner>::
-operator=(vector<double, mem_type::view> const &);
-extern template fk::vector<double, mem_type::owner> &
-fk::vector<double, mem_type::owner>::
-operator=(vector<int, mem_type::view> const &);
-extern template fk::vector<double, mem_type::owner> &
-fk::vector<double, mem_type::owner>::
-operator=(vector<float, mem_type::view> const &);
+// vector view constructor given a start and total length
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
+                           int const stop_index)
+    : ref_count_{vec.ref_count_}
+{
+  data_ = nullptr;
+  size_ = 0;
 
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::
-operator=(vector<int, mem_type::owner> const &);
-extern template fk::vector<int, mem_type::owner> &
-fk::vector<int, mem_type::owner>::
-operator=(vector<int, mem_type::view> const &);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::
-operator=(vector<float, mem_type::owner> const &);
-extern template fk::vector<float, mem_type::owner> &
-fk::vector<float, mem_type::owner>::
-operator=(vector<float, mem_type::view> const &);
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::
-operator=(vector<double, mem_type::owner> const &);
-extern template fk::vector<double, mem_type::owner> &
-fk::vector<double, mem_type::owner>::
-operator=(vector<double, mem_type::view> const &);
+  if (vec.size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec.size());
+    assert(stop_index >= start_index);
 
-extern template bool fk::vector<double, mem_type::view>::
-operator==(vector<double, mem_type::owner> const &) const;
-extern template bool fk::vector<float, mem_type::view>::
-operator==(vector<float, mem_type::owner> const &) const;
-extern template bool fk::vector<int, mem_type::view>::
-operator==(vector<int, mem_type::owner> const &) const;
+    data_ = vec.data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
 
-extern template bool fk::vector<double>::
-operator==(vector<double, mem_type::view> const &) const;
-extern template bool fk::vector<float>::
-operator==(vector<float, mem_type::view> const &) const;
-extern template bool fk::vector<int>::
-operator==(vector<int, mem_type::view> const &) const;
+// delegating constructor to extract view from owner. overload for default case
+// of viewing the entire owner
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::vector<P> const &a)
+    : vector(a, 0, std::max(0, a.size() - 1))
+{}
 
-extern template bool fk::vector<double>::
-operator==(vector<double> const &) const;
-extern template bool fk::vector<float>::operator==(vector<float> const &) const;
-extern template bool fk::vector<int>::operator==(vector<int> const &) const;
+template<typename P, mem_type mem>
+fk::vector<P, mem>::~vector()
+{
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(ref_count_.use_count() == 1);
+    delete[] data_;
+  }
+}
 
-extern template bool fk::vector<double, mem_type::view>::
-operator==(vector<double, mem_type::view> const &) const;
-extern template bool fk::vector<float, mem_type::view>::
-operator==(vector<float, mem_type::view> const &) const;
-extern template bool fk::vector<int, mem_type::view>::
-operator==(vector<int, mem_type::view> const &) const;
+//
+// vector copy constructor for like types (like types only)
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P, mem> const &a) : size_{a.size_}
+{
+  // FIXME is this the right thing
+  if constexpr (mem == mem_type::owner)
+  {
+    data_      = new P[a.size()];
+    ref_count_ = std::make_shared<int>(0);
+  }
+  else
+  {
+    data_      = a.data();
+    ref_count_ = a.ref_count_;
+  }
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
+}
 
-extern template bool fk::vector<double>::
-operator!=(vector<double, mem_type::owner> const &) const;
-extern template bool fk::vector<float>::
-operator!=(vector<float, mem_type::owner> const &) const;
-extern template bool fk::vector<int>::
-operator!=(vector<int, mem_type::owner> const &) const;
+//
+// vector copy assignment
+// this can probably be optimized better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
+{
+  if (&a == this)
+    return *this;
 
-extern template bool fk::vector<double>::
-operator!=(vector<double, mem_type::view> const &) const;
-extern template bool fk::vector<float>::
-operator!=(vector<float, mem_type::view> const &) const;
-extern template bool fk::vector<int>::
-operator!=(vector<int, mem_type::view> const &) const;
+  assert(size() == a.size());
 
-extern template bool fk::vector<double, mem_type::view>::
-operator!=(vector<double, mem_type::owner> const &) const;
-extern template bool fk::vector<float, mem_type::view>::
-operator!=(vector<float, mem_type::owner> const &) const;
-extern template bool fk::vector<int, mem_type::view>::
-operator!=(vector<int, mem_type::owner> const &) const;
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
 
-extern template bool fk::vector<double, mem_type::view>::
-operator!=(vector<double, mem_type::view> const &) const;
-extern template bool fk::vector<float, mem_type::view>::
-operator!=(vector<float, mem_type::view> const &) const;
-extern template bool fk::vector<int, mem_type::view>::
-operator!=(vector<int, mem_type::view> const &) const;
+  return *this;
+}
 
-extern template bool fk::vector<double>::
-operator<(vector<double, mem_type::owner> const &) const;
-extern template bool fk::vector<float>::
-operator<(vector<float, mem_type::owner> const &) const;
-extern template bool fk::vector<int>::
-operator<(vector<int, mem_type::owner> const &) const;
+//
+// vector move constructor
+// this can probably be done better. see:
+// http://stackoverflow.com/questions/3106110/what-are-move-semantics
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
+{
+  ref_count_ = std::make_shared<int>(0);
+  ref_count_.swap(a.ref_count_);
+  a.data_ = nullptr; // b/c a's destructor will be called
+  a.size_ = 0;
+}
 
-extern template bool fk::vector<double, mem_type::view>::
-operator<(vector<double, mem_type::view> const &) const;
-extern template bool fk::vector<float, mem_type::view>::
-operator<(vector<float, mem_type::view> const &) const;
-extern template bool fk::vector<int, mem_type::view>::
-operator<(vector<int, mem_type::view> const &) const;
+//
+// vector move assignment
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
+{
+  if (&a == this)
+    return *this;
 
-extern template bool fk::vector<double>::
-operator<(vector<double, mem_type::view> const &) const;
-extern template bool fk::vector<float>::
-operator<(vector<float, mem_type::view> const &) const;
-extern template bool fk::vector<int>::
-operator<(vector<int, mem_type::view> const &) const;
+  assert(size() == a.size());
 
-extern template bool fk::vector<double, mem_type::view>::
-operator<(vector<double> const &) const;
-extern template bool fk::vector<float, mem_type::view>::
-operator<(vector<float> const &) const;
-extern template bool fk::vector<int, mem_type::view>::
-operator<(vector<int> const &) const;
+  size_ = a.size_;
+  // FIXME is this the right thing
+  ref_count_ = std::make_shared<int>(0);
+  ref_count_.swap(a.ref_count_);
+  P *temp{data_};
+  data_   = a.data_;
+  a.data_ = temp; // b/c a's destructor will be called
+  return *this;
+}
 
-extern template fk::vector<double> fk::vector<double>::
-operator+(fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float> fk::vector<float>::
-operator+(fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int> fk::vector<int>::
-operator+(fk::vector<int, mem_type::view> const &right) const;
+//
+// converting vector constructor
+//
+template<typename P, mem_type mem>
+template<typename PP, mem_type omem, mem_type, typename>
+fk::vector<P, mem>::vector(vector<PP, omem> const &a)
+    : data_{new P[a.size()]}, size_{a.size()}, ref_count_{
+                                                   std::make_shared<int>(0)}
+{
+  for (auto i = 0; i < a.size(); ++i)
+  {
+    (*this)(i) = static_cast<P>(a(i));
+  }
+}
 
-extern template fk::vector<double> fk::vector<double>::
-operator+(fk::vector<double> const &right) const;
-extern template fk::vector<float> fk::vector<float>::
-operator+(fk::vector<float> const &right) const;
-extern template fk::vector<int> fk::vector<int>::
-operator+(fk::vector<int> const &right) const;
+//
+// converting vector assignment overload
+// this can probably be optimized better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P, mem_type mem>
+template<typename PP, mem_type omem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
+{
+  assert(size() == a.size());
 
-extern template fk::vector<double> fk::vector<double, mem_type::view>::
-operator+(fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float> fk::vector<float, mem_type::view>::
-operator+(fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int> fk::vector<int, mem_type::view>::
-operator+(fk::vector<int, mem_type::view> const &right) const;
+  size_ = a.size();
+  for (auto i = 0; i < a.size(); ++i)
+  {
+    (*this)(i) = static_cast<P>(a(i));
+  }
 
-extern template fk::vector<double> fk::vector<double, mem_type::view>::
-operator+(fk::vector<double> const &right) const;
-extern template fk::vector<float> fk::vector<float, mem_type::view>::
-operator+(fk::vector<float> const &right) const;
-extern template fk::vector<int> fk::vector<int, mem_type::view>::
-operator+(fk::vector<int> const &right) const;
+  return *this;
+}
 
-extern template fk::vector<double> fk::vector<double>::
-operator-(fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float> fk::vector<float>::
-operator-(fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int> fk::vector<int>::
-operator-(fk::vector<int, mem_type::view> const &right) const;
+//
+// copy out of std::vector
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
+{
+  assert(size() == static_cast<int>(v.size()));
+  std::memcpy(data_, v.data(), v.size() * sizeof(P));
+  return *this;
+}
 
-extern template fk::vector<double> fk::vector<double>::
-operator-(fk::vector<double> const &right) const;
-extern template fk::vector<float> fk::vector<float>::
-operator-(fk::vector<float> const &right) const;
-extern template fk::vector<int> fk::vector<int>::
-operator-(fk::vector<int> const &right) const;
+//
+// copy into std::vector
+//
+template<typename P, mem_type mem>
+std::vector<P> fk::vector<P, mem>::to_std() const
+{
+  return std::vector<P>(data(), data() + size());
+}
 
-extern template fk::vector<double> fk::vector<double, mem_type::view>::
-operator-(fk::vector<double, mem_type::view> const &right) const;
-extern template fk::vector<float> fk::vector<float, mem_type::view>::
-operator-(fk::vector<float, mem_type::view> const &right) const;
-extern template fk::vector<int> fk::vector<int, mem_type::view>::
-operator-(fk::vector<int, mem_type::view> const &right) const;
+// vector subscript operator
+// see c++faq:
+// https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
+//
+template<typename P, mem_type mem>
+P &fk::vector<P, mem>::operator()(int i)
+{
+  assert(i < size_);
+  return data_[i];
+}
 
-extern template fk::vector<double> fk::vector<double, mem_type::view>::
-operator-(fk::vector<double> const &right) const;
-extern template fk::vector<float> fk::vector<float, mem_type::view>::
-operator-(fk::vector<float> const &right) const;
-extern template fk::vector<int> fk::vector<int, mem_type::view>::
-operator-(fk::vector<int> const &right) const;
+template<typename P, mem_type mem>
+P fk::vector<P, mem>::operator()(int i) const
+{
+  assert(i < size_);
+  return data_[i];
+}
 
-extern template double fk::vector<double>::
-operator*(fk::vector<double, mem_type::view> const &right) const;
-extern template float fk::vector<float>::
-operator*(fk::vector<float, mem_type::view> const &right) const;
-extern template int fk::vector<int>::
-operator*(fk::vector<int, mem_type::view> const &right) const;
+// vector comparison operators - set default tolerance above
+// see https://stackoverflow.com/a/253874/6595797
+// FIXME do we need to be more careful with these fp comparisons?
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
+{
+  if constexpr (omem == mem)
+    if (&other == this)
+      return true;
+  if (size() != other.size())
+    return false;
+  for (auto i = 0; i < size(); ++i)
+    if constexpr (std::is_floating_point<P>::value)
+    {
+      if (std::abs((*this)(i)-other(i)) > TOL)
+      {
+        return false;
+      }
+    }
+    else
+    {
+      if ((*this)(i) != other(i))
+      {
+        return false;
+      }
+    }
+  return true;
+}
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator!=(vector<P, omem> const &other) const
+{
+  return !(*this == other);
+}
 
-extern template double fk::vector<double>::
-operator*(fk::vector<double> const &right) const;
-extern template float fk::vector<float>::
-operator*(fk::vector<float> const &right) const;
-extern template int fk::vector<int>::
-operator*(fk::vector<int> const &right) const;
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator<(vector<P, omem> const &other) const
+{
+  return std::lexicographical_compare(begin(), end(), other.begin(),
+                                      other.end());
+}
 
-extern template double fk::vector<double, mem_type::view>::
-operator*(fk::vector<double, mem_type::view> const &right) const;
-extern template float fk::vector<float, mem_type::view>::
-operator*(fk::vector<float, mem_type::view> const &right) const;
-extern template int fk::vector<int, mem_type::view>::
-operator*(fk::vector<int, mem_type::view> const &right) const;
+//
+// vector addition operator
+//
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P> fk::vector<P, mem>::operator+(vector<P, omem> const &right) const
+{
+  assert(size() == right.size());
+  vector<P> ans(size());
+  for (auto i = 0; i < size(); ++i)
+    ans(i) = (*this)(i) + right(i);
+  return ans;
+}
 
-extern template double fk::vector<double, mem_type::view>::
-operator*(fk::vector<double> const &right) const;
-extern template float fk::vector<float, mem_type::view>::
-operator*(fk::vector<float> const &right) const;
-extern template int fk::vector<int, mem_type::view>::
-operator*(fk::vector<int> const &right) const;
+//
+// vector subtraction operator
+//
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P> fk::vector<P, mem>::operator-(vector<P, omem> const &right) const
+{
+  assert(size() == right.size());
+  vector<P> ans(size());
+  for (auto i = 0; i < size(); ++i)
+    ans(i) = (*this)(i)-right(i);
+  return ans;
+}
 
-extern template fk::vector<double>
-fk::vector<double>::single_column_kron(fk::vector<double> const &right) const;
-extern template fk::vector<float>
-fk::vector<float>::single_column_kron(fk::vector<float> const &right) const;
-extern template fk::vector<int>
-fk::vector<int>::single_column_kron(fk::vector<int> const &right) const;
+//
+// vector*vector multiplication operator
+//
+template<typename P, mem_type mem>
+template<mem_type omem>
+P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
+{
+  assert(size() == right.size());
+  int n           = size();
+  int one         = 1;
+  vector const &X = (*this);
 
-extern template fk::vector<double>
-fk::vector<double>::single_column_kron(fk::vector<double> const &right) const;
-extern template fk::vector<float>
-fk::vector<float>::single_column_kron(fk::vector<float> const &right) const;
-extern template fk::vector<int>
-fk::vector<int>::single_column_kron(fk::vector<int> const &right) const;
+  if constexpr (std::is_same<P, double>::value)
+  {
+    return ddot_(&n, X.data(), &one, right.data(), &one);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    return sdot_(&n, X.data(), &one, right.data(), &one);
+  }
+  else
+  {
+    P ans = 0.0;
+    for (auto i = 0; i < size(); ++i)
+      ans += (*this)(i)*right(i);
+    return ans;
+  }
+}
 
-extern template fk::vector<double> &
-fk::vector<double>::concat(fk::vector<double> const &right);
-extern template fk::vector<float> &
-fk::vector<float>::concat(fk::vector<float> const &right);
-extern template fk::vector<int> &
-fk::vector<int>::concat(fk::vector<int> const &right);
+//
+// vector*matrix multiplication operator
+//
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
+{
+  // check dimension compatibility
+  assert(size() == A.nrows());
 
-extern template fk::vector<double> &
-fk::vector<double>::concat(fk::vector<double, mem_type::view> const &right);
-extern template fk::vector<float> &
-fk::vector<float>::concat(fk::vector<float, mem_type::view> const &right);
-extern template fk::vector<int> &
-fk::vector<int>::concat(fk::vector<int, mem_type::view> const &right);
+  vector const &X = (*this);
+  vector<P> Y(A.ncols());
 
-extern template fk::vector<double> &
-fk::vector<double>::set(int const, fk::vector<double> const);
-extern template fk::vector<float> &
-fk::vector<float>::set(int const, fk::vector<float> const);
-extern template fk::vector<int> &
-fk::vector<int>::set(int const, fk::vector<int> const);
+  int m     = A.nrows();
+  int n     = A.ncols();
+  int lda   = m;
+  int one_i = 1;
 
-extern template fk::vector<double> &
-fk::vector<double>::set(int const, fk::vector<double, mem_type::view> const);
-extern template fk::vector<float> &
-fk::vector<float>::set(int const, fk::vector<float, mem_type::view> const);
-extern template fk::vector<int> &
-fk::vector<int>::set(int const, fk::vector<int, mem_type::view> const);
+  if constexpr (std::is_same<P, double>::value)
+  {
+    P zero = 0.0;
+    P one  = 1.0;
+    dgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
+           &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    P zero = 0.0;
+    P one  = 1.0;
+    sgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
+           &one_i);
+  }
+  else
+  {
+    fk::matrix<P> At = A;
+    At.transpose();
 
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::set(int const, fk::vector<double> const);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::set(int const, fk::vector<float> const);
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::set(int const, fk::vector<int> const);
+    // vectors don't have a leading dimension...
+    int ldv = 1;
+    n       = 1;
 
-extern template fk::vector<double, mem_type::view> &
-fk::vector<double, mem_type::view>::set(
-    int const, fk::vector<double, mem_type::view> const);
-extern template fk::vector<float, mem_type::view> &
-fk::vector<float, mem_type::view>::set(int const,
-                                       fk::vector<float, mem_type::view> const);
-extern template fk::vector<int, mem_type::view> &
-fk::vector<int, mem_type::view>::set(int const,
-                                     fk::vector<int, mem_type::view> const);
+    // simple matrix multiply routine doesn't have a transpose (yet)
+    // so the arguments are switched relative to the above BLAS calls
+    lda   = At.nrows();
+    m     = At.nrows();
+    int k = At.ncols();
+    igemm_(At.data(), lda, X.data(), ldv, Y.data(), ldv, m, k, n);
+  }
 
-extern template fk::vector<double> &fk::vector<double>::resize(int const size);
-extern template fk::vector<float> &fk::vector<float>::resize(int const size);
-extern template fk::vector<int> &fk::vector<int>::resize(int const size);
+  return Y;
+}
+
+//
+// vector*scalar multiplication operator
+//
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
+{
+  vector<P> a(*this);
+  int one_i = 1;
+  int n     = a.size();
+  P alpha   = x;
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dscal_(&n, &alpha, a.data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sscal_(&n, &alpha, a.data(), &one_i);
+  }
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      a(i) *= alpha;
+    }
+  }
+  return a;
+}
+
+//
+// perform the matrix kronecker product by
+// interpreting vector operands/return vector
+// as single column matrices.
+//
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P>
+fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
+{
+  fk::vector<P> product((*this).size() * right.size());
+  for (int i = 0; i < (*this).size(); ++i)
+  {
+    for (int j = 0; j < right.size(); ++j)
+    {
+      product(i * right.size() + j) = (*this)(i)*right(j);
+    }
+  }
+  return product;
+}
+//
+// utility functions
+//
+
+//
+// Prints out the values of a vector
+//
+// @param[in]   label   a string label printed with the output
+// @param[in]   b       the vector from the batch to print out
+// @return      Nothing
+//
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::print(std::string const label) const
+{
+  if constexpr (mem == mem_type::owner)
+    std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
+              << ")" << '\n';
+  else
+    std::cout << label << "(view)" << '\n';
+
+  if constexpr (std::is_floating_point<P>::value)
+  {
+    for (auto i = 0; i < size(); ++i)
+      std::cout << std::setw(12) << std::setprecision(4) << std::scientific
+                << std::right << (*this)(i);
+  }
+  else
+  {
+    for (auto i = 0; i < size(); ++i)
+      std::cout << std::right << (*this)(i) << " ";
+  }
+  std::cout << '\n';
+}
+
+//
+// Dumps to file a vector that can be read straight into octave
+// Same as the matrix:: version
+//
+// @param[in]   label   a string label printed with the output
+// @param[in]   b       the vector from the batch to print out
+// @return      Nothing
+//
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::dump_to_octave(char const *filename) const
+{
+  std::ofstream ofile(filename);
+  auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
+  for (auto i = 0; i < size(); ++i)
+    std::cout << std::setprecision(12) << (*this)(i) << " ";
+
+  std::cout.rdbuf(coutbuf);
+}
+
+//
+// resize the vector
+// (currently supports a subset of the std::vector.resize() interface)
+//
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
+{
+  if (new_size == this->size())
+    return *this;
+  P *old_data{data_};
+  data_ = new P[new_size]();
+  if (size() > 0 && new_size > 0)
+  {
+    if (size() < new_size)
+      std::memcpy(data_, old_data, size() * sizeof(P));
+    else
+      std::memcpy(data_, old_data, new_size * sizeof(P));
+  }
+
+  size_ = new_size;
+  delete[] old_data;
+  return *this;
+}
+
+template<typename P, mem_type mem>
+template<mem_type omem, mem_type, typename>
+fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
+{
+  int const old_size = this->size();
+  int const new_size = this->size() + right.size();
+  data_ = static_cast<P *>(std::realloc(data(), new_size * sizeof(P)));
+  size_ = new_size;
+  std::memcpy(data(old_size), right.data(), right.size() * sizeof(P));
+  return *this;
+}
+
+// set a subvector beginning at provided index
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P, mem> &
+fk::vector<P, mem>::set(int const index, fk::vector<P, omem> const sub_vector)
+{
+  assert(index >= 0);
+  assert((index + sub_vector.size()) <= this->size());
+  std::memcpy(&(*this)(index), sub_vector.data(),
+              sub_vector.size() * sizeof(P));
+  return *this;
+}
+
+// extract subvector, indices inclusive
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
+{
+  assert(start >= 0);
+  assert(stop < this->size());
+  assert(stop > start);
+
+  int const sub_size = stop - start + 1;
+  fk::vector<P> sub_vector(sub_size);
+  for (int i = 0; i < sub_size; ++i)
+  {
+    sub_vector(i) = (*this)(i + start);
+  }
+  return sub_vector;
+}
+//-----------------------------------------------------------------------------
+//
+// fk::matrix class implementation starts here
+//
+//-----------------------------------------------------------------------------
+
+template<typename P>
+fk::matrix<P>::matrix() : data_{nullptr}, nrows_{0}, ncols_{0}
+{}
+
+// right now, initializing with zero for e.g. passing in answer vectors to blas
+// but this is probably slower if needing to declare in a perf. critical region
+
+template<typename P>
+fk::matrix<P>::matrix(int M, int N)
+    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}
+{}
+
+template<typename P>
+fk::matrix<P>::matrix(std::initializer_list<std::initializer_list<P>> llist)
+    : data_{new P[llist.size() * llist.begin()->size()]},
+      nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
+                                                  llist.begin()->size())}
+{
+  int row_idx = 0;
+  for (auto const &row_list : llist)
+  {
+    // much simpler for row-major storage
+    // std::copy(row_list.begin(), row_list.end(), data(row_idx));
+    int col_idx = 0;
+    for (auto const &col_elem : row_list)
+    {
+      (*this)(row_idx, col_idx) = col_elem;
+      ++col_idx;
+    }
+    ++row_idx;
+  }
+}
+
+template<typename P>
+fk::matrix<P>::~matrix()
+{
+  delete[] data_;
+}
+
+//
+// matrix copy constructor
+//
+template<typename P>
+fk::matrix<P>::matrix(matrix<P> const &a)
+    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
+{
+  memcpy(data_, a.data(), a.size() * sizeof(P));
+}
+
+//
+// matrix copy assignment
+// this can probably be done better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> const &a)
+{
+  if (&a == this)
+    return *this;
+
+  assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
+
+  nrows_ = a.nrows();
+  ncols_ = a.ncols();
+  memcpy(data_, a.data(), a.size() * sizeof(P));
+  return *this;
+}
+
+//
+// converting matrix copy constructor
+//
+template<typename P>
+template<typename PP>
+fk::matrix<P>::matrix(matrix<PP> const &a)
+    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
+{
+  for (auto j = 0; j < a.ncols(); ++j)
+    for (auto i = 0; i < a.nrows(); ++i)
+    {
+      (*this)(i, j) = static_cast<P>(a(i, j));
+    }
+}
+
+//
+// converting matrix copy assignment
+// this can probably be done better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P>
+template<typename PP>
+fk::matrix<P> &fk::matrix<P>::operator=(matrix<PP> const &a)
+{
+  assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
+
+  nrows_ = a.nrows();
+  ncols_ = a.ncols();
+  for (auto j = 0; j < a.ncols(); ++j)
+    for (auto i = 0; i < a.nrows(); ++i)
+    {
+      (*this)(i, j) = static_cast<P>(a(i, j));
+    }
+  return *this;
+}
+
+//
+// matrix move constructor
+// this can probably be done better. see:
+// http://stackoverflow.com/questions/3106110/what-are-move-semantics
+//
+
+template<typename P>
+fk::matrix<P>::matrix(matrix<P> &&a)
+    : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}
+{
+  a.data_  = nullptr; // b/c a's destructor will be called
+  a.nrows_ = 0;
+  a.ncols_ = 0;
+}
+
+//
+// matrix move assignment
+//
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::operator=(matrix<P> &&a)
+{
+  if (&a == this)
+    return *this;
+
+  assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
+
+  nrows_ = a.nrows();
+  ncols_ = a.ncols();
+  P *temp{data_};
+  data_   = a.data();
+  a.data_ = temp; // b/c a's destructor will be called
+  return *this;
+}
+
+//
+// copy out of fk::vector - assumes the vector is column-major
+//
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::operator=(fk::vector<P> const &v)
+{
+  assert(nrows() * ncols() == v.size());
+
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      (*this)(i, j) = v(j + i * ncols());
+
+  return *this;
+}
+
+//
+// matrix subscript operator - row-major ordering
+// see c++faq:
+// https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
+//
+template<typename P>
+P &fk::matrix<P>::operator()(int const i, int const j)
+{
+  assert(i < nrows() && j < ncols());
+  return *(data(i, j));
+}
+
+template<typename P>
+P fk::matrix<P>::operator()(int const i, int const j) const
+{
+  assert(i < nrows() && j < ncols());
+  return *(data(i, j));
+}
+
+// matrix comparison operators - set default tolerance above
+// see https://stackoverflow.com/a/253874/6595797
+// FIXME we may need to be more careful with these comparisons
+template<typename P>
+bool fk::matrix<P>::operator==(matrix<P> const &other) const
+{
+  if (&other == this)
+    return true;
+  if (nrows() != other.nrows() || ncols() != other.ncols())
+    return false;
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      if constexpr (std::is_floating_point<P>::value)
+      {
+        P a = (*this)(i, j);
+        P b = other(i, j);
+        if (std::abs(a - b) > TOL * std::max(std::abs(a), std::abs(b)))
+        {
+          return false;
+        }
+      }
+      else
+      {
+        if ((*this)(i, j) != other(i, j))
+        {
+          return false;
+        }
+      }
+  return true;
+}
+
+template<typename P>
+bool fk::matrix<P>::operator!=(matrix<P> const &other) const
+{
+  return !(*this == other);
+}
+
+template<typename P>
+bool fk::matrix<P>::operator<(matrix<P> const &other) const
+{
+  return std::lexicographical_compare(this->begin(), this->end(), other.begin(),
+                                      other.end());
+}
+
+//
+// matrix addition operator
+//
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator+(matrix<P> const &right) const
+{
+  assert(nrows() == right.nrows() && ncols() == right.ncols());
+
+  matrix<P> ans(nrows(), ncols());
+  ans.nrows_ = nrows();
+  ans.ncols_ = ncols();
+
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      ans(i, j) = (*this)(i, j) + right(i, j);
+
+  return ans;
+}
+
+//
+// matrix subtraction operator
+//
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator-(matrix<P> const &right) const
+{
+  assert(nrows() == right.nrows() && ncols() == right.ncols());
+
+  matrix<P> ans(nrows(), ncols());
+  ans.nrows_ = nrows();
+  ans.ncols_ = ncols();
+
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      ans(i, j) = (*this)(i, j) - right(i, j);
+
+  return ans;
+}
+
+//
+// matrix*scalar multiplication operator
+//
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator*(P const right) const
+{
+  matrix<P> ans(nrows(), ncols());
+  ans.nrows_ = nrows();
+  ans.ncols_ = ncols();
+
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      ans(i, j) = (*this)(i, j) * right;
+
+  return ans;
+}
+
+//
+// matrix*vector multiplication operator
+//
+template<typename P>
+fk::vector<P> fk::matrix<P>::operator*(fk::vector<P> const &right) const
+{
+  // check dimension compatibility
+  assert(ncols() == right.size());
+
+  matrix<P> const &A = (*this);
+  vector<P> Y(A.nrows());
+
+  int m     = A.nrows();
+  int n     = A.ncols();
+  int lda   = m;
+  int one_i = 1;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    P one  = 1.0;
+    P zero = 0.0;
+    dgemv_("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero,
+           Y.data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    P one  = 1.0;
+    P zero = 0.0;
+    sgemv_("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero,
+           Y.data(), &one_i);
+  }
+  else
+  {
+    igemm_(A.data(), lda, right.data(), right.size(), Y.data(), Y.size(), m, n,
+           one_i);
+  }
+
+  return Y;
+}
+
+//
+// matrix*matrix multiplication operator C[m,n] = A[m,k] * B[k,n]
+//
+template<typename P>
+fk::matrix<P> fk::matrix<P>::operator*(matrix<P> const &B) const
+{
+  assert(ncols() == B.nrows()); // k == k
+
+  // just aliases for easier reading
+  matrix const &A = (*this);
+  int m           = A.nrows();
+  int n           = B.ncols();
+  int k           = B.nrows();
+
+  matrix<P> C(m, n);
+
+  int lda = m;
+  int ldb = k;
+  int ldc = lda;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    P one  = 1.0;
+    P zero = 0.0;
+    dgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
+           C.data(), &ldc);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    P one  = 1.0;
+    P zero = 0.0;
+    sgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
+           C.data(), &ldc);
+  }
+  else
+  {
+    igemm_(A.data(), lda, B.data(), ldb, C.data(), ldc, m, k, n);
+  }
+  return C;
+}
+
+//
+// Transpose a matrix (overwrites original)
+// @return  the transposed matrix
+//
+// FIXME could be worthwhile to optimize the matrix transpose
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::transpose()
+{
+  matrix temp(ncols(), nrows());
+
+  for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < nrows(); ++i)
+      temp(j, i) = (*this)(i, j);
+
+  // inelegant manual "move assignment"
+  nrows_     = temp.nrows();
+  ncols_     = temp.ncols();
+  data_      = temp.data();
+  temp.data_ = nullptr;
+
+  return *this;
+}
+
+// Simple quad-loop kron prod
+// @return the product
+//
+// FIXME this is NOT optimized.
+// we will use the batch gemm method
+// for performance-critical (large)
+// krons
+template<typename P>
+fk::matrix<P> fk::matrix<P>::kron(matrix<P> const &B) const
+{
+  fk::matrix<P> C(nrows() * B.nrows(), ncols() * B.ncols());
+  for (auto i = 0; i < nrows(); ++i)
+  {
+    for (auto j = 0; j < ncols(); ++j)
+    {
+      for (auto k = 0; k < B.nrows(); ++k)
+      {
+        for (auto l = 0; l < B.ncols(); ++l)
+        {
+          C((i * B.nrows() + k), (j * B.ncols() + l)) +=
+              (*this)(i, j) * B(k, l);
+        }
+      }
+    }
+  }
+  return C;
+}
+
+//
+// Invert a square matrix (overwrites original)
+// disabled for non-fp types; haven't written a routine to do it
+// @return  the inverted matrix
+//
+template<typename P>
+template<typename U>
+std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
+                 fk::matrix<P> &>
+fk::matrix<P>::invert()
+{
+  assert(nrows() == ncols());
+
+  int *ipiv{new int[ncols()]};
+  int lwork{nrows() * ncols()};
+  int lda = ncols();
+  P *work{new P[nrows() * ncols()]};
+  int info;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dgetrf_(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
+    dgetri_(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
+  }
+  else
+  {
+    sgetrf_(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
+    sgetri_(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
+  }
+  delete[] ipiv;
+  delete[] work;
+  return *this;
+}
+
+//
+// Get the determinant of the matrix  (non destructive)
+// (based on src/Numerics/DeterminantOperators.h)
+// (note possible problems with over/underflow
+// - see Ed's emails 12/5/16, 10/14/16, 10/10/16.
+// how is this handled / is it necessary in production?
+// possibly okay for small KxK matrices - can build in a check/warning)
+//
+//
+// disabled for non-float types; haven't written a routine to do it
+//
+// @param[in]   mat   integer matrix (walker) to get determinant from
+// @return  the determinant (type double)
+//
+template<typename P>
+template<typename U>
+std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
+                 P>
+fk::matrix<P>::determinant() const
+{
+  assert(nrows() == ncols());
+
+  matrix temp{*this}; // get temp copy to do LU
+  int *ipiv{new int[ncols()]};
+  int info;
+  int n   = ncols();
+  int lda = ncols();
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
+  }
+  else
+  {
+    sgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
+  }
+
+  P det    = 1.0;
+  int sign = 1;
+  for (auto i = 0; i < nrows(); ++i)
+  {
+    if (ipiv[i] != i + 1)
+      sign *= -1;
+    det *= temp(i, i);
+  }
+  det *= static_cast<P>(sign);
+  delete[] ipiv;
+  return det;
+}
+
+//
+// Update a specific col of a matrix, given a fk::vector<P> (overwrites
+// original)
+//
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_col(int const col_idx, fk::vector<P> const &v)
+{
+  assert(nrows() == static_cast<int>(v.size()));
+  assert(col_idx < ncols());
+
+  int n{v.size()};
+  int one{1};
+  int stride = 1;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dcopy_(&n, v.data(), &one, data(0, col_idx), &stride);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    scopy_(&n, v.data(), &one, data(0, col_idx), &stride);
+  }
+  else
+  {
+    for (auto i = 0; i < n; ++i)
+    {
+      (*this)(0 + i, col_idx) = v(i);
+    }
+  }
+  return *this;
+}
+
+//
+// Update a specific col of a matrix, given a std::vector (overwrites original)
+//
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_col(int const col_idx, std::vector<P> const &v)
+{
+  assert(nrows() == static_cast<int>(v.size()));
+  assert(col_idx < ncols());
+
+  int n{static_cast<int>(v.size())};
+  int one{1};
+  int stride = 1;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dcopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    scopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
+  }
+  else
+  {
+    for (auto i = 0; i < n; ++i)
+    {
+      (*this)(0 + i, col_idx) = v[i];
+    }
+  }
+
+  return *this;
+}
+
+//
+// Update a specific row of a matrix, given a fk::vector<P> (overwrites
+// original)
+//
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_row(int const row_idx, fk::vector<P> const &v)
+{
+  assert(ncols() == v.size());
+  assert(row_idx < nrows());
+
+  int n{v.size()};
+  int one{1};
+  int stride = nrows();
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dcopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    scopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
+  }
+  else
+  {
+    for (auto i = 0; i < n; i++)
+    {
+      (*this)(row_idx, 0 + i) = v(i);
+    }
+  }
+  return *this;
+}
+
+//
+// Update a specific row of a matrix, given a std::vector (overwrites original)
+//
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::update_row(int const row_idx, std::vector<P> const &v)
+{
+  assert(ncols() == static_cast<int>(v.size()));
+  assert(row_idx < nrows());
+
+  int n{static_cast<int>(v.size())};
+  int one{1};
+  int stride = nrows();
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    scopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);
+  }
+  else
+  {
+    for (auto i = 0; i < n; i++)
+    {
+      (*this)(row_idx, 0 + i) = v[i];
+    }
+  }
+  return *this;
+}
+
+//
+// Resize, clearing all data FIXME when templating on ownership,
+// this function will need to restrict callers to sizing up
+//
+template<typename P>
+fk::matrix<P> &fk::matrix<P>::clear_and_resize(int const rows, int const cols)
+{
+  assert(rows >= 0);
+  assert(cols >= 0);
+  if (rows == 0 || cols == 0)
+    assert(cols == rows);
+  delete[] data_;
+  data_  = new P[rows * cols]();
+  nrows_ = rows;
+  ncols_ = cols;
+  return *this;
+}
+
+//
+// Set a submatrix within the matrix, given another (smaller) matrix
+//
+template<typename P>
+fk::matrix<P> &
+fk::matrix<P>::set_submatrix(int const row_idx, int const col_idx,
+                             matrix<P> const &submatrix)
+{
+  assert(row_idx >= 0);
+  assert(col_idx >= 0);
+  assert(row_idx + submatrix.nrows() <= nrows());
+  assert(col_idx + submatrix.ncols() <= ncols());
+
+  matrix &matrix = *this;
+  for (auto i = 0; i < submatrix.nrows(); ++i)
+  {
+    for (auto j = 0; j < submatrix.ncols(); ++j)
+    {
+      matrix(i + row_idx, j + col_idx) = submatrix(i, j);
+    }
+  }
+  return matrix;
+}
+
+//
+// Extract a rectangular submatrix from within the matrix
+//
+template<typename P>
+fk::matrix<P>
+fk::matrix<P>::extract_submatrix(int const row_idx, int const col_idx,
+                                 int const num_rows, int const num_cols) const
+{
+  assert(row_idx >= 0);
+  assert(col_idx >= 0);
+  assert(row_idx + num_rows <= nrows());
+  assert(col_idx + num_cols <= ncols());
+
+  matrix submatrix(num_rows, num_cols);
+  auto matrix = *this;
+  for (auto i = 0; i < num_rows; ++i)
+  {
+    for (auto j = 0; j < num_cols; ++j)
+    {
+      submatrix(i, j) = matrix(i + row_idx, j + col_idx);
+    }
+  }
+
+  return submatrix;
+}
+
+// Prints out the values of a matrix
+// @return  Nothing
+//
+template<typename P>
+void fk::matrix<P>::print(std::string label) const
+{
+  std::cout << label << '\n';
+  for (auto i = 0; i < nrows(); ++i)
+  {
+    for (auto j = 0; j < ncols(); ++j)
+    {
+      if constexpr (std::is_floating_point<P>::value)
+      {
+        std::cout << std::setw(12) << std::setprecision(4) << std::scientific
+                  << std::right << (*this)(i, j);
+      }
+      else
+      {
+        std::cout << (*this)(i, j) << " ";
+      }
+    }
+    std::cout << '\n';
+  }
+}
+
+//
+// Dumps to file a matrix that can be read data straight into octave
+// e.g.
+//
+//      dump_to_matrix ("A.dat");
+//      ...
+//      octave> load A.dat
+//
+// @return  Nothing
+//
+template<typename P>
+void fk::matrix<P>::dump_to_octave(char const *filename) const
+{
+  std::ofstream ofile(filename);
+  auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
+  for (auto i = 0; i < nrows(); ++i)
+  {
+    for (auto j = 0; j < ncols(); ++j)
+      std::cout << std::setprecision(12) << (*this)(i, j) << " ";
+
+    std::cout << std::setprecision(4) << '\n';
+  }
+  std::cout.rdbuf(coutbuf);
+}
