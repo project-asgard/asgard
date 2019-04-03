@@ -18,7 +18,8 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   for (auto i = 0; i < t.size(); ++i)
   {
     std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold  = read_vector_from_txt_file(file_path);
+    fk::vector<int> gold =
+        fk::vector<int>(read_vector_from_txt_file(file_path));
     REQUIRE(t.get_coords(i) == gold);
     REQUIRE(t.get_index(gold) == i);
   }
@@ -31,7 +32,8 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   for (auto i = 0; i < t_2.size(); ++i)
   {
     std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold  = read_vector_from_txt_file(file_path);
+    fk::vector<int> gold =
+        fk::vector<int>(read_vector_from_txt_file(file_path));
     REQUIRE(t_2.get_coords(i) == gold);
     REQUIRE(t_2.get_index(gold) == i);
   }
@@ -45,7 +47,8 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   for (auto i = 0; i < t_3.size(); ++i)
   {
     std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold  = read_vector_from_txt_file(file_path);
+    fk::vector<int> gold =
+        fk::vector<int>(read_vector_from_txt_file(file_path));
     REQUIRE(t_3.get_coords(i) == gold);
     REQUIRE(t_3.get_index(gold) == i);
   }

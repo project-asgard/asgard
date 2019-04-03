@@ -14,24 +14,24 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   }
   SECTION("linspace(-1,1,9)")
   {
-    fk::vector<TestType> gold = read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_9.dat");
+    fk::vector<TestType> gold = fk::vector<TestType>(read_vector_from_txt_file(
+        "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_9.dat"));
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(1,-1,9)")
   {
-    fk::vector<TestType> gold = read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/linspace_1_neg1_9.dat");
+    fk::vector<TestType> gold = fk::vector<TestType>(read_vector_from_txt_file(
+        "../testing/generated-inputs/matlab_utilities/linspace_1_neg1_9.dat"));
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(-1,1,8)")
   {
-    fk::vector<TestType> gold = read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_8.dat");
+    fk::vector<TestType> gold = fk::vector<TestType>(read_vector_from_txt_file(
+        "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_8.dat"));
     REQUIRE(gold.size() == 8);
     fk::vector<TestType> test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);

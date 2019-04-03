@@ -67,7 +67,7 @@ public:
   // converting constructor/assignment overloads
   template<typename PP, mem_type omem, mem_type m_ = mem,
            typename = enable_for_owner<m_>>
-  vector(vector<PP, omem> const &);
+  explicit vector(vector<PP, omem> const &);
   template<typename PP, mem_type omem>
   vector<P, mem> &operator=(vector<PP, omem> const &);
 

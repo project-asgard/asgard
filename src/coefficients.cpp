@@ -34,7 +34,7 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
     fk::matrix<P> expanded(source.size(), ncols);
     for (int i = 0; i < ncols; ++i)
     {
-      expanded.update_col(i, source);
+      expanded.update_col(i, fk::vector<P>(source));
     }
     return expanded;
   };
@@ -270,9 +270,9 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
   fk::matrix<double> const forward_trans = operator_two_scale<P, double>(dim);
   fk::matrix<double> const forward_trans_transpose =
       fk::matrix<double>(forward_trans).transpose();
-  fk::vector<double> const data = term_1D.get_data();
+  fk::vector<double> const data = fk::vector<double>(term_1D.get_data());
   fk::vector<double> const data_real =
-      forward_trans_transpose * term_1D.get_data();
+      forward_trans_transpose * fk::vector<double>(term_1D.get_data());
 
   for (int i = 0; i < two_to_level; ++i)
   {

@@ -214,14 +214,19 @@ fk::vector<P, mem>::~vector()
 // vector copy constructor for like types (like types only)
 //
 template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P, mem> const &a)
-    : data_{new P[a.size_]}, size_{a.size_}
+fk::vector<P, mem>::vector(vector<P, mem> const &a) : size_{a.size_}
 {
   // FIXME is this the right thing
   if constexpr (mem == mem_type::owner)
+  {
+    data_      = new P[a.size()];
     ref_count_ = std::make_shared<int>(0);
+  }
   else
+  {
+    data_      = a.data();
     ref_count_ = a.ref_count_;
+  }
   std::memcpy(data_, a.data(), a.size() * sizeof(P));
 }
 
@@ -238,13 +243,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 
   assert(size() == a.size());
 
-  // FIXME is this the right thing
-  if constexpr (mem == mem_type::owner)
-    ref_count_ = std::make_shared<int>(0);
-  else
-    ref_count_ = a.ref_count_;
-  size_ = a.size();
-  memcpy(data_, a.data(), a.size() * sizeof(P));
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
 
   return *this;
 }
