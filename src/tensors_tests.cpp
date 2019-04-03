@@ -955,6 +955,20 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType> test = in1 * in2;
     REQUIRE(test == ans);
   }
+
+  SECTION("matrix transpose")
+  {
+    // clang-format off
+    fk::matrix<TestType> gold_transpose {
+      {12, 13, 14, 15, 16},
+      {22, 23, 24, 25, 26}, 
+      {32, 33, 34, 35, 36},
+    };
+    // clang-format on
+    fk::matrix<TestType> const gold_transpose_orig(gold_transpose);
+    REQUIRE(gold_transpose.transpose() == gold);
+    REQUIRE(gold_transpose.transpose() == gold_transpose_orig);
+  }
   SECTION("matrix kron product")
   {
     // clang-format off
