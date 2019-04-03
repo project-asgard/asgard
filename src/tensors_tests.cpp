@@ -107,19 +107,41 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(empty_v.data() == nullptr);
     REQUIRE(empty_v.size() == 0);
   }
+  SECTION("construct owner from view")
+  {
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType> test(gold_v);
+    REQUIRE(test == gold);
+  }
+  SECTION("copy assign to owner from view")
+  {
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType> test(5);
+    test = gold_v;
+    REQUIRE(test == gold);
+  }
   SECTION("copy construction")
   {
     fk::vector<TestType> test(gold);
-    // fk::vector<TestType, mem_type::view> test_v(gold); // ill-defined
     REQUIRE(test == gold);
+
+    fk::vector<TestType> base(5);
+    fk::vector<TestType, mem_type::view> test_v(base);
+    test_v = gold;
+    fk::vector<TestType, mem_type::view> test_copy(test_v);
+    REQUIRE(test_copy == gold);
   }
   SECTION("copy assignment")
   {
     fk::vector<TestType> test(5);
-    fk::vector<TestType, mem_type::view> test_v(test);
     test = gold;
-    // test_v = gold; // ill-defined; covered below by converting ctor
     REQUIRE(test == gold);
+
+    fk::vector<TestType> base(5);
+    fk::vector<TestType, mem_type::view> test_v(base);
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    test_v = gold_v;
+    REQUIRE(test_v == gold);
   }
   SECTION("converting construction (from owners)")
   {
@@ -201,7 +223,6 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     fk::vector<TestType> test(std::move(moved));
     REQUIRE(test == gold);
 
-    // FIXME we need to pay attention here; is this what we want?
     fk::vector<TestType> moved_o{2, 3, 4, 5, 6};
     fk::vector<TestType, mem_type::view> moved_v(moved_o);
     fk::vector<TestType, mem_type::view> test_v(std::move(moved_v));
@@ -214,7 +235,6 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     test = std::move(moved);
     REQUIRE(test == gold);
 
-    // FIXME we need to pay attention here; is this what we want?
     fk::vector<TestType> moved_o{2, 3, 4, 5, 6};
     fk::vector<TestType, mem_type::view> moved_v(moved_o);
     fk::vector<TestType> test_o(5);
