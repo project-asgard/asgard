@@ -96,9 +96,9 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     fk::matrix<P> flip_identity = eye<P>(degree);
     for (int i = 0; i < degree; ++i)
     {
-      fk::vector<int> row = get_row(flip_identity, i);
+      fk::vector<int> row = fk::vector<int>(get_row(flip_identity, i));
       std::reverse(row.begin(), row.end());
-      flip_identity.update_row(i, row);
+      flip_identity.update_row(i, fk::vector<P>(row));
     }
     return flip_identity;
   }();

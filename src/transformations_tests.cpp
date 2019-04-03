@@ -100,7 +100,8 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
         std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
         std::to_string(lev) + "_sg.dat";
 
-    fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(filename));
     dimension const dim = make_PDE<TestType>(PDE_opts::continuity_1, lev, deg)
                               ->get_dimensions()[0];
 
@@ -136,7 +137,8 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
         std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
         std::to_string(lev) + "_fg.dat";
 
-    fk::vector<TestType> const gold = read_vector_from_txt_file(filename);
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(filename));
 
     dimension const dim = make_PDE<TestType>(PDE_opts::continuity_1, lev, deg)
                               ->get_dimensions()[0];
@@ -281,10 +283,11 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     dimension const dim =
         make_PDE<TestType>(PDE_opts::continuity_1, levels, degree)
             ->get_dimensions()[0];
-    fk::vector<TestType> const gold = read_vector_from_txt_file(
-        "../testing/generated-inputs/transformations/forward_transform_" +
-        std::to_string(degree) + "_" + std::to_string(levels) +
-        "_neg1_pos1_double.dat");
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(
+            "../testing/generated-inputs/transformations/forward_transform_" +
+            std::to_string(degree) + "_" + std::to_string(levels) +
+            "_neg1_pos1_double.dat"));
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it);
@@ -303,10 +306,11 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
         make_PDE<TestType>(PDE_opts::continuity_2, levels, degree)
             ->get_dimensions()[1];
 
-    fk::vector<TestType> const gold = read_vector_from_txt_file(
-        "../testing/generated-inputs/transformations/forward_transform_" +
-        std::to_string(degree) + "_" + std::to_string(levels) +
-        "_neg2_pos2_doubleplus.dat");
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(
+            "../testing/generated-inputs/transformations/forward_transform_" +
+            std::to_string(degree) + "_" + std::to_string(levels) +
+            "_neg2_pos2_doubleplus.dat"));
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus);

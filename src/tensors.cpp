@@ -111,55 +111,49 @@ extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
 // fk::vector class implementation starts here
 //
 //-----------------------------------------------------------------------------
-template<typename P>
-fk::vector<P>::vector() : data_{nullptr}, size_{0}
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector()
+    : data_{nullptr}, size_{0}, ref_count_{std::make_shared<int>(0)}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
-template<typename P>
-fk::vector<P>::vector(int const size) : data_{new P[size]()}, size_{size}
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(int const size)
+    : data_{new P[size]()}, size_{size}, ref_count_{std::make_shared<int>(0)}
 {}
 
 // can also do this with variadic template constructor for constness
 // https://stackoverflow.com/a/5549918
 // but possibly this is "too clever" for our needs right now
 
-template<typename P>
-fk::vector<P>::vector(std::initializer_list<P> list)
-    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())}
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(std::initializer_list<P> list)
+    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())},
+      ref_count_{std::make_shared<int>(0)}
 {
   std::copy(list.begin(), list.end(), data_);
 }
 
-template<typename P>
-fk::vector<P>::vector(std::vector<P> const &v)
-    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())}
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(std::vector<P> const &v)
+    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())},
+      ref_count_{std::make_shared<int>(0)}
 {
   std::copy(v.begin(), v.end(), data_);
-}
-
-template<typename P>
-fk::vector<P>::~vector()
-{
-  delete[] data_;
-}
-
-//
-// vector copy constructor
-//
-template<typename P>
-fk::vector<P>::vector(vector<P> const &a)
-    : data_{new P[a.size_]}, size_{a.size_}
-{
-  std::memcpy(data_, a.data(), a.size() * sizeof(P));
 }
 
 //
 // matrix conversion constructor linearizes the matrix, i.e. stacks the columns
 // of the matrix into a single vector
 //
-template<typename P>
-fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
+    : data_{new P[mat.size()]}, ref_count_{std::make_shared<int>(0)}
 {
   size_ = mat.size();
   if ((*this).size() == 0)
@@ -177,55 +171,79 @@ fk::vector<P>::vector(fk::matrix<P> const &mat) : data_{new P[mat.size()]}
   }
 }
 
+// vector view constructor given a start and total length
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
+                           int const stop_index)
+    : ref_count_{vec.ref_count_}
+{
+  data_ = nullptr;
+  size_ = 0;
+
+  if (vec.size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec.size());
+    assert(stop_index >= start_index);
+
+    data_ = vec.data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
+
+// delegating constructor to extract view from owner. overload for default case
+// of viewing the entire owner
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem>::vector(fk::vector<P> const &a)
+    : vector(a, 0, std::max(0, a.size() - 1))
+{}
+
+template<typename P, mem_type mem>
+fk::vector<P, mem>::~vector()
+{
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(ref_count_.use_count() == 1);
+    delete[] data_;
+  }
+}
+
+//
+// vector copy constructor for like types (like types only)
+//
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P, mem> const &a) : size_{a.size_}
+{
+  // FIXME is this the right thing
+  if constexpr (mem == mem_type::owner)
+  {
+    data_      = new P[a.size()];
+    ref_count_ = std::make_shared<int>(0);
+  }
+  else
+  {
+    data_      = a.data();
+    ref_count_ = a.ref_count_;
+  }
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
+}
+
 //
 // vector copy assignment
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename P>
-fk::vector<P> &fk::vector<P>::operator=(vector<P> const &a)
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 {
   if (&a == this)
     return *this;
 
   assert(size() == a.size());
 
-  size_ = a.size();
-  memcpy(data_, a.data(), a.size() * sizeof(P));
-
-  return *this;
-}
-
-//
-// converting vector copy constructor
-//
-template<typename P>
-template<typename PP>
-fk::vector<P>::vector(vector<PP> const &a)
-    : data_{new P[a.size()]}, size_{a.size()}
-{
-  for (auto i = 0; i < a.size(); ++i)
-  {
-    (*this)(i) = static_cast<P>(a(i));
-  }
-}
-
-//
-// converting vector copy assignment
-// this can probably be optimized better. see:
-// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
-//
-template<typename P>
-template<typename PP>
-fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
-{
-  assert(size() == a.size());
-
-  size_ = a.size();
-  for (auto i = 0; i < a.size(); ++i)
-  {
-    (*this)(i) = static_cast<P>(a(i));
-  }
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
 
   return *this;
 }
@@ -235,9 +253,11 @@ fk::vector<P> &fk::vector<P>::operator=(vector<PP> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
-template<typename P>
-fk::vector<P>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
+template<typename P, mem_type mem>
+fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
 {
+  ref_count_ = std::make_shared<int>(0);
+  ref_count_.swap(a.ref_count_);
   a.data_ = nullptr; // b/c a's destructor will be called
   a.size_ = 0;
 }
@@ -245,8 +265,8 @@ fk::vector<P>::vector(vector<P> &&a) : data_{a.data_}, size_{a.size_}
 //
 // vector move assignment
 //
-template<typename P>
-fk::vector<P> &fk::vector<P>::operator=(vector &&a)
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
 {
   if (&a == this)
     return *this;
@@ -254,6 +274,9 @@ fk::vector<P> &fk::vector<P>::operator=(vector &&a)
   assert(size() == a.size());
 
   size_ = a.size_;
+  // FIXME is this the right thing
+  ref_count_ = std::make_shared<int>(0);
+  ref_count_.swap(a.ref_count_);
   P *temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
@@ -261,10 +284,45 @@ fk::vector<P> &fk::vector<P>::operator=(vector &&a)
 }
 
 //
+// converting vector constructor
+//
+template<typename P, mem_type mem>
+template<typename PP, mem_type omem, mem_type, typename>
+fk::vector<P, mem>::vector(vector<PP, omem> const &a)
+    : data_{new P[a.size()]}, size_{a.size()}, ref_count_{
+                                                   std::make_shared<int>(0)}
+{
+  for (auto i = 0; i < a.size(); ++i)
+  {
+    (*this)(i) = static_cast<P>(a(i));
+  }
+}
+
+//
+// converting vector assignment overload
+// this can probably be optimized better. see:
+// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
+//
+template<typename P, mem_type mem>
+template<typename PP, mem_type omem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
+{
+  assert(size() == a.size());
+
+  size_ = a.size();
+  for (auto i = 0; i < a.size(); ++i)
+  {
+    (*this)(i) = static_cast<P>(a(i));
+  }
+
+  return *this;
+}
+
+//
 // copy out of std::vector
 //
-template<typename P>
-fk::vector<P> &fk::vector<P>::operator=(std::vector<P> const &v)
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
 {
   assert(size() == static_cast<int>(v.size()));
   std::memcpy(data_, v.data(), v.size() * sizeof(P));
@@ -274,8 +332,8 @@ fk::vector<P> &fk::vector<P>::operator=(std::vector<P> const &v)
 //
 // copy into std::vector
 //
-template<typename P>
-std::vector<P> fk::vector<P>::to_std() const
+template<typename P, mem_type mem>
+std::vector<P> fk::vector<P, mem>::to_std() const
 {
   return std::vector<P>(data(), data() + size());
 }
@@ -284,15 +342,15 @@ std::vector<P> fk::vector<P>::to_std() const
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
-template<typename P>
-P &fk::vector<P>::operator()(int i)
+template<typename P, mem_type mem>
+P &fk::vector<P, mem>::operator()(int i)
 {
   assert(i < size_);
   return data_[i];
 }
 
-template<typename P>
-P fk::vector<P>::operator()(int i) const
+template<typename P, mem_type mem>
+P fk::vector<P, mem>::operator()(int i) const
 {
   assert(i < size_);
   return data_[i];
@@ -301,11 +359,13 @@ P fk::vector<P>::operator()(int i) const
 // vector comparison operators - set default tolerance above
 // see https://stackoverflow.com/a/253874/6595797
 // FIXME do we need to be more careful with these fp comparisons?
-template<typename P>
-bool fk::vector<P>::operator==(vector<P> const &other) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
 {
-  if (&other == this)
-    return true;
+  if constexpr (omem == mem)
+    if (&other == this)
+      return true;
   if (size() != other.size())
     return false;
   for (auto i = 0; i < size(); ++i)
@@ -325,14 +385,16 @@ bool fk::vector<P>::operator==(vector<P> const &other) const
     }
   return true;
 }
-template<typename P>
-bool fk::vector<P>::operator!=(vector<P> const &other) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator!=(vector<P, omem> const &other) const
 {
   return !(*this == other);
 }
 
-template<typename P>
-bool fk::vector<P>::operator<(vector<P> const &other) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+bool fk::vector<P, mem>::operator<(vector<P, omem> const &other) const
 {
   return std::lexicographical_compare(begin(), end(), other.begin(),
                                       other.end());
@@ -341,8 +403,9 @@ bool fk::vector<P>::operator<(vector<P> const &other) const
 //
 // vector addition operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator+(vector<P> const &right) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P> fk::vector<P, mem>::operator+(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -354,8 +417,9 @@ fk::vector<P> fk::vector<P>::operator+(vector<P> const &right) const
 //
 // vector subtraction operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator-(vector<P> const &right) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P> fk::vector<P, mem>::operator-(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -367,22 +431,22 @@ fk::vector<P> fk::vector<P>::operator-(vector<P> const &right) const
 //
 // vector*vector multiplication operator
 //
-template<typename P>
-P fk::vector<P>::operator*(vector<P> const &right) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   int n           = size();
   int one         = 1;
   vector const &X = (*this);
-  vector const &Y = right;
 
   if constexpr (std::is_same<P, double>::value)
   {
-    return ddot_(&n, X.data(), &one, Y.data(), &one);
+    return ddot_(&n, X.data(), &one, right.data(), &one);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return sdot_(&n, X.data(), &one, Y.data(), &one);
+    return sdot_(&n, X.data(), &one, right.data(), &one);
   }
   else
   {
@@ -396,8 +460,8 @@ P fk::vector<P>::operator*(vector<P> const &right) const
 //
 // vector*matrix multiplication operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
@@ -447,8 +511,8 @@ fk::vector<P> fk::vector<P>::operator*(fk::matrix<P> const &A) const
 //
 // vector*scalar multiplication operator
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::operator*(P const x) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 {
   vector<P> a(*this);
   int one_i = 1;
@@ -477,8 +541,10 @@ fk::vector<P> fk::vector<P>::operator*(P const x) const
 // interpreting vector operands/return vector
 // as single column matrices.
 //
-template<typename P>
-fk::vector<P> fk::vector<P>::single_column_kron(vector<P> const &right) const
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P>
+fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
@@ -501,10 +567,15 @@ fk::vector<P> fk::vector<P>::single_column_kron(vector<P> const &right) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename P>
-void fk::vector<P>::print(std::string const label) const
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::print(std::string const label) const
 {
-  std::cout << label << '\n';
+  if constexpr (mem == mem_type::owner)
+    std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
+              << ")" << '\n';
+  else
+    std::cout << label << "(view)" << '\n';
+
   if constexpr (std::is_floating_point<P>::value)
   {
     for (auto i = 0; i < size(); ++i)
@@ -527,8 +598,8 @@ void fk::vector<P>::print(std::string const label) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename P>
-void fk::vector<P>::dump_to_octave(char const *filename) const
+template<typename P, mem_type mem>
+void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
@@ -542,11 +613,12 @@ void fk::vector<P>::dump_to_octave(char const *filename) const
 // resize the vector
 // (currently supports a subset of the std::vector.resize() interface)
 //
-template<typename P>
-void fk::vector<P>::resize(int const new_size)
+template<typename P, mem_type mem>
+template<mem_type, typename>
+fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
 {
   if (new_size == this->size())
-    return;
+    return *this;
   P *old_data{data_};
   data_ = new P[new_size]();
   if (size() > 0 && new_size > 0)
@@ -559,10 +631,12 @@ void fk::vector<P>::resize(int const new_size)
 
   size_ = new_size;
   delete[] old_data;
+  return *this;
 }
 
-template<typename P>
-fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
+template<typename P, mem_type mem>
+template<mem_type omem, mem_type, typename>
+fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 {
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
@@ -573,9 +647,10 @@ fk::vector<P> &fk::vector<P>::concat(vector<P> const &right)
 }
 
 // set a subvector beginning at provided index
-template<typename P>
-fk::vector<P> &
-fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P, mem> &
+fk::vector<P, mem>::set(int const index, fk::vector<P, omem> const sub_vector)
 {
   assert(index >= 0);
   assert((index + sub_vector.size()) <= this->size());
@@ -585,8 +660,8 @@ fk::vector<P>::set(int const index, fk::vector<P> const sub_vector)
 }
 
 // extract subvector, indices inclusive
-template<typename P>
-fk::vector<P> fk::vector<P>::extract(int const start, int const stop) const
+template<typename P, mem_type mem>
+fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
 {
   assert(start >= 0);
   assert(stop < this->size());
@@ -1340,7 +1415,8 @@ void fk::matrix<P>::dump_to_octave(char const *filename) const
   std::cout.rdbuf(coutbuf);
 }
 
-// explicit instatiations
+// explicit instantiations
+// implies fk::vector<double, mem_type::owner>
 template class fk::vector<double>;
 template class fk::vector<float>;
 template class fk::vector<int>;
@@ -1354,6 +1430,13 @@ template fk::vector<float>::vector(vector<int> const &);
 template fk::vector<float>::vector(vector<double> const &);
 template fk::vector<double>::vector(vector<int> const &);
 template fk::vector<double>::vector(vector<float> const &);
+
+template fk::vector<int>::vector(vector<float, mem_type::view> const &);
+template fk::vector<int>::vector(vector<double, mem_type::view> const &);
+template fk::vector<float>::vector(vector<int, mem_type::view> const &);
+template fk::vector<float>::vector(vector<double, mem_type::view> const &);
+template fk::vector<double>::vector(vector<int, mem_type::view> const &);
+template fk::vector<double>::vector(vector<float, mem_type::view> const &);
 
 template fk::vector<int> &fk::vector<int>::operator=(vector<float> const &);
 template fk::vector<int> &fk::vector<int>::operator=(vector<double> const &);
@@ -1385,3 +1468,370 @@ template fk::matrix<float> &fk::matrix<float>::invert();
 template fk::matrix<double> &fk::matrix<double>::invert();
 template float fk::matrix<float>::determinant() const;
 template double fk::matrix<double>::determinant() const;
+
+// added for mem_type support
+
+template fk::vector<int, mem_type::owner>::vector(); // needed b/c of
+                                                     // sfinae decl
+template fk::vector<float, mem_type::owner>::vector();
+template fk::vector<double, mem_type::owner>::vector();
+template fk::vector<int, mem_type::owner>::vector(int const);
+template fk::vector<float, mem_type::owner>::vector(int const);
+template fk::vector<double, mem_type::owner>::vector(int const);
+template fk::vector<int, mem_type::owner>::vector(std::initializer_list<int>);
+template fk::vector<float, mem_type::owner>::vector(
+    std::initializer_list<float>);
+template fk::vector<double, mem_type::owner>::vector(
+    std::initializer_list<double>);
+template fk::vector<int, mem_type::owner>::vector(std::vector<int> const &);
+template fk::vector<float, mem_type::owner>::vector(std::vector<float> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    std::vector<double> const &);
+template fk::vector<int, mem_type::owner>::vector(fk::matrix<int> const &);
+template fk::vector<float, mem_type::owner>::vector(fk::matrix<float> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    fk::matrix<double> const &);
+template fk::vector<int, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &, int const, int const);
+template fk::vector<float, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &, int const, int const);
+template fk::vector<double, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &, int const, int const);
+
+template class fk::vector<double, mem_type::view>; // get the non-default
+                                                   // mem_type::view
+template class fk::vector<float, mem_type::view>;
+template class fk::vector<int, mem_type::view>;
+
+/*
+template fk::vector<int, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+*/
+template fk::vector<int, mem_type::view>::vector(
+    vector<int, mem_type::owner> const &);
+template fk::vector<int, mem_type::owner>::vector(
+    vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view>::vector(
+    vector<float, mem_type::owner> const &);
+template fk::vector<float, mem_type::owner>::vector(
+    vector<float, mem_type::view> const &);
+template fk::vector<double, mem_type::view>::vector(
+    vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::owner>::vector(
+    vector<double, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<float, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+
+template fk::vector<int, mem_type::view> &fk::vector<int, mem_type::view>::
+operator=(vector<int, mem_type::owner> const &);
+template fk::vector<int, mem_type::owner> &fk::vector<int, mem_type::owner>::
+operator=(vector<int, mem_type::view> const &);
+template fk::vector<float, mem_type::view> &fk::vector<float, mem_type::view>::
+operator=(vector<float, mem_type::owner> const &);
+template fk::vector<float, mem_type::owner> &
+fk::vector<float, mem_type::owner>::
+operator=(vector<float, mem_type::view> const &);
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::
+operator=(vector<double, mem_type::owner> const &);
+template fk::vector<double, mem_type::owner> &
+fk::vector<double, mem_type::owner>::
+operator=(vector<double, mem_type::view> const &);
+
+template bool fk::vector<double, mem_type::view>::
+operator==(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator==(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator==(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double>::
+operator==(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float>::
+operator==(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int>::
+operator==(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::operator==(vector<double> const &) const;
+template bool fk::vector<float>::operator==(vector<float> const &) const;
+template bool fk::vector<int>::operator==(vector<int> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator==(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator==(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator==(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::
+operator!=(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float>::
+operator!=(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int>::
+operator!=(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double>::
+operator!=(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float>::
+operator!=(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int>::
+operator!=(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator!=(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator!=(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator!=(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator!=(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator!=(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator!=(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::
+operator<(vector<double, mem_type::owner> const &) const;
+template bool fk::vector<float>::
+operator<(vector<float, mem_type::owner> const &) const;
+template bool fk::vector<int>::
+operator<(vector<int, mem_type::owner> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator<(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator<(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator<(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double>::
+operator<(vector<double, mem_type::view> const &) const;
+template bool fk::vector<float>::
+operator<(vector<float, mem_type::view> const &) const;
+template bool fk::vector<int>::
+operator<(vector<int, mem_type::view> const &) const;
+
+template bool fk::vector<double, mem_type::view>::
+operator<(vector<double> const &) const;
+template bool fk::vector<float, mem_type::view>::
+operator<(vector<float> const &) const;
+template bool fk::vector<int, mem_type::view>::
+operator<(vector<int> const &) const;
+
+template fk::vector<double> fk::vector<double>::
+operator+(fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float> fk::vector<float>::
+operator+(fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int> fk::vector<int>::
+operator+(fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double> fk::vector<double>::
+operator+(fk::vector<double> const &right) const;
+template fk::vector<float> fk::vector<float>::
+operator+(fk::vector<float> const &right) const;
+template fk::vector<int> fk::vector<int>::
+operator+(fk::vector<int> const &right) const;
+
+template fk::vector<double> fk::vector<double, mem_type::view>::
+operator+(fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float> fk::vector<float, mem_type::view>::
+operator+(fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int> fk::vector<int, mem_type::view>::
+operator+(fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double> fk::vector<double, mem_type::view>::
+operator+(fk::vector<double> const &right) const;
+template fk::vector<float> fk::vector<float, mem_type::view>::
+operator+(fk::vector<float> const &right) const;
+template fk::vector<int> fk::vector<int, mem_type::view>::
+operator+(fk::vector<int> const &right) const;
+
+template fk::vector<double> fk::vector<double>::
+operator-(fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float> fk::vector<float>::
+operator-(fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int> fk::vector<int>::
+operator-(fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double> fk::vector<double>::
+operator-(fk::vector<double> const &right) const;
+template fk::vector<float> fk::vector<float>::
+operator-(fk::vector<float> const &right) const;
+template fk::vector<int> fk::vector<int>::
+operator-(fk::vector<int> const &right) const;
+
+template fk::vector<double> fk::vector<double, mem_type::view>::
+operator-(fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float> fk::vector<float, mem_type::view>::
+operator-(fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int> fk::vector<int, mem_type::view>::
+operator-(fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double> fk::vector<double, mem_type::view>::
+operator-(fk::vector<double> const &right) const;
+template fk::vector<float> fk::vector<float, mem_type::view>::
+operator-(fk::vector<float> const &right) const;
+template fk::vector<int> fk::vector<int, mem_type::view>::
+operator-(fk::vector<int> const &right) const;
+
+template double fk::vector<double>::
+operator*(fk::vector<double, mem_type::view> const &right) const;
+template float fk::vector<float>::
+operator*(fk::vector<float, mem_type::view> const &right) const;
+template int fk::vector<int>::
+operator*(fk::vector<int, mem_type::view> const &right) const;
+
+template double fk::vector<double>::
+operator*(fk::vector<double> const &right) const;
+template float fk::vector<float>::
+operator*(fk::vector<float> const &right) const;
+template int fk::vector<int>::operator*(fk::vector<int> const &right) const;
+
+template double fk::vector<double, mem_type::view>::
+operator*(fk::vector<double, mem_type::view> const &right) const;
+template float fk::vector<float, mem_type::view>::
+operator*(fk::vector<float, mem_type::view> const &right) const;
+template int fk::vector<int, mem_type::view>::
+operator*(fk::vector<int, mem_type::view> const &right) const;
+
+template double fk::vector<double, mem_type::view>::
+operator*(fk::vector<double> const &right) const;
+template float fk::vector<float, mem_type::view>::
+operator*(fk::vector<float> const &right) const;
+template int fk::vector<int, mem_type::view>::
+operator*(fk::vector<int> const &right) const;
+
+template fk::vector<double> fk::vector<double>::single_column_kron(
+    fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float> fk::vector<float>::single_column_kron(
+    fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int> fk::vector<int>::single_column_kron(
+    fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double>
+fk::vector<double>::single_column_kron(fk::vector<double> const &right) const;
+template fk::vector<float>
+fk::vector<float>::single_column_kron(fk::vector<float> const &right) const;
+template fk::vector<int>
+fk::vector<int>::single_column_kron(fk::vector<int> const &right) const;
+
+template fk::vector<double>
+fk::vector<double, mem_type::view>::single_column_kron(
+    fk::vector<double, mem_type::view> const &right) const;
+template fk::vector<float>
+fk::vector<float, mem_type::view>::single_column_kron(
+    fk::vector<float, mem_type::view> const &right) const;
+template fk::vector<int> fk::vector<int, mem_type::view>::single_column_kron(
+    fk::vector<int, mem_type::view> const &right) const;
+
+template fk::vector<double>
+fk::vector<double, mem_type::view>::single_column_kron(
+    fk::vector<double> const &right) const;
+template fk::vector<float>
+fk::vector<float, mem_type::view>::single_column_kron(
+    fk::vector<float> const &right) const;
+template fk::vector<int> fk::vector<int, mem_type::view>::single_column_kron(
+    fk::vector<int> const &right) const;
+
+template fk::vector<double> &
+fk::vector<double>::concat(fk::vector<double> const &right);
+template fk::vector<float> &
+fk::vector<float>::concat(fk::vector<float> const &right);
+template fk::vector<int> &fk::vector<int>::concat(fk::vector<int> const &right);
+
+template fk::vector<double> &
+fk::vector<double>::concat(fk::vector<double, mem_type::view> const &right);
+template fk::vector<float> &
+fk::vector<float>::concat(fk::vector<float, mem_type::view> const &right);
+template fk::vector<int> &
+fk::vector<int>::concat(fk::vector<int, mem_type::view> const &right);
+
+template fk::vector<double> &
+fk::vector<double>::set(int const, fk::vector<double> const);
+template fk::vector<float> &
+fk::vector<float>::set(int const, fk::vector<float> const);
+template fk::vector<int> &
+fk::vector<int>::set(int const, fk::vector<int> const);
+
+template fk::vector<double> &
+fk::vector<double>::set(int const, fk::vector<double, mem_type::view> const);
+template fk::vector<float> &
+fk::vector<float>::set(int const, fk::vector<float, mem_type::view> const);
+template fk::vector<int> &
+fk::vector<int>::set(int const, fk::vector<int, mem_type::view> const);
+
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::set(int const, fk::vector<double> const);
+template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::set(int const, fk::vector<float> const);
+template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::set(int const, fk::vector<int> const);
+
+template fk::vector<double, mem_type::view> &
+fk::vector<double, mem_type::view>::set(
+    int const, fk::vector<double, mem_type::view> const);
+template fk::vector<float, mem_type::view> &
+fk::vector<float, mem_type::view>::set(int const,
+                                       fk::vector<float, mem_type::view> const);
+template fk::vector<int, mem_type::view> &
+fk::vector<int, mem_type::view>::set(int const,
+                                     fk::vector<int, mem_type::view> const);
+template fk::vector<double> &fk::vector<double>::resize(int const size);
+template fk::vector<float> &fk::vector<float>::resize(int const size);
+template fk::vector<int> &fk::vector<int>::resize(int const size);

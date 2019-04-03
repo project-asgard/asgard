@@ -54,8 +54,9 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
         "../testing/generated-inputs/connectivity/connect_n_3_4_SG_";
     for (size_t i = 0; i < connectivity.size(); ++i)
     {
-      std::string file_path   = base_path + std::to_string(i + 1) + ".dat";
-      fk::vector<int> element = read_vector_from_txt_file(file_path);
+      std::string file_path = base_path + std::to_string(i + 1) + ".dat";
+      fk::vector<int> element =
+          fk::vector<int>(read_vector_from_txt_file(file_path));
 
       // adjust matlab indexing
       std::transform(element.begin(), element.end(), element.begin(),
@@ -80,8 +81,9 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
         "../testing/generated-inputs/connectivity/connect_n_2_3_FG_";
     for (size_t i = 0; i < connectivity.size(); ++i)
     {
-      std::string file_path   = base_path + std::to_string(i + 1) + ".dat";
-      fk::vector<int> element = read_vector_from_txt_file(file_path);
+      std::string file_path = base_path + std::to_string(i + 1) + ".dat";
+      fk::vector<int> element =
+          fk::vector<int>(read_vector_from_txt_file(file_path));
 
       // adjust matlab indexing
       std::transform(element.begin(), element.end(), element.begin(),

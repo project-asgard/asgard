@@ -12,6 +12,7 @@
 // note using widening conversions to floating point type in order to use same
 // tests for integer type
 // FIXME look for another way to do this
+
 TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
                    float, double, int)
 {
@@ -20,6 +21,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   // - the list initializing constructor working correctly
   // - operator== working correctly
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
+
   // explicit types for testing converting copy operations
   fk::vector<int> const goldi{2, 3, 4, 5, 6};
   fk::vector<float> const goldf{2.0, 3.0, 4.0, 5.0, 6.0};
@@ -27,74 +29,204 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
 
   SECTION("default constructor")
   {
-    fk::vector<TestType> test;
+    fk::vector<TestType> const test;
+    // fk::vector<TestType, mem_type::view> test_v; // disabled
     REQUIRE(test.size() == 0);
   }
   SECTION("give me some size, initialized to zero")
   {
-    fk::vector<TestType> test(5);
-    fk::vector<TestType> zeros{0, 0, 0, 0, 0};
+    fk::vector<TestType> const test(5);
+    // fk::vector<TestType, mem_type::view> test_v(5); // disabled
+    fk::vector<TestType> const zeros{0, 0, 0, 0, 0};
     REQUIRE(test == zeros);
+    // REQUIRE(test_v == zeros);
   }
   SECTION("constructor from list initialization")
   {
-    fk::vector<TestType> test{2, 3, 4, 5, 6};
+    fk::vector<TestType> const test{2, 3, 4, 5, 6};
+    // fk::vector<TestType, mem_type::view> test_v{2, 3, 4, 5, 6}; // disabled
     REQUIRE(test == gold);
+    // REQUIRE(test_v == gold);
   }
   SECTION("construct from a std::vector")
   {
-    std::vector<TestType> v{2, 3, 4, 5, 6};
-    fk::vector<TestType> test(v);
+    std::vector<TestType> const v{2, 3, 4, 5, 6};
+    fk::vector<TestType> const test(v);
+    // fk::vector<TestType, mem_type::view> test_v(v); // disabled
     REQUIRE(test == gold);
+    // REQUIRE(test_v == gold);
   }
   SECTION("construct from an fk::matrix")
   {
-    fk::matrix<TestType> mat{{2}, {3}, {4}, {5}, {6}};
-    fk::vector<TestType> test(mat);
+    fk::matrix<TestType> const mat{{2}, {3}, {4}, {5}, {6}};
+    fk::vector<TestType> const test(mat);
+    // fk::vector<TestType, mem_type::view> test_v(mat); // disabled
     REQUIRE(test == gold);
+    // REQUIRE(test_v == gold);
 
-    fk::vector<TestType> gold_2 = {1, 2, 3, 4, 5, 6};
-    fk::matrix<TestType> mat_2{{1, 3, 5}, {2, 4, 6}};
-    fk::vector<TestType> test_2(mat_2);
+    fk::vector<TestType> const gold_2 = {1, 2, 3, 4, 5, 6};
+    fk::matrix<TestType> const mat_2{{1, 3, 5}, {2, 4, 6}};
+    fk::vector<TestType> const test_2(mat_2);
+    // fk::vector<TestType, mem_type::view> test_2_v(mat_2); // disabled
     REQUIRE(test_2 == gold_2);
+  }
+
+  SECTION("construct view from owner")
+  {
+    // default: view of whole vector
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> test_v(gold_copy);
+    REQUIRE(test_v == gold);
+    gold_copy(2) = 1000;
+    REQUIRE(test_v == gold_copy);
+    REQUIRE(gold != gold_copy);
+    REQUIRE(test_v != gold);
+    test_v(2) = 10;
+    REQUIRE(test_v == gold_copy);
+    REQUIRE(gold != gold_copy);
+    REQUIRE(test_v != gold);
+    gold_copy = gold;
+
+    // specify range (start/stop inclusive)
+    fk::vector<TestType, mem_type::view> test_v2(gold_copy, 1, 3);
+    fk::vector<TestType> const gold_portion = {3, 4, 5};
+    REQUIRE(test_v2 == gold_portion);
+    gold_copy(2) = 1000;
+    REQUIRE(test_v2 == gold_copy.extract(1, 3));
+    REQUIRE(gold_copy != gold);
+    REQUIRE(test_v2 != gold_portion);
+    test_v2(2) = 10;
+    REQUIRE(test_v2 == gold_copy.extract(1, 3));
+    REQUIRE(gold_copy != gold);
+    REQUIRE(test_v2 != gold_portion);
+
+    // empty case
+    fk::vector<TestType> const empty;
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    REQUIRE(empty_v == empty);
+    REQUIRE(empty_v.data() == nullptr);
+    REQUIRE(empty_v.size() == 0);
+  }
+  SECTION("construct owner from view")
+  {
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType> test(gold_v);
+    REQUIRE(test == gold);
+  }
+  SECTION("copy assign to owner from view")
+  {
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType> test(5);
+    test = gold_v;
+    REQUIRE(test == gold);
   }
   SECTION("copy construction")
   {
     fk::vector<TestType> test(gold);
     REQUIRE(test == gold);
+
+    fk::vector<TestType> base(5);
+    fk::vector<TestType, mem_type::view> test_v(base);
+    test_v = gold;
+    fk::vector<TestType, mem_type::view> test_copy(test_v);
+    REQUIRE(test_copy == gold);
   }
   SECTION("copy assignment")
   {
     fk::vector<TestType> test(5);
     test = gold;
     REQUIRE(test == gold);
+
+    fk::vector<TestType> base(5);
+    fk::vector<TestType, mem_type::view> test_v(base);
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    test_v = gold_v;
+    REQUIRE(test_v == gold);
   }
-  SECTION("converting copy construction")
+  SECTION("converting construction (from owners)")
   {
     fk::vector<int> testi(gold);
+    // fk::vector<int, mem_type::view> testi_v(gold); // disabled
     REQUIRE(testi == goldi);
+    // REQUIRE(testi_v == goldi);
     fk::vector<float> testf(gold);
+    // fk::vector<float, mem_type::view> testf_v(gold);
     REQUIRE(testf == goldf);
+    // REQUIRE(testf_v == goldf);
     fk::vector<double> testd(gold);
+    // fk::vector<double, mem_type::view> testd_v(gold);
     REQUIRE(testd == goldd);
+    // REQUIRE(testd_v == goldd);
   }
-  SECTION("converting copy assignment")
+  SECTION("converting construction (from views)")
+  {
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<int> testi(gold_v);
+    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
+    REQUIRE(testi == goldi);
+    // REQUIRE(testi_v == goldi);
+    fk::vector<float> testf(gold_v);
+    // fk::vector<float, mem_type::view> testf_v(gold_v);
+    REQUIRE(testf == goldf);
+    // REQUIRE(testf_v == goldf);
+    fk::vector<double> testd(gold_v);
+    // fk::vector<double, mem_type::view> testd_v(gold_v);
+    REQUIRE(testd == goldd);
+    // REQUIRE(testd_v == goldd);
+  }
+  SECTION("converting assignment (from owners)")
   {
     fk::vector<int> testi(5);
-    testi = gold;
+    fk::vector<int, mem_type::view> testi_v(testi);
+    testi   = gold;
+    testi_v = gold;
     REQUIRE(testi == goldi);
+    REQUIRE(testi_v == goldi);
     fk::vector<float> testf(5);
-    testf = gold;
+    fk::vector<float, mem_type::view> testf_v(testf);
+    testf   = gold;
+    testf_v = gold;
     REQUIRE(testf == goldf);
+    REQUIRE(testf_v == goldf);
     fk::vector<double> testd(5);
-    testd = gold;
+    fk::vector<double, mem_type::view> testd_v(testd);
+    testd   = gold;
+    testd_v = gold;
     REQUIRE(testd == goldd);
+    REQUIRE(testd_v == goldd);
+  }
+  SECTION("converting assignment (from views)")
+  {
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<int> testi(5);
+    fk::vector<int, mem_type::view> testi_v(testi);
+    testi   = gold_v;
+    testi_v = gold_v;
+    REQUIRE(testi == goldi);
+    REQUIRE(testi_v == goldi);
+    fk::vector<float> testf(5);
+    fk::vector<float, mem_type::view> testf_v(testf);
+    testf   = gold_v;
+    testf_v = gold_v;
+    REQUIRE(testf == goldf);
+    REQUIRE(testf_v == goldf);
+    fk::vector<double> testd(5);
+    fk::vector<double, mem_type::view> testd_v(testd);
+    testd   = gold_v;
+    testd_v = gold_v;
+    REQUIRE(testd == goldd);
+    REQUIRE(testd_v == goldd);
   }
   SECTION("move construction")
   {
     fk::vector<TestType> moved{2, 3, 4, 5, 6};
     fk::vector<TestType> test(std::move(moved));
     REQUIRE(test == gold);
+
+    fk::vector<TestType> moved_o{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> moved_v(moved_o);
+    fk::vector<TestType, mem_type::view> test_v(std::move(moved_v));
+    REQUIRE(test_v == gold);
   }
   SECTION("move assignment")
   {
@@ -102,147 +234,262 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     fk::vector<TestType> test(5);
     test = std::move(moved);
     REQUIRE(test == gold);
+
+    fk::vector<TestType> moved_o{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> moved_v(moved_o);
+    fk::vector<TestType> test_o(5);
+    fk::vector<TestType, mem_type::view> test_v(test_o);
+    test_v = std::move(moved_v);
+    REQUIRE(test_v == gold);
   }
   SECTION("copy from std::vector")
   {
     std::vector<TestType> v{2, 3, 4, 5, 6};
     fk::vector<TestType> test(5);
-    test = v;
-    REQUIRE(test == gold);
+    fk::vector<TestType, mem_type::view> test_v(test);
+    test   = v;
+    test_v = v;
+    REQUIRE(test_v == gold);
   }
   SECTION("copy into std::vector")
   {
     std::vector<TestType> goldv{2, 3, 4, 5, 6};
+
     std::vector<TestType> testv;
     testv = gold.to_std();
     compare_vectors(testv, goldv);
+
+    fk::vector<TestType, mem_type::view> gold_v(gold);
+    std::vector<TestType> testv_v;
+    testv_v = gold_v.to_std();
+    compare_vectors(testv_v, goldv);
   }
 } // end fk::vector constructors, copy/move
 
 TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
+
   SECTION("subscript operator (modifying)")
   {
     fk::vector<TestType> test(5);
+    fk::vector<TestType> own(5);
+    fk::vector<TestType, mem_type::view> test_v(own);
     // clang-format off
     test(0) = 2; test(1) = 3; test(2) = 4; test(3) = 5; test(4) = 6;
+    test_v(0) = 2; test_v(1) = 3; test_v(2) = 4; test_v(3) = 5; test_v(4) = 6;
     // clang-format on
     REQUIRE(test == gold);
-    TestType val = test(4);
+    REQUIRE(test_v == gold);
+    TestType const val   = test(4);
+    TestType const val_v = test_v(4);
     REQUIRE(val == 6);
+    REQUIRE(val_v == 6);
   }
-  SECTION("subscript operator (const)") { REQUIRE(gold(4) == 6); }
+  SECTION("subscript operator (const)")
+  {
+    REQUIRE(gold(4) == 6);
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    REQUIRE(gold_v(4) == 6);
+  }
   SECTION("comparison operator") // this gets used in every REQUIRE
   SECTION("comparison (negated) operator")
   {
     fk::vector<TestType> test(gold);
-    test(4) = 333;
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> test_v(gold_copy);
+    fk::vector<TestType> const empty;
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+
+    test(4)   = 333;
+    test_v(4) = 333;
+
     REQUIRE(test != gold);
+    REQUIRE(test_v != gold);
+    REQUIRE(empty != gold);
+    REQUIRE(empty_v != gold);
   }
   SECTION("less than operator")
   {
     fk::vector<TestType> const empty;
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    ;
     fk::vector<TestType> const gold_copy = gold;
+    fk::vector<TestType, mem_type::view> const gold_copy_v(gold);
+
     fk::vector<TestType> const gold_prefix{1, 2, 3, 4};
+    fk::vector<TestType, mem_type::view> const gold_prefix_v(gold_prefix);
     fk::vector<TestType> const mismatch{2, 3, 5, 5, 6};
+    fk::vector<TestType, mem_type::view> const mismatch_v(mismatch);
+
     // equal vectors return false
     REQUIRE(!(gold_copy < gold));
+    REQUIRE(!(gold_copy_v < gold));
     // empty range less than non-empty range
     REQUIRE(empty < gold);
+    REQUIRE(empty_v < gold);
     // a prefix is less than the complete range
     REQUIRE(gold_prefix < gold);
+    REQUIRE(gold_prefix_v < gold);
     // otherwise compare on first mismatch
     REQUIRE(gold < mismatch);
+    REQUIRE(gold < mismatch_v);
     // also, empty ranges are equal
     REQUIRE(!(empty < empty));
+    REQUIRE(!(empty < empty_v));
   }
 
   SECTION("addition operator")
   {
     fk::vector<TestType> const in1{1, 1, 1, 1, 1};
+    fk::vector<TestType, mem_type::view> const in1_v(in1);
     fk::vector<TestType> const in2{1, 2, 3, 4, 5};
+    fk::vector<TestType, mem_type::view> const in2_v(in2);
     REQUIRE((in1 + in2) == gold);
+    REQUIRE((in1_v + in2_v) == gold);
+    REQUIRE((in1 + in2_v) == gold);
+    REQUIRE((in1_v + in2) == gold);
   }
   SECTION("subtraction operator")
   {
     fk::vector<TestType> const in1{3, 4, 5, 6, 7};
+    fk::vector<TestType, mem_type::view> const in1_v(in1);
     fk::vector<TestType> const in2{1, 1, 1, 1, 1};
+    fk::vector<TestType, mem_type::view> const in2_v(in2);
     REQUIRE((in1 - in2) == gold);
+    REQUIRE((in1_v - in2_v) == gold);
+    REQUIRE((in1 - in2_v) == gold);
+    REQUIRE((in1_v - in2) == gold);
   }
-  SECTION("vector*vector operator") { REQUIRE((gold * gold) == 90); }
+  SECTION("vector*vector operator")
+  {
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    REQUIRE((gold * gold) == 90);
+    REQUIRE((gold_v * gold_v) == 90);
+    REQUIRE((gold_v * gold) == 90);
+    REQUIRE((gold * gold_v) == 90);
+  }
   SECTION("vector*matrix operator")
   {
     // clang-format off
-    fk::matrix<TestType> const testm{
+    fk::matrix<TestType> const test_mat{
       {12, 22, 32},
       {13, 23, 33},
       {14, 24, 34},
       {15, 25, 35},
       {16, 26, 36},
     }; // clang-format on
-    fk::vector<TestType> const testv{2, 3, 4, 5, 6};
+    fk::vector<TestType> const test_vect{2, 3, 4, 5, 6};
+    fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
     fk::vector<TestType> const gold{290, 490, 690};
-    REQUIRE((testv * testm) == gold);
+
+    REQUIRE((test_vect * test_mat) == gold);
+    REQUIRE((test_vect_v * test_mat) == gold);
   }
   SECTION("vector*scalar operator")
   {
-    TestType scale = static_cast<TestType>(-2);
+    TestType const scale = static_cast<TestType>(-2);
     fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
     REQUIRE((gold * scale) == gold_scaled);
+    REQUIRE((gold_v * scale) == gold_scaled);
   }
   SECTION("vector (as matrix) kron product")
   {
+    fk::vector<TestType, mem_type::view> const gold_v(gold);
+
     fk::vector<TestType> const identity{1};
+    fk::vector<TestType, mem_type::view> const identity_v(identity);
     REQUIRE(identity.single_column_kron(gold) == gold);
+    REQUIRE(identity_v.single_column_kron(gold) == gold);
+    REQUIRE(identity.single_column_kron(gold_v) == gold);
+    REQUIRE(identity_v.single_column_kron(gold_v) == gold);
 
     fk::vector<TestType> const repeat{1, 1};
-    fk::vector<TestType> gold_copy = gold;
-    REQUIRE(repeat.single_column_kron(gold) == gold_copy.concat(gold));
+    fk::vector<TestType, mem_type::view> const repeat_v(repeat);
+    fk::vector<TestType> const gold_repeated =
+        fk::vector<TestType>(gold).concat(gold);
+    REQUIRE(repeat.single_column_kron(gold) == gold_repeated);
+    REQUIRE(repeat.single_column_kron(gold_v) == gold_repeated);
+    REQUIRE(repeat_v.single_column_kron(gold) == gold_repeated);
+    REQUIRE(repeat_v.single_column_kron(gold_v) == gold_repeated);
 
     fk::vector<TestType> const zeros(gold.size());
     fk::vector<TestType> const alternate{1, 0, 2, 0};
-    fk::vector<TestType> ans;
-    ans.concat(gold).concat(zeros).concat(gold * 2).concat(zeros);
+    fk::vector<TestType, mem_type::view> const alternate_v(alternate);
+    fk::vector<TestType> const ans =
+        fk::vector<TestType>(gold).concat(zeros).concat(gold * 2).concat(zeros);
     REQUIRE(ans == alternate.single_column_kron(gold));
+    REQUIRE(ans == alternate_v.single_column_kron(gold_v));
+    REQUIRE(ans == alternate_v.single_column_kron(gold));
+    REQUIRE(ans == alternate.single_column_kron(gold_v));
   }
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
-  SECTION("size(): the number of elements") { REQUIRE(gold.size() == 5); }
-  SECTION("data(): const addr to element") { REQUIRE(*gold.data(4) == 6); }
+  fk::vector<TestType, mem_type::view> const gold_v(
+      gold); // increases ref_count
+  SECTION("size(): the number of elements")
+  {
+    REQUIRE(gold.size() == 5);
+    REQUIRE(gold_v.size() == 5);
+  }
+  SECTION("data(): const addr to element")
+  {
+    REQUIRE(*gold.data(4) == 6);
+    REQUIRE(*gold_v.data(4) == 6);
+  }
   SECTION("print out the values")
   {
     // (effectively) redirect cout
     std::streambuf *old_cout_stream_buf = std::cout.rdbuf();
     std::ostringstream test_str;
-    std::cout.rdbuf(test_str.rdbuf());
+    std::ostringstream test_str_v;
+
     // generate the output (into test_str)
+    std::cout.rdbuf(test_str.rdbuf());
     gold.print("golden vector");
+    std::cout.rdbuf(test_str_v.rdbuf());
+    gold_v.print("golden vector");
+
     // restore cout destination
     std::cout.rdbuf(old_cout_stream_buf);
-    std::string golden_string;
+    std::string golden_string, golden_string_v;
     if constexpr (std::is_floating_point<TestType>::value)
     {
-      golden_string = "golden vector\n  2.0000e+00  3.0000e+00  "
-                      "4.0000e+00  5.0000e+00  6.0000e+00\n";
+      golden_string =
+          "golden vector(owner, ref_count = 2)\n  2.0000e+00  3.0000e+00  "
+          "4.0000e+00  5.0000e+00  6.0000e+00\n";
+      golden_string_v = "golden vector(view)\n  2.0000e+00  3.0000e+00  "
+                        "4.0000e+00  5.0000e+00  6.0000e+00\n";
     }
     else
     {
-      golden_string = "golden vector\n2 3 "
+      golden_string = "golden vector(owner, ref_count = 2)\n2 3 "
                       "4 5 6 \n";
+
+      golden_string_v = "golden vector(view)\n2 3 "
+                        "4 5 6 \n";
     }
     REQUIRE(test_str.str() == golden_string);
+    REQUIRE(test_str_v.str() == golden_string_v);
   }
   SECTION("dump to octave")
   {
     gold.dump_to_octave("test_out.dat");
+    gold_v.dump_to_octave("test_out_v.dat");
     std::ifstream data_stream("test_out.dat");
-    std::string test_string((std::istreambuf_iterator<char>(data_stream)),
-                            std::istreambuf_iterator<char>());
+    std::ifstream data_stream_v("test_out_v.dat");
+    std::string const test_string((std::istreambuf_iterator<char>(data_stream)),
+                                  std::istreambuf_iterator<char>());
+    std::string const test_string_v(
+        (std::istreambuf_iterator<char>(data_stream_v)),
+        std::istreambuf_iterator<char>());
     std::remove("test_out.dat");
+    std::remove("test_out_v.dat");
+
     std::string golden_string;
     if constexpr (std::is_floating_point<TestType>::value)
     {
@@ -256,41 +503,106 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     }
 
     REQUIRE(test_string == golden_string);
+    REQUIRE(test_string_v == golden_string);
   }
   SECTION("vector resize")
   {
     fk::vector<TestType> test_reduced{2, 3, 4, 5, 6, 7, 8};
+    // fk::vector<TestType, mem_type::view> test_reduced_v(test_reduced);
+    // disabled
+
     fk::vector<TestType> const gold_enlarged{2, 3, 4, 0, 0};
+
     fk::vector<TestType> test_enlarged{2, 3, 4};
+    // fk::vector<TestType, mem_type::view> test_enlarged_v(test_enlarged);
+
     test_reduced.resize(gold.size());
     test_enlarged.resize(gold.size());
+    // test_reduced_v.resize(gold.size());
+    // test_enlarged_v.resize(gold.size());
+
     REQUIRE(test_reduced == gold);
     REQUIRE(test_enlarged == gold_enlarged);
+
+    // REQUIRE(test_reduced_v == gold);
+    // REQUIRE(test_enlarged_v == gold_enlarged);
   }
 
   SECTION("vector concatenation")
   {
-    fk::vector<TestType> test_left        = {2, 3, 4};
+    fk::vector<TestType> test_left = {2, 3, 4};
+    // fk::vector<TestType, mem_type::view> test_left_v(test_left); // disabled
     fk::vector<TestType> const test_right = {5, 6};
-    fk::vector<TestType> empty;
-    fk::vector<TestType> gold_copy = gold;
+    fk::vector<TestType, mem_type::view> const test_right_v(test_right);
 
     REQUIRE(test_left.concat(test_right) == gold);
+    test_left.resize(3) = fk::vector<TestType>({2, 3, 4});
+    REQUIRE(test_left.concat(test_right_v) == gold);
+
+    // REQUIRE(test_left_v.concat(test_right_v) == gold); // disabled
+
+    fk::vector<TestType> empty;
+    // have to make a copy to extract a view from,
+    // because you can't concat on an owner w/ outstanding views
+    fk::vector<TestType> empty_copy(empty);
+    fk::vector<TestType, mem_type::view> empty_v(empty_copy);
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+
     REQUIRE(empty.concat(gold) == gold);
     empty.resize(0);
-    REQUIRE(gold_copy.concat(empty) == gold);
+    REQUIRE(empty.concat(gold_v) == gold);
+    empty.resize(0);
+
+    // REQUIRE(empty_v.concat(gold) == gold);
+    // empty_v.resize(0);
+    // REQUIRE(empty_v.concat(gold_v) == gold);
+    // empty_v.resize(0);
+
+    // non-const gold copy I can concat with
+    fk::vector<TestType> gold_2(gold);
+    REQUIRE(gold_2.concat(empty) == gold);
+    gold_2.resize(gold.size()) = gold;
+    REQUIRE(gold_2.concat(empty_v) == gold);
+    gold_2.resize(gold.size()) = gold;
+    // REQUIRE(gold_copy_v.concat(empty) == gold);
+    // gold_copy_v = gold_copy;
+    // REQUIRE(gold_copy_v.concat(empty_v) == gold);
   }
   SECTION("vector set")
   {
     fk::vector<TestType> vector(5);
+    fk::vector<TestType> vector_copy(vector);
+    fk::vector<TestType, mem_type::view> vector_v(vector_copy);
 
     fk::vector<TestType> const empty;
     fk::vector<TestType> const begin  = {2, 3};
     fk::vector<TestType> const middle = {3, 4, 5};
     fk::vector<TestType> const end    = {6};
+    fk::vector<TestType> const empty_copy(empty);
+    fk::vector<TestType> const begin_copy(begin);
+    fk::vector<TestType> const middle_copy(middle);
+    fk::vector<TestType> const end_copy(end);
+
+    fk::vector<TestType, mem_type::view> const empty_v(empty_copy);
+    fk::vector<TestType, mem_type::view> const begin_v(begin_copy);
+    fk::vector<TestType, mem_type::view> const middle_v(middle_copy);
+    fk::vector<TestType, mem_type::view> const end_v(end_copy);
 
     REQUIRE(vector.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
             gold);
+    vector = fk::vector<TestType>(5);
+    REQUIRE(
+        vector.set(0, begin_v).set(0, empty_v).set(1, middle_v).set(4, end) ==
+        gold);
+    vector = fk::vector<TestType>(5);
+    REQUIRE(vector_v.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
+            gold);
+    vector_v = vector;
+    REQUIRE(vector_v.set(0, begin_v)
+                .set(0, empty_v)
+                .set(1, middle_v)
+                .set(4, end_v) == gold);
   }
   SECTION("vector extract")
   {
@@ -301,28 +613,42 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(test_begin == gold.extract(0, 2));
     REQUIRE(test_middle == gold.extract(2, 3));
     REQUIRE(test_end == gold.extract(3, 4));
+
+    REQUIRE(test_begin == gold_v.extract(0, 2));
+    REQUIRE(test_middle == gold_v.extract(2, 3));
+    REQUIRE(test_end == gold_v.extract(3, 4));
   }
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};
+    fk::vector<TestType> test_copy(test);
+    fk::vector<TestType, mem_type::view> test_v(test_copy);
     fk::vector<TestType> const after{0, 2, 3, 4};
     std::transform(test.begin(), test.end(), test.begin(),
                    std::bind1st(std::plus<TestType>(), 1));
+    std::transform(test_v.begin(), test_v.end(), test_v.begin(),
+                   std::bind1st(std::plus<TestType>(), 1));
     REQUIRE(test == after);
+    REQUIRE(test_copy == after);
+    REQUIRE(test_v == after);
   }
 
   SECTION("vector maximum element")
   {
     fk::vector<TestType> const test{5, 6, 11, 8};
-    TestType max = 11;
+    fk::vector<TestType, mem_type::view> const test_v(test);
+    TestType const max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
+    REQUIRE(*std::max_element(test_v.begin(), test_v.end()) == max);
   }
 
   SECTION("vector sum of elements")
   {
     fk::vector<TestType> const test{1, 2, 3, 4, 5, 6, 7, 8};
-    TestType max = 36;
-    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == max);
+    fk::vector<TestType, mem_type::view> const test_v(test);
+    TestType const sum = 36;
+    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == sum);
+    REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0.0) == sum);
   }
 } // end fk::vector utilities
 
