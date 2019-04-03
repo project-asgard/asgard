@@ -998,7 +998,25 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       test_copy.invert();
 
       // A * inv(A) == I
-      REQUIRE(test * test_copy == eye<TestType>(2));
+      fk::matrix<TestType> identity = test * test_copy;
+
+      // this is to have a temporarily more relaxed comparison for the
+      // inversions
+      TestType const compare = [] {
+        if constexpr (std::is_same<TestType, double>::value)
+        {
+          return static_cast<TestType>(1e-16);
+        }
+        return static_cast<TestType>(1e-7);
+      }();
+      auto const normalize = [compare](fk::matrix<TestType> &matrix) {
+        std::transform(matrix.begin(), matrix.end(), matrix.begin(),
+                       [compare](TestType &elem) {
+                         return std::abs(elem) < compare ? 0.0 : elem;
+                       });
+      };
+      normalize(identity);
+      REQUIRE(identity == eye<TestType>(2));
 
       // we haven't implemented a matrix inversion routine for integral types;
       // that function is disabled for now in the class if instantiated for
