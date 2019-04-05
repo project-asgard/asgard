@@ -1622,6 +1622,13 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     fk::matrix<TestType> const test_cp(test);
     assert(test_cp.get_num_views() == 0);
     assert(test.get_num_views() == 2);
+
+    // test that view count gets decremented when views go out of scope
+    {
+      fk::matrix<TestType, mem_type::view> test_view_3(test);
+      assert(test.get_num_views() == 3);
+    }
+    assert(test.get_num_views() == 2);
   }
 
 } // end fk::matrix utilities
