@@ -1096,10 +1096,10 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
                            int const start_col, int const stop_col)
     : ref_count_(owner.ref_count_)
 {
-  data_  = nullptr;
-  nrows_ = 0;
-  ncols_ = 0;
-  nrows_ = 0;
+  data_   = nullptr;
+  nrows_  = 0;
+  ncols_  = 0;
+  stride_ = 0;
 
   int const view_rows = stop_row - start_row + 1;
   int const view_cols = stop_col - start_col + 1;
@@ -1112,17 +1112,10 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
     assert(stop_row >= start_row);
     assert(stop_col >= stop_col);
 
-    data_   = new P[view_rows * view_cols]();
+    data_   = owner.data(start_row, start_col);
     nrows_  = view_rows;
     ncols_  = view_cols;
-    stride_ = view_rows; // temp
-    for (int i = start_col; i <= stop_col; ++i)
-    {
-      for (int j = start_row; j <= stop_row; ++j)
-      {
-        (*this)(j - start_row, i - start_col) = owner(j, i);
-      }
-    }
+    stride_ = owner.nrows();
   }
 }
 
@@ -1228,6 +1221,7 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> &&a)
   {
     assert(a.ref_count_.use_count() == 1);
   }
+
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
 
@@ -1249,7 +1243,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
 
   if constexpr (mem == mem_type::owner)
   {
-    assert(a.ref_count_.use_count() == 1);
+    assert(ref_count_.use_count() == 1 && a.ref_count_.use_count() == 1);
   }
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);

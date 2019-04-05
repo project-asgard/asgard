@@ -780,17 +780,20 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     testi_v = gold;
     REQUIRE(testi_v == goldi);
 
-    testi_own = fk::matrix<int>(5, 3);
-    fk::matrix<int, mem_type::view> testi_v2(
-        testi_own); // temp, after views finished this will reset after last
-                    // call
-    testi_v2 = gold_v;
+    for (int i = 0; i < testi_own.nrows(); ++i)
+    {
+      for (int j = 0; j < testi_own.ncols(); ++j)
+      {
+        testi_own(i, j) = 0;
+      }
+    }
+
+    testi_v = gold_v;
     REQUIRE(testi_v == goldi);
 
     fk::matrix<float> testf(5, 3);
     fk::matrix<float> testf_own(5, 3);
     fk::matrix<float, mem_type::view> testf_v(testf_own);
-
     testf = gold;
     REQUIRE(testf == goldf);
     testf = fk::matrix<float>(5, 3);
@@ -800,11 +803,15 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     testf_v = gold;
     REQUIRE(testf_v == goldf);
 
-    testf_own = fk::matrix<float>(5, 3);
-    fk::matrix<float, mem_type::view> testf_v2(
-        testf_own); // temp, after views finished this will reset after last
-                    // call
-    testf_v2 = gold_v;
+    for (int i = 0; i < testf_own.nrows(); ++i)
+    {
+      for (int j = 0; j < testf_own.ncols(); ++j)
+      {
+        testf_own(i, j) = 0;
+      }
+    }
+
+    testf_v = gold_v;
     REQUIRE(testf_v == goldf);
 
     fk::matrix<double> testd(5, 3);
@@ -814,17 +821,21 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     testd = gold;
     REQUIRE(testd == goldd);
     testd = fk::matrix<double>(5, 3);
+
     testd = gold_v;
     REQUIRE(testd == goldd);
 
     testd_v = gold;
     REQUIRE(testd_v == goldd);
 
-    testd_own = fk::matrix<double>(5, 3);
-    fk::matrix<double, mem_type::view> testd_v2(
-        testd_own); // temp, after views finished this will reset after last
-                    // call
-    testd_v2 = gold_v;
+    for (int i = 0; i < testd_own.nrows(); ++i)
+    {
+      for (int j = 0; j < testd_own.ncols(); ++j)
+      {
+        testd_own(i, j) = 0;
+      }
+    }
+    testd_v = gold_v;
     REQUIRE(testd_v == goldd);
   }
   SECTION("move construction")
@@ -923,11 +934,11 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
 
     fk::matrix<TestType> testfk(5, 3);
     own = testfk;
-    fk::matrix<TestType, mem_type::view> test_v2(own); // temp
-    testfk  = vfk;
-    test_v2 = vfk;
+
+    testfk = vfk;
+    test_v = vfk;
     REQUIRE(testfk == gold);
-    REQUIRE(test_v2 == gold);
+    REQUIRE(test_v == gold);
   }
 
   SECTION("views constructor")
