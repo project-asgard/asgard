@@ -98,8 +98,6 @@ public:
   //
   // math operators
   //
-  // FIXME these return an owner - we need to allocate new space for results
-  // could change to provide pre-allocated region for results
 
   template<mem_type omem>
   vector<P> operator+(vector<P, omem> const &right) const;
@@ -119,7 +117,7 @@ public:
   int size() const { return size_; }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
-  // FIXME need to offset for view
+  // this can be offsetted for views
   P *data(int const elem = 0) const { return &data_[elem]; }
   //
   // utility functions
@@ -146,7 +144,6 @@ public:
   const_iterator end() const { return data() + size(); }
 
 private:
-  // TODO template on ownership
   P *data_;  //< pointer to elements
   int size_; //< dimension
   std::shared_ptr<int> ref_count_ = nullptr;
@@ -478,7 +475,6 @@ fk::vector<P, mem>::~vector()
 template<typename P, mem_type mem>
 fk::vector<P, mem>::vector(vector<P, mem> const &a) : size_{a.size_}
 {
-  // FIXME is this the right thing
   if constexpr (mem == mem_type::owner)
   {
     data_      = new P[a.size()];
@@ -518,6 +514,10 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 template<typename P, mem_type mem>
 fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
 {
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(a.ref_count_.use_count() == 1);
+  }
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
   a.data_ = nullptr; // b/c a's destructor will be called
@@ -533,10 +533,13 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
   if (&a == this)
     return *this;
 
-  assert(size() == a.size());
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(a.ref_count_.use_count() == 1);
+  }
 
-  size_ = a.size_;
-  // FIXME is this the right thing
+  assert(size() == a.size());
+  size_      = a.size_;
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
   P *temp{data_};
