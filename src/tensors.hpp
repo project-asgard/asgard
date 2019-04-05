@@ -271,6 +271,9 @@ public:
   void print(std::string const label = "") const;
   void dump_to_octave(char const *name) const;
 
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  int get_num_views() const;
+
   typedef P *iterator;
   typedef const P *const_iterator;
   iterator begin() { return data(); }
@@ -282,6 +285,7 @@ private:
   P *data_;   //< pointer to elements
   int nrows_; //< row dimension
   int ncols_; //< column dimension
+  std::shared_ptr<int> ref_count_ = nullptr;
 };
 } // namespace fk
 
@@ -979,7 +983,9 @@ fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
 
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix() : data_{nullptr}, nrows_{0}, ncols_{0}
+fk::matrix<P, mem>::matrix()
+    : data_{nullptr}, nrows_{0}, ncols_{0}, ref_count_{std::make_shared<int>(0)}
+
 {}
 
 // right now, initializing with zero for e.g. passing in answer vectors to blas
@@ -988,7 +994,9 @@ fk::matrix<P, mem>::matrix() : data_{nullptr}, nrows_{0}, ncols_{0}
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P, mem>::matrix(int M, int N)
-    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}
+    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}, ref_count_{
+                                                       std::make_shared<int>(0)}
+
 {}
 
 template<typename P, mem_type mem>
@@ -997,7 +1005,9 @@ fk::matrix<P, mem>::matrix(
     std::initializer_list<std::initializer_list<P>> llist)
     : data_{new P[llist.size() * llist.begin()->size()]},
       nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
-                                                  llist.begin()->size())}
+                                                  llist.begin()->size())},
+      ref_count_{std::make_shared<int>(0)}
+
 {
   int row_idx = 0;
   for (auto const &row_list : llist)
@@ -1020,6 +1030,7 @@ template<mem_type, typename>
 fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
                            int const start_row, int const stop_row,
                            int const start_col, int const stop_col)
+    : ref_count_(owner.ref_count_)
 {
   data_  = nullptr;
   nrows_ = 0;
@@ -1061,7 +1072,11 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner)
 template<typename P, mem_type mem>
 fk::matrix<P, mem>::~matrix()
 {
-  delete[] data_;
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(ref_count_.use_count() == 1);
+    delete[] data_;
+  }
 }
 
 //
@@ -1069,7 +1084,9 @@ fk::matrix<P, mem>::~matrix()
 //
 template<typename P, mem_type mem>
 fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
-    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
+    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()},
+      ref_count_{std::make_shared<int>(0)}
+
 {
   memcpy(data_, a.data(), a.size() * sizeof(P));
 }
@@ -1099,7 +1116,9 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
 template<typename P, mem_type mem>
 template<typename PP, mem_type omem, mem_type, typename>
 fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
-    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()}
+    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()},
+      ref_count_{std::make_shared<int>(0)}
+
 {
   for (auto j = 0; j < a.ncols(); ++j)
     for (auto i = 0; i < a.nrows(); ++i)
@@ -1140,6 +1159,13 @@ template<typename P, mem_type mem>
 fk::matrix<P, mem>::matrix(matrix<P, mem> &&a)
     : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}
 {
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(a.ref_count_.use_count() == 1);
+  }
+  ref_count_ = std::make_shared<int>(0);
+  ref_count_.swap(a.ref_count_);
+
   a.data_  = nullptr; // b/c a's destructor will be called
   a.nrows_ = 0;
   a.ncols_ = 0;
@@ -1155,6 +1181,13 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
     return *this;
 
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
+
+  if constexpr (mem == mem_type::owner)
+  {
+    assert(a.ref_count_.use_count() == 1);
+  }
+  ref_count_ = std::make_shared<int>(0);
+  ref_count_.swap(a.ref_count_);
 
   nrows_ = a.nrows();
   ncols_ = a.ncols();
@@ -1666,7 +1699,8 @@ template<mem_type, typename>
 fk::matrix<P> &
 fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
 {
-  // TODO assert ref count == 1
+  assert(ref_count_.use_count() == 1);
+
   assert(rows >= 0);
   assert(cols >= 0);
   if (rows == 0 || cols == 0)
@@ -1782,4 +1816,13 @@ void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
     std::cout << std::setprecision(4) << '\n';
   }
   std::cout.rdbuf(coutbuf);
+}
+
+// get number of oustanding views for an owner
+
+template<typename P, mem_type mem>
+template<mem_type, typename>
+int fk::matrix<P, mem>::get_num_views() const
+{
+  return ref_count_.use_count() - 1;
 }

@@ -930,10 +930,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     REQUIRE(test_v2 == gold);
   }
 
-  SECTION("views constructor") // FIXME after ref counting is impl. be sure to
-                               // check those ... also in copy/move
-                               // FIXME after data sharing is impl. be sure to
-                               // check that as well
+  SECTION("views constructor")
   {
     // default one
     fk::matrix<TestType> const base(gold);
@@ -1599,6 +1596,32 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     TestType const max = 36;
     REQUIRE(std::accumulate(test.begin(), test.end(), 0) == max);
     REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0) == max);
+  }
+
+  SECTION("matrix ref counting")
+  {
+    // on construction, matrices have 0 views
+    fk::matrix<TestType> const test;
+    assert(test.get_num_views() == 0);
+    fk::matrix<TestType> const test_init({{1}});
+    assert(test_init.get_num_views() == 0);
+    fk::matrix<TestType> const test_sz(1, 1);
+    assert(test_sz.get_num_views() == 0);
+    fk::matrix<TestType> const test_conv(fk::matrix<int>(1, 1));
+    assert(test_conv.get_num_views() == 0);
+    fk::matrix<TestType> const test_copy(test);
+    assert(test_copy.get_num_views() == 0);
+
+    // creating views increments view count
+    fk::matrix<TestType, mem_type::view> const test_view(test);
+    assert(test.get_num_views() == 1);
+    fk::matrix<TestType, mem_type::view> const test_view_2(test);
+    assert(test.get_num_views() == 2);
+
+    // copies have a fresh view count
+    fk::matrix<TestType> const test_cp(test);
+    assert(test_cp.get_num_views() == 0);
+    assert(test.get_num_views() == 2);
   }
 
 } // end fk::matrix utilities
