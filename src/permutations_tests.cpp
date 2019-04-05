@@ -46,9 +46,10 @@ TEST_CASE("Permutations builders", "[permutations]")
       std::string file_base = out_base + std::to_string(dims[i]) + "_" +
                               std::to_string(ns[i]) + "_" +
                               (ord_by_ns[i] ? one : zero);
-      std::string file_path      = file_base + ".dat";
-      std::string count_path     = file_base + "_count.dat";
-      fk::matrix<int> const gold = read_matrix_from_txt_file(file_path);
+      std::string file_path  = file_base + ".dat";
+      std::string count_path = file_base + "_count.dat";
+      fk::matrix<int> const gold =
+          fk::matrix<int>(read_matrix_from_txt_file(file_path));
       int const count_gold =
           static_cast<int>(read_scalar_from_txt_file(count_path));
       REQUIRE(get_leq_permutations(dims[i], ns[i], ord_by_ns[i]) == gold);
@@ -64,9 +65,10 @@ TEST_CASE("Permutations builders", "[permutations]")
       std::string file_base = out_base + std::to_string(dims[i]) + "_" +
                               std::to_string(ns[i]) + "_" +
                               (ord_by_ns[i] ? one : zero);
-      std::string file_path      = file_base + ".dat";
-      std::string count_path     = file_base + "_count.dat";
-      fk::matrix<int> const gold = read_matrix_from_txt_file(file_path);
+      std::string file_path  = file_base + ".dat";
+      std::string count_path = file_base + "_count.dat";
+      fk::matrix<int> const gold =
+          fk::matrix<int>(read_matrix_from_txt_file(file_path));
       int const count_gold =
           static_cast<int>(read_scalar_from_txt_file(count_path));
       REQUIRE(get_max_permutations(dims[i], ns[i], ord_by_ns[i]) == gold);
@@ -99,7 +101,8 @@ TEST_CASE("Permutations builders", "[permutations]")
                              "index_leq_max_4d_10s_4m_count.dat";
 
     fk::matrix<int> const gold = [=] {
-      fk::matrix<int> indices = read_matrix_from_txt_file(gold_path);
+      fk::matrix<int> indices =
+          fk::matrix<int>(read_matrix_from_txt_file(gold_path));
 
       // output values are indices; must adjust for matlab 1-indexing
       std::transform(indices.begin(), indices.end(), indices.begin(),

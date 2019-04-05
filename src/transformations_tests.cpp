@@ -32,7 +32,8 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     TestType h1 = static_cast<TestType>(read_scalar_from_txt_file(h1_string));
     TestType g0 = static_cast<TestType>(read_scalar_from_txt_file(g0_string));
     TestType g1 = static_cast<TestType>(read_scalar_from_txt_file(g1_string));
-    fk::matrix<TestType> phi_co = read_matrix_from_txt_file(phi_string);
+    fk::matrix<TestType> phi_co =
+        fk::matrix<TestType>(read_matrix_from_txt_file(phi_string));
     TestType scale_co =
         static_cast<TestType>(read_scalar_from_txt_file(scale_string));
 
@@ -65,12 +66,18 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     std::string phi_string   = out_base + "phi_co.dat";
     std::string scale_string = out_base + "scale_co.dat";
 
-    fk::matrix<TestType> h0       = read_matrix_from_txt_file(h0_string);
-    fk::matrix<TestType> h1       = read_matrix_from_txt_file(h1_string);
-    fk::matrix<TestType> g0       = read_matrix_from_txt_file(g0_string);
-    fk::matrix<TestType> g1       = read_matrix_from_txt_file(g1_string);
-    fk::matrix<TestType> phi_co   = read_matrix_from_txt_file(phi_string);
-    fk::matrix<TestType> scale_co = read_matrix_from_txt_file(scale_string);
+    fk::matrix<TestType> h0 =
+        fk::matrix<TestType>(read_matrix_from_txt_file(h0_string));
+    fk::matrix<TestType> h1 =
+        fk::matrix<TestType>(read_matrix_from_txt_file(h1_string));
+    fk::matrix<TestType> g0 =
+        fk::matrix<TestType>(read_matrix_from_txt_file(g0_string));
+    fk::matrix<TestType> g1 =
+        fk::matrix<TestType>(read_matrix_from_txt_file(g1_string));
+    fk::matrix<TestType> phi_co =
+        fk::matrix<TestType>(read_matrix_from_txt_file(phi_string));
+    fk::matrix<TestType> scale_co =
+        fk::matrix<TestType>(read_matrix_from_txt_file(scale_string));
 
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
@@ -194,9 +201,10 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     dimension const dim =
         make_PDE<TestType>(PDE_opts::continuity_1, levels, degree)
             ->get_dimensions()[0];
-    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
-        "../testing/generated-inputs/transformations/operator_two_scale_" +
-        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> const gold =
+        fk::matrix<TestType>(read_matrix_from_txt_file(
+            "../testing/generated-inputs/transformations/operator_two_scale_" +
+            std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
     fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }
@@ -209,9 +217,10 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     dimension const dim =
         make_PDE<TestType>(PDE_opts::continuity_1, levels, degree)
             ->get_dimensions()[0];
-    fk::matrix<TestType> const gold = read_matrix_from_txt_file(
-        "../testing/generated-inputs/transformations/operator_two_scale_" +
-        std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
+    fk::matrix<TestType> const gold =
+        fk::matrix<TestType>(read_matrix_from_txt_file(
+            "../testing/generated-inputs/transformations/operator_two_scale_" +
+            std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
     fk::matrix<TestType> const test = operator_two_scale<TestType>(dim);
     relaxed_comparison(gold, test);
   }

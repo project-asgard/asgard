@@ -34,7 +34,8 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
     for (size_t i = 0; i < levels.size(); ++i)
     {
       std::string file_path = base_path + std::to_string(levels[i]) + ".dat";
-      fk::matrix<int> const gold = read_matrix_from_txt_file(file_path);
+      fk::matrix<int> const gold =
+          fk::matrix<int>(read_matrix_from_txt_file(file_path));
       REQUIRE(make_1d_connectivity(levels[i]) == gold);
     }
   }

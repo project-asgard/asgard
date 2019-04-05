@@ -292,7 +292,7 @@ fk::matrix<int> get_leq_max_indices(list_set const lists, int const num_dims,
         get_leq_max_indices(lists, num_dims - 1, balance, max_val);
     result.set_submatrix(row_pos, 0, partial_result);
     fk::matrix<int> last_col(num_rows, 1);
-    last_col = std::vector<int>(num_rows, i);
+    last_col = fk::vector<int>(std::vector<int>(num_rows, i));
     result.set_submatrix(row_pos, num_dims - 1, last_col);
     row_pos += num_rows;
   }

@@ -402,10 +402,10 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
 
   fk::matrix<R> fmwt(degree * max_level, degree * max_level);
 
-  fk::matrix<R> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
+  fk::matrix<R> const h_block = fk::matrix<R>(h0.nrows(), h0.ncols() * 2)
                                     .set_submatrix(0, 0, h0)
                                     .set_submatrix(0, h0.ncols(), h1);
-  fk::matrix<R> const g_block = fk::matrix<P>(g0.nrows(), g0.ncols() * 2)
+  fk::matrix<R> const g_block = fk::matrix<R>(g0.nrows(), g0.ncols() * 2)
                                     .set_submatrix(0, 0, g0)
                                     .set_submatrix(0, g0.ncols(), g1);
 
@@ -417,7 +417,7 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
     fmwt.set_submatrix(degree * (i + max_level / 2), 2 * degree * i, g_block);
   }
 
-  fk::matrix<R> fmwt_comp = eye<P>(degree * max_level, degree * max_level);
+  fk::matrix<R> fmwt_comp = eye<R>(degree * max_level, degree * max_level);
 
   int const n = std::floor(std::log2(max_level));
   for (int j = 1; j <= n; j++)
@@ -432,7 +432,7 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
       int const cn = std::pow(2.0, n - j + 1.0) * degree;
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
-      cfmwt.set_submatrix(cn, cn, eye<P>(degree * max_level - cn));
+      cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));
       cfmwt.set_submatrix(0, 0, fmwt.extract_submatrix(0, 0, cn / 2, cn));
       cfmwt.set_submatrix(
           cn / 2, 0,
