@@ -14,6 +14,7 @@
 #include "pde/pde_continuity1.hpp"
 #include "pde/pde_continuity2.hpp"
 #include "pde/pde_continuity3.hpp"
+#include "pde/pde_continuity6.hpp"
 #include "tensors.hpp"
 
 //
@@ -30,6 +31,7 @@ enum class PDE_opts
   continuity_1,
   continuity_2,
   continuity_3,
+  continuity_6,
   // FIXME the below have not been implemented according to the
   // new specification. david is working on that in the matlab
   vlasov4,  // PDE corresponding to Fig. 4 in FIXME
@@ -47,6 +49,7 @@ using pde_map_t                    = std::map<std::string, PDE_opts>;
 static pde_map_t const pde_mapping = {{"continuity_1", PDE_opts::continuity_1},
                                       {"continuity_2", PDE_opts::continuity_2},
                                       {"continuity_3", PDE_opts::continuity_3},
+                                      {"continuity_6", PDE_opts::continuity_6},
                                       {"pde_user", PDE_opts::pde_user},
                                       {"vlasov4", PDE_opts::vlasov4},
                                       {"vlasov7", PDE_opts::vlasov7},
@@ -73,6 +76,8 @@ make_PDE(PDE_opts choice, int const level = -1, int const degree = -1)
     return std::make_unique<PDE_continuity_2d<P>>(level, degree);
   case PDE_opts::continuity_3:
     return std::make_unique<PDE_continuity_3d<P>>(level, degree);
+  case PDE_opts::continuity_6:
+    return std::make_unique<PDE_continuity_6d<P>>(level, degree);
 
   // TODO not yet implemented, replace return with appropriate types
   case PDE_opts::vlasov4:
