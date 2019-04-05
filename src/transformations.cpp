@@ -249,12 +249,12 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   {
     fk::matrix<P> phi_co_part =
         phi_co.extract_submatrix(i * degree, 0, degree, degree);
-    std::reverse(phi_co_part.begin(), phi_co_part.end());
-    for (int j = 0; j < degree; ++j)
+    fk::matrix<P> const phi_co_part_copy(phi_co_part);
+    for (int j = 0; j < phi_co_part.nrows(); ++j)
     {
-      fk::vector<P> phi_co_row = phi_co_part.extract_submatrix(j, 0, 1, degree);
-      std::reverse(phi_co_row.begin(), phi_co_row.end());
-      phi_co_part.update_row(j, phi_co_row);
+      fk::vector<P> const new_row = phi_co_part_copy.extract_submatrix(
+          phi_co_part.nrows() - 1 - j, 0, 1, phi_co_part.ncols());
+      phi_co_part.update_row(j, new_row);
     }
     phi_co.set_submatrix(i * degree, 0, phi_co_part);
   }

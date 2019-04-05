@@ -241,13 +241,14 @@ public:
   //
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
+  int stride() const { return stride_; }
   int size() const { return nrows() * ncols(); }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   P *data(int const i = 0, int const j = 0) const
   {
-    // return &data_[i * ncols() + j]; // row-major
-    return &data_[j * nrows() + i]; // column-major
+    // return &data_[i * stride() + j]; // row-major
+    return &data_[j * stride() + i]; // column-major
   }
   //
   // utility functions
@@ -274,17 +275,79 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   int get_num_views() const;
 
-  typedef P *iterator;
-  typedef const P *const_iterator;
-  iterator begin() { return data(); }
-  iterator end() { return data() + size(); }
-  const_iterator begin() const { return data(); }
-  const_iterator end() const { return data() + size(); }
+  // template on pointer/ref type to get iterator and const iterator
+  template<typename T, typename R>
+  class matrix_iterator
+  {
+  public:
+    using self_type         = matrix_iterator;
+    using value_type        = P;
+    using reference         = R;
+    using pointer           = T;
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type   = int;
+    matrix_iterator(pointer ptr, int const stride, int const rows)
+        : ptr_(ptr), start_(ptr), stride_(stride), rows_(rows)
+    {}
+
+    difference_type increment() const
+    {
+      difference_type const next_pos = ptr_ - start_ + 1;
+      difference_type const increment =
+          next_pos % stride_ != 0 ? 1 : stride_ - rows_ + 1;
+      return increment;
+    }
+
+    self_type operator++(int)
+    {
+      self_type i = *this;
+      ptr_ += increment();
+      return i;
+    }
+    self_type operator++()
+    {
+      ptr_ += increment();
+      return *this;
+    }
+
+    reference operator*() const { return *ptr_; }
+    pointer operator->() const { return ptr_; }
+    bool operator==(const self_type &rhs) const { return ptr_ == rhs.ptr_; }
+    bool operator!=(const self_type &rhs) const { return ptr_ != rhs.ptr_; }
+
+  private:
+    pointer ptr_;
+    pointer start_;
+    int stride_;
+    int rows_;
+  };
+
+  using iterator       = matrix_iterator<P *, P &>;
+  using const_iterator = matrix_iterator<P const *, P const &>;
+  iterator begin() { return iterator(data(), stride(), nrows()); }
+
+  iterator end()
+  {
+    return iterator(data() + stride() * ncols(), stride(), nrows());
+  }
+
+  const_iterator begin() const
+  {
+    return const_iterator(data(), stride(), nrows());
+  }
+
+  const_iterator end() const
+  {
+    return const_iterator(data() + stride() * ncols(), stride(), nrows());
+  }
 
 private:
-  P *data_;   //< pointer to elements
-  int nrows_; //< row dimension
-  int ncols_; //< column dimension
+  P *data_;    //< pointer to elements
+  int nrows_;  //< row dimension
+  int ncols_;  //< column dimension
+  int stride_; //< leading dimension;
+               // number of elements in memory between successive matrix
+               // elements in a row
   std::shared_ptr<int> ref_count_ = nullptr;
 };
 } // namespace fk
@@ -771,7 +834,7 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
 
   int m     = A.nrows();
   int n     = A.ncols();
-  int lda   = m;
+  int lda   = A.stride();
   int one_i = 1;
 
   if constexpr (std::is_same<P, double>::value)
@@ -984,7 +1047,8 @@ fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P, mem>::matrix()
-    : data_{nullptr}, nrows_{0}, ncols_{0}, ref_count_{std::make_shared<int>(0)}
+    : data_{nullptr}, nrows_{0}, ncols_{0}, stride_{nrows_},
+      ref_count_{std::make_shared<int>(0)}
 
 {}
 
@@ -994,8 +1058,8 @@ fk::matrix<P, mem>::matrix()
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P, mem>::matrix(int M, int N)
-    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}, ref_count_{
-                                                       std::make_shared<int>(0)}
+    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}, stride_{nrows_},
+      ref_count_{std::make_shared<int>(0)}
 
 {}
 
@@ -1003,10 +1067,10 @@ template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P, mem>::matrix(
     std::initializer_list<std::initializer_list<P>> llist)
-    : data_{new P[llist.size() * llist.begin()->size()]},
+    : data_{new P[llist.size() * llist.begin()->size()]()},
       nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
                                                   llist.begin()->size())},
-      ref_count_{std::make_shared<int>(0)}
+      stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
 
 {
   int row_idx = 0;
@@ -1035,6 +1099,7 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
   data_  = nullptr;
   nrows_ = 0;
   ncols_ = 0;
+  nrows_ = 0;
 
   int const view_rows = stop_row - start_row + 1;
   int const view_cols = stop_col - start_col + 1;
@@ -1047,10 +1112,10 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
     assert(stop_row >= start_row);
     assert(stop_col >= stop_col);
 
-    data_  = new P[view_rows * view_cols]();
-    nrows_ = view_rows;
-    ncols_ = view_cols;
-
+    data_   = new P[view_rows * view_cols]();
+    nrows_  = view_rows;
+    ncols_  = view_cols;
+    stride_ = view_rows; // temp
     for (int i = start_col; i <= stop_col; ++i)
     {
       for (int j = start_row; j <= stop_row; ++j)
@@ -1084,11 +1149,11 @@ fk::matrix<P, mem>::~matrix()
 //
 template<typename P, mem_type mem>
 fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
-    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()},
-      ref_count_{std::make_shared<int>(0)}
+    : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
+      stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
 
 {
-  memcpy(data_, a.data(), a.size() * sizeof(P));
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
 }
 
 //
@@ -1106,7 +1171,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
 
   nrows_ = a.nrows();
   ncols_ = a.ncols();
-  memcpy(data_, a.data(), a.size() * sizeof(P));
+  std::memcpy(data_, a.data(), a.size() * sizeof(P));
   return *this;
 }
 
@@ -1116,8 +1181,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
 template<typename P, mem_type mem>
 template<typename PP, mem_type omem, mem_type, typename>
 fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
-    : data_{new P[a.size()]}, nrows_{a.nrows()}, ncols_{a.ncols()},
-      ref_count_{std::make_shared<int>(0)}
+    : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
+      stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
 
 {
   for (auto j = 0; j < a.ncols(); ++j)
@@ -1157,7 +1222,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<PP, omem> const &a)
 
 template<typename P, mem_type mem>
 fk::matrix<P, mem>::matrix(matrix<P, mem> &&a)
-    : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}
+    : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{nrows_}
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -1189,8 +1254,6 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
 
-  nrows_ = a.nrows();
-  ncols_ = a.ncols();
   P *temp{data_};
   data_   = a.data();
   a.data_ = temp; // b/c a's destructor will be called
@@ -1354,7 +1417,7 @@ operator*(fk::vector<P, omem> const &right) const
 
   int m     = A.nrows();
   int n     = A.ncols();
-  int lda   = m;
+  int lda   = A.stride();
   int one_i = 1;
 
   if constexpr (std::is_same<P, double>::value)
@@ -1397,9 +1460,9 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
 
   matrix<P> C(m, n);
 
-  int lda = m;
-  int ldb = k;
-  int ldc = lda;
+  int lda = A.stride();
+  int ldb = B.stride();
+  int ldc = C.stride();
 
   if constexpr (std::is_same<P, double>::value)
   {
@@ -1440,6 +1503,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::transpose()
   nrows_     = temp.nrows();
   ncols_     = temp.ncols();
   data_      = temp.data();
+  stride_    = nrows();
   temp.data_ = nullptr;
 
   return *this;
@@ -1489,7 +1553,7 @@ fk::matrix<P, mem>::invert()
 
   int *ipiv{new int[ncols()]};
   int lwork{nrows() * ncols()};
-  int lda = ncols();
+  int lda = stride();
   P *work{new P[nrows() * ncols()]};
   int info;
 
@@ -1534,7 +1598,7 @@ fk::matrix<P, mem>::determinant() const
   int *ipiv{new int[ncols()]};
   int info;
   int n   = ncols();
-  int lda = ncols();
+  int lda = stride();
 
   if constexpr (std::is_same<P, double>::value)
   {
@@ -1639,15 +1703,15 @@ fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
 
   int n{v.size()};
   int one{1};
-  int stride = nrows();
+  int lda = stride();
 
   if constexpr (std::is_same<P, double>::value)
   {
-    dcopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
+    dcopy_(&n, v.data(), &one, data(row_idx, 0), &lda);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    scopy_(&n, v.data(), &one, data(row_idx, 0), &stride);
+    scopy_(&n, v.data(), &one, data(row_idx, 0), &lda);
   }
   else
   {
@@ -1671,15 +1735,15 @@ fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
 
   int n{static_cast<int>(v.size())};
   int one{1};
-  int stride = nrows();
+  int lda = stride();
 
   if constexpr (std::is_same<P, double>::value)
   {
-    dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);
+    dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &lda);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    scopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &stride);
+    scopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &lda);
   }
   else
   {
@@ -1706,9 +1770,10 @@ fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
   if (rows == 0 || cols == 0)
     assert(cols == rows);
   delete[] data_;
-  data_  = new P[rows * cols]();
-  nrows_ = rows;
-  ncols_ = cols;
+  data_   = new P[rows * cols]();
+  nrows_  = rows;
+  ncols_  = cols;
+  stride_ = nrows_;
   return *this;
 }
 
