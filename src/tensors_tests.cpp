@@ -1029,8 +1029,11 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   {
     TestType const test   = gold(4, 2);
     TestType const test_v = gold_v(4, 2);
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 4, 4, 1, 2);
+    TestType const test_v_p = gold_v_p(0, 1);
     REQUIRE(test == 36);
     REQUIRE(test_v == 36);
+    REQUIRE(test_v_p == 36);
   }
   SECTION("comparison operator") // this gets used in every REQUIRE
   SECTION("comparison (negated) operator")
@@ -1113,10 +1116,15 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> const in1_v(in1);
     fk::matrix<TestType, mem_type::view> const in2_v(in2);
 
+    fk::matrix<TestType, mem_type::view> const in1_v_p(in1, 1, 2, 0, 2);
+    fk::matrix<TestType, mem_type::view> const in2_v_p(in2, 1, 2, 0, 2);
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 1, 2, 0, 2);
+
     REQUIRE((in1 + in2) == gold);
     REQUIRE((in1_v + in2) == gold);
     REQUIRE((in1 + in2_v) == gold);
     REQUIRE((in1_v + in2_v) == gold);
+    REQUIRE((in1_v_p + in2_v_p) == gold_v_p);
   }
   SECTION("matrix-matrix subtraction")
   {
@@ -1139,10 +1147,16 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> const in1_v(in1);
     fk::matrix<TestType, mem_type::view> const in2_v(in2);
 
+    fk::matrix<TestType, mem_type::view> const in1_v_p(in1, 0, 3, 1, 2);
+    fk::matrix<TestType, mem_type::view> const in2_v_p(in2, 0, 3, 1, 2);
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 0, 3, 1, 2);
+
+
     REQUIRE((in1 - in2) == gold);
     REQUIRE((in1_v - in2) == gold);
     REQUIRE((in1 - in2_v) == gold);
     REQUIRE((in1_v - in2_v) == gold);
+    REQUIRE((in1_v_p - in2_v_p) == gold_v_p);
   }
 
   SECTION("matrix*scalar multiplication")
@@ -1165,9 +1179,12 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
 
     fk::matrix<TestType> own(in);
     fk::matrix<TestType, mem_type::view> in_v(own);
-
+    fk::matrix<TestType> own_p(in);
+    fk::matrix<TestType, mem_type::view> in_v_p(own_p, 4, 4, 0, 2);
+    fk::matrix<TestType, mem_type::view> const in_scaled_v_p(in_scaled, 4, 4, 0, 2);
     REQUIRE(in * 4 == in_scaled);
     REQUIRE(in_v * 4 == in_scaled);
+    REQUIRE(in_v_p * 4 == in_scaled_v_p);
   }
   SECTION("matrix*vector multiplication")
   {
