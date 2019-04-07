@@ -290,12 +290,23 @@ public:
         : ptr_(ptr), start_(ptr), stride_(stride), rows_(rows)
     {}
 
-    difference_type increment() const
+    difference_type increment()
     {
       difference_type const next_pos = ptr_ - start_ + 1;
-      difference_type const increment =
-          next_pos % stride_ != 0 ? 1 : stride_ - rows_ + 1;
-      return increment;
+
+      if (next_pos % rows_ != 0)
+      {
+        return 1;
+      }
+      else
+      {
+        start_ += stride_;
+        return stride_ - rows_ + 1;
+      }
+
+      // difference_type const increment =
+      //    next_pos % rows_ != 0 ? 1 : stride_ - rows_ + 1;
+      // return increment;
     }
 
     self_type operator++(int)

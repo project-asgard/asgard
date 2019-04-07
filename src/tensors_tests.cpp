@@ -987,7 +987,14 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   {
     fk::matrix<TestType> test(5, 3);
     fk::matrix<TestType> own(5, 3);
-    fk::matrix<TestType> test_v(own);
+    fk::matrix<TestType, mem_type::view> test_v(own);
+    fk::matrix<TestType> own_p(5, 3);
+    // extract subview of own_p
+    fk::matrix<TestType, mem_type::view> test_v_p(own_p, 1, 3, 0, 2);
+    // extract subview of gold for comparison
+    fk::matrix<TestType> gold_copy(gold);
+    fk::matrix<TestType, mem_type::view> gold_v_p(gold_copy, 1, 3, 0, 2);
+
     // clang-format off
     test(0,0) = 12;  test(0,1) = 22;  test(0,2) = 32;
     test(1,0) = 13;  test(1,1) = 23;  test(1,2) = 33;
@@ -1000,15 +1007,23 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     test_v(2,0) = 14;  test_v(2,1) = 24;  test_v(2,2) = 34;
     test_v(3,0) = 15;  test_v(3,1) = 25;  test_v(3,2) = 35;
     test_v(4,0) = 16;  test_v(4,1) = 26;  test_v(4,2) = 36;
+
+    test_v_p(0,0) = 13;  test_v_p(0,1) = 23;  test_v_p(0,2) = 33;
+    test_v_p(1,0) = 14;  test_v_p(1,1) = 24;  test_v_p(1,2) = 34;
+    test_v_p(2,0) = 15;  test_v_p(2,1) = 25;  test_v_p(2,2) = 35;
+
     // clang-format on
     // clang-format on
     REQUIRE(test == gold);
     REQUIRE(test_v == gold);
+    REQUIRE(test_v_p == gold_v_p);
 
-    TestType val   = test(4, 2);
-    TestType val_v = test_v(4, 2);
+    TestType val     = test(4, 2);
+    TestType val_v   = test_v(4, 2);
+    TestType val_v_p = test_v_p(2, 2);
     REQUIRE(val == 36);
     REQUIRE(val_v == 36);
+    REQUIRE(val_v_p == 35);
   }
   SECTION("subscript operator (const)")
   {
