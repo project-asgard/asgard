@@ -1151,7 +1151,6 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> const in2_v_p(in2, 0, 3, 1, 2);
     fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 0, 3, 1, 2);
 
-
     REQUIRE((in1 - in2) == gold);
     REQUIRE((in1_v - in2) == gold);
     REQUIRE((in1 - in2_v) == gold);
@@ -1181,7 +1180,8 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> in_v(own);
     fk::matrix<TestType> own_p(in);
     fk::matrix<TestType, mem_type::view> in_v_p(own_p, 4, 4, 0, 2);
-    fk::matrix<TestType, mem_type::view> const in_scaled_v_p(in_scaled, 4, 4, 0, 2);
+    fk::matrix<TestType, mem_type::view> const in_scaled_v_p(in_scaled, 4, 4, 0,
+                                                             2);
     REQUIRE(in * 4 == in_scaled);
     REQUIRE(in_v * 4 == in_scaled);
     REQUIRE(in_v_p * 4 == in_scaled_v_p);
@@ -1197,6 +1197,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {16, 26, 36},
     }; // clang-format on
     fk::matrix<TestType, mem_type::view> const testm_v(testm);
+    fk::matrix<TestType, mem_type::view> const testm_v_p(testm, 1, 2, 0, 2);
 
     fk::vector<TestType> const testv{2, 3, 4};
     fk::vector<TestType> const testv_v(testv);
@@ -1206,6 +1207,10 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     REQUIRE((testm * testv_v) == gold);
     REQUIRE((testm_v * testv) == gold);
     REQUIRE((testm_v * testv_v) == gold);
+
+    fk::vector<TestType> const gold_p = gold.extract(1, 2);
+    REQUIRE((testm_v_p * testv_v) == gold_p);
+    REQUIRE((testm_v_p * testv) == gold_p);
   }
   SECTION("matrix*matrix multiplication")
   {
@@ -1216,10 +1221,15 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {360, 610, 860},
       {710, 1210, 1710},
     };
+    fk::matrix<TestType> const ans_p {
+      {347, 497},
+      {692, 992}
+    };
     fk::matrix<TestType> const in1 {
       {3, 4, 5, 6, 7},
       {8, 9, 10, 11, 12},
     };
+
     fk::matrix<TestType> const in2 {
       {12, 22, 32},
       {13, 23, 33},
@@ -1231,16 +1241,22 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> const in1_v(in1);
     fk::matrix<TestType, mem_type::view> const in2_v(in2);
 
+    fk::matrix<TestType, mem_type::view> const in1_v_p(in1, 0, 1, 1, 3);
+    fk::matrix<TestType, mem_type::view> const in2_v_p(in2, 0, 2, 1, 2);
+
     REQUIRE((in1 * in2) == ans);
     REQUIRE((in1 * in2_v) == ans);
     REQUIRE((in1_v * in2) == ans);
     REQUIRE((in1_v * in2_v) == ans);
+
+    REQUIRE((in1_v_p * in2_v_p) == ans_p);
   }
   SECTION("matrix kron product")
   {
     // clang-format off
 
     fk::matrix<TestType> const A {{1,2,3}};
+
     fk::matrix<TestType> const B {{2,3},
 	                          {4,5},
 				  {6,7},
@@ -1258,6 +1274,41 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     REQUIRE(A.kron(B_v) == ans);
     REQUIRE(A_v.kron(B) == ans);
     REQUIRE(A_v.kron(B_v) == ans);
+
+    // add some larger matrices to test partial views...
+
+    // clang-format off
+    fk::matrix<TestType> const A_own{{0, 1, 2, 3, 4}, 
+				     {5, 6, 7, 8, 9}, 
+				     {10, 11, 12, 13}};
+    fk::matrix<TestType, mem_type::view> const A_v_p(A_own, 0, 1, 1, 3);
+    fk::matrix<TestType> const B_own{{14, 15, 16, 17, 18}, 
+	    			     {19, 20, 21, 22, 23}, 
+				     {24, 25, 26, 27, 28}};
+    // clang-format on
+    fk::matrix<TestType, mem_type::view> const B_v_p(B_own, 1, 2, 2, 4);
+    fk::matrix<TestType> const ans_p = {
+        {21, 22, 23, 42, 44, 46, 63, 66, 69},
+        {26, 27, 28, 52, 54, 56, 78, 81, 84},
+        {126, 132, 138, 147, 154, 161, 168, 176, 184},
+        {156, 162, 168, 182, 189, 196, 208, 216, 224}};
+    REQUIRE(A_v_p.kron(B_v_p) == ans_p);
+    fk::matrix<TestType, mem_type::view> const ans_a_p(ans_p, 0, 1, 0, 8);
+    REQUIRE(A.kron(B_v_p) == ans_a_p);
+
+    // clang-format off
+    fk::matrix<TestType> const ans_b_p = {
+	    {2,4,6,3,6,9},
+	    {12,14,16,18,21,24},
+            {4,8,12,5,10,15},
+	    {24,28,32,30,35,40},
+	    {6,12,18,7,14,21},
+	    {36,42,48,42,49,56},
+	    {8,16,24,9,18,27},
+	    {48,56,64,54,63,72}};
+    // clang-format on
+
+    REQUIRE(B.kron(A_v_p) == ans_b_p);
   }
   SECTION("matrix inverse")
   {
@@ -1267,6 +1318,13 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       // well conditioned one
       fk::matrix<TestType> const test{{0.767135868133925, -0.641484652834663},
                                       {0.641484652834663, 0.767135868133926}};
+
+      fk::matrix<TestType> test_own{
+          {1.0, 0.767135868133925, -0.641484652834663, 1.0},
+          {1.0, 0.641484652834663, 0.767135868133926, 1.0},
+          {1.0, 1.0, 1.0}};
+      fk::matrix<TestType, mem_type::view> test_v_p(test_own, 0, 1, 1, 2);
+
       fk::matrix<TestType> test_copy(test);
 
       fk::matrix<TestType> own(test);
@@ -1274,10 +1332,12 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
 
       test_copy.invert();
       test_v.invert();
+      test_v_p.invert();
 
       // A * inv(A) == I
       REQUIRE((test * test_copy) == eye<TestType>(2));
       REQUIRE((test * test_v) == eye<TestType>(2));
+      REQUIRE((test * test_v_p) == eye<TestType>(2));
 
       // we haven't implemented a matrix inversion routine for integral types;
       // that function is disabled for now in the class if instantiated for
@@ -1298,10 +1358,19 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {12.130, 14.150, 1.00},
       {13.140, 13.150, 1.00},
       {14.150, 12.130, 1.00},
-    }; // clang-format on
+    }; 
+    fk::matrix<TestType> const in_own {
+	{1.0, 1.0000, 1.0000, 1.00},
+	{1.0, 12.130, 14.150, 1.00},
+        {1.0, 13.140, 13.150, 1.00},
+        {1.0, 14.150, 12.130, 1.00},
+      }; // clang-format on
+      fk::matrix<TestType, mem_type::view> const in_v_p(in_own, 1, 3, 1, 3);
       fk::matrix<TestType, mem_type::view> const in_v(in);
       REQUIRE(in.determinant() == Approx(-0.020200));
       REQUIRE(in_v.determinant() == Approx(-0.020200));
+      REQUIRE(in_v_p.determinant() == Approx(-0.020200));
+
       // we haven't implemented a determinant routine for integral types; as
       // with inversion, code won't compile if this routine is invoked on a
       // matrix of integers
@@ -1313,23 +1382,31 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   }
   SECTION("nrows(): the number of rows")
   {
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 0, 3, 0, 2);
     REQUIRE(gold.nrows() == 5);
     REQUIRE(gold_v.nrows() == 5);
+    REQUIRE(gold_v_p.nrows() == 4);
   }
   SECTION("ncols(): the number of columns")
   {
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 0, 4, 0, 1);
     REQUIRE(gold.ncols() == 3);
     REQUIRE(gold_v.ncols() == 3);
+    REQUIRE(gold_v_p.ncols() == 2);
   }
   SECTION("size(): the number of elements")
   {
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 1, 3, 1, 2);
     REQUIRE(gold.size() == 15);
     REQUIRE(gold_v.size() == 15);
+    REQUIRE(gold_v_p.size() == 6);
   }
   SECTION("data(): const get address to an element")
   {
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 3, 4, 1, 2);
     REQUIRE(*gold.data(4, 2) == 36);
     REQUIRE(*gold_v.data(4, 2) == 36);
+    REQUIRE(*gold_v_p.data(1, 1) == 36);
   }
 } // end fk::matrix operators
 
