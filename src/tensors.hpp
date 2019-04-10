@@ -1167,11 +1167,22 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
     ref_count_ = a.ref_count_;
   }
 
-  for (auto j = 0; j < a.ncols(); ++j)
-    for (auto i = 0; i < a.nrows(); ++i)
-    {
-      (*this)(i, j) = a(i, j);
-    }
+  // for optimization - if the matrices are contiguous, use memcpy
+  // for performance
+  if (stride() == nrows() && a.stride() == a.nrows())
+  {
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+
+    // else copy using loops. noticably slower in testing
+  }
+  else
+  {
+    for (auto j = 0; j < a.ncols(); ++j)
+      for (auto i = 0; i < a.nrows(); ++i)
+      {
+        (*this)(i, j) = a(i, j);
+      }
+  }
 }
 
 //
@@ -1187,11 +1198,22 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
 
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
-  for (auto j = 0; j < a.ncols(); ++j)
-    for (auto i = 0; i < a.nrows(); ++i)
-    {
-      (*this)(i, j) = a(i, j);
-    }
+  // for optimization - if the matrices are contiguous, use memcpy
+  // for performance
+  if (stride() == nrows() && a.stride() == a.nrows())
+  {
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+
+    // else copy using loops. noticably slower in testing
+  }
+  else
+  {
+    for (auto j = 0; j < a.ncols(); ++j)
+      for (auto i = 0; i < a.nrows(); ++i)
+      {
+        (*this)(i, j) = a(i, j);
+      }
+  }
 
   return *this;
 }
