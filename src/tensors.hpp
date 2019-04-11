@@ -1877,8 +1877,7 @@ void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
   std::cout.rdbuf(coutbuf);
 }
 
-// get number of oustanding views for an owner
-
+// get number of outstanding views for an owner
 template<typename P, mem_type mem>
 template<mem_type, typename>
 int fk::matrix<P, mem>::get_num_views() const
