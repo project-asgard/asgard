@@ -1740,13 +1740,30 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
 
     REQUIRE(test_str_v_p.str() == golden_string);
   }
+
   SECTION("dump to octave")
   {
     gold.dump_to_octave("test_out.dat");
+    gold_v.dump_to_octave("test_out_v.dat");
+    fk::matrix<TestType, mem_type::view> const gold_v_p(gold, 1, 3, 0, 1);
+    gold_v_p.dump_to_octave("test_out_v_p.dat");
+
     std::ifstream data_stream("test_out.dat");
+    std::ifstream data_stream_v("test_out_v.dat");
+    std::ifstream data_stream_v_p("test_out_v_p.dat");
+
     std::string test_string((std::istreambuf_iterator<char>(data_stream)),
                             std::istreambuf_iterator<char>());
-    // std::remove("test_out.dat");
+    std::string test_string_v((std::istreambuf_iterator<char>(data_stream_v)),
+                              std::istreambuf_iterator<char>());
+    std::string test_string_v_p(
+        (std::istreambuf_iterator<char>(data_stream_v_p)),
+        std::istreambuf_iterator<char>());
+
+    std::remove("test_out.dat");
+    std::remove("test_out_v.dat");
+    std::remove("test_out_v_p.dat");
+
     std::string golden_string;
 
     if constexpr (std::is_floating_point<TestType>::value)
@@ -1768,35 +1785,22 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     }
 
     REQUIRE(test_string == golden_string);
-  }
-  SECTION("dump to octave")
-  {
-    gold.dump_to_octave("test_out.dat");
-    std::ifstream data_stream("test_out.dat");
-    std::string test_string((std::istreambuf_iterator<char>(data_stream)),
-                            std::istreambuf_iterator<char>());
-    // std::remove("test_out.dat");
-    std::string golden_string;
+    REQUIRE(test_string_v == golden_string);
 
     if constexpr (std::is_floating_point<TestType>::value)
     {
-      golden_string =
-          "1.200000000000e+01 2.200000000000e+01 3.200000000000e+01 \n"
-          "1.300000000000e+01 2.300000000000e+01 3.300000000000e+01 \n"
-          "1.400000000000e+01 2.400000000000e+01 3.400000000000e+01 \n"
-          "1.500000000000e+01 2.500000000000e+01 3.500000000000e+01 \n"
-          "1.600000000000e+01 2.600000000000e+01 3.600000000000e+01 \n";
+      golden_string = "1.300000000000e+01 2.300000000000e+01 \n"
+                      "1.400000000000e+01 2.400000000000e+01 \n"
+                      "1.500000000000e+01 2.500000000000e+01 \n";
     }
     else
     {
-      golden_string = "12 22 32 \n"
-                      "13 23 33 \n"
-                      "14 24 34 \n"
-                      "15 25 35 \n"
-                      "16 26 36 \n";
+      golden_string = "13 23 \n"
+                      "14 24 \n"
+                      "15 25 \n";
     }
 
-    REQUIRE(test_string == golden_string);
+    REQUIRE(test_string_v_p == golden_string);
   }
 
   SECTION("matrix transform")
@@ -1809,15 +1813,40 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   fk::matrix<TestType> own(test);
   fk::matrix<TestType, mem_type::view> test_v(own);
 
+
+  fk::matrix<TestType> own_p {
+   {0, 1, 2, 3},
+   {4, 5, 6, 7}, 
+   {8, 9, 0, 1},
+  };
+  fk::matrix<TestType, mem_type::view> test_v_p(own_p, 0, 1, 0, 3);
+
+
   fk::matrix<TestType> const after {
    {1, 2, 3, 4},
    {5, 6, 7, 8},
-  }; // clang-format on 
+  }; 
+  
+  fk::matrix<TestType> const after_p {
+   {1, 2, 3, 4},
+   {5, 6, 7, 8}, 
+   {8, 9, 0, 1},
+  };
+  
+  
+  // clang-format on 
   
   std::transform(test.begin(), test.end(), test.begin(), std::bind1st(std::plus<TestType>(), 1)); 
   std::transform(test_v.begin(), test_v.end(), test_v.begin(), std::bind1st(std::plus<TestType>(), 1));
   REQUIRE(test == after); 
   REQUIRE(test_v == after);
+  
+  
+  std::transform(test_v_p.begin(), test_v_p.end(), test_v_p.begin(), std::bind1st(std::plus<TestType>(), 1));
+  REQUIRE(test_v_p == after);
+  // make sure we didn't modify the underlying matrix outside the view
+  REQUIRE(own_p == after_p);
+
   }
 
   SECTION("matrix maximum element") {
@@ -1827,10 +1856,12 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
      {5, 6, 11, 8},
     }; // clang-format on
     fk::matrix<TestType, mem_type::view> const test_v(test);
+    fk::matrix<TestType, mem_type::view> const test_v_p(test, 0, 1, 1, 2);
 
     TestType const max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
     REQUIRE(*std::max_element(test_v.begin(), test_v.end()) == max);
+    REQUIRE(*std::max_element(test_v_p.begin(), test_v_p.end()) == max);
   }
 
   SECTION("matrix sum of elements")
@@ -1841,10 +1872,13 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
      {5, 6, 7, 8},
     }; // clang-format on
     fk::matrix<TestType, mem_type::view> const test_v(test);
+    fk::matrix<TestType, mem_type::view> const test_v_p(test, 0, 0, 1, 3);
 
-    TestType const max = 36;
-    REQUIRE(std::accumulate(test.begin(), test.end(), 0) == max);
-    REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0) == max);
+    TestType const sum   = 36;
+    TestType const sum_p = 9;
+    REQUIRE(std::accumulate(test.begin(), test.end(), 0) == sum);
+    REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0) == sum);
+    REQUIRE(std::accumulate(test_v_p.begin(), test_v_p.end(), 0) == sum_p);
   }
 
   SECTION("matrix ref counting")
