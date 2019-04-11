@@ -31,10 +31,10 @@ volume_integral(dimension<P> const dim, term<P> const term_1D,
   // horizontally
   auto const expand = [](fk::vector<double> const source,
                          int const ncols) -> fk::matrix<double> {
-    fk::matrix<P> expanded(source.size(), ncols);
+    fk::matrix<double> expanded(source.size(), ncols);
     for (int i = 0; i < ncols; ++i)
     {
-      expanded.update_col(i, fk::vector<P>(source));
+      expanded.update_col(i, fk::vector<double>(source));
     }
     return expanded;
   };

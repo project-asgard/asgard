@@ -249,12 +249,12 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   {
     fk::matrix<P> phi_co_part =
         phi_co.extract_submatrix(i * degree, 0, degree, degree);
-    std::reverse(phi_co_part.begin(), phi_co_part.end());
-    for (int j = 0; j < degree; ++j)
+    fk::matrix<P> const phi_co_part_copy(phi_co_part);
+    for (int j = 0; j < phi_co_part.nrows(); ++j)
     {
-      fk::vector<P> phi_co_row = phi_co_part.extract_submatrix(j, 0, 1, degree);
-      std::reverse(phi_co_row.begin(), phi_co_row.end());
-      phi_co_part.update_row(j, phi_co_row);
+      fk::vector<P> const new_row = phi_co_part_copy.extract_submatrix(
+          phi_co_part.nrows() - 1 - j, 0, 1, phi_co_part.ncols());
+      phi_co_part.update_row(j, new_row);
     }
     phi_co.set_submatrix(i * degree, 0, phi_co_part);
   }
@@ -402,10 +402,10 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
 
   fk::matrix<R> fmwt(degree * max_level, degree * max_level);
 
-  fk::matrix<R> const h_block = fk::matrix<P>(h0.nrows(), h0.ncols() * 2)
+  fk::matrix<R> const h_block = fk::matrix<R>(h0.nrows(), h0.ncols() * 2)
                                     .set_submatrix(0, 0, h0)
                                     .set_submatrix(0, h0.ncols(), h1);
-  fk::matrix<R> const g_block = fk::matrix<P>(g0.nrows(), g0.ncols() * 2)
+  fk::matrix<R> const g_block = fk::matrix<R>(g0.nrows(), g0.ncols() * 2)
                                     .set_submatrix(0, 0, g0)
                                     .set_submatrix(0, g0.ncols(), g1);
 
@@ -417,7 +417,7 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
     fmwt.set_submatrix(degree * (i + max_level / 2), 2 * degree * i, g_block);
   }
 
-  fk::matrix<R> fmwt_comp = eye<P>(degree * max_level, degree * max_level);
+  fk::matrix<R> fmwt_comp = eye<R>(degree * max_level, degree * max_level);
 
   int const n = std::floor(std::log2(max_level));
   for (int j = 1; j <= n; j++)
@@ -432,7 +432,7 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
       int const cn = std::pow(2.0, n - j + 1.0) * degree;
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
-      cfmwt.set_submatrix(cn, cn, eye<P>(degree * max_level - cn));
+      cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));
       cfmwt.set_submatrix(0, 0, fmwt.extract_submatrix(0, 0, cn / 2, cn));
       cfmwt.set_submatrix(
           cn / 2, 0,
