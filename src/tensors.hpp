@@ -155,6 +155,11 @@ class matrix
   template<typename, mem_type>
   friend class matrix; // so that views can access owner sharedptr/rows
 
+  // template on pointer/ref type to get iterator and const iterator
+  template<typename T, typename R>
+  class matrix_iterator; // forward declaration for custom iterator; defined
+                         // out of line
+
 public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix();
@@ -241,6 +246,8 @@ public:
   //
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
+  // for owners: stride == nrows
+  // for views:  stride == owner's nrows
   int stride() const { return stride_; }
   int size() const { return nrows() * ncols(); }
   // just get a pointer. cannot deref/assign. for e.g. blas
@@ -275,62 +282,9 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   int get_num_views() const;
 
-  // template on pointer/ref type to get iterator and const iterator
-  template<typename T, typename R>
-  class matrix_iterator
-  {
-  public:
-    using self_type         = matrix_iterator;
-    using value_type        = P;
-    using reference         = R;
-    using pointer           = T;
-    using iterator_category = std::forward_iterator_tag;
-    using difference_type   = int;
-    matrix_iterator(pointer ptr, int const stride, int const rows)
-        : ptr_(ptr), start_(ptr), stride_(stride), rows_(rows)
-    {}
-
-    difference_type increment()
-    {
-      difference_type const next_pos = ptr_ - start_ + 1;
-
-      if (next_pos % rows_ != 0)
-      {
-        return 1;
-      }
-      else
-      {
-        start_ += stride_;
-        return stride_ - rows_ + 1;
-      }
-    }
-
-    self_type operator++(int)
-    {
-      self_type i = *this;
-      ptr_ += increment();
-      return i;
-    }
-    self_type operator++()
-    {
-      ptr_ += increment();
-      return *this;
-    }
-
-    reference operator*() const { return *ptr_; }
-    pointer operator->() const { return ptr_; }
-    bool operator==(const self_type &rhs) const { return ptr_ == rhs.ptr_; }
-    bool operator!=(const self_type &rhs) const { return ptr_ != rhs.ptr_; }
-
-  private:
-    pointer ptr_;
-    pointer start_;
-    int stride_;
-    int rows_;
-  };
-
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
+
   iterator begin() { return iterator(data(), stride(), nrows()); }
 
   iterator end()
@@ -1078,7 +1032,6 @@ fk::matrix<P, mem>::matrix(
       nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
                                                   llist.begin()->size())},
       stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
-
 {
   int row_idx = 0;
   for (auto const &row_list : llist)
@@ -1286,6 +1239,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
 
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
+  // check for destination orphaning; see below
   if constexpr (mem == mem_type::owner)
   {
     assert(ref_count_.use_count() == 1 && a.ref_count_.use_count() == 1);
@@ -1294,6 +1248,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
   ref_count_.swap(a.ref_count_);
 
   P *temp{data_};
+  // this would orphan views on the destination
   data_   = a.data();
   a.data_ = temp; // b/c a's destructor will be called
   return *this;
@@ -1930,3 +1885,57 @@ int fk::matrix<P, mem>::get_num_views() const
 {
   return ref_count_.use_count() - 1;
 }
+
+template<typename P, mem_type mem>
+template<typename T, typename R>
+class fk::matrix<P, mem>::matrix_iterator
+{
+public:
+  using self_type         = matrix_iterator;
+  using value_type        = P;
+  using reference         = R;
+  using pointer           = T;
+  using iterator_category = std::forward_iterator_tag;
+  using difference_type   = int;
+  matrix_iterator(pointer ptr, int const stride, int const rows)
+      : ptr_(ptr), start_(ptr), stride_(stride), rows_(rows)
+  {}
+
+  difference_type increment()
+  {
+    difference_type const next_pos = ptr_ - start_ + 1;
+
+    if (next_pos % rows_ != 0)
+    {
+      return 1;
+    }
+    else
+    {
+      start_ += stride_;
+      return stride_ - rows_ + 1;
+    }
+  }
+
+  self_type operator++(int)
+  {
+    self_type i = *this;
+    ptr_ += increment();
+    return i;
+  }
+  self_type operator++()
+  {
+    ptr_ += increment();
+    return *this;
+  }
+
+  reference operator*() const { return *ptr_; }
+  pointer operator->() const { return ptr_; }
+  bool operator==(const self_type &rhs) const { return ptr_ == rhs.ptr_; }
+  bool operator!=(const self_type &rhs) const { return ptr_ != rhs.ptr_; }
+
+private:
+  pointer ptr_;
+  pointer start_;
+  int stride_;
+  int rows_;
+};
