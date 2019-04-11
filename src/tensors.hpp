@@ -303,10 +303,6 @@ public:
         start_ += stride_;
         return stride_ - rows_ + 1;
       }
-
-      // difference_type const increment =
-      //    next_pos % rows_ != 0 ? 1 : stride_ - rows_ + 1;
-      // return increment;
     }
 
     self_type operator++(int)
@@ -1121,7 +1117,6 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
     assert(stop_col < owner.ncols());
     assert(stop_row < owner.nrows());
     assert(stop_row >= start_row);
-    assert(stop_col >= stop_col);
 
     data_   = owner.data(start_row, start_col);
     nrows_  = view_rows;
