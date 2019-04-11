@@ -1680,7 +1680,8 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     if constexpr (std::is_floating_point<TestType>::value)
     {
       golden_string =
-          "golden matrix(owner)\n  1.2000e+01  2.2000e+01  3.2000e+01\n  "
+          "golden matrix(owner, outstanding views == 1)\n  1.2000e+01  "
+          "2.2000e+01  3.2000e+01\n  "
           "1.3000e+01  "
           "2.3000e+01  3.3000e+01\n  1.4000e+01  2.4000e+01  3.4000e+01\n  "
           "1.5000e+01  2.5000e+01  3.5000e+01\n  1.6000e+01  2.6000e+01  "
@@ -1688,9 +1689,9 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     }
     else
     {
-      golden_string =
-          "golden matrix(owner)\n12 22 32 \n13 23 33 \n14 24 34 \n15 25 "
-          "35 \n16 26 36 \n";
+      golden_string = "golden matrix(owner, outstanding views == 1)\n12 22 32 "
+                      "\n13 23 33 \n14 24 34 \n15 25 "
+                      "35 \n16 26 36 \n";
     }
     REQUIRE(test_str.str() == golden_string);
 
@@ -1703,7 +1704,8 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     if constexpr (std::is_floating_point<TestType>::value)
     {
       golden_string =
-          "golden matrix(view)\n  1.2000e+01  2.2000e+01  3.2000e+01\n  "
+          "golden matrix(view, stride == 5)\n  1.2000e+01  2.2000e+01  "
+          "3.2000e+01\n  "
           "1.3000e+01  "
           "2.3000e+01  3.3000e+01\n  1.4000e+01  2.4000e+01  3.4000e+01\n  "
           "1.5000e+01  2.5000e+01  3.5000e+01\n  1.6000e+01  2.6000e+01  "
@@ -1711,9 +1713,9 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     }
     else
     {
-      golden_string =
-          "golden matrix(view)\n12 22 32 \n13 23 33 \n14 24 34 \n15 25 "
-          "35 \n16 26 36 \n";
+      golden_string = "golden matrix(view, stride == 5)\n12 22 32 \n13 23 33 "
+                      "\n14 24 34 \n15 25 "
+                      "35 \n16 26 36 \n";
     }
 
     REQUIRE(test_str_v.str() == golden_string);
@@ -1727,15 +1729,16 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
 
     if constexpr (std::is_floating_point<TestType>::value)
     {
-      golden_string =
-          "golden matrix(view)\n  1.3000e+01  2.3000e+01  3.3000e+01\n  "
-          "1.4000e+01  2.4000e+01  3.4000e+01\n  "
-          "1.5000e+01  2.5000e+01  3.5000e+01\n";
+      golden_string = "golden matrix(view, stride == 5)\n  1.3000e+01  "
+                      "2.3000e+01  3.3000e+01\n  "
+                      "1.4000e+01  2.4000e+01  3.4000e+01\n  "
+                      "1.5000e+01  2.5000e+01  3.5000e+01\n";
     }
     else
     {
-      golden_string = "golden matrix(view)\n13 23 33 \n14 24 34 \n15 25 "
-                      "35 \n";
+      golden_string =
+          "golden matrix(view, stride == 5)\n13 23 33 \n14 24 34 \n15 25 "
+          "35 \n";
     }
 
     REQUIRE(test_str_v_p.str() == golden_string);

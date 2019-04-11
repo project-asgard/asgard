@@ -1830,9 +1830,13 @@ template<typename P, mem_type mem>
 void fk::matrix<P, mem>::print(std::string label) const
 {
   if constexpr (mem == mem_type::owner)
-    std::cout << label << "(owner)" << '\n';
+    std::cout << label << "(owner, "
+              << "outstanding views == " << std::to_string(get_num_views())
+              << ")" << '\n';
+
   else
-    std::cout << label << "(view)" << '\n';
+    std::cout << label << "(view, "
+              << "stride == " << std::to_string(stride()) << ")" << '\n';
 
   for (auto i = 0; i < nrows(); ++i)
   {
