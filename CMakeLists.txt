@@ -52,6 +52,7 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 
 # define the components and how to build and link the components together
 set (components
+  batch
   coefficients
   connectivity
   element_table
@@ -72,6 +73,9 @@ if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
   set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
 endif ()
+
+target_link_libraries (batch
+  PRIVATE tensors)
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
@@ -103,6 +107,7 @@ add_executable (asgard src/main.cpp)
 
 # link in components needed directly by main
 set (main_app_link_deps
+  batch
   coefficients
   connectivity
   element_table
