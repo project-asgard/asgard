@@ -32,15 +32,18 @@ public:
   int const ncols;     // number of cols in matrices in this batch
   int const stride;    // leading dimension passed into BLAS call
 
-  using iterator       = P **;
   using const_iterator = P *const *;
-  iterator begin() { return batch_list_; }
-  iterator end() { return batch_list_ + num_batch; }
   const_iterator begin() const { return batch_list_; }
   const_iterator end() const { return batch_list_ + num_batch; }
 
 private:
   P **batch_list_; // array of pointers to pass into blas call
+
+  // want these for convenience in the class
+  // don't want to expose them publicly...
+  using iterator = P **;
+  iterator begin() { return batch_list_; }
+  iterator end() { return batch_list_ + num_batch; }
 };
 
 template<typename P>
