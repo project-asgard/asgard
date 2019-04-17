@@ -511,7 +511,6 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType> const b2_t = get_trans(b2_v);
     fk::matrix<TestType> const b3_t = get_trans(b3_v);
 
-
     // make 2x2 "c" views
     fk::matrix<TestType> c(6, 2);
     fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 1);
@@ -547,5 +546,102 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     REQUIRE(c == gold);
   }
 
+  SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0")
+  {
+    // make 3x2 (pre-trans) "a" views
+    int const a_start_row = 1;
+    int const a_stop_row  = 3;
+    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int const a_start_col = 0;
+    int const a_stop_col  = 1;
+    int const a_ncols     = a_stop_col - a_start_col + 1;
+    int const a_stride    = a1.nrows();
 
+    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
+                                                    a_start_col, a_stop_col);
+    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
+                                                    a_start_col, a_stop_col);
+    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
+                                                    a_start_col, a_stop_col);
+
+    // make the transposed versions for forming golden value
+    fk::matrix<TestType> const a1_t = get_trans(a1_v);
+    fk::matrix<TestType> const a2_t = get_trans(a2_v);
+    fk::matrix<TestType> const a3_t = get_trans(a3_v);
+
+    batch_list<TestType> const a_batch = [&] {
+      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride);
+
+      builder.insert(a1_v, 0);
+      builder.insert(a2_v, 1);
+      builder.insert(a3_v, 2);
+
+      return builder;
+    }();
+
+    // make 2x3 (pre trans) "b" views
+    int const b_start_row = 0;
+    int const b_stop_row  = 1;
+    int const b_nrows     = b_stop_row - b_start_row + 1;
+    int const b_start_col = 0;
+    int const b_stop_col  = 2;
+    int const b_ncols     = b_stop_col - b_start_col + 1;
+    int const b_stride    = b1.nrows();
+
+    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
+                                                    b_start_col, b_stop_col);
+    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
+                                                    b_start_col, b_stop_col);
+    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
+                                                    b_start_col, b_stop_col);
+
+    batch_list<TestType> const b_batch = [&] {
+      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride);
+
+      builder.insert(b1_v, 0);
+      builder.insert(b2_v, 1);
+      builder.insert(b3_v, 2);
+
+      return builder;
+    }();
+
+    // make the transposed versions for forming golden value
+    fk::matrix<TestType> const b1_t = get_trans(b1_v);
+    fk::matrix<TestType> const b2_t = get_trans(b2_v);
+    fk::matrix<TestType> const b3_t = get_trans(b3_v);
+
+    // make 2x2 "c" views
+    fk::matrix<TestType> c(6, 2);
+    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 1);
+    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
+    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
+
+    batch_list<TestType> const c_batch = [&] {
+      batch_list<TestType> builder(num_batch, a_ncols, b_nrows, c.nrows());
+      builder.insert(c1_v, 0);
+      builder.insert(c2_v, 1);
+      builder.insert(c3_v, 2);
+      return builder;
+    }();
+
+    // do the math to create gold matrix
+    fk::matrix<TestType> gold(6, 2);
+    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
+    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
+    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
+    gold1_v = a1_t * b1_t;
+    gold2_v = a2_t * b2_t;
+    gold3_v = a3_t * b3_t;
+
+    // call batched gemm
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    bool trans_a   = true;
+    bool trans_b   = true;
+
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, trans_a, trans_b);
+
+    // compare
+    REQUIRE(c == gold);
+  }
 }
