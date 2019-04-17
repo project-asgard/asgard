@@ -19,9 +19,12 @@ public:
   ~batch_list();
 
   void insert(fk::matrix<P, mem_type::view> const a, int const position);
+  bool clear_one(int const position);
+
   P **get_list() const;
+
   bool is_filled() const;
-  void clear();
+  void clear_all();
 
   int const num_batch; // number of matrices in the batch
   int const nrows;     // number of rows in matrices in this batch
@@ -90,6 +93,7 @@ batch_list<P>::~batch_list()
 
 // insert the provided view's data pointer
 // at the index indicated by position argument
+// cannot overwrite previous assignment
 template<typename P>
 void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a,
                            int const position)
@@ -104,7 +108,21 @@ void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a,
   assert(position >= 0);
   assert(position < num_batch);
 
+  // ensure nothing already assigned
+  assert(!batch_list_[position]);
+
   batch_list_[position] = a.data();
+}
+
+// clear one assignment
+// returns true if there was a previous assignment,
+// false if nothing was assigned
+template<typename P>
+bool batch_list<P>::clear_one(int const position)
+{
+  P *temp               = batch_list_[position];
+  batch_list_[position] = nullptr;
+  return temp;
 }
 
 // get a pointer to the batch_list's
@@ -132,7 +150,7 @@ bool batch_list<P>::is_filled() const
 
 // clear assignments
 template<typename P>
-void batch_list<P>::clear()
+void batch_list<P>::clear_all()
 {
   for (P *&ptr : batch_list_)
   {
