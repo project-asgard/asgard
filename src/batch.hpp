@@ -50,18 +50,18 @@ private:
 // execute a batched gemm given a, b, c batch lists
 // and other blas information
 template<typename P>
-void batchedGemm(batch_list<P> const a, batch_list<P> const b,
-                 batch_list<P> const c, P alpha, P beta, bool trans_a,
-                 bool trans_b);
+void batched_gemm(batch_list<P> const a, batch_list<P> const b,
+                  batch_list<P> const c, P alpha, P beta, bool trans_a,
+                  bool trans_b);
 
 extern template class batch_list<float>;
 extern template class batch_list<double>;
 
-extern template void batchedGemm(batch_list<float> const a,
-                                 batch_list<float> const b,
-                                 batch_list<float> const c, float alpha,
-                                 float beta, bool trans_a, bool trans_b);
-extern template void batchedGemm(batch_list<double> const a,
-                                 batch_list<double> const b,
-                                 batch_list<double> const c, double alpha,
-                                 double beta, bool trans_a, bool trans_b);
+extern template void batched_gemm(batch_list<float> const a,
+                                  batch_list<float> const b,
+                                  batch_list<float> const c, float alpha,
+                                  float beta, bool trans_a, bool trans_b);
+extern template void batched_gemm(batch_list<double> const a,
+                                  batch_list<double> const b,
+                                  batch_list<double> const c, double alpha,
+                                  double beta, bool trans_a, bool trans_b);

@@ -186,10 +186,13 @@ batch_list<P> &batch_list<P>::clear_all()
 
 // execute a batched gemm given a, b, c batch lists
 // and other blas information
+// if we store info in the batch about where it is
+// resident, this could be an abstraction point
+// for calling cpu/gpu blas etc.
 template<typename P>
-void batchedGemm(batch_list<P> const a, batch_list<P> const b,
-                 batch_list<P> const c, P alpha, P beta, bool trans_a,
-                 bool trans_b)
+void batched_gemm(batch_list<P> const a, batch_list<P> const b,
+                  batch_list<P> const c, P alpha, P beta, bool trans_a,
+                  bool trans_b)
 {
   // check data validity
   assert(a.is_filled() && b.is_filled() && c.is_filled());
@@ -210,7 +213,7 @@ void batchedGemm(batch_list<P> const a, batch_list<P> const b,
 
   // setup blas args
   int m                  = rows_a;
-  int n                  = rows_b;
+  int n                  = cols_b;
   int k                  = cols_a;
   int lda                = a.stride;
   int ldb                = b.stride;
@@ -239,11 +242,11 @@ void batchedGemm(batch_list<P> const a, batch_list<P> const b,
 template class batch_list<float>;
 template class batch_list<double>;
 
-template void batchedGemm(batch_list<float> const a, batch_list<float> const b,
-                          batch_list<float> const c, float alpha, float beta,
-                          bool trans_a, bool trans_b);
+template void batched_gemm(batch_list<float> const a, batch_list<float> const b,
+                           batch_list<float> const c, float alpha, float beta,
+                           bool trans_a, bool trans_b);
 
-template void batchedGemm(batch_list<double> const a,
-                          batch_list<double> const b,
-                          batch_list<double> const c, double alpha, double beta,
-                          bool trans_a, bool trans_b);
+template void batched_gemm(batch_list<double> const a,
+                           batch_list<double> const b,
+                           batch_list<double> const c, double alpha,
+                           double beta, bool trans_a, bool trans_b);
