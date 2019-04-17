@@ -98,9 +98,9 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
     }
   }
 
-  SECTION("batch_list: insert/clear and getter")
+  SECTION("batch_list: insert/clear and getters")
   {
-    SECTION("insert")
+    SECTION("insert/getter")
     {
       batch_list<TestType> test(num_batch, nrows, ncols, stride);
       test.insert(first_v, 0);
@@ -108,18 +108,27 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == nullptr);
       REQUIRE(ptr_list[2] == nullptr);
+      REQUIRE(ptr_list[0] == test(0));
+      REQUIRE(ptr_list[1] == test(1));
+      REQUIRE(ptr_list[2] == test(2));
 
       test.insert(third_v, 2);
       ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == nullptr);
       REQUIRE(ptr_list[2] == third_v.data());
+      REQUIRE(ptr_list[0] == test(0));
+      REQUIRE(ptr_list[1] == test(1));
+      REQUIRE(ptr_list[2] == test(2));
 
       test.insert(second_v, 1);
       ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == second_v.data());
       REQUIRE(ptr_list[2] == third_v.data());
+      REQUIRE(ptr_list[0] == test(0));
+      REQUIRE(ptr_list[1] == test(1));
+      REQUIRE(ptr_list[2] == test(2));
     }
 
     SECTION("clear")
@@ -133,6 +142,9 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[0] == nullptr);
       REQUIRE(ptr_list[1] == second_v.data());
       REQUIRE(ptr_list[2] == third_v.data());
+      REQUIRE(ptr_list[0] == test(0));
+      REQUIRE(ptr_list[1] == test(1));
+      REQUIRE(ptr_list[2] == test(2));
 
       // clear should return false when
       // no element was assigned to that index
@@ -143,6 +155,9 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[0] == nullptr);
       REQUIRE(ptr_list[1] == nullptr);
       REQUIRE(ptr_list[2] == third_v.data());
+      REQUIRE(ptr_list[0] == test(0));
+      REQUIRE(ptr_list[1] == test(1));
+      REQUIRE(ptr_list[2] == test(2));
 
       REQUIRE(!test.clear(1));
 
@@ -151,6 +166,9 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[0] == nullptr);
       REQUIRE(ptr_list[1] == nullptr);
       REQUIRE(ptr_list[2] == nullptr);
+      REQUIRE(ptr_list[0] == test(0));
+      REQUIRE(ptr_list[1] == test(1));
+      REQUIRE(ptr_list[2] == test(2));
 
       REQUIRE(!test.clear(2));
     }

@@ -1,4 +1,5 @@
 #include "batch.hpp"
+#include "tensors.hpp" // for views/blas
 
 template<typename P>
 batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
@@ -102,6 +103,14 @@ bool batch_list<P>::operator==(batch_list<P> other) const
   return true;
 }
 
+template<typename P>
+P *batch_list<P>::operator()(int const position) const
+{
+  assert(position >= 0);
+  assert(position < num_batch);
+  return batch_list_[position];
+}
+
 // insert the provided view's data pointer
 // at the index indicated by position argument
 // cannot overwrite previous assignment
@@ -175,5 +184,66 @@ batch_list<P> &batch_list<P>::clear_all()
   return *this;
 }
 
+// execute a batched gemm given a, b, c batch lists
+// and other blas information
+template<typename P>
+void batchedGemm(batch_list<P> const a, batch_list<P> const b,
+                 batch_list<P> const c, P alpha, P beta, bool trans_a,
+                 bool trans_b)
+{
+  // check data validity
+  assert(a.is_filled() && b.is_filled() && c.is_filled());
+
+  // check cardinality of sets
+  assert(a.num_batch == b.num_batch);
+  assert(b.num_batch == c.num_batch);
+  int const num_batch = a.num_batch;
+
+  // check dimensions for gemm
+  int const rows_a = trans_a ? a.ncols : a.nrows;
+  int const cols_a = trans_a ? a.nrows : a.ncols;
+  int const rows_b = trans_b ? b.ncols : b.nrows;
+  int const cols_b = trans_b ? b.nrows : b.ncols;
+  assert(cols_a == rows_b);
+  assert(c.nrows == rows_a);
+  assert(c.ncols == cols_b);
+
+  // setup blas args
+  int m                  = rows_a;
+  int n                  = rows_b;
+  int k                  = cols_a;
+  int lda                = a.stride;
+  int ldb                = b.stride;
+  int ldc                = c.stride;
+  char const transpose_a = trans_a ? 't' : 'n';
+  char const transpose_b = trans_b ? 't' : 'n';
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    for (int i = 0; i < num_batch; ++i)
+    {
+      fk::dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha, a(i), &lda,
+                 b(i), &ldb, &beta, c(i), &ldc);
+    }
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    for (int i = 0; i < num_batch; ++i)
+    {
+      fk::sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha, a(i), &lda,
+                 b(i), &ldb, &beta, c(i), &ldc);
+    }
+  }
+}
+
 template class batch_list<float>;
 template class batch_list<double>;
+
+template void batchedGemm(batch_list<float> const a, batch_list<float> const b,
+                          batch_list<float> const c, float alpha, float beta,
+                          bool trans_a, bool trans_b);
+
+template void batchedGemm(batch_list<double> const a,
+                          batch_list<double> const b,
+                          batch_list<double> const c, double alpha, double beta,
+                          bool trans_a, bool trans_b);
