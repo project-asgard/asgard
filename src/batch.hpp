@@ -25,7 +25,7 @@ public:
   P **get_list() const;
 
   bool is_filled() const;
-  void clear_all();
+  batch_list &clear_all();
 
   int const num_batch; // number of matrices in the batch
   int const nrows;     // number of rows in matrices in this batch
@@ -212,10 +212,11 @@ bool batch_list<P>::is_filled() const
 
 // clear assignments
 template<typename P>
-void batch_list<P>::clear_all()
+batch_list<P> &batch_list<P>::clear_all()
 {
   for (P *&ptr : (*this))
   {
     ptr = nullptr;
   }
+  return *this;
 }

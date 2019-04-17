@@ -1,7 +1,6 @@
 #include "tests_general.hpp"
 
 #include "batch.hpp"
-
 #include "tensors.hpp"
 
 TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
@@ -99,7 +98,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
     }
   }
 
-  SECTION("batch_list: insert/clear")
+  SECTION("batch_list: insert/clear and getter")
   {
     SECTION("insert")
     {
@@ -157,19 +156,44 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
     }
   }
 
-  SECTION("batch_list: getter") {}
-
   SECTION("batch_list: utility functions")
   {
-    SECTION("is_filled") {}
+    SECTION("is_filled")
+    {
+      REQUIRE(gold.is_filled());
+      batch_list<TestType> test(gold);
+      test.clear(0);
+      REQUIRE(!test.is_filled());
+    }
 
-    SECTION("clear_all") {}
+    SECTION("clear_all")
+    {
+      batch_list<TestType> const test = [&] {
+        batch_list<TestType> gold_copy(gold);
+        return gold_copy.clear_all();
+      }();
 
-    SECTION("iterators") {}
+      for (TestType *const ptr : test)
+      {
+        REQUIRE(ptr == nullptr);
+      }
+    }
+
+    SECTION("const iterator")
+    {
+      TestType **const test = new TestType *[num_batch]();
+      int counter           = 0;
+      for (TestType *const ptr : gold)
+      {
+        test[counter++] = ptr;
+      }
+
+      TestType *const *const gold_list = gold.get_list();
+
+      for (int i = 0; i < num_batch; ++i)
+      {
+        REQUIRE(test[i] == gold_list[i]);
+      }
+    }
   }
-}
-
-TEMPLATE_TEST_CASE("free function: execute gemm", "[batch]", float, double)
-{
-  REQUIRE(true);
 }
