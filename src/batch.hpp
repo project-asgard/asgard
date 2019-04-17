@@ -18,7 +18,10 @@ public:
 
   ~batch_list();
 
-  void insert(fk::matrix<P, mem_type::view> const a, int position);
+  void insert(fk::matrix<P, mem_type::view> const a, int const position);
+  P **get_list() const;
+  bool is_filled() const;
+  void clear();
 
   int const num_batch; // number of matrices in the batch
   int const nrows;     // number of rows in matrices in this batch
@@ -34,7 +37,12 @@ batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
                           int const stride)
     : num_batch(num_batch), nrows(nrows),
       ncols(ncols), batch_list_{new P *[num_batch]()}
-{}
+{
+  for (P *&ref : batch_list_)
+  {
+    ref = nullptr;
+  }
+}
 
 template<typename P>
 batch_list<P>::batch_list(batch_list<P> const &other)
@@ -80,8 +88,11 @@ batch_list<P>::~batch_list()
   delete[] batch_list_;
 }
 
+// insert the provided view's data pointer
+// at the index indicated by position argument
 template<typename P>
-void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a, int position)
+void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a,
+                           int const position)
 {
   // make sure this matrix is the
   // same dimensions as others in batch
@@ -94,4 +105,37 @@ void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a, int position)
   assert(position < num_batch);
 
   batch_list_[position] = a.data();
+}
+
+// get a pointer to the batch_list's
+// pointers for batched blas call
+template<typename P>
+P **batch_list<P>::get_list() const
+{
+  return batch_list_;
+}
+
+// verify that every allocated pointer
+// has been assigned to
+template<typename P>
+bool batch_list<P>::is_filled() const
+{
+  for (P *const &ptr : batch_list_)
+  {
+    if (!ptr)
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+// clear assignments
+template<typename P>
+void batch_list<P>::clear()
+{
+  for (P *&ptr : batch_list_)
+  {
+    ptr = nullptr;
+  }
 }
