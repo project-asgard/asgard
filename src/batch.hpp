@@ -20,7 +20,7 @@ public:
   bool operator==(batch_list<P>) const;
 
   void insert(fk::matrix<P, mem_type::view> const a, int const position);
-  bool clear_one(int const position);
+  bool clear(int const position);
 
   P **get_list() const;
 
@@ -172,7 +172,7 @@ void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a,
 // returns true if there was a previous assignment,
 // false if nothing was assigned
 template<typename P>
-bool batch_list<P>::clear_one(int const position)
+bool batch_list<P>::clear(int const position)
 {
   P *temp               = batch_list_[position];
   batch_list_[position] = nullptr;
@@ -181,10 +181,15 @@ bool batch_list<P>::clear_one(int const position)
 
 // get a pointer to the batch_list's
 // pointers for batched blas call
+// for performance, may have to
+// provide a direct access to P**
+// from batch_list_, but avoid for now
 template<typename P>
 P **batch_list<P>::get_list() const
 {
-  return batch_list_;
+  P **const list_copy = new P *[num_batch]();
+  std::memcpy(list_copy, batch_list_, num_batch * sizeof(P *));
+  return list_copy;
 }
 
 // verify that every allocated pointer

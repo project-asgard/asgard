@@ -4,8 +4,7 @@
 
 #include "tensors.hpp"
 
-TEMPLATE_TEST_CASE("batch_list: constructors, copy/move", "[batch]", float,
-                   double)
+TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 {
   // clang-format off
   fk::matrix<TestType> const first {
@@ -55,68 +54,119 @@ TEMPLATE_TEST_CASE("batch_list: constructors, copy/move", "[batch]", float,
 
     return builder;
   }();
-
-  SECTION("constructor")
+  SECTION("batch_list: constructors, copy/move")
   {
-    batch_list<TestType> const empty(num_batch, nrows, ncols, stride);
-    REQUIRE(empty.num_batch == num_batch);
-    REQUIRE(empty.nrows == nrows);
-    REQUIRE(empty.ncols == ncols);
-    REQUIRE(empty.stride == stride);
-
-    for (TestType *const ptr : empty)
+    SECTION("constructor")
     {
-      REQUIRE(ptr == nullptr);
+      batch_list<TestType> const empty(num_batch, nrows, ncols, stride);
+      REQUIRE(empty.num_batch == num_batch);
+      REQUIRE(empty.nrows == nrows);
+      REQUIRE(empty.ncols == ncols);
+      REQUIRE(empty.stride == stride);
+
+      for (TestType *const ptr : empty)
+      {
+        REQUIRE(ptr == nullptr);
+      }
+    }
+
+    SECTION("copy construction")
+    {
+      batch_list<TestType> const gold_copy(gold);
+      REQUIRE(gold_copy == gold);
+    }
+
+    SECTION("copy assignment")
+    {
+      batch_list<TestType> test(num_batch, nrows, ncols, stride);
+      test = gold;
+      REQUIRE(test == gold);
+    }
+
+    SECTION("move construction")
+    {
+      batch_list<TestType> gold_copy(gold);
+      batch_list const test = std::move(gold_copy);
+      REQUIRE(test == gold);
+    }
+
+    SECTION("move assignment")
+    {
+      batch_list<TestType> test(num_batch, nrows, ncols, stride);
+      batch_list<TestType> gold_copy(gold);
+      test = std::move(gold_copy);
+      REQUIRE(test == gold);
     }
   }
 
-  SECTION("copy construction")
+  SECTION("batch_list: insert/clear")
   {
-    batch_list<TestType> const gold_copy(gold);
-    REQUIRE(gold_copy == gold);
+    SECTION("insert")
+    {
+      batch_list<TestType> test(num_batch, nrows, ncols, stride);
+      test.insert(first_v, 0);
+      TestType *const *ptr_list = test.get_list();
+      REQUIRE(ptr_list[0] == first_v.data());
+      REQUIRE(ptr_list[1] == nullptr);
+      REQUIRE(ptr_list[2] == nullptr);
+
+      test.insert(third_v, 2);
+      ptr_list = test.get_list();
+      REQUIRE(ptr_list[0] == first_v.data());
+      REQUIRE(ptr_list[1] == nullptr);
+      REQUIRE(ptr_list[2] == third_v.data());
+
+      test.insert(second_v, 1);
+      ptr_list = test.get_list();
+      REQUIRE(ptr_list[0] == first_v.data());
+      REQUIRE(ptr_list[1] == second_v.data());
+      REQUIRE(ptr_list[2] == third_v.data());
+    }
+
+    SECTION("clear")
+    {
+      batch_list<TestType> test(gold);
+
+      // clear should return true when
+      // an element was assigned to that index
+      REQUIRE(test.clear(0));
+      TestType *const *ptr_list = test.get_list();
+      REQUIRE(ptr_list[0] == nullptr);
+      REQUIRE(ptr_list[1] == second_v.data());
+      REQUIRE(ptr_list[2] == third_v.data());
+
+      // clear should return false when
+      // no element was assigned to that index
+      REQUIRE(!test.clear(0));
+
+      REQUIRE(test.clear(1));
+      ptr_list = test.get_list();
+      REQUIRE(ptr_list[0] == nullptr);
+      REQUIRE(ptr_list[1] == nullptr);
+      REQUIRE(ptr_list[2] == third_v.data());
+
+      REQUIRE(!test.clear(1));
+
+      REQUIRE(test.clear(2));
+      ptr_list = test.get_list();
+      REQUIRE(ptr_list[0] == nullptr);
+      REQUIRE(ptr_list[1] == nullptr);
+      REQUIRE(ptr_list[2] == nullptr);
+
+      REQUIRE(!test.clear(2));
+    }
   }
 
-  SECTION("copy assignment")
+  SECTION("batch_list: getter") {}
+
+  SECTION("batch_list: utility functions")
   {
-    batch_list<TestType> test(num_batch, nrows, ncols, stride);
-    test = gold;
-    REQUIRE(test == gold);
+    SECTION("is_filled") {}
+
+    SECTION("clear_all") {}
+
+    SECTION("iterators") {}
   }
-
-  SECTION("move construction")
-  {
-    batch_list<TestType> gold_copy(gold);
-    batch_list const test = std::move(gold_copy);
-    REQUIRE(test == gold);
-    REQUIRE(gold_copy.get_list() == nullptr);
-  }
-
-  SECTION("move assignment")
-  {
-    batch_list<TestType> test(num_batch, nrows, ncols, stride);
-    batch_list<TestType> gold_copy(gold);
-    test = std::move(gold_copy);
-    REQUIRE(test == gold);
-    REQUIRE(gold_copy.get_list() == nullptr);
-  }
-}
-
-TEMPLATE_TEST_CASE("batch_list: insert/remove", "[batch]", float, double)
-{
-  SECTION("insert") {}
-
-  SECTION("remove") {}
-}
-
-TEMPLATE_TEST_CASE("batch_list: getter", "[batch]", float, double) {}
-
-TEMPLATE_TEST_CASE("batch_list: utility functions", "[batch]", float, double)
-{
-  SECTION("is_filled") {}
-
-  SECTION("clear_all") {}
-
-  SECTION("iterators") {}
 }
 
 TEMPLATE_TEST_CASE("free function: execute gemm", "[batch]", float, double)
