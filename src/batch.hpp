@@ -13,10 +13,11 @@ public:
              int const stride);
   batch_list(batch_list<P> const &other);
   batch_list &operator=(batch_list<P> const &other);
-  batch_list(batch_list<P> const &&other);
-  batch_list &operator=(batch_list<P> const &&other);
-
+  batch_list(batch_list<P> &&other);
+  batch_list &operator=(batch_list<P> &&other);
   ~batch_list();
+
+  bool operator==(batch_list<P>) const;
 
   void insert(fk::matrix<P, mem_type::view> const a, int const position);
   bool clear_one(int const position);
@@ -31,6 +32,13 @@ public:
   int const ncols;     // number of cols in matrices in this batch
   int const stride;    // leading dimension passed into BLAS call
 
+  using iterator       = P **;
+  using const_iterator = P *const *;
+  iterator begin() { return batch_list_; }
+  iterator end() { return batch_list_ + num_batch; }
+  const_iterator begin() const { return batch_list_; }
+  const_iterator end() const { return batch_list_ + num_batch; }
+
 private:
   P **batch_list_; // array of pointers to pass into blas call
 };
@@ -38,19 +46,24 @@ private:
 template<typename P>
 batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
                           int const stride)
-    : num_batch(num_batch), nrows(nrows),
-      ncols(ncols), batch_list_{new P *[num_batch]()}
+    : num_batch(num_batch), nrows(nrows), ncols(ncols),
+      stride(stride), batch_list_{new P *[num_batch]()}
 {
-  for (P *&ref : batch_list_)
+  assert(num_batch > 0);
+  assert(nrows > 0);
+  assert(ncols > 0);
+  assert(stride >= nrows);
+
+  for (P *&ptr : (*this))
   {
-    ref = nullptr;
+    ptr = nullptr;
   }
 }
 
 template<typename P>
 batch_list<P>::batch_list(batch_list<P> const &other)
-    : num_batch(other.num_batch), nrows(other.nrows),
-      ncols(other.ncols), batch_list_{new P *[other.num_batch()]}
+    : num_batch(other.num_batch), nrows(other.nrows), ncols(other.ncols),
+      stride(other.stride), batch_list_{new P *[other.num_batch]()}
 {
   std::memcpy(batch_list_, other.batch_list_, other.num_batch * sizeof(P *));
 }
@@ -58,24 +71,33 @@ batch_list<P>::batch_list(batch_list<P> const &other)
 template<typename P>
 batch_list<P> &batch_list<P>::operator=(batch_list<P> const &other)
 {
+  if (&other == this)
+  {
+    return *this;
+  }
   assert(num_batch == other.num_batch);
   assert(nrows == other.nrows);
   assert(ncols == other.ncols);
   assert(stride == other.stride);
   std::memcpy(batch_list_, other.batch_list_, other.num_batch * sizeof(P *));
+  return *this;
 }
 
 template<typename P>
-batch_list<P>::batch_list(batch_list<P> const &&other)
-    : num_batch(other.num_batch), nrows(other.nrows),
-      ncols(other.ncols), batch_list_{other.batch_list_}
+batch_list<P>::batch_list(batch_list<P> &&other)
+    : num_batch(other.num_batch), nrows(other.nrows), ncols(other.ncols),
+      stride(other.stride), batch_list_{other.batch_list_}
 {
   other.batch_list_ = nullptr;
 }
 
 template<typename P>
-batch_list<P> &batch_list<P>::operator=(batch_list<P> const &&other)
+batch_list<P> &batch_list<P>::operator=(batch_list<P> &&other)
 {
+  if (&other == this)
+  {
+    return *this;
+  }
   assert(num_batch == other.num_batch);
   assert(nrows == other.nrows);
   assert(ncols == other.ncols);
@@ -83,12 +105,44 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> const &&other)
 
   batch_list_       = other.batch_list_;
   other.batch_list_ = nullptr;
+  return *this;
 }
 
 template<typename P>
 batch_list<P>::~batch_list()
 {
   delete[] batch_list_;
+}
+
+template<typename P>
+bool batch_list<P>::operator==(batch_list<P> other) const
+{
+  if (nrows != other.nrows)
+  {
+    return false;
+  }
+  if (ncols != other.ncols)
+  {
+    return false;
+  }
+  if (stride != other.stride)
+  {
+    return false;
+  }
+  if (num_batch != other.num_batch)
+  {
+    return false;
+  }
+
+  for (int i = 0; i < num_batch; ++i)
+  {
+    if (batch_list_[i] != other.batch_list_[i])
+    {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // insert the provided view's data pointer
@@ -138,7 +192,7 @@ P **batch_list<P>::get_list() const
 template<typename P>
 bool batch_list<P>::is_filled() const
 {
-  for (P *const &ptr : batch_list_)
+  for (P *const ptr : (*this))
   {
     if (!ptr)
     {
@@ -152,7 +206,7 @@ bool batch_list<P>::is_filled() const
 template<typename P>
 void batch_list<P>::clear_all()
 {
-  for (P *&ptr : batch_list_)
+  for (P *&ptr : (*this))
   {
     ptr = nullptr;
   }
