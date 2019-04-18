@@ -21,21 +21,23 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     std::string out_base =
         "../testing/generated-inputs/apply_fmwt/";
 
-    std::string h0_string    = out_base + "matrix.dat";
+    std::string mat1_string    = out_base + "mat1.dat";
+    std::string fmwt_string    = out_base + "fmwt_k4_lev5.dat";
 
-    fk::matrix<TestType> h0 =
-        fk::matrix<TestType>(read_matrix_from_txt_file(h0_string));
+    fk::matrix<TestType> mat1 =
+        fk::matrix<TestType>(read_matrix_from_txt_file(mat1_string));
+    fk::matrix<TestType> fmwt =
+        fk::matrix<TestType>(read_matrix_from_txt_file(fmwt_string));
     
-    h0.print("h0");	
-    //std::string out_base =
-    //    "../testing/generated-inputs/apply_fmwt";
-    //std::string matrix_string    = out_base + "/matrix.dat";
-    //
-    //TestType mat = static_cast<TestType>(read_scalar_from_txt_file(matrix_string));
-    //
-    //fk::matrix<TestType> mat1 =
-    //    fk::matrix<TestType>(read_matrix_from_txt_file(matrix_string));
-    //mat1.print("mat1");	
+    mat1.print("mat1");	
+    fmwt.print("fmwt");	
+  
+    fk::matrix<TestType> product = fmwt*mat1;
+    auto const product2 = apply_fmwt<TestType>(fmwt,mat1);
+    //fk::matrix<TestType> product2 = apply_fmwt(fmwt,mat1);
+    product.print("product");	
+    
+    SECTION("degree = 4, lev 5 fmwt apply") { relaxed_comparison(product, product2); }
   }
 
 }
