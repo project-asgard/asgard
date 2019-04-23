@@ -34,6 +34,20 @@ class vector
   template<typename, mem_type>
   friend class vector;
 
+  // FIXME how to make this specific to the matrix
+  // view from vector constructor??? syntax hell
+  // will correct or make an issue on merge
+  template<typename, mem_type>
+  friend class matrix;
+  // add friend: matrix view from vector constructor
+  // in order to grant access to ref counter
+  // would like to be specific as below; can't
+  // get it to work
+  // template<mem_type omem>
+  // friend matrix<P, mem>::matrix(vector<P, omem> const &source, int const
+  // start_index,
+  //                              int const num_rows, int const num_cols);
+
 public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector();
@@ -143,6 +157,9 @@ public:
   const_iterator begin() const { return data(); }
   const_iterator end() const { return data() + size(); }
 
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  int get_num_views() const;
+
 private:
   P *data_;  //< pointer to elements
   int size_; //< dimension
@@ -176,6 +193,11 @@ public:
   // overload for default case - whole matrix
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit matrix(fk::matrix<P, mem_type::owner> const &owner);
+
+  // create matrix view from vector
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
+  explicit matrix(fk::vector<P, omem> const &source, int const start_index,
+                  int const num_rows, int const num_cols);
 
   ~matrix();
 
@@ -594,6 +616,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
 
   if constexpr (mem == mem_type::owner)
   {
+    assert(ref_count_.use_count() == 1);
     assert(a.ref_count_.use_count() == 1);
   }
 
@@ -999,6 +1022,14 @@ fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
   }
   return sub_vector;
 }
+
+// get number of outstanding views for an owner
+template<typename P, mem_type mem>
+template<mem_type, typename>
+int fk::vector<P, mem>::get_num_views() const
+{
+  return ref_count_.use_count() - 1;
+}
 //-----------------------------------------------------------------------------
 //
 // fk::matrix class implementation starts here
@@ -1085,6 +1116,35 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner)
     : matrix(owner, 0, std::max(0, owner.nrows() - 1), 0,
              std::max(0, owner.ncols() - 1))
 {}
+
+// create matrix view of an existing vector
+template<typename P, mem_type mem>
+template<mem_type, typename, mem_type omem>
+fk::matrix<P, mem>::matrix(fk::vector<P, omem> const &source,
+                           int const start_index, int const num_rows,
+                           int const num_cols)
+    : ref_count_(source.ref_count_)
+{
+  assert(start_index >= 0);
+  assert(num_rows > 0);
+  assert(num_cols > 0);
+
+  int const size = num_rows * num_cols;
+  assert(start_index + size <= source.size());
+
+  data_   = nullptr;
+  nrows_  = 0;
+  ncols_  = 0;
+  stride_ = 0;
+
+  if (size > 0)
+  {
+    data_   = source.data(start_index);
+    nrows_  = num_rows;
+    ncols_  = num_cols;
+    stride_ = num_rows;
+  }
+}
 
 template<typename P, mem_type mem>
 fk::matrix<P, mem>::~matrix()
