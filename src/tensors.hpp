@@ -196,8 +196,8 @@ public:
 
   // create matrix view from vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
-  explicit matrix(fk::vector<P, omem> const &source, int const start_index,
-                  int const num_rows, int const num_cols);
+  explicit matrix(fk::vector<P, omem> const &source, int const num_rows,
+                  int const num_cols, int const start_index = 0);
 
   ~matrix();
 
@@ -1121,8 +1121,8 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner)
 template<typename P, mem_type mem>
 template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem>::matrix(fk::vector<P, omem> const &source,
-                           int const start_index, int const num_rows,
-                           int const num_cols)
+                           int const num_rows, int const num_cols,
+                           int const start_index)
     : ref_count_(source.ref_count_)
 {
   assert(start_index >= 0);

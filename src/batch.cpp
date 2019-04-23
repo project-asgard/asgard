@@ -3,9 +3,9 @@
 
 template<typename P>
 batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
-                          int const stride, bool const do_trans, P const scale)
+                          int const stride, bool const do_trans)
     : num_batch(num_batch), nrows(nrows), ncols(ncols), stride(stride),
-      do_trans(do_trans), scale(scale), batch_list_{new P *[num_batch]()}
+      do_trans(do_trans), batch_list_{new P *[num_batch]()}
 {
   assert(num_batch > 0);
   assert(nrows > 0);
@@ -21,8 +21,8 @@ batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
 template<typename P>
 batch_list<P>::batch_list(batch_list<P> const &other)
     : num_batch(other.num_batch), nrows(other.nrows), ncols(other.ncols),
-      stride(other.stride), do_trans(other.do_trans),
-      scale(other.scale), batch_list_{new P *[other.num_batch]()}
+      stride(other.stride),
+      do_trans(other.do_trans), batch_list_{new P *[other.num_batch]()}
 {
   std::memcpy(batch_list_, other.batch_list_, other.num_batch * sizeof(P *));
 }
@@ -39,7 +39,6 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> const &other)
   assert(ncols == other.ncols);
   assert(stride == other.stride);
   assert(do_trans == other.do_trans);
-  assert(std::abs(scale - other.scale) <= TOL);
   std::memcpy(batch_list_, other.batch_list_, other.num_batch * sizeof(P *));
   return *this;
 }
@@ -47,8 +46,8 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> const &other)
 template<typename P>
 batch_list<P>::batch_list(batch_list<P> &&other)
     : num_batch(other.num_batch), nrows(other.nrows), ncols(other.ncols),
-      stride(other.stride), do_trans(other.do_trans),
-      scale(other.scale), batch_list_{other.batch_list_}
+      stride(other.stride),
+      do_trans(other.do_trans), batch_list_{other.batch_list_}
 {
   other.batch_list_ = nullptr;
 }
@@ -65,7 +64,6 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> &&other)
   assert(ncols == other.ncols);
   assert(stride == other.stride);
 
-  assert(std::abs(scale - other.scale) <= TOL);
   assert(do_trans == other.do_trans);
   batch_list_       = other.batch_list_;
   other.batch_list_ = nullptr;
@@ -98,10 +96,6 @@ bool batch_list<P>::operator==(batch_list<P> other) const
     return false;
   }
   if (do_trans != other.do_trans)
-  {
-    return false;
-  }
-  if (std::abs(scale - other.scale) > TOL)
   {
     return false;
   }
@@ -205,7 +199,7 @@ batch_list<P> &batch_list<P>::clear_all()
 // for calling cpu/gpu blas etc.
 template<typename P>
 void batched_gemm(batch_list<P> const a, batch_list<P> const b,
-                  batch_list<P> const c)
+                  batch_list<P> const c, P const alpha, P const beta)
 {
   // check data validity
   assert(a.is_filled() && b.is_filled() && c.is_filled());
@@ -216,10 +210,6 @@ void batched_gemm(batch_list<P> const a, batch_list<P> const b,
   int const num_batch = a.num_batch;
 
   assert(!c.do_trans);
-
-  P const alpha = a.scale;
-  P const beta  = c.scale;
-  assert(b.scale == 1.0);
 
   // check dimensions for gemm
   int const rows_a = a.do_trans ? a.ncols : a.nrows;
@@ -260,6 +250,158 @@ void batched_gemm(batch_list<P> const a, batch_list<P> const b,
   }
 }
 
+// --- batch allocation code --- /
+
+// static helper - compute how many gemms a single call to batch_for_kronmult
+// adds for a given dimension
+static int
+compute_batch_size(int const degree, int const num_dims, int const dimension)
+{
+  assert(dimension > 0);
+  assert(dimension < num_dims);
+  assert(num_dims > 0);
+  assert(degree > 0);
+
+  if (dimension == 0)
+  {
+    return 1;
+  }
+
+  // intermediate levels
+  if (dimension < num_dims - 1)
+  {
+    return std::pow(degree, num_dims) / std::pow(degree, dimension);
+  }
+
+  // highest level; single gemm
+  return 1;
+}
+
+// static helper - compute the dimensions for gemm at a given dimension
+static gemm_dims
+compute_dimensions(int const degree, int const num_dims, int const dimension)
+{
+  assert(dimension > 0);
+  assert(dimension < num_dims);
+  assert(num_dims > 0);
+  assert(degree > 0);
+
+  if (dimension == 0)
+  {
+    return gemm_dims(degree, degree, degree,
+                     static_cast<int>(std::pow(degree, num_dims - 1)));
+  }
+  return gemm_dims(static_cast<int>(std::pow(degree, dimension)), degree,
+                   degree, degree);
+}
+
+// create empty batches w/ correct dims and settings
+// for batching
+template<typename P>
+std::vector<batch_set<P>> allocate_batches(PDE<P> const &pde)
+
+{
+  std::vector<batch_list<P>> batches;
+
+  // FIXME when we allow varying degree by dimension, all
+  // this code will have to change...
+  int const degree = pde.get_dimensions()[0].get_degree();
+  int const nrows  = degree;
+  int const ncols  = std::pow(degree, pde.num_dims - 1);
+
+  // add the first (lowest dimension) batch
+  bool const do_trans   = false;
+  P const alpha         = 1.0;
+  P const beta          = 0.0;
+  int const num_gemms   = compute_batch_size(degree, pde.num_dims, 0);
+  gemm_dims const sizes = compute_dimensions(degree, pde.num_dims, 0);
+
+  // get stride of first coefficient matrix in 0th term set.
+  // note all the coefficient matrices for each term have the
+  // same dimensions
+  int const stride = pde.get_terms()[0][0].get_coefficients().stride();
+  batches.push_back(std::vector<batch_list<P>>{
+      batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans,
+                    alpha),
+      batch_list<P>(num_gemms, sizes.rows_b, sizes.cols_b, stride, do_trans,
+                    1.0),
+      batch_list<P>(num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a, false,
+                    beta)});
+
+  // remaining batches
+  for (int i = 1; i < num_dims; ++i)
+  {
+    int const num_gemms   = compute_batch_size(degree, num_dims, i);
+    gemm_dims const sizes = compute_dimensions(degree, num_dims, i);
+    bool const trans_a    = false;
+    bool const trans_b    = true;
+    batches.push_back(std::vector<batch_list<P>>{
+        new batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_a, stride,
+                          trans_a, alpha),
+        new batch_list<P>(num_gemms, sizes.rows_b, sizes.cols_b, stride,
+                          trans_b, 1.0),
+        new batch_list<P>(num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a,
+                          false, beta)});
+  }
+  return batches;
+}
+
+// --- kronmult batching code --- //
+
+// helper for lowest level of kronmult
+template<typename P>
+static void
+kron_base(fk::matrix<P, mem_type::view> const A,
+          fk::vector<P, mem_type::view> x, fk::matrix<P, mem_type::view> y,
+          batch_set<P> &batch_lists, int const batch_offset, int const degree,
+          int const num_dims)
+{
+  batch_lists[0].insert(A, batch_offset);
+  gemm_dims const sizes = compute_dimensions(degree, num_dims, 0);
+  fk::matrix<P, mem_type::view> x_view(x, sizes.rows_b, sizes.cols_b);
+  batch_lists[1].insert(x_view, batch_offset);
+  fk::matrix<P, mem_type::view> y_view(y, sizes.rows_a, sizes.cols_b);
+  batch_lists[2].insert(y_view, batch_offset);
+}
+
+template<typename P>
+void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
+                        fk::vector<P, mem_type::view> x,
+                        fk::vector<P, mem_type::view> y,
+                        std::vector<fk::vector<P, mem_type::view>> const work,
+                        std::vector<batch_set<P>> &batch_lists,
+                        std::vector<int> const batch_offsets, PDE<P> const &pde)
+{
+  // check for valid inputs
+  assert(num_dims > 0);
+  assert(degree > 0);
+
+  // check vector sizes
+  int const result_size = std::pow(degree, num_dims);
+  assert(x.size() == result_size);
+  assert(y.size() == result_size);
+
+  // check workspace sizes
+  for (int i = 0; i < work.size(); ++i)
+  {
+    assert(work[i].size() == result_size);
+  }
+
+  // check matrix sizes
+  for (int i = 0; i < A.size(); ++i)
+  {
+    assert(A[i].nrows() == degree);
+    assert(A[i].ncols() == degree);
+  }
+
+  assert(batch_lists.size() == num_dims);
+
+  if (num_dims == 1)
+  {
+    kron_base(A[0], x, y, batch_lists[0], nu);
+  }
+}
+
 template class batch_list<float>;
 template class batch_list<double>;
 
@@ -269,3 +411,23 @@ template void batched_gemm(batch_list<float> const a, batch_list<float> const b,
 template void batched_gemm(batch_list<double> const a,
                            batch_list<double> const b,
                            batch_list<double> const c);
+template std::vector<batch_set<float>> allocate_batches(PDE<float> const &pde);
+template std::vector<batch_set<double>>
+allocate_batches(PDE<double> const &pde);
+
+template void
+batch_for_kronmult(std::vector<fk::matrix<float, mem_type::view>> const A,
+                   fk::vector<float, mem_type::view> x,
+                   fk::vector<float, mem_type::view> y,
+                   std::vector<fk::vector<float, mem_type::view>> const work,
+                   std::vector<batch_set<float>> &batch_lists,
+                   std::vector<int> const batch_offsets, PDE<float> const &pde);
+
+template void
+batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
+                   fk::vector<double, mem_type::view> x,
+                   fk::vector<double, mem_type::view> y,
+                   std::vector<fk::vector<double, mem_type::view>> const work,
+                   std::vector<batch_set<double>> &batch_lists,
+                   std::vector<int> const batch_offsets,
+                   PDE<double> const &pde);

@@ -5,8 +5,7 @@
 
 TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 {
-  bool const do_trans  = true;
-  TestType const scale = 1.0;
+  bool const do_trans = true;
 
   // clang-format off
   fk::matrix<TestType> const first {
@@ -57,6 +56,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
     return builder;
   }();
+
   SECTION("batch_list: constructors, copy/move")
   {
     SECTION("constructor")
@@ -274,11 +274,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    bool trans_a   = false;
-    bool trans_b   = false;
-
+    bool const trans_a = false;
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
@@ -297,7 +293,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const a_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a, alpha);
+                                   trans_a);
 
       builder.insert(a1_v, 0);
       builder.insert(a2_v, 1);
@@ -306,6 +302,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
       return builder;
     }();
 
+    bool const trans_b = false;
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
@@ -324,7 +321,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const b_batch = [&] {
       batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b, 1.0);
+                                   trans_b);
 
       builder.insert(b1_v, 0);
       builder.insert(b2_v, 1);
@@ -341,7 +338,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const c_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(),
-                                   false, beta);
+                                   false);
       builder.insert(c1_v, 0);
       builder.insert(c2_v, 1);
       builder.insert(c3_v, 2);
@@ -358,7 +355,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     gold3_v = a3_v * b3_v;
 
     // call batched gemm
-    batched_gemm(a_batch, b_batch, c_batch);
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     REQUIRE(c == gold);
@@ -372,11 +371,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
   SECTION("batched gemm: trans a, no trans b, alpha = 1.0, beta = 0.0")
   {
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    bool trans_a   = true;
-    bool trans_b   = false;
-
+    bool const trans_a = true;
     // make 3x2 (pre-trans) "a" views
     int const a_start_row = 1;
     int const a_stop_row  = 3;
@@ -400,7 +395,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const a_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a, alpha);
+                                   trans_a);
 
       builder.insert(a1_v, 0);
       builder.insert(a2_v, 1);
@@ -409,6 +404,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
       return builder;
     }();
 
+    bool const trans_b = false;
     // make 3x2 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
@@ -427,7 +423,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const b_batch = [&] {
       batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b, 1.0);
+                                   trans_b);
 
       builder.insert(b1_v, 0);
       builder.insert(b2_v, 1);
@@ -444,7 +440,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const c_batch = [&] {
       batch_list<TestType> builder(num_batch, a_ncols, b_ncols, c.nrows(),
-                                   false, beta);
+                                   false);
       builder.insert(c1_v, 0);
       builder.insert(c2_v, 1);
       builder.insert(c3_v, 2);
@@ -462,7 +458,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     gold3_v = a3_t * b3_v;
 
     // call batched gemm
-    batched_gemm(a_batch, b_batch, c_batch);
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     REQUIRE(c == gold);
@@ -470,11 +468,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
   SECTION("batched gemm: no trans a, trans b, alpha = 1.0, beta = 0.0")
   {
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    bool trans_a   = false;
-    bool trans_b   = true;
-
+    bool const trans_a = false;
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
@@ -493,7 +487,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const a_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a, alpha);
+                                   trans_a);
 
       builder.insert(a1_v, 0);
       builder.insert(a2_v, 1);
@@ -502,6 +496,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
       return builder;
     }();
 
+    bool const trans_b = true;
     // make 2x3 (pre trans) "b" views
     int const b_start_row = 0;
     int const b_stop_row  = 1;
@@ -520,7 +515,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const b_batch = [&] {
       batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b, 1.0);
+                                   trans_b);
 
       builder.insert(b1_v, 0);
       builder.insert(b2_v, 1);
@@ -559,7 +554,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     gold3_v = a3_v * b3_t;
 
     // call batched gemm
-    batched_gemm(a_batch, b_batch, c_batch);
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     REQUIRE(c == gold);
@@ -567,11 +564,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
   SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0")
   {
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    bool trans_a   = true;
-    bool trans_b   = true;
-
+    bool const trans_a = true;
     // make 3x2 (pre-trans) "a" views
     int const a_start_row = 1;
     int const a_stop_row  = 3;
@@ -595,7 +588,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const a_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a, alpha);
+                                   trans_a);
 
       builder.insert(a1_v, 0);
       builder.insert(a2_v, 1);
@@ -604,6 +597,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
       return builder;
     }();
 
+    bool const trans_b = true;
     // make 2x3 (pre trans) "b" views
     int const b_start_row = 0;
     int const b_stop_row  = 1;
@@ -622,7 +616,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const b_batch = [&] {
       batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b, 1.0);
+                                   trans_b);
 
       builder.insert(b1_v, 0);
       builder.insert(b2_v, 1);
@@ -644,7 +638,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const c_batch = [&] {
       batch_list<TestType> builder(num_batch, a_ncols, b_nrows, c.nrows(),
-                                   false, beta);
+                                   false);
       builder.insert(c1_v, 0);
       builder.insert(c2_v, 1);
       builder.insert(c3_v, 2);
@@ -661,7 +655,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     gold3_v = a3_t * b3_t;
 
     // call batched gemm
-    batched_gemm(a_batch, b_batch, c_batch);
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     REQUIRE(c == gold);
@@ -669,11 +665,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 1.0")
   {
-    TestType alpha = 1.0;
-    TestType beta  = 1.0;
-    bool trans_a   = false;
-    bool trans_b   = false;
-
+    bool const trans_a = false;
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
@@ -692,7 +684,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const a_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a, alpha);
+                                   trans_a);
 
       builder.insert(a1_v, 0);
       builder.insert(a2_v, 1);
@@ -701,6 +693,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
       return builder;
     }();
 
+    bool const trans_b = false;
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
@@ -719,7 +712,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const b_batch = [&] {
       batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b, 1.0);
+                                   trans_b);
 
       builder.insert(b1_v, 0);
       builder.insert(b2_v, 1);
@@ -744,7 +737,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const c_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(),
-                                   false, beta);
+                                   false);
       builder.insert(c1_v, 0);
       builder.insert(c2_v, 1);
       builder.insert(c3_v, 2);
@@ -761,7 +754,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     gold3_v = (a3_v * b3_v) * 2.0;
 
     // call batched gemm
-    batched_gemm(a_batch, b_batch, c_batch);
+    TestType const alpha = 1.0;
+    TestType const beta  = 1.0;
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     REQUIRE(c == gold);
@@ -769,11 +764,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 0.0")
   {
-    TestType alpha = 3.0;
-    TestType beta  = 0.0;
-    bool trans_a   = false;
-    bool trans_b   = false;
-
+    bool const trans_a = false;
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
@@ -792,7 +783,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const a_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a, alpha);
+                                   trans_a);
 
       builder.insert(a1_v, 0);
       builder.insert(a2_v, 1);
@@ -801,6 +792,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
       return builder;
     }();
 
+    bool const trans_b = false;
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
@@ -819,7 +811,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const b_batch = [&] {
       batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b, 1.0);
+                                   trans_b);
 
       builder.insert(b1_v, 0);
       builder.insert(b2_v, 1);
@@ -836,7 +828,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const c_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(),
-                                   false, beta);
+                                   false);
       builder.insert(c1_v, 0);
       builder.insert(c2_v, 1);
       builder.insert(c3_v, 2);
@@ -853,8 +845,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     gold3_v = (a3_v * b3_v) * 3.0;
 
     // call batched gemm
-
-    batched_gemm(a_batch, b_batch, c_batch);
+    TestType const alpha = 3.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     REQUIRE(c == gold);

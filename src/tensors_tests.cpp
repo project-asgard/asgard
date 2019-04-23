@@ -1002,10 +1002,10 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     REQUIRE(base.get_num_views() == 1);
     {
       // create 2x3 matrix from last six elems in base
-      fk::matrix<TestType, mem_type::view> from_owner(base, 2, 2, 3);
+      fk::matrix<TestType, mem_type::view> from_owner(base, 2, 3, 2);
       REQUIRE(base.get_num_views() == 2);
       // create 2x2 matrix from middle of view
-      fk::matrix<TestType, mem_type::view> from_view(view, 1, 2, 2);
+      fk::matrix<TestType, mem_type::view> from_view(view, 2, 2, 1);
       REQUIRE(base.get_num_views() == 3);
 
       // clang-format off
