@@ -3,9 +3,9 @@
 
 template<typename P>
 batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
-                          int const stride)
-    : num_batch(num_batch), nrows(nrows), ncols(ncols),
-      stride(stride), batch_list_{new P *[num_batch]()}
+                          int const stride, bool const do_trans, P const scale)
+    : num_batch(num_batch), nrows(nrows), ncols(ncols), stride(stride),
+      do_trans(do_trans), scale(scale), batch_list_{new P *[num_batch]()}
 {
   assert(num_batch > 0);
   assert(nrows > 0);
@@ -21,7 +21,8 @@ batch_list<P>::batch_list(int const num_batch, int const nrows, int const ncols,
 template<typename P>
 batch_list<P>::batch_list(batch_list<P> const &other)
     : num_batch(other.num_batch), nrows(other.nrows), ncols(other.ncols),
-      stride(other.stride), batch_list_{new P *[other.num_batch]()}
+      stride(other.stride), do_trans(other.do_trans),
+      scale(other.scale), batch_list_{new P *[other.num_batch]()}
 {
   std::memcpy(batch_list_, other.batch_list_, other.num_batch * sizeof(P *));
 }
@@ -37,6 +38,8 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> const &other)
   assert(nrows == other.nrows);
   assert(ncols == other.ncols);
   assert(stride == other.stride);
+  assert(do_trans == other.do_trans);
+  assert(std::abs(scale - other.scale) <= TOL);
   std::memcpy(batch_list_, other.batch_list_, other.num_batch * sizeof(P *));
   return *this;
 }
@@ -44,7 +47,8 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> const &other)
 template<typename P>
 batch_list<P>::batch_list(batch_list<P> &&other)
     : num_batch(other.num_batch), nrows(other.nrows), ncols(other.ncols),
-      stride(other.stride), batch_list_{other.batch_list_}
+      stride(other.stride), do_trans(other.do_trans),
+      scale(other.scale), batch_list_{other.batch_list_}
 {
   other.batch_list_ = nullptr;
 }
@@ -61,6 +65,8 @@ batch_list<P> &batch_list<P>::operator=(batch_list<P> &&other)
   assert(ncols == other.ncols);
   assert(stride == other.stride);
 
+  assert(std::abs(scale - other.scale) <= TOL);
+  assert(do_trans == other.do_trans);
   batch_list_       = other.batch_list_;
   other.batch_list_ = nullptr;
   return *this;
@@ -88,6 +94,14 @@ bool batch_list<P>::operator==(batch_list<P> other) const
     return false;
   }
   if (num_batch != other.num_batch)
+  {
+    return false;
+  }
+  if (do_trans != other.do_trans)
+  {
+    return false;
+  }
+  if (std::abs(scale - other.scale) > TOL)
   {
     return false;
   }
@@ -191,8 +205,7 @@ batch_list<P> &batch_list<P>::clear_all()
 // for calling cpu/gpu blas etc.
 template<typename P>
 void batched_gemm(batch_list<P> const a, batch_list<P> const b,
-                  batch_list<P> const c, P alpha, P beta, bool trans_a,
-                  bool trans_b)
+                  batch_list<P> const c)
 {
   // check data validity
   assert(a.is_filled() && b.is_filled() && c.is_filled());
@@ -202,11 +215,17 @@ void batched_gemm(batch_list<P> const a, batch_list<P> const b,
   assert(b.num_batch == c.num_batch);
   int const num_batch = a.num_batch;
 
+  assert(!c.do_trans);
+
+  P const alpha = a.scale;
+  P const beta  = c.scale;
+  assert(b.scale == 1.0);
+
   // check dimensions for gemm
-  int const rows_a = trans_a ? a.ncols : a.nrows;
-  int const cols_a = trans_a ? a.nrows : a.ncols;
-  int const rows_b = trans_b ? b.ncols : b.nrows;
-  int const cols_b = trans_b ? b.nrows : b.ncols;
+  int const rows_a = a.do_trans ? a.ncols : a.nrows;
+  int const cols_a = a.do_trans ? a.nrows : a.ncols;
+  int const rows_b = b.do_trans ? b.ncols : b.nrows;
+  int const cols_b = b.do_trans ? b.nrows : b.ncols;
   assert(cols_a == rows_b);
   assert(c.nrows == rows_a);
   assert(c.ncols == cols_b);
@@ -218,23 +237,25 @@ void batched_gemm(batch_list<P> const a, batch_list<P> const b,
   int lda                = a.stride;
   int ldb                = b.stride;
   int ldc                = c.stride;
-  char const transpose_a = trans_a ? 't' : 'n';
-  char const transpose_b = trans_b ? 't' : 'n';
+  char const transpose_a = a.do_trans ? 't' : 'n';
+  char const transpose_b = b.do_trans ? 't' : 'n';
+  P alpha_               = alpha;
+  P beta_                = beta;
 
   if constexpr (std::is_same<P, double>::value)
   {
     for (int i = 0; i < num_batch; ++i)
     {
-      fk::dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha, a(i), &lda,
-                 b(i), &ldb, &beta, c(i), &ldc);
+      fk::dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
+                 b(i), &ldb, &beta_, c(i), &ldc);
     }
   }
   else if constexpr (std::is_same<P, float>::value)
   {
     for (int i = 0; i < num_batch; ++i)
     {
-      fk::sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha, a(i), &lda,
-                 b(i), &ldb, &beta, c(i), &ldc);
+      fk::sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
+                 b(i), &ldb, &beta_, c(i), &ldc);
     }
   }
 }
@@ -243,10 +264,8 @@ template class batch_list<float>;
 template class batch_list<double>;
 
 template void batched_gemm(batch_list<float> const a, batch_list<float> const b,
-                           batch_list<float> const c, float alpha, float beta,
-                           bool trans_a, bool trans_b);
+                           batch_list<float> const c);
 
 template void batched_gemm(batch_list<double> const a,
                            batch_list<double> const b,
-                           batch_list<double> const c, double alpha,
-                           double beta, bool trans_a, bool trans_b);
+                           batch_list<double> const c);
