@@ -310,6 +310,7 @@ public:
         for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
         {
           term_list[i].set_data(dimensions_[i], fk::vector<P>());
+          term_list[i].set_coefficients(dimensions_[i], eye<P>(term_list[i].degrees_freedom(dimensions_[i])));
         }
       }
     }

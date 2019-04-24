@@ -849,3 +849,252 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     REQUIRE(c == gold);
   }
 }
+
+TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
+{
+  SECTION("1d, deg 3")
+  {
+    int const level     = 2;
+    int const degree    = 3;
+    int const num_elems = 60;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    int const stride = pde->get_terms()[0][0].get_coefficients().stride();
+
+    int const gold_size = pde->num_terms * num_elems;
+
+    std::vector<batch_set<TestType>> const batches =
+        allocate_batches(*pde, num_elems);
+    assert(batches.size() == 1);
+    batch_set<TestType> const batches_dim0 = batches[0];
+
+    int const gold_rows_a   = degree;
+    int const gold_cols_a   = degree;
+    int const gold_stride_a = stride;
+    bool const gold_trans_a = false;
+    assert(batches_dim0[0].num_batch == gold_size);
+    assert(batches_dim0[0].nrows == gold_rows_a);
+    assert(batches_dim0[0].ncols == gold_cols_a);
+    assert(batches_dim0[0].stride == gold_stride_a);
+    assert(batches_dim0[0].do_trans == gold_trans_a);
+
+    int const gold_rows_b   = degree;
+    int const gold_cols_b   = std::pow(degree, pde->num_dims - 1);
+    int const gold_stride_b = degree;
+    bool const gold_trans_b = false;
+    assert(batches_dim0[1].num_batch == gold_size);
+    assert(batches_dim0[1].nrows == gold_rows_b);
+    assert(batches_dim0[1].ncols == gold_cols_b);
+    assert(batches_dim0[1].stride == gold_stride_b);
+    assert(batches_dim0[1].do_trans == gold_trans_b);
+
+    int const gold_rows_c   = gold_rows_a;
+    int const gold_cols_c   = gold_cols_b;
+    int const gold_stride_c = gold_rows_a;
+    assert(batches_dim0[2].num_batch == gold_size);
+    assert(batches_dim0[2].nrows == gold_rows_c);
+    assert(batches_dim0[2].ncols == gold_cols_c);
+    assert(batches_dim0[2].stride == gold_stride_c);
+    assert(batches_dim0[2].do_trans == false);
+  }
+
+  SECTION("1d, deg 6")
+  {
+    int const level     = 2;
+    int const degree    = 6;
+    int const num_elems = 400;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    int const stride = pde->get_terms()[0][0].get_coefficients().stride();
+
+    int const gold_size = pde->num_terms * num_elems;
+
+    std::vector<batch_set<TestType>> const batches =
+        allocate_batches(*pde, num_elems);
+    assert(batches.size() == 1);
+    batch_set<TestType> const batches_dim0 = batches[0];
+
+    int const gold_rows_a   = degree;
+    int const gold_cols_a   = degree;
+    int const gold_stride_a = stride;
+    bool const gold_trans_a = false;
+    assert(batches_dim0[0].num_batch == gold_size);
+    assert(batches_dim0[0].nrows == gold_rows_a);
+    assert(batches_dim0[0].ncols == gold_cols_a);
+    assert(batches_dim0[0].stride == gold_stride_a);
+    assert(batches_dim0[0].do_trans == gold_trans_a);
+
+    int const gold_rows_b   = degree;
+    int const gold_cols_b   = std::pow(degree, pde->num_dims - 1);
+    int const gold_stride_b = degree;
+    bool const gold_trans_b = false;
+    assert(batches_dim0[1].num_batch == gold_size);
+    assert(batches_dim0[1].nrows == gold_rows_b);
+    assert(batches_dim0[1].ncols == gold_cols_b);
+    assert(batches_dim0[1].stride == gold_stride_b);
+    assert(batches_dim0[1].do_trans == gold_trans_b);
+
+    int const gold_rows_c   = gold_rows_a;
+    int const gold_cols_c   = gold_cols_b;
+    int const gold_stride_c = gold_rows_a;
+    assert(batches_dim0[2].num_batch == gold_size);
+    assert(batches_dim0[2].nrows == gold_rows_c);
+    assert(batches_dim0[2].ncols == gold_cols_c);
+    assert(batches_dim0[2].stride == gold_stride_c);
+    assert(batches_dim0[2].do_trans == false);
+  }
+
+  SECTION("2d, deg 2")
+  {
+    int const level      = 2;
+    int const degree     = 2;
+    int const num_elems  = 101;
+    int const dimensions = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    std::vector<batch_set<TestType>> const batches =
+        allocate_batches(*pde, num_elems);
+    assert(batches.size() == dimensions);
+
+    int const gold_size = pde->num_terms * num_elems;
+    for (int i = 0; i < dimensions; ++i)
+    {
+      int const stride = pde->get_terms()[0][i].get_coefficients().stride();
+      batch_set<TestType> const batch_dim = batches[i];
+      int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
+      int const gold_cols_a   = degree;
+      int const gold_stride_a = i == 0 ? stride : gold_rows_a;
+      bool const gold_trans_a = false;
+      assert(batch_dim[0].num_batch == gold_size);
+      assert(batch_dim[0].nrows == gold_rows_a);
+      assert(batch_dim[0].ncols == gold_cols_a);
+      assert(batch_dim[0].stride == gold_stride_a);
+      assert(batch_dim[0].do_trans == gold_trans_a);
+
+      int const gold_rows_b = degree;
+      int const gold_cols_b =
+          i == 0 ? std::pow(degree, pde->num_dims - 1) : degree;
+      int const gold_stride_b = i == 0 ? degree : stride;
+      bool const gold_trans_b = i == 0 ? false : true;
+      assert(batch_dim[1].num_batch == gold_size);
+      assert(batch_dim[1].nrows == gold_rows_b);
+      assert(batch_dim[1].ncols == gold_cols_b);
+      assert(batch_dim[1].stride == gold_stride_b);
+      assert(batch_dim[1].do_trans == gold_trans_b);
+
+      int const gold_rows_c   = gold_rows_a;
+      int const gold_cols_c   = gold_cols_b;
+      int const gold_stride_c = gold_rows_a;
+      assert(batch_dim[2].num_batch == gold_size);
+      assert(batch_dim[2].nrows == gold_rows_c);
+      assert(batch_dim[2].ncols == gold_cols_c);
+      assert(batch_dim[2].stride == gold_stride_c);
+      assert(batch_dim[2].do_trans == false);
+    }
+  }
+
+  SECTION("2d, deg 5")
+  {
+    int const level      = 2;
+    int const degree     = 5;
+    int const num_elems  = 251;
+    int const dimensions = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    std::vector<batch_set<TestType>> const batches =
+        allocate_batches(*pde, num_elems);
+    assert(batches.size() == dimensions);
+
+    int const gold_size = pde->num_terms * num_elems;
+    for (int i = 0; i < dimensions; ++i)
+    {
+      int const stride = pde->get_terms()[0][i].get_coefficients().stride();
+      batch_set<TestType> const batch_dim = batches[i];
+      int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
+      int const gold_cols_a   = degree;
+      int const gold_stride_a = i == 0 ? stride : gold_rows_a;
+      bool const gold_trans_a = false;
+      assert(batch_dim[0].num_batch == gold_size);
+      assert(batch_dim[0].nrows == gold_rows_a);
+      assert(batch_dim[0].ncols == gold_cols_a);
+      assert(batch_dim[0].stride == gold_stride_a);
+      assert(batch_dim[0].do_trans == gold_trans_a);
+
+      int const gold_rows_b = degree;
+      int const gold_cols_b =
+          i == 0 ? std::pow(degree, pde->num_dims - 1) : degree;
+      int const gold_stride_b = i == 0 ? degree : stride;
+      bool const gold_trans_b = i == 0 ? false : true;
+      assert(batch_dim[1].num_batch == gold_size);
+      assert(batch_dim[1].nrows == gold_rows_b);
+      assert(batch_dim[1].ncols == gold_cols_b);
+      assert(batch_dim[1].stride == gold_stride_b);
+      assert(batch_dim[1].do_trans == gold_trans_b);
+
+      int const gold_rows_c   = gold_rows_a;
+      int const gold_cols_c   = gold_cols_b;
+      int const gold_stride_c = gold_rows_a;
+      assert(batch_dim[2].num_batch == gold_size);
+      assert(batch_dim[2].nrows == gold_rows_c);
+      assert(batch_dim[2].ncols == gold_cols_c);
+      assert(batch_dim[2].stride == gold_stride_c);
+      assert(batch_dim[2].do_trans == false);
+    }
+  }
+  SECTION("6d, deg 10")
+  {
+    int const level      = 3;
+    int const degree     = 4;
+    int const num_elems  = 100;
+    int const dimensions = 6;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+
+    std::vector<batch_set<TestType>> const batches =
+        allocate_batches(*pde, num_elems);
+    assert(batches.size() == dimensions);
+
+    for (int i = 0; i < dimensions; ++i)
+    {
+      int const gold_size = [&] {
+        if (i == 0 || i == dimensions - 1)
+        {
+          return pde->num_terms * num_elems;
+        }
+        return static_cast<int>(std::pow(degree, dimensions) /
+                                std::pow(degree, i)) *
+               pde->num_terms * num_elems;
+      }();
+      int const stride = pde->get_terms()[0][i].get_coefficients().stride();
+      batch_set<TestType> const batch_dim = batches[i];
+      int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
+      int const gold_cols_a   = degree;
+      int const gold_stride_a = i == 0 ? stride : gold_rows_a;
+      bool const gold_trans_a = false;
+      assert(batch_dim[0].num_batch == gold_size);
+      assert(batch_dim[0].nrows == gold_rows_a);
+      assert(batch_dim[0].ncols == gold_cols_a);
+      assert(batch_dim[0].stride == gold_stride_a);
+      assert(batch_dim[0].do_trans == gold_trans_a);
+
+      int const gold_rows_b = degree;
+      int const gold_cols_b =
+          i == 0 ? std::pow(degree, pde->num_dims - 1) : degree;
+      int const gold_stride_b = i == 0 ? degree : stride;
+      bool const gold_trans_b = i == 0 ? false : true;
+      assert(batch_dim[1].num_batch == gold_size);
+      assert(batch_dim[1].nrows == gold_rows_b);
+      assert(batch_dim[1].ncols == gold_cols_b);
+      assert(batch_dim[1].stride == gold_stride_b);
+      assert(batch_dim[1].do_trans == gold_trans_b);
+
+      int const gold_rows_c   = gold_rows_a;
+      int const gold_cols_c   = gold_cols_b;
+      int const gold_stride_c = gold_rows_a;
+      assert(batch_dim[2].num_batch == gold_size);
+      assert(batch_dim[2].nrows == gold_rows_c);
+      assert(batch_dim[2].ncols == gold_cols_c);
+      assert(batch_dim[2].stride == gold_stride_c);
+      assert(batch_dim[2].do_trans == false);
+    }
+  }
+}

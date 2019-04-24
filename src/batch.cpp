@@ -257,7 +257,7 @@ void batched_gemm(batch_list<P> const a, batch_list<P> const b,
 static int
 compute_batch_size(int const degree, int const num_dims, int const dimension)
 {
-  assert(dimension > 0);
+  assert(dimension >= 0);
   assert(dimension < num_dims);
   assert(num_dims > 0);
   assert(degree > 0);
@@ -281,7 +281,7 @@ compute_batch_size(int const degree, int const num_dims, int const dimension)
 static gemm_dims
 compute_dimensions(int const degree, int const num_dims, int const dimension)
 {
-  assert(dimension > 0);
+  assert(dimension >= 0);
   assert(dimension < num_dims);
   assert(num_dims > 0);
   assert(degree > 0);
@@ -295,8 +295,7 @@ compute_dimensions(int const degree, int const num_dims, int const dimension)
                    degree, degree);
 }
 
-// create empty batches w/ correct dims and
-// for batching
+// create empty batches w/ correct dims/cardinality
 template<typename P>
 std::vector<batch_set<P>>
 allocate_batches(PDE<P> const &pde, int const num_elems)
@@ -317,11 +316,11 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
   // note all the coefficient matrices for each term have the
   // same dimensions
   int const stride = pde.get_terms()[0][0].get_coefficients().stride();
-  batches.push_back(std::vector<batch_list<P>>{
+  batches.emplace_back(std::vector<batch_list<P>>{
       batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans),
       batch_list<P>(num_gemms, sizes.rows_b, sizes.cols_b, sizes.rows_b,
                     do_trans),
-      batch_list<P>(num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a,
+      batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_b, sizes.rows_a,
                     false)});
 
   // remaining batches
@@ -334,7 +333,7 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
     bool const trans_b    = true;
 
     int const stride = pde.get_terms()[0][i].get_coefficients().stride();
-    batches.push_back(std::vector<batch_list<P>>{
+    batches.emplace_back(std::vector<batch_list<P>>{
         batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_a, sizes.rows_a,
                       trans_a),
         batch_list<P>(num_gemms, sizes.rows_b, sizes.cols_b, stride, trans_b),
