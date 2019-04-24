@@ -47,8 +47,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
   int const num_batch             = 3;
   batch_list<TestType> const gold = [&] {
-    batch_list<TestType> builder(num_batch, nrows, ncols, stride, do_trans,
-                                 scale);
+    batch_list<TestType> builder(num_batch, nrows, ncols, stride, do_trans);
 
     builder.insert(first_v, 0);
     builder.insert(second_v, 1);
@@ -62,13 +61,12 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
     SECTION("constructor")
     {
       batch_list<TestType> const empty(num_batch, nrows, ncols, stride,
-                                       do_trans, scale);
+                                       do_trans);
       REQUIRE(empty.num_batch == num_batch);
       REQUIRE(empty.nrows == nrows);
       REQUIRE(empty.ncols == ncols);
       REQUIRE(empty.stride == stride);
       REQUIRE(empty.do_trans == do_trans);
-      REQUIRE(empty.scale == scale);
 
       for (TestType *const ptr : empty)
       {
@@ -84,8 +82,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
     SECTION("copy assignment")
     {
-      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans,
-                                scale);
+      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans);
       test = gold;
       REQUIRE(test == gold);
     }
@@ -99,8 +96,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
     SECTION("move assignment")
     {
-      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans,
-                                scale);
+      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans);
       batch_list<TestType> gold_copy(gold);
       test = std::move(gold_copy);
       REQUIRE(test == gold);
@@ -111,8 +107,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
   {
     SECTION("insert/getter")
     {
-      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans,
-                                scale);
+      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans);
       test.insert(first_v, 0);
       TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
@@ -537,7 +532,8 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
 
     batch_list<TestType> const c_batch = [&] {
       batch_list<TestType> builder(num_batch, a_nrows, b_nrows, c.nrows(),
-                                   false, beta);
+                                   false);
+
       builder.insert(c1_v, 0);
       builder.insert(c2_v, 1);
       builder.insert(c3_v, 2);

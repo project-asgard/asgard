@@ -72,7 +72,8 @@ using batch_set = std::vector<batch_list<P>>;
 // create empty batches w/ correct dims and settings
 // for batching
 template<typename P>
-std::vector<batch_set<P>> allocate_batches(PDE<P> const &pde);
+std::vector<batch_set<P>>
+allocate_batches(PDE<P> const &pde, int const num_elems);
 
 // given num_dims many square matrices of size degree,
 // and a vector x of size degree^num_dims, and an output
@@ -107,9 +108,9 @@ batched_gemm(batch_list<double> const a, batch_list<double> const b,
              batch_list<double> const c, double const alpha, double const beta);
 
 extern template std::vector<batch_set<float>>
-allocate_batches(PDE<float> const &pde);
+allocate_batches(PDE<float> const &pde, int const num_elems);
 extern template std::vector<batch_set<double>>
-allocate_batches(PDE<double> const &pde);
+allocate_batches(PDE<double> const &pde, int const num_elems);
 
 extern template void
 batch_for_kronmult(std::vector<fk::matrix<float, mem_type::view>> const A,
