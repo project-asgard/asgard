@@ -70,6 +70,7 @@ set (components
   tensors
   time_advance
   transformations
+  apply_fmwt
 )
 
 foreach (component IN LISTS components)
@@ -131,6 +132,7 @@ set (main_app_link_deps
   tensors
   time_advance
   transformations
+  apply_fmwt
 )
 foreach (link_dep IN LISTS main_app_link_deps)
   target_link_libraries (asgard PRIVATE ${link_dep})
