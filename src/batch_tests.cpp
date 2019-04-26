@@ -1,7 +1,8 @@
-#include "tests_general.hpp"
-
 #include "batch.hpp"
 #include "tensors.hpp"
+#include "tests_general.hpp"
+#include <numeric>
+#include <random>
 
 TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 {
@@ -1041,7 +1042,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
       assert(batch_dim[2].do_trans == false);
     }
   }
-  SECTION("6d, deg 10")
+  SECTION("6d, deg 4")
   {
     int const level      = 3;
     int const degree     = 4;
@@ -1060,8 +1061,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
         {
           return pde->num_terms * num_elems;
         }
-        return static_cast<int>(std::pow(degree, dimensions) /
-                                std::pow(degree, i)) *
+        return static_cast<int>(std::pow(degree, (dimensions - i - 1))) *
                pde->num_terms * num_elems;
       }();
       int const stride = pde->get_terms()[0][i].get_coefficients().stride();
@@ -1070,6 +1070,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
       int const gold_cols_a   = degree;
       int const gold_stride_a = i == 0 ? stride : gold_rows_a;
       bool const gold_trans_a = false;
+
       assert(batch_dim[0].num_batch == gold_size);
       assert(batch_dim[0].nrows == gold_rows_a);
       assert(batch_dim[0].ncols == gold_cols_a);
@@ -1096,5 +1097,448 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
       assert(batch_dim[2].stride == gold_stride_c);
       assert(batch_dim[2].do_trans == false);
     }
+  }
+}
+
+TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
+{
+  SECTION("1 element, 1d, 1 term")
+  {
+    int const degree    = 4;
+    int const level     = 2;
+    int const num_elems = 1;
+
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    fk::matrix<TestType> coefficient_matrix =
+        pde->get_terms()[0][0].get_coefficients();
+
+    // clang-format off
+    fk::matrix<TestType> const A {
+        { 2,  3,  4,  5}, 
+	{ 6,  7,  8,  9}, 
+	{10, 11, 12, 13}, 
+	{14, 15, 16, 17}};
+    // clang-format on
+
+    coefficient_matrix.set_submatrix(0, 0, A);
+    fk::vector<TestType> x{18, 19, 20, 21};
+    fk::vector<TestType> const gold = A * x;
+
+    std::vector<batch_set<TestType>> batches =
+        allocate_batches(*pde, num_elems);
+    fk::matrix<TestType, mem_type::view> A_view(coefficient_matrix, 0,
+                                                degree - 1, 0, degree - 1);
+
+    std::vector<fk::matrix<TestType, mem_type::view>> const As = {A_view};
+    fk::vector<TestType, mem_type::view> x_view(x);
+    fk::vector<TestType> y_own(degree);
+    fk::vector<TestType, mem_type::view> y(y_own);
+    std::vector<fk::vector<TestType, mem_type::view>> work_set = {};
+    int const batch_offset                                     = 0;
+
+    batch_for_kronmult(As, x_view, y, work_set, batches, batch_offset, *pde);
+
+    batch_list<TestType> const a = batches[0][0];
+    batch_list<TestType> const b = batches[0][1];
+    batch_list<TestType> const c = batches[0][2];
+
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a, b, c, alpha, beta);
+
+    REQUIRE(gold == y);
+  }
+
+  SECTION("2 elements, 1d, 1 term")
+  {
+    int const degree    = 4;
+    int const level     = 2;
+    int const num_elems = 2;
+
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    fk::matrix<TestType> coefficient_matrix =
+        pde->get_terms()[0][0].get_coefficients();
+
+    // clang-format off
+    fk::matrix<TestType> const A {
+        { 2,  3,  4,  5,  6,  7}, 
+	{ 8,  9, 10, 11, 12, 13}, 
+	{14, 15, 16, 17, 18, 19}, 
+	{20, 21, 22, 23, 24, 25}, 
+	{26, 27, 28, 29, 30, 31}, 
+	{32, 33, 34, 35, 36, 37}};
+    // clang-format on
+    coefficient_matrix.set_submatrix(0, 0, A);
+    fk::vector<TestType> x{18, 19, 20, 21};
+
+    std::vector<batch_set<TestType>> batches =
+        allocate_batches(*pde, num_elems);
+
+    // each element addresses a slightly different part of the underlying
+    // coefficients
+    fk::matrix<TestType, mem_type::view> A_view_e0(coefficient_matrix, 0,
+                                                   degree - 1, 0, degree - 1);
+    fk::matrix<TestType, mem_type::view> A_view_e1(
+        coefficient_matrix, 2, 2 + degree - 1, 2, 2 + degree - 1);
+
+    fk::vector<TestType> const gold_e0 = A_view_e0 * x;
+    fk::vector<TestType> const gold_e1 = A_view_e1 * x;
+    fk::vector<TestType> const gold    = gold_e0 + gold_e1;
+
+    fk::vector<TestType, mem_type::view> x_view(x);
+    fk::vector<TestType> y_own(degree * num_elems);
+
+    // schedule gemms for both elements
+    int batch_offset                                              = 0;
+    std::vector<fk::matrix<TestType, mem_type::view>> const As_e0 = {A_view_e0};
+    fk::vector<TestType, mem_type::view> y_e0(y_own, 0, degree - 1);
+    std::vector<fk::vector<TestType, mem_type::view>> work_set_e0 = {};
+    batch_for_kronmult(As_e0, x_view, y_e0, work_set_e0, batches, batch_offset,
+                       *pde);
+
+    batch_offset                                                  = 1;
+    std::vector<fk::matrix<TestType, mem_type::view>> const As_e1 = {A_view_e1};
+    fk::vector<TestType, mem_type::view> y_e1(y_own, degree, y_own.size() - 1);
+    std::vector<fk::vector<TestType, mem_type::view>> work_set_e1 = {};
+
+    batch_for_kronmult(As_e1, x_view, y_e1, work_set_e1, batches, batch_offset,
+                       *pde);
+
+    batch_list<TestType> const a = batches[0][0];
+    batch_list<TestType> const b = batches[0][1];
+    batch_list<TestType> const c = batches[0][2];
+
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a, b, c, alpha, beta);
+
+    REQUIRE(gold_e0 == y_e0);
+    REQUIRE(gold_e1 == y_e1);
+    REQUIRE(gold == (y_e0 + y_e1));
+  }
+
+  SECTION("2 elements, 2d, 2 terms")
+  {
+    int const degree    = 5;
+    int const level     = 2;
+    int const num_elems = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    int const num_terms = 2;
+    int const num_dims  = 2;
+    // first, create example coefficient matrices in the pde
+    int const dof = degree * std::pow(2, level);
+    std::array<fk::matrix<TestType>, num_terms *num_dims> A_mats = {
+        fk::matrix<TestType>(dof, dof), fk::matrix<TestType>(dof, dof),
+        fk::matrix<TestType>(dof, dof), fk::matrix<TestType>(dof, dof)};
+
+    // create different matrices for each term/dim pairing
+    int start = 1;
+    for (fk::matrix<TestType> &mat : A_mats)
+    {
+      std::iota(mat.begin(), mat.end(), start);
+      start += dof;
+    }
+
+    // create input vector
+    int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
+    fk::vector<TestType> x(x_size);
+    std::iota(x.begin(), x.end(), 1);
+
+    std::vector<batch_set<TestType>> batches =
+        allocate_batches(*pde, num_elems);
+
+    // create intermediate workspaces
+    // and output vectors
+    fk::vector<TestType, mem_type::view> x_view(x);
+    fk::vector<TestType> y_own(x_size * num_elems * num_terms);
+    fk::vector<TestType> gold(x_size * num_elems * num_terms);
+    fk::vector<TestType> work_own(x_size * num_elems * num_terms *
+                                  (num_dims - 1));
+
+    for (int i = 0; i < num_elems; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        // linearize index
+        int const kron_index = i * num_terms + j;
+
+        // address y space
+        int const y_index    = x_size * kron_index;
+        int const work_index = x_size * kron_index * (num_dims - 1);
+        fk::vector<TestType, mem_type::view> y_view(y_own, y_index,
+                                                    y_index + x_size - 1);
+        fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
+                                                       y_index + x_size - 1);
+
+        // intermediate workspace
+        std::vector<fk::vector<TestType, mem_type::view>> work_views = {
+            fk::vector<TestType, mem_type::view>(work_own, work_index,
+                                                 work_index + x_size - 1)};
+
+        // create A_views
+        std::vector<fk::matrix<TestType, mem_type::view>> A_views;
+        for (int k = 0; k < pde->num_dims; ++k)
+        {
+          int const start_row = degree * i;
+          int const stop_row  = degree * (i + 1) - 1;
+          int const start_col = 0;
+          int const stop_col  = degree - 1;
+          A_views.push_back(fk::matrix<TestType, mem_type::view>(
+              A_mats[j * num_dims + k], start_row, stop_row, start_col,
+              stop_col));
+        }
+
+        int const batch_offset = kron_index;
+        batch_for_kronmult(A_views, x_view, y_view, work_views, batches,
+                           batch_offset, *pde);
+
+        gold_view = (A_views[1].kron(A_views[0])) * x;
+      }
+    }
+
+    for (int k = 0; k < pde->num_dims; ++k)
+    {
+      batch_list<TestType> const a = batches[k][0];
+      batch_list<TestType> const b = batches[k][1];
+      batch_list<TestType> const c = batches[k][2];
+      TestType const alpha         = 1.0;
+      TestType const beta          = 0.0;
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    REQUIRE(y_own == gold);
+  }
+
+  SECTION("1 element, 3d, 3 terms")
+  {
+    int const degree    = 5;
+    int const level     = 2;
+    int const num_elems = 1;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+
+    int const num_terms = 3;
+    int const num_dims  = 3;
+    // first, create example coefficient matrices in the pde
+    int const dof = degree * std::pow(2, level);
+    std::vector<fk::matrix<TestType>> A_mats;
+    for (int i = 0; i < num_terms * num_dims; ++i)
+    {
+      A_mats.push_back(fk::matrix<TestType>(dof, dof));
+    }
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+
+    // create different matrices for each term/dim pairing
+    for (fk::matrix<TestType> &mat : A_mats)
+    {
+      std::generate(mat.begin(), mat.end(), gen);
+    }
+
+    // create input vector
+    int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
+    fk::vector<TestType> x(x_size);
+    std::generate(x.begin(), x.end(), gen);
+
+    std::vector<batch_set<TestType>> batches =
+        allocate_batches(*pde, num_elems);
+
+    // create intermediate workspaces
+    // and output vectors
+    fk::vector<TestType, mem_type::view> x_view(x);
+    fk::vector<TestType> y_own(x_size * num_elems * num_terms);
+    fk::vector<TestType> gold(x_size * num_elems * num_terms);
+    fk::vector<TestType> work_own(x_size * num_elems * num_terms *
+                                  (num_dims - 1));
+    std::fill(work_own.begin(), work_own.end(), 0.0);
+    std::fill(y_own.begin(), y_own.end(), 0.0);
+    for (int i = 0; i < num_elems; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        // linearize index
+        int const kron_index = pde->num_terms * i + j;
+
+        // address y space
+        int const y_index    = x_size * kron_index;
+        int const work_index = x_size * kron_index * (num_dims - 1);
+        fk::vector<TestType, mem_type::view> y_view(y_own, y_index,
+                                                    y_index + x_size - 1);
+        fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
+                                                       y_index + x_size - 1);
+
+        // intermediate workspace
+        std::vector<fk::vector<TestType, mem_type::view>> work_views = {
+            fk::vector<TestType, mem_type::view>(work_own, work_index,
+                                                 work_index + x_size - 1),
+            fk::vector<TestType, mem_type::view>(work_own, work_index + x_size,
+                                                 work_index + x_size * 2 - 1)};
+
+        // create A_views
+        std::vector<fk::matrix<TestType, mem_type::view>> A_views;
+        for (int k = 0; k < pde->num_dims; ++k)
+        {
+          int const start_row = degree * i;
+          int const stop_row  = degree * (i + 1) - 1;
+          int const start_col = 0;
+          int const stop_col  = degree - 1;
+
+          A_views.push_back(fk::matrix<TestType, mem_type::view>(
+              A_mats[j * num_dims + k], start_row, stop_row, start_col,
+              stop_col));
+        }
+
+        int const batch_offset = kron_index;
+        batch_for_kronmult(A_views, x_view, y_view, work_views, batches,
+                           batch_offset, *pde);
+
+        gold_view = (A_views[2].kron(A_views[1].kron(A_views[0]))) * x;
+      }
+    }
+
+    for (int k = 0; k < pde->num_dims; ++k)
+    {
+      batch_list<TestType> const a = batches[k][0];
+      batch_list<TestType> const b = batches[k][1];
+      batch_list<TestType> const c = batches[k][2];
+      TestType const alpha         = 1.0;
+      TestType const beta          = 0.0;
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // this method of computing "correctness" borrowed from ed's tests:
+    // https://code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
+    fk::vector<TestType> diff = gold - y_own;
+    auto abs_compare          = [](TestType a, TestType b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType result = *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType tol    = std::numeric_limits<TestType>::epsilon();
+    REQUIRE(result < tol * gold.size());
+  }
+
+  SECTION("3 elements, 6d, 6 terms")
+  {
+    int const degree    = 2;
+    int const level     = 2;
+    int const num_elems = 3;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+
+    int const num_terms = 6;
+    int const num_dims  = 6;
+    // first, create example coefficient matrices in the pde
+    int const dof = degree * std::pow(2, level);
+    std::vector<fk::matrix<TestType>> A_mats;
+    for (int i = 0; i < num_terms * num_dims; ++i)
+    {
+      A_mats.push_back(fk::matrix<TestType>(dof, dof));
+    }
+
+    // create different matrices for each term/dim pairing
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+
+    // create different matrices for each term/dim pairing
+    for (fk::matrix<TestType> &mat : A_mats)
+    {
+      std::generate(mat.begin(), mat.end(), gen);
+    }
+
+    // create input vector
+    int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
+    fk::vector<TestType> x(x_size);
+    std::generate(x.begin(), x.end(), gen);
+
+    std::vector<batch_set<TestType>> batches =
+        allocate_batches(*pde, num_elems);
+
+    // create intermediate workspaces
+    // and output vectors
+    fk::vector<TestType, mem_type::view> x_view(x);
+    fk::vector<TestType> y_own(x_size * num_elems * num_terms);
+    fk::vector<TestType> gold(x_size * num_elems * num_terms);
+    fk::vector<TestType> work_own(x_size * num_elems * num_terms *
+                                  (num_dims - 1));
+
+    for (int i = 0; i < num_elems; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        // linearize index
+        int const kron_index = i * num_terms + j;
+
+        // address y space
+        int const y_index    = x_size * kron_index;
+        int const work_index = x_size * kron_index * (num_dims - 1);
+        fk::vector<TestType, mem_type::view> y_view(y_own, y_index,
+                                                    y_index + x_size - 1);
+        fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
+                                                       y_index + x_size - 1);
+
+        // intermediate workspace
+        std::vector<fk::vector<TestType, mem_type::view>> work_views = {
+            fk::vector<TestType, mem_type::view>(work_own, work_index,
+                                                 work_index + x_size - 1),
+
+            fk::vector<TestType, mem_type::view>(work_own, work_index + x_size,
+                                                 work_index + x_size * 2 - 1),
+
+            fk::vector<TestType, mem_type::view>(
+                work_own, work_index + x_size * 2, work_index + x_size * 3 - 1),
+
+            fk::vector<TestType, mem_type::view>(
+                work_own, work_index + x_size * 3, work_index + x_size * 4 - 1),
+
+            fk::vector<TestType, mem_type::view>(work_own,
+                                                 work_index + x_size * 4,
+                                                 work_index + x_size * 5 - 1)};
+
+        // create A_views
+        std::vector<fk::matrix<TestType, mem_type::view>> A_views;
+        for (int k = 0; k < pde->num_dims; ++k)
+        {
+          int const start_row = degree * i;
+          int const stop_row  = degree * (i + 1) - 1;
+          int const start_col = 0;
+          int const stop_col  = degree - 1;
+          A_views.push_back(fk::matrix<TestType, mem_type::view>(
+              A_mats[j * num_dims + k], start_row, stop_row, start_col,
+              stop_col));
+        }
+
+        int const batch_offset = kron_index;
+        batch_for_kronmult(A_views, x_view, y_view, work_views, batches,
+                           batch_offset, *pde);
+
+        gold_view = (A_views[5].kron(A_views[4].kron(A_views[3].kron(
+                        A_views[2].kron(A_views[1].kron(A_views[0])))))) *
+                    x;
+      }
+    }
+
+    for (int k = 0; k < pde->num_dims; ++k)
+    {
+      batch_list<TestType> const a = batches[k][0];
+      batch_list<TestType> const b = batches[k][1];
+      batch_list<TestType> const c = batches[k][2];
+      TestType const alpha         = 1.0;
+      TestType const beta          = 0.0;
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // this method of computing "correctness" borrowed from ed's tests:
+    // https://code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
+    fk::vector<TestType> diff = gold - y_own;
+    auto abs_compare          = [](TestType a, TestType b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType result = *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType tol    = std::numeric_limits<TestType>::epsilon();
+    REQUIRE(result < tol * gold.size());
   }
 }

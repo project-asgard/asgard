@@ -130,6 +130,13 @@ void batch_list<P>::insert(fk::matrix<P, mem_type::view> const a,
   // same dimensions as others in batch
   assert(a.nrows() == nrows);
   assert(a.ncols() == ncols);
+
+  if (a.stride() != stride)
+  {
+    std::cout << a.stride() << std::endl;
+
+    std::cout << stride << std::endl;
+  }
   assert(a.stride() == stride);
 
   // ensure position is valid
@@ -221,8 +228,9 @@ void batched_gemm(batch_list<P> const a, batch_list<P> const b,
   assert(c.ncols == cols_b);
 
   // setup blas args
-  int m                  = rows_a;
-  int n                  = cols_b;
+  int m = rows_a;
+  int n = cols_b; // technically these should be of op(A) or (B), but our dims
+                  // are the same when transposing
   int k                  = cols_a;
   int lda                = a.stride;
   int ldb                = b.stride;
@@ -270,7 +278,8 @@ compute_batch_size(int const degree, int const num_dims, int const dimension)
   // intermediate levels
   if (dimension < num_dims - 1)
   {
-    return std::pow(degree, num_dims) / std::pow(degree, dimension);
+    return std::pow(
+        degree, (num_dims - dimension - 1)); /// std::pow(degree, dimension);
   }
 
   // highest level; single gemm
@@ -307,9 +316,8 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
   int const degree = pde.get_dimensions()[0].get_degree();
 
   // add the first (lowest dimension) batch
-  bool const do_trans = false;
-  int const num_gemms =
-      compute_batch_size(degree, pde.num_dims, 0) * pde.num_terms * num_elems;
+  bool const do_trans   = false;
+  int const num_gemms   = pde.num_terms * num_elems;
   gemm_dims const sizes = compute_dimensions(degree, pde.num_dims, 0);
 
   // get stride of first coefficient matrix in 0th term set.
@@ -367,7 +375,7 @@ void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
                         fk::vector<P, mem_type::view> y,
                         std::vector<fk::vector<P, mem_type::view>> const work,
                         std::vector<batch_set<P>> &batch_lists,
-                        std::vector<int> const batch_offsets, PDE<P> const &pde)
+                        int const batch_offset, PDE<P> const &pde)
 {
   // FIXME when we allow varying degree by dimension, all
   // this code will have to change...
@@ -379,6 +387,7 @@ void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
   assert(y.size() == result_size);
 
   // check workspace sizes
+  assert(static_cast<int>(work.size()) == pde.num_dims - 1);
   for (fk::vector<P, mem_type::view> const &vector : work)
   {
     assert(vector.size() == result_size);
@@ -393,53 +402,48 @@ void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
 
   assert(static_cast<int>(batch_lists.size()) == pde.num_dims);
 
-  for (int const offset : batch_offsets)
-  {
-    assert(offset >= 0);
-  }
+  assert(batch_offset >= 0);
 
   if (pde.num_dims == 1)
   {
-    kron_base(A[0], x, y, batch_lists[0], batch_offsets[0], degree,
-              pde.num_dims);
+    kron_base(A[0], x, y, batch_lists[0], batch_offset, degree, pde.num_dims);
     return;
   }
 
-  kron_base(A[pde.num_dims - 1], x, work[0], batch_lists[0], batch_offsets[0],
-            degree, pde.num_dims);
+  kron_base(A[0], x, work[0], batch_lists[0], batch_offset, degree,
+            pde.num_dims);
 
   for (int dimension = 1; dimension < pde.num_dims - 1; ++dimension)
   {
     gemm_dims const sizes = compute_dimensions(degree, pde.num_dims, dimension);
     int const num_gemms   = compute_batch_size(degree, pde.num_dims, dimension);
     int const offset      = sizes.rows_a * sizes.cols_a;
+    assert((offset * num_gemms) ==
+           static_cast<int>(std::pow(degree, pde.num_dims)));
 
     for (int gemm = 0; gemm < num_gemms; ++gemm)
     {
-      batch_lists[dimension][1].insert(A[pde.num_dims - dimension - 1],
-                                       batch_offsets[dimension] + gemm);
       fk::matrix<P, mem_type::view> x_view(work[dimension - 1], sizes.rows_a,
                                            sizes.cols_a, offset * gemm);
-      batch_lists[dimension][0].insert(x_view, batch_offsets[dimension] + gemm);
+      batch_lists[dimension][0].insert(x_view, batch_offset * num_gemms + gemm);
+      batch_lists[dimension][1].insert(A[dimension],
+                                       batch_offset * num_gemms + gemm);
       fk::matrix<P, mem_type::view> work_view(work[dimension], sizes.rows_a,
                                               sizes.cols_a, offset * gemm);
       batch_lists[dimension][2].insert(work_view,
-                                       batch_offsets[dimension] + gemm);
+                                       batch_offset * num_gemms + gemm);
     }
   }
 
   gemm_dims const sizes =
       compute_dimensions(degree, pde.num_dims, pde.num_dims - 1);
 
-  batch_lists[pde.num_dims - 1][1].insert(A[pde.num_dims - 1],
-                                          batch_offsets[pde.num_dims - 1]);
   fk::matrix<P, mem_type::view> x_view(work[pde.num_dims - 2], sizes.rows_a,
                                        sizes.cols_a);
-  batch_lists[pde.num_dims - 1][0].insert(x_view,
-                                          batch_offsets[pde.num_dims - 1]);
+  batch_lists[pde.num_dims - 1][0].insert(x_view, batch_offset);
+  batch_lists[pde.num_dims - 1][1].insert(A[pde.num_dims - 1], batch_offset);
   fk::matrix<P, mem_type::view> y_view(y, sizes.rows_a, sizes.cols_a);
-  batch_lists[pde.num_dims - 1][2].insert(y_view,
-                                          batch_offsets[pde.num_dims - 1]);
+  batch_lists[pde.num_dims - 1][2].insert(y_view, batch_offset);
 }
 
 template class batch_list<float>;
@@ -463,7 +467,7 @@ batch_for_kronmult(std::vector<fk::matrix<float, mem_type::view>> const A,
                    fk::vector<float, mem_type::view> y,
                    std::vector<fk::vector<float, mem_type::view>> const work,
                    std::vector<batch_set<float>> &batch_lists,
-                   std::vector<int> const batch_offsets, PDE<float> const &pde);
+                   int const batch_offset, PDE<float> const &pde);
 
 template void
 batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
@@ -471,5 +475,4 @@ batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
                    fk::vector<double, mem_type::view> y,
                    std::vector<fk::vector<double, mem_type::view>> const work,
                    std::vector<batch_set<double>> &batch_lists,
-                   std::vector<int> const batch_offsets,
-                   PDE<double> const &pde);
+                   int const batch_offset, PDE<double> const &pde);

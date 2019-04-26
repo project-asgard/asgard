@@ -94,8 +94,7 @@ void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
                         fk::vector<P, mem_type::view> y,
                         std::vector<fk::vector<P, mem_type::view>> const work,
                         std::vector<batch_set<P>> &batch_lists,
-                        std::vector<int> const batch_offsets,
-                        PDE<P> const &pde);
+                        int const batch_offsets, PDE<P> const &pde);
 
 extern template class batch_list<float>;
 extern template class batch_list<double>;
@@ -118,7 +117,7 @@ batch_for_kronmult(std::vector<fk::matrix<float, mem_type::view>> const A,
                    fk::vector<float, mem_type::view> y,
                    std::vector<fk::vector<float, mem_type::view>> const work,
                    std::vector<batch_set<float>> &batch_lists,
-                   std::vector<int> const batch_offsets, PDE<float> const &pde);
+                   int const batch_offset, PDE<float> const &pde);
 
 extern template void
 batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
@@ -126,5 +125,4 @@ batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
                    fk::vector<double, mem_type::view> y,
                    std::vector<fk::vector<double, mem_type::view>> const work,
                    std::vector<batch_set<double>> &batch_lists,
-                   std::vector<int> const batch_offsets,
-                   PDE<double> const &pde);
+                   int const batch_offset, PDE<double> const &pde);

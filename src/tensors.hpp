@@ -1166,7 +1166,7 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    data_      = new P[a.size()]();
+    data_      = new P[a.stride() * a.ncols()]();
     ref_count_ = std::make_shared<int>(0);
   }
   else
@@ -1232,8 +1232,9 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
 template<typename P, mem_type mem>
 template<typename PP, mem_type omem, mem_type, typename>
 fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
-    : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
-      stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
+    : data_{new P[a.stride() * a.ncols()]()}, nrows_{a.nrows()},
+      ncols_{a.ncols()}, stride_{a.stride()}, ref_count_{
+                                                  std::make_shared<int>(0)}
 
 {
   for (auto j = 0; j < a.ncols(); ++j)
@@ -1273,7 +1274,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<PP, omem> const &a)
 
 template<typename P, mem_type mem>
 fk::matrix<P, mem>::matrix(matrix<P, mem> &&a)
-    : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{nrows_}
+    : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.stride()}
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -1297,7 +1298,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
   if (&a == this)
     return *this;
 
-  assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
+  assert((nrows() == a.nrows()) &&
+         (ncols() == a.ncols() && stride() == a.stride()));
 
   // check for destination orphaning; see below
   if constexpr (mem == mem_type::owner)
