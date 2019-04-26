@@ -84,8 +84,10 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                                     row_pos + 2));
     legendre.update_row(
         row_pos + 2,
-        row_shift * ((2.0 * (row_pos + 1.0) + 1.0) / ((row_pos + 1.0) + 1.0)) -
-            P_row_pos_minus1 * ((row_pos + 1.0) / ((row_pos + 1.0) + 1.0)));
+        fk::vector<P>(
+            row_shift *
+                ((2.0 * (row_pos + 1.0) + 1.0) / ((row_pos + 1.0) + 1.0)) -
+            P_row_pos_minus1 * ((row_pos + 1.0) / ((row_pos + 1.0) + 1.0))));
   }
 
   // Step 2 of 2 in creating the scalets
@@ -105,6 +107,11 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
       stepping, static_cast<int>(zero), static_cast<int>(one));
   auto const [roots_neg1to1, weights_neg1to1] = legendre_weights<P>(
       stepping, static_cast<int>(neg1), static_cast<int>(one));
+
+  // this is to get around unused warnings
+  // because can't unpack only some args w structured binding (until c++20)
+  auto const ignore = [](auto ignored) { (void)ignored; };
+  ignore(weights_neg1to1);
 
   auto const get_row = [](fk::matrix<P> const mat,
                           int const row_pos) -> fk::vector<P> {
