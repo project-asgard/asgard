@@ -70,6 +70,7 @@ if (NOT LINALG_LIBS)
     ExternalProject_Add (openblas-ext
       PREFIX contrib/blas/openblas
       URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
+      DOWNLOAD_NO_PROGRESS 1
       CONFIGURE_COMMAND ""
       BUILD_COMMAND make
       BUILD_IN_SOURCE 1

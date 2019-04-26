@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9)
+cmake_minimum_required (VERSION 3.13)
 project (asgard
   VERSION 0.1.0
   LANGUAGES CXX
@@ -17,6 +17,10 @@ option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
 option (ASGARD_LAPACK_PATH "location of include/ and lib/ containing LAPACK" "")
 option (ASGARD_BLAS_PATH "location of include/ and lib/ containing BLAS" "")
+option (ASGARD_PROFILE_GPROF "enable profiling support for using gprof" "")
+option (ASGARD_PROFILE_XRAY "enable profiling support for using LLVM XRAY" "")
+option (ASGARD_PROFILE_GPERF "enable profiling support for using gperftools" "")
+option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -29,6 +33,7 @@ endif()
 ## Pull in external support as needed
 ###############################################################################
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
+include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 
 ###############################################################################
 ## Building asgard
