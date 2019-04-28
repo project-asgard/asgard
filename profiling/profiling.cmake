@@ -1,6 +1,16 @@
 
-# todo:
-# - make graphviz build optional
+###############################################################################
+## Profiling support
+###############################################################################
+
+###############################################################################
+## GNU gprof
+#
+# FIXME make graphviz build optional
+#
+#  if cmake needs to "build graphviz", and it remains from a previous build,
+#  cmake will skip the build and reuse it
+###############################################################################
 if (ASGARD_PROFILE_GPROF)
   if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_compile_options ("-pg")
@@ -8,7 +18,7 @@ if (ASGARD_PROFILE_GPROF)
     message (
       "\n"
       "   gprof enabled. For using gprof:\n"
-      "   1) build the code with -pg option (will be done for you during 'make')\n"
+      "   1) build/link the code with -pg option (will be done for you during 'make')\n"
       "   2) run the executable to be profiled.\n"
       "      this produces a 'gmon.out' in the current directory\n"
       "   3) gprof asgard gmon.out > [output-file.txt]\n"
@@ -68,17 +78,39 @@ if (ASGARD_PROFILE_GPROF)
   endif ()
 endif ()
 
+###############################################################################
+## LLVM XRAY
+###############################################################################
+
 if (ASGARD_PROFILE_XRAY)
   if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options ("")
+    add_compile_options ("-fxray-instrument")
+    add_link_options ("-fxray-instrument")
+    message (
+      "\n"
+      "   LLVM XRAY enabled. to use:\n"
+      "   1) build/link the code with -fxray-instrument option (done for you during 'make')\n"
+      "   2) run the executable to be profiled with:\n"
+      "      $ XRAY_OPTIONS=\"patch_premain=true xray_mode=xray-basic verbosity=1\" [./exec] [exec options]\n"
+      "      this produces a uniquely-hashed 'xray-log.[exec].[hash]' file\n"
+      "   3) llvm-xray account xray-log.[exec].[hash] -sort=sum -sortorder=dsc -instr_map [./exec]\n"
+    )
   else ()
     message (FATAL_ERROR "must use clang to enable xray suppport")
   endif ()
 endif ()
 
+###############################################################################
+## gperftools (formerly google performance tools)
+###############################################################################
+
 if (ASGARD_PROFILE_GPERF)
 
 endif ()
+
+###############################################################################
+## Valgrind
+###############################################################################
 
 if (ASGARD_PROFILE_VALGRIND)
 
