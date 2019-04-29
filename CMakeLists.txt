@@ -97,10 +97,6 @@ target_link_libraries (transformations
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
 
-if (_profile_deps)
-  add_dependencies (asgard ${_profile_deps})
-endif ()
-
 set (main_app_link_deps
   coefficients
   connectivity
@@ -111,12 +107,17 @@ set (main_app_link_deps
   quadrature
   tensors
   transformations
-  ${_profile_libs}
 )
 
 foreach (link_dep IN LISTS main_app_link_deps)
   target_link_libraries (asgard PRIVATE ${link_dep})
 endforeach ()
+
+if (_profile_deps)
+  add_dependencies (asgard ${_profile_deps})
+  target_link_libraries (asgard PRIVATE ${_profile_libs})
+endif ()
+
 
 ###############################################################################
 ## Testing asgard
