@@ -15,10 +15,10 @@
 // issue open for this.
 template<typename P>
 static fk::matrix<double>
-volume_integral(dimension<P> const dim, term<P> const term_1D,
-                fk::matrix<double> const basis,
-                fk::matrix<double> const basis_prime,
-                fk::vector<double> const weights, fk::vector<double> const data,
+volume_integral(dimension<P> const & dim, term<P> const & term_1D,
+                fk::matrix<double> const & basis,
+                fk::matrix<double> const & basis_prime,
+                fk::vector<double> const & weights, fk::vector<double> const &data,
                 double const normalized_domain)
 {
   fk::matrix<double> const basis_transpose =
