@@ -15,11 +15,11 @@
 // issue open for this.
 template<typename P>
 static fk::matrix<double>
-volume_integral(dimension<P> const & dim, term<P> const & term_1D,
-                fk::matrix<double> const & basis,
-                fk::matrix<double> const & basis_prime,
-                fk::vector<double> const & weights, fk::vector<double> const &data,
-                double const normalized_domain)
+volume_integral(dimension<P> const &dim, term<P> const &term_1D,
+                fk::matrix<double> const &basis,
+                fk::matrix<double> const &basis_prime,
+                fk::vector<double> const &weights,
+                fk::vector<double> const &data, double const normalized_domain)
 {
   fk::matrix<double> const basis_transpose =
       fk::matrix<double>(basis).transpose();
@@ -293,7 +293,8 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
     fk::vector<double> const data_real_quad = [&]() {
       // get realspace data at quadrature points
       fk::vector<double> data_real_quad =
-          basis * fk::vector<double, mem_type ::view>(data_real, current, current + dim.get_degree() - 1);
+          basis * fk::vector<double, mem_type ::view>(
+                      data_real, current, current + dim.get_degree() - 1);
 
       // apply g_func
       std::transform(data_real_quad.begin(), data_real_quad.end(),
@@ -309,9 +310,10 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
                         data_real_quad, normalized_domain);
     // set the block at the correct position
     fk::matrix<double> curr_block =
-        fk::matrix<double, mem_type ::view>(coefficients,
-              current, current + dim.get_degree() - 1,
-              current, current + dim.get_degree() - 1) + block;
+        fk::matrix<double, mem_type ::view>(
+            coefficients, current, current + dim.get_degree() - 1, current,
+            current + dim.get_degree() - 1) +
+        block;
     coefficients.set_submatrix(current, current, curr_block);
 
     // setup numerical flux choice/boundary conditions
