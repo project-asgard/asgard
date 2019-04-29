@@ -1,0 +1,12 @@
+
+# typical build directories and artifacts
+build
+_build
+compile_commands.json
+
+# ignore some of contrib
+contrib/blas/openblas
+contrib/graphviz
+contrib/gprof2dot
+contrib/FlameGraph
+contrib/gperftools
