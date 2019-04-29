@@ -293,7 +293,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
     fk::vector<double> const data_real_quad = [&]() {
       // get realspace data at quadrature points
       fk::vector<double> data_real_quad =
-          basis * fk::vector<double, mem_type ::view>(
+          basis * fk::vector<double, mem_type::view>(
                       data_real, current, current + dim.get_degree() - 1);
 
       // apply g_func
@@ -303,14 +303,14 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
       return data_real_quad;
     }();
 
-    // perform volume integral to get a degree x degree block //FIXME is this
-    // description correct?
+    // perform volume integral to get a degree x degree block
+    // FIXME is this description correct?
     fk::matrix<double> const block =
         volume_integral(dim, term_1D, basis, basis_prime, weights,
                         data_real_quad, normalized_domain);
     // set the block at the correct position
     fk::matrix<double> curr_block =
-        fk::matrix<double, mem_type ::view>(
+        fk::matrix<double, mem_type::view>(
             coefficients, current, current + dim.get_degree() - 1, current,
             current + dim.get_degree() - 1) +
         block;
