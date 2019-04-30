@@ -29,8 +29,8 @@ if (NOT ASGARD_BUILD_OPENBLAS)
       PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
     if (LAPACK_LIB AND BLAS_LIB)
       set (LINALG_LIBS ${LAPACK_LIB} ${BLAS_LIB})
-    endif()
-  endif()
+    endif ()
+  endif ()
 
   # search for blas/lapack packages providing cmake/pkgconfig
   if (NOT LINALG_LIBS)

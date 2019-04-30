@@ -3,14 +3,71 @@
 ## Profiling support
 ###############################################################################
 
-set (_profile_deps "")
-set (_profile_libs "")
+set (PROFILE_DEPS "")
+set (PROFILE_LIBS "")
+
+###############################################################################
+## Profiling dependencies
+#
+# These things are needed by more than one profiling method handled below, so
+# extract this functionality into functions
+#
+# FIXME
+#  - make graphviz build optional
+###############################################################################
+
+function (get_graphviz)
+if (NOT ASGARD_BUILD_PROFILE_DEPS)
+  # search for graphviz's dot under user-supplied path(s)
+  if (ASGARD_GRAPHVIZ_PATH)
+    find_program (GRAPHVIZ_DOT_PATH dot PATHS ${ASGARD_GRAPHVIZ_PATH}
+      PATH_SUFFIXES bin NO_DEFAULT_PATH)
+    if (GRAPHVIZ_DOT_PATH)
+      set (graphviz_PATH ${GRAPHVIZ_DOT_PATH})
+    endif ()
+  endif ()
+
+  # search for graphviz's dot in some typical locations
+  if (NOT graphviz_PATH)
+    find_program (GRAPHVIZ_DOT_PATH dot PATHS /usr/ /usr/local/
+      PATH_SUFFIXES bin NO_DEFAULT_PATH)
+    if (GRAPHVIZ_DOT_PATH)
+      set (graphviz_PATH ${GRAPHVIZ_DOT_PATH})
+    endif ()
+  endif ()
+
+  if (graphviz_PATH)
+    message (STATUS "using external graphviz found at ${graphviz_PATH}")
+  endif ()
+endif ()
+
+# if cmake couldn't find other blas/lapack, or the user asked to build openblas
+if (NOT graphviz_PATH)
+  # build graphviz if needed
+  set (graphviz_PATH ${CMAKE_SOURCE_DIR}/contrib/graphviz)
+  if (NOT EXISTS ${graphviz_PATH}/bin/dot)
+    message (STATUS "graphviz not found. building from source")
+    include (ExternalProject)
+    ExternalProject_Add (graphviz-ext
+      PREFIX contrib/graphviz
+      URL https://graphviz.gitlab.io/pub/graphviz/stable/SOURCES/graphviz.tar.gz
+      DOWNLOAD_NO_PROGRESS 1
+      BUILD_IN_SOURCE 1
+      USES_TERMINAL_CONFIGURE 1
+      CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/graphviz/src/graphviz-ext/configure --prefix=${graphviz_PATH}
+      BUILD_COMMAND make -j
+      INSTALL_COMMAND make install
+    )
+  else ()
+    message (STATUS "using contrib graphviz found at ${graphviz_PATH}")
+  endif ()
+endif ()
+endfunction ()
 
 ###############################################################################
 ## GNU gprof
 #
 # FIXME
-#  - make graphviz build optional
 #  - make gprof2dot build optional
 #
 #  if cmake needs to "build graphviz", and it remains from a previous build,
@@ -40,25 +97,8 @@ if (ASGARD_PROFILE_GPROF)
       "\n"
     )
 
-    # build graphviz if needed
-    # TODO detect if it is on the system
-    set (graphviz_PATH ${CMAKE_SOURCE_DIR}/contrib/graphviz)
-    if (NOT EXISTS ${graphviz_PATH}/bin/dot)
-      message (STATUS "graphviz not found. building from source")
-      include (ExternalProject)
-      ExternalProject_Add (graphviz-ext
-        PREFIX contrib/graphviz
-        URL https://graphviz.gitlab.io/pub/graphviz/stable/SOURCES/graphviz.tar.gz
-        DOWNLOAD_NO_PROGRESS 1
-        BUILD_IN_SOURCE 1
-        USES_TERMINAL_CONFIGURE 1
-        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/graphviz/src/graphviz-ext/configure --prefix=${graphviz_PATH}
-        BUILD_COMMAND make -j
-        INSTALL_COMMAND make install
-      )
-    else ()
-      message (STATUS "using graphviz found at ${graphviz_PATH}")
-    endif ()
+    # find graphviz, build if needed
+    get_graphviz()
 
     # grab gprof2dot (we don't store it in the repo or distribute)
     set (gprof2dot_PATH ${CMAKE_SOURCE_DIR}/contrib/gprof2dot)
@@ -90,7 +130,6 @@ endif ()
 #
 # FIXME
 #  - make flamegraph build optional
-#
 ###############################################################################
 
 if (ASGARD_PROFILE_XRAY)
@@ -136,8 +175,6 @@ endif ()
 ## gperftools (formerly google performance tools)
 #
 # FIXME allow user to point to previously installed libprofiler, etc.
-# FIXME depends on graphviz/dot
-#
 ###############################################################################
 
 if (ASGARD_PROFILE_GPERF)
@@ -157,7 +194,7 @@ if (ASGARD_PROFILE_GPERF)
   set (gperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/gperftools)
   if (NOT EXISTS ${gperftools_PATH}/bin/pprof)
     message (STATUS "gperftools not found. building from source")
-    set (_profile_deps gperftools-ext)
+    set (PROFILE_DEPS gperftools-ext)
     include (ExternalProject)
     ExternalProject_Add (gperftools-ext
       PREFIX contrib/gperftools
@@ -174,7 +211,11 @@ if (ASGARD_PROFILE_GPERF)
   else ()
     message (STATUS "using gperftools found at ${gperftools_PATH}")
   endif ()
-  set (_profile_libs -Wl,-no-as-needed "${gperftools_PATH}/lib/libprofiler.so")
+
+  # find graphviz, build if needed
+  get_graphviz()
+
+  set (PROFILE_LIBS -Wl,-no-as-needed "${gperftools_PATH}/lib/libprofiler.so")
 endif ()
 
 ###############################################################################
