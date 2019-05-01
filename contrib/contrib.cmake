@@ -58,8 +58,8 @@ endif ()
 if (NOT LINALG_LIBS)
   # first check if it has already been built
   set (OpenBLAS_PATH ${CMAKE_SOURCE_DIR}/contrib/blas/openblas)
-  if (EXISTS ${OpenBLAS_PATH}/lib/libopenblas.so)
-    set (LINALG_LIBS ${OpenBLAS_PATH}/lib/libopenblas.so)
+  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib)
+  if (LINALG_LIBS)
     message (STATUS "OpenBLAS library: ${LINALG_LIBS}")
 
   # build it if necessary
