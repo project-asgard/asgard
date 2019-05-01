@@ -473,10 +473,12 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
       cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));
-      cfmwt.set_submatrix(0, 0, fmwt.extract_submatrix(0, 0, cn / 2, cn));
       cfmwt.set_submatrix(
-          cn / 2, 0,
-          fmwt.extract_submatrix(degree * max_level / 2, 0, cn / 2, cn));
+          0, 0, fk::matrix<R, mem_type::view>(fmwt, 0, cn / 2 - 1, 0, cn - 1));
+      cfmwt.set_submatrix(cn / 2, 0,
+                          fk::matrix<R, mem_type::view>(
+                              fmwt, degree * max_level / 2,
+                              degree * max_level / 2 + cn / 2 - 1, 0, cn - 1));
     }
     fmwt_comp = cfmwt * fmwt_comp;
   }
