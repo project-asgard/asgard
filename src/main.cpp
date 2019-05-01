@@ -9,39 +9,58 @@
 int main(int argc, char **argv)
 {
   options opts(argc, argv);
-  fk::vector<double> A = {1, 2, 3};
-  A.print("A");
-  fk::vector<double, mem_type::owner> B;
-  B.print("B");
-  // fk::vector<double, mem_type::view> C; // sfinae'd away as expected
-  // C.print("C");
+  auto pde = make_PDE<double>(opts.get_selected_pde(), opts.get_level(),
+                              opts.get_degree());
 
-  fk::vector<double> D(2);
-  D.print("D");
-  fk::vector<double, mem_type::owner> E(2);
-  E.print("E");
+  element_table table = element_table(opts, pde->num_dims);
 
-  // views are enabled, but behave exactly as owners (except print out that they
-  // are a view)
-  // fk::vector<double, mem_type::view> F(2); // sfinae'd away as expected
-  // F.print("F");
+  // list_set connectivity = make_connectivity(table, pde->num_dims,
+  //                                          opts.get_level(),
+  //                                          opts.get_level());
 
-  // testing ref counting
-  //
+  // this should probably be wrapped in a function, doing it inline for now
+  std::vector<fk::vector<double>> initial_conditions;
+  for (dimension<double> const dim : pde->get_dimensions())
   {
-    A.print("A before view");
-    fk::vector<double, mem_type::view> G(A, 0, A.size() - 1);
-    A.print("A after view");
-    fk::vector<double> H = {1, 2, 3, 4};
-    fk::vector<double> J(4);
-    fk::vector<double, mem_type::view> I(H);
-    H.print("H");
-    I.print("I");
-    // J = std::move(H);
-    J.print("J");
+    initial_conditions.push_back(
+        forward_transform<double>(dim, dim.initial_condition));
   }
-  A.print("A next scope");
-  B.print("B again");
+  double const start = 1.0;
+  // the combine dimensions function will have to be modified for variable
+  // deg/lev among dimensions
+  fk::vector<double> initial_condition = combine_dimensions(
+      pde->get_dimensions()[0], table, initial_conditions, start);
+
+  // same for this, wrapped up in a function
+  // store sources, will scale later for time
+  std::vector<fk::vector<double>> initial_sources;
+  for (source<double> const source : pde->sources)
+  {
+    std::vector<fk::vector<double>> initial_sources_dim;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      initial_sources_dim.push_back(forward_transform<double>(
+          pde->get_dimensions()[i], source.source_funcs[i]));
+    }
+
+    initial_sources.push_back(combine_dimensions(
+        pde->get_dimensions()[0], table, initial_sources_dim, start));
+  }
+
+  // make the terms. also another function. also, should time be one here, or
+  // zero...
+  double const init_time = 0.0;
+  for (std::vector<term<double>> const terms : pde->get_terms())
+  {
+    for (term<double> term : terms)
+    {
+      for (int i = 0; i < pde->num_dims; ++i)
+      {
+        dimension<double> const dim = pde->get_dimensions()[i];
+        term.set_coefficients(dim, generate_coefficients(dim, term, init_time));
+      }
+    }
+  }
 
   return 0;
 }

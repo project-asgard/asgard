@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9)
+cmake_minimum_required (VERSION 3.13)
 project (asgard
   VERSION 0.1.0
   LANGUAGES CXX
@@ -15,8 +15,15 @@ message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
-option (ASGARD_LAPACK_PATH "location of include/ and lib/ containing LAPACK" "")
-option (ASGARD_BLAS_PATH "location of include/ and lib/ containing BLAS" "")
+option (ASGARD_BUILD_PROFILE_DEPS "Download and build our own tools (e.g.  graphviz)" OFF)
+option (ASGARD_LAPACK_PATH "optional location of include/ and lib/ containing LAPACK" "")
+option (ASGARD_BLAS_PATH "optional location of include/ and lib/ containing BLAS" "")
+option (ASGARD_PROFILE_GPROF "enable profiling support for using gprof" "")
+option (ASGARD_PROFILE_XRAY "enable profiling support for using LLVM XRAY" "")
+option (ASGARD_PROFILE_GPERF "enable profiling support for using gperftools" "")
+option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
+option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
+option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -28,7 +35,10 @@ endif()
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
+# sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
+# sets PROFILE_DEPS and PROFILE_LIBS
+include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 
 ###############################################################################
 ## Building asgard
@@ -91,6 +101,7 @@ target_link_libraries (transformations
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
 
+# link in components needed directly by main
 set (main_app_link_deps
   coefficients
   connectivity
@@ -102,10 +113,16 @@ set (main_app_link_deps
   tensors
   transformations
 )
-
 foreach (link_dep IN LISTS main_app_link_deps)
   target_link_libraries (asgard PRIVATE ${link_dep})
 endforeach ()
+
+# build/link anything needed for profiling if requested
+if (PROFILE_DEPS)
+  add_dependencies (asgard ${PROFILE_DEPS})
+endif ()
+target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
+
 
 ###############################################################################
 ## Testing asgard
