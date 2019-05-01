@@ -252,7 +252,10 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
   int const quad_num = 10;
 
   // get quadrature points and weights.
-  auto const [roots, weights] = legendre_weights<double>(quad_num, -1.0, 1.0);
+  // we do the two-step store because we cannot have 'static' bindings
+  static const auto legendre_values =
+      legendre_weights<double>(quad_num, -1.0, 1.0);
+  auto const [roots, weights] = legendre_values;
 
   // get the basis functions and derivatives for all k
   auto const [legendre_poly, legendre_prime] =
@@ -267,7 +270,10 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
 
   // convert term input data from wavelet space to realspace
 
+  // TODO may remove this call if want to create the FMWT matrix once and store
+  // it in the appropriate dimension object passed to this function
   fk::matrix<double> const forward_trans = operator_two_scale<P, double>(dim);
+
   fk::matrix<double> const forward_trans_transpose =
       fk::matrix<double>(forward_trans).transpose();
   fk::vector<double> const data = fk::vector<double>(term_1D.get_data());

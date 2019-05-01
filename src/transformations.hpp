@@ -43,8 +43,11 @@ fk::vector<P> forward_transform(dimension<P> const dim, F function)
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
-  int const quadrature_num    = 10;
-  auto const [roots, weights] = legendre_weights<P>(quadrature_num, -1, 1);
+  // we do the two-step store because we cannot have 'static' bindings
+  int const quadrature_num = 10;
+  static const auto legendre_values =
+      legendre_weights<P>(quadrature_num, -1, 1);
+  auto const [roots, weights] = legendre_values;
 
   // get grid spacing.
   // hate this name TODO
