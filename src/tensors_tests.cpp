@@ -712,7 +712,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
   SECTION("constructor from list initialization")
   {
     // clang-format off
-    fk::matrix<TestType> const test{ 
+    fk::matrix<TestType> const test{
       {12, 22, 32},
       {13, 23, 33},
       {14, 24, 34},
@@ -1167,7 +1167,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {9, 10, 11},
       {12, 13, 14},
       {15, 16, 17},
-    }; 
+    };
     fk::matrix<TestType> in_scaled {
       {12, 16, 20},
       {24, 28, 32},
@@ -1261,7 +1261,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
 	                          {4,5},
 				  {6,7},
 				  {8,9}};
-    
+
     fk::matrix<TestType> const ans {{2,3,4,6,6,9},
 	                            {4,5,8,10,12,15},
 				    {6,7,12,14,18,21},
@@ -1278,12 +1278,12 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     // add some larger matrices to test partial views...
 
     // clang-format off
-    fk::matrix<TestType> const A_own{{0, 1, 2, 3, 4}, 
-				     {5, 6, 7, 8, 9}, 
+    fk::matrix<TestType> const A_own{{0, 1, 2, 3, 4},
+				     {5, 6, 7, 8, 9},
 				     {10, 11, 12, 13}};
     fk::matrix<TestType, mem_type::view> const A_v_p(A_own, 0, 1, 1, 3);
-    fk::matrix<TestType> const B_own{{14, 15, 16, 17, 18}, 
-	    			     {19, 20, 21, 22, 23}, 
+    fk::matrix<TestType> const B_own{{14, 15, 16, 17, 18},
+	    			     {19, 20, 21, 22, 23},
 				     {24, 25, 26, 27, 28}};
     // clang-format on
     fk::matrix<TestType, mem_type::view> const B_v_p(B_own, 1, 2, 2, 4);
@@ -1358,7 +1358,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {12.130, 14.150, 1.00},
       {13.140, 13.150, 1.00},
       {14.150, 12.130, 1.00},
-    }; 
+    };
     fk::matrix<TestType> const in_own {
 	{1.0, 1.0000, 1.0000, 1.00},
 	{1.0, 12.130, 14.150, 1.00},
@@ -1576,7 +1576,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
       {14, 24, 34},
       {15, 25, 35},
       { 0,  0, 35},
-    }; 
+    };
 
     fk::matrix<TestType> const orig(test);
     fk::matrix<TestType> own(test);
@@ -1645,13 +1645,13 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
       {14, 24, 34},
       {15, 25, 35},
       {0, 0, 35},
-    }; 
-   
+    };
+
     fk::matrix<TestType> const own(test);
     fk::matrix<TestType, mem_type::view> const test_v(own);
 
     fk::matrix<TestType> const own_p(test);
-    fk::matrix<TestType, mem_type::view> const test_v_p(own_p, 1, 4, 0, 1); 
+    fk::matrix<TestType, mem_type::view> const test_v_p(own_p, 1, 4, 0, 1);
 
 
     fk::matrix<TestType> const sub {
@@ -1809,50 +1809,48 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   SECTION("matrix transform")
   {
     // clang-format off
-  fk::matrix<TestType> test {
-   {0, 1, 2, 3},
-   {4, 5, 6, 7},
-  };
-  fk::matrix<TestType> own(test);
-  fk::matrix<TestType, mem_type::view> test_v(own);
+    fk::matrix<TestType> test {
+     {0, 1, 2, 3},
+     {4, 5, 6, 7},
+    };
+    fk::matrix<TestType> own(test);
+    fk::matrix<TestType, mem_type::view> test_v(own);
 
+    fk::matrix<TestType> own_p {
+     {0, 1, 2, 3},
+     {4, 5, 6, 7},
+     {8, 9, 0, 1},
+    };
+    fk::matrix<TestType, mem_type::view> test_v_p(own_p, 0, 1, 0, 3);
 
-  fk::matrix<TestType> own_p {
-   {0, 1, 2, 3},
-   {4, 5, 6, 7}, 
-   {8, 9, 0, 1},
-  };
-  fk::matrix<TestType, mem_type::view> test_v_p(own_p, 0, 1, 0, 3);
+    fk::matrix<TestType> const after {
+     {1, 2, 3, 4},
+     {5, 6, 7, 8},
+    };
 
+    fk::matrix<TestType> const after_p {
+     {1, 2, 3, 4},
+     {5, 6, 7, 8},
+     {8, 9, 0, 1},
+    };
+    // clang-format on
 
-  fk::matrix<TestType> const after {
-   {1, 2, 3, 4},
-   {5, 6, 7, 8},
-  }; 
-  
-  fk::matrix<TestType> const after_p {
-   {1, 2, 3, 4},
-   {5, 6, 7, 8}, 
-   {8, 9, 0, 1},
-  };
-  
-  
-  // clang-format on 
-  
-  std::transform(test.begin(), test.end(), test.begin(), std::bind1st(std::plus<TestType>(), 1)); 
-  std::transform(test_v.begin(), test_v.end(), test_v.begin(), std::bind1st(std::plus<TestType>(), 1));
-  REQUIRE(test == after); 
-  REQUIRE(test_v == after);
-  
-  
-  std::transform(test_v_p.begin(), test_v_p.end(), test_v_p.begin(), std::bind1st(std::plus<TestType>(), 1));
-  REQUIRE(test_v_p == after);
-  // make sure we didn't modify the underlying matrix outside the view
-  REQUIRE(own_p == after_p);
+    std::transform(test.begin(), test.end(), test.begin(),
+                   std::bind(std::plus<TestType>(), std::placeholders::_1, 1));
+    std::transform(test_v.begin(), test_v.end(), test_v.begin(),
+                   std::bind(std::plus<TestType>(), std::placeholders::_1, 1));
+    REQUIRE(test == after);
+    REQUIRE(test_v == after);
 
+    std::transform(test_v_p.begin(), test_v_p.end(), test_v_p.begin(),
+                   std::bind(std::plus<TestType>(), std::placeholders::_1, 1));
+    REQUIRE(test_v_p == after);
+    // make sure we didn't modify the underlying matrix outside the view
+    REQUIRE(own_p == after_p);
   }
 
-  SECTION("matrix maximum element") {
+  SECTION("matrix maximum element")
+  {
     // clang-format off
     fk::matrix<TestType> const test {
      {1, 2, 3, 4},
