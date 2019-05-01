@@ -51,7 +51,7 @@ fk::vector<P> forward_transform(dimension<P> const dim, F function)
 
   // get grid spacing.
   // hate this name TODO
-  int const n                  = static_cast<int>(std::pow(2, num_levels));
+  int const n                  = two_raised_to(num_levels);
   int const degrees_freedom_1d = degree * n;
 
   // get the Legendre basis function evaluated at the Legendre-Gauss nodes   //

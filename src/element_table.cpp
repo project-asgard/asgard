@@ -1,5 +1,6 @@
 #include "element_table.hpp"
 
+#include "matlab_utilities.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include <cmath>
@@ -96,9 +97,8 @@ element_table::get_cell_index_set(fk::vector<int> const level_tuple)
   fk::vector<int> const cells_per_level = [level_tuple]() {
     fk::vector<int> v(level_tuple.size());
     std::transform(
-        level_tuple.begin(), level_tuple.end(), v.begin(), [](int level) {
-          return static_cast<int>(std::pow(2, std::max(0, level - 1)));
-        });
+        level_tuple.begin(), level_tuple.end(), v.begin(),
+        [](int level) { return two_raised_to(std::max(0, level - 1)); });
     return v;
   }();
 
