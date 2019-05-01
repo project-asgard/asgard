@@ -69,10 +69,10 @@ template<typename P>
 static std::array<fk::matrix<int>, 2>
 flux_or_boundary_indices(dimension<P> const dim, int const index)
 {
-  int const two_to_lev     = static_cast<int>(std::pow(2, dim.get_level()));
-  int const previous_index = (index - 1) * dim.get_degree();
-  int const current_index  = index * dim.get_degree();
-  int const next_index     = (index + 1) * dim.get_degree();
+  int const two_to_lev             = two_raised_to(dim.get_level());
+  int const previous_index         = (index - 1) * dim.get_degree();
+  int const current_index          = index * dim.get_degree();
+  int const next_index             = (index + 1) * dim.get_degree();
   fk::matrix<int> const prev_mesh  = meshgrid(previous_index, dim.get_degree());
   fk::matrix<int> const curr_mesh  = meshgrid(current_index, dim.get_degree());
   fk::matrix<int> const curr_trans = fk::matrix<int>(curr_mesh).transpose();
@@ -140,7 +140,7 @@ static fk::matrix<double>
 get_flux_operator(dimension<P> const dim, term<P> const term_1D,
                   double const normalize, int const index)
 {
-  int const two_to_lev = static_cast<int>(std::pow(2, dim.get_level()));
+  int const two_to_lev = two_raised_to(dim.get_level());
   // compute the trace values (values at the left and right of each element for
   // all k) trace_left is 1 by degree trace_right is 1 by degree
   fk::matrix<double> const trace_left =
@@ -240,7 +240,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
-  int const two_to_level = static_cast<int>(std::pow(2, dim.get_level()));
+  int const two_to_level = two_raised_to(dim.get_level());
   double const normalized_domain =
       (dim.domain_max - dim.domain_min) / two_to_level;
   int const degrees_freedom_1d = dim.get_degree() * two_to_level;

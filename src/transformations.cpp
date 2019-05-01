@@ -51,7 +51,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // Negative one to zero --zero to one -- and negative one to one
   // since this is done on the "reference element" -1 to 1
   // the intervals are fixed to be (-1,0), (0,1), and (-1,1)
-  int const stepping = static_cast<int>(std::pow(2, 6));
+  int const stepping = two_raised_to(6);
   P const neg1       = -1.0;
   P const zero       = 0.0;
   P const one        = 1.0;
@@ -436,7 +436,7 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
   assert(degree > 0);
   assert(num_levels > 0);
 
-  const int max_level = static_cast<int>(std::pow(2, num_levels));
+  int const max_level = two_raised_to(num_levels);
 
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until c++20)
@@ -475,7 +475,7 @@ fk::matrix<R> operator_two_scale(dimension<P> const dim)
     }
     else
     {
-      int const cn = std::pow(2.0, n - j + 1.0) * degree;
+      int const cn = two_raised_to(n - j + 1.0) * degree;
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
       cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));

@@ -265,8 +265,8 @@ legendre_weights(const int order, const int interval_start,
   std::transform(y.begin(), y.end(), legendre_p.begin(), weights.begin(),
                  [&](P &y_elem, P &lp_elem) {
                    return (interval_end - interval_start) /
-                          ((static_cast<P>(1.0) - std::pow(y_elem, 2)) *
-                           std::pow(lp_elem, 2)) *
+                          ((static_cast<P>(1.0) - y_elem * y_elem) * lp_elem *
+                           lp_elem) *
                           std::pow(static_cast<P>((order + 1)) / order, 2);
                  });
 

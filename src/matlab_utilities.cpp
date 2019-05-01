@@ -134,13 +134,11 @@ P polyval(fk::vector<P> const p, P const x)
   int const num_terms = p.size();
   assert(num_terms > 0);
 
-  P y = static_cast<P>(0.0);
-  for (int i = 0; i < num_terms - 1; ++i)
+  P y = static_cast<P>(p(0));
+  for (int i = 1; i < num_terms; ++i)
   {
-    int const deg = num_terms - i - 1;
-    y += p(i) * static_cast<P>(std::pow(x, deg));
+    y = y * x + p(i);
   }
-  y += p(num_terms - 1);
 
   return y;
 }
