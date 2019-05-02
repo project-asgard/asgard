@@ -10,11 +10,11 @@
 #include <vector>
 
 template<typename P>
-fk::vector<P> combine_dimensions(dimension<P> const, element_table const &,
+fk::vector<P> combine_dimensions(dimension<P> const &, element_table const &,
                                  std::vector<fk::vector<P>> const &, P const);
 
 template<typename P, typename F>
-fk::vector<P> forward_transform(dimension<P> const dim, F function)
+fk::vector<P> forward_transform(dimension<P> const &dim, F function)
 {
   int const num_levels = dim.get_level();
   int const degree     = dim.get_degree();
@@ -107,8 +107,8 @@ fk::vector<P> forward_transform(dimension<P> const dim, F function)
 }
 
 extern template fk::vector<double>
-combine_dimensions(dimension<double> const, element_table const &,
+combine_dimensions(dimension<double> const &, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 extern template fk::vector<float>
-combine_dimensions(dimension<float> const, element_table const &,
+combine_dimensions(dimension<float> const &, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);

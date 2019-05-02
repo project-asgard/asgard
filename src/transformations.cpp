@@ -47,7 +47,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 // degree...
 template<typename P>
 fk::vector<P>
-combine_dimensions(dimension<P> const dim, element_table const &table,
+combine_dimensions(dimension<P> const &dim, element_table const &table,
                    std::vector<fk::vector<P>> const &vectors, P const time)
 {
   int const num_dims = vectors.size();
@@ -76,8 +76,8 @@ combine_dimensions(dimension<P> const dim, element_table const &table,
 }
 
 template fk::vector<double>
-combine_dimensions(dimension<double> const, element_table const &,
+combine_dimensions(dimension<double> const &, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 template fk::vector<float>
-combine_dimensions(dimension<float> const, element_table const &,
+combine_dimensions(dimension<float> const &, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
