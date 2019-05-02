@@ -269,7 +269,8 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
       (1.0 / std::sqrt(normalized_domain) * 2.0 / normalized_domain);
 
   // convert term input data from wavelet space to realspace
-  fk::matrix<double> const forward_trans_transpose = dim.get_from_basis_operator();
+  fk::matrix<double> const forward_trans_transpose =
+      dim.get_from_basis_operator();
   fk::vector<double> const data = fk::vector<double>(term_1D.get_data());
   fk::vector<double> const data_real =
       forward_trans_transpose * fk::vector<double>(term_1D.get_data());
