@@ -10,14 +10,8 @@
 #include <vector>
 
 template<typename P>
-std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree);
-
-template<typename P>
 fk::vector<P> combine_dimensions(dimension<P> const, element_table const &,
                                  std::vector<fk::vector<P>> const &, P const);
-
-template<typename P, typename R = P>
-fk::matrix<R> operator_two_scale(dimension<P> const dim);
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(dimension<P> const dim, F function)
@@ -36,10 +30,7 @@ fk::vector<P> forward_transform(dimension<P> const dim, F function)
   // return below
   static_assert(std::is_invocable_v<decltype(function), fk::vector<P>>);
 
-  // TODO may remove this call if want to create the FMWT matrix once and store
-  // it in the appropriate dimension object passed to this function
-
-  fk::matrix<P> const forward_trans = operator_two_scale<P>(dim);
+  fk::matrix<P> const forward_trans(dim.get_to_basis_operator());
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
@@ -115,19 +106,9 @@ fk::vector<P> forward_transform(dimension<P> const dim, F function)
   return transformed;
 }
 
-extern template std::array<fk::matrix<double>, 6>
-generate_multi_wavelets(int const degree);
-extern template std::array<fk::matrix<float>, 6>
-generate_multi_wavelets(int const degree);
-
 extern template fk::vector<double>
 combine_dimensions(dimension<double> const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 extern template fk::vector<float>
 combine_dimensions(dimension<float> const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
-
-extern template fk::matrix<double> operator_two_scale(dimension<double> const);
-extern template fk::matrix<float> operator_two_scale(dimension<float> const);
-extern template fk::matrix<float> operator_two_scale(dimension<double> const);
-extern template fk::matrix<double> operator_two_scale(dimension<float> const);

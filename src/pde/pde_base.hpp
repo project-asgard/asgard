@@ -11,6 +11,7 @@
 #include <typeinfo>
 #include <vector>
 
+#include "../basis.hpp"
 #include "../matlab_utilities.hpp"
 #include "../tensors.hpp"
 //
@@ -72,26 +73,46 @@ public:
       : left(left), right(right), domain_min(domain_min),
         domain_max(domain_max), initial_condition(initial_condition),
         name(name), level_(level), degree_(degree)
-  {}
+  {
+    int const dim = degree_ * two_raised_to(level_);
+    to_basis_operator_.clear_and_resize(dim, dim) =
+        operator_two_scale<double>(degree_, level_);
+    from_basis_operator_.clear_and_resize(dim, dim) =
+        fk::matrix<double>(to_basis_operator_).transpose();
+  }
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
+  fk::matrix<double> get_to_basis_operator() const { return to_basis_operator_; }
+  fk::matrix<double> get_from_basis_operator() const { return from_basis_operator_; }
 
 private:
   void set_level(int level)
   {
     assert(level > 0);
     level_ = level;
+    int const dim = degree_ * two_raised_to(level_);
+    to_basis_operator_.clear_and_resize(dim, dim) =
+        operator_two_scale<double>(degree_, level_);
+    from_basis_operator_.clear_and_resize(dim, dim) =
+        fk::matrix<double>(to_basis_operator_).transpose();
   }
 
   void set_degree(int degree)
   {
     assert(degree > 0);
     degree_ = degree;
+    int const dim = degree_ * two_raised_to(level_);
+    to_basis_operator_.clear_and_resize(dim, dim) =
+        operator_two_scale<double>(degree_, level_);
+    from_basis_operator_.clear_and_resize(dim, dim) =
+        fk::matrix<double>(to_basis_operator_).transpose();
   }
 
   int level_;
   int degree_;
+  fk::matrix<double> to_basis_operator_;
+  fk::matrix<double> from_basis_operator_;
 
   friend class PDE<P>;
 };

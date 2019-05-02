@@ -269,13 +269,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
       (1.0 / std::sqrt(normalized_domain) * 2.0 / normalized_domain);
 
   // convert term input data from wavelet space to realspace
-
-  // TODO may remove this call if want to create the FMWT matrix once and store
-  // it in the appropriate dimension object passed to this function
-  fk::matrix<double> const forward_trans = operator_two_scale<P, double>(dim);
-
-  fk::matrix<double> const forward_trans_transpose =
-      fk::matrix<double>(forward_trans).transpose();
+  fk::matrix<double> const forward_trans_transpose = dim.get_from_basis_operator();
   fk::vector<double> const data = fk::vector<double>(term_1D.get_data());
   fk::vector<double> const data_real =
       forward_trans_transpose * fk::vector<double>(term_1D.get_data());
@@ -337,6 +331,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
 
   // transform matrix to wavelet space
   // FIXME does stiffness not need this transform?
+  fk::matrix<double> const forward_trans = dim.get_to_basis_operator();
   coefficients = forward_trans * coefficients * forward_trans_transpose;
 
   // zero out near-zero values after conversion to wavelet space
