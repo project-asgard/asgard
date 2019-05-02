@@ -92,7 +92,7 @@ if (ASGARD_PROFILE_GPROF)
       "\n"
       "   To get graphical results try graphviz + gprof2dot:\n"
       "   gprof asgard gmon.out \\ \n"
-      "   | ../contrib/gprof2dot/bin/gprof2dot.py -n 2 -e 1 \\ \n"
+      "   | ../contrib/gprof2dot/bin/gprof2dot.py -n 2 -e 1 -w \\ \n"
       "   | ../contrib/graphviz/bin/dot -Tpdf -o profile.pdf\n"
       "\n"
     )
