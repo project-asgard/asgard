@@ -1,4 +1,5 @@
 #include "batch.hpp"
+#include "connectivity.hpp"
 #include "tensors.hpp" // for views/blas
 
 template<typename P>
@@ -446,6 +447,138 @@ void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
   batch_lists[pde.num_dims - 1][2].insert(y_view, batch_offset);
 }
 
+// helper for calculating 1d indices for elements
+static fk::vector<int> linearize(fk::vector<int> const &coords)
+{
+  fk::vector<int> elem_indices(coords.size() / 2);
+  for (int i = 0; i < elem_indices.size(); ++i)
+  {
+    elem_indices(i) = get_1d_index(coords(i), coords(i + elem_indices.size()));
+  }
+  return elem_indices;
+}
+
+template<typename P>
+std::vector<batch_set<P>>
+build_batches(PDE<P> const &pde, element_table const &elem_table,
+              fk::vector<P> const &x, fk::vector<P> const &y,
+              fk::vector<P> const &work)
+{
+  // assume uniform degree for now
+  int const degree       = pde.get_dimensions()[0].get_degree();
+  int const element_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const x_size       = static_cast<int>(std::pow(degree, pde.num_dims));
+  assert(x.size() == x_size);
+  // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
+  assert(y.size() ==
+         x_size * elem_table.size() * elem_table.size() * pde.num_terms);
+
+  // intermediate workspaces for kron product. can be reduced to 3/5ths
+  // this size for the 6 dimensional case if we alternate input/output spaces
+  // per dimension.
+  assert(work.size() == y.size() * (pde.num_dims - 1));
+
+  std::vector<batch_set<P>> batches =
+      allocate_batches<P>(pde, elem_table.size());
+
+  // loop over elements
+  // FIXME eventually want to do this in parallel
+  for (int i = 0; i < elem_table.size(); ++i)
+  {
+    // first, get linearized indices for this element
+    //
+    // calculate from the level/cell indices for each
+    // dimension
+    fk::vector<int> coords = elem_table.get_coords(i);
+    assert(coords.size() == pde.num_dims * 2);
+    fk::vector<int> elem_indices = linearize(coords);
+
+    // calculate the position of this element in the
+    // global system matrix
+    // int const global_row = i * element_size;
+    // this is where the item reduces into; TODO
+    // once I start on reduction
+
+    // calculate the row portion of the
+    // operator position used for this
+    // element's gemm calls
+    fk::vector<int> operator_row(pde.num_dims);
+    for (int j = 0; j < pde.num_dims; ++j)
+    {
+      // FIXME here we would have to use each dimension's
+      // degree when calculating the index if we want different
+      // degree in each dim
+      operator_row(j) = elem_indices(j) * degree;
+    }
+    // loop over connected elements. for now, we assume
+    // full connectivity
+    for (int j = 0; j < elem_table.size(); ++j)
+    {
+      // get linearized indices for this connected element
+      fk::vector<int> coords = elem_table.get_coords(j);
+      assert(coords.size() == pde.num_dims * 2);
+      fk::vector<int> connected_indices = linearize(coords);
+
+      // calculate the position of this element in the
+      // global system matrix
+      int const global_col = j * element_size;
+
+      // calculate the row portion of the
+      // operator position used for this
+      // element's gemm calls
+      fk::vector<int> operator_col(pde.num_dims);
+
+      for (int k = 0; k < pde.num_dims; ++k)
+      {
+        // FIXME here we would have to use each dimension's
+        // degree when calculating the index if we want different
+        // degree in each dim
+        operator_col(k) = connected_indices(k) * degree;
+      }
+
+      auto terms = pde.get_terms();
+      for (int k = 0; k < pde.num_terms; ++k)
+      {
+        auto term = terms[k];
+
+        // term major y-space layout, followed by connected items, finally work
+        // items note that this index assumes uniform connected items (full
+        // connectivity) if connectivity is instead computed for each element, i
+        // * elem_table.size() must be replaced by sum of lower indexed
+        // connected items (scan)
+        int const kron_index = k + j * pde.num_terms + i * elem_table.size();
+        int const y_index    = x_size * kron_index;
+        int const work_index = x_size * kron_index * (pde.num_dims - 1);
+
+        fk::vector<P, mem_type::view> y_view(y, y_index, y_index + x_size - 1);
+
+        std::vector<fk::vector<P, mem_type::view>> work_views(
+            pde.num_dims - 1, fk::vector<P, mem_type::view>(
+                                  work, work_index, work_index + x_size - 1));
+        for (int d = 1; d < pde.num_dims; ++d)
+        {
+          work_views[i] = fk::vector<P, mem_type::view>(
+              work, work_index + x_size * d, work_index + (x_size + 1) * d - 1);
+        }
+
+        std::vector<fk::matrix<P, mem_type::view>> operator_views;
+        for (int d = 0; d < pde.num_dims; ++d)
+        {
+          // FIXME need to figure out how to avoid the coefficient copy
+          operator_views.emplace_back(fk::matrix<P, mem_type::view>(
+              term[d].get_coefficients(), operator_row(d), operator_col(d),
+              degree, degree));
+        }
+        fk::vector<P, mem_type::view> x_view(x, global_col,
+                                             global_col + x_size - 1);
+        batch_for_kronmult(operator_views, x_view, y_view, work_views, batches,
+                           kron_index, pde);
+      }
+    }
+  }
+  return batches;
+}
+
 template class batch_list<float>;
 template class batch_list<double>;
 
@@ -476,3 +609,12 @@ batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
                    std::vector<fk::vector<double, mem_type::view>> const work,
                    std::vector<batch_set<double>> &batch_lists,
                    int const batch_offset, PDE<double> const &pde);
+
+template std::vector<batch_set<float>>
+build_batches(PDE<float> const &pde, element_table const &elem_table,
+              fk::vector<float> const &x, fk::vector<float> const &y,
+              fk::vector<float> const &work);
+template std::vector<batch_set<double>>
+build_batches(PDE<double> const &pde, element_table const &elem_table,
+              fk::vector<double> const &x, fk::vector<double> const &y,
+              fk::vector<double> const &work);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "element_table.hpp"
 #include "pde/pde_base.hpp"
 #include "tensors.hpp"
 #include <array>
@@ -79,14 +80,15 @@ allocate_batches(PDE<P> const &pde, int const num_elems);
 // and a vector x of size degree^num_dims, and an output
 // vector y of the same size,
 // enqueue the parameters for the batched gemm operations
-// that will perform the multiplication A*x=y, where
+// to perform the multiplication A*x=y, where
 // A is the tensor product of the input matrices.
 //
-// i.e., enqueue small gemms to perform A*x=y, where A is tensor encoded
-// and not explicitly formed.
+// i.e., enqueue small gemms to perform A*x=y,
+// where A is tensor encoded and not explicitly formed.
 //
 // work array is the workspace for intermediate products for the gemms.
 // each element should be degree^num_dims in size.
+// the array must contain num_dims-1 such elements.
 
 template<typename P>
 void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
@@ -95,6 +97,13 @@ void batch_for_kronmult(std::vector<fk::matrix<P, mem_type::view>> const A,
                         std::vector<fk::vector<P, mem_type::view>> const work,
                         std::vector<batch_set<P>> &batch_lists,
                         int const batch_offsets, PDE<P> const &pde);
+
+// use info from pde and element table to create and populate the batch lists
+template<typename P>
+std::vector<batch_set<P>>
+build_batches(PDE<P> const &pde, element_table const &elem_table,
+              fk::vector<P> const &x, fk::vector<P> const &y,
+              fk::vector<P> const &work);
 
 extern template class batch_list<float>;
 extern template class batch_list<double>;
@@ -126,3 +135,12 @@ batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
                    std::vector<fk::vector<double, mem_type::view>> const work,
                    std::vector<batch_set<double>> &batch_lists,
                    int const batch_offset, PDE<double> const &pde);
+
+extern template std::vector<batch_set<float>>
+build_batches(PDE<float> const &pde, element_table const &elem_table,
+              fk::vector<float> const &x, fk::vector<float> const &y,
+              fk::vector<float> const &work);
+extern template std::vector<batch_set<double>>
+build_batches(PDE<double> const &pde, element_table const &elem_table,
+              fk::vector<double> const &x, fk::vector<double> const &y,
+              fk::vector<double> const &work);
