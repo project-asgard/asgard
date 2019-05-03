@@ -70,7 +70,7 @@ endforeach ()
 
 if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
-  set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath=${OpenBLAS_PATH}/lib/ -lopenblas")
+  set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
 endif ()
 
 target_link_libraries (coefficients
