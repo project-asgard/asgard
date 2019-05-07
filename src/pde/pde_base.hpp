@@ -184,7 +184,7 @@ public:
     this->coefficients_.clear_and_resize(degrees_freedom_1d,
                                          degrees_freedom_1d) = new_coefficients;
   }
-  fk::matrix<P> get_coefficients() const { return coefficients_; }
+  fk::matrix<P> const & get_coefficients() const { return coefficients_; }
 
   // small helper to return degrees of freedom given dimension
   int degrees_freedom(dimension<P> const d)

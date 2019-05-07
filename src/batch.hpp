@@ -56,6 +56,11 @@ template<typename P>
 void batched_gemm(batch_list<P> const a, batch_list<P> const b,
                   batch_list<P> const c, P const alpha, P const beta);
 
+// execute a batched gemv given a, b, c batch lists
+template<typename P>
+void batched_gemv(batch_list<P> const a, batch_list<P> const b,
+                  batch_list<P> const c, P const alpha, P const beta);
+
 struct gemm_dims
 {
   int const rows_a;
@@ -103,7 +108,8 @@ template<typename P>
 std::vector<batch_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
               fk::vector<P> const &x, fk::vector<P> const &y,
-              fk::vector<P> const &work);
+              fk::vector<P> const &work, fk::vector<P> const &unit_vector,
+              fk::vector<P> const &fx);
 
 extern template class batch_list<float>;
 extern template class batch_list<double>;
@@ -113,6 +119,13 @@ batched_gemm(batch_list<float> const a, batch_list<float> const b,
              batch_list<float> const c, float const alpha, float const beta);
 extern template void
 batched_gemm(batch_list<double> const a, batch_list<double> const b,
+             batch_list<double> const c, double const alpha, double const beta);
+
+extern template void
+batched_gemv(batch_list<float> const a, batch_list<float> const b,
+             batch_list<float> const c, float const alpha, float const beta);
+extern template void
+batched_gemv(batch_list<double> const a, batch_list<double> const b,
              batch_list<double> const c, double const alpha, double const beta);
 
 extern template std::vector<batch_set<float>>
@@ -139,8 +152,12 @@ batch_for_kronmult(std::vector<fk::matrix<double, mem_type::view>> const A,
 extern template std::vector<batch_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
               fk::vector<float> const &x, fk::vector<float> const &y,
-              fk::vector<float> const &work);
+              fk::vector<float> const &work,
+              fk::vector<float> const &unit_vector,
+              fk::vector<float> const &fx);
 extern template std::vector<batch_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               fk::vector<double> const &x, fk::vector<double> const &y,
-              fk::vector<double> const &work);
+              fk::vector<double> const &work,
+              fk::vector<double> const &unit_vector,
+              fk::vector<double> const &fx);

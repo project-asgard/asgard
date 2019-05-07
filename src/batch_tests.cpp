@@ -851,6 +851,124 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
   }
 }
 
+TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
+{
+  int const num_batch = 3;
+  // clang-format off
+  fk::matrix<TestType> const a1 {
+         {12, 22, 32},
+         {13, 23, 33},
+         {14, 24, 34},
+         {15, 25, 35},
+         {16, 26, 36},
+  };
+  fk::matrix<TestType> const a2 {
+         {17, 27, 37},
+         {18, 28, 38},
+         {19, 29, 39},
+         {20, 30, 40},
+         {21, 31, 41},
+  };
+  fk::matrix<TestType> const a3 {
+         {22, 32, 42},
+         {23, 33, 43},
+         {24, 34, 44},
+         {25, 35, 45},
+         {26, 36, 46},
+  };  
+
+  fk::vector<TestType> const b1 {
+         {1},
+         {1},
+	 {1},
+         {1},
+  };
+  // clang-format on
+
+  // test batched gemv as reduction tool w/ unit vector
+  SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
+  {
+    bool const trans_a = false;
+    // make 2x3 "a" views
+    int const a_start_row = 2;
+    int const a_stop_row  = 3;
+    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int const a_start_col = 0;
+    int const a_stop_col  = 2;
+    int const a_ncols     = a_stop_col - a_start_col + 1;
+    int const a_stride    = a1.nrows();
+
+    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
+                                                    a_start_col, a_stop_col);
+    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
+                                                    a_start_col, a_stop_col);
+    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
+                                                    a_start_col, a_stop_col);
+
+    batch_list<TestType> const a_batch = [&] {
+      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
+                                   trans_a);
+
+      builder.insert(a1_v, 0);
+      builder.insert(a2_v, 1);
+      builder.insert(a3_v, 2);
+
+      return builder;
+    }();
+
+    bool const trans_b = false;
+    // make 3x1 "b" views
+    int const b_start_row = 1;
+    int const b_stop_row  = 3;
+    int const b_nrows     = b_stop_row - b_start_row + 1;
+    int const b_ncols     = 1;
+    int const b_stride    = 1;
+
+    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_nrows, b_ncols, 0);
+
+    batch_list<TestType> const b_batch = [&] {
+      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
+                                   trans_b);
+
+      builder.insert(b1_v, 0);
+      builder.insert(b1_v, 1);
+      builder.insert(b1_v, 2);
+
+      return builder;
+    }();
+
+    // make 2x1 "c" views
+    fk::matrix<TestType> c(6, 1);
+    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 0);
+    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
+    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
+
+    batch_list<TestType> const c_batch = [&] {
+      batch_list<TestType> builder(num_batch, a_nrows, b_ncols, 1, false);
+      builder.insert(c1_v, 0);
+      builder.insert(c2_v, 1);
+      builder.insert(c3_v, 2);
+      return builder;
+    }();
+
+    // do the math to create gold matrix
+    fk::matrix<TestType> gold(6, 1);
+    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
+    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
+    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
+    gold1_v = a1_v * b1_v;
+    gold2_v = a2_v * b1_v;
+    gold3_v = a3_v * b1_v;
+
+    // call batched gemv
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemv(a_batch, b_batch, c_batch, alpha, beta);
+
+    // compare
+    REQUIRE(c == gold);
+  }
+}
 TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
 {
   SECTION("1d, deg 3")
@@ -1540,5 +1658,65 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     TestType result = *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType tol    = std::numeric_limits<TestType>::epsilon();
     REQUIRE(result < tol * gold.size());
+  }
+}
+
+TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
+{
+  SECTION("1 element, 1d, 1 term")
+  {
+    int const degree = 2;
+    int const level  = 2;
+
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    fk::matrix<TestType> coefficient_matrix =
+        pde->get_terms()[0][0].get_coefficients();
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
+    pde->get_terms()[0][0].set_coefficients(pde->get_dimensions()[0],
+                                            coefficient_matrix);
+
+    int const elem_size =
+        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+    fk::vector<TestType> const x = [&] {
+      fk::vector<TestType> builder(elem_table.size() * elem_size);
+
+      std::generate(builder.begin(), builder.end(), gen);
+      return builder;
+    }();
+    fk::vector<TestType> const gold = coefficient_matrix * x;
+
+    fk::vector<TestType> const y(x.size() * elem_table.size());
+    fk::vector<TestType> const work(0);
+
+    int const items_to_reduce = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector(items_to_reduce);
+    fk::vector<TestType> const fx(x.size());
+
+    std::vector<batch_set<TestType>> batches =
+        build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
+
+    batch_list<TestType> const a = batches[0][0];
+    batch_list<TestType> const b = batches[0][1];
+    batch_list<TestType> const c = batches[0][2];
+
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a, b, c, alpha, beta);
+
+    batch_list<TestType> const r_a = batches[1][0];
+    batch_list<TestType> const r_b = batches[1][1];
+    batch_list<TestType> const r_c = batches[1][2];
+    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    REQUIRE(gold == fx);
   }
 }
