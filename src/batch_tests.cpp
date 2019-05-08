@@ -1663,43 +1663,46 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 {
-  SECTION("1 element, 1d, 1 term")
+  SECTION("1d, 1 term, degree 2, level 2")
   {
     int const degree = 2;
     int const level  = 2;
 
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     element_table const elem_table(o, pde->num_dims);
 
-    fk::matrix<TestType> coefficient_matrix =
-        pde->get_terms()[0][0].get_coefficients();
+    fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(0, 0);
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
     std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
-    pde->get_terms()[0][0].set_coefficients(pde->get_dimensions()[0],
-                                            coefficient_matrix);
+    pde->set_coefficients(coefficient_matrix, 0, 0);
 
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
     fk::vector<TestType> const x = [&] {
       fk::vector<TestType> builder(elem_table.size() * elem_size);
-
       std::generate(builder.begin(), builder.end(), gen);
       return builder;
     }();
+
     fk::vector<TestType> const gold = coefficient_matrix * x;
 
-    fk::vector<TestType> const y(x.size() * elem_table.size());
+    fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
     fk::vector<TestType> const work(0);
 
-    int const items_to_reduce = pde->num_terms * elem_table.size();
-    fk::vector<TestType> const unit_vector(items_to_reduce);
+    int const items_to_reduce              = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector = [&] {
+      fk::vector<TestType> builder(items_to_reduce);
+      std::fill(builder.begin(), builder.end(), 1.0);
+      return builder;
+    }();
+
     fk::vector<TestType> const fx(x.size());
 
     std::vector<batch_set<TestType>> batches =
@@ -1718,5 +1721,136 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     batch_list<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
     REQUIRE(gold == fx);
+  }
+
+  SECTION("1d, 1 term, degree 4, level 3")
+  {
+    int const degree = 4;
+    int const level  = 3;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(0, 0);
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
+    pde->set_coefficients(coefficient_matrix, 0, 0);
+
+    int const elem_size =
+        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+    fk::vector<TestType> const x = [&] {
+      fk::vector<TestType> builder(elem_table.size() * elem_size);
+      std::generate(builder.begin(), builder.end(), gen);
+      return builder;
+    }();
+
+    fk::vector<TestType> const gold = coefficient_matrix * x;
+
+    fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
+    fk::vector<TestType> const work(0);
+
+    int const items_to_reduce              = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector = [&] {
+      fk::vector<TestType> builder(items_to_reduce);
+      std::fill(builder.begin(), builder.end(), 1.0);
+      return builder;
+    }();
+
+    fk::vector<TestType> const fx(x.size());
+
+    std::vector<batch_set<TestType>> batches =
+        build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
+
+    batch_list<TestType> const a = batches[0][0];
+    batch_list<TestType> const b = batches[0][1];
+    batch_list<TestType> const c = batches[0][2];
+
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a, b, c, alpha, beta);
+
+    batch_list<TestType> const r_a = batches[1][0];
+    batch_list<TestType> const r_b = batches[1][1];
+    batch_list<TestType> const r_c = batches[1][2];
+    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    REQUIRE(gold == fx);
+  }
+
+  SECTION("2d, 2 terms, level 2, degree 2")
+  {
+    int const degree = 2;
+    int const level  = 2;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(j, i);
+
+        std::generate(coefficient_matrix.begin(), coefficient_matrix.end(),
+                      gen);
+        pde->set_coefficients(coefficient_matrix, j, i);
+      }
+    }
+    int const elem_size =
+        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+    fk::vector<TestType> const x = [&] {
+      fk::vector<TestType> builder(elem_table.size() * elem_size);
+      std::generate(builder.begin(), builder.end(), gen);
+      return builder;
+    }();
+
+    // TODO add krons here
+    fk::vector<TestType> const gold = coefficient_matrix * x;
+
+    fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
+    fk::vector<TestType> const work(elem_size * elem_table.size() *
+                                    elem_table.size() * pde->num_terms *
+                                    (pde->num_dims - 1));
+
+    int const items_to_reduce              = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector = [&] {
+      fk::vector<TestType> builder(items_to_reduce);
+      std::fill(builder.begin(), builder.end(), 1.0);
+      return builder;
+    }();
+
+    fk::vector<TestType> const fx(x.size());
+
+    std::vector<batch_set<TestType>> batches =
+        build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
+
+    // TODO call all the batch gemms here
+    batch_list<TestType> const a = batches[0][0];
+    batch_list<TestType> const b = batches[0][1];
+    batch_list<TestType> const c = batches[0][2];
+
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    batched_gemm(a, b, c, alpha, beta);
+
+    batch_list<TestType> const r_a = batches[1][0];
+    batch_list<TestType> const r_b = batches[1][1];
+    batch_list<TestType> const r_c = batches[1][2];
+    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    // REQUIRE(gold == fx);
   }
 }

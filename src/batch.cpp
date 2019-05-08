@@ -277,13 +277,6 @@ void batched_gemv(batch_list<P> const a, batch_list<P> const b,
   int const cols_a = a.do_trans ? a.nrows : a.ncols;
   int const rows_b = b.nrows;
 
-  if (cols_a != rows_b)
-  {
-    std::cout << "cols a " << cols_a << std::endl;
-
-    std::cout << "rows b " << rows_b << std::endl;
-  }
-
   assert(cols_a == rows_b);
   assert(b.ncols == 1);
   assert(c.ncols == 1);
@@ -616,11 +609,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         return op_col;
       }();
 
-      auto terms = pde.get_terms();
       for (int k = 0; k < pde.num_terms; ++k)
       {
-        auto term = terms[k];
-
         // term major y-space layout, followed by connected items, finally work
         // items note that this index assumes uniform connected items (full
         // connectivity) if connectivity is instead computed for each element, i
@@ -635,14 +625,14 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                                                    y_index + elem_size - 1);
 
         // work space, intermediate kron data
-        int const work_index = x_size * kron_index * (pde.num_dims - 1);
+        int const work_index = elem_size * kron_index * (pde.num_dims - 1);
         std::vector<fk::vector<P, mem_type::view>> work_views(
             pde.num_dims - 1,
             fk::vector<P, mem_type::view>(work, work_index,
                                           work_index + elem_size - 1));
-        for (int d = 1; d < pde.num_dims; ++d)
+        for (int d = 1; d < pde.num_dims - 1; ++d)
         {
-          work_views[i] = fk::vector<P, mem_type::view>(
+          work_views[d] = fk::vector<P, mem_type::view>(
               work, work_index + elem_size * d,
               work_index + (elem_size + 1) * d - 1);
         }
@@ -652,9 +642,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         for (int d = 0; d < pde.num_dims; ++d)
         {
           // FIXME need to figure out how to avoid the coefficient copy
-          // FIXME broken here!!
           operator_views.push_back(fk::matrix<P, mem_type::view>(
-              term[d].get_coefficients(), operator_row(d),
+              pde.get_coefficients(k, d), operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1));
         }
@@ -666,6 +655,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // x vector input to kronmult
         fk::vector<P, mem_type::view> const x_view(x, global_col,
                                                    global_col + elem_size - 1);
+
         batch_for_kronmult(operator_views, x_view, y_view, work_views, batches,
                            kron_index, pde);
       }
