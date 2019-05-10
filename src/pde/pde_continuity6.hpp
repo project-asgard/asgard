@@ -587,21 +587,21 @@ private:
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return bx;
+    return ax;
   }
   static P gvy(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return by;
+    return ay;
   }
   static P gvz(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return bz;
+    return az;
   }
 
   // define dimensions
@@ -643,7 +643,7 @@ private:
                    2,                            // levels
                    2,                            // degree
                    f0,                           // initial condition
-                   "x");                         // name
+                   "vx");                        // name
 
   inline static dimension<P> const vy_ =
       dimension<P>(boundary_condition::periodic, // left boundary condition
@@ -653,7 +653,7 @@ private:
                    2,                            // levels
                    2,                            // degree
                    f0,                           // initial condition
-                   "y");                         // name
+                   "vy");                        // name
 
   inline static dimension<P> const vz_ =
       dimension<P>(boundary_condition::periodic, // left boundary condition

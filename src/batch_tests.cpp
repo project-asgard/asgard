@@ -1,9 +1,9 @@
 #include "batch.hpp"
+#include "coefficients.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <numeric>
 #include <random>
-
 TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 {
   bool const do_trans = true;
@@ -978,7 +978,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const num_elems = 60;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
-    int const stride = pde->get_terms()[0][0].get_coefficients().stride();
+    int const stride = pde->get_coefficients(0, 0).stride();
 
     int const gold_size = pde->num_terms * num_elems;
 
@@ -1024,7 +1024,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const num_elems = 400;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
-    int const stride = pde->get_terms()[0][0].get_coefficients().stride();
+    int const stride = pde->get_coefficients(0, 0).stride();
 
     int const gold_size = pde->num_terms * num_elems;
 
@@ -1078,7 +1078,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const gold_size = pde->num_terms * num_elems;
     for (int i = 0; i < dimensions; ++i)
     {
-      int const stride = pde->get_terms()[0][i].get_coefficients().stride();
+      int const stride = pde->get_coefficients(0, i).stride();
       batch_set<TestType> const batch_dim = batches[i];
       int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
       int const gold_cols_a   = degree;
@@ -1127,7 +1127,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const gold_size = pde->num_terms * num_elems;
     for (int i = 0; i < dimensions; ++i)
     {
-      int const stride = pde->get_terms()[0][i].get_coefficients().stride();
+      int const stride = pde->get_coefficients(0, i).stride();
       batch_set<TestType> const batch_dim = batches[i];
       int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
       int const gold_cols_a   = degree;
@@ -1182,7 +1182,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
         return static_cast<int>(std::pow(degree, (dimensions - i - 1))) *
                pde->num_terms * num_elems;
       }();
-      int const stride = pde->get_terms()[0][i].get_coefficients().stride();
+      int const stride = pde->get_coefficients(0, i).stride();
       batch_set<TestType> const batch_dim = batches[i];
       int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
       int const gold_cols_a   = degree;
@@ -1227,8 +1227,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     int const num_elems = 1;
 
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    fk::matrix<TestType> coefficient_matrix =
-        pde->get_terms()[0][0].get_coefficients();
+    fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(0, 0);
 
     // clang-format off
     fk::matrix<TestType> const A {
@@ -1274,8 +1273,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     int const num_elems = 2;
 
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    fk::matrix<TestType> coefficient_matrix =
-        pde->get_terms()[0][0].get_coefficients();
+    fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(0, 0);
 
     // clang-format off
     fk::matrix<TestType> const A {
@@ -1529,12 +1527,13 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     // this method of computing "correctness" borrowed from ed's tests:
     // https://code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
-    fk::vector<TestType> diff = gold - y_own;
-    auto abs_compare          = [](TestType a, TestType b) {
+    fk::vector<TestType> const diff = gold - y_own;
+    auto abs_compare                = [](TestType const a, TestType const b) {
       return (std::abs(a) < std::abs(b));
     };
-    TestType result = *std::max_element(diff.begin(), diff.end(), abs_compare);
-    TestType tol    = std::numeric_limits<TestType>::epsilon();
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon();
     REQUIRE(result < tol * gold.size());
   }
 
@@ -1651,12 +1650,13 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     // this method of computing "correctness" borrowed from ed's tests:
     // https://code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
-    fk::vector<TestType> diff = gold - y_own;
-    auto abs_compare          = [](TestType a, TestType b) {
+    fk::vector<TestType> const diff = gold - y_own;
+    auto abs_compare                = [](TestType const a, TestType const b) {
       return (std::abs(a) < std::abs(b));
     };
-    TestType result = *std::max_element(diff.begin(), diff.end(), abs_compare);
-    TestType tol    = std::numeric_limits<TestType>::epsilon();
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon();
     REQUIRE(result < tol * gold.size());
   }
 }
@@ -1720,7 +1720,15 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     batch_list<TestType> const r_b = batches[1][1];
     batch_list<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
-    REQUIRE(gold == fx);
+
+    fk::vector<TestType> const diff = gold - fx;
+    auto abs_compare                = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon();
+    REQUIRE(result < tol * gold.size());
   }
 
   SECTION("1d, 1 term, degree 4, level 3")
@@ -1780,7 +1788,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     batch_list<TestType> const r_b = batches[1][1];
     batch_list<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
-    REQUIRE(gold == fx);
+
+    fk::vector<TestType> const diff = gold - fx;
+    auto abs_compare                = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+
+    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e2;
+    REQUIRE(result < tol);
   }
 
   SECTION("2d, 2 terms, level 2, degree 2")
@@ -1788,44 +1805,40 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     int const degree = 2;
     int const level  = 2;
 
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     element_table const elem_table(o, pde->num_dims);
 
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
       for (int j = 0; j < pde->num_terms; ++j)
       {
-        fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(j, i);
-
-        std::generate(coefficient_matrix.begin(), coefficient_matrix.end(),
-                      gen);
-        pde->set_coefficients(coefficient_matrix, j, i);
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
       }
     }
+
+    // generate initial
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> const x = [&] {
-      fk::vector<TestType> builder(elem_table.size() * elem_size);
-      std::generate(builder.begin(), builder.end(), gen);
-      return builder;
-    }();
+    fk::vector<TestType> x(elem_table.size() * elem_size);
+    std::fill(x.begin(), x.end(), 1.0);
 
-    // TODO add krons here
-    fk::vector<TestType> const gold = coefficient_matrix * x;
-
+    // setup output/intermediate output spaces for batched gemm
     fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
     fk::vector<TestType> const work(elem_size * elem_table.size() *
                                     elem_table.size() * pde->num_terms *
                                     (pde->num_dims - 1));
+    fk::vector<TestType> const fx(x.size());
 
+    // setup reduction vector
     int const items_to_reduce              = pde->num_terms * elem_table.size();
     fk::vector<TestType> const unit_vector = [&] {
       fk::vector<TestType> builder(items_to_reduce);
@@ -1833,24 +1846,286 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       return builder;
     }();
 
-    fk::vector<TestType> const fx(x.size());
-
+    // call to build batches
     std::vector<batch_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
-    // TODO call all the batch gemms here
-    batch_list<TestType> const a = batches[0][0];
-    batch_list<TestType> const b = batches[0][1];
-    batch_list<TestType> const c = batches[0][2];
-
+    // batched gemm
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      batch_list<TestType> const a = batches[i][0];
+      batch_list<TestType> const b = batches[i][1];
+      batch_list<TestType> const c = batches[i][2];
+      batched_gemm(a, b, c, alpha, beta);
+    }
 
-    batch_list<TestType> const r_a = batches[1][0];
-    batch_list<TestType> const r_b = batches[1][1];
-    batch_list<TestType> const r_c = batches[1][2];
+    // reduce
+    batch_list<TestType> const r_a = batches[pde->num_dims][0];
+    batch_list<TestType> const r_b = batches[pde->num_dims][1];
+    batch_list<TestType> const r_c = batches[pde->num_dims][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
-    // REQUIRE(gold == fx);
+
+    std::string const file_path =
+        "../testing/generated-inputs/batch/continuity2_sg_l2_d2_t1.dat";
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(file_path));
+
+    fk::vector<TestType> const diff = gold - fx;
+    auto abs_compare                = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+    REQUIRE(result < tol);
+  }
+
+  SECTION("2d, 2 terms, level 3, degree 4, full grid")
+  {
+    int const degree = 4;
+    int const level  = 3;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // generate initial
+    int const elem_size =
+        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+    fk::vector<TestType> x(elem_table.size() * elem_size);
+    std::fill(x.begin(), x.end(), 1.0);
+
+    // setup output/intermediate output spaces for batched gemm
+    fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
+    fk::vector<TestType> const work(elem_size * elem_table.size() *
+                                    elem_table.size() * pde->num_terms *
+                                    (pde->num_dims - 1));
+    fk::vector<TestType> const fx(x.size());
+
+    // setup reduction vector
+    int const items_to_reduce              = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector = [&] {
+      fk::vector<TestType> builder(items_to_reduce);
+      std::fill(builder.begin(), builder.end(), 1.0);
+      return builder;
+    }();
+
+    // call to build batches
+    std::vector<batch_set<TestType>> batches =
+        build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
+
+    // batched gemm
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      batch_list<TestType> const a = batches[i][0];
+      batch_list<TestType> const b = batches[i][1];
+      batch_list<TestType> const c = batches[i][2];
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // reduce
+    batch_list<TestType> const r_a = batches[pde->num_dims][0];
+    batch_list<TestType> const r_b = batches[pde->num_dims][1];
+    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batched_gemv(r_a, r_b, r_c, alpha, beta);
+
+    std::string const file_path =
+        "../testing/generated-inputs/batch/continuity2_fg_l3_d4_t1.dat";
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(file_path));
+
+    fk::vector<TestType> const diff = gold - fx;
+    auto abs_compare                = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+    REQUIRE(result < tol);
+  }
+
+  SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
+  {
+    int const degree = 4;
+    int const level  = 3;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // generate initial
+    int const elem_size =
+        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+    fk::vector<TestType> x(elem_table.size() * elem_size);
+    std::fill(x.begin(), x.end(), 1.0);
+
+    // setup output/intermediate output spaces for batched gemm
+    fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
+    fk::vector<TestType> const work(elem_size * elem_table.size() *
+                                    elem_table.size() * pde->num_terms *
+                                    (pde->num_dims - 1));
+    fk::vector<TestType> const fx(x.size());
+
+    // setup reduction vector
+    int const items_to_reduce              = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector = [&] {
+      fk::vector<TestType> builder(items_to_reduce);
+      std::fill(builder.begin(), builder.end(), 1.0);
+      return builder;
+    }();
+
+    // call to build batches
+    std::vector<batch_set<TestType>> batches =
+        build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
+
+    // batched gemm
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      batch_list<TestType> const a = batches[i][0];
+      batch_list<TestType> const b = batches[i][1];
+      batch_list<TestType> const c = batches[i][2];
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // reduce
+    batch_list<TestType> const r_a = batches[pde->num_dims][0];
+    batch_list<TestType> const r_b = batches[pde->num_dims][1];
+    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batched_gemv(r_a, r_b, r_c, alpha, beta);
+
+    std::string const file_path =
+        "../testing/generated-inputs/batch/continuity3_sg_l3_d4_t1.dat";
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(file_path));
+
+    fk::vector<TestType> const diff = gold - fx;
+    auto abs_compare                = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+    REQUIRE(result < tol);
+  }
+
+  SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 2;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // generate initial
+    int const elem_size =
+        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+    fk::vector<TestType> x(elem_table.size() * elem_size);
+    std::fill(x.begin(), x.end(), 1.0);
+
+    // setup output/intermediate output spaces for batched gemm
+    fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
+    fk::vector<TestType> const work(elem_size * elem_table.size() *
+                                    elem_table.size() * pde->num_terms *
+                                    (pde->num_dims - 1));
+    fk::vector<TestType> const fx(x.size());
+
+    // setup reduction vector
+    int const items_to_reduce              = pde->num_terms * elem_table.size();
+    fk::vector<TestType> const unit_vector = [&] {
+      fk::vector<TestType> builder(items_to_reduce);
+      std::fill(builder.begin(), builder.end(), 1.0);
+      return builder;
+    }();
+
+    // call to build batches
+    std::vector<batch_set<TestType>> batches =
+        build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
+
+    // batched gemm
+    TestType const alpha = 1.0;
+    TestType const beta  = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      batch_list<TestType> const a = batches[i][0];
+      batch_list<TestType> const b = batches[i][1];
+      batch_list<TestType> const c = batches[i][2];
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // reduce
+    batch_list<TestType> const r_a = batches[pde->num_dims][0];
+    batch_list<TestType> const r_b = batches[pde->num_dims][1];
+    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batched_gemv(r_a, r_b, r_c, alpha, beta);
+
+    std::string const file_path =
+        "../testing/generated-inputs/batch/continuity6_sg_l2_d3_t1.dat";
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(file_path));
+
+    fk::vector<TestType> const diff = gold - fx;
+
+    auto abs_compare = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        *std::max_element(diff.begin(), diff.end(), abs_compare);
+    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+    REQUIRE(result < tol);
   }
 }

@@ -374,7 +374,7 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
   // get stride of first coefficient matrix in 0th term set.
   // note all the coefficient matrices for each term have the
   // same dimensions
-  int const stride = pde.get_terms()[0][0].get_coefficients().stride();
+  int const stride = pde.get_coefficients(0, 0).stride();
   batches.emplace_back(std::vector<batch_list<P>>{
       batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans),
       batch_list<P>(num_gemms, sizes.rows_b, sizes.cols_b, sizes.rows_b,
@@ -391,7 +391,7 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
     bool const trans_a    = false;
     bool const trans_b    = true;
 
-    int const stride = pde.get_terms()[0][i].get_coefficients().stride();
+    int const stride = pde.get_coefficients(0, i).stride();
     batches.emplace_back(std::vector<batch_list<P>>{
         batch_list<P>(num_gemms, sizes.rows_a, sizes.cols_a, sizes.rows_a,
                       trans_a),
@@ -594,7 +594,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       assert(coords.size() == pde.num_dims * 2);
       fk::vector<int> connected_indices = linearize(coords);
 
-      // calculate the row portion of the
+      // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
       fk::vector<int> operator_col = [&] {
@@ -614,10 +614,11 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // term major y-space layout, followed by connected items, finally work
         // items note that this index assumes uniform connected items (full
         // connectivity) if connectivity is instead computed for each element, i
-        // * elem_table.size() must be replaced by sum of lower indexed
-        // connected items (scan)
+        // * elem_table.size() * terms must be replaced by sum of lower indexed
+        // connected items (scan) * terms
 
-        int const kron_index = k + j * pde.num_terms + i * elem_table.size();
+        int const kron_index =
+            k + j * pde.num_terms + i * elem_table.size() * pde.num_terms;
 
         // y space, where kron outputs are written
         int const y_index = elem_size * kron_index;
@@ -634,14 +635,13 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         {
           work_views[d] = fk::vector<P, mem_type::view>(
               work, work_index + elem_size * d,
-              work_index + (elem_size + 1) * d - 1);
+              work_index + elem_size * (d + 1) - 1);
         }
 
         // operator views, windows into operator matrix
         std::vector<fk::matrix<P, mem_type::view>> operator_views;
-        for (int d = 0; d < pde.num_dims; ++d)
+        for (int d = pde.num_dims - 1; d >= 0; --d)
         {
-          // FIXME need to figure out how to avoid the coefficient copy
           operator_views.push_back(fk::matrix<P, mem_type::view>(
               pde.get_coefficients(k, d), operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),

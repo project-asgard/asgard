@@ -184,10 +184,10 @@ public:
     this->coefficients_.clear_and_resize(degrees_freedom_1d,
                                          degrees_freedom_1d) = new_coefficients;
   }
-  fk::matrix<P> const & get_coefficients() const { return coefficients_; }
+  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 
   // small helper to return degrees of freedom given dimension
-  int degrees_freedom(dimension<P> const d)
+  int degrees_freedom(dimension<P> const d) const
   {
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   };
@@ -350,8 +350,21 @@ public:
 
   virtual ~PDE() {}
 
-  std::vector<dimension<P>> get_dimensions() const { return dimensions_; }
-  term_set<P> get_terms() const { return terms_; }
+  std::vector<dimension<P>> const &get_dimensions() const
+  {
+    return dimensions_;
+  }
+  term_set<P> const &get_terms() const { return terms_; }
+
+  fk::matrix<P> const &get_coefficients(int const term, int const dim) const
+  {
+    return terms_[term][dim].get_coefficients();
+  }
+  void
+  set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
+  {
+    terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
+  }
 
 private:
   std::vector<dimension<P>> dimensions_;

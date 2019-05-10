@@ -328,13 +328,13 @@ Grad = Grad .* (abs(Grad) > tol );
 %          DeltaX * ...
 %          blkdiag( FMWT',FMWT');
 
-if type == 1
+if type == 1 || type == 'grad'
     mat = Grad;
 end
-if type == 2
+if type == 2 || type == 'mass'
     mat = Mass;
 end
-if type == 3
+if type == 3 || type == 'stif'
     mat = Stif;
 end
 
