@@ -30,8 +30,6 @@ enum class PDE_opts
 {
   continuity_1,
   continuity_2,
-
-  continuity_2_1t,
   continuity_3,
   continuity_6,
   // FIXME the below have not been implemented according to the

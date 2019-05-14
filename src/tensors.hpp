@@ -1166,7 +1166,7 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    data_      = new P[a.stride() * a.ncols()]();
+    data_      = new P[a.size()]();
     ref_count_ = std::make_shared<int>(0);
   }
   else
@@ -1232,9 +1232,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
 template<typename P, mem_type mem>
 template<typename PP, mem_type omem, mem_type, typename>
 fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
-    : data_{new P[a.stride() * a.ncols()]()}, nrows_{a.nrows()},
-      ncols_{a.ncols()}, stride_{a.stride()}, ref_count_{
-                                                  std::make_shared<int>(0)}
+    : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
+      stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
 
 {
   for (auto j = 0; j < a.ncols(); ++j)

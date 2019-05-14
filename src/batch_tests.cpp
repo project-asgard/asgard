@@ -4,7 +4,7 @@
 #include "tests_general.hpp"
 #include <numeric>
 #include <random>
-TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
+TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
 {
   bool const do_trans = true;
 
@@ -46,28 +46,27 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
   fk::matrix<TestType, mem_type::view> const third_v(third, start_row, stop_row,
                                                      start_col, stop_col);
 
-  int const num_batch             = 3;
-  batch_list<TestType> const gold = [&] {
-    batch_list<TestType> builder(num_batch, nrows, ncols, stride, do_trans);
+  int const num_batch        = 3;
+  batch<TestType> const gold = [&] {
+    batch<TestType> builder(num_batch, nrows, ncols, stride, do_trans);
 
-    builder.insert(first_v, 0);
-    builder.insert(second_v, 1);
-    builder.insert(third_v, 2);
+    builder.assign_entry(first_v, 0);
+    builder.assign_entry(second_v, 1);
+    builder.assign_entry(third_v, 2);
 
     return builder;
   }();
 
-  SECTION("batch_list: constructors, copy/move")
+  SECTION("batch: constructors, copy/move")
   {
     SECTION("constructor")
     {
-      batch_list<TestType> const empty(num_batch, nrows, ncols, stride,
-                                       do_trans);
-      REQUIRE(empty.num_batch == num_batch);
-      REQUIRE(empty.nrows == nrows);
-      REQUIRE(empty.ncols == ncols);
-      REQUIRE(empty.stride == stride);
-      REQUIRE(empty.do_trans == do_trans);
+      batch<TestType> const empty(num_batch, nrows, ncols, stride, do_trans);
+      REQUIRE(empty.num_entries() == num_batch);
+      REQUIRE(empty.nrows() == nrows);
+      REQUIRE(empty.ncols() == ncols);
+      REQUIRE(empty.get_stride() == stride);
+      REQUIRE(empty.get_trans() == do_trans);
 
       for (TestType *const ptr : empty)
       {
@@ -77,39 +76,39 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
     SECTION("copy construction")
     {
-      batch_list<TestType> const gold_copy(gold);
+      batch<TestType> const gold_copy(gold);
       REQUIRE(gold_copy == gold);
     }
 
     SECTION("copy assignment")
     {
-      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans);
+      batch<TestType> test(num_batch, nrows, ncols, stride, do_trans);
       test = gold;
       REQUIRE(test == gold);
     }
 
     SECTION("move construction")
     {
-      batch_list<TestType> gold_copy(gold);
-      batch_list const test = std::move(gold_copy);
+      batch<TestType> gold_copy(gold);
+      batch const test = std::move(gold_copy);
       REQUIRE(test == gold);
     }
 
     SECTION("move assignment")
     {
-      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans);
-      batch_list<TestType> gold_copy(gold);
+      batch<TestType> test(num_batch, nrows, ncols, stride, do_trans);
+      batch<TestType> gold_copy(gold);
       test = std::move(gold_copy);
       REQUIRE(test == gold);
     }
   }
 
-  SECTION("batch_list: insert/clear and getters")
+  SECTION("batch: insert/clear and getters")
   {
     SECTION("insert/getter")
     {
-      batch_list<TestType> test(num_batch, nrows, ncols, stride, do_trans);
-      test.insert(first_v, 0);
+      batch<TestType> test(num_batch, nrows, ncols, stride, do_trans);
+      test.assign_entry(first_v, 0);
       TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == nullptr);
@@ -118,7 +117,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[1] == test(1));
       REQUIRE(ptr_list[2] == test(2));
 
-      test.insert(third_v, 2);
+      test.assign_entry(third_v, 2);
       ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == nullptr);
@@ -127,7 +126,7 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[1] == test(1));
       REQUIRE(ptr_list[2] == test(2));
 
-      test.insert(second_v, 1);
+      test.assign_entry(second_v, 1);
       ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == second_v.data());
@@ -139,11 +138,11 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
     SECTION("clear")
     {
-      batch_list<TestType> test(gold);
+      batch<TestType> test(gold);
 
       // clear should return true when
       // an element was assigned to that index
-      REQUIRE(test.clear(0));
+      REQUIRE(test.clear_entry(0));
       TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == nullptr);
       REQUIRE(ptr_list[1] == second_v.data());
@@ -154,9 +153,9 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
 
       // clear should return false when
       // no element was assigned to that index
-      REQUIRE(!test.clear(0));
+      REQUIRE(!test.clear_entry(0));
 
-      REQUIRE(test.clear(1));
+      REQUIRE(test.clear_entry(1));
       ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == nullptr);
       REQUIRE(ptr_list[1] == nullptr);
@@ -165,9 +164,9 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[1] == test(1));
       REQUIRE(ptr_list[2] == test(2));
 
-      REQUIRE(!test.clear(1));
+      REQUIRE(!test.clear_entry(1));
 
-      REQUIRE(test.clear(2));
+      REQUIRE(test.clear_entry(2));
       ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == nullptr);
       REQUIRE(ptr_list[1] == nullptr);
@@ -176,24 +175,24 @@ TEMPLATE_TEST_CASE("batch_list", "[batch]", float, double)
       REQUIRE(ptr_list[1] == test(1));
       REQUIRE(ptr_list[2] == test(2));
 
-      REQUIRE(!test.clear(2));
+      REQUIRE(!test.clear_entry(2));
     }
   }
 
-  SECTION("batch_list: utility functions")
+  SECTION("batch: utility functions")
   {
     SECTION("is_filled")
     {
       REQUIRE(gold.is_filled());
-      batch_list<TestType> test(gold);
-      test.clear(0);
+      batch<TestType> test(gold);
+      test.clear_entry(0);
       REQUIRE(!test.is_filled());
     }
 
     SECTION("clear_all")
     {
-      batch_list<TestType> const test = [&] {
-        batch_list<TestType> gold_copy(gold);
+      batch<TestType> const test = [&] {
+        batch<TestType> gold_copy(gold);
         return gold_copy.clear_all();
       }();
 
@@ -287,13 +286,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -315,13 +313,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b2_v, 1);
-      builder.insert(b3_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b2_v, 1);
+      builder.assign_entry(b3_v, 2);
 
       return builder;
     }();
@@ -332,12 +329,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(),
-                                   false);
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(), false);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -389,13 +385,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -417,13 +412,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b2_v, 1);
-      builder.insert(b3_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b2_v, 1);
+      builder.assign_entry(b3_v, 2);
 
       return builder;
     }();
@@ -434,12 +428,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_ncols, b_ncols, c.nrows(),
-                                   false);
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_ncols, b_ncols, c.nrows(), false);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -481,13 +474,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -509,13 +501,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b2_v, 1);
-      builder.insert(b3_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b2_v, 1);
+      builder.assign_entry(b3_v, 2);
 
       return builder;
     }();
@@ -531,13 +522,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, b_nrows, c.nrows(),
-                                   false);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, b_nrows, c.nrows(), false);
 
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -583,13 +573,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -611,13 +600,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b2_v, 1);
-      builder.insert(b3_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b2_v, 1);
+      builder.assign_entry(b3_v, 2);
 
       return builder;
     }();
@@ -633,12 +621,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_ncols, b_nrows, c.nrows(),
-                                   false);
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_ncols, b_nrows, c.nrows(), false);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -679,13 +666,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -707,13 +693,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b2_v, 1);
-      builder.insert(b3_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b2_v, 1);
+      builder.assign_entry(b3_v, 2);
 
       return builder;
     }();
@@ -732,12 +717,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(),
-                                   false);
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(), false);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -778,13 +762,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -806,13 +789,12 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b2_v, 1);
-      builder.insert(b3_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b2_v, 1);
+      builder.assign_entry(b3_v, 2);
 
       return builder;
     }();
@@ -823,12 +805,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(),
-                                   false);
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(), false);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -905,13 +886,12 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch_list<TestType> const a_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, a_ncols, a_stride,
-                                   trans_a);
+    batch<TestType> const a_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
 
-      builder.insert(a1_v, 0);
-      builder.insert(a2_v, 1);
-      builder.insert(a3_v, 2);
+      builder.assign_entry(a1_v, 0);
+      builder.assign_entry(a2_v, 1);
+      builder.assign_entry(a3_v, 2);
 
       return builder;
     }();
@@ -926,13 +906,12 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_nrows, b_ncols, 0);
 
-    batch_list<TestType> const b_batch = [&] {
-      batch_list<TestType> builder(num_batch, b_nrows, b_ncols, b_stride,
-                                   trans_b);
+    batch<TestType> const b_batch = [&] {
+      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
 
-      builder.insert(b1_v, 0);
-      builder.insert(b1_v, 1);
-      builder.insert(b1_v, 2);
+      builder.assign_entry(b1_v, 0);
+      builder.assign_entry(b1_v, 1);
+      builder.assign_entry(b1_v, 2);
 
       return builder;
     }();
@@ -943,11 +922,11 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch_list<TestType> const c_batch = [&] {
-      batch_list<TestType> builder(num_batch, a_nrows, b_ncols, 1, false);
-      builder.insert(c1_v, 0);
-      builder.insert(c2_v, 1);
-      builder.insert(c3_v, 2);
+    batch<TestType> const c_batch = [&] {
+      batch<TestType> builder(num_batch, a_nrows, b_ncols, 1, false);
+      builder.assign_entry(c1_v, 0);
+      builder.assign_entry(c2_v, 1);
+      builder.assign_entry(c3_v, 2);
       return builder;
     }();
 
@@ -982,39 +961,39 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
 
     int const gold_size = pde->num_terms * num_elems;
 
-    std::vector<batch_set<TestType>> const batches =
+    std::vector<batch_operands_set<TestType>> const batches =
         allocate_batches(*pde, num_elems);
     assert(batches.size() == 1);
-    batch_set<TestType> const batches_dim0 = batches[0];
+    batch_operands_set<TestType> const batches_dim0 = batches[0];
 
     int const gold_rows_a   = degree;
     int const gold_cols_a   = degree;
     int const gold_stride_a = stride;
     bool const gold_trans_a = false;
-    assert(batches_dim0[0].num_batch == gold_size);
-    assert(batches_dim0[0].nrows == gold_rows_a);
-    assert(batches_dim0[0].ncols == gold_cols_a);
-    assert(batches_dim0[0].stride == gold_stride_a);
-    assert(batches_dim0[0].do_trans == gold_trans_a);
+    assert(batches_dim0[0].num_entries() == gold_size);
+    assert(batches_dim0[0].nrows() == gold_rows_a);
+    assert(batches_dim0[0].ncols() == gold_cols_a);
+    assert(batches_dim0[0].get_stride() == gold_stride_a);
+    assert(batches_dim0[0].get_trans() == gold_trans_a);
 
     int const gold_rows_b   = degree;
     int const gold_cols_b   = std::pow(degree, pde->num_dims - 1);
     int const gold_stride_b = degree;
     bool const gold_trans_b = false;
-    assert(batches_dim0[1].num_batch == gold_size);
-    assert(batches_dim0[1].nrows == gold_rows_b);
-    assert(batches_dim0[1].ncols == gold_cols_b);
-    assert(batches_dim0[1].stride == gold_stride_b);
-    assert(batches_dim0[1].do_trans == gold_trans_b);
+    assert(batches_dim0[1].num_entries() == gold_size);
+    assert(batches_dim0[1].nrows() == gold_rows_b);
+    assert(batches_dim0[1].ncols() == gold_cols_b);
+    assert(batches_dim0[1].get_stride() == gold_stride_b);
+    assert(batches_dim0[1].get_trans() == gold_trans_b);
 
     int const gold_rows_c   = gold_rows_a;
     int const gold_cols_c   = gold_cols_b;
     int const gold_stride_c = gold_rows_a;
-    assert(batches_dim0[2].num_batch == gold_size);
-    assert(batches_dim0[2].nrows == gold_rows_c);
-    assert(batches_dim0[2].ncols == gold_cols_c);
-    assert(batches_dim0[2].stride == gold_stride_c);
-    assert(batches_dim0[2].do_trans == false);
+    assert(batches_dim0[2].num_entries() == gold_size);
+    assert(batches_dim0[2].nrows() == gold_rows_c);
+    assert(batches_dim0[2].ncols() == gold_cols_c);
+    assert(batches_dim0[2].get_stride() == gold_stride_c);
+    assert(batches_dim0[2].get_trans() == false);
   }
 
   SECTION("1d, deg 6")
@@ -1028,39 +1007,39 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
 
     int const gold_size = pde->num_terms * num_elems;
 
-    std::vector<batch_set<TestType>> const batches =
+    std::vector<batch_operands_set<TestType>> const batches =
         allocate_batches(*pde, num_elems);
     assert(batches.size() == 1);
-    batch_set<TestType> const batches_dim0 = batches[0];
+    batch_operands_set<TestType> const batches_dim0 = batches[0];
 
     int const gold_rows_a   = degree;
     int const gold_cols_a   = degree;
     int const gold_stride_a = stride;
     bool const gold_trans_a = false;
-    assert(batches_dim0[0].num_batch == gold_size);
-    assert(batches_dim0[0].nrows == gold_rows_a);
-    assert(batches_dim0[0].ncols == gold_cols_a);
-    assert(batches_dim0[0].stride == gold_stride_a);
-    assert(batches_dim0[0].do_trans == gold_trans_a);
+    assert(batches_dim0[0].num_entries() == gold_size);
+    assert(batches_dim0[0].nrows() == gold_rows_a);
+    assert(batches_dim0[0].ncols() == gold_cols_a);
+    assert(batches_dim0[0].get_stride() == gold_stride_a);
+    assert(batches_dim0[0].get_trans() == gold_trans_a);
 
     int const gold_rows_b   = degree;
     int const gold_cols_b   = std::pow(degree, pde->num_dims - 1);
     int const gold_stride_b = degree;
     bool const gold_trans_b = false;
-    assert(batches_dim0[1].num_batch == gold_size);
-    assert(batches_dim0[1].nrows == gold_rows_b);
-    assert(batches_dim0[1].ncols == gold_cols_b);
-    assert(batches_dim0[1].stride == gold_stride_b);
-    assert(batches_dim0[1].do_trans == gold_trans_b);
+    assert(batches_dim0[1].num_entries() == gold_size);
+    assert(batches_dim0[1].nrows() == gold_rows_b);
+    assert(batches_dim0[1].ncols() == gold_cols_b);
+    assert(batches_dim0[1].get_stride() == gold_stride_b);
+    assert(batches_dim0[1].get_trans() == gold_trans_b);
 
     int const gold_rows_c   = gold_rows_a;
     int const gold_cols_c   = gold_cols_b;
     int const gold_stride_c = gold_rows_a;
-    assert(batches_dim0[2].num_batch == gold_size);
-    assert(batches_dim0[2].nrows == gold_rows_c);
-    assert(batches_dim0[2].ncols == gold_cols_c);
-    assert(batches_dim0[2].stride == gold_stride_c);
-    assert(batches_dim0[2].do_trans == false);
+    assert(batches_dim0[2].num_entries() == gold_size);
+    assert(batches_dim0[2].nrows() == gold_rows_c);
+    assert(batches_dim0[2].ncols() == gold_cols_c);
+    assert(batches_dim0[2].get_stride() == gold_stride_c);
+    assert(batches_dim0[2].get_trans() == false);
   }
 
   SECTION("2d, deg 2")
@@ -1071,7 +1050,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const dimensions = 2;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
-    std::vector<batch_set<TestType>> const batches =
+    std::vector<batch_operands_set<TestType>> const batches =
         allocate_batches(*pde, num_elems);
     assert(batches.size() == dimensions);
 
@@ -1079,36 +1058,36 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     for (int i = 0; i < dimensions; ++i)
     {
       int const stride = pde->get_coefficients(0, i).stride();
-      batch_set<TestType> const batch_dim = batches[i];
+      batch_operands_set<TestType> const batch_dim = batches[i];
       int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
       int const gold_cols_a   = degree;
       int const gold_stride_a = i == 0 ? stride : gold_rows_a;
       bool const gold_trans_a = false;
-      assert(batch_dim[0].num_batch == gold_size);
-      assert(batch_dim[0].nrows == gold_rows_a);
-      assert(batch_dim[0].ncols == gold_cols_a);
-      assert(batch_dim[0].stride == gold_stride_a);
-      assert(batch_dim[0].do_trans == gold_trans_a);
+      assert(batch_dim[0].num_entries() == gold_size);
+      assert(batch_dim[0].nrows() == gold_rows_a);
+      assert(batch_dim[0].ncols() == gold_cols_a);
+      assert(batch_dim[0].get_stride() == gold_stride_a);
+      assert(batch_dim[0].get_trans() == gold_trans_a);
 
       int const gold_rows_b = degree;
       int const gold_cols_b =
           i == 0 ? std::pow(degree, pde->num_dims - 1) : degree;
       int const gold_stride_b = i == 0 ? degree : stride;
       bool const gold_trans_b = i == 0 ? false : true;
-      assert(batch_dim[1].num_batch == gold_size);
-      assert(batch_dim[1].nrows == gold_rows_b);
-      assert(batch_dim[1].ncols == gold_cols_b);
-      assert(batch_dim[1].stride == gold_stride_b);
-      assert(batch_dim[1].do_trans == gold_trans_b);
+      assert(batch_dim[1].num_entries() == gold_size);
+      assert(batch_dim[1].nrows() == gold_rows_b);
+      assert(batch_dim[1].ncols() == gold_cols_b);
+      assert(batch_dim[1].get_stride() == gold_stride_b);
+      assert(batch_dim[1].get_trans() == gold_trans_b);
 
       int const gold_rows_c   = gold_rows_a;
       int const gold_cols_c   = gold_cols_b;
       int const gold_stride_c = gold_rows_a;
-      assert(batch_dim[2].num_batch == gold_size);
-      assert(batch_dim[2].nrows == gold_rows_c);
-      assert(batch_dim[2].ncols == gold_cols_c);
-      assert(batch_dim[2].stride == gold_stride_c);
-      assert(batch_dim[2].do_trans == false);
+      assert(batch_dim[2].num_entries() == gold_size);
+      assert(batch_dim[2].nrows() == gold_rows_c);
+      assert(batch_dim[2].ncols() == gold_cols_c);
+      assert(batch_dim[2].get_stride() == gold_stride_c);
+      assert(batch_dim[2].get_trans() == false);
     }
   }
 
@@ -1120,7 +1099,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const dimensions = 2;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
-    std::vector<batch_set<TestType>> const batches =
+    std::vector<batch_operands_set<TestType>> const batches =
         allocate_batches(*pde, num_elems);
     assert(batches.size() == dimensions);
 
@@ -1128,36 +1107,36 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     for (int i = 0; i < dimensions; ++i)
     {
       int const stride = pde->get_coefficients(0, i).stride();
-      batch_set<TestType> const batch_dim = batches[i];
+      batch_operands_set<TestType> const batch_dim = batches[i];
       int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
       int const gold_cols_a   = degree;
       int const gold_stride_a = i == 0 ? stride : gold_rows_a;
       bool const gold_trans_a = false;
-      assert(batch_dim[0].num_batch == gold_size);
-      assert(batch_dim[0].nrows == gold_rows_a);
-      assert(batch_dim[0].ncols == gold_cols_a);
-      assert(batch_dim[0].stride == gold_stride_a);
-      assert(batch_dim[0].do_trans == gold_trans_a);
+      assert(batch_dim[0].num_entries() == gold_size);
+      assert(batch_dim[0].nrows() == gold_rows_a);
+      assert(batch_dim[0].ncols() == gold_cols_a);
+      assert(batch_dim[0].get_stride() == gold_stride_a);
+      assert(batch_dim[0].get_trans() == gold_trans_a);
 
       int const gold_rows_b = degree;
       int const gold_cols_b =
           i == 0 ? std::pow(degree, pde->num_dims - 1) : degree;
       int const gold_stride_b = i == 0 ? degree : stride;
       bool const gold_trans_b = i == 0 ? false : true;
-      assert(batch_dim[1].num_batch == gold_size);
-      assert(batch_dim[1].nrows == gold_rows_b);
-      assert(batch_dim[1].ncols == gold_cols_b);
-      assert(batch_dim[1].stride == gold_stride_b);
-      assert(batch_dim[1].do_trans == gold_trans_b);
+      assert(batch_dim[1].num_entries() == gold_size);
+      assert(batch_dim[1].nrows() == gold_rows_b);
+      assert(batch_dim[1].ncols() == gold_cols_b);
+      assert(batch_dim[1].get_stride() == gold_stride_b);
+      assert(batch_dim[1].get_trans() == gold_trans_b);
 
       int const gold_rows_c   = gold_rows_a;
       int const gold_cols_c   = gold_cols_b;
       int const gold_stride_c = gold_rows_a;
-      assert(batch_dim[2].num_batch == gold_size);
-      assert(batch_dim[2].nrows == gold_rows_c);
-      assert(batch_dim[2].ncols == gold_cols_c);
-      assert(batch_dim[2].stride == gold_stride_c);
-      assert(batch_dim[2].do_trans == false);
+      assert(batch_dim[2].num_entries() == gold_size);
+      assert(batch_dim[2].nrows() == gold_rows_c);
+      assert(batch_dim[2].ncols() == gold_cols_c);
+      assert(batch_dim[2].get_stride() == gold_stride_c);
+      assert(batch_dim[2].get_trans() == false);
     }
   }
   SECTION("6d, deg 4")
@@ -1168,7 +1147,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const dimensions = 6;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
 
-    std::vector<batch_set<TestType>> const batches =
+    std::vector<batch_operands_set<TestType>> const batches =
         allocate_batches(*pde, num_elems);
     assert(batches.size() == dimensions);
 
@@ -1183,37 +1162,37 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
                pde->num_terms * num_elems;
       }();
       int const stride = pde->get_coefficients(0, i).stride();
-      batch_set<TestType> const batch_dim = batches[i];
+      batch_operands_set<TestType> const batch_dim = batches[i];
       int const gold_rows_a   = i == 0 ? degree : std::pow(degree, i);
       int const gold_cols_a   = degree;
       int const gold_stride_a = i == 0 ? stride : gold_rows_a;
       bool const gold_trans_a = false;
 
-      assert(batch_dim[0].num_batch == gold_size);
-      assert(batch_dim[0].nrows == gold_rows_a);
-      assert(batch_dim[0].ncols == gold_cols_a);
-      assert(batch_dim[0].stride == gold_stride_a);
-      assert(batch_dim[0].do_trans == gold_trans_a);
+      assert(batch_dim[0].num_entries() == gold_size);
+      assert(batch_dim[0].nrows() == gold_rows_a);
+      assert(batch_dim[0].ncols() == gold_cols_a);
+      assert(batch_dim[0].get_stride() == gold_stride_a);
+      assert(batch_dim[0].get_trans() == gold_trans_a);
 
       int const gold_rows_b = degree;
       int const gold_cols_b =
           i == 0 ? std::pow(degree, pde->num_dims - 1) : degree;
       int const gold_stride_b = i == 0 ? degree : stride;
       bool const gold_trans_b = i == 0 ? false : true;
-      assert(batch_dim[1].num_batch == gold_size);
-      assert(batch_dim[1].nrows == gold_rows_b);
-      assert(batch_dim[1].ncols == gold_cols_b);
-      assert(batch_dim[1].stride == gold_stride_b);
-      assert(batch_dim[1].do_trans == gold_trans_b);
+      assert(batch_dim[1].num_entries() == gold_size);
+      assert(batch_dim[1].nrows() == gold_rows_b);
+      assert(batch_dim[1].ncols() == gold_cols_b);
+      assert(batch_dim[1].get_stride() == gold_stride_b);
+      assert(batch_dim[1].get_trans() == gold_trans_b);
 
       int const gold_rows_c   = gold_rows_a;
       int const gold_cols_c   = gold_cols_b;
       int const gold_stride_c = gold_rows_a;
-      assert(batch_dim[2].num_batch == gold_size);
-      assert(batch_dim[2].nrows == gold_rows_c);
-      assert(batch_dim[2].ncols == gold_cols_c);
-      assert(batch_dim[2].stride == gold_stride_c);
-      assert(batch_dim[2].do_trans == false);
+      assert(batch_dim[2].num_entries() == gold_size);
+      assert(batch_dim[2].nrows() == gold_rows_c);
+      assert(batch_dim[2].ncols() == gold_cols_c);
+      assert(batch_dim[2].get_stride() == gold_stride_c);
+      assert(batch_dim[2].get_trans() == false);
     }
   }
 }
@@ -1241,7 +1220,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> x{18, 19, 20, 21};
     fk::vector<TestType> const gold = A * x;
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
     fk::matrix<TestType, mem_type::view> A_view(coefficient_matrix, 0,
                                                 degree - 1, 0, degree - 1);
@@ -1253,11 +1232,12 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     std::vector<fk::vector<TestType, mem_type::view>> work_set = {};
     int const batch_offset                                     = 0;
 
-    batch_for_kronmult(As, x_view, y, work_set, batches, batch_offset, *pde);
+    kronmult_to_batch_sets(As, x_view, y, work_set, batches, batch_offset,
+                           *pde);
 
-    batch_list<TestType> const a = batches[0][0];
-    batch_list<TestType> const b = batches[0][1];
-    batch_list<TestType> const c = batches[0][2];
+    batch<TestType> const a = batches[0][0];
+    batch<TestType> const b = batches[0][1];
+    batch<TestType> const c = batches[0][2];
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
@@ -1287,7 +1267,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     coefficient_matrix.set_submatrix(0, 0, A);
     fk::vector<TestType> x{18, 19, 20, 21};
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
 
     // each element addresses a slightly different part of the underlying
@@ -1309,20 +1289,20 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     std::vector<fk::matrix<TestType, mem_type::view>> const As_e0 = {A_view_e0};
     fk::vector<TestType, mem_type::view> y_e0(y_own, 0, degree - 1);
     std::vector<fk::vector<TestType, mem_type::view>> work_set_e0 = {};
-    batch_for_kronmult(As_e0, x_view, y_e0, work_set_e0, batches, batch_offset,
-                       *pde);
+    kronmult_to_batch_sets(As_e0, x_view, y_e0, work_set_e0, batches,
+                           batch_offset, *pde);
 
     batch_offset                                                  = 1;
     std::vector<fk::matrix<TestType, mem_type::view>> const As_e1 = {A_view_e1};
     fk::vector<TestType, mem_type::view> y_e1(y_own, degree, y_own.size() - 1);
     std::vector<fk::vector<TestType, mem_type::view>> work_set_e1 = {};
 
-    batch_for_kronmult(As_e1, x_view, y_e1, work_set_e1, batches, batch_offset,
-                       *pde);
+    kronmult_to_batch_sets(As_e1, x_view, y_e1, work_set_e1, batches,
+                           batch_offset, *pde);
 
-    batch_list<TestType> const a = batches[0][0];
-    batch_list<TestType> const b = batches[0][1];
-    batch_list<TestType> const c = batches[0][2];
+    batch<TestType> const a = batches[0][0];
+    batch<TestType> const b = batches[0][1];
+    batch<TestType> const c = batches[0][2];
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
@@ -1361,7 +1341,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> x(x_size);
     std::iota(x.begin(), x.end(), 1);
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
 
     // create intermediate workspaces
@@ -1406,8 +1386,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
         }
 
         int const batch_offset = kron_index;
-        batch_for_kronmult(A_views, x_view, y_view, work_views, batches,
-                           batch_offset, *pde);
+        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
+                               batch_offset, *pde);
 
         gold_view = (A_views[1].kron(A_views[0])) * x;
       }
@@ -1415,11 +1395,11 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     for (int k = 0; k < pde->num_dims; ++k)
     {
-      batch_list<TestType> const a = batches[k][0];
-      batch_list<TestType> const b = batches[k][1];
-      batch_list<TestType> const c = batches[k][2];
-      TestType const alpha         = 1.0;
-      TestType const beta          = 0.0;
+      batch<TestType> const a = batches[k][0];
+      batch<TestType> const b = batches[k][1];
+      batch<TestType> const c = batches[k][2];
+      TestType const alpha    = 1.0;
+      TestType const beta     = 0.0;
       batched_gemm(a, b, c, alpha, beta);
     }
 
@@ -1459,7 +1439,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> x(x_size);
     std::generate(x.begin(), x.end(), gen);
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
 
     // create intermediate workspaces
@@ -1508,8 +1488,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
         }
 
         int const batch_offset = kron_index;
-        batch_for_kronmult(A_views, x_view, y_view, work_views, batches,
-                           batch_offset, *pde);
+        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
+                               batch_offset, *pde);
 
         gold_view = (A_views[2].kron(A_views[1].kron(A_views[0]))) * x;
       }
@@ -1517,11 +1497,11 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     for (int k = 0; k < pde->num_dims; ++k)
     {
-      batch_list<TestType> const a = batches[k][0];
-      batch_list<TestType> const b = batches[k][1];
-      batch_list<TestType> const c = batches[k][2];
-      TestType const alpha         = 1.0;
-      TestType const beta          = 0.0;
+      batch<TestType> const a = batches[k][0];
+      batch<TestType> const b = batches[k][1];
+      batch<TestType> const c = batches[k][2];
+      TestType const alpha    = 1.0;
+      TestType const beta     = 0.0;
       batched_gemm(a, b, c, alpha, beta);
     }
 
@@ -1534,7 +1514,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon();
-    REQUIRE(result < tol * gold.size());
+    REQUIRE(result <= tol * gold.size());
   }
 
   SECTION("3 elements, 6d, 6 terms")
@@ -1571,7 +1551,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> x(x_size);
     std::generate(x.begin(), x.end(), gen);
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
 
     // create intermediate workspaces
@@ -1629,8 +1609,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
         }
 
         int const batch_offset = kron_index;
-        batch_for_kronmult(A_views, x_view, y_view, work_views, batches,
-                           batch_offset, *pde);
+        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
+                               batch_offset, *pde);
 
         gold_view = (A_views[5].kron(A_views[4].kron(A_views[3].kron(
                         A_views[2].kron(A_views[1].kron(A_views[0])))))) *
@@ -1640,11 +1620,11 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     for (int k = 0; k < pde->num_dims; ++k)
     {
-      batch_list<TestType> const a = batches[k][0];
-      batch_list<TestType> const b = batches[k][1];
-      batch_list<TestType> const c = batches[k][2];
-      TestType const alpha         = 1.0;
-      TestType const beta          = 0.0;
+      batch<TestType> const a = batches[k][0];
+      batch<TestType> const b = batches[k][1];
+      batch<TestType> const c = batches[k][2];
+      TestType const alpha    = 1.0;
+      TestType const beta     = 0.0;
       batched_gemm(a, b, c, alpha, beta);
     }
 
@@ -1657,7 +1637,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon();
-    REQUIRE(result < tol * gold.size());
+    REQUIRE(result <= tol * gold.size());
   }
 }
 
@@ -1705,20 +1685,20 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     fk::vector<TestType> const fx(x.size());
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
-    batch_list<TestType> const a = batches[0][0];
-    batch_list<TestType> const b = batches[0][1];
-    batch_list<TestType> const c = batches[0][2];
+    batch<TestType> const a = batches[0][0];
+    batch<TestType> const b = batches[0][1];
+    batch<TestType> const c = batches[0][2];
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    batch_list<TestType> const r_a = batches[1][0];
-    batch_list<TestType> const r_b = batches[1][1];
-    batch_list<TestType> const r_c = batches[1][2];
+    batch<TestType> const r_a = batches[1][0];
+    batch<TestType> const r_b = batches[1][1];
+    batch<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
     fk::vector<TestType> const diff = gold - fx;
@@ -1728,7 +1708,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon();
-    REQUIRE(result < tol * gold.size());
+    REQUIRE(result <= tol * gold.size());
   }
 
   SECTION("1d, 1 term, degree 4, level 3")
@@ -1773,20 +1753,20 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     fk::vector<TestType> const fx(x.size());
 
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
-    batch_list<TestType> const a = batches[0][0];
-    batch_list<TestType> const b = batches[0][1];
-    batch_list<TestType> const c = batches[0][2];
+    batch<TestType> const a = batches[0][0];
+    batch<TestType> const b = batches[0][1];
+    batch<TestType> const c = batches[0][2];
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    batch_list<TestType> const r_a = batches[1][0];
-    batch_list<TestType> const r_b = batches[1][1];
-    batch_list<TestType> const r_c = batches[1][2];
+    batch<TestType> const r_a = batches[1][0];
+    batch<TestType> const r_b = batches[1][1];
+    batch<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
     fk::vector<TestType> const diff = gold - fx;
@@ -1797,7 +1777,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         *std::max_element(diff.begin(), diff.end(), abs_compare);
 
     TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e2;
-    REQUIRE(result < tol);
+    REQUIRE(result <= tol);
   }
 
   SECTION("2d, 2 terms, level 2, degree 2")
@@ -1847,7 +1827,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     }();
 
     // call to build batches
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
     // batched gemm
@@ -1855,16 +1835,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
-      batch_list<TestType> const a = batches[i][0];
-      batch_list<TestType> const b = batches[i][1];
-      batch_list<TestType> const c = batches[i][2];
+      batch<TestType> const a = batches[i][0];
+      batch<TestType> const b = batches[i][1];
+      batch<TestType> const c = batches[i][2];
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch_list<TestType> const r_a = batches[pde->num_dims][0];
-    batch_list<TestType> const r_b = batches[pde->num_dims][1];
-    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batch<TestType> const r_a = batches[pde->num_dims][0];
+    batch<TestType> const r_b = batches[pde->num_dims][1];
+    batch<TestType> const r_c = batches[pde->num_dims][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
     std::string const file_path =
@@ -1879,7 +1859,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result < tol);
+    REQUIRE(result <= tol);
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -1929,7 +1909,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     }();
 
     // call to build batches
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
     // batched gemm
@@ -1937,16 +1917,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
-      batch_list<TestType> const a = batches[i][0];
-      batch_list<TestType> const b = batches[i][1];
-      batch_list<TestType> const c = batches[i][2];
+      batch<TestType> const a = batches[i][0];
+      batch<TestType> const b = batches[i][1];
+      batch<TestType> const c = batches[i][2];
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch_list<TestType> const r_a = batches[pde->num_dims][0];
-    batch_list<TestType> const r_b = batches[pde->num_dims][1];
-    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batch<TestType> const r_a = batches[pde->num_dims][0];
+    batch<TestType> const r_b = batches[pde->num_dims][1];
+    batch<TestType> const r_c = batches[pde->num_dims][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
     std::string const file_path =
@@ -1961,7 +1941,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result < tol);
+    REQUIRE(result <= tol);
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -2011,7 +1991,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     }();
 
     // call to build batches
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
     // batched gemm
@@ -2019,16 +1999,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
-      batch_list<TestType> const a = batches[i][0];
-      batch_list<TestType> const b = batches[i][1];
-      batch_list<TestType> const c = batches[i][2];
+      batch<TestType> const a = batches[i][0];
+      batch<TestType> const b = batches[i][1];
+      batch<TestType> const c = batches[i][2];
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch_list<TestType> const r_a = batches[pde->num_dims][0];
-    batch_list<TestType> const r_b = batches[pde->num_dims][1];
-    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batch<TestType> const r_a = batches[pde->num_dims][0];
+    batch<TestType> const r_b = batches[pde->num_dims][1];
+    batch<TestType> const r_c = batches[pde->num_dims][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
     std::string const file_path =
@@ -2043,7 +2023,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result < tol);
+    REQUIRE(result <= tol);
   }
 
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
@@ -2093,7 +2073,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     }();
 
     // call to build batches
-    std::vector<batch_set<TestType>> batches =
+    std::vector<batch_operands_set<TestType>> batches =
         build_batches(*pde, elem_table, x, y, work, unit_vector, fx);
 
     // batched gemm
@@ -2101,16 +2081,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
-      batch_list<TestType> const a = batches[i][0];
-      batch_list<TestType> const b = batches[i][1];
-      batch_list<TestType> const c = batches[i][2];
+      batch<TestType> const a = batches[i][0];
+      batch<TestType> const b = batches[i][1];
+      batch<TestType> const c = batches[i][2];
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch_list<TestType> const r_a = batches[pde->num_dims][0];
-    batch_list<TestType> const r_b = batches[pde->num_dims][1];
-    batch_list<TestType> const r_c = batches[pde->num_dims][2];
+    batch<TestType> const r_a = batches[pde->num_dims][0];
+    batch<TestType> const r_b = batches[pde->num_dims][1];
+    batch<TestType> const r_c = batches[pde->num_dims][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
     std::string const file_path =
@@ -2126,6 +2106,6 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const result =
         *std::max_element(diff.begin(), diff.end(), abs_compare);
     TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result < tol);
+    REQUIRE(result <= tol);
   }
 }
