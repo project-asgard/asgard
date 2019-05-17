@@ -589,20 +589,25 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     fk::vector<TestType, mem_type::view> const middle_v(middle_copy);
     fk::vector<TestType, mem_type::view> const end_v(end_copy);
 
-    REQUIRE(vector.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
-            gold);
+    REQUIRE(vector.set_subvector(0, begin)
+                .set_subvector(0, empty)
+                .set_subvector(1, middle)
+                .set_subvector(4, end) == gold);
     vector = fk::vector<TestType>(5);
-    REQUIRE(
-        vector.set(0, begin_v).set(0, empty_v).set(1, middle_v).set(4, end) ==
-        gold);
+    REQUIRE(vector.set_subvector(0, begin_v)
+                .set_subvector(0, empty_v)
+                .set_subvector(1, middle_v)
+                .set_subvector(4, end) == gold);
     vector = fk::vector<TestType>(5);
-    REQUIRE(vector_v.set(0, begin).set(0, empty).set(1, middle).set(4, end) ==
-            gold);
+    REQUIRE(vector_v.set_subvector(0, begin)
+                .set_subvector(0, empty)
+                .set_subvector(1, middle)
+                .set_subvector(4, end) == gold);
     vector_v = vector;
-    REQUIRE(vector_v.set(0, begin_v)
-                .set(0, empty_v)
-                .set(1, middle_v)
-                .set(4, end_v) == gold);
+    REQUIRE(vector_v.set_subvector(0, begin_v)
+                .set_subvector(0, empty_v)
+                .set_subvector(1, middle_v)
+                .set_subvector(4, end_v) == gold);
   }
   SECTION("vector extract")
   {

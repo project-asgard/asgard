@@ -83,7 +83,7 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
     // generate the coefficients for DG basis
     fk::vector<P> coeffs = basis * f_here;
 
-    transformed.set(i * degree, coeffs);
+    transformed.set_subvector(i * degree, coeffs);
   }
   transformed = transformed * (normalize / 2.0);
 

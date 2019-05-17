@@ -143,7 +143,7 @@ public:
   fk::vector<P, mem> &resize(int const size = 0);
 
   template<mem_type omem>
-  vector<P, mem> &set(int const, vector<P, omem> const);
+  vector<P, mem> &set_subvector(int const, vector<P, omem> const);
 
   vector<P> extract(int const, int const) const;
 
@@ -997,7 +997,8 @@ fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 template<typename P, mem_type mem>
 template<mem_type omem>
 fk::vector<P, mem> &
-fk::vector<P, mem>::set(int const index, fk::vector<P, omem> const sub_vector)
+fk::vector<P, mem>::set_subvector(int const index,
+                                  fk::vector<P, omem> const sub_vector)
 {
   assert(index >= 0);
   assert((index + sub_vector.size()) <= this->size());
