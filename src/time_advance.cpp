@@ -10,6 +10,12 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> const &x,
                            fk::vector<P> &scaled_source, P const time)
 {}
 
+// scale source vectors for time
+template<typename P>
+static void scale_sources(std::vector<fk::vector<P>> &unscaled_source,
+                          fk::vector<P> &scaled_source)
+{}
+
 // apply the system matrix to the current solution vector using batched
 // gemm (explicit time advance).
 template<typename P>

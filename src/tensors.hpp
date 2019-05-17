@@ -125,6 +125,9 @@ public:
   template<mem_type omem>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
+  template<mem_type omem>
+  vector<P, mem>
+  scale_and_accumulate(vector<P, omem> const &right, P const alpha);
   //
   // basic queries to private data
   //
@@ -362,14 +365,23 @@ extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
 extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
 // --------------------------------------------------------------------------
 // vector-vector multiply
-// y := alpha*A*x + beta*y
+// d = x*y
 // --------------------------------------------------------------------------
 extern "C" double ddot_(int *n, double *X, int *incx, double *Y, int *incy);
 extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
 
 // --------------------------------------------------------------------------
+// vector-vector addition
+// y := ax + y
+// --------------------------------------------------------------------------
+extern "C" double
+daxpy_(int *n, double *alpha, double *X, int *incx, double *Y, int *incy);
+extern "C" float
+saxpy_(int *n, float *alpha, float *X, int *incx, float *Y, int *incy);
+
+// --------------------------------------------------------------------------
 // vector-scalar multiply
-// y := x*alpha
+// y := y*alpha
 // --------------------------------------------------------------------------
 extern "C" double dscal_(int *n, double *alpha, double *X, int *incx);
 extern "C" float sscal_(int *n, float *alpha, float *X, int *incx);
@@ -903,6 +915,39 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
   }
   return product;
 }
+
+//
+// axpy - add the argument vector scaled by alpha
+//
+template<typename P, mem_type mem>
+template<mem_type omem>
+fk::vector<P, mem>
+fk::vector<P, mem>::scale_and_accumulate(vector<P, omem> const &right,
+                                         P const alpha)
+{
+  assert(size() == right.size());
+  int n           = size();
+  int one         = 1;
+  vector const &Y = (*this);
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    return daxpy_(&n, &alpha, right.data(), &one, Y.data(), &one);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    return saxpy_(&n, &alpha, right.data(), &one, Y.data(), &one);
+  }
+  else
+  {
+    for (auto i = 0; i < size(); ++i)
+    {
+      Y(i) += right(i) * alpha;
+    }
+    return (*this);
+  }
+}
+
 //
 // utility functions
 //
