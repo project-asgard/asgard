@@ -125,6 +125,7 @@ public:
   template<mem_type omem>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
+  vector<P, mem> &scale(P const x);
   //
   // basic queries to private data
   //
@@ -939,6 +940,31 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
     }
   }
   return product;
+}
+
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
+{
+  int one_i = 1;
+  int n     = this->size();
+  P alpha   = x;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dscal_(&n, &alpha, this->data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sscal_(&n, &alpha, this->data(), &one_i);
+  }
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      (*this)(i) *= alpha;
+    }
+  }
+  return (*this);
 }
 
 //

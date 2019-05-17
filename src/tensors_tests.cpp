@@ -425,6 +425,29 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     REQUIRE(ans == alternate.single_column_kron(gold_v));
   }
 
+  SECTION("vector scale in place")
+  {
+    TestType const x = 2.0;
+    fk::vector<TestType> test(gold);
+    fk::vector<TestType> test_own(gold);
+    fk::vector<TestType, mem_type::view> test_view(test_own);
+
+    fk::vector<TestType> const ans = {4, 6, 8, 10, 12};
+
+    REQUIRE(test.scale(x) == ans);
+    REQUIRE(test_view.scale(x) == ans);
+    REQUIRE(test_own == ans);
+
+    test     = gold;
+    test_own = gold;
+
+    TestType const x2 = 0.0;
+    fk::vector<TestType> const zeros(gold.size());
+
+    REQUIRE(test.scale(x2) == zeros);
+    REQUIRE(test_view.scale(x2) == zeros);
+    REQUIRE(test_own == zeros);
+  }
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
@@ -2008,9 +2031,9 @@ TEMPLATE_TEST_CASE("wrapped free BLAS", "[tensors]", float, double, int)
   {
     TestType const scale = 2.0;
 
-    fk::vector<TestType> gold_copy(gold);
-    fk::vector<TestType> gold_own(gold);
-    fk::vector<TestType, mem_type::view> gold_view(gold_own);
+    fk::vector<TestType> test(gold);
+    fk::vector<TestType> test_own(gold);
+    fk::vector<TestType, mem_type::view> test_view(test_own);
 
     fk::vector<TestType> rhs{7, 8, 9, 10, 11};
     fk::vector<TestType> rhs_own(rhs);
@@ -2018,14 +2041,14 @@ TEMPLATE_TEST_CASE("wrapped free BLAS", "[tensors]", float, double, int)
 
     fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
 
-    assert(axpy(rhs, scale, gold_copy) == ans);
-    gold_copy = gold;
-    assert(axpy(rhs_view, scale, gold_copy) == ans);
+    assert(axpy(rhs, scale, test) == ans);
+    test = gold;
+    assert(axpy(rhs_view, scale, test) == ans);
 
-    assert(axpy(rhs, scale, gold_view) == ans);
-    assert(gold_own == ans);
-    gold_view = gold;
-    assert(axpy(rhs_view, scale, gold_view) == ans);
-    assert(gold_own == ans);
+    assert(axpy(rhs, scale, test_view) == ans);
+    assert(test_own == ans);
+    test_view = gold;
+    assert(axpy(rhs_view, scale, test_view) == ans);
+    assert(test_own == ans);
   }
 }
