@@ -125,9 +125,6 @@ public:
   template<mem_type omem>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
-  template<mem_type omem>
-  vector<P, mem>
-  scale_and_accumulate(vector<P, omem> const &right, P const alpha);
   //
   // basic queries to private data
   //
@@ -455,6 +452,34 @@ extern "C" void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work,
 
 extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
                         int *lwork, int *info);
+
+// axpy - add the argument vector scaled by alpha
+template<typename P, mem_type mem, mem_type omem>
+vector<P, mem> &axpy(vector<P, omem> const &x, P const alpha, vector<P, mem> &y)
+{
+  assert(x.size() == y.size());
+  int n    = x.size();
+  int one  = 1;
+  P alpha_ = alpha;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    daxpy_(&n, &alpha_, x.data(), &one, y.data(), &one);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    saxpy_(&n, &alpha_, x.data(), &one, y.data(), &one);
+  }
+  else
+  {
+    for (auto i = 0; i < x.size(); ++i)
+    {
+      y(i) = y(i) + x(i) * alpha_;
+    }
+  }
+
+  return y;
+}
 
 } // namespace fk
 
@@ -914,41 +939,6 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
     }
   }
   return product;
-}
-
-//
-// axpy - add the argument vector scaled by alpha
-//
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P, mem>
-fk::vector<P, mem>::scale_and_accumulate(vector<P, omem> const &right,
-                                         P const alpha)
-{
-  assert(size() == right.size());
-  int n           = size();
-  int one         = 1;
-  vector const &Y = (*this);
-
-  P alpha_ = alpha;
-
-  if constexpr (std::is_same<P, double>::value)
-  {
-    daxpy_(&n, &alpha_, right.data(), &one, Y.data(), &one);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    saxpy_(&n, &alpha_, right.data(), &one, Y.data(), &one);
-  }
-  else
-  {
-    for (auto i = 0; i < size(); ++i)
-    {
-      (*this)(i) = (*this)(i) + right(i) * alpha_;
-    }
-  }
-
-  return (*this);
 }
 
 //
