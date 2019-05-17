@@ -650,6 +650,39 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == sum);
     REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0.0) == sum);
   }
+
+  SECTION("vector ref counting")
+  {
+    // on construction, vectors have 0 views
+    fk::vector<TestType> const test;
+    assert(test.get_num_views() == 0);
+    fk::vector<TestType> const test_init({1});
+    assert(test_init.get_num_views() == 0);
+    fk::vector<TestType> const test_sz(1);
+    assert(test_sz.get_num_views() == 0);
+    fk::vector<TestType> const test_conv(fk::vector<int>(1));
+    assert(test_conv.get_num_views() == 0);
+    fk::vector<TestType> const test_copy(test);
+    assert(test_copy.get_num_views() == 0);
+
+    // creating views increments view count
+    fk::vector<TestType, mem_type::view> const test_view(test);
+    assert(test.get_num_views() == 1);
+    fk::vector<TestType, mem_type::view> const test_view_2(test);
+    assert(test.get_num_views() == 2);
+
+    // copies have a fresh view count
+    fk::vector<TestType> const test_cp(test);
+    assert(test_cp.get_num_views() == 0);
+    assert(test.get_num_views() == 2);
+
+    // test that view count gets decremented when views go out of scope
+    {
+      fk::vector<TestType, mem_type::view> test_view_3(test);
+      assert(test.get_num_views() == 3);
+    }
+    assert(test.get_num_views() == 2);
+  }
 } // end fk::vector utilities
 
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
@@ -958,6 +991,51 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     fk::matrix<TestType> const gold_partial_3 =
         gold.extract_submatrix(1, 0, 1, 3);
     REQUIRE(view_3 == gold_partial_3);
+  }
+
+  SECTION("views from vector constructor")
+  {
+    fk::vector<TestType> base{0, 1, 2, 3, 4, 5, 6, 7};
+
+    REQUIRE(base.get_num_views() == 0);
+    fk::vector<TestType, mem_type::view> view(base, 1, 7);
+    REQUIRE(base.get_num_views() == 1);
+    {
+      // create 2x3 matrix from last six elems in base
+      fk::matrix<TestType, mem_type::view> from_owner(base, 2, 3, 2);
+      REQUIRE(base.get_num_views() == 2);
+      // create 2x2 matrix from middle of view
+      fk::matrix<TestType, mem_type::view> from_view(view, 2, 2, 1);
+      REQUIRE(base.get_num_views() == 3);
+
+      // clang-format off
+      fk::matrix<TestType> const gold_initial   {{2, 4, 6},
+					         {3, 5, 7}};
+      fk::matrix<TestType> const gold_initial_v {{2, 4},
+					         {3, 5}};
+      // clang-format on
+
+      REQUIRE(from_owner == gold_initial);
+      REQUIRE(from_view == gold_initial_v);
+
+      from_owner(1, 1) = 8;
+      from_view(0, 1)  = 8;
+
+      // clang-format off
+      fk::vector<TestType> const after_mod = {0, 1, 2, 3, 8, 8, 6, 7};
+      fk::vector<TestType> const after_mod_v = {1, 2, 3, 8, 8, 6, 7};
+      fk::matrix<TestType> const gold_mod   {{2, 8, 6},
+					     {3, 8, 7}};
+      fk::matrix<TestType> const gold_mod_v {{2, 8},
+					     {3, 8}};
+      // clang-format on
+
+      REQUIRE(from_owner == gold_mod);
+      REQUIRE(from_view == gold_mod_v);
+      REQUIRE(base == after_mod);
+      REQUIRE(view == after_mod_v);
+    }
+    REQUIRE(base.get_num_views() == 1);
   }
 
 } // end fk::matrix constructors, copy/move

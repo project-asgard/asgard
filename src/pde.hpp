@@ -78,7 +78,6 @@ make_PDE(PDE_opts choice, int const level = -1, int const degree = -1)
     return std::make_unique<PDE_continuity_3d<P>>(level, degree);
   case PDE_opts::continuity_6:
     return std::make_unique<PDE_continuity_6d<P>>(level, degree);
-
   // TODO not yet implemented, replace return with appropriate types
   case PDE_opts::vlasov4:
     return std::make_unique<PDE_continuity_1d<P>>(level, degree);

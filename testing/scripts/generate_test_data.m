@@ -519,7 +519,194 @@ for t=1:length(pde.terms)
     save(sprintf(out_format,t,d), 'coeff_mat');
   end
 end
+
+
+
+% continuity6 terms
+pde = continuity6;
+level = 2;
+degree = 4;
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+
+out_format = strcat(coeff_dir, 'continuity6_coefficients_l2_d4_%d_%d.dat');
+%doesn't matter, the term is time independent...
+time = 1.0;
+for t=1:length(pde.terms)
+  for d=1:length(pde.dimensions)
+    coeff_mat = coeff_matrix(t,pde.dimensions{d},pde.terms{t}{d});
+    save(sprintf(out_format,t,d), 'coeff_mat');
+  end
+end
+
+
 clear
 
 
+% batch
+batch_dir = strcat(pwd, "/", "generated-inputs", "/", "batch", "/");
+mkdir (batch_dir);
 
+% continuity2 - sg
+out_format = strcat(batch_dir, 'continuity2_sg_l2_d2_t%d.dat');
+pde = continuity2_updated;
+level = 2;
+degree = 2;
+gridType='SG';
+
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+pde = checkPDE(pde);
+pde = checkTerms(pde);
+
+nDims = length(pde.dimensions);
+[HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
+
+t = 0;
+TD = 0;
+pde = getCoeffMats(pde,t,TD);
+
+runTimeOpts.compression = 4;
+runTimeOpts.useConnectivity = 0;
+runTimeOpts.implicit = 0;
+
+connectivity = [];
+
+A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree);
+
+Vmax = 0;
+Emax = 0;
+
+f = ones(size(HASHInv,2) * degree^nDims);
+
+out = ApplyA(pde,runTimeOpts,A_data,f,degree,Vmax,Emax) ;
+save(sprintf(out_format,1), 'out');
+
+
+% continuity2 - fg
+out_format = strcat(batch_dir, 'continuity2_fg_l3_d4_t%d.dat');
+pde = continuity2_updated;
+level = 3;
+degree = 4;
+gridType='FG';
+
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+pde = checkPDE(pde);
+pde = checkTerms(pde);
+
+nDims = length(pde.dimensions);
+[HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
+
+t = 0;
+TD = 0;
+pde = getCoeffMats(pde,t,TD);
+
+runTimeOpts.compression = 4;
+runTimeOpts.useConnectivity = 0;
+runTimeOpts.implicit = 0;
+
+connectivity = [];
+
+A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree);
+
+Vmax = 0;
+Emax = 0;
+
+f = ones(size(HASHInv,2) * degree^nDims);
+
+out = ApplyA(pde,runTimeOpts,A_data,f,degree,Vmax,Emax);
+save(sprintf(out_format,1), 'out');
+
+
+
+% continuity3 - sg
+out_format = strcat(batch_dir, 'continuity3_sg_l3_d4_t%d.dat');
+pde = continuity3_updated;
+level = 3;
+degree = 4;
+gridType='SG';
+
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+pde = checkPDE(pde);
+pde = checkTerms(pde);
+
+nDims = length(pde.dimensions);
+[HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
+
+t = 0;
+TD = 0;
+pde = getCoeffMats(pde,t,TD);
+
+runTimeOpts.compression = 4;
+runTimeOpts.useConnectivity = 0;
+runTimeOpts.implicit = 0;
+
+connectivity = [];
+
+A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree);
+
+Vmax = 0;
+Emax = 0;
+
+f = ones(size(HASHInv,2) * degree^nDims);
+
+out = ApplyA(pde,runTimeOpts,A_data,f,degree,Vmax,Emax);
+save(sprintf(out_format,1), 'out');
+
+
+
+% continuity6 - sg
+out_format = strcat(batch_dir, 'continuity6_sg_l2_d3_t%d.dat');
+pde = continuity6_updated;
+level = 2;
+degree = 3;
+gridType='SG';
+
+for i=1:length(pde.dimensions)
+  pde.dimensions{i}.lev = level;
+  pde.dimensions{i}.deg = degree;
+  pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
+end
+pde = checkPDE(pde);
+pde = checkTerms(pde);
+
+nDims = length(pde.dimensions);
+[HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
+
+t = 0;
+TD = 0;
+pde = getCoeffMats(pde,t,TD);
+
+runTimeOpts.compression = 4;
+runTimeOpts.useConnectivity = 0;
+runTimeOpts.implicit = 0;
+
+connectivity = [];
+
+A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree);
+
+Vmax = 0;
+Emax = 0;
+
+f = ones(size(HASHInv,2) * degree^nDims);
+
+out = ApplyA(pde,runTimeOpts,A_data,f,degree,Vmax,Emax);
+save(sprintf(out_format,1), 'out');
+
+
+
+clear
