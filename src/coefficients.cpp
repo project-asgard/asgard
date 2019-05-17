@@ -67,7 +67,7 @@ volume_integral(dimension<P> const &dim, term<P> const &term_1D,
 // FIXME Can tim or someone help us understand inputs/outputs here?
 template<typename P>
 static std::array<fk::matrix<int>, 2>
-flux_or_boundary_indices(dimension<P> const dim, int const index)
+flux_or_boundary_indices(dimension<P> const &dim, int const index)
 {
   int const two_to_lev             = two_raised_to(dim.get_level());
   int const previous_index         = (index - 1) * dim.get_degree();
@@ -137,7 +137,7 @@ flux_or_boundary_indices(dimension<P> const dim, int const index)
 // FIXME issue opened to clarify this function's purpose/inputs & outputs
 template<typename P>
 static fk::matrix<double>
-get_flux_operator(dimension<P> const dim, term<P> const term_1D,
+get_flux_operator(dimension<P> const &dim, term<P> const term_1D,
                   double const normalize, int const index)
 {
   int const two_to_lev = two_raised_to(dim.get_level());
@@ -235,7 +235,7 @@ static fk::matrix<double> apply_flux_operator(fk::matrix<int> const row_indices,
 // coefficient matricies
 template<typename P>
 fk::matrix<double>
-generate_coefficients(dimension<P> const dim, term<P> const term_1D,
+generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
                       double const time)
 {
   assert(time >= 0.0);
@@ -269,13 +269,8 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
       (1.0 / std::sqrt(normalized_domain) * 2.0 / normalized_domain);
 
   // convert term input data from wavelet space to realspace
-
-  // TODO may remove this call if want to create the FMWT matrix once and store
-  // it in the appropriate dimension object passed to this function
-  fk::matrix<double> const forward_trans = operator_two_scale<P, double>(dim);
-
   fk::matrix<double> const forward_trans_transpose =
-      fk::matrix<double>(forward_trans).transpose();
+      dim.get_from_basis_operator();
   fk::vector<double> const data = fk::vector<double>(term_1D.get_data());
   fk::vector<double> const data_real =
       forward_trans_transpose * fk::vector<double>(term_1D.get_data());
@@ -337,6 +332,7 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
 
   // transform matrix to wavelet space
   // FIXME does stiffness not need this transform?
+  fk::matrix<double> const forward_trans = dim.get_to_basis_operator();
   coefficients = forward_trans * coefficients * forward_trans_transpose;
 
   // zero out near-zero values after conversion to wavelet space
@@ -351,10 +347,10 @@ generate_coefficients(dimension<P> const dim, term<P> const term_1D,
   return coefficients;
 }
 
-template fk::matrix<double> generate_coefficients(dimension<float> const dim,
+template fk::matrix<double> generate_coefficients(dimension<float> const &dim,
                                                   term<float> const term_1D,
                                                   double const time);
 
-template fk::matrix<double> generate_coefficients(dimension<double> const dim,
+template fk::matrix<double> generate_coefficients(dimension<double> const &dim,
                                                   term<double> const term_1D,
                                                   double const time);

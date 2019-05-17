@@ -52,6 +52,7 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 
 # define the components and how to build and link the components together
 set (components
+  basis
   batch
   coefficients
   connectivity
@@ -74,8 +75,9 @@ if (build_OpenBLAS)
   set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
 endif ()
 
-target_link_libraries (batch
-  PRIVATE tensors)
+target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
+
+target_link_libraries (batch PRIVATE tensors)
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
@@ -88,7 +90,7 @@ target_link_libraries (element_table
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
-target_link_libraries (pde PRIVATE matlab_utilities tensors)
+target_link_libraries (pde PRIVATE basis matlab_utilities tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
