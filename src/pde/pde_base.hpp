@@ -96,7 +96,7 @@ private:
   void set_level(int level)
   {
     assert(level > 0);
-    level_        = level;
+    level_         = level;
     int const dofs = degree_ * two_raised_to(level_);
     to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
@@ -107,7 +107,7 @@ private:
   void set_degree(int degree)
   {
     assert(degree > 0);
-    degree_       = degree;
+    degree_        = degree;
     int const dofs = degree_ * two_raised_to(level_);
     to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
