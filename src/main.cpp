@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     initial_conditions.push_back(
         forward_transform<prec>(dim, dim.initial_condition));
   }
-  fk::vector<prec> initial_condition = combine_dimensions(
+  fk::vector<prec> const initial_condition = combine_dimensions(
       pde->get_dimensions()[0], table, initial_conditions, initial_scale);
 
   // generate sources.
@@ -63,7 +63,31 @@ int main(int argc, char **argv)
     }
   }
 
-  // allocate
+  // allocate/setup for batch gemm
+
+  // generate initial
+  int const elem_size =
+      std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
+  fk::vector<prec> x(table.size() * elem_size);
+  x = initial_condition;
+
+  // setup output/intermediate output spaces for batched gemm
+  fk::vector<prec> const y(x.size() * table.size() * pde->num_terms);
+  fk::vector<prec> const work(elem_size * table.size() * table.size() *
+                              pde->num_terms * (pde->num_dims - 1));
+  fk::vector<prec> const fx(x.size());
+
+  // setup reduction vector
+  int const items_to_reduce          = pde->num_terms * table.size();
+  fk::vector<prec> const unit_vector = [&] {
+    fk::vector<prec> builder(items_to_reduce);
+    std::fill(builder.begin(), builder.end(), 1.0);
+    return builder;
+  }();
+
+  // call to build batches
+  std::vector<batch_operands_set<prec>> batches =
+      build_batches(*pde, table, x, y, work, unit_vector, fx);
 
   return 0;
 }
