@@ -424,6 +424,31 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     REQUIRE(ans == alternate_v.single_column_kron(gold));
     REQUIRE(ans == alternate.single_column_kron(gold_v));
   }
+
+  SECTION("vector scale and accumulate (axpy)")
+  {
+    TestType const scale = 2.0;
+
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType> gold_own(gold);
+    fk::vector<TestType, mem_type::view> gold_view(gold_own);
+
+    fk::vector<TestType> rhs{7, 8, 9, 10, 11};
+    fk::vector<TestType> rhs_own(rhs);
+    fk::vector<TestType, mem_type::view> rhs_view(rhs_own);
+
+    fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
+
+    assert(gold_copy.scale_and_accumulate(rhs, scale) == ans);
+    gold_copy = gold;
+    assert(gold_copy.scale_and_accumulate(rhs_view, scale) == ans);
+
+    assert(gold_view.scale_and_accumulate(rhs, scale) == ans);
+    assert(gold_own == ans);
+    gold_view = gold;
+    assert(gold_view.scale_and_accumulate(rhs_view, scale) == ans);
+    assert(gold_own == ans);
+  }
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)

@@ -930,22 +930,25 @@ fk::vector<P, mem>::scale_and_accumulate(vector<P, omem> const &right,
   int one         = 1;
   vector const &Y = (*this);
 
+  P alpha_ = alpha;
+
   if constexpr (std::is_same<P, double>::value)
   {
-    return daxpy_(&n, &alpha, right.data(), &one, Y.data(), &one);
+    daxpy_(&n, &alpha_, right.data(), &one, Y.data(), &one);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return saxpy_(&n, &alpha, right.data(), &one, Y.data(), &one);
+    saxpy_(&n, &alpha_, right.data(), &one, Y.data(), &one);
   }
   else
   {
     for (auto i = 0; i < size(); ++i)
     {
-      Y(i) += right(i) * alpha;
+      (*this)(i) = (*this)(i) + right(i) * alpha_;
     }
-    return (*this);
   }
+
+  return (*this);
 }
 
 //
