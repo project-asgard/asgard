@@ -5,12 +5,13 @@
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
+#include "time_advance.hpp"
 #include "transformations.hpp"
 
 using prec = double;
 int main(int argc, char **argv)
 {
-  // parse user input and generate pde
+  // -- parse user input and generate pde
   options opts(argc, argv);
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
                             opts.get_degree());
@@ -19,10 +20,10 @@ int main(int argc, char **argv)
   opts.update_level(pde->get_dimensions()[0].get_level());
   opts.update_degree(pde->get_dimensions()[0].get_degree());
 
-  // create forward/reverse mapping between elements and indices
+  // -- create forward/reverse mapping between elements and indices
   element_table const table = element_table(opts, pde->num_dims);
 
-  // generate initial condition vector.
+  // -- generate initial condition vector.
   prec const initial_scale = 1.0;
   std::vector<fk::vector<prec>> initial_conditions;
   for (dimension<prec> const &dim : pde->get_dimensions())
@@ -33,23 +34,7 @@ int main(int argc, char **argv)
   fk::vector<prec> const initial_condition = combine_dimensions(
       pde->get_dimensions()[0], table, initial_conditions, initial_scale);
 
-  // generate sources.
-  // these will be scaled later for time
-  std::vector<fk::vector<prec>> initial_sources;
-  for (source<prec> const &source : pde->sources)
-  {
-    std::vector<fk::vector<prec>> initial_sources_dim;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      initial_sources_dim.push_back(forward_transform<prec>(
-          pde->get_dimensions()[i], source.source_funcs[i]));
-    }
-
-    initial_sources.push_back(combine_dimensions(
-        pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-  }
-
-  // generate and store coefficient matrices.
+  // -- generate and store coefficient matrices.
   prec const initial_time = 0.0;
   for (int i = 0; i < pde->num_dims; ++i)
   {
@@ -63,18 +48,20 @@ int main(int argc, char **argv)
     }
   }
 
-  // allocate/setup for batch gemm
+  // -- allocate/setup for batch gemm
 
-  // generate initial
+  // input vector x
   int const elem_size =
       std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
   fk::vector<prec> x(table.size() * elem_size);
   x = initial_condition;
 
-  // setup output/intermediate output spaces for batched gemm
+  // intermediate output spaces for batched gemm
   fk::vector<prec> const y(x.size() * table.size() * pde->num_terms);
   fk::vector<prec> const work(elem_size * table.size() * table.size() *
                               pde->num_terms * (pde->num_dims - 1));
+
+  // output vector fx
   fk::vector<prec> const fx(x.size());
 
   // setup reduction vector
@@ -88,6 +75,36 @@ int main(int argc, char **argv)
   // call to build batches
   std::vector<batch_operands_set<prec>> batches =
       build_batches(*pde, table, x, y, work, unit_vector, fx);
+
+  // -- generate sources.
+  // these will be scaled later for time
+  std::vector<fk::vector<prec>> initial_sources;
+
+  for (source<prec> const &source : pde->sources)
+  {
+    std::vector<fk::vector<prec>> initial_sources_dim;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      initial_sources_dim.push_back(forward_transform<prec>(
+          pde->get_dimensions()[i], source.source_funcs[i]));
+    }
+
+    initial_sources.push_back(combine_dimensions(
+        pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+  }
+
+  fk::vector<prec> scaled_source(x.size());
+  // -- TODO set dt using pde funcs
+  prec const dt = 0;
+
+  for (int i = 0; i < opts.get_time_steps(); ++i)
+  {
+    // TODO get the current time
+    prec const time = i * dt;
+
+    explicit_time_advance(*pde, x, fx, batches, initial_sources, scaled_source,
+                          time);
+  }
 
   return 0;
 }

@@ -64,6 +64,7 @@ set (components
   program_options
   quadrature
   tensors
+  time_advance
   transformations
 )
 
@@ -101,6 +102,8 @@ target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
 target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
 
+target_link_libraries (time_advance PRIVATE batch pde tensors)
+
 target_link_libraries (transformations
   PRIVATE connectivity matlab_utilities pde program_options
   quadrature tensors)
@@ -119,6 +122,7 @@ set (main_app_link_deps
   program_options
   quadrature
   tensors
+  time_advance
   transformations
 )
 foreach (link_dep IN LISTS main_app_link_deps)
