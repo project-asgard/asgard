@@ -218,12 +218,113 @@ if (ASGARD_PROFILE_GPERF)
   set (PROFILE_LIBS -Wl,-no-as-needed "${gperftools_PATH}/lib/libprofiler.so")
 endif ()
 
+
+###############################################################################
+## gperftools for Memory Allocation(formerly google performance tools)
+#
+#  Heap profiler
+###############################################################################
+if (ASGARD_PROFILE_GPERFM)
+    add_link_options ("-ltcmalloc")
+    message (
+      "\n"
+      "   gperftools enabled. to use:\n"
+      "   1) link the code with -lprofiler and -ltcmalloc option (done for you during 'make')\n"
+      "   2) run the executable to be profiled with:\n"
+      "      $ HEAPPROFILE=some-name.hprof ./asgard -p continuity_6 -l 8 -d 3\n"
+      "      this produces a list of heap profile file name 'some-name.prof.XXXXX.heap'\n"
+      "      $ HEAPCHECK=normal ./asgard -p continuity_6 -l 8 -d 3\n"
+      "      this perform a memory leack check'\n"
+      "      					\n"
+      "   3) analyze the results with\n"
+      "      $ pprof --text ./asgard some-name.prof.XXXXX.heap\n"
+      "      $ pprof --gv ./asgard some-name.hprof\n"
+    )
+
+  # build gperftools if needed
+  set (gperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/gperftools)
+  if (NOT EXISTS ${gperftools_PATH}/bin)
+    message (STATUS "gperftools not found. building from source")
+    set (PROFILE_DEPS gperftools-ext)
+    include (ExternalProject)
+    ExternalProject_Add (gperftools-ext
+      PREFIX contrib/gperftools
+      GIT_REPOSITORY https://github.com/gperftools/gperftools
+      GIT_PROGRESS 1
+      GIT_SHALLOW 1
+      BUILD_IN_SOURCE 1
+      USES_TERMINAL_CONFIGURE 1
+      CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/gperftools/src/gperftools-ext/autogen.sh
+      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/gperftools/src/gperftools-ext/configure --prefix=${gperftools_PATH}
+      BUILD_COMMAND make -j
+      INSTALL_COMMAND make install
+    )
+  else ()
+    message (STATUS "using gperftools found at ${gperftools_PATH}")
+  endif ()
+
+  # find graphviz, build if needed
+  get_graphviz()
+
+#  set (PROFILE_LIBS -ltcmalloc -Wl,-no-as-needed "${gperftools_PATH}/lib/libprofiler.so")
+   set (PROFILE_LIBS  -W -L${gperftools_PATH}/lib -ltcmalloc)
+endif ()
+
 ###############################################################################
 ## linux perf
 ###############################################################################
 
 if (ASGARD_PROFILE_PERF)
-  message (FATAL_ERROR "linux perf not supported yet :'(. Please submit an issue or PR.")
+    message (
+      "\n"
+      "   perf enabled. to use:\n"
+      "   1) Download and build perf (done for you during 'make')\n"
+      "      perf is installed in asgard/contrib/lperftools/bin  \n"
+      "      ****(flex and bison must be installed by user)****  \n"
+      "                                                          \n"
+      "   2) run the executable to be profiled with:             \n"
+      "      ****(System previlage must be given)****            \n"
+      "        RUNTIME DISTRIBUTION                              \n"
+      "      $ perf record ./asgard -p continuity_6 -l 8 -d 3    \n"
+      "                   or                                     \n"
+      "        RUNTIME & CALL GRAPH                              \n"
+      "      $ perf record -g ./asgard -p continuity_6 -l 8 -d 3 \n"
+      "                                                          \n"
+      "   3) display the results with                            \n"
+      "      $ perf report                                       \n"
+    )
+
+  # build gperftools if needed
+  set (lperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/lperftools)
+  if (NOT EXISTS ${lperftools_PATH}/bin/perf)
+    message (STATUS "lperftools not found. building from source")
+    set (PROFILE_DEPS lperftools-ext)
+    include (ExternalProject)
+    ExternalProject_Add (lperftools-ext
+      PREFIX contrib/lperftools
+      GIT_REPOSITORY https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+      GIT_PROGRESS 1
+      GIT_SHALLOW 1
+      BUILD_IN_SOURCE 1
+      USES_TERMINAL_CONFIGURE 1
+   
+      SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/contrib/lperftools/src/lperftools-ext/tools
+      CONFIGURE_COMMAND ""
+
+      BUILD_COMMAND make perf
+    
+      INSTALL_COMMAND mkdir -p ${lperftools_PATH}/bin
+      COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/contrib/lperftools/src/lperftools-ext/tools/perf/perf ${lperftools_PATH}/bin/perf
+    )
+
+  else ()
+    message (STATUS "using gperftools found at ${lperftools_PATH}")
+  endif ()
+
+  # find graphviz, build if needed
+  get_graphviz()
+
+  #set (PROFILE_LIBS -ltcmalloc -Wl)
 endif ()
 
 ###############################################################################
@@ -231,5 +332,55 @@ endif ()
 ###############################################################################
 
 if (ASGARD_PROFILE_VALGRIND)
-  message (FATAL_ERROR "valgrind not supported yet :'(. Please submit an issue or PR.")
+  add_compile_options ("-g")
+  add_link_options ("-g")
+    message (
+      "\n"
+      "   Valgrind enabled. For using gprof:                                        \n"
+      "   1) build/link the code with -g option (will be done for you during 'make')\n"
+      "\n"
+      "   2) To perform memory check. e.g.                                          \n"
+      "      $ valgrind ---tool=memcheck --log-file=<filename> ./asgard -p continuity_6 -l 8 -d 3         \n"
+      "      this produces a 'gmon.out' in the current directory\n"
+      "\n"
+      "   3) Cache profling. e.g.                                                             \n"
+      "      Run the profile too                                                               \n"
+      "      $ valgrind --tool=cachegrind ./asgard -p continuity_6 -l 8 -d 3                   \n"
+      "      By default the outputfile is named cachegrind.out.<pid>                           \n"
+      "      Run report                                                                        \n"
+      "      $ cg_annotate --auto=yes <cachegrind.out.<pid>>                                   \n"
+      "      This generate a call-by-call  Cache performance                                    \n"
+      "\n"
+      "   4) Call graph                                                                                 \n"
+      "      $ valgrind --tool=callgrind [callgrind options] ./asgard -p continuity_6 -l 8 -d 3         \n"
+      "      $ callgrind_annotate [options] callgrind.out.<pid>						\n"
+      "      for more details, see valgrind docu. ch6: http://valgrind.org/docs/manual/cl-manual.html   \n"
+      "\n"
+      "   5) Heap profiler                                                                              \n"
+      "      $ valgrind --tool=massif [massif options] ./asgard -p continuity_6 -l 8 -d 3               \n"
+      "      $ ms_print massif.out.<pid>                                                                \n"
+      "      for more details, see valgrind docu. ch9: http://valgrind.org/docs/manual/cl-manual.html   \n"
+      "\n"
+    )
+
+    # grab valgrind (we don't store it in the repo or distribute)
+    set (valgrind_PATH ${CMAKE_SOURCE_DIR}/contrib/valgrind)
+    if (NOT EXISTS ${valgrind_PATH}/bin)
+      message (STATUS "VALGRIND not found. downloading")
+      include (ExternalProject)
+      ExternalProject_Add (valgrind-ext
+        PREFIX contrib/valgrind
+	GIT_REPOSITORY http://repo.or.cz/valgrind.git
+	GIT_PROGRESS 1
+	GIT_SHALLOW 1
+	BUILD_IN_SOURCE 1
+	USES_TERMINAL_CONFIGURE 1
+	CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/valgrind/src/valgrind-ext/autogen.sh
+	COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/valgrind/src/valgrind-ext/configure --prefix=${valgrind_PATH}
+	BUILD_COMMAND make -j
+	INSTALL_COMMAND make install
+      )
+    else ()
+      message (STATUS "using gprof2dot found at ${valgrind_PATH}")
+    endif ()
 endif ()
