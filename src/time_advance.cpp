@@ -12,9 +12,21 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> const &x,
 
 // scale source vectors for time
 template<typename P>
-static void scale_sources(std::vector<fk::vector<P>> &unscaled_source,
-                          fk::vector<P> &scaled_source)
-{}
+static void
+scale_sources(PDE<P> const &pde, std::vector<fk::vector<P>> &unscaled_sources,
+              fk::vector<P> &scaled_source, P const time, P const dt_scale)
+{
+  // zero out final vect
+  scaled_source.scale(0);
+  // scale and accumulate all sources
+  for (int i = 0; i < pde.num_sources; ++i)
+  {
+    fk::axpy(unscaled_sources[i], pde.sources[i].time_func(time),
+             scaled_source);
+  }
+  // final scaling
+  scaled_source.scale(dt_scale);
+}
 
 // apply the system matrix to the current solution vector using batched
 // gemm (explicit time advance).
