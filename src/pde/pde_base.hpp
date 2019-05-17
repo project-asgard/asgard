@@ -74,10 +74,10 @@ public:
         domain_max(domain_max), initial_condition(initial_condition),
         name(name), level_(level), degree_(degree)
   {
-    int const dim = degree_ * two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dim, dim) =
+    int const dofs = degree_ * two_raised_to(level_);
+    to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dim, dim) =
+    from_basis_operator_.clear_and_resize(dofs, dofs) =
         fk::matrix<double>(to_basis_operator_).transpose();
   }
 
@@ -97,10 +97,10 @@ private:
   {
     assert(level > 0);
     level_        = level;
-    int const dim = degree_ * two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dim, dim) =
+    int const dofs = degree_ * two_raised_to(level_);
+    to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dim, dim) =
+    from_basis_operator_.clear_and_resize(dofs, dofs) =
         fk::matrix<double>(to_basis_operator_).transpose();
   }
 
@@ -108,10 +108,10 @@ private:
   {
     assert(degree > 0);
     degree_       = degree;
-    int const dim = degree_ * two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dim, dim) =
+    int const dofs = degree_ * two_raised_to(level_);
+    to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dim, dim) =
+    from_basis_operator_.clear_and_resize(dofs, dofs) =
         fk::matrix<double>(to_basis_operator_).transpose();
   }
 
