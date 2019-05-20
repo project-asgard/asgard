@@ -21,7 +21,7 @@ private:
   double cfl = 0.1; // the Courant-Friedrichs-Lewy (CFL) condition
 
   // default
-  std::string selected_pde = "vlasov4";
+  std::string selected_pde = "continuity_2";
 
   // pde to construct/evaluate
   PDE_opts pde_choice;

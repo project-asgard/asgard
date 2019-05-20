@@ -93,6 +93,7 @@ int main(int argc, char **argv)
         pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
   }
 
+  // these vectors used for intermediate results in time advance
   fk::vector<prec> scaled_source(x.size());
   fk::vector<prec> x_orig(x.size());
   std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(x.size()));
@@ -104,8 +105,6 @@ int main(int argc, char **argv)
     prec const time = i * dt;
     explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
                           workspace, batches, time, dt);
-
-    // FIXME error calculation
   }
 
   return 0;

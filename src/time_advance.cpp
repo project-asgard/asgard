@@ -23,6 +23,8 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
     assert(vect.size() == x.size());
   }
   assert(time >= 0);
+
+  assert(static_cast<int>(batches.size()) == pde.num_dims + 1);
   for (batch_operands_set<P> const &ops : batches)
   {
     assert(ops.size() == 3);
@@ -40,16 +42,17 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
+  P const alpha = 1.0;
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, scaled_source, time);
-  fk::axpy(scaled_source, time, fx);
+  fk::axpy(scaled_source, alpha, fx);
   fk::copy(fx, workspace[0]);
   P const fx_scale_1 = a21 * dt;
-  fk::axpy(x, fx_scale_1, fx);
+  fk::axpy(fx, fx_scale_1, x);
 
   apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, scaled_source, time);
-  fk::axpy(scaled_source, time + c2 * dt, fx);
+  scale_sources(pde, unscaled_sources, scaled_source, time + c2 * dt);
+  fk::axpy(scaled_source, alpha, fx);
   fk::copy(fx, workspace[1]);
   fk::copy(x_orig, x);
   P const fx_scale_2a = a31 * dt;
@@ -58,8 +61,8 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
   fk::axpy(workspace[1], fx_scale_2b, x);
 
   apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, scaled_source, time);
-  fk::axpy(scaled_source, time + c3 * dt, fx);
+  scale_sources(pde, unscaled_sources, scaled_source, time + c3 * dt);
+  fk::axpy(scaled_source, alpha, fx);
   fk::copy(fx, workspace[2]);
 
   P const scale_0 = dt * b1;
@@ -96,7 +99,7 @@ static void apply_explicit(std::vector<batch_operands_set<P>> const &batches)
   // batched gemm
   P const alpha = 1.0;
   P const beta  = 0.0;
-  for (int i = 0; i < batches.size() - 1; ++i)
+  for (int i = 0; i < static_cast<int>(batches.size()) - 1; ++i)
   {
     batch<P> const a = batches[i][0];
     batch<P> const b = batches[i][1];
