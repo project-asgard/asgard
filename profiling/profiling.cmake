@@ -122,6 +122,8 @@ if (ASGARD_PROFILE_GPROF)
       "   | ../contrib/gprof2dot/bin/gprof2dot.py -n 2 -e 1 -w \\ \n"
       "   | ../contrib/graphviz/bin/dot -Tpdf -o profile.pdf\n"
       "\n"
+      "Possibly more explanation about various profiling tools enabled here\n"
+      "exists at the ASGarD wiki page on profiling.\n"
     )
 
     # find graphviz, build if needed
@@ -172,6 +174,9 @@ if (ASGARD_PROFILE_XRAY)
       "      this produces a uniquely-hashed 'xray-log.asgard.[hash]' file\n"
       "   3) analyze the results with\n"
       "      $ llvm-xray account xray-log.asgard.[hash] -sort=sum -sortorder=dsc -instr_map ./asgard\n"
+      "\n"
+      "Possibly more explanation about various profiling tools enabled here\n"
+      "exists at the ASGarD wiki page on profiling.\n"
     )
 
     # grab FlameGraph (we don't store it in the repo or distribute)
@@ -214,6 +219,9 @@ if (ASGARD_PROFILE_GPERF_CPU)
     "      this produces a profile file name 'some-name.prof'\n"
     "   3) analyze the results with\n"
     "      $ pprof --pdf ./asgard some-name.prof > some-other.pdf\n"
+    "\n"
+    "Possibly more explanation about various profiling tools enabled here\n"
+    "exists at the ASGarD wiki page on profiling.\n"
   )
 
   # find gperftools, build if needed
@@ -246,6 +254,9 @@ if (ASGARD_PROFILE_GPERF_MEM)
     "   3) analyze the results with\n"
     "      $ pprof --text ./asgard some-name.prof.XXXXX.heap\n"
     "      $ pprof --gv ./asgard some-name.hprof\n"
+    "\n"
+    "Possibly more explanation about various profiling tools enabled here\n"
+    "exists at the ASGarD wiki page on profiling.\n"
   )
 
   # find gperftools, build if needed
@@ -262,24 +273,27 @@ endif ()
 ###############################################################################
 
 if (ASGARD_PROFILE_PERF)
-    message (
-      "\n"
-      "   perf enabled. to use:\n"
-      "   1) Download and build perf (done for you during 'make')\n"
-      "      perf is installed in asgard/contrib/lperftools/bin\n"
-      "      ****(flex and bison must be installed by user)****\n"
-      "\n"
-      "   2) run the executable to be profiled with:\n"
-      "      ****(System previlage must be given)****\n"
-      "        RUNTIME DISTRIBUTION\n"
-      "      $ perf record ./asgard -p continuity_6 -l 8 -d 3\n"
-      "                   or\n"
-      "        RUNTIME & CALL GRAPH\n"
-      "      $ perf record -g ./asgard -p continuity_6 -l 8 -d 3\n"
-      "\n"
-      "   3) display the results with\n"
-      "      $ perf report\n"
-    )
+  message (
+    "\n"
+    "   perf enabled. to use:\n"
+    "   1) Download and build perf (done for you during 'make')\n"
+    "      perf is installed in asgard/contrib/lperftools/bin\n"
+    "      ****(flex and bison must be installed by user)****\n"
+    "\n"
+    "   2) run the executable to be profiled with:\n"
+    "      ****(System previlage must be given)****\n"
+    "        RUNTIME DISTRIBUTION\n"
+    "      $ perf record ./asgard -p continuity_6 -l 8 -d 3\n"
+    "                   or\n"
+    "        RUNTIME & CALL GRAPH\n"
+    "      $ perf record -g ./asgard -p continuity_6 -l 8 -d 3\n"
+    "\n"
+    "   3) display the results with\n"
+    "      $ perf report\n"
+    "\n"
+    "Possibly more explanation about various profiling tools enabled here\n"
+    "exists at the ASGarD wiki page on profiling.\n"
+  )
 
   # build Linux Perf if needed
   set (lperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/lperftools)
@@ -346,6 +360,8 @@ if (ASGARD_PROFILE_VALGRIND)
       "      $ ms_print massif.out.<pid>\n"
       "      for more details, see valgrind docu. ch9: http://valgrind.org/docs/manual/ms-manual.html\n"
       "\n"
+      "Possibly more explanation about various profiling tools enabled here\n"
+      "exists at the ASGarD wiki page on profiling.\n"
     )
 
     # grab valgrind (we don't store it in the repo or distribute)
