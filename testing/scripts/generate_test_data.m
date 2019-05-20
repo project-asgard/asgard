@@ -390,6 +390,9 @@ y_source1_x = pde.sources{2}{1}(x);
 y_source1_t = pde.sources{2}{2}(x);
 y_exact_x = pde.analytic_solutions_1D{1}(x);
 y_exact_time = pde.analytic_solutions_1D{2}(x);
+dt = pde.set_dt(pde);
+
+save(strcat(out_format, 'dt.dat'), 'dt');
 save(strcat(out_format, 'initial_dim0.dat'), 'y_init');
 save(strcat(out_format, 'source0_dim0.dat'), 'y_source0_x');
 save(strcat(out_format, 'source0_time.dat'), 'y_source0_t');
@@ -420,7 +423,8 @@ for s=1:length(pde.sources)
   save(strcat(out_format, sprintf('source%d_time.dat',s-1)), 'y_source_t');
   end
 end
-
+dt = pde.set_dt(pde);
+save(strcat(out_format, 'dt.dat'), 'dt');
 
 % continuity 3
 out_format = strcat(pde_dir, "continuity_3_");
@@ -444,6 +448,8 @@ for s=1:length(pde.sources)
   end
 end
 
+dt = pde.set_dt(pde);
+save(strcat(out_format, 'dt.dat'), 'dt');
 
 % continuity 6
 out_format = strcat(pde_dir, "continuity_6_");
@@ -467,6 +473,8 @@ for s=1:length(pde.sources)
   end
 end
 
+dt = pde.set_dt(pde);
+save(strcat(out_format, 'dt.dat'), 'dt');
 
 clear
 
