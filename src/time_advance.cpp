@@ -6,7 +6,7 @@ template<typename P>
 void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
                            fk::vector<P> &x_orig, fk::vector<P> &fx,
                            fk::vector<P> &scaled_source,
-                           std::vector<fk::vector<P>> &unscaled_sources,
+                           std::vector<fk::vector<P>> const &unscaled_sources,
                            std::vector<fk::vector<P>> &workspace,
 
                            std::vector<batch_operands_set<P>> const &batches,
@@ -69,15 +69,19 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
   P const scale_1 = dt * b2;
   P const scale_2 = dt * b3;
   fk::scal(fx, static_cast<P>(0.0));
-  fk::axpy(workspace[0], scale_0, fx);
-  fk::axpy(workspace[1], scale_1, fx);
-  fk::axpy(workspace[2], scale_2, fx);
+  fk::copy(x_orig, x);
+  fk::axpy(workspace[0], scale_0, x);
+  fk::axpy(workspace[1], scale_1, x);
+  fk::axpy(workspace[2], scale_2, x);
+
+  fk::copy(x, fx);
 }
 
 // scale source vectors for time
 template<typename P>
 static fk::vector<P> &
-scale_sources(PDE<P> const &pde, std::vector<fk::vector<P>> &unscaled_sources,
+scale_sources(PDE<P> const &pde,
+              std::vector<fk::vector<P>> const &unscaled_sources,
               fk::vector<P> &scaled_source, P const time)
 {
   // zero out final vect
@@ -118,7 +122,7 @@ template void
 explicit_time_advance(PDE<float> const &pde, fk::vector<float> &x,
                       fk::vector<float> &x_orig, fk::vector<float> &fx,
                       fk::vector<float> &scaled_source,
-                      std::vector<fk::vector<float>> &unscaled_sources,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
                       std::vector<fk::vector<float>> &workspace,
 
                       std::vector<batch_operands_set<float>> const &batches,
@@ -128,7 +132,7 @@ template void
 explicit_time_advance(PDE<double> const &pde, fk::vector<double> &x,
                       fk::vector<double> &x_orig, fk::vector<double> &fx,
                       fk::vector<double> &scaled_source,
-                      std::vector<fk::vector<double>> &unscaled_sources,
+                      std::vector<fk::vector<double>> const &unscaled_sources,
                       std::vector<fk::vector<double>> &workspace,
                       std::vector<batch_operands_set<double>> const &batches,
                       double const time, double const dt);

@@ -73,7 +73,7 @@ int main(int argc, char **argv)
   }();
 
   // call to build batches
-  std::vector<batch_operands_set<prec>> batches =
+  std::vector<batch_operands_set<prec>> const batches =
       build_batches(*pde, table, x, y, work, unit_vector, fx);
 
   // -- generate sources.
