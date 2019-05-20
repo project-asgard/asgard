@@ -57,12 +57,12 @@ int main(int argc, char **argv)
   x = initial_condition;
 
   // intermediate output spaces for batched gemm
-  fk::vector<prec> const y(x.size() * table.size() * pde->num_terms);
-  fk::vector<prec> const work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+  fk::vector<prec> y(x.size() * table.size() * pde->num_terms);
+  fk::vector<prec> work(elem_size * table.size() * table.size() *
+                        pde->num_terms * (pde->num_dims - 1));
 
   // output vector fx
-  fk::vector<prec> const fx(x.size());
+  fk::vector<prec> fx(x.size());
 
   // setup reduction vector
   int const items_to_reduce          = pde->num_terms * table.size();
@@ -94,16 +94,18 @@ int main(int argc, char **argv)
   }
 
   fk::vector<prec> scaled_source(x.size());
-  // -- TODO set dt using pde funcs
-  prec const dt = 0;
+  fk::vector<prec> x_orig(x.size());
+  std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(x.size()));
 
+  // -- time loop
+  prec const dt = pde->get_dt() * opts.get_cfl();
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
-    // TODO get the current time
     prec const time = i * dt;
+    explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
+                          workspace, batches, time, dt);
 
-    explicit_time_advance(*pde, x, fx, batches, initial_sources, scaled_source,
-                          time);
+    // FIXME error calculation
   }
 
   return 0;

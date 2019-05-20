@@ -2041,14 +2041,57 @@ TEMPLATE_TEST_CASE("wrapped free BLAS", "[tensors]", float, double, int)
 
     fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
 
-    assert(axpy(rhs, scale, test) == ans);
+    REQUIRE(axpy(rhs, scale, test) == ans);
     test = gold;
-    assert(axpy(rhs_view, scale, test) == ans);
+    REQUIRE(axpy(rhs_view, scale, test) == ans);
 
-    assert(axpy(rhs, scale, test_view) == ans);
-    assert(test_own == ans);
+    REQUIRE(axpy(rhs, scale, test_view) == ans);
+    REQUIRE(test_own == ans);
     test_view = gold;
-    assert(axpy(rhs_view, scale, test_view) == ans);
-    assert(test_own == ans);
+    REQUIRE(axpy(rhs_view, scale, test_view) == ans);
+    REQUIRE(test_own == ans);
+  }
+
+  SECTION("vector copy (copy)")
+  {
+    fk::vector<TestType> test(gold.size());
+    fk::vector<TestType> test_own(gold.size());
+    fk::vector<TestType, mem_type::view> test_view(test_own);
+
+    fk::vector<TestType, mem_type::view> const gold_view(gold);
+
+    REQUIRE(copy(gold, test) == gold);
+    test.scale(0);
+    REQUIRE(copy(gold_view, test) == gold);
+
+    REQUIRE(copy(gold, test_view) == gold);
+    REQUIRE(test_own == gold);
+    test_own.scale(0);
+    REQUIRE(copy(gold_view, test_view) == gold);
+    REQUIRE(test_own == gold);
+  }
+
+  SECTION("vector scale (scal)")
+  {
+    TestType const x = 2.0;
+    fk::vector<TestType> test(gold);
+    fk::vector<TestType> test_own(gold);
+    fk::vector<TestType, mem_type::view> test_view(test_own);
+
+    fk::vector<TestType> const ans = {4, 6, 8, 10, 12};
+
+    REQUIRE(scal(test, x) == ans);
+    REQUIRE(scal(test_view, x) == ans);
+    REQUIRE(test_own == ans);
+
+    test     = gold;
+    test_own = gold;
+
+    TestType const x2 = 0.0;
+    fk::vector<TestType> const zeros(gold.size());
+
+    REQUIRE(scal(test, x2) == zeros);
+    REQUIRE(scal(test_view, x2) == zeros);
+    REQUIRE(test_own == zeros);
   }
 }

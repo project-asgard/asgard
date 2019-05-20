@@ -482,6 +482,60 @@ vector<P, mem> &axpy(vector<P, omem> const &x, P const alpha, vector<P, mem> &y)
   return y;
 }
 
+// copy - copy vector
+template<typename P, mem_type mem, mem_type omem>
+vector<P, mem> &copy(vector<P, omem> const &x, vector<P, mem> &y)
+{
+  assert(x.size() == y.size());
+  int n   = x.size();
+  int one = 1;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dcopy_(&n, x.data(), &one, y.data(), &one);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    scopy_(&n, x.data(), &one, y.data(), &one);
+  }
+  else
+  {
+    for (auto i = 0; i < x.size(); ++i)
+    {
+      y(i) = x(i);
+    }
+  }
+
+  return y;
+}
+
+// scal - scale a vector
+
+template<typename P, mem_type mem>
+vector<P, mem> &scal(vector<P, mem> &x, P const alpha)
+{
+  int one_i = 1;
+  int n     = x.size();
+  P alpha_  = alpha;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dscal_(&n, &alpha_, x.data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sscal_(&n, &alpha_, x.data(), &one_i);
+  }
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      x(i) = x(i) * alpha_;
+    }
+  }
+  return x;
+}
+
 } // namespace fk
 
 //-----------------------------------------------------------------------------

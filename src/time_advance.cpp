@@ -3,29 +3,89 @@
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde, fk::vector<P> const &x,
-                           fk::vector<P> const &fx,
-                           std::vector<batch_operands_set<P>> const &batches,
+void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
+                           fk::vector<P> &x_orig, fk::vector<P> &fx,
+                           fk::vector<P> &scaled_source,
                            std::vector<fk::vector<P>> &unscaled_sources,
-                           fk::vector<P> &scaled_source, P const time)
-{}
+                           std::vector<fk::vector<P>> &workspace,
+
+                           std::vector<batch_operands_set<P>> const &batches,
+                           P const time, P const dt)
+{
+  assert(scaled_source.size() == x.size());
+  assert(x.size() == fx.size());
+  assert(x_orig.size() == x.size());
+  fk::copy(x, x_orig);
+
+  assert(workspace.size() == 3);
+  for (fk::vector<P> &vect : workspace)
+  {
+    assert(vect.size() == x.size());
+  }
+  assert(time >= 0);
+  for (batch_operands_set<P> const &ops : batches)
+  {
+    assert(ops.size() == 3);
+  }
+  assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
+
+  // see
+  // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Explicit_Runge%E2%80%93Kutta_methods
+  P const a21 = 0.5;
+  P const a31 = -1.0;
+  P const a32 = 2.0;
+  P const b1  = 1.0 / 6.0;
+  P const b2  = 2.0 / 3.0;
+  P const b3  = 1.0 / 6.0;
+  P const c2  = 1.0 / 2.0;
+  P const c3  = 1.0;
+
+  apply_explicit(batches);
+  scale_sources(pde, unscaled_sources, scaled_source, time);
+  fk::axpy(scaled_source, time, fx);
+  fk::copy(fx, workspace[0]);
+  P const fx_scale_1 = a21 * dt;
+  fk::axpy(x, fx_scale_1, fx);
+
+  apply_explicit(batches);
+  scale_sources(pde, unscaled_sources, scaled_source, time);
+  fk::axpy(scaled_source, time + c2 * dt, fx);
+  fk::copy(fx, workspace[1]);
+  fk::copy(x_orig, x);
+  P const fx_scale_2a = a31 * dt;
+  P const fx_scale_2b = a32 * dt;
+  fk::axpy(workspace[0], fx_scale_2a, x);
+  fk::axpy(workspace[1], fx_scale_2b, x);
+
+  apply_explicit(batches);
+  scale_sources(pde, unscaled_sources, scaled_source, time);
+  fk::axpy(scaled_source, time + c3 * dt, fx);
+  fk::copy(fx, workspace[2]);
+
+  P const scale_0 = dt * b1;
+  P const scale_1 = dt * b2;
+  P const scale_2 = dt * b3;
+  fk::scal(fx, static_cast<P>(0.0));
+  fk::axpy(workspace[0], scale_0, fx);
+  fk::axpy(workspace[1], scale_1, fx);
+  fk::axpy(workspace[2], scale_2, fx);
+}
 
 // scale source vectors for time
 template<typename P>
-static void
+static fk::vector<P> &
 scale_sources(PDE<P> const &pde, std::vector<fk::vector<P>> &unscaled_sources,
-              fk::vector<P> &scaled_source, P const time, P const dt_scale)
+              fk::vector<P> &scaled_source, P const time)
 {
   // zero out final vect
-  scaled_source.scale(0);
+  fk::scal(scaled_source, static_cast<P>(0.0));
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {
     fk::axpy(unscaled_sources[i], pde.sources[i].time_func(time),
              scaled_source);
   }
-  // final scaling
-  scaled_source.scale(dt_scale);
+  return scaled_source;
 }
 
 // apply the system matrix to the current solution vector using batched
@@ -52,15 +112,20 @@ static void apply_explicit(std::vector<batch_operands_set<P>> const &batches)
 }
 
 template void
-explicit_time_advance(PDE<float> const &pde, fk::vector<float> const &x,
-                      fk::vector<float> const &fx,
-                      std::vector<batch_operands_set<float>> const &batches,
+explicit_time_advance(PDE<float> const &pde, fk::vector<float> &x,
+                      fk::vector<float> &x_orig, fk::vector<float> &fx,
+                      fk::vector<float> &scaled_source,
                       std::vector<fk::vector<float>> &unscaled_sources,
-                      fk::vector<float> &scaled_source, float const time);
+                      std::vector<fk::vector<float>> &workspace,
+
+                      std::vector<batch_operands_set<float>> const &batches,
+                      float const time, float const dt);
 
 template void
-explicit_time_advance(PDE<double> const &pde, fk::vector<double> const &x,
-                      fk::vector<double> const &fx,
-                      std::vector<batch_operands_set<double>> const &batches,
+explicit_time_advance(PDE<double> const &pde, fk::vector<double> &x,
+                      fk::vector<double> &x_orig, fk::vector<double> &fx,
+                      fk::vector<double> &scaled_source,
                       std::vector<fk::vector<double>> &unscaled_sources,
-                      fk::vector<double> &scaled_source, double const time);
+                      std::vector<fk::vector<double>> &workspace,
+                      std::vector<batch_operands_set<double>> const &batches,
+                      double const time, double const dt);
