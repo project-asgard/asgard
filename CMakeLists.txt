@@ -20,7 +20,8 @@ option (ASGARD_LAPACK_PATH "optional location of include/ and lib/ containing LA
 option (ASGARD_BLAS_PATH "optional location of include/ and lib/ containing BLAS" "")
 option (ASGARD_PROFILE_GPROF "enable profiling support for using gprof" "")
 option (ASGARD_PROFILE_XRAY "enable profiling support for using LLVM XRAY" "")
-option (ASGARD_PROFILE_GPERF "enable profiling support for using gperftools" "")
+option (ASGARD_PROFILE_GPERF_CPU "enable cpu profiling support using gperftools" "")
+option (ASGARD_PROFILE_GPERF_MEM "enable memory profiling support using gperftools" "")
 option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
@@ -131,6 +132,7 @@ endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
 
+
 ###############################################################################
 ## Testing asgard
 #
@@ -146,6 +148,11 @@ if (ASGARD_BUILD_TESTS)
   foreach (link_dep IN LISTS main_app_link_deps)
     target_link_libraries (tests PRIVATE ${link_dep})
   endforeach ()
+
+  if (PROFILE_DEPS)
+    add_dependencies (tests ${PROFILE_DEPS})
+  endif ()
+    target_link_libraries (tests PRIVATE ${PROFILE_LIBS})
 
   enable_testing ()
   add_test (all-tests tests)

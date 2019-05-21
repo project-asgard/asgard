@@ -2,6 +2,7 @@
 # typical build directories and artifacts
 build
 _build
+build2
 compile_commands.json
 
 # ignore some of contrib
@@ -10,3 +11,6 @@ contrib/graphviz
 contrib/gprof2dot
 contrib/FlameGraph
 contrib/gperftools
+contrib/linux
+contrib/lperftools
+contrib/valgrind

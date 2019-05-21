@@ -14,6 +14,7 @@ set (PROFILE_LIBS "")
 #
 # FIXME
 #  - make graphviz build optional
+#  - abstract out a "get_*" function that generalizes all of this functionality
 ###############################################################################
 
 function (get_graphviz)
@@ -41,7 +42,7 @@ if (NOT ASGARD_BUILD_PROFILE_DEPS)
   endif ()
 endif ()
 
-# if cmake couldn't find other blas/lapack, or the user asked to build openblas
+# if cmake couldn't find other graphviz, or the user asked to build deps
 if (NOT graphviz_PATH)
   # build graphviz if needed
   set (graphviz_PATH ${CMAKE_SOURCE_DIR}/contrib/graphviz)
@@ -62,6 +63,32 @@ if (NOT graphviz_PATH)
     message (STATUS "using contrib graphviz found at ${graphviz_PATH}")
   endif ()
 endif ()
+endfunction ()
+
+function (get_gperftools)
+  set (gperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/gperftools)
+  if (NOT EXISTS ${gperftools_PATH}/lib/libprofiler.so)
+    set (PROFILE_DEPS gperftools-ext PARENT_SCOPE) # tell the caller to build
+    message (STATUS "gperftools not found. building from source")
+    include (ExternalProject)
+    ExternalProject_Add (gperftools-ext
+      PREFIX contrib/gperftools
+      GIT_REPOSITORY https://github.com/gperftools/gperftools
+      GIT_PROGRESS 1
+      GIT_SHALLOW 1
+      BUILD_IN_SOURCE 1
+      USES_TERMINAL_CONFIGURE 1
+      CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/gperftools/src/gperftools-ext/autogen.sh
+      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/gperftools/src/gperftools-ext/configure --prefix=${gperftools_PATH}
+      BUILD_COMMAND make -j
+      INSTALL_COMMAND make install
+    )
+  else ()
+    message (STATUS "using gperftools found at ${gperftools_PATH}")
+  endif ()
+
+  # pass this back to the caller
+  set (gperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/gperftools PARENT_SCOPE)
 endfunction ()
 
 ###############################################################################
@@ -95,6 +122,8 @@ if (ASGARD_PROFILE_GPROF)
       "   | ../contrib/gprof2dot/bin/gprof2dot.py -n 2 -e 1 -w \\ \n"
       "   | ../contrib/graphviz/bin/dot -Tpdf -o profile.pdf\n"
       "\n"
+      "Possibly more explanation about various profiling tools enabled here\n"
+      "exists at the ASGarD wiki page on profiling.\n"
     )
 
     # find graphviz, build if needed
@@ -145,6 +174,9 @@ if (ASGARD_PROFILE_XRAY)
       "      this produces a uniquely-hashed 'xray-log.asgard.[hash]' file\n"
       "   3) analyze the results with\n"
       "      $ llvm-xray account xray-log.asgard.[hash] -sort=sum -sortorder=dsc -instr_map ./asgard\n"
+      "\n"
+      "Possibly more explanation about various profiling tools enabled here\n"
+      "exists at the ASGarD wiki page on profiling.\n"
     )
 
     # grab FlameGraph (we don't store it in the repo or distribute)
@@ -174,43 +206,26 @@ endif ()
 ###############################################################################
 ## gperftools (formerly google performance tools)
 #
-# FIXME allow user to point to previously installed libprofiler, etc.
+# CPU profiler
 ###############################################################################
 
-if (ASGARD_PROFILE_GPERF)
-  #add_link_options ("-lprofiler")
-    message (
-      "\n"
-      "   gperftools enabled. to use:\n"
-      "   1) link the code with -lprofiler option (done for you during 'make')\n"
-      "   2) run the executable to be profiled with:\n"
-      "      $ CPUPROFILE=some-name.prof ./asgard -p continuity_6 -l 8 -d 3\n"
-      "      this produces a profile file name 'some-name.prof'\n"
-      "   3) analyze the results with\n"
-      "      $ pprof --pdf ./asgard some-name.prof > some-other.pdf\n"
-    )
+if (ASGARD_PROFILE_GPERF_CPU)
+  message (
+    "\n"
+    "   gperftools enabled. to use:\n"
+    "   1) link the code with -lprofiler option (done for you during 'make')\n"
+    "   2) run the executable to be profiled with:\n"
+    "      $ CPUPROFILE=some-name.prof ./asgard -p continuity_6 -l 8 -d 3\n"
+    "      this produces a profile file name 'some-name.prof'\n"
+    "   3) analyze the results with\n"
+    "      $ pprof --pdf ./asgard some-name.prof > some-other.pdf\n"
+    "\n"
+    "Possibly more explanation about various profiling tools enabled here\n"
+    "exists at the ASGarD wiki page on profiling.\n"
+  )
 
-  # build gperftools if needed
-  set (gperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/gperftools)
-  if (NOT EXISTS ${gperftools_PATH}/bin/pprof)
-    message (STATUS "gperftools not found. building from source")
-    set (PROFILE_DEPS gperftools-ext)
-    include (ExternalProject)
-    ExternalProject_Add (gperftools-ext
-      PREFIX contrib/gperftools
-      GIT_REPOSITORY https://github.com/gperftools/gperftools
-      GIT_PROGRESS 1
-      GIT_SHALLOW 1
-      BUILD_IN_SOURCE 1
-      USES_TERMINAL_CONFIGURE 1
-      CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/gperftools/src/gperftools-ext/autogen.sh
-      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/gperftools/src/gperftools-ext/configure --prefix=${gperftools_PATH}
-      BUILD_COMMAND make -j
-      INSTALL_COMMAND make install
-    )
-  else ()
-    message (STATUS "using gperftools found at ${gperftools_PATH}")
-  endif ()
+  # find gperftools, build if needed
+  get_gperftools()
 
   # find graphviz, build if needed
   get_graphviz()
@@ -218,12 +233,97 @@ if (ASGARD_PROFILE_GPERF)
   set (PROFILE_LIBS -Wl,-no-as-needed "${gperftools_PATH}/lib/libprofiler.so")
 endif ()
 
+
+###############################################################################
+## gperftools for Memory Allocation (formerly google performance tools)
+#
+#  Heap profiler
+###############################################################################
+if (ASGARD_PROFILE_GPERF_MEM)
+  message (
+    "\n"
+    "   gperftools enabled. to use:\n"
+    "   1) link the code with -lprofiler and -ltcmalloc option\n"
+    "      (done for you during 'make')\n"
+    "   2) run the executable to be profiled with:\n"
+    "      $ HEAPPROFILE=some-name.hprof ./asgard -p continuity_6 -l 8 -d 3\n"
+    "      this produces a list of heap profile file name 'some-name.prof.XXXXX.heap'\n"
+    "      $ PPROF_PATH=/path/to/pprof HEAPCHECK=normal ./asgard -p continuity_6 -l 8 -d 3\n"
+    "      this performs a basic memory leack check'\n"
+    "      					\n"
+    "   3) analyze the results with\n"
+    "      $ pprof --text ./asgard some-name.prof.XXXXX.heap\n"
+    "      $ pprof --gv ./asgard some-name.hprof\n"
+    "\n"
+    "Possibly more explanation about various profiling tools enabled here\n"
+    "exists at the ASGarD wiki page on profiling.\n"
+  )
+
+  # find gperftools, build if needed
+  get_gperftools()
+
+  # find graphviz, build if needed
+  get_graphviz()
+
+  set (PROFILE_LIBS "${gperftools_PATH}/lib/libtcmalloc.so")
+endif ()
+
 ###############################################################################
 ## linux perf
 ###############################################################################
 
 if (ASGARD_PROFILE_PERF)
-  message (FATAL_ERROR "linux perf not supported yet :'(. Please submit an issue or PR.")
+  message (
+    "\n"
+    "   perf enabled. to use:\n"
+    "   1) Download and build perf (done for you during 'make')\n"
+    "      perf is installed in asgard/contrib/lperftools/bin\n"
+    "      ****(flex and bison must be installed by user)****\n"
+    "\n"
+    "   2) run the executable to be profiled with:\n"
+    "      ****(System previlage must be given)****\n"
+    "        RUNTIME DISTRIBUTION\n"
+    "      $ perf record ./asgard -p continuity_6 -l 8 -d 3\n"
+    "                   or\n"
+    "        RUNTIME & CALL GRAPH\n"
+    "      $ perf record -g ./asgard -p continuity_6 -l 8 -d 3\n"
+    "\n"
+    "   3) display the results with\n"
+    "      $ perf report\n"
+    "\n"
+    "Possibly more explanation about various profiling tools enabled here\n"
+    "exists at the ASGarD wiki page on profiling.\n"
+  )
+
+  # build Linux Perf if needed
+  set (lperftools_PATH ${CMAKE_SOURCE_DIR}/contrib/lperftools)
+  if (NOT EXISTS ${lperftools_PATH}/bin/perf)
+    message (STATUS "lperftools not found. building from source")
+    set (PROFILE_DEPS lperftools-ext)
+    include (ExternalProject)
+    ExternalProject_Add (lperftools-ext
+      PREFIX contrib/lperftools
+      GIT_REPOSITORY https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+      GIT_PROGRESS 1
+      GIT_SHALLOW 1
+      BUILD_IN_SOURCE 1
+      USES_TERMINAL_CONFIGURE 1
+
+      SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/contrib/lperftools/src/lperftools-ext/tools
+      CONFIGURE_COMMAND ""
+
+      BUILD_COMMAND make perf
+
+      INSTALL_COMMAND mkdir -p ${lperftools_PATH}/bin
+      COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/contrib/lperftools/src/lperftools-ext/tools/perf/perf ${lperftools_PATH}/bin/perf
+    )
+
+  else ()
+    message (STATUS "using gperftools found at ${lperftools_PATH}")
+  endif ()
+
+  # find graphviz, build if needed
+  get_graphviz()
 endif ()
 
 ###############################################################################
@@ -231,5 +331,57 @@ endif ()
 ###############################################################################
 
 if (ASGARD_PROFILE_VALGRIND)
-  message (FATAL_ERROR "valgrind not supported yet :'(. Please submit an issue or PR.")
+  add_compile_options ("-g")
+  add_link_options ("-g")
+    message (
+      "\n"
+      "   Valgrind enabled. For using valgrind:\n"
+      "   1) build/link the code with -g option (will be done for you during 'make')\n"
+      "\n"
+      "   2) To perform memory check. e.g.\n"
+      "      $ valgrind ---tool=memcheck --log-file=<filename> ./asgard -p continuity_6 -l 8 -d 3\n"
+      "      this produces a 'gmon.out' in the current directory\n"
+      "\n"
+      "   3) Cache profling. e.g.\n"
+      "      Run the profile too\n"
+      "      $ valgrind --tool=cachegrind ./asgard -p continuity_6 -l 8 -d 3\n"
+      "      By default the outputfile is named cachegrind.out.<pid>\n"
+      "      Run report\n"
+      "      $ cg_annotate --auto=yes <cachegrind.out.<pid>>\n"
+      "      This generate a call-by-call  Cache performance\n"
+      "\n"
+      "   4) Call graph\n"
+      "      $ valgrind --tool=callgrind [callgrind options] ./asgard -p continuity_6 -l 8 -d 3\n"
+      "      $ callgrind_annotate [options] callgrind.out.<pid>\n"
+      "      for more details, see valgrind docu. ch6: http://valgrind.org/docs/manual/cl-manual.html\n"
+      "\n"
+      "   5) Heap profiler\n"
+      "      $ valgrind --tool=massif [massif options] ./asgard -p continuity_6 -l 8 -d 3\n"
+      "      $ ms_print massif.out.<pid>\n"
+      "      for more details, see valgrind docu. ch9: http://valgrind.org/docs/manual/ms-manual.html\n"
+      "\n"
+      "Possibly more explanation about various profiling tools enabled here\n"
+      "exists at the ASGarD wiki page on profiling.\n"
+    )
+
+    # grab valgrind (we don't store it in the repo or distribute)
+    set (valgrind_PATH ${CMAKE_SOURCE_DIR}/contrib/valgrind)
+    if (NOT EXISTS ${valgrind_PATH}/bin)
+      message (STATUS "VALGRIND not found. downloading")
+      include (ExternalProject)
+      ExternalProject_Add (valgrind-ext
+        PREFIX contrib/valgrind
+	GIT_REPOSITORY http://repo.or.cz/valgrind.git
+	GIT_PROGRESS 1
+	GIT_SHALLOW 1
+	BUILD_IN_SOURCE 1
+	USES_TERMINAL_CONFIGURE 1
+	CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/valgrind/src/valgrind-ext/autogen.sh
+	COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/valgrind/src/valgrind-ext/configure --prefix=${valgrind_PATH}
+	BUILD_COMMAND make -j
+	INSTALL_COMMAND make install
+      )
+    else ()
+      message (STATUS "using valgrind found at ${valgrind_PATH}")
+    endif ()
 endif ()
