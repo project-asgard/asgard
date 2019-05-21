@@ -1556,10 +1556,12 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::transpose()
       temp(j, i) = (*this)(i, j);
 
   // inelegant manual "move assignment"
-  nrows_     = temp.nrows();
-  ncols_     = temp.ncols();
+  // unlike actual move assignment, need to delete the old pointer
+  nrows_  = temp.nrows();
+  ncols_  = temp.ncols();
+  stride_ = nrows();
+  delete[] data_;
   data_      = temp.data();
-  stride_    = nrows();
   temp.data_ = nullptr;
 
   return *this;
