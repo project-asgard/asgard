@@ -54,7 +54,7 @@ combine_dimensions(dimension<P> const &dim, element_table const &table,
   assert(num_dims > 0);
 
   int const degree = dim.get_degree();
-  fk::vector<P> combined;
+  fk::vector<P> combined(table.size() * std::pow(degree, num_dims));
 
   for (int i = 0; i < table.size(); ++i)
   {
@@ -70,7 +70,7 @@ combine_dimensions(dimension<P> const &dim, element_table const &table,
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
     fk::vector<P> partial_result = kron_d(kron_list, kron_list.size()) * time;
-    combined.concat(partial_result);
+    combined.set(i * std::pow(degree, num_dims), partial_result);
   }
   return combined;
 }
