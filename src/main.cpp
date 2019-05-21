@@ -15,6 +15,7 @@ int main(int argc, char **argv)
   options opts(argc, argv);
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
                             opts.get_degree());
+  
   // sync up options object in case pde defaults were loaded
   // assume uniform level and degree across dimensions
   opts.update_level(pde->get_dimensions()[0].get_level());
