@@ -70,7 +70,7 @@ combine_dimensions(dimension<P> const &dim, element_table const &table,
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
     fk::vector<P> partial_result = kron_d(kron_list, kron_list.size()) * time;
-    combined.set(i * std::pow(degree, num_dims), partial_result);
+    combined.set_subvector(i * std::pow(degree, num_dims), partial_result);
   }
   return combined;
 }
