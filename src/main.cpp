@@ -11,11 +11,12 @@
 using prec = double;
 int main(int argc, char **argv)
 {
+  options opts(argc, argv);
+
   std::cout << "--- begin setup ---" << std::endl;
 
   // -- parse user input and generate pde
   std::cout << "generating: pde..." << std::endl;
-  options opts(argc, argv);
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
                             opts.get_degree());
 
@@ -70,6 +71,10 @@ int main(int argc, char **argv)
       pde->set_coefficients(coeff, j, i);
     }
   }
+
+  // this is to bail out for further profiling/development on the setup routines
+  if (opts.get_time_steps() < 1)
+    return 0;
 
   std::cout << "--- begin time loop staging ---" << std::endl;
   // -- allocate/setup for batch gemm
