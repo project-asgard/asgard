@@ -456,7 +456,7 @@ extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
 
 // axpy - add the argument vector scaled by alpha
 template<typename P, mem_type mem, mem_type omem>
-vector<P, mem> &axpy(vector<P, omem> const &x, P const alpha, vector<P, mem> &y)
+vector<P, mem> &axpy(P const alpha, vector<P, omem> const &x, vector<P, mem> &y)
 {
   assert(x.size() == y.size());
   int n    = x.size();

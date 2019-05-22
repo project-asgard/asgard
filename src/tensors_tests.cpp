@@ -2041,14 +2041,14 @@ TEMPLATE_TEST_CASE("wrapped free BLAS", "[tensors]", float, double, int)
 
     fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
 
-    REQUIRE(axpy(rhs, scale, test) == ans);
+    REQUIRE(axpy(scale, rhs, test) == ans);
     test = gold;
-    REQUIRE(axpy(rhs_view, scale, test) == ans);
+    REQUIRE(axpy(scale, rhs_view, test) == ans);
 
-    REQUIRE(axpy(rhs, scale, test_view) == ans);
+    REQUIRE(axpy(scale, rhs, test_view) == ans);
     REQUIRE(test_own == ans);
     test_view = gold;
-    REQUIRE(axpy(rhs_view, scale, test_view) == ans);
+    REQUIRE(axpy(scale, rhs_view, test_view) == ans);
     REQUIRE(test_own == ans);
   }
 
