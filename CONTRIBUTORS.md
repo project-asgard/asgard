@@ -17,9 +17,14 @@ Hanumantharayappa (University of Tennessee/Oak Ridge National Lab)
 M. Graham Lopez (Oak Ridge National Lab)
 - Developer
 
+Hao Lu (Oak Ridge National Lab)
+- Postdoc
+
 B. Tyler McDaniel (University of Tennessee/Oak Ridge National Lab)
 - Developer
 
+Adam McDaniel (Oak Ridge National Lab)
+- Intern
+
 Lin Mu (Oak Ridge National Lab)
 - Method development
-
