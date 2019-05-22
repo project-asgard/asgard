@@ -125,6 +125,7 @@ public:
   template<mem_type omem>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
+  vector<P, mem> &scale(P const x);
   //
   // basic queries to private data
   //
@@ -362,14 +363,23 @@ extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
 extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
 // --------------------------------------------------------------------------
 // vector-vector multiply
-// y := alpha*A*x + beta*y
+// d = x*y
 // --------------------------------------------------------------------------
 extern "C" double ddot_(int *n, double *X, int *incx, double *Y, int *incy);
 extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
 
 // --------------------------------------------------------------------------
+// vector-vector addition
+// y := ax + y
+// --------------------------------------------------------------------------
+extern "C" double
+daxpy_(int *n, double *alpha, double *X, int *incx, double *Y, int *incy);
+extern "C" float
+saxpy_(int *n, float *alpha, float *X, int *incx, float *Y, int *incy);
+
+// --------------------------------------------------------------------------
 // vector-scalar multiply
-// y := x*alpha
+// y := y*alpha
 // --------------------------------------------------------------------------
 extern "C" double dscal_(int *n, double *alpha, double *X, int *incx);
 extern "C" float sscal_(int *n, float *alpha, float *X, int *incx);
@@ -443,6 +453,88 @@ extern "C" void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work,
 
 extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
                         int *lwork, int *info);
+
+// axpy - add the argument vector scaled by alpha
+template<typename P, mem_type mem, mem_type omem>
+vector<P, mem> &axpy(P const alpha, vector<P, omem> const &x, vector<P, mem> &y)
+{
+  assert(x.size() == y.size());
+  int n    = x.size();
+  int one  = 1;
+  P alpha_ = alpha;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    daxpy_(&n, &alpha_, x.data(), &one, y.data(), &one);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    saxpy_(&n, &alpha_, x.data(), &one, y.data(), &one);
+  }
+  else
+  {
+    for (auto i = 0; i < x.size(); ++i)
+    {
+      y(i) = y(i) + x(i) * alpha_;
+    }
+  }
+
+  return y;
+}
+
+// copy(x,y) - copy vector x into y
+template<typename P, mem_type mem, mem_type omem>
+vector<P, mem> &copy(vector<P, omem> const &x, vector<P, mem> &y)
+{
+  assert(x.size() == y.size());
+  int n   = x.size();
+  int one = 1;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dcopy_(&n, x.data(), &one, y.data(), &one);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    scopy_(&n, x.data(), &one, y.data(), &one);
+  }
+  else
+  {
+    for (auto i = 0; i < x.size(); ++i)
+    {
+      y(i) = x(i);
+    }
+  }
+
+  return y;
+}
+
+// scal - scale a vector
+
+template<typename P, mem_type mem>
+vector<P, mem> &scal(P const alpha, vector<P, mem> &x)
+{
+  int one_i = 1;
+  int n     = x.size();
+  P alpha_  = alpha;
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dscal_(&n, &alpha_, x.data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sscal_(&n, &alpha_, x.data(), &one_i);
+  }
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      x(i) = x(i) * alpha_;
+    }
+  }
+  return x;
+}
 
 } // namespace fk
 
@@ -903,6 +995,13 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
   }
   return product;
 }
+
+template<typename P, mem_type mem>
+fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
+{
+  return fk::scal(x, *this);
+}
+
 //
 // utility functions
 //

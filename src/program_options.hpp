@@ -21,7 +21,7 @@ private:
   double cfl = 0.1; // the Courant-Friedrichs-Lewy (CFL) condition
 
   // default
-  std::string selected_pde = "vlasov4";
+  std::string selected_pde = "continuity_2";
 
   // pde to construct/evaluate
   PDE_opts pde_choice;
@@ -32,7 +32,9 @@ private:
 public:
   options(int argc, char **argv);
   int get_level() const;
+  void update_level(int level) { this->level = level; }
   int get_degree() const;
+  void update_degree(int degree) { this->degree = degree; }
   int get_time_steps() const;
   int get_write_frequency() const;
   int get_visualization_frequency() const;

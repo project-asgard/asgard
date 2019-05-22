@@ -28,7 +28,8 @@ public:
   PDE_continuity_6d(int const num_levels = -1, int const degree = -1)
       : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
                dimensions_, terms_, sources_, exact_vector_funcs_,
-               exact_scalar_func_, do_poisson_solve_, has_analytic_soln_)
+               exact_scalar_func_, get_dt_, do_poisson_solve_,
+               has_analytic_soln_)
   {}
 
 private:
@@ -553,6 +554,12 @@ private:
   inline static std::vector<source<P>> const sources_ = {
       source0_, source1_, source2_, source3_, source4_, source5_, source6_};
 
+  static P get_dt_(dimension<P> const &dim)
+  {
+    P const x_range = dim.domain_max - dim.domain_min;
+    P const dt      = x_range / std::pow(2, dim.get_level());
+    return dt;
+  }
   // g-funcs for terms (optional)
   static P g_func_identity(P const x, P const time)
   {

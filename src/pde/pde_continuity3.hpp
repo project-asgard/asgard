@@ -28,7 +28,8 @@ public:
   PDE_continuity_3d(int const num_levels = -1, int const degree = -1)
       : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
                dimensions_, terms_, sources_, exact_vector_funcs_,
-               exact_scalar_func_, do_poisson_solve_, has_analytic_soln_)
+               exact_scalar_func_, get_dt_, do_poisson_solve_,
+               has_analytic_soln_)
   {}
 
 private:
@@ -198,6 +199,13 @@ private:
   static P source_3_time(P const time)
   {
     return -2.0 / 3.0 * PI * std::sin(2.0 * time);
+  }
+
+  static P get_dt_(dimension<P> const &dim)
+  {
+    P const x_range = dim.domain_max - dim.domain_min;
+    P const dt      = x_range / std::pow(2, dim.get_level());
+    return dt;
   }
 
   // g-funcs for terms (optional)

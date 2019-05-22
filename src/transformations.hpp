@@ -10,8 +10,9 @@
 #include <vector>
 
 template<typename P>
-fk::vector<P> combine_dimensions(dimension<P> const &, element_table const &,
-                                 std::vector<fk::vector<P>> const &, P const);
+fk::vector<P>
+combine_dimensions(dimension<P> const &, element_table const &,
+                   std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(dimension<P> const &dim, F function)

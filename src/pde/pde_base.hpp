@@ -273,6 +273,8 @@ public:
 // ----------------------------------------------------------------------------
 template<typename P>
 using term_set = std::vector<std::vector<term<P>>>;
+template<typename P>
+using dt_func = std::function<P(dimension<P> const &dim)>;
 
 template<typename P>
 class PDE
@@ -289,6 +291,7 @@ public:
       std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
       scalar_func<P> const exact_time,
+      dt_func<P> const get_dt,
       bool const do_poisson_solve = false,
       bool const has_analytic_soln = false)
       : num_dims(num_dims),
@@ -362,6 +365,9 @@ public:
     {
       assert(term_list.size() == static_cast<unsigned>(num_dims));
     }
+
+    // set the dt
+    dt_ = get_dt(dimensions_[0]);
   }
 
   // public but const data.
@@ -393,7 +399,10 @@ public:
     terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
   }
 
+  P get_dt() { return dt_; };
+
 private:
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
+  P dt_;
 };

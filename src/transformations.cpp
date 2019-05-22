@@ -48,7 +48,8 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 template<typename P>
 fk::vector<P>
 combine_dimensions(dimension<P> const &dim, element_table const &table,
-                   std::vector<fk::vector<P>> const &vectors, P const time)
+                   std::vector<fk::vector<P>> const &vectors,
+                   P const time_scale)
 {
   int const num_dims = vectors.size();
   assert(num_dims > 0);
@@ -69,7 +70,8 @@ combine_dimensions(dimension<P> const &dim, element_table const &table,
       int const index_end   = ((id + 1) * degree) - 1;
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
-    fk::vector<P> partial_result = kron_d(kron_list, kron_list.size()) * time;
+    fk::vector<P> const partial_result =
+        kron_d(kron_list, kron_list.size()) * time_scale;
     combined.set_subvector(i * std::pow(degree, num_dims), partial_result);
   }
   return combined;

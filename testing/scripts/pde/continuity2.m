@@ -108,7 +108,7 @@ pde.analytic_solutions_1D = {@c2_a_x,@c2_a_y,@c2_a_t};
 
 %% Other workflow options that should perhpas not be in the PDE?
 
-pde.set_dt = @c2_set_dt; % Function which accepts the pde (after being updated with CMD args).
+pde.set_dt = @set_dt; % Function which accepts the pde (after being updated with CMD args).
 pde.solvePoisson = 0; % Controls the "workflow" ... something we still don't know how to do generally.
 pde.applySpecifiedE = 0; % Controls the "workflow" ... something we still don't know how to do generally.
 pde.implicit = 0; % Can likely be removed and be a runtime argument.
@@ -147,12 +147,11 @@ function f = c2_a_y(y,p); f = sin(2*pi*y);   end
 
 
 % Function to set time step
-function dt = c2_set_dt(pde); 
+function dt=set_dt(pde)
 
-Lmax = pde.dimensions{1}.domainMax;
+Lmax = pde.dimensions{1}.domainMax - pde.dimensions{1}.domainMin;
 LevX = pde.dimensions{1}.lev;
-CFL = pde.CFL;
+%CFL = pde.CFL;
+CFL = 1;
 dt = Lmax/2^LevX*CFL;
-
-
 end

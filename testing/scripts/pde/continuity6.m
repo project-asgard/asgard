@@ -303,11 +303,12 @@ end
 
 %%
 % Function to set time step
-function dt=set_dt(pde)
+function dt = set_dt(pde); 
 
-Lmax = pde.dimensions{1}.domainMax;
+Lmax = pde.dimensions{1}.domainMax - pde.dimensions{1}.domainMin;
 LevX = pde.dimensions{1}.lev;
-CFL = pde.CFL;
-
+CFL = 1;%pde.CFL;
 dt = Lmax/2^LevX*CFL;
+
+
 end

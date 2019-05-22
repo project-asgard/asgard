@@ -61,6 +61,13 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
       relaxed_compare(fx, gold);
     }
   }
+
+  SECTION("continuity 1 dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
+  }
 }
 TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
                    float)
@@ -113,6 +120,13 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
       TestType const fx = pde->sources[i].time_func(x(0));
       relaxed_compare(fx, gold);
     }
+  }
+
+  SECTION("continuity 2 dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
   }
 }
 
@@ -170,6 +184,13 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
       relaxed_compare(fx, gold);
     }
   }
+
+  SECTION("continuity 3 dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
+  }
 }
 
 TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
@@ -225,5 +246,12 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
       TestType const fx = pde->sources[i].time_func(x(0));
       relaxed_compare(fx, gold);
     }
+  }
+
+  SECTION("continuity 6 dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
   }
 }

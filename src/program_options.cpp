@@ -43,6 +43,7 @@ options::options(int argc, char **argv)
   if (show_help)
   {
     std::cerr << cli << std::endl;
+    exit(0);
   }
 
   // Validation...
