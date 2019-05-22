@@ -40,13 +40,13 @@ int main(int argc, char **argv)
       combine_dimensions(pde->get_dimensions()[0], table, initial_conditions);
 
   // -- generate source vectors.
-  // these will be scaled later for time
+  // these will be scaled later according to the simulation time applied with
+  // their own time-scaling functions
   std::cout << "generating: source vectors..." << std::endl;
   std::vector<fk::vector<prec>> initial_sources;
   for (source<prec> const &source : pde->sources)
   {
-    // gather contributions from each dim for this source,
-    // in wavelet space
+    // gather contributions from each dim for this source, in wavelet space
     std::vector<fk::vector<prec>> initial_sources_dim;
     for (int i = 0; i < pde->num_dims; ++i)
     {

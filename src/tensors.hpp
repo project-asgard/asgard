@@ -482,7 +482,7 @@ vector<P, mem> &axpy(P const alpha, vector<P, omem> const &x, vector<P, mem> &y)
   return y;
 }
 
-// copy - copy vector
+// copy(x,y) - copy vector x into y
 template<typename P, mem_type mem, mem_type omem>
 vector<P, mem> &copy(vector<P, omem> const &x, vector<P, mem> &y)
 {
