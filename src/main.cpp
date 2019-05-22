@@ -30,15 +30,14 @@ int main(int argc, char **argv)
 
   // -- generate initial condition vector.
   std::cout << "generating: initial conditions..." << std::endl;
-  prec const initial_scale = 1.0;
   std::vector<fk::vector<prec>> initial_conditions;
   for (dimension<prec> const &dim : pde->get_dimensions())
   {
     initial_conditions.push_back(
         forward_transform<prec>(dim, dim.initial_condition));
   }
-  fk::vector<prec> const initial_condition = combine_dimensions(
-      pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+  fk::vector<prec> const initial_condition =
+      combine_dimensions(pde->get_dimensions()[0], table, initial_conditions);
 
   // -- generate source vectors.
   // these will be scaled later for time
@@ -55,8 +54,8 @@ int main(int argc, char **argv)
           pde->get_dimensions()[i], source.source_funcs[i]));
     }
     // combine those contributions to form the unscaled source vector
-    initial_sources.push_back(combine_dimensions(
-        pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+    initial_sources.push_back(combine_dimensions(pde->get_dimensions()[0],
+                                                 table, initial_sources_dim));
   }
 
   // -- generate and store coefficient matrices.
