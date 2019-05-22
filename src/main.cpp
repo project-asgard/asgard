@@ -60,15 +60,13 @@ int main(int argc, char **argv)
 
   // -- generate and store coefficient matrices.
   std::cout << "generating: coefficient matrices..." << std::endl;
-  prec const initial_time = 0.0;
   for (int i = 0; i < pde->num_dims; ++i)
   {
     dimension<prec> const dim = pde->get_dimensions()[i];
     for (int j = 0; j < pde->num_terms; ++j)
     {
       term<prec> const partial_term = pde->get_terms()[j][i];
-      fk::matrix<prec> const coeff =
-          generate_coefficients(dim, partial_term, initial_time);
+      fk::matrix<prec> const coeff  = generate_coefficients(dim, partial_term);
       pde->set_coefficients(coeff, j, i);
     }
   }
