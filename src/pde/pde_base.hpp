@@ -367,7 +367,7 @@ public:
     }
 
     // set the dt
-    dt = get_dt(dimensions_[0]);
+    dt_ = get_dt(dimensions_[0]);
   }
 
   // public but const data.
@@ -399,10 +399,10 @@ public:
     terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
   }
 
-  P get_dt() { return dt; };
+  P get_dt() { return dt_; };
 
 private:
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
-  P dt;
+  P dt_;
 };

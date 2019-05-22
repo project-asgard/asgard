@@ -8,7 +8,6 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
                            fk::vector<P> &scaled_source,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            std::vector<fk::vector<P>> &workspace,
-
                            std::vector<batch_operands_set<P>> const &batches,
                            P const time, P const dt)
 {

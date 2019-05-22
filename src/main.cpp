@@ -46,13 +46,15 @@ int main(int argc, char **argv)
   std::vector<fk::vector<prec>> initial_sources;
   for (source<prec> const &source : pde->sources)
   {
+    // gather contributions from each dim for this source,
+    // in wavelet space
     std::vector<fk::vector<prec>> initial_sources_dim;
     for (int i = 0; i < pde->num_dims; ++i)
     {
       initial_sources_dim.push_back(forward_transform<prec>(
           pde->get_dimensions()[i], source.source_funcs[i]));
     }
-
+    // combine those contributions to form the unscaled source vector
     initial_sources.push_back(combine_dimensions(
         pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
   }
