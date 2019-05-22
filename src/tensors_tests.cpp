@@ -2080,8 +2080,8 @@ TEMPLATE_TEST_CASE("wrapped free BLAS", "[tensors]", float, double, int)
 
     fk::vector<TestType> const ans = {4, 6, 8, 10, 12};
 
-    REQUIRE(scal(test, x) == ans);
-    REQUIRE(scal(test_view, x) == ans);
+    REQUIRE(scal(x, test) == ans);
+    REQUIRE(scal(x, test_view) == ans);
     REQUIRE(test_own == ans);
 
     test     = gold;
@@ -2090,8 +2090,8 @@ TEMPLATE_TEST_CASE("wrapped free BLAS", "[tensors]", float, double, int)
     TestType const x2 = 0.0;
     fk::vector<TestType> const zeros(gold.size());
 
-    REQUIRE(scal(test, x2) == zeros);
-    REQUIRE(scal(test_view, x2) == zeros);
+    REQUIRE(scal(x2, test) == zeros);
+    REQUIRE(scal(x2, test_view) == zeros);
     REQUIRE(test_own == zeros);
   }
 }

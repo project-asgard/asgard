@@ -67,7 +67,7 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
   P const scale_0 = dt * b1;
   P const scale_1 = dt * b2;
   P const scale_2 = dt * b3;
-  fk::scal(fx, static_cast<P>(0.0));
+  fk::scal(static_cast<P>(0.0), fx);
   fk::copy(x_orig, x);
   fk::axpy(scale_0, workspace[0], x);
   fk::axpy(scale_1, workspace[1], x);
@@ -84,7 +84,7 @@ scale_sources(PDE<P> const &pde,
               fk::vector<P> &scaled_source, P const time)
 {
   // zero out final vect
-  fk::scal(scaled_source, static_cast<P>(0.0));
+  fk::scal(static_cast<P>(0.0), scaled_source);
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {

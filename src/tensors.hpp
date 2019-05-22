@@ -512,7 +512,7 @@ vector<P, mem> &copy(vector<P, omem> const &x, vector<P, mem> &y)
 // scal - scale a vector
 
 template<typename P, mem_type mem>
-vector<P, mem> &scal(vector<P, mem> &x, P const alpha)
+vector<P, mem> &scal(P const alpha, vector<P, mem> &x)
 {
   int one_i = 1;
   int n     = x.size();
@@ -999,26 +999,7 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
 template<typename P, mem_type mem>
 fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
 {
-  int one_i = 1;
-  int n     = this->size();
-  P alpha   = x;
-
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dscal_(&n, &alpha, this->data(), &one_i);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sscal_(&n, &alpha, this->data(), &one_i);
-  }
-  else
-  {
-    for (int i = 0; i < n; ++i)
-    {
-      (*this)(i) *= alpha;
-    }
-  }
-  return (*this);
+  return fk::scal(x, *this);
 }
 
 //
