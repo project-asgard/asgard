@@ -4,6 +4,7 @@
 #include "connectivity.hpp"
 #include "element_table.hpp"
 #include "mem_usage.hpp"
+#include "io.hpp"
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -78,6 +79,9 @@ int main(int argc, char **argv)
     }
     return combine_dimensions(degree, table, initial_conditions);
   }();
+
+  // -- setup output file and write initial condition
+  auto output_dataset = initialize_output_file(initial_condition);
 
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
@@ -211,6 +215,9 @@ int main(int argc, char **argv)
       std::cout << "Relative difference (numeric-analytic) [wavelet]: "
                 << relative_error << " %" << '\n';
     }
+
+    // write output to file
+    update_output_file(output_dataset, fx);
 
     std::cout << "timestep: " << i << " complete" << '\n';
   }
