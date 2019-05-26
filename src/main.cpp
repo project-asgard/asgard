@@ -25,6 +25,10 @@ int main(int argc, char **argv)
   opts.update_level(pde->get_dimensions()[0].get_level());
   opts.update_degree(pde->get_dimensions()[0].get_degree());
 
+  // do this only once to avoid confusion
+  // if we ever do go to p-adaptivity (variable degree) we can change it then
+  auto const degree = pde->get_dimensions()[0].get_degree();
+
   // -- create forward/reverse mapping between elements and indices
   std::cout << "generating: element table..." << std::endl;
   element_table const table = element_table(opts, pde->num_dims);
@@ -38,7 +42,7 @@ int main(int argc, char **argv)
         forward_transform<prec>(dim, dim.initial_condition));
   }
   fk::vector<prec> const initial_condition =
-      combine_dimensions(pde->get_dimensions()[0], table, initial_conditions);
+      combine_dimensions(degree, table, initial_conditions);
 
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied with
@@ -55,9 +59,22 @@ int main(int argc, char **argv)
           pde->get_dimensions()[i], source.source_funcs[i]));
     }
     // combine those contributions to form the unscaled source vector
-    initial_sources.push_back(combine_dimensions(pde->get_dimensions()[0],
-                                                 table, initial_sources_dim));
+    initial_sources.push_back(
+        combine_dimensions(degree, table, initial_sources_dim));
   }
+
+  // -- generate analytic solution vector.
+  std::cout << "generating: analytic solution at t=0 ..." << std::endl;
+  auto dimensions = pde->get_dimensions();
+  std::vector<fk::vector<prec>> analytic_solutions_D;
+  int const num_dims = dimensions.size();
+  for (int d = 0; d < num_dims; d++)
+  {
+    analytic_solutions_D.push_back(
+        forward_transform<prec>(dimensions[d], pde->exact_vector_funcs[d]));
+  }
+  fk::vector<prec> const analytic_solution =
+      combine_dimensions(degree, table, analytic_solutions_D);
 
   // -- generate and store coefficient matrices.
   std::cout << "generating: coefficient matrices..." << std::endl;
@@ -104,10 +121,10 @@ int main(int argc, char **argv)
   fk::vector<prec> work(x.size() * table.size() * pde->num_terms *
                         (pde->num_dims - 1));
 
-  // output vector fx
+  // output vector fval
   std::cout << "allocating output vector, size (MB): " << get_MB(x.size())
             << std::endl;
-  fk::vector<prec> fx(x.size());
+  fk::vector<prec> fval(x.size());
 
   // setup reduction vector
   int const items_to_reduce = pde->num_terms * table.size();
@@ -122,7 +139,7 @@ int main(int argc, char **argv)
   // call to build batches
   std::cout << "generating: batch lists..." << std::endl;
   std::vector<batch_operands_set<prec>> const batches =
-      build_batches(*pde, table, x, y, work, unit_vector, fx);
+      build_batches(*pde, table, x, y, work, unit_vector, fval);
 
   // these vectors used for intermediate results in time advance
   std::cout << "allocating time loop working space, size (MB): "
@@ -137,8 +154,17 @@ int main(int argc, char **argv)
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
-    explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
+    explicit_time_advance(*pde, x, x_orig, fval, scaled_source, initial_sources,
                           workspace, batches, time, dt);
+
+    // difference from analytic solution
+
+    if (pde->has_analytic_soln)
+    {
+      prec time_multiplier = pde->exact_time(time);
+      auto error           = norm(fval - analytic_solution * time_multiplier);
+      std::cout << "Error (wavelet): " << error << std::endl;
+    }
 
     std::cout << "timestep: " << i << " complete" << std::endl;
   }

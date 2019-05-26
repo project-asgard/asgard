@@ -46,15 +46,14 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 // FIXME this function will need to change once dimensions can have different
 // degree...
 template<typename P>
-fk::vector<P>
-combine_dimensions(dimension<P> const &dim, element_table const &table,
-                   std::vector<fk::vector<P>> const &vectors,
-                   P const time_scale)
+fk::vector<P> combine_dimensions(int const degree, element_table const &table,
+                                 std::vector<fk::vector<P>> const &vectors,
+                                 P const time_scale)
 {
   int const num_dims = vectors.size();
   assert(num_dims > 0);
 
-  int const degree = dim.get_degree();
+  // int const degree = pde.get_dimensions()[0].get_degree();
   fk::vector<P> combined(table.size() * std::pow(degree, num_dims));
 
   for (int i = 0; i < table.size(); ++i)
@@ -78,8 +77,8 @@ combine_dimensions(dimension<P> const &dim, element_table const &table,
 }
 
 template fk::vector<double>
-combine_dimensions(dimension<double> const &, element_table const &,
+combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<double>> const &, double const);
 template fk::vector<float>
-combine_dimensions(dimension<float> const &, element_table const &,
+combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);

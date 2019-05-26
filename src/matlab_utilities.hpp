@@ -65,6 +65,19 @@ P polyval(fk::vector<P> const p, P const x);
 template<typename P>
 fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
 
+// norm() function, only for real vectors (2-norm)
+template<typename P>
+P norm(fk::vector<P> const vec)
+{
+  P accum     = 0;
+  int const N = vec.size();
+  for (auto i = 0; i < N; ++i)
+  {
+    accum += vec(i) * vec(i);
+  }
+  return std::sqrt(accum);
+}
+
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>
 fk::vector<int> find(fk::vector<P> const vect, Func pred)
