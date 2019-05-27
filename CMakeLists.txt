@@ -154,12 +154,17 @@ target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
 # link in HighFive / HDF5 if available
 if (HighFive_FOUND)
+<<<<<<< HEAD
 target_include_directories(
   asgard
   PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(
   asgard
   PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+=======
+  target_include_directories (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_link_libraries (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+>>>>>>> added tests for highfive
 endif ()
 
 ###############################################################################
@@ -182,6 +187,12 @@ if (ASGARD_BUILD_TESTS)
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
+
+  # FIXME
+  if (HighFive_FOUND)
+    target_include_directories (tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_link_libraries (tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+  endif ()
 
 else ()
   message (WARNING "warning: tests will not be built.")

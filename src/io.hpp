@@ -24,7 +24,7 @@ HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
   // Create dataspace
 
   HighFive::DataSpace dataspace =
-      DataSpace({vec_size, 1}, {vec_size, DataSpace::UNLIMITED});
+      DataSpace({1, vec_size}, {DataSpace::UNLIMITED, vec_size});
 
   // Use chunking
 
@@ -38,7 +38,7 @@ HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
 
   // Write initial contion to t=0 slice of output file
 
-  dataset.select({0, 0}, {vec_size, 1}).write(vec.to_std());
+  dataset.select({0, 0}, {1, vec_size}).write(vec.to_std());
 
   return dataset;
 }
@@ -53,14 +53,13 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> &vec)
 
   // Get the size of the existing dataset
 
-  // auto dsize = H5Easy::getShape(file, output_dataset_name);
   auto dataset_size = dataset.getDimensions();
 
   // Resize in the time dimension by 1
 
-  dataset.resize({dataset_size[0], dataset_size[1] + 1});
+  dataset.resize({dataset_size[0] + 1, dataset_size[1]});
 
   // Write the latest vec into the new row
 
-  dataset.select({0, dataset_size[1]}, {vec_size, 1}).write(vec.to_std());
+  dataset.select({dataset_size[0], 0}, {1, vec_size}).write(vec.to_std());
 }
