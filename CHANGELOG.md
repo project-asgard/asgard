@@ -1,12 +1,12 @@
 
 ## unscheduled features
 
-## v0.0.3 (TBD)
+## v0.3.0 (TBD)
 
 - [ ] multi-node capability
     - [ ] enable optional MPI build dependency
 
-## v0.0.2 (TBD)
+## v0.2.0 (TBD)
 
 - [x] enable profiling via CMake (merged 01 May 2019)
 - [ ] single gpu capability for low-level code
@@ -14,7 +14,7 @@
     - [ ] fk::tensors understand unattached memory
     - [ ] blas on single gpu
 
-## v0.0.1 (20 Mar 2019)
+## v0.1.0 (20 Mar 2019)
 
 - [x] initial structure of the setup code
     - [x] permutations, connectivity component (merged 23 Jan 2019)
