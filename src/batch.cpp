@@ -440,9 +440,9 @@ kron_base(fk::matrix<P, mem_type::view> const A,
 // function to transform a single kronecker product * vector into a
 // series of batched gemm calls, where the kronecker product is
 // tensor encoded in the view vector A. x is the input vector; y is the output
-// vector. work is a vector of vectors of the same size as y to hold
-// intermediate kron products - lower dimensional outputs are higher dimensional
-// inputs.
+// vector. work is a vector of vectors (max size 2), each of which is the same
+// size as y. these store intermediate kron products - lower dimensional outputs
+// are higher dimensional inputs.
 //
 //
 // on entry the batches argument contains empty (pre-allocated) pointer lists
@@ -455,10 +455,6 @@ kron_base(fk::matrix<P, mem_type::view> const A,
 //
 //   1 batch set to perform the reduction of connected element
 //   contributions to each work item.
-//
-//
-// FIXME could use only 2 work vectors - one for in and one for out. this would
-// decrease memory consumption for high dimensionality problems.
 template<typename P>
 void kronmult_to_batch_sets(
     std::vector<fk::matrix<P, mem_type::view>> const A,
