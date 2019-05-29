@@ -25,7 +25,7 @@ option (ASGARD_PROFILE_GPERF_MEM "enable memory profiling support using gperftoo
 option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
-option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" ON)
+option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -38,7 +38,7 @@ endif()
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
-# sets OpenBLAS_PATH and LINALG_LIBS
+# sets OpenBLAS_PATH, LINALG_LIBS, and HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets PROFILE_DEPS and PROFILE_LIBS
 include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
@@ -154,17 +154,8 @@ target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
 # link in HighFive / HDF5 if available
 if (HighFive_FOUND)
-<<<<<<< HEAD
-target_include_directories(
-  asgard
-  PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(
-  asgard
-  PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
-=======
   target_include_directories (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
->>>>>>> added tests for highfive
 endif ()
 
 ###############################################################################
