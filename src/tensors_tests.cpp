@@ -379,10 +379,12 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
       {15, 25, 35},
       {16, 26, 36},
     }; // clang-format on
+    fk::matrix<TestType, mem_type::view> const test_mat_v(test_mat);
     fk::vector<TestType> const test_vect{2, 3, 4, 5, 6};
     fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
     fk::vector<TestType> const gold{290, 490, 690};
 
+    REQUIRE((test_vect * test_mat_v) == gold);
     REQUIRE((test_vect * test_mat) == gold);
     REQUIRE((test_vect_v * test_mat) == gold);
   }

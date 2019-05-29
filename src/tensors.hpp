@@ -933,7 +933,7 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
   }
   else
   {
-    fk::matrix<P> At = A;
+    fk::matrix<P> At(A);
     At.transpose();
 
     // vectors don't have a leading dimension...
