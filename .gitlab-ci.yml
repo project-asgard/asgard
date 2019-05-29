@@ -7,7 +7,7 @@ stages:
 clang-format:
   stage: checks
   script:
-    - for bob in $(find src -type f) ; do diff ${bob} <(clang-format ${bob}) || exit ; done
+    - for bob in $(find src -type f) ; do echo ${bob} && diff ${bob} <(clang-format ${bob}) || exit ; done
 #  only:
 #    - merge-requests
 
