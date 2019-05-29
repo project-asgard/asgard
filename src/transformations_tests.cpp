@@ -41,7 +41,7 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
     }();
     std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2};
 
-    REQUIRE(combine_dimensions(dim, t, vectors, time) == gold);
+    REQUIRE(combine_dimensions(deg, t, vectors, time) == gold);
   }
 
   SECTION("Combine dimensions, dim = 3, deg = 3, lev = 2, full grid")
@@ -85,7 +85,7 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
     }();
     std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2, dim_3};
 
-    REQUIRE(combine_dimensions(dim, t, vectors, time) == gold);
+    REQUIRE(combine_dimensions(deg, t, vectors, time) == gold);
   }
 }
 

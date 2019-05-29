@@ -1,4 +1,3 @@
-
 #include "matlab_utilities.hpp"
 
 #include "tests_general.hpp"
@@ -211,6 +210,24 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
     REQUIRE(find(haystack_mat, is_even) == gold);
   }
 }
+
+TEMPLATE_TEST_CASE("norm function", "[matlab]", float, double, int)
+{
+  SECTION("zeros -- vector")
+  {
+    fk::vector<TestType> vec{0, 0, 0, 0, 0};
+    TestType gold = 0;
+    REQUIRE(norm(vec) == gold);
+  }
+
+  SECTION("plus and minus -- vector")
+  {
+    fk::vector<TestType> vec{1, -1, 1, -1};
+    TestType gold = 2;
+    REQUIRE(norm(vec) == gold);
+  }
+}
+
 TEST_CASE("read_vector_from_bin_file returns expected vector", "[matlab]")
 {
   SECTION("read_vector_from_bin_file gets 100-element row vector")

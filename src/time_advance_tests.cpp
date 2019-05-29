@@ -1,4 +1,3 @@
-
 #include "coefficients.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -47,8 +46,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
 
     // input vector x
     int const elem_size =
@@ -90,7 +89,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -159,8 +158,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -201,7 +200,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -269,8 +268,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -311,7 +310,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -386,8 +385,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -428,7 +427,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -497,8 +496,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -539,7 +538,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -607,8 +606,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -649,7 +648,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -723,8 +722,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -765,7 +764,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -834,8 +833,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -876,7 +875,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -950,8 +949,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -992,7 +991,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
