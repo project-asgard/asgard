@@ -119,7 +119,10 @@ public:
   vector<P> operator-(vector<P, omem> const &right) const;
   template<mem_type omem>
   P operator*(vector<P, omem> const &)const;
-  vector<P> operator*(matrix<P> const &)const;
+
+  template<mem_type omem>
+  vector<P> operator*(matrix<P, omem> const &)const;
+
   vector<P> operator*(P const) const;
 
   template<mem_type omem>
@@ -900,7 +903,8 @@ P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
 // vector*matrix multiplication operator
 //
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P> const &A) const
+template<mem_type omem>
+fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
