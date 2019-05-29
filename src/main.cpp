@@ -65,14 +65,15 @@ int main(int argc, char **argv)
 
   // -- generate analytic solution vector.
   std::cout << "generating: analytic solution at t=0 ..." << std::endl;
-  std::vector<fk::vector<prec>> analytic_solutions_D;
-  for (int d = 0; d < pde->num_dims; d++)
-  {
-    analytic_solutions_D.push_back(forward_transform<prec>(
-        pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
-  }
-  fk::vector<prec> const analytic_solution =
-      combine_dimensions(degree, table, analytic_solutions_D);
+  fk::vector<prec> const analytic_solution = [&pde, &table, degree]() {
+    std::vector<fk::vector<prec>> analytic_solutions_D;
+    for (int d = 0; d < pde->num_dims; d++)
+    {
+      analytic_solutions_D.push_back(forward_transform<prec>(
+          pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
+    }
+    return combine_dimensions(degree, table, analytic_solutions_D);
+  }();
 
   // -- generate and store coefficient matrices.
   std::cout << "generating: coefficient matrices..." << std::endl;
