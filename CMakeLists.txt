@@ -38,12 +38,15 @@ endif()
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
-# sets OpenBLAS_PATH, LINALG_LIBS, and HighFive_FOUND
+# sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets PROFILE_DEPS and PROFILE_LIBS
 include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
+
+if (ASGARD_IO_HIGHFIVE)
 # sets HighFive_FOUND
-include (${CMAKE_SOURCE_DIR}/io/io.cmake)
+include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
+endif()
 
 ###############################################################################
 ## Building asgard
@@ -64,7 +67,6 @@ set (components
   coefficients
   connectivity
   element_table
-  io
   matlab_utilities
   mem_usage
   permutations
@@ -75,6 +77,9 @@ set (components
   time_advance
   transformations
 )
+if (ASGARD_IO_HIGHFIVE)
+  list (APPEND components io)
+endif()
 
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
@@ -100,7 +105,9 @@ target_link_libraries (connectivity
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 
-target_link_libraries (io PRIVATE tensors)
+if (ASGARD_IO_HIGHFIVE)
+  target_link_libraries (io PRIVATE tensors)
+endif()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
@@ -129,7 +136,6 @@ set (main_app_link_deps
   coefficients
   connectivity
   element_table
-  io
   matlab_utilities
   mem_usage
   pde
@@ -139,6 +145,10 @@ set (main_app_link_deps
   time_advance
   transformations
 )
+if (ASGARD_IO_HIGHFIVE)
+  list (APPEND main_app_link_deps io)
+endif()
+
 foreach (link_dep IN LISTS main_app_link_deps)
   target_link_libraries (asgard PRIVATE ${link_dep})
 endforeach ()
@@ -152,8 +162,9 @@ target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
-# link in HighFive / HDF5 if available
-if (HighFive_FOUND)
+# link in HighFive / HDF5 if requested and available
+if (ASGARD_IO_HIGHFIVE AND HighFive_FOUND)
+  add_definitions(-DUSE_HIGHFIVE)
   target_include_directories (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
 endif ()

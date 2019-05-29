@@ -4,7 +4,9 @@
 #include "connectivity.hpp"
 #include "element_table.hpp"
 #include "mem_usage.hpp"
+#ifdef USE_HIGHFIVE
 #include "io.hpp"
+#endif
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -81,7 +83,9 @@ int main(int argc, char **argv)
   }();
 
   // -- setup output file and write initial condition
+#ifdef USE_HIGHFIVE
   auto output_dataset = initialize_output_file(initial_condition);
+#endif
 
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
@@ -217,7 +221,9 @@ int main(int argc, char **argv)
     }
 
     // write output to file
+#ifdef USE_HIGHFIVE
     update_output_file(output_dataset, fx);
+#endif
 
     std::cout << "timestep: " << i << " complete" << '\n';
   }

@@ -8,7 +8,6 @@
 #include <map>
 #include <numeric>
 #include <vector>
-#include "io.hpp"
 
 // Construct forward and reverse element tables
 element_table::element_table(options const program_opts, int const num_dims)
