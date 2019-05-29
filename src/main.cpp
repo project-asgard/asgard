@@ -35,33 +35,38 @@ int main(int argc, char **argv)
 
   // -- generate initial condition vector.
   std::cout << "generating: initial conditions..." << std::endl;
-  std::vector<fk::vector<prec>> initial_conditions;
-  for (dimension<prec> const &dim : pde->get_dimensions())
-  {
-    initial_conditions.push_back(
-        forward_transform<prec>(dim, dim.initial_condition));
-  }
-  fk::vector<prec> const initial_condition =
-      combine_dimensions(degree, table, initial_conditions);
+  fk::vector<prec> const initial_condition = [&pde, &table]() {
+    std::vector<fk::vector<prec>> initial_conditions;
+    for (dimension<prec> const &dim : pde->get_dimensions())
+    {
+      initial_conditions.push_back(
+          forward_transform<prec>(dim, dim.initial_condition));
+    }
+    return combine_dimensions(pde->get_dimensions()[0], table,
+                              initial_conditions);
+  }();
 
   // -- generate source vectors.
-  // these will be scaled later according to the simulation time applied with
-  // their own time-scaling functions
+  // these will be scaled later according to the simulation time applied
+  // with their own time-scaling functions
   std::cout << "generating: source vectors..." << std::endl;
-  std::vector<fk::vector<prec>> initial_sources;
-  for (source<prec> const &source : pde->sources)
-  {
-    // gather contributions from each dim for this source, in wavelet space
-    std::vector<fk::vector<prec>> initial_sources_dim;
-    for (int i = 0; i < pde->num_dims; ++i)
+  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table]() {
+    std::vector<fk::vector<prec>> initial_sources;
+    for (source<prec> const &source : pde->sources)
     {
-      initial_sources_dim.push_back(forward_transform<prec>(
-          pde->get_dimensions()[i], source.source_funcs[i]));
+      // gather contributions from each dim for this source, in wavelet space
+      std::vector<fk::vector<prec>> initial_sources_dim;
+      for (int i = 0; i < pde->num_dims; ++i)
+      {
+        initial_sources_dim.push_back(forward_transform<prec>(
+            pde->get_dimensions()[i], source.source_funcs[i]));
+      }
+      // combine those contributions to form the unscaled source vector
+      initial_sources.push_back(combine_dimensions(pde->get_dimensions()[0],
+                                                   table, initial_sources_dim));
     }
-    // combine those contributions to form the unscaled source vector
-    initial_sources.push_back(
-        combine_dimensions(degree, table, initial_sources_dim));
-  }
+    return initial_sources;
+  }();
 
   // -- generate analytic solution vector.
   std::cout << "generating: analytic solution at t=0 ..." << std::endl;
@@ -105,8 +110,7 @@ int main(int argc, char **argv)
       std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
   std::cout << "allocating input vector, size (MB): "
             << get_MB(table.size() * elem_size) << std::endl;
-  fk::vector<prec> x(table.size() * elem_size);
-  x = initial_condition;
+  fk::vector<prec> x(initial_condition);
 
   // intermediate output spaces for batched gemm
   std::cout << "allocating kronmult output space, size (MB): "
