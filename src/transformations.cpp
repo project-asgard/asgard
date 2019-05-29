@@ -53,7 +53,6 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
   int const num_dims = vectors.size();
   assert(num_dims > 0);
 
-  // int const degree = pde.get_dimensions()[0].get_degree();
   fk::vector<P> combined(table.size() * std::pow(degree, num_dims));
 
   for (int i = 0; i < table.size(); ++i)

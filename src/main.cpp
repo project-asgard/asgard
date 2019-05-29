@@ -65,13 +65,11 @@ int main(int argc, char **argv)
 
   // -- generate analytic solution vector.
   std::cout << "generating: analytic solution at t=0 ..." << std::endl;
-  auto dimensions = pde->get_dimensions();
   std::vector<fk::vector<prec>> analytic_solutions_D;
-  int const num_dims = dimensions.size();
-  for (int d = 0; d < num_dims; d++)
+  for (int d = 0; d < pde->num_dims; d++)
   {
-    analytic_solutions_D.push_back(
-        forward_transform<prec>(dimensions[d], pde->exact_vector_funcs[d]));
+    analytic_solutions_D.push_back(forward_transform<prec>(
+        pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
   }
   fk::vector<prec> const analytic_solution =
       combine_dimensions(degree, table, analytic_solutions_D);
@@ -157,7 +155,7 @@ int main(int argc, char **argv)
     explicit_time_advance(*pde, x, x_orig, fval, scaled_source, initial_sources,
                           workspace, batches, time, dt);
 
-    // difference from analytic solution
+    // print L2-norm difference from analytic solution
 
     if (pde->has_analytic_soln)
     {
