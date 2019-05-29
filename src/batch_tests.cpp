@@ -1350,7 +1350,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> y_own(x_size * num_elems * num_terms);
     fk::vector<TestType> gold(x_size * num_elems * num_terms);
     fk::vector<TestType> work_own(x_size * num_elems * num_terms *
-                                  (num_dims - 1));
+                                  std::min(num_dims - 1, 2));
 
     for (int i = 0; i < num_elems; ++i)
     {
@@ -1361,7 +1361,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
         // address y space
         int const y_index    = x_size * kron_index;
-        int const work_index = x_size * kron_index * (num_dims - 1);
+        int const work_index = x_size * kron_index * std::min(num_dims - 1, 2);
         fk::vector<TestType, mem_type::view> y_view(y_own, y_index,
                                                     y_index + x_size - 1);
         fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
@@ -1448,7 +1448,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> y_own(x_size * num_elems * num_terms);
     fk::vector<TestType> gold(x_size * num_elems * num_terms);
     fk::vector<TestType> work_own(x_size * num_elems * num_terms *
-                                  (num_dims - 1));
+                                  std::min(num_dims - 1, 2));
     std::fill(work_own.begin(), work_own.end(), 0.0);
     std::fill(y_own.begin(), y_own.end(), 0.0);
     for (int i = 0; i < num_elems; ++i)
@@ -1460,7 +1460,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
         // address y space
         int const y_index    = x_size * kron_index;
-        int const work_index = x_size * kron_index * (num_dims - 1);
+        int const work_index = x_size * kron_index * std::min(num_dims - 1, 2);
         fk::vector<TestType, mem_type::view> y_view(y_own, y_index,
                                                     y_index + x_size - 1);
         fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
@@ -1534,7 +1534,6 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       A_mats.push_back(fk::matrix<TestType>(dof, dof));
     }
 
-    // create different matrices for each term/dim pairing
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
@@ -1560,18 +1559,19 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> y_own(x_size * num_elems * num_terms);
     fk::vector<TestType> gold(x_size * num_elems * num_terms);
     fk::vector<TestType> work_own(x_size * num_elems * num_terms *
-                                  (num_dims - 1));
-
+                                  std::min(num_dims - 1, 2));
+    std::fill(work_own.begin(), work_own.end(), 0.0);
+    std::fill(y_own.begin(), y_own.end(), 0.0);
     for (int i = 0; i < num_elems; ++i)
     {
       for (int j = 0; j < pde->num_terms; ++j)
       {
         // linearize index
-        int const kron_index = i * num_terms + j;
+        int const kron_index = pde->num_terms * i + j;
 
         // address y space
         int const y_index    = x_size * kron_index;
-        int const work_index = x_size * kron_index * (num_dims - 1);
+        int const work_index = x_size * kron_index * std::min(num_dims - 1, 2);
         fk::vector<TestType, mem_type::view> y_view(y_own, y_index,
                                                     y_index + x_size - 1);
         fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
@@ -1581,19 +1581,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
         std::vector<fk::vector<TestType, mem_type::view>> work_views = {
             fk::vector<TestType, mem_type::view>(work_own, work_index,
                                                  work_index + x_size - 1),
-
             fk::vector<TestType, mem_type::view>(work_own, work_index + x_size,
-                                                 work_index + x_size * 2 - 1),
-
-            fk::vector<TestType, mem_type::view>(
-                work_own, work_index + x_size * 2, work_index + x_size * 3 - 1),
-
-            fk::vector<TestType, mem_type::view>(
-                work_own, work_index + x_size * 3, work_index + x_size * 4 - 1),
-
-            fk::vector<TestType, mem_type::view>(work_own,
-                                                 work_index + x_size * 4,
-                                                 work_index + x_size * 5 - 1)};
+                                                 work_index + x_size * 2 - 1)};
 
         // create A_views
         std::vector<fk::matrix<TestType, mem_type::view>> A_views;
@@ -1603,6 +1592,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
           int const stop_row  = degree * (i + 1) - 1;
           int const start_col = 0;
           int const stop_col  = degree - 1;
+
           A_views.push_back(fk::matrix<TestType, mem_type::view>(
               A_mats[j * num_dims + k], start_row, stop_row, start_col,
               stop_col));
@@ -1612,8 +1602,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
         kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
                                batch_offset, *pde);
 
-        gold_view = (A_views[5].kron(A_views[4].kron(A_views[3].kron(
-                        A_views[2].kron(A_views[1].kron(A_views[0])))))) *
+        gold_view = A_views[5].kron(A_views[4].kron(A_views[3].kron(
+                        A_views[2].kron(A_views[1].kron(A_views[0]))))) *
                     x;
       }
     }
@@ -1815,7 +1805,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
     fk::vector<TestType> const work(elem_size * elem_table.size() *
                                     elem_table.size() * pde->num_terms *
-                                    (pde->num_dims - 1));
+                                    std::min(pde->num_dims - 1, 2));
     fk::vector<TestType> const fx(x.size());
 
     // setup reduction vector
@@ -1897,7 +1887,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
     fk::vector<TestType> const work(elem_size * elem_table.size() *
                                     elem_table.size() * pde->num_terms *
-                                    (pde->num_dims - 1));
+                                    std::min(pde->num_dims - 1, 2));
     fk::vector<TestType> const fx(x.size());
 
     // setup reduction vector
@@ -1979,7 +1969,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
     fk::vector<TestType> const work(elem_size * elem_table.size() *
                                     elem_table.size() * pde->num_terms *
-                                    (pde->num_dims - 1));
+                                    std::min(pde->num_dims - 1, 2));
     fk::vector<TestType> const fx(x.size());
 
     // setup reduction vector
@@ -2061,7 +2051,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const y(x.size() * elem_table.size() * pde->num_terms);
     fk::vector<TestType> const work(elem_size * elem_table.size() *
                                     elem_table.size() * pde->num_terms *
-                                    (pde->num_dims - 1));
+                                    std::min(pde->num_dims - 1, 2));
     fk::vector<TestType> const fx(x.size());
 
     // setup reduction vector
