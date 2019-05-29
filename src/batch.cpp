@@ -477,7 +477,7 @@ void kronmult_to_batch_sets(
   assert(y.size() == result_size);
 
   // check workspace sizes
-  assert(static_cast<int>(work.size()) == pde.num_dims - 1);
+  assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
   for (fk::vector<P, mem_type::view> const &vector : work)
   {
     assert(vector.size() == result_size);
@@ -525,13 +525,14 @@ void kronmult_to_batch_sets(
     // loop over gemms for this dimension and enqueue
     for (int gemm = 0; gemm < num_gemms; ++gemm)
     {
-      fk::matrix<P, mem_type::view> x_view(work[dimension - 1], sizes.rows_a,
-                                           sizes.cols_a, offset * gemm);
+      // the modulus here is to alternate input/output workspaces per dimension
+      fk::matrix<P, mem_type::view> x_view(
+          work[(dimension - 1) % 2], sizes.rows_a, sizes.cols_a, offset * gemm);
       batches[dimension][0].assign_entry(x_view,
                                          batch_offset * num_gemms + gemm);
       batches[dimension][1].assign_entry(A[dimension],
                                          batch_offset * num_gemms + gemm);
-      fk::matrix<P, mem_type::view> work_view(work[dimension], sizes.rows_a,
+      fk::matrix<P, mem_type::view> work_view(work[dimension % 2], sizes.rows_a,
                                               sizes.cols_a, offset * gemm);
       batches[dimension][2].assign_entry(work_view,
                                          batch_offset * num_gemms + gemm);
@@ -542,7 +543,7 @@ void kronmult_to_batch_sets(
   matrix_size_set const sizes =
       compute_dimensions(degree, pde.num_dims, pde.num_dims - 1);
 
-  fk::matrix<P, mem_type::view> x_view(work[pde.num_dims - 2], sizes.rows_a,
+  fk::matrix<P, mem_type::view> x_view(work[pde.num_dims % 2], sizes.rows_a,
                                        sizes.cols_a);
   batches[pde.num_dims - 1][0].assign_entry(x_view, batch_offset);
   batches[pde.num_dims - 1][1].assign_entry(A[pde.num_dims - 1], batch_offset);
@@ -580,10 +581,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
   assert(y.size() == x_size * elem_table.size() * pde.num_terms);
 
-  // intermediate workspaces for kron product. can be reduced to 3/5ths
-  // this size for the 6 dimensional case if we alternate input/output spaces
-  // per dimension.
-  assert(work.size() == y.size() * (pde.num_dims - 1));
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  assert(work.size() == y.size() * num_workspaces);
 
   int const items_to_reduce = pde.num_terms * elem_table.size();
   assert(unit_vector.size() == items_to_reduce);
@@ -682,16 +682,15 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                                                    y_index + elem_size - 1);
 
         // work space, intermediate kron data
-        int const work_index = elem_size * kron_index * (pde.num_dims - 1);
+        int const work_index =
+            elem_size * kron_index * std::min(pde.num_dims - 1, 2);
         std::vector<fk::vector<P, mem_type::view>> work_views(
-            pde.num_dims - 1,
-            fk::vector<P, mem_type::view>(work, work_index,
-                                          work_index + elem_size - 1));
-        for (int d = 1; d < pde.num_dims - 1; ++d)
+            num_workspaces, fk::vector<P, mem_type::view>(
+                                work, work_index, work_index + elem_size - 1));
+        if (num_workspaces == 2)
         {
-          work_views[d] = fk::vector<P, mem_type::view>(
-              work, work_index + elem_size * d,
-              work_index + elem_size * (d + 1) - 1);
+          work_views[1] = fk::vector<P, mem_type::view>(
+              work, work_index + elem_size, work_index + elem_size * 2 - 1);
         }
 
         // operator views, windows into operator matrix

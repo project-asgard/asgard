@@ -113,12 +113,12 @@ int main(int argc, char **argv)
             << get_MB(x.size() * table.size() * pde->num_terms) << std::endl;
   fk::vector<prec> y(x.size() * table.size() * pde->num_terms);
 
+  int const num_workspaces = std::min(pde->num_dims - 1, 2);
   std::cout << "allocating kronmult working space, size (MB): "
-            << get_MB(x.size() * table.size() * pde->num_terms *
-                      (pde->num_dims - 1))
+            << get_MB(x.size() * table.size() * pde->num_terms * num_workspaces)
             << std::endl;
   fk::vector<prec> work(x.size() * table.size() * pde->num_terms *
-                        (pde->num_dims - 1));
+                        num_workspaces);
 
   // output vector fval
   std::cout << "allocating output vector, size (MB): " << get_MB(x.size())
