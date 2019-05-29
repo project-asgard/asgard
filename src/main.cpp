@@ -35,22 +35,22 @@ int main(int argc, char **argv)
 
   // -- generate initial condition vector.
   std::cout << "generating: initial conditions..." << std::endl;
-  fk::vector<prec> const initial_condition = [&pde, &table]() {
+  fk::vector<prec> const initial_condition = [&pde, &table, degree]() {
     std::vector<fk::vector<prec>> initial_conditions;
     for (dimension<prec> const &dim : pde->get_dimensions())
     {
       initial_conditions.push_back(
           forward_transform<prec>(dim, dim.initial_condition));
     }
-    return combine_dimensions(pde->get_dimensions()[0], table,
-                              initial_conditions);
+    return combine_dimensions(degree, table, initial_conditions);
   }();
 
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
   std::cout << "generating: source vectors..." << std::endl;
-  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table]() {
+  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table,
+                                                         degree]() {
     std::vector<fk::vector<prec>> initial_sources;
     for (source<prec> const &source : pde->sources)
     {
@@ -62,8 +62,8 @@ int main(int argc, char **argv)
             pde->get_dimensions()[i], source.source_funcs[i]));
       }
       // combine those contributions to form the unscaled source vector
-      initial_sources.push_back(combine_dimensions(pde->get_dimensions()[0],
-                                                   table, initial_sources_dim));
+      initial_sources.push_back(
+          combine_dimensions(degree, table, initial_sources_dim));
     }
     return initial_sources;
   }();
