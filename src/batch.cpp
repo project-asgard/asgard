@@ -567,25 +567,35 @@ std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
               fk::vector<P> const &x, fk::vector<P> const &y,
               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
-              fk::vector<P> const &fx)
+              fk::vector<P> const &fx, int const connected_start,
+              int const elements_per_batch)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const x_size    = elem_size * elem_table.size();
   assert(x.size() == x_size);
+
+  // check our batch partitioning arguments
+  assert(connected_start >= 0);
+  assert(connected_start < elem_table.size());
+  assert(elements_per_batch >= -1);
+  assert(elements_per_batch <= elem_table.size());
+  int const elements_in_batch =
+      elements_per_batch < 0 ? elem_table.size() : elements_per_batch;
+
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
-  assert(y.size() == x_size * elem_table.size() * pde.num_terms);
+  assert(y.size() == x_size * elements_in_batch * pde.num_terms);
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   assert(work.size() == y.size() * num_workspaces);
 
-  int const items_to_reduce = pde.num_terms * elem_table.size();
-  assert(unit_vector.size() == items_to_reduce);
+  int const items_to_reduce = pde.num_terms * elements_in_batch;
+  assert(unit_vector.size() >= items_to_reduce);
 
   std::vector<batch_operands_set<P>> batches =
-      allocate_batches<P>(pde, elem_table.size() * elem_table.size());
+      allocate_batches<P>(pde, elem_table.size() * elements_in_batch);
 
   batch_operands_set<P> reduction_batch = {
       batch<P>(elem_table.size(), elem_size, items_to_reduce, elem_size, false),
@@ -639,7 +649,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-    for (int j = 0; j < elem_table.size(); ++j)
+    int const connected_stop =
+        std::min(connected_start + elements_in_batch, elem_table.size());
+    for (int j = connected_start; j < connected_stop; ++j)
     {
       // get linearized indices for this connected element
       fk::vector<int> coords = elem_table.get_coords(j);
@@ -670,7 +682,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // connected items (scan) * terms
 
         int const kron_index =
-            k + j * pde.num_terms + i * elem_table.size() * pde.num_terms;
+            k + j * pde.num_terms + i * elements_in_batch * pde.num_terms;
 
         // y space, where kron outputs are written
         int const y_index = elem_size * kron_index;
@@ -948,11 +960,12 @@ template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
               fk::vector<float> const &x, fk::vector<float> const &y,
               fk::vector<float> const &work,
-              fk::vector<float> const &unit_vector,
-              fk::vector<float> const &fx);
+              fk::vector<float> const &unit_vector, fk::vector<float> const &fx,
+              int const connected_start, int const elements_per_batch);
 template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               fk::vector<double> const &x, fk::vector<double> const &y,
               fk::vector<double> const &work,
               fk::vector<double> const &unit_vector,
-              fk::vector<double> const &fx);
+              fk::vector<double> const &fx, int const connected_start,
+              int const elements_per_batch);
