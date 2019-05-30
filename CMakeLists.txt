@@ -60,6 +60,7 @@ set (components
   connectivity
   element_table
   matlab_utilities
+  mem_usage
   permutations
   pde
   program_options
@@ -119,6 +120,7 @@ set (main_app_link_deps
   connectivity
   element_table
   matlab_utilities
+  mem_usage
   pde
   program_options
   quadrature
