@@ -79,7 +79,7 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE tensors)
+target_link_libraries (batch PRIVATE coefficients connectivity element_table pde tensors)
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
@@ -136,30 +136,27 @@ endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
 
-
 ###############################################################################
 ## Testing asgard
 #
 ###############################################################################
 if (ASGARD_BUILD_TESTS)
-  # Make tests executable
-  add_executable (tests testing/tests_general.cpp)
-  foreach (component IN LISTS components)
-    target_sources (tests PRIVATE src/${component}_tests.cpp)
-  endforeach ()
-
-  target_link_libraries (tests PRIVATE Catch)
-  foreach (link_dep IN LISTS main_app_link_deps)
-    target_link_libraries (tests PRIVATE ${link_dep})
-  endforeach ()
-
-  if (PROFILE_DEPS)
-    add_dependencies (tests ${PROFILE_DEPS})
-  endif ()
-    target_link_libraries (tests PRIVATE ${PROFILE_LIBS})
-
   enable_testing ()
-  add_test (all-tests tests)
+
+  # Define ctest tests and their executables
+  add_library (tests_general testing/tests_general.cpp)
+  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
+  foreach (component IN LISTS components)
+    add_executable (${component}-tests src/${component}_tests.cpp)
+    target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
+    target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+    get_target_property(linkdeps ${component} LINK_LIBRARIES)
+    target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
+    add_test (NAME ${component}-test
+              COMMAND ${component}-tests
+              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+  endforeach ()
+
 else ()
   message (WARNING "warning: tests will not be built.")
 endif ()

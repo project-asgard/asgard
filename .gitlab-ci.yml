@@ -18,8 +18,8 @@ catch2-gcc-tests:
     - mkdir build
     - cd build
     - cmake -DCMAKE_CXX_COMPILER=g++ ..
-    - make
-    - ./tests
+    - make -j 8
+    - ctest -j 8
 #  only:
 #    - merge-requests
 
@@ -30,7 +30,7 @@ catch2-clang-tests:
     - mkdir build
     - cd build
     - cmake -DCMAKE_CXX_COMPILER=clang++ ..
-    - make
-    - ./tests
+    - make -j 8
+    - ctest -j 8
 #  only:
 #    - merge-requests
