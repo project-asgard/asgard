@@ -565,16 +565,14 @@ static fk::vector<int> linearize(fk::vector<int> const &coords)
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
-              fk::vector<P> const &x, fk::vector<P> const &y,
-              fk::vector<P> const &work, fk::vector<P> const &unit_vector,
-              fk::vector<P> const &fx, int const connected_start,
+              explicit_system<P> const &system, int const connected_start,
               int const elements_per_batch)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const x_size    = elem_size * elem_table.size();
-  assert(x.size() == x_size);
+  assert(system.x.size() == x_size);
 
   // check our batch partitioning arguments
   assert(connected_start >= 0);
@@ -585,14 +583,14 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       elements_per_batch < 0 ? elem_table.size() : elements_per_batch;
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
-  assert(y.size() == x_size * elements_in_batch * pde.num_terms);
+  assert(system.y.size() == x_size * elements_in_batch * pde.num_terms);
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  assert(work.size() == y.size() * num_workspaces);
+  assert(system.work.size() == system.y.size() * num_workspaces);
 
   int const items_to_reduce = pde.num_terms * elements_in_batch;
-  assert(unit_vector.size() >= items_to_reduce);
+  assert(system.get_unit_vector().size() >= items_to_reduce);
 
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, elem_table.size() * elements_in_batch);
@@ -638,14 +636,16 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     int const workspace_size = elem_size * items_to_reduce;
     int const reduce_index   = workspace_size * i;
-    fk::matrix<P, mem_type::view> reduction_space(y, elem_size, items_to_reduce,
-                                                  reduce_index);
+    fk::matrix<P, mem_type::view> reduction_space(
+        system.y, elem_size, items_to_reduce, reduce_index);
     // assign_entry into reduction batch
     reduction_batch[0].assign_entry(reduction_space, i);
     reduction_batch[1].assign_entry(
-        fk::matrix<P, mem_type::view>(unit_vector, items_to_reduce, 1, 0), i);
+        fk::matrix<P, mem_type::view>(system.get_unit_vector(), items_to_reduce,
+                                      1, 0),
+        i);
     reduction_batch[2].assign_entry(
-        fk::matrix<P, mem_type::view>(fx, elem_size, 1, global_row), i);
+        fk::matrix<P, mem_type::view>(system.fx, elem_size, 1, global_row), i);
 
     // loop over connected elements. for now, we assume
     // full connectivity
@@ -686,19 +686,21 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
         // y space, where kron outputs are written
         int const y_index = elem_size * kron_index;
-        fk::vector<P, mem_type::view> const y_view(y, y_index,
+        fk::vector<P, mem_type::view> const y_view(system.y, y_index,
                                                    y_index + elem_size - 1);
 
         // work space, intermediate kron data
         int const work_index =
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
         std::vector<fk::vector<P, mem_type::view>> work_views(
-            num_workspaces, fk::vector<P, mem_type::view>(
-                                work, work_index, work_index + elem_size - 1));
+            num_workspaces,
+            fk::vector<P, mem_type::view>(system.work, work_index,
+                                          work_index + elem_size - 1));
         if (num_workspaces == 2)
         {
-          work_views[1] = fk::vector<P, mem_type::view>(
-              work, work_index + elem_size, work_index + elem_size * 2 - 1);
+          work_views[1] =
+              fk::vector<P, mem_type::view>(system.work, work_index + elem_size,
+                                            work_index + elem_size * 2 - 1);
         }
 
         // operator views, windows into operator matrix
@@ -716,7 +718,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         int const global_col = j * elem_size;
 
         // x vector input to kronmult
-        fk::vector<P, mem_type::view> const x_view(x, global_col,
+        fk::vector<P, mem_type::view> const x_view(system.x, global_col,
                                                    global_col + elem_size - 1);
 
         kronmult_to_batch_sets(operator_views, x_view, y_view, work_views,
@@ -729,15 +731,10 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   batches.push_back(std::move(reduction_batch));
   return batches;
 }
-
 template<typename P>
-work_set<P>
-build_work_set(PDE<P> const &pde, element_table const &elem_table,
-               fk::vector<P> const &x, fk::vector<P> const &y,
-               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
-               fk::vector<P> const &fx, int const workspace_MB)
+int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
+                         int const workspace_MB)
 {
-  work_set<P> work_split;
   assert(workspace_MB >= -1);
   auto const get_MB = [](int const num_elems) {
     int const bytes        = num_elems * sizeof(P);
@@ -761,16 +758,56 @@ build_work_set(PDE<P> const &pde, element_table const &elem_table,
   int const elem_limit =
       do_chunk ? std::max(1, static_cast<int>(elem_MB / workspace_MB))
                : elem_table.size();
+
+  return elem_limit;
+}
+
+template<typename P>
+explicit_system<P>::explicit_system(PDE<P> const &pde,
+                                    element_table const &table,
+                                    int const limit_MB)
+{
+  int const degree        = pde.get_dimensions()[0].get_degree();
+  int const elem_size     = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elems_per_set = get_elements_per_set(pde, table, limit_MB);
+
+  x.resize(elem_size * table.size());
+  fx.resize(x.size());
+  y.resize(x.size() * elems_per_set * pde.num_terms);
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  work.resize(y.size() * num_workspaces);
+  unit_vector_.resize(pde.num_terms * elems_per_set);
+  std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
+}
+
+template<typename P>
+fk::vector<P> const &explicit_system<P>::get_unit_vector() const
+{
+  return unit_vector_;
+}
+
+template<typename P>
+work_set<P>
+build_work_set(PDE<P> const &pde, element_table const &elem_table,
+               explicit_system<P> const &system, int const workspace_MB)
+{
+  work_set<P> work_split;
+
+  int const elem_limit = get_elements_per_set(pde, elem_table, workspace_MB);
+
   // number of element sets that will share workspace
   int const num_work_sets =
-      do_chunk ? std::ceil(static_cast<double>(elem_limit) / elem_table.size())
-               : 1;
+      workspace_MB > 0
+          ? std::ceil(static_cast<double>(elem_limit) / elem_table.size())
+          : 1;
 
   for (int i = 0; i < num_work_sets; ++i)
   {
-    work_split.emplace_back(build_batches(pde, elem_table, x, y, work,
-                                          unit_vector, fx, i * elem_limit,
-                                          elem_limit));
+    // TODO modify build batches to accept system argument
+    work_split.emplace_back(
+        build_batches(pde, elem_table, system, i * elem_limit, elem_limit));
   }
 
   return work_split;
@@ -778,6 +815,9 @@ build_work_set(PDE<P> const &pde, element_table const &elem_table,
 
 template class batch<float>;
 template class batch<double>;
+
+template class explicit_system<float>;
+template class explicit_system<double>;
 
 template void batched_gemm(batch<float> const a, batch<float> const b,
                            batch<float> const c, float const alpha,
@@ -815,28 +855,25 @@ template void kronmult_to_batch_sets(
 
 template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
-              fk::vector<float> const &x, fk::vector<float> const &y,
-              fk::vector<float> const &work,
-              fk::vector<float> const &unit_vector, fk::vector<float> const &fx,
-              int const connected_start, int const elements_per_batch);
+              explicit_system<float> const &system, int const connected_start,
+              int const elements_per_batch);
 template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
-              fk::vector<double> const &x, fk::vector<double> const &y,
-              fk::vector<double> const &work,
-              fk::vector<double> const &unit_vector,
-              fk::vector<double> const &fx, int const connected_start,
+              explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
+
+template int get_elements_per_set(PDE<float> const &pde,
+                                  element_table const &elem_table,
+                                  int const workspace_MB);
+
+template int get_elements_per_set(PDE<double> const &pde,
+                                  element_table const &elem_table,
+                                  int const workspace_MB);
 
 template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,
-               fk::vector<float> const &x, fk::vector<float> const &y,
-               fk::vector<float> const &work,
-               fk::vector<float> const &unit_vector,
-               fk::vector<float> const &fx, int const workspace_MB);
+               explicit_system<float> const &system, int const workspace_MB);
 
 template work_set<double>
 build_work_set(PDE<double> const &pde, element_table const &elem_table,
-               fk::vector<double> const &x, fk::vector<double> const &y,
-               fk::vector<double> const &work,
-               fk::vector<double> const &unit_vector,
-               fk::vector<double> const &fx, int const workspace_MB);
+               explicit_system<double> const &system, int const workspace_MB);

@@ -121,27 +121,50 @@ void kronmult_to_batch_sets(
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde);
 
+// this class stores the input, output, work, and auxiliary vectors
+// that batches compute with in explicit time advance
+template<typename P>
+class explicit_system
+{
+public:
+  explicit_system(PDE<P> const &pde, element_table const &table,
+                  int const limit_MB = -1);
+
+  fk::vector<P> const &get_unit_vector() const;
+  fk::vector<P> x;
+  fk::vector<P> y;
+  fk::vector<P> work;
+  fk::vector<P> fx;
+
+private:
+  fk::vector<P> unit_vector_;
+};
+
 // use info from pde and element table to create and populate the batch lists
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
-              fk::vector<P> const &x, fk::vector<P> const &y,
-              fk::vector<P> const &work, fk::vector<P> const &unit_vector,
-              fk::vector<P> const &fx, int const connected_start = 0,
+              explicit_system<P> const &system, int const connected_start = 0,
               int const elements_per_batch = -1);
 
 template<typename P>
+int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
+                         int const workspace_MB);
+
+template<typename P>
 using work_set = std::vector<std::vector<batch_operands_set<P>>>;
+
 // use provided workspace size to split batches across connected items
 template<typename P>
 work_set<P>
 build_work_set(PDE<P> const &pde, element_table const &elem_table,
-               fk::vector<P> const &x, fk::vector<P> const &y,
-               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
-               fk::vector<P> const &fx, int const workspace_MB = -1);
+               explicit_system<P> const &system, int const workspace_MB = -1);
 
 extern template class batch<float>;
 extern template class batch<double>;
+
+extern template class explicit_system<float>;
+extern template class explicit_system<double>;
 
 extern template void batched_gemm(batch<float> const a, batch<float> const b,
                                   batch<float> const c, float const alpha,
@@ -178,28 +201,24 @@ extern template void kronmult_to_batch_sets(
 
 extern template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
-              fk::vector<float> const &x, fk::vector<float> const &y,
-              fk::vector<float> const &work,
-              fk::vector<float> const &unit_vector, fk::vector<float> const &fx,
-              int const connected_start, int const elements_per_batch);
+              explicit_system<float> const &system, int const connected_start,
+              int const elements_per_batch);
 extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
-              fk::vector<double> const &x, fk::vector<double> const &y,
-              fk::vector<double> const &work,
-              fk::vector<double> const &unit_vector,
-              fk::vector<double> const &fx, int const connected_start,
+              explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
+
+extern template int get_elements_per_set(PDE<float> const &pde,
+                                         element_table const &elem_table,
+                                         int const workspace_MB);
+extern template int get_elements_per_set(PDE<double> const &pde,
+                                         element_table const &elem_table,
+                                         int const workspace_MB);
 
 extern template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,
-               fk::vector<float> const &x, fk::vector<float> const &y,
-               fk::vector<float> const &work,
-               fk::vector<float> const &unit_vector,
-               fk::vector<float> const &fx, int const workspace_MB);
+               explicit_system<float> const &system, int const workspace_MB);
 
 extern template work_set<double>
 build_work_set(PDE<double> const &pde, element_table const &elem_table,
-               fk::vector<double> const &x, fk::vector<double> const &y,
-               fk::vector<double> const &work,
-               fk::vector<double> const &unit_vector,
-               fk::vector<double> const &fx, int const workspace_MB);
+               explicit_system<double> const &system, int const workspace_MB);
