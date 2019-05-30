@@ -681,8 +681,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // * elem_table.size() * terms must be replaced by sum of lower indexed
         // connected items (scan) * terms
 
-        int const kron_index =
-            k + j * pde.num_terms + i * elements_in_batch * pde.num_terms;
+        int const kron_index = k + (j - connected_start) * pde.num_terms +
+                               i * elements_in_batch * pde.num_terms;
 
         // y space, where kron outputs are written
         int const y_index = elem_size * kron_index;
@@ -728,6 +728,52 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   // emplace the reduction batch
   batches.push_back(std::move(reduction_batch));
   return batches;
+}
+
+template<typename P>
+work_set<P>
+build_work_set(PDE<P> const &pde, element_table const &elem_table,
+               fk::vector<P> const &x, fk::vector<P> const &y,
+               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
+               fk::vector<P> const &fx, int const workspace_MB)
+{
+  work_set<P> work_split;
+  assert(workspace_MB >= -1);
+  auto const get_MB = [](int const num_elems) {
+    int const bytes        = num_elems * sizeof(P);
+    double const megabytes = bytes * 1e-6;
+    return megabytes;
+  };
+
+  // are we splitting the batches?
+  bool const do_chunk      = workspace_MB > 0;
+  int const degree         = pde.get_dimensions()[0].get_degree();
+  int const elem_size      = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+
+  // calc size of reduction space for a single work item
+  double const elem_reduction_space_MB =
+      get_MB(pde.num_terms * elem_table.size() * elem_size);
+  // calc size of intermediate space for a single work item
+  double const elem_intermediate_space_MB = get_MB(num_workspaces * elem_size);
+  double const elem_MB = elem_reduction_space_MB + elem_intermediate_space_MB;
+  // number of elements that will be batched and calculated together
+  int const elem_limit =
+      do_chunk ? std::max(1, static_cast<int>(elem_MB / workspace_MB))
+               : elem_table.size();
+  // number of element sets that will share workspace
+  int const num_work_sets =
+      do_chunk ? std::ceil(static_cast<double>(elem_limit) / elem_table.size())
+               : 1;
+
+  for (int i = 0; i < num_work_sets; ++i)
+  {
+    work_split.emplace_back(build_batches(pde, elem_table, x, y, work,
+                                          unit_vector, fx, i * elem_limit,
+                                          elem_limit));
+  }
+
+  return work_split;
 }
 
 template class batch<float>;
@@ -780,3 +826,17 @@ build_batches(PDE<double> const &pde, element_table const &elem_table,
               fk::vector<double> const &unit_vector,
               fk::vector<double> const &fx, int const connected_start,
               int const elements_per_batch);
+
+template work_set<float>
+build_work_set(PDE<float> const &pde, element_table const &elem_table,
+               fk::vector<float> const &x, fk::vector<float> const &y,
+               fk::vector<float> const &work,
+               fk::vector<float> const &unit_vector,
+               fk::vector<float> const &fx, int const workspace_MB);
+
+template work_set<double>
+build_work_set(PDE<double> const &pde, element_table const &elem_table,
+               fk::vector<double> const &x, fk::vector<double> const &y,
+               fk::vector<double> const &work,
+               fk::vector<double> const &unit_vector,
+               fk::vector<double> const &fx, int const workspace_MB);

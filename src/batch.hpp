@@ -130,6 +130,16 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               fk::vector<P> const &fx, int const connected_start = 0,
               int const elements_per_batch = -1);
 
+template<typename P>
+using work_set = std::vector<std::vector<batch_operands_set<P>>>;
+// use provided workspace size to split batches across connected items
+template<typename P>
+work_set<P>
+build_work_set(PDE<P> const &pde, element_table const &elem_table,
+               fk::vector<P> const &x, fk::vector<P> const &y,
+               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
+               fk::vector<P> const &fx, int const workspace_MB = -1);
+
 extern template class batch<float>;
 extern template class batch<double>;
 
@@ -179,3 +189,17 @@ build_batches(PDE<double> const &pde, element_table const &elem_table,
               fk::vector<double> const &unit_vector,
               fk::vector<double> const &fx, int const connected_start,
               int const elements_per_batch);
+
+extern template work_set<float>
+build_work_set(PDE<float> const &pde, element_table const &elem_table,
+               fk::vector<float> const &x, fk::vector<float> const &y,
+               fk::vector<float> const &work,
+               fk::vector<float> const &unit_vector,
+               fk::vector<float> const &fx, int const workspace_MB);
+
+extern template work_set<double>
+build_work_set(PDE<double> const &pde, element_table const &elem_table,
+               fk::vector<double> const &x, fk::vector<double> const &y,
+               fk::vector<double> const &work,
+               fk::vector<double> const &unit_vector,
+               fk::vector<double> const &fx, int const workspace_MB);
