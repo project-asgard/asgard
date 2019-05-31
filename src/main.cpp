@@ -140,56 +140,22 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
-  mem_tracker mem_usage;
 
-  // input vector x
-  int const elem_size =
-      std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-  std::cout << "  allocating input vector, size (MB): "
-            << (mem_usage += get_MB(table.size() * elem_size)) << std::endl;
-  fk::vector<prec> x(initial_condition);
-
-  // intermediate output spaces for batched gemm
-  std::cout << "  allocating kronmult output space, size (MB): "
-            << (mem_usage += get_MB(x.size() * table.size() * pde->num_terms))
-            << std::endl;
-  fk::vector<prec> y(x.size() * table.size() * pde->num_terms);
-
-  int const num_workspaces = std::min(pde->num_dims - 1, 2);
-
-  std::cout << "  allocating kronmult working space, size (MB): "
-            << (mem_usage += get_MB(x.size() * table.size() * pde->num_terms *
-                                    num_workspaces))
-            << std::endl;
-  fk::vector<prec> work(x.size() * table.size() * pde->num_terms *
-                        num_workspaces);
-
-  // output vector fval
-  std::cout << "  allocating output vector, size (MB): "
-            << (mem_usage += get_MB(x.size())) << std::endl;
-  fk::vector<prec> fval(x.size());
-
-  // setup reduction vector
-  int const items_to_reduce = pde->num_terms * table.size();
-  std::cout << "  allocating reduction vector, size (MB): "
-            << (mem_usage += get_MB(items_to_reduce)) << std::endl;
-  fk::vector<prec> const unit_vector = [&] {
-    fk::vector<prec> builder(items_to_reduce);
-    std::fill(builder.begin(), builder.end(), 1.0);
-    return builder;
-  }();
+  std::cout << "allocating workspace..." << std::endl;
+  explicit_system<prec> system(*pde, table);
 
   // call to build batches
   std::cout << "  generating: batch lists..." << std::endl;
   std::vector<batch_operands_set<prec>> const batches =
-      build_batches(*pde, table, x, y, work, unit_vector, fval);
+      build_batches(*pde, table, system);
 
-  // these vectors used for intermediate results in time advance
-  std::cout << "  allocating time loop working space, size (MB): "
-            << (mem_usage += get_MB(x.size() * 5)) << std::endl;
-  fk::vector<prec> scaled_source(x.size());
-  fk::vector<prec> x_orig(x.size());
-  std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(x.size()));
+
+  // TODO these need to be wrapped, probably in the explicit system object
+  std::cout << "allocating time loop working space, size (MB): "
+            << get_MB(system.x.size() * 5) << std::endl;
+  fk::vector<prec> scaled_source(system.x.size());
+  fk::vector<prec> x_orig(system.x.size());
+  std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(system.x.size()));
 
   std::cout << "Workspace mem usage (MB): " << mem_usage.total_mem_usage()
             << std::endl;
@@ -200,15 +166,15 @@ int main(int argc, char **argv)
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
-    explicit_time_advance(*pde, x, x_orig, fval, scaled_source, initial_sources,
-                          workspace, batches, time, dt);
+    explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
+                          initial_sources, workspace, batches, time, dt);
 
     // print L2-norm difference from analytic solution
 
     if (pde->has_analytic_soln)
     {
       prec time_multiplier = pde->exact_time(time);
-      auto error           = norm(fval - analytic_solution * time_multiplier);
+      auto error = norm(system.fx - analytic_solution * time_multiplier);
       std::cout << "Error (wavelet): " << error << std::endl;
     }
 
