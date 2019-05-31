@@ -155,20 +155,20 @@ int main(int argc, char **argv)
   std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
             << std::endl;
 
+  explicit_workspace<prec> time_advance_work(system);
+  std::cout << "explicit time loop workspace size (MB): "
+            << get_MB(system.x.size() * 5) << std::endl;
+
   // call to build batches
   std::cout << "  generating: batch lists..." << std::endl;
   std::vector<batch_operands_set<prec>> const batches =
       build_batches(*pde, table, system);
-
 
   std::cout << "allocating time loop working space, size (MB): "
             << get_MB(system.x.size() * 5) << std::endl;
   fk::vector<prec> scaled_source(system.x.size());
   fk::vector<prec> x_orig(system.x.size());
   std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(system.x.size()));
-
-  std::cout << "Workspace mem usage (MB): " << mem_usage.total_mem_usage()
-            << std::endl;
 
   // -- time loop
   std::cout << "--- begin time loop ---" << std::endl;
@@ -179,13 +179,13 @@ int main(int argc, char **argv)
 
     // FIXME modify this interface to accept an explicit system
     // and an explicit TA workspace rather than all these vects
-    explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                          initial_sources, workspace, batches, time, dt);
+    explicit_time_advance(*pde, initial_sources, system, time_advance_work,
+                          batches, time, dt);
 
     // print L2-norm difference from analytic solution
     if (pde->has_analytic_soln)
     {
-      prec time_multiplier = pde->exact_time(time);
+      prec const time_multiplier = pde->exact_time(time);
       auto const error = norm(system.fx - analytic_solution * time_multiplier);
       std::cout << "error (wavelet): " << error << std::endl;
     }

@@ -3,33 +3,46 @@
 #include "program_options.hpp"
 #include "tensors.hpp"
 
+// this class stores the workspace for time advance -
+// a handful of vectors needed to store intermediate RK results
+template<typename P>
+class explicit_workspace
+{
+public:
+  explicit_workspace(explicit_system<P> const &system)
+      : scaled_source(system.x.size()), x_orig(system.x.size()),
+        result_1(system.x.size()), result_2(system.x.size()),
+        result_3(system.x.size())
+  {}
+
+  fk::vector<P> scaled_source;
+  fk::vector<P> x_orig;
+  fk::vector<P> result_1;
+  fk::vector<P> result_2;
+  fk::vector<P> result_3;
+};
+
 // this function executes a time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
-                           fk::vector<P> &x_orig, fk::vector<P> &fx,
-                           fk::vector<P> &scaled_source,
+void explicit_time_advance(PDE<P> const &pde,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           std::vector<fk::vector<P>> &workspace,
-
+                           explicit_system<P> &system,
+                           explicit_workspace<P> &work,
                            std::vector<batch_operands_set<P>> const &batches,
                            P const time, P const dt);
 
 extern template void
-explicit_time_advance(PDE<float> const &pde, fk::vector<float> &x,
-                      fk::vector<float> &x_orig, fk::vector<float> &fx,
-                      fk::vector<float> &scaled_source,
+explicit_time_advance(PDE<float> const &pde,
                       std::vector<fk::vector<float>> const &unscaled_sources,
-                      std::vector<fk::vector<float>> &workspace,
-
+                      explicit_system<float> &system,
+                      explicit_workspace<float> &work,
                       std::vector<batch_operands_set<float>> const &batches,
                       float const time, float const dt);
-
 extern template void
-explicit_time_advance(PDE<double> const &pde, fk::vector<double> &x,
-                      fk::vector<double> &x_orig, fk::vector<double> &fx,
-                      fk::vector<double> &scaled_source,
+explicit_time_advance(PDE<double> const &pde,
                       std::vector<fk::vector<double>> const &unscaled_sources,
-                      std::vector<fk::vector<double>> &workspace,
+                      explicit_system<double> &system,
+                      explicit_workspace<double> &work,
                       std::vector<batch_operands_set<double>> const &batches,
                       double const time, double const dt);
