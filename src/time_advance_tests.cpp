@@ -72,11 +72,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -84,8 +80,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t" +
@@ -164,11 +160,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -176,8 +168,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t" +
@@ -255,11 +247,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -267,8 +255,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t" +
@@ -353,11 +341,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -365,8 +349,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t" +
@@ -445,11 +429,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -457,8 +437,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t" +
@@ -536,11 +516,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -548,8 +524,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t" +
@@ -633,11 +609,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -645,8 +617,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t" +
@@ -725,11 +697,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -737,8 +705,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t" +
@@ -821,11 +789,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(system.x.size());
-    fk::vector<TestType> x_orig(system.x.size());
-    std::vector<fk::vector<TestType>> workspace(
-        3, fk::vector<TestType>(system.x.size()));
+    explicit_workspace<TestType> work(system);
 
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
@@ -833,8 +797,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
-                            initial_sources, workspace, batches, time, dt);
+      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
+                            dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity6_sg_l2_d2_t" +
