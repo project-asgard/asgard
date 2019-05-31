@@ -2,6 +2,7 @@
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
+#include "git.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -11,6 +12,9 @@
 using prec = double;
 int main(int argc, char **argv)
 {
+  std::cout << "Branch: " << GIT_BRANCH << std::endl;
+  std::cout << "Commit Hash: " << GIT_COMMIT_HASH << std::endl;
+
   options opts(argc, argv);
 
   std::cout << "--- begin setup ---" << std::endl;

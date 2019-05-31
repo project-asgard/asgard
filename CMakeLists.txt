@@ -33,6 +33,34 @@ if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
 
+
+###############################################################################
+## Add git branch and abbreviated git commit hash to git.hpp header file
+###############################################################################
+# Get the current working branch
+execute_process(
+  COMMAND git rev-parse --abbrev-ref HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_BRANCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Generate header file from src/git.hpp.in, substituting
+# @GIT_BRANCH@ & @GIT_COMMIT_HASH@ for their respective values
+configure_file(
+  src/git.hpp.in
+  ${CMAKE_BINARY_DIR}/git.hpp
+)
+# Include the generated git.hpp
+include_directories (${CMAKE_BINARY_DIR})
+
+
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
