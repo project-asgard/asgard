@@ -134,15 +134,26 @@ int main(int argc, char **argv)
 
   std::cout << "--- begin time loop staging ---" << std::endl;
   // -- allocate/setup for batch gemm
-  auto get_MB = [&](int num_elems) {
-    uint64_t bytes   = num_elems * sizeof(prec);
-    double megabytes = bytes * 1e-6;
+  auto const get_MB = [&](int num_elems) {
+    uint64_t const bytes   = num_elems * sizeof(prec);
+    double const megabytes = bytes * 1e-6;
     return megabytes;
   };
 
 
   std::cout << "allocating workspace..." << std::endl;
   explicit_system<prec> system(*pde, table);
+  std::cout << "input vector size (MB): " << get_MB(system.x.size())
+            << std::endl;
+  std::cout << "kronmult output space size (MB): " << get_MB(system.y.size())
+            << std::endl;
+  std::cout << "kronmult working space size (MB): "
+            << get_MB(system.work.size()) << std::endl;
+  std::cout << "output vector size (MB): " << get_MB(system.fx.size())
+            << std::endl;
+  auto const &unit_vect = system.get_unit_vector();
+  std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
+            << std::endl;
 
   // call to build batches
   std::cout << "  generating: batch lists..." << std::endl;
@@ -151,7 +162,6 @@ int main(int argc, char **argv)
       build_batches(*pde, table, system);
 
 
-  // TODO these need to be wrapped, probably in the explicit system object
   std::cout << "allocating time loop working space, size (MB): "
             << get_MB(system.x.size() * 5) << std::endl;
   fk::vector<prec> scaled_source(system.x.size());
@@ -167,16 +177,18 @@ int main(int argc, char **argv)
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
+
+    // FIXME modify this interface to accept an explicit system
+    // and an explicit TA workspace rather than all these vects
     explicit_time_advance(*pde, system.x, x_orig, system.fx, scaled_source,
                           initial_sources, workspace, batches, time, dt);
 
     // print L2-norm difference from analytic solution
-
     if (pde->has_analytic_soln)
     {
       prec time_multiplier = pde->exact_time(time);
-      auto error = norm(system.fx - analytic_solution * time_multiplier);
-      std::cout << "Error (wavelet): " << error << std::endl;
+      auto const error = norm(system.fx - analytic_solution * time_multiplier);
+      std::cout << "error (wavelet): " << error << std::endl;
     }
 
     std::cout << "timestep: " << i << " complete" << std::endl;
