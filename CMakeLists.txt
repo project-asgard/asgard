@@ -38,6 +38,7 @@ endif()
 ## Add git branch and abbreviated git commit hash to git.hpp header file
 ###############################################################################
 # Get the latest abbreviated commit hash of the working branch
+# and force a cmake reconfigure
 include(GetGitRevisionDescription.cmake)
 get_git_head_revision(GIT_REFSPEC GIT_COMMIT_HASH)
 # Get the current working branch
@@ -66,12 +67,12 @@ execute_process(
   OUTPUT_VARIABLE BUILD_TIME
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-# Generate header file from src/build_info.hpp.in, substituting
+# Generate header file from src/build_info.hpp.in
 configure_file(
   src/build_info.hpp.in
   ${CMAKE_BINARY_DIR}/build_info.hpp
 )
-# Include the generated git.hpp
+# Include the generated build_info.hpp
 include_directories (${CMAKE_BINARY_DIR})
 
 
