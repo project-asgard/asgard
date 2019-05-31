@@ -1,8 +1,8 @@
 #include "batch.hpp"
+#include "build_info.hpp"
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
-#include "git.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -14,6 +14,8 @@ int main(int argc, char **argv)
 {
   std::cout << "Branch: " << GIT_BRANCH << std::endl;
   std::cout << "Commit Hash: " << GIT_COMMIT_HASH << std::endl;
+  std::cout << "Commit Summary: " << GIT_COMMIT_SUMMARY << std::endl;
+  std::cout << "Time this executable was built: " << BUILD_TIME << std::endl;
 
   options opts(argc, argv);
 

@@ -51,11 +51,29 @@ execute_process(
   OUTPUT_VARIABLE GIT_COMMIT_HASH
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-# Generate header file from src/git.hpp.in, substituting
-# @GIT_BRANCH@ & @GIT_COMMIT_HASH@ for their respective values
+# Get the summary of the last commit
+execute_process(
+  COMMAND git log --name-status HEAD^..HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_SUMMARY
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Replace newlines with '\n\t' literal
+string(REGEX REPLACE "(\r?\n)+"
+       "\\\\n\\\\t" GIT_COMMIT_SUMMARY
+       ${GIT_COMMIT_SUMMARY}
+)
+# Get the current date and time of build
+execute_process(
+  COMMAND date "+%A %W %Y %X"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE BUILD_TIME
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Generate header file from src/build_info.hpp.in, substituting
 configure_file(
-  src/git.hpp.in
-  ${CMAKE_BINARY_DIR}/git.hpp
+  src/build_info.hpp.in
+  ${CMAKE_BINARY_DIR}/build_info.hpp
 )
 # Include the generated git.hpp
 include_directories (${CMAKE_BINARY_DIR})
