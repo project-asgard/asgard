@@ -757,15 +757,8 @@ int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
       get_MB(num_workspaces * pde.num_terms * elem_table.size() * elem_size);
   double const elem_MB = elem_reduction_space_MB + elem_intermediate_space_MB;
   // number of elements that will be batched and calculated together
-  std::cout << elem_MB << std::endl;
-  std::cout << elem_MB * elem_table.size() << std::endl;
-  std::cout << elem_MB / workspace_MB << std::endl;
-  double elem_limit = do_chunk ? workspace_MB / elem_MB : elem_table.size();
-  // if (do_chunk && elem_limit < 1.0)
-  //{
-  // return elem_table.size();
-  //}
-
+  double const elem_limit =
+      do_chunk ? workspace_MB / elem_MB : elem_table.size();
   return std::min(static_cast<int>(std::ceil(elem_limit)), elem_table.size());
 }
 
