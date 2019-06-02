@@ -7,8 +7,7 @@ void explicit_time_advance(PDE<P> const &pde,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            explicit_system<P> &system,
                            explicit_workspace<P> &work,
-                           std::vector<batch_operands_set<P>> const &batches,
-                           P const time, P const dt)
+                           work_set<P> const &batches, P const time, P const dt)
 {
   assert(work.scaled_source.size() == system.x.size());
   assert(system.x.size() == system.fx.size());
@@ -21,10 +20,13 @@ void explicit_time_advance(PDE<P> const &pde,
 
   assert(time >= 0);
 
-  assert(static_cast<int>(batches.size()) == pde.num_dims + 1);
-  for (batch_operands_set<P> const &ops : batches)
+  for (auto const &ops_list : batches)
   {
-    assert(ops.size() == 3);
+    assert(static_cast<int>(ops_list.size()) == pde.num_dims + 1);
+    for (batch_operands_set<P> ops : ops_list)
+    {
+      assert(ops.size() == 3);
+    }
   }
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
 
@@ -95,24 +97,30 @@ scale_sources(PDE<P> const &pde,
 // apply the system matrix to the current solution vector using batched
 // gemm (explicit time advance).
 template<typename P>
-static void apply_explicit(std::vector<batch_operands_set<P>> const &batches)
+static void apply_explicit(work_set<P> const &batches)
 {
   // batched gemm
   P const alpha = 1.0;
   P const beta  = 0.0;
-  for (int i = 0; i < static_cast<int>(batches.size()) - 1; ++i)
-  {
-    batch<P> const a = batches[i][0];
-    batch<P> const b = batches[i][1];
-    batch<P> const c = batches[i][2];
-    batched_gemm(a, b, c, alpha, beta);
-  }
 
-  // reduce
-  batch<P> const r_a = batches[batches.size() - 1][0];
-  batch<P> const r_b = batches[batches.size() - 1][1];
-  batch<P> const r_c = batches[batches.size() - 1][2];
-  batched_gemv(r_a, r_b, r_c, alpha, beta);
+  for (int i = 0; i < static_cast<int>(batches.size()); ++i)
+  {
+    auto const batch_operands_list = batches[i];
+    for (int j = 0; i < static_cast<int>(batch_operands_list.size()) - 1; ++i)
+    {
+      batch<P> const a = batch_operands_list[j][0];
+      batch<P> const b = batch_operands_list[j][1];
+      batch<P> const c = batch_operands_list[j][2];
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // reduce
+    batch<P> const r_a = batch_operands_list[batch_operands_list.size() - 1][0];
+    batch<P> const r_b = batch_operands_list[batch_operands_list.size() - 1][1];
+    batch<P> const r_c = batch_operands_list[batch_operands_list.size() - 1][2];
+    P const reduction_beta = (i == 0) ? 0.0 : 1.0;
+    batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
+  }
 }
 
 template void
@@ -120,12 +128,12 @@ explicit_time_advance(PDE<float> const &pde,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       explicit_system<float> &system,
                       explicit_workspace<float> &work,
-                      std::vector<batch_operands_set<float>> const &batches,
-                      float const time, float const dt);
+                      work_set<float> const &batches, float const time,
+                      float const dt);
 template void
 explicit_time_advance(PDE<double> const &pde,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       explicit_system<double> &system,
                       explicit_workspace<double> &work,
-                      std::vector<batch_operands_set<double>> const &batches,
-                      double const time, double const dt);
+                      work_set<double> const &batches, double const time,
+                      double const dt);
