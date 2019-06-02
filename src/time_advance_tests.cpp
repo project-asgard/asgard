@@ -269,6 +269,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
       TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
       REQUIRE(result <= tol);
+      std::cout << i << std::endl;
     }
   }
 }
