@@ -583,12 +583,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       elements_per_batch < 0 ? elem_table.size() : elements_per_batch;
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
-  // FIXME REMOVE REPLACE W ASSERT
-  if (system.y.size() != (x_size * elements_in_batch * pde.num_terms))
-  {
-    // std::cout << system.y.size() << std::endl;
-    // std::cout << (x_size * elements_in_batch * pde.num_terms) << std::endl;
-  }
+
+  assert(system.y.size() == (x_size * elements_in_batch * pde.num_terms));
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);

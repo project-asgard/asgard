@@ -2248,12 +2248,12 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
     pde->set_coefficients(coefficient_matrix, 0, 0);
 
-    explicit_system<TestType> system(*pde, elem_table);
+    int const work_limit_MB = 1;
+
+    explicit_system<TestType> system(*pde, elem_table, work_limit_MB);
     std::generate(system.x.begin(), system.x.end(), gen);
 
     fk::vector<TestType> const gold = coefficient_matrix * system.x;
-
-    int const work_limit_MB = 1;
     auto const work_set =
         build_work_set(*pde, elem_table, system, work_limit_MB);
 
@@ -2311,9 +2311,9 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       }
     }
 
-    explicit_system<TestType> system(*pde, elem_table);
-    std::fill(system.x.begin(), system.x.end(), 1.0);
     int const work_limit_MB = 1;
+    explicit_system<TestType> system(*pde, elem_table, work_limit_MB);
+    std::fill(system.x.begin(), system.x.end(), 1.0);
     auto const work_set =
         build_work_set(*pde, elem_table, system, work_limit_MB);
 
@@ -2378,9 +2378,9 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       }
     }
 
-    explicit_system<TestType> system(*pde, elem_table);
-    std::fill(system.x.begin(), system.x.end(), 1.0);
     int const work_limit_MB = 1;
+    explicit_system<TestType> system(*pde, elem_table, work_limit_MB);
+    std::fill(system.x.begin(), system.x.end(), 1.0);
     auto const work_set =
         build_work_set(*pde, elem_table, system, work_limit_MB);
 
@@ -2415,7 +2415,6 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     auto abs_compare                = [](TestType const a, TestType const b) {
       return (std::abs(a) < std::abs(b));
     };
-
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
     TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
@@ -2447,10 +2446,9 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       }
     }
 
-    explicit_system<TestType> system(*pde, elem_table);
-    std::fill(system.x.begin(), system.x.end(), 1.0);
-
     int const work_limit_MB = 1;
+    explicit_system<TestType> system(*pde, elem_table, work_limit_MB);
+    std::fill(system.x.begin(), system.x.end(), 1.0);
     auto const work_set =
         build_work_set(*pde, elem_table, system, work_limit_MB);
 
