@@ -583,7 +583,12 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       elements_per_batch < 0 ? elem_table.size() : elements_per_batch;
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
-  assert(system.y.size() == x_size * elements_in_batch * pde.num_terms);
+  // FIXME REMOVE REPLACE W ASSERT
+  if (system.y.size() != (x_size * elements_in_batch * pde.num_terms))
+  {
+    // std::cout << system.y.size() << std::endl;
+    // std::cout << (x_size * elements_in_batch * pde.num_terms) << std::endl;
+  }
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
@@ -755,11 +760,13 @@ int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
   double const elem_intermediate_space_MB = get_MB(num_workspaces * elem_size);
   double const elem_MB = elem_reduction_space_MB + elem_intermediate_space_MB;
   // number of elements that will be batched and calculated together
-  int const elem_limit =
-      do_chunk ? std::max(1, static_cast<int>(elem_MB / workspace_MB))
-               : elem_table.size();
+  double elem_limit = do_chunk ? elem_MB / workspace_MB : elem_table.size();
+  if (do_chunk && elem_limit < 1.0)
+  {
+    return elem_table.size();
+  }
 
-  return elem_limit;
+  return std::ceil(elem_limit);
 }
 
 template<typename P>
@@ -800,12 +807,11 @@ build_work_set(PDE<P> const &pde, element_table const &elem_table,
   // number of element sets that will share workspace
   int const num_work_sets =
       workspace_MB > 0
-          ? std::ceil(static_cast<double>(elem_limit) / elem_table.size())
+          ? std::ceil(static_cast<double>(elem_table.size()) / elem_limit)
           : 1;
 
   for (int i = 0; i < num_work_sets; ++i)
   {
-    // TODO modify build batches to accept system argument
     work_split.emplace_back(
         build_batches(pde, elem_table, system, i * elem_limit, elem_limit));
   }
