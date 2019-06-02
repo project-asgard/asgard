@@ -39,8 +39,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -127,8 +126,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -214,8 +212,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -308,8 +305,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -396,8 +392,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -483,8 +478,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -576,8 +570,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -664,8 +657,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     }
 
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -756,8 +748,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       }
     }
     explicit_system<TestType> system(*pde, table);
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, system);
+    auto const batches = build_work_set(*pde, table, system);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
