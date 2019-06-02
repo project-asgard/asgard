@@ -753,16 +753,20 @@ int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
   double const elem_reduction_space_MB =
       get_MB(pde.num_terms * elem_table.size() * elem_size);
   // calc size of intermediate space for a single work item
-  double const elem_intermediate_space_MB = get_MB(num_workspaces * elem_size);
+  double const elem_intermediate_space_MB =
+      get_MB(num_workspaces * pde.num_terms * elem_table.size() * elem_size);
   double const elem_MB = elem_reduction_space_MB + elem_intermediate_space_MB;
   // number of elements that will be batched and calculated together
-  double elem_limit = do_chunk ? elem_MB / workspace_MB : elem_table.size();
-  if (do_chunk && elem_limit < 1.0)
-  {
-    return elem_table.size();
-  }
+  std::cout << elem_MB << std::endl;
+  std::cout << elem_MB * elem_table.size() << std::endl;
+  std::cout << elem_MB / workspace_MB << std::endl;
+  double elem_limit = do_chunk ? workspace_MB / elem_MB : elem_table.size();
+  // if (do_chunk && elem_limit < 1.0)
+  //{
+  // return elem_table.size();
+  //}
 
-  return std::ceil(elem_limit);
+  return std::min(static_cast<int>(std::ceil(elem_limit)), elem_table.size());
 }
 
 template<typename P>
@@ -777,7 +781,8 @@ explicit_system<P>::explicit_system(PDE<P> const &pde,
   x.resize(elem_size * table.size());
   fx.resize(x.size());
   y.resize(x.size() * elems_per_set * pde.num_terms);
-
+  std::cout << table.size() << std::endl;
+  std::cout << elems_per_set << std::endl;
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   work.resize(y.size() * num_workspaces);

@@ -140,9 +140,9 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
-
+  int const default_workspace_MB = 1;
   std::cout << "allocating workspace..." << std::endl;
-  explicit_system<prec> system(*pde, table);
+  explicit_system<prec> system(*pde, table, default_workspace_MB);
   std::cout << "input vector size (MB): " << get_MB(system.x.size())
             << std::endl;
   std::cout << "kronmult output space size (MB): " << get_MB(system.y.size())
@@ -160,9 +160,9 @@ int main(int argc, char **argv)
             << get_MB(system.x.size() * 5) << std::endl;
 
   // call to build batches
-  std::cout << "  generating: batch lists..." << std::endl;
-  std::vector<batch_operands_set<prec>> const batches =
-      build_batches(*pde, table, system);
+  std::cout << "generating: batch lists..." << std::endl;
+  auto const work_set =
+      build_work_set(*pde, table, system, default_workspace_MB);
 
   std::cout << "allocating time loop working space, size (MB): "
             << get_MB(system.x.size() * 5) << std::endl;
@@ -177,10 +177,8 @@ int main(int argc, char **argv)
   {
     prec const time = i * dt;
 
-    // FIXME modify this interface to accept an explicit system
-    // and an explicit TA workspace rather than all these vects
     explicit_time_advance(*pde, initial_sources, system, time_advance_work,
-                          batches, time, dt);
+                          work_set, time, dt);
 
     // print L2-norm difference from analytic solution
     if (pde->has_analytic_soln)
