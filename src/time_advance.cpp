@@ -106,7 +106,7 @@ static void apply_explicit(work_set<P> const &batches)
   for (int i = 0; i < static_cast<int>(batches.size()); ++i)
   {
     auto const batch_operands_list = batches[i];
-    for (int j = 0; i < static_cast<int>(batch_operands_list.size()) - 1; ++i)
+    for (int j = 0; j < static_cast<int>(batch_operands_list.size()) - 1; ++j)
     {
       batch<P> const a = batch_operands_list[j][0];
       batch<P> const b = batch_operands_list[j][1];

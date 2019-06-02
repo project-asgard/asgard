@@ -210,7 +210,7 @@ void batched_gemm(batch<P> const a, batch<P> const b, batch<P> const c,
                   P const alpha, P const beta)
 {
   // check data validity
-  assert(a.is_filled() && b.is_filled() && c.is_filled());
+  // assert(a.is_filled() && b.is_filled() && c.is_filled());
 
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -254,16 +254,18 @@ void batched_gemm(batch<P> const a, batch<P> const b, batch<P> const c,
   {
     for (int i = 0; i < num_entries; ++i)
     {
-      fk::dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
-                 b(i), &ldb, &beta_, c(i), &ldc);
+      if (a(i) && b(i) && c(i))
+        fk::dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
+                   b(i), &ldb, &beta_, c(i), &ldc);
     }
   }
   else if constexpr (std::is_same<P, float>::value)
   {
     for (int i = 0; i < num_entries; ++i)
     {
-      fk::sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
-                 b(i), &ldb, &beta_, c(i), &ldc);
+      if (a(i) && b(i) && c(i))
+        fk::sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
+                   b(i), &ldb, &beta_, c(i), &ldc);
     }
   }
 }
@@ -275,7 +277,7 @@ void batched_gemv(batch<P> const a, batch<P> const b, batch<P> const c,
                   P const alpha, P const beta)
 {
   // check data validity
-  assert(a.is_filled() && b.is_filled() && c.is_filled());
+  // assert(a.is_filled() && b.is_filled() && c.is_filled());
 
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -312,16 +314,18 @@ void batched_gemv(batch<P> const a, batch<P> const b, batch<P> const c,
   {
     for (int i = 0; i < num_entries; ++i)
     {
-      fk::dgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
-                 &beta_, c(i), &stride_c);
+      if (a(i) && b(i) && c(i))
+        fk::dgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
+                   &beta_, c(i), &stride_c);
     }
   }
   else if constexpr (std::is_same<P, float>::value)
   {
     for (int i = 0; i < num_entries; ++i)
     {
-      fk::sgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
-                 &beta_, c(i), &stride_c);
+      if (a(i) && b(i) && c(i))
+        fk::sgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
+                   &beta_, c(i), &stride_c);
     }
   }
 }
@@ -584,7 +588,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
 
-  assert(system.y.size() == (x_size * elements_in_batch * pde.num_terms));
+  assert(system.y.size() >= (x_size * elements_in_batch * pde.num_terms));
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
@@ -774,8 +778,7 @@ explicit_system<P>::explicit_system(PDE<P> const &pde,
   x.resize(elem_size * table.size());
   fx.resize(x.size());
   y.resize(x.size() * elems_per_set * pde.num_terms);
-  std::cout << table.size() << std::endl;
-  std::cout << elems_per_set << std::endl;
+
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   work.resize(y.size() * num_workspaces);
@@ -806,8 +809,9 @@ build_work_set(PDE<P> const &pde, element_table const &elem_table,
 
   for (int i = 0; i < num_work_sets; ++i)
   {
-    work_split.emplace_back(
-        build_batches(pde, elem_table, system, i * elem_limit, elem_limit));
+    work_split.emplace_back(build_batches(
+        pde, elem_table, system, i * elem_limit,
+        std::min(elem_limit, elem_table.size() - i * elem_limit)));
   }
 
   return work_split;
