@@ -184,8 +184,13 @@ int main(int argc, char **argv)
     if (pde->has_analytic_soln)
     {
       prec const time_multiplier = pde->exact_time(time);
-      auto const error = norm(system.fx - analytic_solution * time_multiplier);
-      std::cout << "error (wavelet): " << error << std::endl;
+      auto const error =
+          l2_norm(system.fx - analytic_solution * time_multiplier);
+      auto const relative_error = error / inf_norm(analytic_solution) * 100;
+      std::cout << "L2-norm (numeric-analytic) [wavelet]: " << error
+                << std::endl;
+      std::cout << "Relative difference (numeric-analytic) [wavelet]: "
+                << relative_error << " %" << std::endl;
     }
 
     std::cout << "timestep: " << i << " complete" << std::endl;
