@@ -33,6 +33,7 @@ if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
 
+
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
@@ -135,6 +136,8 @@ if (PROFILE_DEPS)
 endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
+# Include the generated build_info.hpp
+target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
 ###############################################################################
 ## Testing asgard
