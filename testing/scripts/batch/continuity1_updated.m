@@ -100,7 +100,7 @@ end
         xMin = dim.domainMin;
         xRange = xMax-xMin;
         dx = xRange/(2^lev);
-        CFL = 0.01;
+        CFL = pde.CFL;
         dt = CFL*dx;
     end
 

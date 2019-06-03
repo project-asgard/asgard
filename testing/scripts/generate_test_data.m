@@ -390,6 +390,7 @@ y_source1_x = pde.sources{2}{1}(x);
 y_source1_t = pde.sources{2}{2}(x);
 y_exact_x = pde.analytic_solutions_1D{1}(x);
 y_exact_time = pde.analytic_solutions_1D{2}(x);
+pde = checkPDE(pde);
 dt = pde.set_dt(pde);
 
 save(strcat(out_format, 'dt.dat'), 'dt');
@@ -765,7 +766,6 @@ Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
 deg = pde.dimensions{1}.deg;
 for i=0:4
-        
 	time = i*dt;
 	out = TimeAdvance(pde,runTimeOpts,A_data,out,time,dt,deg,HASHInv,Vmax,Emax);
 
