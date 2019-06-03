@@ -65,9 +65,9 @@ P polyval(fk::vector<P> const p, P const x);
 template<typename P>
 fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
 
-// norm() function, only for real vectors (2-norm)
+// norm( , 2) function, only for real vectors (2-norm)
 template<typename P>
-P norm(fk::vector<P> const vec)
+P l2_norm(fk::vector<P> const vec)
 {
   P accum     = 0;
   int const N = vec.size();
@@ -76,6 +76,19 @@ P norm(fk::vector<P> const vec)
     accum += vec(i) * vec(i);
   }
   return std::sqrt(accum);
+}
+
+// norm( , 'inf') function, only for real vectors (infinity-norm)
+template<typename P>
+P inf_norm(fk::vector<P> const vec)
+{
+  auto abs_compare = [](P const a, P const b) {
+    return (std::abs(a) < std::abs(b));
+  };
+
+  P const result =
+      std::abs(*std::max_element(vec.begin(), vec.end(), abs_compare));
+  return result;
 }
 
 // find the indices in an fk::vector for which the predicate is true
