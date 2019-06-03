@@ -114,6 +114,7 @@ if (NOT LINALG_LIBS)
 
     include (ExternalProject)
     ExternalProject_Add (openblas-ext
+      UPDATE_COMMAND ""
       PREFIX contrib/blas/openblas
       URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
       DOWNLOAD_NO_PROGRESS 1
