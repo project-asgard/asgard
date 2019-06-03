@@ -62,7 +62,7 @@ string(REGEX REPLACE "(\r?\n)+"
 )
 # Get the current date and time of build
 execute_process(
-  COMMAND date "+%A %W %Y %X"
+  COMMAND date "+%A, %B %W %Y at %l:%M %P"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   OUTPUT_VARIABLE BUILD_TIME
   OUTPUT_STRIP_TRAILING_WHITESPACE
