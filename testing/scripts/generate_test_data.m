@@ -738,8 +738,12 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -759,7 +763,6 @@ A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree)
 Vmax = 0;
 Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
-dt = pde.set_dt(pde);
 deg = pde.dimensions{1}.deg;
 for i=0:4
         
@@ -774,18 +777,21 @@ end
 out_format = strcat(batch_dir, 'continuity1_fg_l2_d2_t%d.dat');
 pde = continuity1_updated;
 
-pde.CFL=.1;
 level = 2;
 degree = 2;
 gridType='FG';
+
 
 for i=1:length(pde.dimensions)
   pde.dimensions{i}.lev = level;
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -820,7 +826,6 @@ end
 out_format = strcat(batch_dir, 'continuity1_sg_l4_d3_t%d.dat');
 pde = continuity1_updated;
 
-pde.CFL=.1;
 level = 4;
 degree = 3;
 gridType='SG';
@@ -830,8 +835,12 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -868,7 +877,6 @@ end
 out_format = strcat(batch_dir, 'continuity2_sg_l2_d2_t%d.dat');
 pde = continuity2_updated;
 
-pde.CFL=.1;
 level = 2;
 degree = 2;
 gridType='SG';
@@ -878,8 +886,11 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -899,7 +910,6 @@ A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree)
 Vmax = 0;
 Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
-dt = pde.set_dt(pde);
 deg = pde.dimensions{1}.deg;
 for i=0:4
         
@@ -913,7 +923,6 @@ end
 out_format = strcat(batch_dir, 'continuity2_fg_l2_d2_t%d.dat');
 pde = continuity2_updated;
 
-pde.CFL=.1;
 level = 2;
 degree = 2;
 gridType='FG';
@@ -923,8 +932,11 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -958,7 +970,6 @@ end
 %sg l4d3
 out_format = strcat(batch_dir, 'continuity2_sg_l4_d3_t%d.dat');
 pde = continuity2_updated;
-pde.CFL=.1;
 level = 4;
 degree = 3;
 gridType='SG';
@@ -968,8 +979,11 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -989,7 +1003,6 @@ A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree)
 Vmax = 0;
 Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
-dt = pde.set_dt(pde);
 deg = pde.dimensions{1}.deg;
 for i=0:4
         
@@ -1005,7 +1018,6 @@ end
 out_format = strcat(batch_dir, 'continuity3_sg_l2_d2_t%d.dat');
 pde = continuity3_updated;
 
-pde.CFL=.1;
 level = 2;
 degree = 2;
 gridType='SG';
@@ -1015,8 +1027,11 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -1036,7 +1051,6 @@ A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree)
 Vmax = 0;
 Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
-dt = pde.set_dt(pde);
 deg = pde.dimensions{1}.deg;
 for i=0:4
         
@@ -1049,7 +1063,6 @@ end
 %sg l4d3
 out_format = strcat(batch_dir, 'continuity3_sg_l4_d3_t%d.dat');
 pde = continuity3_updated;
-pde.CFL=.1;
 level = 4;
 degree = 3;
 gridType='SG';
@@ -1059,8 +1072,11 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -1080,7 +1096,6 @@ A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree)
 Vmax = 0;
 Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
-dt = pde.set_dt(pde);
 deg = pde.dimensions{1}.deg;
 for i=0:4
         
@@ -1095,7 +1110,6 @@ end
 out_format = strcat(batch_dir, 'continuity6_sg_l2_d2_t%d.dat');
 pde = continuity6_updated;
 
-pde.CFL=.1;
 level = 2;
 degree = 2;
 gridType='SG';
@@ -1105,8 +1119,11 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
+
 pde = checkPDE(pde);
 pde = checkTerms(pde);
+pde.CFL=.1;
+dt = pde.set_dt(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
@@ -1126,7 +1143,6 @@ A_data = GlobalMatrixSG_SlowVersion(pde,runTimeOpts,HASHInv,connectivity,degree)
 Vmax = 0;
 Emax = 0;
 out = initial_condition_vector(HASHInv,pde,0);
-dt = pde.set_dt(pde);
 deg = pde.dimensions{1}.deg;
 for i=0:4
         
