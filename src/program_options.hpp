@@ -42,6 +42,7 @@ public:
   bool using_full_grid() const;
   double get_cfl() const;
   PDE_opts get_selected_pde() const;
+  std::string get_pde_string() const;
   bool do_poisson_solve() const;
   bool is_valid() const;
 };
