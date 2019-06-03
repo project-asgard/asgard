@@ -72,8 +72,6 @@ configure_file(
   src/build_info.hpp.in
   ${CMAKE_BINARY_DIR}/build_info.hpp
 )
-# Include the generated build_info.hpp
-include_directories (${CMAKE_BINARY_DIR})
 
 
 ###############################################################################
@@ -178,6 +176,8 @@ if (PROFILE_DEPS)
 endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
+# Include the generated build_info.hpp
+target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
 ###############################################################################
 ## Testing asgard
