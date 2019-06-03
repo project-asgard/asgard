@@ -32,5 +32,19 @@ catch2-clang-tests:
     - cmake -DCMAKE_CXX_COMPILER=clang++ ..
     - make -j 8
     - ctest -j 8
+
+# run the unit tests for asgard (clang)
+valgrind-check:
+  stage: unit-tests
+  script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_CXX_COMPILER=g++ ..
+    - make -j 8
+    - valgrind --error-exitcode=1 ./asgard -p continuity_1 -n 2
+    - valgrind --error-exitcode=1 ./asgard -p continuity_2 -n 2
+    - valgrind --error-exitcode=1 ./asgard -p continuity_3 -n 2
+    - valgrind --error-exitcode=1 ./asgard -p continuity_6 -n 2
+
 #  only:
 #    - merge-requests
