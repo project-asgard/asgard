@@ -1793,8 +1793,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -1855,8 +1863,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -1917,8 +1933,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
@@ -1980,8 +2004,16 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 }
 
@@ -2036,8 +2068,16 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
 
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e2;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -2098,8 +2138,16 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -2160,10 +2208,17 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
-
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
   {
     int const degree = 3;
@@ -2223,10 +2278,18 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
-  }
 
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
+  }
   // now, check highest level of splitting (1 MB limit)
   SECTION("1d, 1 term, degree 4, level 3")
   {
@@ -2282,8 +2345,16 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
 
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e2;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -2349,8 +2420,16 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -2417,8 +2496,16 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(result <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
@@ -2486,7 +2573,15 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     };
     TestType const result =
         std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-    REQUIRE(std::abs(result) <= tol);
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
   }
 }

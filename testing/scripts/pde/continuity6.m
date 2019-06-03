@@ -90,7 +90,7 @@ pde.dimensions = {dim_x,dim_y,dim_z,dim_vx,dim_vy,dim_vz};
 % Setup the v_x.d_dx (v . GradX . MassY . MassZ) term
 
 term2_x.type = 1; % grad (see coeff_matrix.m for available types)
-term2_x.G = @(x,t,dat) x*0+bx; 
+term2_x.G = @(x,t,dat) x*0-bx; 
 term2_x.TD = 0; 
 term2_x.dat = []; 
 term2_x.LF = 0; 
@@ -102,7 +102,7 @@ term2 = term_fill({term2_x,[],[],[],[],[]});
 % Setup the v_y.d_dy (v . MassX . GradY . MassZ) term
 
 term3_y.type = 1; % grad (see coeff_matrix.m for available types)
-term3_y.G = @(y,t,dat) y*0+by; 
+term3_y.G = @(y,t,dat) y*0-by; 
 term3_y.TD = 0; 
 term3_y.dat = []; 
 term3_y.LF = 0; 
@@ -114,7 +114,7 @@ term3 = term_fill({[],term3_y,[],[],[],[]});
 % Setup the v_z.d_dz (v . MassX . MassY . GradZ) term
 
 term4_z.type = 1; % grad (see coeff_matrix.m for available types)
-term4_z.G = @(z,t,dat) z*0+bz; 
+term4_z.G = @(z,t,dat) z*0-bz; 
 term4_z.TD = 0; 
 term4_z.dat = []; 
 term4_z.LF = 0; 
@@ -126,7 +126,7 @@ term4 = term_fill({[],[],term4_z,[],[],[]});
 % Setup the a_x.d_dvx (a . GradVX . MassVY . MassVZ) term
 
 term5_vx.type = 1; % grad (see coeff_matrix.m for available types)
-term5_vx.G = @(x,t,dat) x*0+ax; 
+term5_vx.G = @(x,t,dat) x*0-ax; 
 term5_vx.TD = 0; 
 term5_vx.dat = []; 
 term5_vx.LF = 0; 
@@ -138,7 +138,7 @@ term5 = term_fill({[],[],[],term5_vx,[],[]});
 % Setup the a_y.d_dvy (a . MassVX . GradVY . MassVZ) term
 
 term6_vy.type = 1; % grad (see coeff_matrix.m for available types)
-term6_vy.G = @(y,t,dat) y*0+ay; 
+term6_vy.G = @(y,t,dat) y*0-ay; 
 term6_vy.TD = 0; 
 term6_vy.dat = []; 
 term6_vy.LF = 0; 
@@ -150,7 +150,7 @@ term6 = term_fill({[],[],[],[],term6_vy,[]});
 % Setup the a_z.d_dvz (a . MassVX . MassVY . GradVZ) term
 
 term7_vz.type = 1; % grad (see coeff_matrix.m for available types)
-term7_vz.G = @(z,t,dat) z*0+az; 
+term7_vz.G = @(z,t,dat) z*0-az; 
 term7_vz.TD = 0; 
 term7_vz.dat = []; 
 term7_vz.LF = 0; 

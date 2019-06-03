@@ -89,13 +89,22 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
       fk::vector<TestType> const diff = gold - system.fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
+
+      auto abs_compare = [](TestType const a, TestType const b) {
         return (std::abs(a) < std::abs(b));
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 
@@ -181,8 +190,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
   SECTION("continuity1, level 4, degree 3, sparse grid")
@@ -267,9 +284,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-      std::cout << i << std::endl;
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 }
@@ -361,8 +385,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 
@@ -448,8 +480,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
   SECTION("continuity2, level 4, degree 3, sparse grid")
@@ -534,8 +574,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 }
@@ -626,8 +674,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 
@@ -713,8 +769,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 }
@@ -804,8 +868,16 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       };
       TestType const result =
           std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
+      if constexpr (std::is_same<TestType, double>::value)
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+        REQUIRE(result <= tol);
+      }
+      else
+      {
+        TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+        REQUIRE(result <= tol);
+      }
     }
   }
 }
