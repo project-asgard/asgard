@@ -10,10 +10,10 @@ if (use_sparse_ftmp),
 else
   ftmp = zeros(dof,1);
 end;
-use_kronmultd = 1;
+use_kronmultd = 0;
 
 nTerms = numel(pde.terms);
-nTermsLHS = numel(pde.termsLHS);
+nTermsLHS = 0;
 nDims = numel(pde.dimensions);
 
 dimensions = pde.dimensions;

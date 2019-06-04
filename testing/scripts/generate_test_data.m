@@ -12,7 +12,7 @@
 
 addpath(genpath(pwd));
 
-
+warning('on');
 % write output files for each component
 
 
@@ -424,6 +424,7 @@ for s=1:length(pde.sources)
   save(strcat(out_format, sprintf('source%d_time.dat',s-1)), 'y_source_t');
   end
 end
+pde.CFL=1
 dt = pde.set_dt(pde);
 save(strcat(out_format, 'dt.dat'), 'dt');
 
@@ -449,6 +450,7 @@ for s=1:length(pde.sources)
   end
 end
 
+pde.CFL=1
 dt = pde.set_dt(pde);
 save(strcat(out_format, 'dt.dat'), 'dt');
 
@@ -473,7 +475,7 @@ for s=1:length(pde.sources)
   save(strcat(out_format, sprintf('source%d_time.dat',s-1)), 'y_source_t');
   end
 end
-
+pde.CFL=1;
 dt = pde.set_dt(pde);
 save(strcat(out_format, 'dt.dat'), 'dt');
 
@@ -680,7 +682,7 @@ save(sprintf(out_format,1), 'out');
 
 % continuity6 - sg
 out_format = strcat(batch_dir, 'continuity6_sg_l2_d3_t%d.dat');
-pde = continuity6_updated;
+pde = continuity6;
 level = 2;
 degree = 3;
 gridType='SG';
@@ -690,15 +692,20 @@ for i=1:length(pde.dimensions)
   pde.dimensions{i}.deg = degree;
   pde.dimensions{i}.FMWT = OperatorTwoScale(pde.dimensions{i}.deg,2^pde.dimensions{i}.lev);
 end
-pde = checkPDE(pde);
-pde = checkTerms(pde);
 
 nDims = length(pde.dimensions);
 [HASH,HASHInv] = HashTable(level,nDims,gridType, 1);
 
 t = 0;
 TD = 0;
-pde = getCoeffMats(pde,t,TD);
+time = 1.0;
+for t=1:length(pde.terms)
+  for d=1:length(pde.dimensions)
+    coeff_mat = coeff_matrix(t,pde.dimensions{d},pde.terms{t}{d});
+    pde.terms{t}{d}.coeff_mat = coeff_mat;
+  end
+end
+pde.CFL=0.1;
 
 runTimeOpts.compression = 4;
 runTimeOpts.useConnectivity = 0;
