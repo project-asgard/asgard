@@ -1,4 +1,3 @@
-#include <numeric>
 #include "batch.hpp"
 #include "build_info.hpp"
 #include "coefficients.hpp"
@@ -11,6 +10,7 @@
 #include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
+#include <numeric>
 
 // continuity_1 2 2 -> 0.2755(MB)
 
@@ -141,7 +141,18 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
-  int const default_workspace_MB = 1000;
+  // Our default workspace size is ~1GB.
+  // This is inexact for now - we can't go smaller than one connected element's
+  // space at a time. Vertical splitting would allow this, but we want to hold
+  // off on that until we implement distribution across nodes.
+  //
+  // This 1GB doesn't include batches, coefficient matrices, element table,
+  // or time advance workspace - only the primary memory consumers (kronmult
+  // intermediate and result workspaces).
+  //
+  // FIXME eventually going to be settable from the cmake
+  static int const default_workspace_MB = 1000;
+
   std::cout << "allocating workspace..." << std::endl;
   explicit_system<prec> system(*pde, table, default_workspace_MB);
   std::cout << "input vector size (MB): " << get_MB(system.x.size())
@@ -188,9 +199,8 @@ int main(int argc, char **argv)
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff =
-          system.fx - (analytic_solution_t * time_multiplier);
-      prec const RMSE = [&diff]() {
+      fk::vector<prec> const diff = system.fx - analytic_solution_t;
+      prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
                        [](prec const &elem) { return elem * elem; });
