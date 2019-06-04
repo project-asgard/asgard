@@ -37,7 +37,7 @@ source3 = source_vector(HASHInv,pde,t+c3*dt);
 % %%
 % Apply any non-identity LHS mass matrix coefficient
 
-applyLHS = ~isempty(pde.termsLHS);
+applyLHS = 0;%~isempty(pde.termsLHS);
 
 a21 = 1/2; a31 = -1; a32 = 2;
 b1 = 1/6; b2 = 2/3; b3 = 1/6;
@@ -46,19 +46,16 @@ if applyLHS
     [k1,A1,ALHS] = ApplyA(pde,runTimeOpts,A_data,f,deg,Vmax,Emax);
     rhs1 = source1 + bc1;
 %     invMatLHS = inv(ALHS); % NOTE : assume time independent for now for speed. 
-%     k1 = invMatLHS * (k1 + rhs1);
     k1 = ALHS \ (k1 + rhs1);
     y1 = f + dt*a21*k1;
     
     [k2] = ApplyA(pde,runTimeOpts,A_data,y1,deg,Vmax,Emax);
     rhs2 = source2 + bc2;
-%     k2 = invMatLHS * (k2 + rhs2);
     k2 = ALHS \ (k2 + rhs2);
     y2 = f + dt*(a31*k1 + a32*k2);
     
     k3 = ApplyA(pde,runTimeOpts,A_data,y2,deg,Vmax,Emax);
     rhs3 = source3 + bc3;
-%     k3 = invMatLHS * (k3 + rhs3);
     k3 = ALHS \ (k3 + rhs3);
 else
     k1 = ApplyA(pde,runTimeOpts,A_data,f,deg,Vmax,Emax)   + source1; %+ bc1;
@@ -83,7 +80,7 @@ bc1 = getBoundaryCondition1(pde,HASHInv,t+dt);
 % %%
 % Apply any non-identity LHS mass matrix coefficient
 
-applyLHS = ~isempty(pde.termsLHS);
+applyLHS = 0; %~isempty(pde.termsLHS);
 
 [~,A,ALHS] = ApplyA(pde,runTimeOpts,A_data,f0,deg);
 
@@ -141,7 +138,7 @@ end;
 use_kronmultd = 1;
 
 nTerms = numel(pde.terms);
-nTermsLHS = numel(pde.termsLHS);
+nTermsLHS = 0;%numel(pde.termsLHS);
 nDims = numel(pde.dimensions);
 
 dimensions = pde.dimensions;
@@ -333,7 +330,8 @@ elseif runTimeOpts.compression == 4
                 end
                              
             end
-            
+           
+	   nTermsLHS=0; 
             %%
             % Construct the mat list for a non-identity LHS mass matrix
             for t=1:nTermsLHS
