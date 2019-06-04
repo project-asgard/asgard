@@ -209,9 +209,6 @@ template<typename P>
 void batched_gemm(batch<P> const a, batch<P> const b, batch<P> const c,
                   P const alpha, P const beta)
 {
-  // check data validity
-  // assert(a.is_filled() && b.is_filled() && c.is_filled());
-
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
   assert(b.num_entries() == c.num_entries());
@@ -276,9 +273,6 @@ template<typename P>
 void batched_gemv(batch<P> const a, batch<P> const b, batch<P> const c,
                   P const alpha, P const beta)
 {
-  // check data validity
-  // assert(a.is_filled() && b.is_filled() && c.is_filled());
-
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
   assert(b.num_entries() == c.num_entries());
