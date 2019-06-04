@@ -1090,9 +1090,12 @@ fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 {
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
-  data_ = static_cast<P *>(std::realloc(data(), new_size * sizeof(P)));
-  size_ = new_size;
+  P *old_data{data_};
+  data_ = new P[new_size]();
+  std::memcpy(data_, old_data, old_size * sizeof(P));
   std::memcpy(data(old_size), right.data(), right.size() * sizeof(P));
+  size_ = new_size;
+  delete[] old_data;
   return *this;
 }
 
