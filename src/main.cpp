@@ -12,8 +12,6 @@
 #include "transformations.hpp"
 #include <numeric>
 
-// continuity_1 2 2 -> 0.2755(MB)
-
 using prec = double;
 int main(int argc, char **argv)
 {
@@ -173,6 +171,7 @@ int main(int argc, char **argv)
 
   // call to build batches
   std::cout << "generating: batch lists..." << std::endl;
+
   auto const work_set =
       build_work_set(*pde, table, system, default_workspace_MB);
 
