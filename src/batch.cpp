@@ -775,6 +775,8 @@ explicit_system<P>::explicit_system(PDE<P> const &pde,
   int const elem_size     = static_cast<int>(std::pow(degree, pde.num_dims));
   int const elems_per_set = get_elements_per_set(pde, table, limit_MB);
 
+  // FIXME note that if problem size/limit are misconfigured for a machine,
+  // bad alloc can be thrown here
   x.resize(elem_size * table.size());
   fx.resize(x.size());
   y.resize(x.size() * elems_per_set * pde.num_terms);
@@ -865,14 +867,6 @@ template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
-
-template int get_elements_per_set(PDE<float> const &pde,
-                                  element_table const &elem_table,
-                                  int const workspace_MB);
-
-template int get_elements_per_set(PDE<double> const &pde,
-                                  element_table const &elem_table,
-                                  int const workspace_MB);
 
 template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,

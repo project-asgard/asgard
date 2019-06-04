@@ -148,10 +148,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               int const elements_per_batch = -1);
 
 template<typename P>
-int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
-                         int const workspace_MB);
-
-template<typename P>
 using work_set = std::vector<std::vector<batch_operands_set<P>>>;
 
 // use provided workspace size to split batches across connected items
@@ -207,13 +203,6 @@ extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
-
-extern template int get_elements_per_set(PDE<float> const &pde,
-                                         element_table const &elem_table,
-                                         int const workspace_MB);
-extern template int get_elements_per_set(PDE<double> const &pde,
-                                         element_table const &elem_table,
-                                         int const workspace_MB);
 
 extern template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,
