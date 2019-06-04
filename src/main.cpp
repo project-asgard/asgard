@@ -140,7 +140,8 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
-  int const default_workspace_MB = 1;
+  int const default_workspace_MB = 1000;
+
   std::cout << "allocating workspace..." << std::endl;
   explicit_system<prec> system(*pde, table, default_workspace_MB);
   std::cout << "input vector size (MB): " << get_MB(system.x.size())
@@ -180,15 +181,25 @@ int main(int argc, char **argv)
     explicit_time_advance(*pde, initial_sources, system, time_advance_work,
                           work_set, time, dt);
 
-    // print L2-norm difference from analytic solution
+    // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
-      prec const time_multiplier = pde->exact_time(time);
-      auto const error =
-          l2_norm(system.fx - analytic_solution * time_multiplier);
-      auto const relative_error = error / inf_norm(analytic_solution) * 100;
-      std::cout << "L2-norm (numeric-analytic) [wavelet]: " << error
-                << std::endl;
+      prec const time_multiplier = pde->exact_time((i + 1) * dt);
+
+      fk::vector<prec> const analytic_solution_t =
+          analytic_solution * time_multiplier;
+      fk::vector<prec> const diff =
+          system.fx - (analytic_solution_t * time_multiplier);
+      prec const RMSE = [&diff]() {
+        fk::vector<prec> squared(diff);
+        std::transform(squared.begin(), squared.end(), squared.begin(),
+                       [](prec const &elem) { return elem * elem; });
+        prec const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
+                          squared.size();
+        return std::sqrt(mean);
+      }();
+      auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
+      std::cout << "RMSE (numeric-analytic) [wavelet]: " << RMSE << std::endl;
       std::cout << "Relative difference (numeric-analytic) [wavelet]: "
                 << relative_error << " %" << std::endl;
     }
