@@ -34,7 +34,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     dimension const dim = make_PDE<TestType>(PDE_opts::continuity_1, lev, kdeg)
                               ->get_dimensions()[0];
 
-    fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(dim);
+    fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(kdeg, lev);
 
     fk::matrix<TestType> mat1 =
         fk::matrix<TestType>(read_matrix_from_txt_file(mat1_string));
@@ -135,7 +135,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     dimension const dim = make_PDE<TestType>(PDE_opts::continuity_1, lev, kdeg)
                               ->get_dimensions()[0];
 
-    fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(dim);
+    fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(kdeg, lev);
 
     fk::matrix<TestType> mat1 =
         fk::matrix<TestType>(read_matrix_from_txt_file(mat1_string));
