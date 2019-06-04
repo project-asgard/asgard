@@ -234,14 +234,14 @@ TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", float, double, int)
   {
     fk::vector<TestType> vec{0, 0, 0, 0, 0};
     TestType gold = 0;
-    REQUIRE(l2_norm(vec) == gold);
+    REQUIRE(inf_norm(vec) == gold);
   }
 
   SECTION("plus and minus -- vector")
   {
     fk::vector<TestType> vec{1, -1, 1, -4};
     TestType gold = 4;
-    REQUIRE(l2_norm(vec) == gold);
+    REQUIRE(inf_norm(vec) == gold);
   }
 }
 
