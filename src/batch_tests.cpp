@@ -2272,7 +2272,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
     fk::vector<TestType> const diff = gold - system.fx;
-
+    
     auto abs_compare = [](TestType const a, TestType const b) {
       return (std::abs(a) < std::abs(b));
     };

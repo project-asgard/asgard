@@ -1,3 +1,4 @@
+#include <numeric>
 #include "batch.hpp"
 #include "build_info.hpp"
 #include "coefficients.hpp"
@@ -141,7 +142,6 @@ int main(int argc, char **argv)
   };
 
   int const default_workspace_MB = 1000;
-
   std::cout << "allocating workspace..." << std::endl;
   explicit_system<prec> system(*pde, table, default_workspace_MB);
   std::cout << "input vector size (MB): " << get_MB(system.x.size())

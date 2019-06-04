@@ -575,42 +575,42 @@ private:
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -bx;
+    return bx;
   }
   static P gy(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -by;
+    return by;
   }
   static P gz(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -bz;
+    return bz;
   }
   static P gvx(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -ax;
+    return ax;
   }
   static P gvy(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -ay;
+    return ay;
   }
   static P gvz(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -az;
+    return az;
   }
 
   // define dimensions
