@@ -150,7 +150,21 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 template<typename P>
 using work_set = std::vector<std::vector<batch_operands_set<P>>>;
 
-// use provided workspace size to split batches across connected items
+// use provided workspace size to split batches across connected elements
+//
+// that is, we partition the connected elements for all the work elements in the
+// table (this is equivalent to partitioning the global matrix columnwise, if it
+// were explicitly formed) and assign the work (gemms) for each partition
+// (work_set) to the same intermediate product/output space. this enables memory
+// reuse for large (3/6d) problems.
+//
+// FIXME in the future, we can leverage this approach to perform automatic
+// partial reduction. this can be accomplished by pulling out the reduction
+// batches, having all work sets write into the output space with beta = 1.0
+// (except for the initial work set), and then doing one large gemv to gather
+// results at the end.
+//
+//
 template<typename P>
 work_set<P>
 build_work_set(PDE<P> const &pde, element_table const &elem_table,

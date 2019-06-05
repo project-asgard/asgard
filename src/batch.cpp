@@ -730,6 +730,21 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   batches.push_back(std::move(reduction_batch));
   return batches;
 }
+
+// determine how many connected elements will be assigned to each work_set,
+// given the workspace limit argument. because our partioning is done in terms
+// of connected elements, we may not be able to exactly meet the limit.
+//
+// e.g. if a single connected element requires 2MB to compute, and the provided
+// limit is 1MB, the work_sets will consume twice the provided limit
+//
+// -1 passed in workspace_MB (default arg) is used to indicate no workspace
+// limiting.
+//
+// we may in future implement partitioning across work elements. this will give
+// us finer discritization to meet provided limits. however, we haven't done
+// that yet, because we may use work element partitioning to distribute work
+// across nodes.
 template<typename P>
 int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
                          int const workspace_MB)
