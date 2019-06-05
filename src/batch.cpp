@@ -1,6 +1,7 @@
 #include "batch.hpp"
 #include "connectivity.hpp"
 #include "tensors.hpp" // for views/blas
+#include <omp.h>
 
 // object to store lists of operands for batched gemm/gemv.
 // utilized as the primary data structure for other functions
@@ -754,8 +755,8 @@ int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
                          int const workspace_MB)
 {
   assert(workspace_MB >= -1);
-  auto const get_MB = [](int const num_elems) {
-    int const bytes        = num_elems * sizeof(P);
+  auto const get_MB = [](auto const num_elems) {
+    double const bytes     = num_elems * sizeof(P);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };
@@ -771,7 +772,8 @@ int get_elements_per_set(PDE<P> const &pde, element_table const &elem_table,
       get_MB(pde.num_terms * elem_table.size() * elem_size);
   // calc size of intermediate space for a single work item
   double const elem_intermediate_space_MB =
-      get_MB(num_workspaces * pde.num_terms * elem_table.size() * elem_size);
+      get_MB(static_cast<double>(num_workspaces) * pde.num_terms *
+             elem_table.size() * elem_size);
   double const elem_MB = elem_reduction_space_MB + elem_intermediate_space_MB;
   // number of elements that will be batched and calculated together
   double const elem_limit =
