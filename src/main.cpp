@@ -3,11 +3,15 @@
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
+#include "mem_usage.hpp"
 #include "pde.hpp"
+#include "predict.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
+
+// continuity_1 2 2 -> 0.2755(MB)
 
 using prec = double;
 int main(int argc, char **argv)
@@ -44,6 +48,19 @@ int main(int argc, char **argv)
   std::cout << "  full grid: " << opts.using_full_grid() << '\n';
   std::cout << "  CFL number: " << opts.get_cfl() << '\n';
   std::cout << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
+
+  // -- print out time and memory estimates based on profiling
+  std::pair<std::string, double> runtime_info = expected_time(
+      opts.get_selected_pde(), opts.get_level(), opts.get_degree());
+  std::cout << "Predicted compute time (seconds): " << runtime_info.second
+            << std::endl;
+  std::cout << runtime_info.first << std::endl;
+
+  std::pair<std::string, double> mem_usage_info = total_mem_usage(
+      opts.get_selected_pde(), opts.get_level(), opts.get_degree());
+  std::cout << "Predicted total mem usage (MB): " << mem_usage_info.second
+            << std::endl;
+  std::cout << mem_usage_info.first << std::endl;
 
   std::cout << "--- begin setup ---" << std::endl;
 
@@ -123,34 +140,39 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
+  mem_tracker mem_usage;
+
   // input vector x
   int const elem_size =
       std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
   std::cout << "  allocating input vector, size (MB): "
-            << get_MB(table.size() * elem_size) << std::endl;
+            << (mem_usage += get_MB(table.size() * elem_size)) << std::endl;
   fk::vector<prec> x(initial_condition);
 
   // intermediate output spaces for batched gemm
   std::cout << "  allocating kronmult output space, size (MB): "
-            << get_MB(x.size() * table.size() * pde->num_terms) << std::endl;
+            << (mem_usage += get_MB(x.size() * table.size() * pde->num_terms))
+            << std::endl;
   fk::vector<prec> y(x.size() * table.size() * pde->num_terms);
 
   int const num_workspaces = std::min(pde->num_dims - 1, 2);
+
   std::cout << "  allocating kronmult working space, size (MB): "
-            << get_MB(x.size() * table.size() * pde->num_terms * num_workspaces)
+            << (mem_usage += get_MB(x.size() * table.size() * pde->num_terms *
+                                    num_workspaces))
             << std::endl;
   fk::vector<prec> work(x.size() * table.size() * pde->num_terms *
                         num_workspaces);
 
   // output vector fval
-  std::cout << "  allocating output vector, size (MB): " << get_MB(x.size())
-            << std::endl;
+  std::cout << "  allocating output vector, size (MB): "
+            << (mem_usage += get_MB(x.size())) << std::endl;
   fk::vector<prec> fval(x.size());
 
   // setup reduction vector
   int const items_to_reduce = pde->num_terms * table.size();
   std::cout << "  allocating reduction vector, size (MB): "
-            << get_MB(items_to_reduce) << std::endl;
+            << (mem_usage += get_MB(items_to_reduce)) << std::endl;
   fk::vector<prec> const unit_vector = [&] {
     fk::vector<prec> builder(items_to_reduce);
     std::fill(builder.begin(), builder.end(), 1.0);
@@ -164,10 +186,13 @@ int main(int argc, char **argv)
 
   // these vectors used for intermediate results in time advance
   std::cout << "  allocating time loop working space, size (MB): "
-            << get_MB(x.size() * 5) << std::endl;
+            << (mem_usage += get_MB(x.size() * 5)) << std::endl;
   fk::vector<prec> scaled_source(x.size());
   fk::vector<prec> x_orig(x.size());
   std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(x.size()));
+
+  std::cout << "Workspace mem usage (MB): " << mem_usage.total_mem_usage()
+            << std::endl;
 
   // -- time loop
   std::cout << "--- begin time loop ---" << std::endl;
