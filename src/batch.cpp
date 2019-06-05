@@ -718,6 +718,180 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   return batches;
 }
 
+// function to allocate and build batch lists.
+// given a problem instance (pde/elem table) and
+// memory allocations (x, y, work), enqueue the
+// batch gemms/reduction gemv to perform A*x
+template<typename P>
+std::vector<batch_operands_set<P>>
+build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
+              fk::vector<P> const &x, fk::vector<P> const &y,
+              fk::vector<P> const &work, fk::vector<P> const &unit_vector,
+              fk::vector<P> const &fx)
+{
+    // assume uniform degree for now
+    int const degree    = pde.get_dimensions()[0].get_degree();
+    int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+    int const x_size    = elem_size * elem_table.size();
+    assert(x.size() == x_size);
+    // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
+    assert(y.size() == x_size * elem_table.size() * pde.num_terms);
+
+    // intermediate workspaces for kron product.
+    int const num_workspaces = std::min(pde.num_dims - 1, 2);
+    assert(work.size() == y.size() * num_workspaces);
+
+    int const items_to_reduce = pde.num_terms * elem_table.size();
+    assert(unit_vector.size() == items_to_reduce);
+
+    fk::matrix<P> A(x_size, x_size);
+
+    std::vector<batch_operands_set<P>> batches =
+            allocate_batches<P>(pde, elem_table.size() * elem_table.size());
+
+    //batch_operands_set<P> reduction_batch = {
+    //        batch<P>(elem_table.size(), elem_size, items_to_reduce, elem_size, false),
+    //        batch<P>(elem_table.size(), items_to_reduce, 1, 1, false),
+    //        batch<P>(elem_table.size(), elem_size, 1, 1, false)};
+
+    // loop over elements
+    // FIXME eventually want to do this in parallel
+    for (int i = 0; i < elem_table.size(); ++i)
+    {
+        // first, get linearized indices for this element
+        //
+        // calculate from the level/cell indices for each
+        // dimension
+        fk::vector<int> const coords = elem_table.get_coords(i);
+        assert(coords.size() == pde.num_dims * 2);
+        fk::vector<int> elem_indices = linearize(coords);
+
+        // calculate the row portion of the
+        // operator position used for this
+        // element's gemm calls
+        fk::vector<int> operator_row = [&] {
+            fk::vector<int> op_row(pde.num_dims);
+            for (int d = 0; d < pde.num_dims; ++d)
+            {
+                // FIXME here we would have to use each dimension's
+                // degree when calculating the index if we want different
+                // degree in each dim
+                op_row(d) = elem_indices(d) * degree;
+            }
+            return op_row;
+        }();
+
+        // calculate reduction inputs
+
+        // calculate the position of this element in the
+        // global system matrix
+        // this is where the item reduces to in the output vector
+        int const global_row = i * elem_size;
+
+        //int const workspace_size = elem_size * items_to_reduce;
+        //int const reduce_index   = workspace_size * i;
+        //fk::matrix<P, mem_type::view> reduction_space(y, elem_size, items_to_reduce,
+        //                                              reduce_index);
+        // assign_entry into reduction batch
+        //reduction_batch[0].assign_entry(reduction_space, i);
+        //reduction_batch[1].assign_entry(
+        //        fk::matrix<P, mem_type::view>(unit_vector, items_to_reduce, 1, 0), i);
+        //reduction_batch[2].assign_entry(
+        //        fk::matrix<P, mem_type::view>(fx, elem_size, 1, global_row), i);
+
+        // loop over connected elements. for now, we assume
+        // full connectivity
+        for (int j = 0; j < elem_table.size(); ++j)
+        {
+            // get linearized indices for this connected element
+            fk::vector<int> coords = elem_table.get_coords(j);
+            assert(coords.size() == pde.num_dims * 2);
+            fk::vector<int> connected_indices = linearize(coords);
+
+            // calculate the col portion of the
+            // operator position used for this
+            // element's gemm calls
+            fk::vector<int> operator_col = [&] {
+                fk::vector<int> op_col(pde.num_dims);
+                for (int d = 0; d < pde.num_dims; ++d)
+                {
+                    // FIXME here we would have to use each dimension's
+                    // degree when calculating the index if we want different
+                    // degree in each dim
+                    op_col(d) = connected_indices(d) * degree;
+                }
+                return op_col;
+            }();
+
+            for (int k = 0; k < pde.num_terms; ++k)
+            {
+                // term major y-space layout, followed by connected items, finally work
+                // items note that this index assumes uniform connected items (full
+                // connectivity) if connectivity is instead computed for each element, i
+                // * elem_table.size() * terms must be replaced by sum of lower indexed
+                // connected items (scan) * terms
+
+                int const kron_index =
+                        k + j * pde.num_terms + i * elem_table.size() * pde.num_terms;
+
+                // y space, where kron outputs are written
+                int const y_index = elem_size * kron_index;
+                fk::vector<P, mem_type::view> const y_view(y, y_index,
+                                                           y_index + elem_size - 1);
+
+                // work space, intermediate kron data
+                int const work_index =
+                        elem_size * kron_index * std::min(pde.num_dims - 1, 2);
+                std::vector<fk::vector<P, mem_type::view>> work_views(
+                        num_workspaces, fk::vector<P, mem_type::view>(
+                                work, work_index, work_index + elem_size - 1));
+                //if (num_workspaces == 2)
+                //{
+                //    work_views[1] = fk::vector<P, mem_type::view>(
+                //            work, work_index + elem_size, work_index + elem_size * 2 - 1);
+                //}
+
+                // operator views, windows into operator matrix
+                std::vector<fk::matrix<P, mem_type::view>> operator_views;
+                fk::matrix<P> k_tmp(1,1);
+                k_tmp(0,0)= 1.0;
+                for (int d = pde.num_dims - 1; d >= 0; --d)
+                {
+                    operator_views.push_back(fk::matrix<P, mem_type::view>(
+                            pde.get_coefficients(k, d), operator_row(d),
+                            operator_row(d) + degree - 1, operator_col(d),
+                            operator_col(d) + degree - 1));
+
+                    fk::matrix<P, mem_type::view> &op_view = operator_views.back();
+                    k_tmp = k_tmp.kron(op_view);
+                }
+                // calculate the position of this element in the
+                // global system matrix
+                int const global_col = j * elem_size;
+
+                fk::matrix<P, mem_type::view>  A_view(A, global_row,
+                        global_row + k_tmp.nrows() - 1,
+                        global_col,
+                        global_col + k_tmp.ncols() - 1);
+
+                A_view = A_view + k_tmp;
+
+                // x vector input to kronmult
+                //fk::vector<P, mem_type::view> const x_view(x, global_col,
+                //                                           global_col + elem_size - 1);
+
+                //kronmult_to_batch_sets(operator_views, x_view, y_view, work_views,
+                //                       batches, kron_index, pde);
+            }
+        }
+    }
+
+    // emplace the reduction batch
+    // batches.push_back(std::move(reduction_batch));
+    return batches;
+}
+
+
 template class batch<float>;
 template class batch<double>;
 
