@@ -73,7 +73,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -109,7 +109,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 
@@ -153,7 +153,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -189,7 +189,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
   SECTION("continuity1, level 4, degree 3, sparse grid")
@@ -232,7 +232,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -268,7 +268,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 }
@@ -338,7 +338,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -374,7 +374,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 
@@ -418,7 +418,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -454,7 +454,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
   SECTION("continuity2, level 4, degree 3, sparse grid")
@@ -497,7 +497,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -533,7 +533,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 }
@@ -602,7 +602,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -638,7 +638,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 
@@ -682,7 +682,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -718,7 +718,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 }
@@ -785,7 +785,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -821,7 +821,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 
@@ -864,7 +864,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
 
-    system.x = initial_condition;
+    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -900,7 +900,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.fx);
+      relaxed_comparison(gold, system.batch_output);
     }
   }
 }

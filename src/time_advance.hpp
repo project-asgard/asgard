@@ -10,9 +10,9 @@ class explicit_workspace
 {
 public:
   explicit_workspace(explicit_system<P> const &system)
-      : scaled_source(system.x.size()), x_orig(system.x.size()),
-        result_1(system.x.size()), result_2(system.x.size()),
-        result_3(system.x.size())
+      : scaled_source(system.batch_input.size()),
+        x_orig(system.batch_input.size()), result_1(system.batch_input.size()),
+        result_2(system.batch_input.size()), result_3(system.batch_input.size())
   {}
 
   fk::vector<P> scaled_source;
