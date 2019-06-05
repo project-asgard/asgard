@@ -6,17 +6,16 @@ template<typename P>
 void explicit_time_advance(PDE<P> const &pde,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            explicit_system<P> &system,
-                           explicit_workspace<P> &work,
                            work_set<P> const &batches, P const time, P const dt)
 {
-  assert(work.scaled_source.size() == system.batch_input.size());
+  assert(system.scaled_source.size() == system.batch_input.size());
   assert(system.batch_input.size() == system.batch_output.size());
-  assert(work.x_orig.size() == system.batch_input.size());
-  assert(work.result_1.size() == system.batch_input.size());
-  assert(work.result_2.size() == system.batch_input.size());
-  assert(work.result_3.size() == system.batch_input.size());
+  assert(system.x_orig.size() == system.batch_input.size());
+  assert(system.result_1.size() == system.batch_input.size());
+  assert(system.result_2.size() == system.batch_input.size());
+  assert(system.result_3.size() == system.batch_input.size());
 
-  fk::copy(system.batch_input, work.x_orig);
+  fk::copy(system.batch_input, system.x_orig);
 
   assert(time >= 0);
 
@@ -43,35 +42,35 @@ void explicit_time_advance(PDE<P> const &pde,
 
   P const alpha = 1.0;
   apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, work.scaled_source, time);
-  fk::axpy(alpha, work.scaled_source, system.batch_output);
-  fk::copy(system.batch_output, work.result_1);
+  scale_sources(pde, unscaled_sources, system.scaled_source, time);
+  fk::axpy(alpha, system.scaled_source, system.batch_output);
+  fk::copy(system.batch_output, system.result_1);
   P const fx_scale_1 = a21 * dt;
   fk::axpy(fx_scale_1, system.batch_output, system.batch_input);
 
   apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, work.scaled_source, time + c2 * dt);
-  fk::axpy(alpha, work.scaled_source, system.batch_output);
-  fk::copy(system.batch_output, work.result_2);
-  fk::copy(work.x_orig, system.batch_input);
+  scale_sources(pde, unscaled_sources, system.scaled_source, time + c2 * dt);
+  fk::axpy(alpha, system.scaled_source, system.batch_output);
+  fk::copy(system.batch_output, system.result_2);
+  fk::copy(system.x_orig, system.batch_input);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
-  fk::axpy(fx_scale_2a, work.result_1, system.batch_input);
-  fk::axpy(fx_scale_2b, work.result_2, system.batch_input);
+  fk::axpy(fx_scale_2a, system.result_1, system.batch_input);
+  fk::axpy(fx_scale_2b, system.result_2, system.batch_input);
 
   apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, work.scaled_source, time + c3 * dt);
-  fk::axpy(alpha, work.scaled_source, system.batch_output);
-  fk::copy(system.batch_output, work.result_3);
+  scale_sources(pde, unscaled_sources, system.scaled_source, time + c3 * dt);
+  fk::axpy(alpha, system.scaled_source, system.batch_output);
+  fk::copy(system.batch_output, system.result_3);
 
   P const scale_1 = dt * b1;
   P const scale_2 = dt * b2;
   P const scale_3 = dt * b3;
 
-  fk::copy(work.x_orig, system.batch_input);
-  fk::axpy(scale_1, work.result_1, system.batch_input);
-  fk::axpy(scale_2, work.result_2, system.batch_input);
-  fk::axpy(scale_3, work.result_3, system.batch_input);
+  fk::copy(system.x_orig, system.batch_input);
+  fk::axpy(scale_1, system.result_1, system.batch_input);
+  fk::axpy(scale_2, system.result_2, system.batch_input);
+  fk::axpy(scale_3, system.result_3, system.batch_input);
 
   fk::copy(system.batch_input, system.batch_output);
 }
@@ -127,13 +126,11 @@ template void
 explicit_time_advance(PDE<float> const &pde,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       explicit_system<float> &system,
-                      explicit_workspace<float> &work,
                       work_set<float> const &batches, float const time,
                       float const dt);
 template void
 explicit_time_advance(PDE<double> const &pde,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       explicit_system<double> &system,
-                      explicit_workspace<double> &work,
                       work_set<double> const &batches, double const time,
                       double const dt);

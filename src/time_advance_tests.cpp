@@ -92,16 +92,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t" +
@@ -172,16 +169,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t" +
@@ -251,16 +245,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t" +
@@ -357,16 +348,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t" +
@@ -437,16 +425,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t" +
@@ -516,16 +501,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t" +
@@ -621,16 +603,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t" +
@@ -701,16 +680,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t" +
@@ -804,16 +780,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity6_sg_l2_d2_t" +
@@ -883,16 +856,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    explicit_workspace<TestType> work(system);
-
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-      explicit_time_advance(*pde, initial_sources, system, work, batches, time,
-                            dt);
+      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t" +
