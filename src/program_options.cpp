@@ -99,5 +99,6 @@ bool options::using_implicit() const { return use_implicit_stepping; }
 bool options::using_full_grid() const { return use_full_grid; }
 double options::get_cfl() const { return cfl; }
 PDE_opts options::get_selected_pde() const { return pde_choice; }
+std::string options::get_pde_string() const { return selected_pde; }
 bool options::is_valid() const { return valid; }
 bool options::do_poisson_solve() const { return do_poisson; }

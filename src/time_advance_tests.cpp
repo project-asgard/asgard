@@ -1,4 +1,3 @@
-
 #include "coefficients.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -47,8 +46,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
 
     // input vector x
     int const elem_size =
@@ -59,7 +58,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -90,7 +89,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -159,8 +158,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -170,7 +169,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -201,7 +200,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -269,8 +268,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -280,7 +279,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -311,7 +310,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -386,8 +385,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -397,7 +396,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -428,7 +427,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -497,8 +496,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -508,7 +507,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -539,7 +538,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -607,8 +606,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -618,7 +617,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -649,7 +648,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -723,8 +722,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -734,7 +733,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -765,7 +764,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -834,8 +833,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -845,7 +844,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -876,7 +875,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance
@@ -950,8 +949,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
+    fk::vector<TestType> const initial_condition =
+        combine_dimensions(degree, table, initial_conditions, initial_scale);
     // input vector x
     int const elem_size =
         std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
@@ -961,7 +960,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     // intermediate output spaces for batched gemm
     fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
     fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+                              pde->num_terms * std::min(pde->num_dims - 1, 2));
 
     // output vector fx
     fk::vector<TestType> fx(x.size());
@@ -992,7 +991,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       }
 
       initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
+          degree, table, initial_sources_dim, initial_scale));
     }
 
     // these vectors used for intermediate results in time advance

@@ -7,7 +7,7 @@ stages:
 clang-format:
   stage: checks
   script:
-    - for bob in $(find src -type f) ; do diff ${bob} <(clang-format ${bob}) || exit ; done
+    - for bob in $(find src -type f) ; do echo ${bob} && diff ${bob} <(clang-format ${bob}) || exit ; done
 #  only:
 #    - merge-requests
 
@@ -18,8 +18,8 @@ catch2-gcc-tests:
     - mkdir build
     - cd build
     - cmake -DCMAKE_CXX_COMPILER=g++ ..
-    - make
-    - ./tests
+    - make -j 8
+    - ctest -j 8
 #  only:
 #    - merge-requests
 
@@ -30,7 +30,21 @@ catch2-clang-tests:
     - mkdir build
     - cd build
     - cmake -DCMAKE_CXX_COMPILER=clang++ ..
-    - make
-    - ./tests
+    - make -j 8
+    - ctest -j 8
+
+# run the unit tests for asgard (clang)
+valgrind-check:
+  stage: unit-tests
+  script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_CXX_COMPILER=g++ ..
+    - make -j 8
+    - valgrind --error-exitcode=1 ./asgard -p continuity_1 -n 2
+    - valgrind --error-exitcode=1 ./asgard -p continuity_2 -n 2
+    - valgrind --error-exitcode=1 ./asgard -p continuity_3 -n 2
+    - valgrind --error-exitcode=1 ./asgard -p continuity_6 -n 2
+
 #  only:
 #    - merge-requests

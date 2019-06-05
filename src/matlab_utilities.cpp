@@ -1,4 +1,3 @@
-
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
 #include <array>
