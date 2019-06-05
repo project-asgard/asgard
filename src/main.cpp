@@ -10,8 +10,7 @@
 #include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-
-// continuity_1 2 2 -> 0.2755(MB)
+#include <numeric>
 
 using prec = double;
 int main(int argc, char **argv)
@@ -134,65 +133,53 @@ int main(int argc, char **argv)
 
   std::cout << "--- begin time loop staging ---" << std::endl;
   // -- allocate/setup for batch gemm
-  auto get_MB = [&](int num_elems) {
-    uint64_t bytes   = num_elems * sizeof(prec);
-    double megabytes = bytes * 1e-6;
+  auto const get_MB = [&](int num_elems) {
+    uint64_t const bytes   = num_elems * sizeof(prec);
+    double const megabytes = bytes * 1e-6;
     return megabytes;
   };
 
-  mem_tracker mem_usage;
+  // Our default workspace size is ~1GB.
+  // This is inexact for now - we can't go smaller than one connected element's
+  // space at a time. Vertical splitting would allow this, but we want to hold
+  // off on that until we implement distribution across nodes.
+  //
+  // This 1GB doesn't include batches, coefficient matrices, element table,
+  // or time advance workspace - only the primary memory consumers (kronmult
+  // intermediate and result workspaces).
+  //
+  // FIXME eventually going to be settable from the cmake
+  static int const default_workspace_MB = 100;
 
-  // input vector x
-  int const elem_size =
-      std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-  std::cout << "  allocating input vector, size (MB): "
-            << (mem_usage += get_MB(table.size() * elem_size)) << std::endl;
-  fk::vector<prec> x(initial_condition);
-
-  // intermediate output spaces for batched gemm
-  std::cout << "  allocating kronmult output space, size (MB): "
-            << (mem_usage += get_MB(x.size() * table.size() * pde->num_terms))
+  std::cout << "allocating workspace..." << std::endl;
+  explicit_system<prec> system(*pde, table, default_workspace_MB);
+  std::cout << "input vector size (MB): " << get_MB(system.batch_input.size())
             << std::endl;
-  fk::vector<prec> y(x.size() * table.size() * pde->num_terms);
-
-  int const num_workspaces = std::min(pde->num_dims - 1, 2);
-
-  std::cout << "  allocating kronmult working space, size (MB): "
-            << (mem_usage += get_MB(x.size() * table.size() * pde->num_terms *
-                                    num_workspaces))
+  std::cout << "kronmult output space size (MB): "
+            << get_MB(system.reduction_space.size()) << std::endl;
+  std::cout << "kronmult working space size (MB): "
+            << get_MB(system.batch_intermediate.size()) << std::endl;
+  std::cout << "output vector size (MB): " << get_MB(system.batch_output.size())
             << std::endl;
-  fk::vector<prec> work(x.size() * table.size() * pde->num_terms *
-                        num_workspaces);
+  auto const &unit_vect = system.get_unit_vector();
+  std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
+            << std::endl;
 
-  // output vector fval
-  std::cout << "  allocating output vector, size (MB): "
-            << (mem_usage += get_MB(x.size())) << std::endl;
-  fk::vector<prec> fval(x.size());
-
-  // setup reduction vector
-  int const items_to_reduce = pde->num_terms * table.size();
-  std::cout << "  allocating reduction vector, size (MB): "
-            << (mem_usage += get_MB(items_to_reduce)) << std::endl;
-  fk::vector<prec> const unit_vector = [&] {
-    fk::vector<prec> builder(items_to_reduce);
-    std::fill(builder.begin(), builder.end(), 1.0);
-    return builder;
-  }();
+  std::cout << "explicit time loop workspace size (MB): "
+            << get_MB(system.batch_input.size() * 5) << std::endl;
 
   // call to build batches
-  std::cout << "  generating: batch lists..." << std::endl;
-  std::vector<batch_operands_set<prec>> const batches =
-      build_batches(*pde, table, x, y, work, unit_vector, fval);
+  std::cout << "generating: batch lists..." << std::endl;
 
-  // these vectors used for intermediate results in time advance
-  std::cout << "  allocating time loop working space, size (MB): "
-            << (mem_usage += get_MB(x.size() * 5)) << std::endl;
-  fk::vector<prec> scaled_source(x.size());
-  fk::vector<prec> x_orig(x.size());
-  std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(x.size()));
+  auto const work_set =
+      build_work_set(*pde, table, system, default_workspace_MB);
 
-  std::cout << "Workspace mem usage (MB): " << mem_usage.total_mem_usage()
-            << std::endl;
+  std::cout << "allocating time loop working space, size (MB): "
+            << get_MB(system.batch_input.size() * 5) << std::endl;
+  fk::vector<prec> scaled_source(system.batch_input.size());
+  fk::vector<prec> x_orig(system.batch_input.size());
+  std::vector<fk::vector<prec>> workspace(
+      3, fk::vector<prec>(system.batch_input.size()));
 
   // -- time loop
   std::cout << "--- begin time loop ---" << std::endl;
@@ -200,16 +187,29 @@ int main(int argc, char **argv)
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
-    explicit_time_advance(*pde, x, x_orig, fval, scaled_source, initial_sources,
-                          workspace, batches, time, dt);
 
-    // print L2-norm difference from analytic solution
+    explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
 
+    // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
-      prec time_multiplier = pde->exact_time(time);
-      auto error           = norm(fval - analytic_solution * time_multiplier);
-      std::cout << "Error (wavelet): " << error << std::endl;
+      prec const time_multiplier = pde->exact_time((i + 1) * dt);
+
+      fk::vector<prec> const analytic_solution_t =
+          analytic_solution * time_multiplier;
+      fk::vector<prec> const diff = system.batch_output - analytic_solution_t;
+      prec const RMSE             = [&diff]() {
+        fk::vector<prec> squared(diff);
+        std::transform(squared.begin(), squared.end(), squared.begin(),
+                       [](prec const &elem) { return elem * elem; });
+        prec const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
+                          squared.size();
+        return std::sqrt(mean);
+      }();
+      auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
+      std::cout << "RMSE (numeric-analytic) [wavelet]: " << RMSE << std::endl;
+      std::cout << "Relative difference (numeric-analytic) [wavelet]: "
+                << relative_error << " %" << std::endl;
     }
 
     std::cout << "timestep: " << i << " complete" << std::endl;

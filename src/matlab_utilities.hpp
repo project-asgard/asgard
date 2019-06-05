@@ -65,18 +65,13 @@ P polyval(fk::vector<P> const p, P const x);
 template<typename P>
 fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
 
-// norm() function, only for real vectors (2-norm)
+// norm( , 2) function, only for real vectors (2-norm)
 template<typename P>
-P norm(fk::vector<P> const vec)
-{
-  P accum     = 0;
-  int const N = vec.size();
-  for (auto i = 0; i < N; ++i)
-  {
-    accum += vec(i) * vec(i);
-  }
-  return std::sqrt(accum);
-}
+P l2_norm(fk::vector<P> const &vec);
+
+// norm( , 'inf') function, only for real vectors (infinity-norm)
+template<typename P>
+P inf_norm(fk::vector<P> const &vec);
 
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>
@@ -167,6 +162,11 @@ extern template fk::vector<float>
 polyval(fk::vector<float> const p, fk::vector<float> const x);
 extern template fk::vector<double>
 polyval(fk::vector<double> const p, fk::vector<double> const x);
+
+extern template float l2_norm(fk::vector<float> const &vec);
+extern template double l2_norm(fk::vector<double> const &vec);
+extern template float inf_norm(fk::vector<float> const &vec);
+extern template double inf_norm(fk::vector<double> const &vec);
 
 extern template fk::matrix<int>
 horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);

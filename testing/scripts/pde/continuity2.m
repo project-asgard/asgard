@@ -151,7 +151,6 @@ function dt=set_dt(pde)
 
 Lmax = pde.dimensions{1}.domainMax - pde.dimensions{1}.domainMin;
 LevX = pde.dimensions{1}.lev;
-%CFL = pde.CFL;
-CFL = 1;
+CFL = pde.CFL;
 dt = Lmax/2^LevX*CFL;
 end

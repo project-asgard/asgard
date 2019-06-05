@@ -336,7 +336,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   coefficients = forward_trans * coefficients * forward_trans_transpose;
 
   // zero out near-zero values after conversion to wavelet space
-  double const threshold = 1e-6;
+  double const threshold = 1e-10;
   auto const normalize   = [threshold](fk::matrix<double> &matrix) {
     std::transform(matrix.begin(), matrix.end(), matrix.begin(),
                    [threshold](double &elem) {
