@@ -131,10 +131,10 @@ public:
                   int const limit_MB = -1);
 
   fk::vector<P> const &get_unit_vector() const;
-  fk::vector<P> x;
-  fk::vector<P> y;
-  fk::vector<P> work;
-  fk::vector<P> fx;
+  fk::vector<P> batch_input;
+  fk::vector<P> reduction_space;
+  fk::vector<P> batch_intermediate;
+  fk::vector<P> batch_output;
 
 private:
   fk::vector<P> unit_vector_;
@@ -163,7 +163,6 @@ using work_set = std::vector<std::vector<batch_operands_set<P>>>;
 // batches, having all work sets write into the output space with beta = 1.0
 // (except for the initial work set), and then doing one large gemv to gather
 // results at the end.
-//
 //
 template<typename P>
 work_set<P>

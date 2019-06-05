@@ -153,13 +153,13 @@ int main(int argc, char **argv)
 
   std::cout << "allocating workspace..." << std::endl;
   explicit_system<prec> system(*pde, table, default_workspace_MB);
-  std::cout << "input vector size (MB): " << get_MB(system.x.size())
+  std::cout << "input vector size (MB): " << get_MB(system.batch_input.size())
             << std::endl;
-  std::cout << "kronmult output space size (MB): " << get_MB(system.y.size())
-            << std::endl;
+  std::cout << "kronmult output space size (MB): "
+            << get_MB(system.reduction_space.size()) << std::endl;
   std::cout << "kronmult working space size (MB): "
-            << get_MB(system.work.size()) << std::endl;
-  std::cout << "output vector size (MB): " << get_MB(system.fx.size())
+            << get_MB(system.batch_intermediate.size()) << std::endl;
+  std::cout << "output vector size (MB): " << get_MB(system.batch_output.size())
             << std::endl;
   auto const &unit_vect = system.get_unit_vector();
   std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
@@ -167,7 +167,7 @@ int main(int argc, char **argv)
 
   explicit_workspace<prec> time_advance_work(system);
   std::cout << "explicit time loop workspace size (MB): "
-            << get_MB(system.x.size() * 5) << std::endl;
+            << get_MB(system.batch_input.size() * 5) << std::endl;
 
   // call to build batches
   std::cout << "generating: batch lists..." << std::endl;
@@ -176,10 +176,11 @@ int main(int argc, char **argv)
       build_work_set(*pde, table, system, default_workspace_MB);
 
   std::cout << "allocating time loop working space, size (MB): "
-            << get_MB(system.x.size() * 5) << std::endl;
-  fk::vector<prec> scaled_source(system.x.size());
-  fk::vector<prec> x_orig(system.x.size());
-  std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(system.x.size()));
+            << get_MB(system.batch_input.size() * 5) << std::endl;
+  fk::vector<prec> scaled_source(system.batch_input.size());
+  fk::vector<prec> x_orig(system.batch_input.size());
+  std::vector<fk::vector<prec>> workspace(
+      3, fk::vector<prec>(system.batch_input.size()));
 
   // -- time loop
   std::cout << "--- begin time loop ---" << std::endl;
@@ -198,7 +199,7 @@ int main(int argc, char **argv)
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = system.fx - analytic_solution_t;
+      fk::vector<prec> const diff = system.batch_output - analytic_solution_t;
       prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),

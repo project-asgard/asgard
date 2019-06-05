@@ -570,7 +570,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const x_size    = elem_size * elem_table.size();
-  assert(system.x.size() == x_size);
+  assert(system.batch_input.size() == x_size);
 
   // check our batch partitioning arguments
   assert(connected_start >= 0);
@@ -582,11 +582,13 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
 
-  assert(system.y.size() >= (x_size * elements_in_batch * pde.num_terms));
+  assert(system.reduction_space.size() >=
+         (x_size * elements_in_batch * pde.num_terms));
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  assert(system.work.size() == system.y.size() * num_workspaces);
+  assert(system.batch_intermediate.size() ==
+         system.reduction_space.size() * num_workspaces);
 
   int const items_to_reduce = pde.num_terms * elements_in_batch;
   assert(system.get_unit_vector().size() >= items_to_reduce);
@@ -636,7 +638,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     int const workspace_size = elem_size * items_to_reduce;
     int const reduce_index   = workspace_size * i;
     fk::matrix<P, mem_type::view> reduction_space(
-        system.y, elem_size, items_to_reduce, reduce_index);
+        system.reduction_space, elem_size, items_to_reduce, reduce_index);
     // assign_entry into reduction batch
     reduction_batch[0].assign_entry(reduction_space, i);
     reduction_batch[1].assign_entry(
@@ -644,7 +646,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                                       1, 0),
         i);
     reduction_batch[2].assign_entry(
-        fk::matrix<P, mem_type::view>(system.fx, elem_size, 1, global_row), i);
+        fk::matrix<P, mem_type::view>(system.batch_output, elem_size, 1,
+                                      global_row),
+        i);
 
     // loop over connected elements. for now, we assume
     // full connectivity
@@ -685,21 +689,21 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
         // y space, where kron outputs are written
         int const y_index = elem_size * kron_index;
-        fk::vector<P, mem_type::view> const y_view(system.y, y_index,
-                                                   y_index + elem_size - 1);
+        fk::vector<P, mem_type::view> const y_view(
+            system.reduction_space, y_index, y_index + elem_size - 1);
 
         // work space, intermediate kron data
         int const work_index =
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
         std::vector<fk::vector<P, mem_type::view>> work_views(
             num_workspaces,
-            fk::vector<P, mem_type::view>(system.work, work_index,
+            fk::vector<P, mem_type::view>(system.batch_intermediate, work_index,
                                           work_index + elem_size - 1));
         if (num_workspaces == 2)
         {
-          work_views[1] =
-              fk::vector<P, mem_type::view>(system.work, work_index + elem_size,
-                                            work_index + elem_size * 2 - 1);
+          work_views[1] = fk::vector<P, mem_type::view>(
+              system.batch_intermediate, work_index + elem_size,
+              work_index + elem_size * 2 - 1);
         }
 
         // operator views, windows into operator matrix
@@ -717,8 +721,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         int const global_col = j * elem_size;
 
         // x vector input to kronmult
-        fk::vector<P, mem_type::view> const x_view(system.x, global_col,
-                                                   global_col + elem_size - 1);
+        fk::vector<P, mem_type::view> const x_view(
+            system.batch_input, global_col, global_col + elem_size - 1);
 
         kronmult_to_batch_sets(operator_views, x_view, y_view, work_views,
                                batches, kron_index, pde);
@@ -786,13 +790,13 @@ explicit_system<P>::explicit_system(PDE<P> const &pde,
 
   // FIXME note that if problem size/limit are misconfigured for a machine,
   // bad alloc can be thrown here
-  x.resize(elem_size * table.size());
-  fx.resize(x.size());
-  y.resize(x.size() * elems_per_set * pde.num_terms);
+  batch_input.resize(elem_size * table.size());
+  batch_output.resize(batch_input.size());
+  reduction_space.resize(batch_input.size() * elems_per_set * pde.num_terms);
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  work.resize(y.size() * num_workspaces);
+  batch_intermediate.resize(reduction_space.size() * num_workspaces);
   unit_vector_.resize(pde.num_terms * elems_per_set);
   std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
 }
