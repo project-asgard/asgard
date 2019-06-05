@@ -207,7 +207,7 @@ batch<P> &batch<P>::clear_all()
 // resident, this could be an abstraction point
 // for calling cpu/gpu blas etc.
 template<typename P>
-void batched_gemm(batch<P> const a, batch<P> const b, batch<P> const c,
+void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
                   P const alpha, P const beta)
 {
   // check cardinality of sets
@@ -271,7 +271,7 @@ void batched_gemm(batch<P> const a, batch<P> const b, batch<P> const c,
 // execute a batched gemv given a, b, c batch lists
 // and other blas information
 template<typename P>
-void batched_gemv(batch<P> const a, batch<P> const b, batch<P> const c,
+void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
                   P const alpha, P const beta)
 {
   // check cardinality of sets
@@ -847,19 +847,19 @@ template class batch<double>;
 template class explicit_system<float>;
 template class explicit_system<double>;
 
-template void batched_gemm(batch<float> const a, batch<float> const b,
-                           batch<float> const c, float const alpha,
+template void batched_gemm(batch<float> const &a, batch<float> const &b,
+                           batch<float> const &c, float const alpha,
                            float const beta);
 
-template void batched_gemm(batch<double> const a, batch<double> const b,
-                           batch<double> const c, double const alpha,
+template void batched_gemm(batch<double> const &a, batch<double> const &b,
+                           batch<double> const &c, double const alpha,
                            double const beta);
 
-template void batched_gemv(batch<float> const a, batch<float> const b,
-                           batch<float> const c, float const alpha,
+template void batched_gemv(batch<float> const &a, batch<float> const &b,
+                           batch<float> const &c, float const alpha,
                            float const beta);
-template void batched_gemv(batch<double> const a, batch<double> const b,
-                           batch<double> const c, double const alpha,
+template void batched_gemv(batch<double> const &a, batch<double> const &b,
+                           batch<double> const &c, double const alpha,
                            double const beta);
 
 template std::vector<batch_operands_set<float>>
