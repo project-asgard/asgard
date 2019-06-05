@@ -149,7 +149,7 @@ int main(int argc, char **argv)
   // intermediate and result workspaces).
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 1000;
+  static int const default_workspace_MB = 100;
 
   std::cout << "allocating workspace..." << std::endl;
   explicit_system<prec> system(*pde, table, default_workspace_MB);
@@ -165,7 +165,6 @@ int main(int argc, char **argv)
   std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
             << std::endl;
 
-  explicit_workspace<prec> time_advance_work(system);
   std::cout << "explicit time loop workspace size (MB): "
             << get_MB(system.batch_input.size() * 5) << std::endl;
 
@@ -189,8 +188,7 @@ int main(int argc, char **argv)
   {
     prec const time = i * dt;
 
-    explicit_time_advance(*pde, initial_sources, system, time_advance_work,
-                          work_set, time, dt);
+    explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)

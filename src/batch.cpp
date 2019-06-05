@@ -801,6 +801,13 @@ explicit_system<P>::explicit_system(PDE<P> const &pde,
   batch_intermediate.resize(reduction_space.size() * num_workspaces);
   unit_vector_.resize(pde.num_terms * elems_per_set);
   std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
+
+  // time advance workspace
+  x_orig.resize(batch_input.size());
+  scaled_source.resize(batch_input.size());
+  result_1.resize(batch_input.size());
+  result_2.resize(batch_input.size());
+  result_3.resize(batch_input.size());
 }
 
 template<typename P>

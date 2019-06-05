@@ -131,10 +131,20 @@ public:
                   int const limit_MB = -1);
 
   fk::vector<P> const &get_unit_vector() const;
+  // input, output, workspace for batched gemm/reduction
+  // (unit vector below also falls under this category)
   fk::vector<P> batch_input;
   fk::vector<P> reduction_space;
   fk::vector<P> batch_intermediate;
   fk::vector<P> batch_output;
+
+  // working vectors for time advance (e.g. intermediate RK result vects,
+  // source vector space)
+  fk::vector<P> scaled_source;
+  fk::vector<P> x_orig;
+  fk::vector<P> result_1;
+  fk::vector<P> result_2;
+  fk::vector<P> result_3;
 
 private:
   fk::vector<P> unit_vector_;
