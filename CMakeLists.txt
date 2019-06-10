@@ -83,7 +83,9 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE coefficients connectivity element_table pde tensors blas_wrapped)
+target_link_libraries (batch PRIVATE blas_wrapped coefficients connectivity element_table pde tensors)
+
+target_link_libraries (blas_wrapped PRIVATE ${LINALG_LIBS})
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
@@ -104,7 +106,7 @@ target_link_libraries (program_options PRIVATE clara)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
-target_link_libraries (tensors PRIVATE ${LINALG_LIBS} blas_wrapped)
+target_link_libraries (tensors PRIVATE blas_wrapped)
 
 target_link_libraries (time_advance PRIVATE batch blas_free pde tensors)
 
