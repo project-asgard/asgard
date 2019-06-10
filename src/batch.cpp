@@ -1,6 +1,7 @@
 #include "batch.hpp"
+#include "blas_wrapped.hpp"
 #include "connectivity.hpp"
-#include "tensors.hpp" // for views/blas
+#include "tensors.hpp" // for views
 #include <omp.h>
 
 // object to store lists of operands for batched gemm/gemv.
@@ -253,8 +254,8 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
     for (int i = 0; i < num_entries; ++i)
     {
       if (a(i) && b(i) && c(i))
-        fk::dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
-                   b(i), &ldb, &beta_, c(i), &ldc);
+        dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
+               b(i), &ldb, &beta_, c(i), &ldc);
     }
   }
   else if constexpr (std::is_same<P, float>::value)
@@ -262,8 +263,8 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
     for (int i = 0; i < num_entries; ++i)
     {
       if (a(i) && b(i) && c(i))
-        fk::sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
-                   b(i), &ldb, &beta_, c(i), &ldc);
+        sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
+               b(i), &ldb, &beta_, c(i), &ldc);
     }
   }
 }
@@ -310,8 +311,8 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
     for (int i = 0; i < num_entries; ++i)
     {
       if (a(i) && b(i) && c(i))
-        fk::dgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
-                   &beta_, c(i), &stride_c);
+        dgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
+               &beta_, c(i), &stride_c);
     }
   }
   else if constexpr (std::is_same<P, float>::value)
@@ -319,8 +320,8 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
     for (int i = 0; i < num_entries; ++i)
     {
       if (a(i) && b(i) && c(i))
-        fk::sgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
-                   &beta_, c(i), &stride_c);
+        sgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
+               &beta_, c(i), &stride_c);
     }
   }
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "blas_wrapped.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -351,195 +352,6 @@ private:
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-
-namespace fk
-{
-// ==========================================================================
-// external declarations for calling blas routines linked with -lblas
-// ==========================================================================
-
-/* --------------------------------------------------------------------------
-   DCOPY copies a vector, x, to a vector, y.
-   uses unrolled loops for increments equal to one.
-   -------------------------------------------------------------------------- */
-extern "C" void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
-extern "C" void scopy_(int *n, float *x, int *incx, float *y, int *incy);
-// --------------------------------------------------------------------------
-// vector-vector multiply
-// d = x*y
-// --------------------------------------------------------------------------
-extern "C" double ddot_(int *n, double *X, int *incx, double *Y, int *incy);
-extern "C" float sdot_(int *n, float *X, int *incx, float *Y, int *incy);
-
-// --------------------------------------------------------------------------
-// vector-vector addition
-// y := ax + y
-// --------------------------------------------------------------------------
-extern "C" double
-daxpy_(int *n, double *alpha, double *X, int *incx, double *Y, int *incy);
-extern "C" float
-saxpy_(int *n, float *alpha, float *X, int *incx, float *Y, int *incy);
-
-// --------------------------------------------------------------------------
-// vector-scalar multiply
-// y := y*alpha
-// --------------------------------------------------------------------------
-extern "C" double dscal_(int *n, double *alpha, double *X, int *incx);
-extern "C" float sscal_(int *n, float *alpha, float *X, int *incx);
-
-// --------------------------------------------------------------------------
-// matrix-vector multiply
-// y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y,
-// --------------------------------------------------------------------------
-extern "C" void dgemv_(char const *trans, int *m, int *n, double *alpha,
-                       double *A, int *lda, double *x, int *incx, double *beta,
-                       double *y, int *incy);
-extern "C" void sgemv_(char const *trans, int *m, int *n, float *alpha,
-                       float *A, int *lda, float *x, int *incx, float *beta,
-                       float *y, int *incy);
-// --------------------------------------------------------------------------
-// matrix-matrix multiply
-// C := alpha*A*B + beta*C
-// --------------------------------------------------------------------------
-extern "C" void dgemm_(char const *transa, char const *transb, int *m, int *n,
-                       int *k, double *alpha, double *A, int *lda, double *B,
-                       int *ldb, double *beta, double *C, int *ldc);
-extern "C" void sgemm_(char const *transa, char const *transb, int *m, int *n,
-                       int *k, float *alpha, float *A, int *lda, float *B,
-                       int *ldb, float *beta, float *C, int *ldc);
-
-//
-// Simple matrix multiply for non-float types
-// FIXME we will probably eventually need a version that does transpose
-//
-template<typename P>
-static void igemm_(P *A, int const lda, P *B, int const ldb, P *C,
-                   int const ldc, int const m, int const k, int const n)
-{
-  assert(m > 0);
-  assert(k > 0);
-  assert(n > 0);
-  assert(lda > 0); // FIXME Tyler says these could be more thorough
-  assert(ldb > 0);
-  assert(ldc > 0);
-
-  for (auto i = 0; i < m; ++i)
-  {
-    for (auto j = 0; j < n; ++j)
-    {
-      P result = 0.0;
-      for (auto z = 0; z < k; ++z)
-      {
-        // result += A[i,k] * B[k,j]
-        result += A[z * lda + i] * B[j * ldb + z];
-      }
-      // C[i,j] += result
-      C[j * ldc + i] += result;
-    }
-  }
-}
-
-// --------------------------------------------------------------------------
-// LU decomposition of a general matrix
-// --------------------------------------------------------------------------
-extern "C" void
-dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
-
-extern "C" void
-sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
-
-// --------------------------------------------------------------------------
-// inverse of a matrix given its LU decomposition
-// --------------------------------------------------------------------------
-extern "C" void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work,
-                        int *lwork, int *info);
-
-extern "C" void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work,
-                        int *lwork, int *info);
-
-// axpy - add the argument vector scaled by alpha
-template<typename P, mem_type mem, mem_type omem>
-vector<P, mem> &axpy(P const alpha, vector<P, omem> const &x, vector<P, mem> &y)
-{
-  assert(x.size() == y.size());
-  int n    = x.size();
-  int one  = 1;
-  P alpha_ = alpha;
-
-  if constexpr (std::is_same<P, double>::value)
-  {
-    daxpy_(&n, &alpha_, x.data(), &one, y.data(), &one);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    saxpy_(&n, &alpha_, x.data(), &one, y.data(), &one);
-  }
-  else
-  {
-    for (auto i = 0; i < x.size(); ++i)
-    {
-      y(i) = y(i) + x(i) * alpha_;
-    }
-  }
-
-  return y;
-}
-
-// copy(x,y) - copy vector x into y
-template<typename P, mem_type mem, mem_type omem>
-vector<P, mem> &copy(vector<P, omem> const &x, vector<P, mem> &y)
-{
-  assert(x.size() == y.size());
-  int n   = x.size();
-  int one = 1;
-
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dcopy_(&n, x.data(), &one, y.data(), &one);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    scopy_(&n, x.data(), &one, y.data(), &one);
-  }
-  else
-  {
-    for (auto i = 0; i < x.size(); ++i)
-    {
-      y(i) = x(i);
-    }
-  }
-
-  return y;
-}
-
-// scal - scale a vector
-
-template<typename P, mem_type mem>
-vector<P, mem> &scal(P const alpha, vector<P, mem> &x)
-{
-  int one_i = 1;
-  int n     = x.size();
-  P alpha_  = alpha;
-
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dscal_(&n, &alpha_, x.data(), &one_i);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sscal_(&n, &alpha_, x.data(), &one_i);
-  }
-  else
-  {
-    for (int i = 0; i < n; ++i)
-    {
-      x(i) = x(i) * alpha_;
-    }
-  }
-  return x;
-}
-
-} // namespace fk
 
 //-----------------------------------------------------------------------------
 //
@@ -1003,7 +815,25 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
 template<typename P, mem_type mem>
 fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
 {
-  return fk::scal(x, *this);
+  int one_i = 1;
+  int n     = this->size();
+  P alpha   = x;
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dscal_(&n, &alpha, this->data(), &one_i);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sscal_(&n, &alpha, this->data(), &one_i);
+  }
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      (*this)(i) *= alpha;
+    }
+  }
+  return *this;
 }
 
 //
