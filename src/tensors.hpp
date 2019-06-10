@@ -694,21 +694,7 @@ P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
   int one         = 1;
   vector const &X = (*this);
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    return ddot_(&n, X.data(), &one, right.data(), &one);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    return sdot_(&n, X.data(), &one, right.data(), &one);
-  }
-  else
-  {
-    P ans = 0.0;
-    for (auto i = 0; i < size(); ++i)
-      ans += (*this)(i)*right(i);
-    return ans;
-  }
+  return dot(&n, X.data(), &one, right.data(), &one);
 }
 
 //
@@ -729,37 +715,10 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
   int lda   = A.stride();
   int one_i = 1;
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    P zero = 0.0;
-    P one  = 1.0;
-    dgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
-           &one_i);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    P zero = 0.0;
-    P one  = 1.0;
-    sgemv_("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
-           &one_i);
-  }
-  else
-  {
-    fk::matrix<P> At(A);
-    At.transpose();
-
-    // vectors don't have a leading dimension...
-    int ldv = 1;
-    n       = 1;
-
-    // simple matrix multiply routine doesn't have a transpose (yet)
-    // so the arguments are switched relative to the above BLAS calls
-    lda   = At.nrows();
-    m     = At.nrows();
-    int k = At.ncols();
-    igemm_(At.data(), lda, X.data(), ldv, Y.data(), ldv, m, k, n);
-  }
-
+  P zero = 0.0;
+  P one  = 1.0;
+  gemv("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
+       &one_i);
   return Y;
 }
 
@@ -773,21 +732,9 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
   int one_i = 1;
   int n     = a.size();
   P alpha   = x;
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dscal_(&n, &alpha, a.data(), &one_i);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sscal_(&n, &alpha, a.data(), &one_i);
-  }
-  else
-  {
-    for (int i = 0; i < n; ++i)
-    {
-      a(i) *= alpha;
-    }
-  }
+
+  scal(&n, &alpha, a.data(), &one_i);
+
   return a;
 }
 
@@ -818,21 +765,9 @@ fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
   int one_i = 1;
   int n     = this->size();
   P alpha   = x;
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dscal_(&n, &alpha, this->data(), &one_i);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sscal_(&n, &alpha, this->data(), &one_i);
-  }
-  else
-  {
-    for (int i = 0; i < n; ++i)
-    {
-      (*this)(i) *= alpha;
-    }
-  }
+
+  scal(&n, &alpha, this->data(), &one_i);
+
   return *this;
 }
 
@@ -852,9 +787,9 @@ void fk::vector<P, mem>::print(std::string const label) const
 {
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
-              << ")" << '\n';
+              << ")" << std::endl;
   else
-    std::cout << label << "(view)" << '\n';
+    std::cout << label << "(view)" << std::endl;
 
   if constexpr (std::is_floating_point<P>::value)
   {
@@ -867,7 +802,7 @@ void fk::vector<P, mem>::print(std::string const label) const
     for (auto i = 0; i < size(); ++i)
       std::cout << std::right << (*this)(i) << " ";
   }
-  std::cout << '\n';
+  std::cout << std::endl;
 }
 
 //
@@ -1412,25 +1347,10 @@ operator*(fk::vector<P, omem> const &right) const
   int lda   = A.stride();
   int one_i = 1;
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    P one  = 1.0;
-    P zero = 0.0;
-    dgemv_("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero,
-           Y.data(), &one_i);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    P one  = 1.0;
-    P zero = 0.0;
-    sgemv_("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero,
-           Y.data(), &one_i);
-  }
-  else
-  {
-    igemm_(A.data(), lda, right.data(), right.size(), Y.data(), Y.size(), m, n,
-           one_i);
-  }
+  P one  = 1.0;
+  P zero = 0.0;
+  gemv("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero, Y.data(),
+       &one_i);
 
   return Y;
 }
@@ -1456,24 +1376,11 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
   int ldb = B.stride();
   int ldc = C.stride();
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    P one  = 1.0;
-    P zero = 0.0;
-    dgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
-           C.data(), &ldc);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    P one  = 1.0;
-    P zero = 0.0;
-    sgemm_("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
-           C.data(), &ldc);
-  }
-  else
-  {
-    igemm_(A.data(), lda, B.data(), ldb, C.data(), ldc, m, k, n);
-  }
+  P one  = 1.0;
+  P zero = 0.0;
+  gemm("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
+       C.data(), &ldc);
+
   return C;
 }
 
@@ -1551,16 +1458,9 @@ fk::matrix<P, mem>::invert()
   P *work{new P[nrows() * ncols()]};
   int info;
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dgetrf_(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
-    dgetri_(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
-  }
-  else
-  {
-    sgetrf_(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
-    sgetri_(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
-  }
+  getrf(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
+  getri(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
+
   delete[] ipiv;
   delete[] work;
   return *this;
@@ -1594,14 +1494,7 @@ fk::matrix<P, mem>::determinant() const
   int n   = ncols();
   int lda = stride();
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
-  }
-  else
-  {
-    sgetrf_(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
-  }
+  getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
 
   P det    = 1.0;
   int sign = 1;
@@ -1632,21 +1525,8 @@ fk::matrix<P, mem>::update_col(int const col_idx, fk::vector<P, omem> const &v)
   int one{1};
   int stride = 1;
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dcopy_(&n, v.data(), &one, data(0, col_idx), &stride);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    scopy_(&n, v.data(), &one, data(0, col_idx), &stride);
-  }
-  else
-  {
-    for (auto i = 0; i < n; ++i)
-    {
-      (*this)(0 + i, col_idx) = v(i);
-    }
-  }
+  copy(&n, v.data(), &one, data(0, col_idx), &stride);
+
   return *this;
 }
 
@@ -1664,21 +1544,7 @@ fk::matrix<P, mem>::update_col(int const col_idx, std::vector<P> const &v)
   int one{1};
   int stride = 1;
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dcopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    scopy_(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
-  }
-  else
-  {
-    for (auto i = 0; i < n; ++i)
-    {
-      (*this)(0 + i, col_idx) = v[i];
-    }
-  }
+  copy(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
 
   return *this;
 }
@@ -1699,21 +1565,8 @@ fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
   int one{1};
   int lda = stride();
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dcopy_(&n, v.data(), &one, data(row_idx, 0), &lda);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    scopy_(&n, v.data(), &one, data(row_idx, 0), &lda);
-  }
-  else
-  {
-    for (auto i = 0; i < n; i++)
-    {
-      (*this)(row_idx, 0 + i) = v(i);
-    }
-  }
+  copy(&n, v.data(), &one, data(row_idx, 0), &lda);
+
   return *this;
 }
 
@@ -1731,21 +1584,8 @@ fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
   int one{1};
   int lda = stride();
 
-  if constexpr (std::is_same<P, double>::value)
-  {
-    dcopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &lda);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    scopy_(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &lda);
-  }
-  else
-  {
-    for (auto i = 0; i < n; i++)
-    {
-      (*this)(row_idx, 0 + i) = v[i];
-    }
-  }
+  copy(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &lda);
+
   return *this;
 }
 
@@ -1832,11 +1672,11 @@ void fk::matrix<P, mem>::print(std::string label) const
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, "
               << "outstanding views == " << std::to_string(get_num_views())
-              << ")" << '\n';
+              << ")" << std::endl;
 
   else
     std::cout << label << "(view, "
-              << "stride == " << std::to_string(stride()) << ")" << '\n';
+              << "stride == " << std::to_string(stride()) << ")" << std::endl;
 
   for (auto i = 0; i < nrows(); ++i)
   {
@@ -1852,7 +1692,7 @@ void fk::matrix<P, mem>::print(std::string label) const
         std::cout << (*this)(i, j) << " ";
       }
     }
-    std::cout << '\n';
+    std::cout << std::endl;
   }
 }
 
@@ -1876,7 +1716,7 @@ void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
     for (auto j = 0; j < ncols(); ++j)
       std::cout << std::setprecision(12) << (*this)(i, j) << " ";
 
-    std::cout << std::setprecision(4) << '\n';
+    std::cout << std::setprecision(4) << std::endl;
   }
   std::cout.rdbuf(coutbuf);
 }
