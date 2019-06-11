@@ -249,23 +249,11 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   P alpha_               = alpha;
   P beta_                = beta;
 
-  if constexpr (std::is_same<P, double>::value)
+  for (int i = 0; i < num_entries; ++i)
   {
-    for (int i = 0; i < num_entries; ++i)
-    {
-      if (a(i) && b(i) && c(i))
-        dgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
-               b(i), &ldb, &beta_, c(i), &ldc);
-    }
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    for (int i = 0; i < num_entries; ++i)
-    {
-      if (a(i) && b(i) && c(i))
-        sgemm_(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda,
-               b(i), &ldb, &beta_, c(i), &ldc);
-    }
+    if (a(i) && b(i) && c(i))
+      gemm(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda, b(i),
+           &ldb, &beta_, c(i), &ldc);
   }
 }
 
@@ -306,23 +294,11 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   P alpha_               = alpha;
   P beta_                = beta;
 
-  if constexpr (std::is_same<P, double>::value)
+  for (int i = 0; i < num_entries; ++i)
   {
-    for (int i = 0; i < num_entries; ++i)
-    {
-      if (a(i) && b(i) && c(i))
-        dgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
-               &beta_, c(i), &stride_c);
-    }
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    for (int i = 0; i < num_entries; ++i)
-    {
-      if (a(i) && b(i) && c(i))
-        sgemv_(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b,
-               &beta_, c(i), &stride_c);
-    }
+    if (a(i) && b(i) && c(i))
+      gemv(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b, &beta_,
+           c(i), &stride_c);
   }
 }
 
