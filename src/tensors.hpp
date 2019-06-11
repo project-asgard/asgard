@@ -787,9 +787,9 @@ void fk::vector<P, mem>::print(std::string const label) const
 {
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
-              << ")" << std::endl;
+              << ")" << '\n';
   else
-    std::cout << label << "(view)" << std::endl;
+    std::cout << label << "(view)" << '\n';
 
   if constexpr (std::is_floating_point<P>::value)
   {
@@ -802,7 +802,7 @@ void fk::vector<P, mem>::print(std::string const label) const
     for (auto i = 0; i < size(); ++i)
       std::cout << std::right << (*this)(i) << " ";
   }
-  std::cout << std::endl;
+  std::cout << '\n';
 }
 
 //
@@ -1672,11 +1672,11 @@ void fk::matrix<P, mem>::print(std::string label) const
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, "
               << "outstanding views == " << std::to_string(get_num_views())
-              << ")" << std::endl;
+              << ")" << '\n';
 
   else
     std::cout << label << "(view, "
-              << "stride == " << std::to_string(stride()) << ")" << std::endl;
+              << "stride == " << std::to_string(stride()) << ")" << '\n';
 
   for (auto i = 0; i < nrows(); ++i)
   {
@@ -1692,7 +1692,7 @@ void fk::matrix<P, mem>::print(std::string label) const
         std::cout << (*this)(i, j) << " ";
       }
     }
-    std::cout << std::endl;
+    std::cout << '\n';
   }
 }
 
@@ -1716,7 +1716,7 @@ void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
     for (auto j = 0; j < ncols(); ++j)
       std::cout << std::setprecision(12) << (*this)(i, j) << " ";
 
-    std::cout << std::setprecision(4) << std::endl;
+    std::cout << std::setprecision(4) << '\n';
   }
   std::cout.rdbuf(coutbuf);
 }
