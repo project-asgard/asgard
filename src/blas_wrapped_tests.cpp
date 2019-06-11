@@ -140,21 +140,17 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[blas_wrapped]", float,
 
   SECTION("lda =/= nrows")
   {
-    fk::matrix<TestType> const in1_extended = [&] {
-      fk::matrix<TestType> builder(in1.nrows() + 1, in1.ncols());
-      fk::matrix<TestType, mem_type::view> window(builder, 0, in1.nrows() - 1,
-                                                  0, in1.ncols() - 1);
-      window = in1;
-      return builder;
-    }();
+    fk::matrix<TestType> in1_extended(in1.nrows() + 1, in1.ncols());
 
-    fk::matrix<TestType> const in2_extended = [&] {
-      fk::matrix<TestType> builder(in2.nrows() + 1, in2.ncols());
-      fk::matrix<TestType, mem_type::view> window(builder, 0, in2.nrows() - 1,
-                                                  0, in2.ncols() - 1);
-      window = in2;
-      return builder;
-    }();
+    fk::matrix<TestType, mem_type::view> in1_view(
+        in1_extended, 0, in1.nrows() - 1, 0, in1.ncols() - 1);
+    in1_view = in1;
+
+    fk::matrix<TestType> in2_extended(in2.nrows() + 1, in2.ncols());
+
+    fk::matrix<TestType, mem_type::view> in2_view(
+        in2_extended, 0, in2.nrows() - 1, 0, in2.ncols() - 1);
+    in2_view = in2;
 
     fk::matrix<TestType> result(in1.nrows() + 2, in2.ncols());
     fk::matrix<TestType, mem_type::view> result_view(result, 0, in1.nrows() - 1,
