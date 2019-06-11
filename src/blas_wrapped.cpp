@@ -2,9 +2,16 @@
 #include <iostream>
 #include <type_traits>
 
+//
+// temporary. used to ignore compiler warnings until we implement
+// switching on environ variable
+//
+auto const ignore = [](auto ignored) { (void)ignored; };
+
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy, environment const environ)
 {
+  ignore(environ);
   assert(n);
   assert(x);
   assert(incx);
@@ -34,6 +41,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, environment const environ)
 template<typename P>
 P dot(int *n, P *x, int *incx, P *y, int *incy, environment const environ)
 {
+  ignore(environ);
   assert(n);
   assert(x);
   assert(incx);
@@ -53,12 +61,10 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, environment const environ)
   }
   else
   {
-    P ans     = 0.0;
-    int y_ptr = 0;
-    for (int i = 0; i < *n; i += *incx)
+    P ans = 0.0;
+    for (int i = 0; i < *n; ++i)
     {
-      ans += x[i] * y[y_ptr];
-      y_ptr += *incy;
+      ans += x[i * (*incx)] * y[i * (*incy)];
     }
     return ans;
   }
@@ -68,6 +74,7 @@ template<typename P>
 void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
           environment const environ)
 {
+  ignore(environ);
   assert(n);
   assert(alpha);
   assert(x);
@@ -88,10 +95,9 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   }
   else
   {
-    int x_ptr = 0;
-    for (int i = 0; i < *n; i += *incy)
+    for (int i = 0; i < *n; ++i)
     {
-      y[i] = y[i] + x[i] * (*alpha);
+      y[i * (*incy)] = y[i * (*incy)] + x[i * (*incx)] * (*alpha);
     }
   }
 }
@@ -99,6 +105,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
 template<typename P>
 void scal(int *n, P *alpha, P *x, int *incx, environment const environ)
 {
+  ignore(environ);
   assert(n);
   assert(alpha);
   assert(x);
@@ -182,6 +189,7 @@ template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, environment const environ)
 {
+  ignore(environ);
   assert(trans);
   assert(m);
   assert(n);
@@ -223,6 +231,7 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
           environment const environ)
 {
+  ignore(environ);
   assert(transa);
   assert(transb);
   assert(m);
@@ -263,6 +272,7 @@ template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
            environment const environ)
 {
+  ignore(environ);
   assert(m);
   assert(n);
   assert(A);
@@ -292,6 +302,7 @@ template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            environment const environ)
 {
+  ignore(environ);
   assert(n);
   assert(A);
   assert(lda);
