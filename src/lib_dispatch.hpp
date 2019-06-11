@@ -1,7 +1,7 @@
 #pragma once
 #include <cassert>
 
-enum class environment
+enum class resource
 {
   host,
   device
@@ -78,38 +78,38 @@ extern "C"
                int *info);
 }
 
-// -- precision/execution environment wrapper for blas --
+// -- precision/execution resource wrapper for blas --
 
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy,
-          environment const environ = environment::host);
+          resource const res = resource::host);
 
 template<typename P>
 P dot(int *n, P *x, int *incx, P *y, int *incy,
-      environment const environ = environment::host);
+      resource const res = resource::host);
 
 template<typename P>
 void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
-          environment const environ = environment::host);
+          resource const res = resource::host);
 
 template<typename P>
 void scal(int *n, P *alpha, P *x, int *incx,
-          environment const environ = environment::host);
+          resource const res = resource::host);
 
 template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy,
-          environment const environ = environment::host);
+          resource const res = resource::host);
 
 template<typename P>
 void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
-          environment const environ = environment::host);
+          resource const res = resource::host);
 
 template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
-           environment const environ = environment::host);
+           resource const res = resource::host);
 
 template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
-           environment const environ = environment::host);
+           resource const res = resource::host);
