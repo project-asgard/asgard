@@ -1,8 +1,8 @@
-#include "blas_free.hpp"
+#include "fast_math.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
-TEMPLATE_TEST_CASE("gemm", "[blas_free]", float, double, int)
+TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
 {
   // clang-format off
     fk::matrix<TestType> const ans{
@@ -106,7 +106,7 @@ TEMPLATE_TEST_CASE("gemm", "[blas_free]", float, double, int)
   }
 }
 
-TEMPLATE_TEST_CASE("gemv", "[blas_free]", float, double, int)
+TEMPLATE_TEST_CASE("gemv", "[fast_math]", float, double, int)
 {
   // clang-format off
     fk::vector<TestType> const ans
@@ -163,7 +163,7 @@ TEMPLATE_TEST_CASE("gemv", "[blas_free]", float, double, int)
   }
 }
 
-TEMPLATE_TEST_CASE("other vector routines", "[blas_free]", float, double, int)
+TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 {
   fk::vector<TestType> const gold = {2, 3, 4, 5, 6};
   SECTION("vector scale and accumulate (axpy)")

@@ -1,4 +1,4 @@
-#include "blas_wrapped.hpp"
+#include "lib_dispatch.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
@@ -7,7 +7,7 @@
 //
 // direct calls into BLAS are not covered for now
 //
-TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[blas_wrapped]", float,
+TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
                    double, int)
 {
   // clang-format off
@@ -171,7 +171,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[blas_wrapped]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[blas_wrapped]", float,
+TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[lib_dispatch]", float,
                    double, int)
 {
   // clang-format off
@@ -273,7 +273,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[blas_wrapped]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[blas_wrapped]",
+TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[lib_dispatch]",
                    float, double, int)
 {
   fk::vector<TestType> const x         = {1, 2, 3, 4, 5};
@@ -321,7 +321,7 @@ TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[blas_wrapped]",
   }
 }
 
-TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[blas_wrapped]", float, double,
+TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[lib_dispatch]", float, double,
                    int)
 {
   fk::vector<TestType> const x    = {1, 2, 3, 4, 5};
@@ -355,7 +355,7 @@ TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[blas_wrapped]", float, double,
   }
 }
 
-TEMPLATE_TEST_CASE("dot product (dot)", "[blas_wrapped]", float, double, int)
+TEMPLATE_TEST_CASE("dot product (dot)", "[lib_dispatch]", float, double, int)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType> const y = {2, 4, 6, 8, 10};

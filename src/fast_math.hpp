@@ -1,5 +1,5 @@
 #pragma once
-#include "blas_wrapped.hpp"
+#include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
 // axpy - add the argument vector scaled by alpha
