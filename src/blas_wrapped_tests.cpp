@@ -327,6 +327,63 @@ TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[blas_wrapped]",
 
 TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[blas_wrapped]", float, double,
                    int)
-{}
+{
+  fk::vector<TestType> const x    = {1, 2, 3, 4, 5};
+  TestType const scale            = 3;
+  fk::vector<TestType> const gold = {4, 7, 10, 13, 16};
 
-TEMPLATE_TEST_CASE("dot product (dot)", "[blas_wrapped]", float, double, int) {}
+  SECTION("axpy - inc = 1")
+  {
+    fk::vector<TestType> y(x.size());
+    std::fill(y.begin(), y.end(), 1.0);
+
+    int n          = x.size();
+    TestType alpha = scale;
+    int inc        = 1;
+    axpy(&n, &alpha, x.data(), &inc, y.data(), &inc);
+    REQUIRE(y == gold);
+  }
+
+  SECTION("axpy - inc =/= 1")
+  {
+    fk::vector<TestType> y         = {1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
+    fk::vector<TestType> const ans = {4, 0, 0, 7, 0, 0, 10, 0, 0, 13, 0, 0, 16};
+    fk::vector<TestType> const x_extended = {1, 0, 2, 0, 3, 0, 4, 0, 5};
+
+    int n          = x.size();
+    TestType alpha = scale;
+    int incx       = 2;
+    int incy       = 3;
+    axpy(&n, &alpha, x_extended.data(), &incx, y.data(), &incy);
+    REQUIRE(y == ans);
+  }
+}
+
+TEMPLATE_TEST_CASE("dot product (dot)", "[blas_wrapped]", float, double, int)
+{
+  fk::vector<TestType> const x = {1, 2, 3, 4, 5};
+  fk::vector<TestType> const y = {2, 4, 6, 8, 10};
+  TestType const gold          = 110;
+
+  SECTION("dot - inc = 1")
+  {
+    int n              = x.size();
+    int inc            = 1;
+    TestType const ans = dot(&n, x.data(), &inc, y.data(), &inc);
+    REQUIRE(ans == gold);
+  }
+
+  SECTION("dot - inc =/= 1")
+  {
+    fk::vector<TestType> const x_extended = {1, 0, 2, 0, 3, 0, 4, 0, 5};
+
+    fk::vector<TestType> const y_extended = {2, 0, 0, 4, 0, 0, 6,
+                                             0, 0, 8, 0, 0, 10};
+    int n                                 = x.size();
+    int incx                              = 2;
+    int incy                              = 3;
+    TestType const ans =
+        dot(&n, x_extended.data(), &incx, y_extended.data(), &incy);
+    REQUIRE(ans == gold);
+  }
+}
