@@ -1,6 +1,6 @@
 #pragma once
 
-#include "blas_wrapped.hpp"
+#include "lib_dispatch.hpp"
 #include <memory>
 #include <string>
 #include <vector>

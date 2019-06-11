@@ -1,6 +1,6 @@
 #include "batch.hpp"
-#include "blas_wrapped.hpp"
 #include "connectivity.hpp"
+#include "lib_dispatch.hpp"
 #include "tensors.hpp" // for views
 #include <omp.h>
 

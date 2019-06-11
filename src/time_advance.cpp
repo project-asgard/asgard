@@ -1,5 +1,5 @@
 #include "time_advance.hpp"
-#include "blas_free.hpp"
+#include "fast_math.hpp"
 
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
