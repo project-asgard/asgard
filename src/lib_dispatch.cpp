@@ -328,17 +328,17 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   }
 }
 
-template void copy(int *n, float *x, int *incx, float *y, int *incy,
-                   resource const res);
-template void copy(int *n, double *x, int *incx, double *y, int *incy,
-                   resource const res);
+template void
+copy(int *n, float *x, int *incx, float *y, int *incy, resource const res);
+template void
+copy(int *n, double *x, int *incx, double *y, int *incy, resource const res);
 template void
 copy(int *n, int *x, int *incx, int *y, int *incy, resource const res);
 
-template float dot(int *n, float *x, int *incx, float *y, int *incy,
-                   resource const res);
-template double dot(int *n, double *x, int *incx, double *y, int *incy,
-                    resource const res);
+template float
+dot(int *n, float *x, int *incx, float *y, int *incy, resource const res);
+template double
+dot(int *n, double *x, int *incx, double *y, int *incy, resource const res);
 template int
 dot(int *n, int *x, int *incx, int *y, int *incy, resource const res);
 
@@ -353,8 +353,7 @@ template void
 scal(int *n, float *alpha, float *x, int *incx, resource const res);
 template void
 scal(int *n, double *alpha, double *x, int *incx, resource const res);
-template void
-scal(int *n, int *alpha, int *x, int *incx, resource const res);
+template void scal(int *n, int *alpha, int *x, int *incx, resource const res);
 
 template void gemv(char const *trans, int *m, int *n, float *alpha, float *A,
                    int *lda, float *x, int *incx, float *beta, float *y,

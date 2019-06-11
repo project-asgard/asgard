@@ -113,3 +113,65 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
 template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            resource const res = resource::host);
+
+extern template void
+copy(int *n, float *x, int *incx, float *y, int *incy, resource const res);
+extern template void
+copy(int *n, double *x, int *incx, double *y, int *incy, resource const res);
+extern template void
+copy(int *n, int *x, int *incx, int *y, int *incy, resource const res);
+
+extern template float
+dot(int *n, float *x, int *incx, float *y, int *incy, resource const res);
+extern template double
+dot(int *n, double *x, int *incx, double *y, int *incy, resource const res);
+extern template int
+dot(int *n, int *x, int *incx, int *y, int *incy, resource const res);
+
+extern template void axpy(int *n, float *alpha, float *x, int *incx, float *y,
+                          int *incy, resource const res);
+extern template void axpy(int *n, double *alpha, double *x, int *incx,
+                          double *y, int *incy, resource const res);
+extern template void axpy(int *n, int *alpha, int *x, int *incx, int *y,
+                          int *incy, resource const res);
+
+extern template void
+scal(int *n, float *alpha, float *x, int *incx, resource const res);
+extern template void
+scal(int *n, double *alpha, double *x, int *incx, resource const res);
+extern template void
+scal(int *n, int *alpha, int *x, int *incx, resource const res);
+
+extern template void gemv(char const *trans, int *m, int *n, float *alpha,
+                          float *A, int *lda, float *x, int *incx, float *beta,
+                          float *y, int *incy, resource const res);
+extern template void gemv(char const *trans, int *m, int *n, double *alpha,
+                          double *A, int *lda, double *x, int *incx,
+                          double *beta, double *y, int *incy,
+                          resource const res);
+extern template void gemv(char const *trans, int *m, int *n, int *alpha, int *A,
+                          int *lda, int *x, int *incx, int *beta, int *y,
+                          int *incy, resource const res);
+
+extern template void gemm(char const *transa, char const *transb, int *m,
+                          int *n, int *k, float *alpha, float *A, int *lda,
+                          float *B, int *ldb, float *beta, float *C, int *ldc,
+                          resource const res);
+extern template void gemm(char const *transa, char const *transb, int *m,
+                          int *n, int *k, double *alpha, double *A, int *lda,
+                          double *B, int *ldb, double *beta, double *C,
+                          int *ldc, resource const res);
+extern template void gemm(char const *transa, char const *transb, int *m,
+                          int *n, int *k, int *alpha, int *A, int *lda, int *B,
+                          int *ldb, int *beta, int *C, int *ldc,
+                          resource const res);
+
+extern template void getrf(int *m, int *n, float *A, int *lda, int *ipiv,
+                           int *info, resource const res);
+extern template void getrf(int *m, int *n, double *A, int *lda, int *ipiv,
+                           int *info, resource const res);
+
+extern template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
+                           int *lwork, int *info, resource const res);
+extern template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
+                           int *lwork, int *info, resource const res);
