@@ -126,12 +126,13 @@ void scal(int *n, P *alpha, P *x, int *incx, environment const environ)
 }
 
 //
-// Simple helper for non-float types
+// Simple helpers for non-float types
 //
 template<typename P>
-static void basic_gemm(P *A, bool trans_A, int const lda, P *B, bool trans_B,
-                       int const ldb, P *C, int const ldc, int const m,
-                       int const k, int const n, P const alpha, P const beta)
+static void
+basic_gemm(P const *A, bool const trans_A, int const lda, P *B, bool trans_B,
+           int const ldb, P *C, int const ldc, int const m, int const k,
+           int const n, P const alpha, P const beta)
 {
   assert(m > 0);
   assert(k > 0);
@@ -147,13 +148,35 @@ static void basic_gemm(P *A, bool trans_A, int const lda, P *B, bool trans_B,
       P result = 0.0;
       for (auto z = 0; z < k; ++z)
       {
-        // result += A[i,k] * B[k,j]
         int const A_loc = trans_A ? i * lda + z : z * lda + i;
         int const B_loc = trans_B ? z * ldb + j : j * ldb + z;
         result += A[A_loc] * B[B_loc];
       }
       C[j * ldc + i] = C[j * ldc + i] * beta + alpha * result;
     }
+  }
+}
+
+template<typename P>
+static void basic_gemv(P const *A, bool const trans_A, int const lda,
+                       P const *x, int const incx, P *y, int const incy,
+                       int const m, int const n, P const alpha, P const beta)
+{
+  assert(m > 0);
+  assert(n > 0);
+  assert(lda > 0);
+  assert(incx > 0);
+  assert(incy > 0);
+
+  for (auto i = 0; i < m; ++i)
+  {
+    P result = 0.0;
+    for (auto j = 0; j < n; ++j)
+    {
+      int const A_loc = trans_A ? i * lda + j : j * lda + i;
+      result += A[A_loc] * x[j * incx];
+    }
+    y[i * incy] = y[i * incy] * beta + alpha * result;
   }
 }
 
@@ -190,9 +213,9 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   else
   {
     bool const trans_A = (*trans == 't') ? true : false;
-    bool const trans_x = false;
-    int const one      = 1;
-    basic_gemm(A, trans_A, *lda, x, trans_x, *n, y, *n, *m, *n, one, *alpha,
+    int const rows_A   = trans_A ? *n : *m;
+    int const cols_A   = trans_A ? *m : *n;
+    basic_gemv(A, trans_A, *lda, x, *incx, y, *incy, rows_A, cols_A, *alpha,
                *beta);
   }
 }

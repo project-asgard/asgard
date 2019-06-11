@@ -2,6 +2,11 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
+// in general, these component tests are only applied to functions
+// with non-blas call paths to support integer operations.
+//
+// direct calls into BLAS are not covered for now
+//
 TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[blas_wrapped]", float,
                    double, int)
 {
@@ -130,6 +135,144 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[blas_wrapped]", float,
     char const trans_b = 'n';
     gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda, in2.data(),
          &ldb, &beta, result.data(), &ldc);
+    REQUIRE(result == gold);
+  }
+
+  SECTION("lda =/= nrows")
+  {
+    fk::matrix<TestType> const in1_extended = [&] {
+      fk::matrix<TestType> builder(in1.nrows() + 1, in1.ncols());
+      fk::matrix<TestType, mem_type::view> window(builder, 0, in1.nrows() - 1,
+                                                  0, in1.ncols() - 1);
+      window = in1;
+      return builder;
+    }();
+
+    fk::matrix<TestType> const in2_extended = [&] {
+      fk::matrix<TestType> builder(in2.nrows() + 1, in2.ncols());
+      fk::matrix<TestType, mem_type::view> window(builder, 0, in2.nrows() - 1,
+                                                  0, in2.ncols() - 1);
+      window = in2;
+      return builder;
+    }();
+
+    fk::matrix<TestType> result(in1.nrows() + 2, in2.ncols());
+    fk::matrix<TestType, mem_type::view> result_view(result, 0, in1.nrows() - 1,
+                                                     0, in2.ncols() - 1);
+    TestType alpha     = 1.0;
+    TestType beta      = 0.0;
+    int m              = in1.nrows();
+    int k              = in1.ncols();
+    int n              = in2.ncols();
+    int lda            = in1_extended.stride();
+    int ldb            = in2_extended.stride();
+    int ldc            = result.stride();
+    char const trans_a = 'n';
+    char const trans_b = 'n';
+    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_extended.data(), &lda,
+         in2_extended.data(), &ldb, &beta, result.data(), &ldc);
+    REQUIRE(result_view == ans);
+  }
+}
+
+TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[blas_wrapped]", float,
+                   double, int)
+{
+  // clang-format off
+    fk::vector<TestType> const ans
+      {27, 42, 69, 71, -65};
+
+    fk::matrix<TestType> const A {
+     {-10, -2, -7},
+     {  6, -5, -5},
+     {  7,  6, -7},
+     {  8, -1, -8},
+     { -9,  9,  8},
+    };
+
+    fk::vector<TestType> const x
+     {2, 1, -7};
+  // clang-format on
+
+  SECTION("no transpose")
+  {
+    fk::vector<TestType> result(ans.size());
+
+    TestType alpha     = 1.0;
+    TestType beta      = 0.0;
+    int m              = A.nrows();
+    int n              = A.ncols();
+    int lda            = A.stride();
+    int inc            = 1;
+    char const trans_a = 'n';
+
+    gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc, &beta,
+         result.data(), &inc);
+    REQUIRE(result == ans);
+  }
+
+  SECTION("transpose A")
+  {
+    fk::matrix<TestType> const A_trans = fk::matrix<TestType>(A).transpose();
+    fk::vector<TestType> result(ans.size());
+
+    TestType alpha     = 1.0;
+    TestType beta      = 0.0;
+    int m              = A_trans.nrows();
+    int n              = A_trans.ncols();
+    int lda            = A_trans.stride();
+    int inc            = 1;
+    char const trans_a = 't';
+
+    gemv(&trans_a, &m, &n, &alpha, A_trans.data(), &lda, x.data(), &inc, &beta,
+         result.data(), &inc);
+    REQUIRE(result == ans);
+  }
+
+  SECTION("test scaling")
+  {
+    fk::vector<TestType> result(ans.size());
+    std::fill(result.begin(), result.end(), 1.0);
+
+    fk::vector<TestType> const gold = [&] {
+      fk::vector<TestType> ans = (A * x) * 2.0;
+      std::transform(
+          ans.begin(), ans.end(), ans.begin(),
+          [](TestType const elem) -> TestType { return elem + 1.0; });
+
+      return ans;
+    }();
+    TestType alpha     = 2.0;
+    TestType beta      = 1.0;
+    int m              = A.nrows();
+    int n              = A.ncols();
+    int lda            = A.stride();
+    int inc            = 1;
+    char const trans_a = 'n';
+
+    gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc, &beta,
+         result.data(), &inc);
+    REQUIRE(result == gold);
+  }
+
+  SECTION("inc =/= 1")
+  {
+    fk::vector<TestType> result(ans.size() * 2 - 1);
+
+    fk::vector<TestType> const gold     = {27, 0, 42, 0, 69, 0, 71, 0, -65};
+    fk::vector<TestType> const x_padded = {2, 0, 0, 1, 0, 0, -7};
+
+    TestType alpha     = 1.0;
+    TestType beta      = 0.0;
+    int m              = A.nrows();
+    int n              = A.ncols();
+    int lda            = A.stride();
+    int incx           = 3;
+    int incy           = 2;
+    char const trans_a = 'n';
+
+    gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x_padded.data(), &incx,
+         &beta, result.data(), &incy);
     REQUIRE(result == gold);
   }
 }
