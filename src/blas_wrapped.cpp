@@ -129,9 +129,9 @@ void scal(int *n, P *alpha, P *x, int *incx, environment const environ)
 // Simple helper for non-float types
 //
 template<typename P>
-static void
-basic_gemm(P *A, bool trans_A, int const lda, P *B, bool trans_B, int const ldb,
-           P *C, int const ldc, int const m, int const k, int const n)
+static void basic_gemm(P *A, bool trans_A, int const lda, P *B, bool trans_B,
+                       int const ldb, P *C, int const ldc, int const m,
+                       int const k, int const n, P const alpha, P const beta)
 {
   assert(m > 0);
   assert(k > 0);
@@ -139,12 +139,6 @@ basic_gemm(P *A, bool trans_A, int const lda, P *B, bool trans_B, int const ldb,
   assert(lda > 0); // FIXME Tyler says these could be more thorough
   assert(ldb > 0);
   assert(ldc > 0);
-
-  int const nrows_A = trans_A ? k : m;
-  int const ncols_A = trans_A ? m : k;
-
-  int const nrows_B = trans_B ? n : k;
-  int const ncols_B = trans_B ? k : n;
 
   for (auto i = 0; i < m; ++i)
   {
@@ -158,8 +152,7 @@ basic_gemm(P *A, bool trans_A, int const lda, P *B, bool trans_B, int const ldb,
         int const B_loc = trans_B ? z * ldb + j : j * ldb + z;
         result += A[A_loc] * B[B_loc];
       }
-      // C[i,j] += result
-      C[j * ldc + i] += result;
+      C[j * ldc + i] = C[j * ldc + i] * beta + alpha * result;
     }
   }
 }
@@ -199,7 +192,8 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
     bool const trans_A = (*trans == 't') ? true : false;
     bool const trans_x = false;
     int const one      = 1;
-    basic_gemm(A, trans_A, *lda, x, trans_x, *n, y, *n, *m, *n, one);
+    basic_gemm(A, trans_A, *lda, x, trans_x, *n, y, *n, *m, *n, one, *alpha,
+               *beta);
   }
 }
 
@@ -239,7 +233,8 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   {
     bool const trans_A = (*transa == 't') ? true : false;
     bool const trans_B = (*transb == 't') ? true : false;
-    basic_gemm(A, trans_A, *lda, B, trans_B, *ldb, C, *ldc, *m, *k, *n);
+    basic_gemm(A, trans_A, *lda, B, trans_B, *ldb, C, *ldc, *m, *k, *n, *alpha,
+               *beta);
   }
 }
 
