@@ -41,27 +41,26 @@ void explicit_time_advance(PDE<P> const &pde,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
-  P const alpha = 1.0;
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, system.scaled_source, time);
-  axpy(alpha, system.scaled_source, system.batch_output);
+  axpy(system.scaled_source, system.batch_output);
   copy(system.batch_output, system.result_1);
   P const fx_scale_1 = a21 * dt;
-  axpy(fx_scale_1, system.batch_output, system.batch_input);
+  axpy(system.batch_output, system.batch_input, fx_scale_1);
 
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, system.scaled_source, time + c2 * dt);
-  axpy(alpha, system.scaled_source, system.batch_output);
+  axpy(system.scaled_source, system.batch_output);
   copy(system.batch_output, system.result_2);
   copy(system.x_orig, system.batch_input);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
-  axpy(fx_scale_2a, system.result_1, system.batch_input);
-  axpy(fx_scale_2b, system.result_2, system.batch_input);
+  axpy(system.result_1, system.batch_input, fx_scale_2a);
+  axpy(system.result_2, system.batch_input, fx_scale_2b);
 
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, system.scaled_source, time + c3 * dt);
-  axpy(alpha, system.scaled_source, system.batch_output);
+  axpy(system.scaled_source, system.batch_output);
   copy(system.batch_output, system.result_3);
 
   P const scale_1 = dt * b1;
@@ -69,9 +68,9 @@ void explicit_time_advance(PDE<P> const &pde,
   P const scale_3 = dt * b3;
 
   copy(system.x_orig, system.batch_input);
-  axpy(scale_1, system.result_1, system.batch_input);
-  axpy(scale_2, system.result_2, system.batch_input);
-  axpy(scale_3, system.result_3, system.batch_input);
+  axpy(system.result_1, system.batch_input, scale_1);
+  axpy(system.result_2, system.batch_input, scale_2);
+  axpy(system.result_3, system.batch_input, scale_3);
 
   copy(system.batch_input, system.batch_output);
 }
@@ -88,7 +87,7 @@ scale_sources(PDE<P> const &pde,
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {
-    axpy(pde.sources[i].time_func(time), unscaled_sources[i], scaled_source);
+    axpy(unscaled_sources[i], scaled_source, pde.sources[i].time_func(time));
   }
   return scaled_source;
 }

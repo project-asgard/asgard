@@ -182,14 +182,14 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
     fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
 
-    REQUIRE(axpy(scale, rhs, test) == ans);
+    REQUIRE(axpy(rhs, test, scale) == ans);
     test = gold;
-    REQUIRE(axpy(scale, rhs_view, test) == ans);
+    REQUIRE(axpy(rhs_view, test, scale) == ans);
 
-    REQUIRE(axpy(scale, rhs, test_view) == ans);
+    REQUIRE(axpy(rhs, test_view, scale) == ans);
     REQUIRE(test_own == ans);
     test_view = gold;
-    REQUIRE(axpy(scale, rhs_view, test_view) == ans);
+    REQUIRE(axpy(rhs_view, test_view, scale) == ans);
     REQUIRE(test_own == ans);
   }
 
