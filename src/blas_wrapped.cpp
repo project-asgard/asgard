@@ -24,11 +24,9 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, environment const environ)
   }
   else
   {
-    int y_ptr = 0;
-    for (int i = 0; i < *n; i += *incx)
+    for (int i = 0; i < *n; ++i)
     {
-      y[y_ptr] = x[i];
-      y_ptr += *incy;
+      y[i * (*incy)] = x[i * (*incx)];
     }
   }
 }
@@ -118,9 +116,9 @@ void scal(int *n, P *alpha, P *x, int *incx, environment const environ)
   }
   else
   {
-    for (int i = 0; i < *n; i += *incx)
+    for (int i = 0; i < *n; ++i)
     {
-      x[i] *= *alpha;
+      x[i * (*incx)] *= *alpha;
     }
   }
 }

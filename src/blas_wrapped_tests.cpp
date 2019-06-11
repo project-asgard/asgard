@@ -276,3 +276,57 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[blas_wrapped]", float,
     REQUIRE(result == gold);
   }
 }
+
+TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[blas_wrapped]",
+                   float, double, int)
+{
+  fk::vector<TestType> const x         = {1, 2, 3, 4, 5};
+  fk::vector<TestType> const x_tripled = {3, 6, 9, 12, 15};
+  TestType const scale                 = 3;
+  SECTION("scal - incx = 1")
+  {
+    fk::vector<TestType> test(x);
+    int n          = x.size();
+    TestType alpha = scale;
+    int incx       = 1;
+    scal(&n, &alpha, test.data(), &incx);
+    REQUIRE(test == x_tripled);
+  }
+  SECTION("scal - incx =/= 1")
+  {
+    fk::vector<TestType> test{1, 0, 2, 0, 3, 0, 4, 0, 5};
+    fk::vector<TestType> const gold{3, 0, 6, 0, 9, 0, 12, 0, 15};
+    int n          = x.size();
+    TestType alpha = scale;
+    int incx       = 2;
+    scal(&n, &alpha, test.data(), &incx);
+    REQUIRE(test == gold);
+  }
+  SECTION("copy - inc = 1")
+  {
+    fk::vector<TestType> x_test(x);
+    fk::vector<TestType> y_test(x.size());
+    int n   = x.size();
+    int inc = 1;
+    copy(&n, x_test.data(), &inc, y_test.data(), &inc);
+    REQUIRE(y_test == x);
+  }
+  SECTION("copy - inc =/= 1")
+  {
+    fk::vector<TestType> x_test{1, 0, 2, 0, 3, 0, 4, 0, 5};
+    fk::vector<TestType> const gold{1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5};
+    fk::vector<TestType> y_test(gold.size());
+
+    int n    = x.size();
+    int incx = 2;
+    int incy = 3;
+    copy(&n, x_test.data(), &incx, y_test.data(), &incy);
+    REQUIRE(y_test == gold);
+  }
+}
+
+TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[blas_wrapped]", float, double,
+                   int)
+{}
+
+TEMPLATE_TEST_CASE("dot product (dot)", "[blas_wrapped]", float, double, int) {}
