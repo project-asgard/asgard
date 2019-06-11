@@ -2,7 +2,7 @@
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
-// axpy - add the argument vector scaled by alpha
+// axpy - y = a*x
 template<typename P, mem_type mem, mem_type omem>
 fk::vector<P, mem> &
 axpy(P const alpha, fk::vector<P, omem> const &x, fk::vector<P, mem> &y)

@@ -83,6 +83,8 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     REQUIRE(result == gold);
   }
 
+  // test the case where lda doesn't equal the number of rows in
+  // arguments - this often occurs when using views.
   SECTION("lda =/= nrows")
   {
     fk::matrix<TestType> in1_extended(in1.nrows() + 1, in1.ncols());
