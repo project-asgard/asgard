@@ -293,7 +293,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   }
   else
   { // not instantiated; should never be reached
-    std::cerr << "getrf not implemented for non-floating types" << std::endl;
+    std::cerr << "getrf not implemented for non-floating types" << '\n';
     assert(false);
   }
 }
@@ -323,7 +323,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   }
   else
   { // not instantiated; should never be reached
-    std::cerr << "getri not implemented for non-floating types" << std::endl;
+    std::cerr << "getri not implemented for non-floating types" << '\n';
     assert(false);
   }
 }
