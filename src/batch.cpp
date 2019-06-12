@@ -251,8 +251,8 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   for (int i = 0; i < num_entries; ++i)
   {
     if (a(i) && b(i) && c(i))
-      gemm(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i), &lda, b(i),
-           &ldb, &beta_, c(i), &ldc);
+      lib_dispatch::gemm(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i),
+                         &lda, b(i), &ldb, &beta_, c(i), &ldc);
   }
 }
 
@@ -296,8 +296,8 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   for (int i = 0; i < num_entries; ++i)
   {
     if (a(i) && b(i) && c(i))
-      gemv(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i), &stride_b, &beta_,
-           c(i), &stride_c);
+      lib_dispatch::gemv(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i),
+                         &stride_b, &beta_, c(i), &stride_c);
   }
 }
 

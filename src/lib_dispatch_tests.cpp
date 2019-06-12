@@ -7,8 +7,8 @@
 //
 // direct calls into BLAS are not covered for now
 //
-TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
-                   double, int)
+TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
+                   "[lib_dispatch]", float, double, int)
 {
   // clang-format off
     fk::matrix<TestType> const ans{
@@ -22,10 +22,10 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     };
 
     fk::matrix<TestType> const in2{
-        {12, 22, 32}, 
-	{13, 23, 33}, 
-	{14, 24, 34}, 
-	{15, 25, 35}, 
+        {12, 22, 32},
+	{13, 23, 33},
+	{14, 24, 34},
+	{15, 25, 35},
 	{16, 26, 36},
     };
   // clang-format on
@@ -44,8 +44,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 'n';
-    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda, in2.data(),
-         &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
+                       in2.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == ans);
   }
 
@@ -64,8 +64,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     int ldc            = result.stride();
     char const trans_a = 't';
     char const trans_b = 'n';
-    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t.data(), &lda, in2.data(),
-         &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t.data(),
+                       &lda, in2.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == ans);
   }
   SECTION("transpose b")
@@ -83,8 +83,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 't';
-    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda, in2_t.data(),
-         &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
+                       in2_t.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == ans);
   }
 
@@ -104,8 +104,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     int ldc            = result.stride();
     char const trans_a = 't';
     char const trans_b = 't';
-    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t.data(), &lda,
-         in2_t.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t.data(),
+                       &lda, in2_t.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == ans);
   }
 
@@ -133,8 +133,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 'n';
-    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda, in2.data(),
-         &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
+                       in2.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == gold);
   }
 
@@ -165,14 +165,15 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (gemm)", "[lib_dispatch]", float,
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 'n';
-    gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_extended.data(), &lda,
-         in2_extended.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha,
+                       in1_extended.data(), &lda, in2_extended.data(), &ldb,
+                       &beta, result.data(), &ldc);
     REQUIRE(result_view == ans);
   }
 }
 
-TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[lib_dispatch]", float,
-                   double, int)
+TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
+                   "[lib_dispatch]", float, double, int)
 {
   // clang-format off
     fk::vector<TestType> const ans
@@ -202,8 +203,8 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[lib_dispatch]", float,
     int inc            = 1;
     char const trans_a = 'n';
 
-    gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc, &beta,
-         result.data(), &inc);
+    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc,
+                       &beta, result.data(), &inc);
     REQUIRE(result == ans);
   }
 
@@ -220,8 +221,8 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[lib_dispatch]", float,
     int inc            = 1;
     char const trans_a = 't';
 
-    gemv(&trans_a, &m, &n, &alpha, A_trans.data(), &lda, x.data(), &inc, &beta,
-         result.data(), &inc);
+    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_trans.data(), &lda, x.data(),
+                       &inc, &beta, result.data(), &inc);
     REQUIRE(result == ans);
   }
 
@@ -246,8 +247,8 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[lib_dispatch]", float,
     int inc            = 1;
     char const trans_a = 'n';
 
-    gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc, &beta,
-         result.data(), &inc);
+    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc,
+                       &beta, result.data(), &inc);
     REQUIRE(result == gold);
   }
 
@@ -267,47 +268,48 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (gemv)", "[lib_dispatch]", float,
     int incy           = 2;
     char const trans_a = 'n';
 
-    gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x_padded.data(), &incx,
-         &beta, result.data(), &incy);
+    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda,
+                       x_padded.data(), &incx, &beta, result.data(), &incy);
     REQUIRE(result == gold);
   }
 }
 
-TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[lib_dispatch]",
-                   float, double, int)
+TEMPLATE_TEST_CASE(
+    "scale and copy routines (lib_dispatch::scal/lib_dispatch::copy)",
+    "[lib_dispatch]", float, double, int)
 {
   fk::vector<TestType> const x         = {1, 2, 3, 4, 5};
   fk::vector<TestType> const x_tripled = {3, 6, 9, 12, 15};
   TestType const scale                 = 3;
-  SECTION("scal - incx = 1")
+  SECTION("lib_dispatch::scal - incx = 1")
   {
     fk::vector<TestType> test(x);
     int n          = x.size();
     TestType alpha = scale;
     int incx       = 1;
-    scal(&n, &alpha, test.data(), &incx);
+    lib_dispatch::scal(&n, &alpha, test.data(), &incx);
     REQUIRE(test == x_tripled);
   }
-  SECTION("scal - incx =/= 1")
+  SECTION("lib_dispatch::scal - incx =/= 1")
   {
     fk::vector<TestType> test{1, 0, 2, 0, 3, 0, 4, 0, 5};
     fk::vector<TestType> const gold{3, 0, 6, 0, 9, 0, 12, 0, 15};
     int n          = x.size();
     TestType alpha = scale;
     int incx       = 2;
-    scal(&n, &alpha, test.data(), &incx);
+    lib_dispatch::scal(&n, &alpha, test.data(), &incx);
     REQUIRE(test == gold);
   }
-  SECTION("copy - inc = 1")
+  SECTION("lib_dispatch::copy - inc = 1")
   {
     fk::vector<TestType> x_test(x);
     fk::vector<TestType> y_test(x.size());
     int n   = x.size();
     int inc = 1;
-    copy(&n, x_test.data(), &inc, y_test.data(), &inc);
+    lib_dispatch::copy(&n, x_test.data(), &inc, y_test.data(), &inc);
     REQUIRE(y_test == x);
   }
-  SECTION("copy - inc =/= 1")
+  SECTION("lib_dispatch::copy - inc =/= 1")
   {
     fk::vector<TestType> x_test{1, 0, 2, 0, 3, 0, 4, 0, 5};
     fk::vector<TestType> const gold{1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5};
@@ -316,19 +318,19 @@ TEMPLATE_TEST_CASE("scale and copy routines (scal/copy)", "[lib_dispatch]",
     int n    = x.size();
     int incx = 2;
     int incy = 3;
-    copy(&n, x_test.data(), &incx, y_test.data(), &incy);
+    lib_dispatch::copy(&n, x_test.data(), &incx, y_test.data(), &incy);
     REQUIRE(y_test == gold);
   }
 }
 
-TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[lib_dispatch]", float, double,
-                   int)
+TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
+                   float, double, int)
 {
   fk::vector<TestType> const x    = {1, 2, 3, 4, 5};
   TestType const scale            = 3;
   fk::vector<TestType> const gold = {4, 7, 10, 13, 16};
 
-  SECTION("axpy - inc = 1")
+  SECTION("lib_dispatch::axpy - inc = 1")
   {
     fk::vector<TestType> y(x.size());
     std::fill(y.begin(), y.end(), 1.0);
@@ -336,11 +338,11 @@ TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[lib_dispatch]", float, double,
     int n          = x.size();
     TestType alpha = scale;
     int inc        = 1;
-    axpy(&n, &alpha, x.data(), &inc, y.data(), &inc);
+    lib_dispatch::axpy(&n, &alpha, x.data(), &inc, y.data(), &inc);
     REQUIRE(y == gold);
   }
 
-  SECTION("axpy - inc =/= 1")
+  SECTION("lib_dispatch::axpy - inc =/= 1")
   {
     fk::vector<TestType> y         = {1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
     fk::vector<TestType> const ans = {4, 0, 0, 7, 0, 0, 10, 0, 0, 13, 0, 0, 16};
@@ -350,26 +352,27 @@ TEMPLATE_TEST_CASE("scale/accumulate (axpy)", "[lib_dispatch]", float, double,
     TestType alpha = scale;
     int incx       = 2;
     int incy       = 3;
-    axpy(&n, &alpha, x_extended.data(), &incx, y.data(), &incy);
+    lib_dispatch::axpy(&n, &alpha, x_extended.data(), &incx, y.data(), &incy);
     REQUIRE(y == ans);
   }
 }
 
-TEMPLATE_TEST_CASE("dot product (dot)", "[lib_dispatch]", float, double, int)
+TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
+                   double, int)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType> const y = {2, 4, 6, 8, 10};
   TestType const gold          = 110;
 
-  SECTION("dot - inc = 1")
+  SECTION("lib_dispatch::dot - inc = 1")
   {
     int n              = x.size();
     int inc            = 1;
-    TestType const ans = dot(&n, x.data(), &inc, y.data(), &inc);
+    TestType const ans = lib_dispatch::dot(&n, x.data(), &inc, y.data(), &inc);
     REQUIRE(ans == gold);
   }
 
-  SECTION("dot - inc =/= 1")
+  SECTION("lib_dispatch::dot - inc =/= 1")
   {
     fk::vector<TestType> const x_extended = {1, 0, 2, 0, 3, 0, 4, 0, 5};
 
@@ -378,8 +381,8 @@ TEMPLATE_TEST_CASE("dot product (dot)", "[lib_dispatch]", float, double, int)
     int n                                 = x.size();
     int incx                              = 2;
     int incy                              = 3;
-    TestType const ans =
-        dot(&n, x_extended.data(), &incx, y_extended.data(), &incy);
+    TestType const ans = lib_dispatch::dot(&n, x_extended.data(), &incx,
+                                           y_extended.data(), &incy);
     REQUIRE(ans == gold);
   }
 }

@@ -2,7 +2,7 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
-TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
+TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
 {
   // clang-format off
     fk::matrix<TestType> const ans{
@@ -16,10 +16,10 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     };
 
     fk::matrix<TestType> const in2{
-        {12, 22, 32}, 
-	{13, 23, 33}, 
-	{14, 24, 34}, 
-	{15, 25, 35}, 
+        {12, 22, 32},
+	{13, 23, 33},
+	{14, 24, 34},
+	{15, 25, 35},
 	{16, 26, 36},
     };
   // clang-format on
@@ -27,7 +27,7 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
   SECTION("no transpose")
   {
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
-    gemm(in1, in2, result);
+    fm::gemm(in1, in2, result);
     REQUIRE(result == ans);
   }
 
@@ -36,7 +36,7 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
     bool const trans_A = true;
-    gemm(in1_t, in2, result, trans_A);
+    fm::gemm(in1_t, in2, result, trans_A);
     REQUIRE(result == ans);
   }
   SECTION("transpose b")
@@ -45,7 +45,7 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
     bool const trans_A = false;
     bool const trans_B = true;
-    gemm(in1, in2_t, result, trans_A, trans_B);
+    fm::gemm(in1, in2_t, result, trans_A, trans_B);
     REQUIRE(result == ans);
   }
 
@@ -56,7 +56,7 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
     bool const trans_A = true;
     bool const trans_B = true;
-    gemm(in1_t, in2_t, result, trans_A, trans_B);
+    fm::gemm(in1_t, in2_t, result, trans_A, trans_B);
     REQUIRE(result == ans);
   }
 
@@ -79,7 +79,7 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     TestType const alpha = 2.0;
     TestType const beta  = 1.0;
 
-    gemm(in1, in2, result, trans_A, trans_B, alpha, beta);
+    fm::gemm(in1, in2, result, trans_A, trans_B, alpha, beta);
     REQUIRE(result == gold);
   }
 
@@ -103,12 +103,12 @@ TEMPLATE_TEST_CASE("gemm", "[fast_math]", float, double, int)
     fk::matrix<TestType, mem_type::view> result_view(result, 0, in1.nrows() - 1,
                                                      0, in2.ncols() - 1);
 
-    gemm(in1_view, in2_view, result_view);
+    fm::gemm(in1_view, in2_view, result_view);
     REQUIRE(result_view == ans);
   }
 }
 
-TEMPLATE_TEST_CASE("gemv", "[fast_math]", float, double, int)
+TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
 {
   // clang-format off
     fk::vector<TestType> const ans
@@ -129,7 +129,7 @@ TEMPLATE_TEST_CASE("gemv", "[fast_math]", float, double, int)
   SECTION("no transpose")
   {
     fk::vector<TestType> result(ans.size());
-    gemv(A, x, result);
+    fm::gemv(A, x, result);
     REQUIRE(result == ans);
   }
 
@@ -138,7 +138,7 @@ TEMPLATE_TEST_CASE("gemv", "[fast_math]", float, double, int)
     fk::matrix<TestType> const A_trans = fk::matrix<TestType>(A).transpose();
     fk::vector<TestType> result(ans.size());
     bool const trans_A = true;
-    gemv(A_trans, x, result, trans_A);
+    fm::gemv(A_trans, x, result, trans_A);
     REQUIRE(result == ans);
   }
 
@@ -160,7 +160,7 @@ TEMPLATE_TEST_CASE("gemv", "[fast_math]", float, double, int)
     TestType const alpha = 2.0;
     TestType const beta  = 1.0;
 
-    gemv(A, x, result, trans_A, alpha, beta);
+    fm::gemv(A, x, result, trans_A, alpha, beta);
     REQUIRE(result == gold);
   }
 }
@@ -168,7 +168,7 @@ TEMPLATE_TEST_CASE("gemv", "[fast_math]", float, double, int)
 TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 {
   fk::vector<TestType> const gold = {2, 3, 4, 5, 6};
-  SECTION("vector scale and accumulate (axpy)")
+  SECTION("vector scale and accumulate (fm::axpy)")
   {
     TestType const scale = 2.0;
 
@@ -182,18 +182,18 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
     fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
 
-    REQUIRE(axpy(rhs, test, scale) == ans);
+    REQUIRE(fm::axpy(rhs, test, scale) == ans);
     test = gold;
-    REQUIRE(axpy(rhs_view, test, scale) == ans);
+    REQUIRE(fm::axpy(rhs_view, test, scale) == ans);
 
-    REQUIRE(axpy(rhs, test_view, scale) == ans);
+    REQUIRE(fm::axpy(rhs, test_view, scale) == ans);
     REQUIRE(test_own == ans);
     test_view = gold;
-    REQUIRE(axpy(rhs_view, test_view, scale) == ans);
+    REQUIRE(fm::axpy(rhs_view, test_view, scale) == ans);
     REQUIRE(test_own == ans);
   }
 
-  SECTION("vector copy (copy)")
+  SECTION("vector copy (fm::copy)")
   {
     fk::vector<TestType> test(gold.size());
     fk::vector<TestType> test_own(gold.size());
@@ -201,18 +201,18 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
     fk::vector<TestType, mem_type::view> const gold_view(gold);
 
-    REQUIRE(copy(gold, test) == gold);
+    REQUIRE(fm::copy(gold, test) == gold);
     test.scale(0);
-    REQUIRE(copy(gold_view, test) == gold);
+    REQUIRE(fm::copy(gold_view, test) == gold);
 
-    REQUIRE(copy(gold, test_view) == gold);
+    REQUIRE(fm::copy(gold, test_view) == gold);
     REQUIRE(test_own == gold);
     test_own.scale(0);
-    REQUIRE(copy(gold_view, test_view) == gold);
+    REQUIRE(fm::copy(gold_view, test_view) == gold);
     REQUIRE(test_own == gold);
   }
 
-  SECTION("vector scale (scal)")
+  SECTION("vector scale (fm::scal)")
   {
     TestType const x = 2.0;
     fk::vector<TestType> test(gold);
@@ -221,8 +221,8 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
     fk::vector<TestType> const ans = {4, 6, 8, 10, 12};
 
-    REQUIRE(scal(x, test) == ans);
-    REQUIRE(scal(x, test_view) == ans);
+    REQUIRE(fm::scal(x, test) == ans);
+    REQUIRE(fm::scal(x, test_view) == ans);
     REQUIRE(test_own == ans);
 
     test     = gold;
@@ -231,8 +231,8 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     TestType const x2 = 0.0;
     fk::vector<TestType> const zeros(gold.size());
 
-    REQUIRE(scal(x2, test) == zeros);
-    REQUIRE(scal(x2, test_view) == zeros);
+    REQUIRE(fm::scal(x2, test) == zeros);
+    REQUIRE(fm::scal(x2, test_view) == zeros);
     REQUIRE(test_own == zeros);
   }
 }
