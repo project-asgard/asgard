@@ -1737,6 +1737,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         system.reduction_space.size() / system.batch_input.size());
 
     fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+
     relaxed_comparison(gold, system.batch_output);
   }
 
@@ -1900,7 +1901,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         system.reduction_space.size() / system.batch_input.size());
 
     fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
-    
+
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity3_sg_l3_d4_t1.dat";
     fk::vector<TestType> const gold =
