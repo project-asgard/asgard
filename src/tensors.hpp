@@ -8,6 +8,15 @@
 /* tolerance for answer comparisons */
 #define TOL std::numeric_limits<P>::epsilon() * 2
 
+// allows a private member function to declare via its parameter list who from
+// outside the class is allowed to call it. you must hold an "access badge".
+template<typename badge_holder>
+class access_badge
+{
+  friend badge_holder;
+  access_badge(){};
+};
+
 enum class mem_type
 {
   owner,
@@ -34,20 +43,6 @@ class vector
   // all types of vectors are mutual friends
   template<typename, mem_type>
   friend class vector;
-
-  // FIXME how to make this specific to the matrix
-  // view from vector constructor??? syntax hell
-  // will correct or make an issue on merge
-  template<typename, mem_type>
-  friend class matrix;
-  // add friend: matrix view from vector constructor
-  // in order to grant access to ref counter
-  // would like to be specific as below; can't
-  // get it to work
-  // template<mem_type omem>
-  // friend matrix<P, mem>::matrix(vector<P, omem> const &source, int const
-  // start_index,
-  //                              int const num_rows, int const num_cols);
 
 public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
@@ -138,6 +133,15 @@ public:
   // use subscript operators for general purpose access
   // this can be offsetted for views
   P *data(int const elem = 0) const { return &data_[elem]; }
+  // this is to allow specific other types to access the private ref counter of
+  // owners - specifically, we want to allow a matrix<view> to be made from a
+  // vector<owner>
+  std::shared_ptr<int>
+      get_ref_count(access_badge<matrix<P, mem_type::view>>) const
+  {
+    return ref_count_;
+  }
+
   //
   // utility functions
   //
@@ -995,7 +999,7 @@ template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem>::matrix(fk::vector<P, omem> const &source,
                            int const num_rows, int const num_cols,
                            int const start_index)
-    : ref_count_(source.ref_count_)
+    : ref_count_(source.get_ref_count({}))
 {
   assert(start_index >= 0);
   assert(num_rows > 0);
