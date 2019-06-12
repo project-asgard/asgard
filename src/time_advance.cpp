@@ -16,7 +16,7 @@ void explicit_time_advance(PDE<P> const &pde,
   assert(system.result_2.size() == system.batch_input.size());
   assert(system.result_3.size() == system.batch_input.size());
 
-  copy(system.batch_input, system.x_orig);
+  fm::copy(system.batch_input, system.x_orig);
 
   assert(time >= 0);
 
@@ -43,36 +43,36 @@ void explicit_time_advance(PDE<P> const &pde,
 
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, system.scaled_source, time);
-  axpy(system.scaled_source, system.batch_output);
-  copy(system.batch_output, system.result_1);
+  fm::axpy(system.scaled_source, system.batch_output);
+  fm::copy(system.batch_output, system.result_1);
   P const fx_scale_1 = a21 * dt;
-  axpy(system.batch_output, system.batch_input, fx_scale_1);
+  fm::axpy(system.batch_output, system.batch_input, fx_scale_1);
 
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, system.scaled_source, time + c2 * dt);
-  axpy(system.scaled_source, system.batch_output);
-  copy(system.batch_output, system.result_2);
-  copy(system.x_orig, system.batch_input);
+  fm::axpy(system.scaled_source, system.batch_output);
+  fm::copy(system.batch_output, system.result_2);
+  fm::copy(system.x_orig, system.batch_input);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
-  axpy(system.result_1, system.batch_input, fx_scale_2a);
-  axpy(system.result_2, system.batch_input, fx_scale_2b);
+  fm::axpy(system.result_1, system.batch_input, fx_scale_2a);
+  fm::axpy(system.result_2, system.batch_input, fx_scale_2b);
 
   apply_explicit(batches);
   scale_sources(pde, unscaled_sources, system.scaled_source, time + c3 * dt);
-  axpy(system.scaled_source, system.batch_output);
-  copy(system.batch_output, system.result_3);
+  fm::axpy(system.scaled_source, system.batch_output);
+  fm::copy(system.batch_output, system.result_3);
 
   P const scale_1 = dt * b1;
   P const scale_2 = dt * b2;
   P const scale_3 = dt * b3;
 
-  copy(system.x_orig, system.batch_input);
-  axpy(system.result_1, system.batch_input, scale_1);
-  axpy(system.result_2, system.batch_input, scale_2);
-  axpy(system.result_3, system.batch_input, scale_3);
+  fm::copy(system.x_orig, system.batch_input);
+  fm::axpy(system.result_1, system.batch_input, scale_1);
+  fm::axpy(system.result_2, system.batch_input, scale_2);
+  fm::axpy(system.result_3, system.batch_input, scale_3);
 
-  copy(system.batch_input, system.batch_output);
+  fm::copy(system.batch_input, system.batch_output);
 }
 
 // scale source vectors for time
@@ -83,11 +83,12 @@ scale_sources(PDE<P> const &pde,
               fk::vector<P> &scaled_source, P const time)
 {
   // zero out final vect
-  scal(static_cast<P>(0.0), scaled_source);
+  fm::scal(static_cast<P>(0.0), scaled_source);
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {
-    axpy(unscaled_sources[i], scaled_source, pde.sources[i].time_func(time));
+    fm::axpy(unscaled_sources[i], scaled_source,
+             pde.sources[i].time_func(time));
   }
   return scaled_source;
 }

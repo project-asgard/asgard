@@ -8,6 +8,8 @@
 //
 auto const ignore = [](auto ignored) { (void)ignored; };
 
+namespace lib_dispatch
+{
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
 {
@@ -385,3 +387,4 @@ template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
                     int *lwork, int *info, resource const res);
 template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
                     int *lwork, int *info, resource const res);
+} // namespace lib_dispatch

@@ -698,7 +698,7 @@ P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
   int one         = 1;
   vector const &X = (*this);
 
-  return dot(&n, X.data(), &one, right.data(), &one);
+  return lib_dispatch::dot(&n, X.data(), &one, right.data(), &one);
 }
 
 //
@@ -721,8 +721,8 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
 
   P zero = 0.0;
   P one  = 1.0;
-  gemv("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero, Y.data(),
-       &one_i);
+  lib_dispatch::gemv("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero,
+                     Y.data(), &one_i);
   return Y;
 }
 
@@ -737,7 +737,7 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
   int n     = a.size();
   P alpha   = x;
 
-  scal(&n, &alpha, a.data(), &one_i);
+  lib_dispatch::scal(&n, &alpha, a.data(), &one_i);
 
   return a;
 }
@@ -770,7 +770,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
   int n     = this->size();
   P alpha   = x;
 
-  scal(&n, &alpha, this->data(), &one_i);
+  lib_dispatch::scal(&n, &alpha, this->data(), &one_i);
 
   return *this;
 }
@@ -1353,8 +1353,8 @@ operator*(fk::vector<P, omem> const &right) const
 
   P one  = 1.0;
   P zero = 0.0;
-  gemv("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i, &zero, Y.data(),
-       &one_i);
+  lib_dispatch::gemv("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i,
+                     &zero, Y.data(), &one_i);
 
   return Y;
 }
@@ -1382,8 +1382,8 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
 
   P one  = 1.0;
   P zero = 0.0;
-  gemm("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb, &zero,
-       C.data(), &ldc);
+  lib_dispatch::gemm("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb,
+                     &zero, C.data(), &ldc);
 
   return C;
 }
@@ -1462,8 +1462,8 @@ fk::matrix<P, mem>::invert()
   P *work{new P[nrows() * ncols()]};
   int info;
 
-  getrf(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
-  getri(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
+  lib_dispatch::getrf(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
+  lib_dispatch::getri(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
 
   delete[] ipiv;
   delete[] work;
@@ -1498,7 +1498,7 @@ fk::matrix<P, mem>::determinant() const
   int n   = ncols();
   int lda = stride();
 
-  getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
+  lib_dispatch::getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
 
   P det    = 1.0;
   int sign = 1;
@@ -1529,7 +1529,7 @@ fk::matrix<P, mem>::update_col(int const col_idx, fk::vector<P, omem> const &v)
   int one{1};
   int stride = 1;
 
-  copy(&n, v.data(), &one, data(0, col_idx), &stride);
+  lib_dispatch::copy(&n, v.data(), &one, data(0, col_idx), &stride);
 
   return *this;
 }
@@ -1548,7 +1548,8 @@ fk::matrix<P, mem>::update_col(int const col_idx, std::vector<P> const &v)
   int one{1};
   int stride = 1;
 
-  copy(&n, const_cast<P *>(v.data()), &one, data(0, col_idx), &stride);
+  lib_dispatch::copy(&n, const_cast<P *>(v.data()), &one, data(0, col_idx),
+                     &stride);
 
   return *this;
 }
@@ -1569,7 +1570,7 @@ fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
   int one{1};
   int lda = stride();
 
-  copy(&n, v.data(), &one, data(row_idx, 0), &lda);
+  lib_dispatch::copy(&n, v.data(), &one, data(row_idx, 0), &lda);
 
   return *this;
 }
@@ -1588,7 +1589,8 @@ fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
   int one{1};
   int lda = stride();
 
-  copy(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0), &lda);
+  lib_dispatch::copy(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0),
+                     &lda);
 
   return *this;
 }
