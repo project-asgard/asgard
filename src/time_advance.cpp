@@ -22,7 +22,7 @@ void explicit_time_advance(PDE<P> const &pde,
 
   for (auto const &ops_list : batches)
   {
-    assert(static_cast<int>(ops_list.size()) == pde.num_dims + 1);
+    assert(static_cast<int>(ops_list.size()) == pde.num_dims);
     for (batch_operands_set<P> ops : ops_list)
     {
       assert(ops.size() == 3);
@@ -41,14 +41,14 @@ void explicit_time_advance(PDE<P> const &pde,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
-  apply_explicit(batches);
+  apply_explicit(batches, system);
   scale_sources(pde, unscaled_sources, system.scaled_source, time);
   fm::axpy(system.scaled_source, system.batch_output);
   fm::copy(system.batch_output, system.result_1);
   P const fx_scale_1 = a21 * dt;
   fm::axpy(system.batch_output, system.batch_input, fx_scale_1);
 
-  apply_explicit(batches);
+  apply_explicit(batches, system);
   scale_sources(pde, unscaled_sources, system.scaled_source, time + c2 * dt);
   fm::axpy(system.scaled_source, system.batch_output);
   fm::copy(system.batch_output, system.result_2);
@@ -58,7 +58,7 @@ void explicit_time_advance(PDE<P> const &pde,
   fm::axpy(system.result_1, system.batch_input, fx_scale_2a);
   fm::axpy(system.result_2, system.batch_input, fx_scale_2b);
 
-  apply_explicit(batches);
+  apply_explicit(batches, system);
   scale_sources(pde, unscaled_sources, system.scaled_source, time + c3 * dt);
   fm::axpy(system.scaled_source, system.batch_output);
   fm::copy(system.batch_output, system.result_3);
@@ -96,11 +96,11 @@ scale_sources(PDE<P> const &pde,
 // apply the system matrix to the current solution vector using batched
 // gemm (explicit time advance).
 template<typename P>
-static void apply_explicit(work_set<P> const &batches)
+static void
+apply_explicit(work_set<P> const &batches, explicit_system<P> &system)
 {
   // batched gemm
   P const alpha = 1.0;
-  P const beta  = 0.0;
 
   for (int i = 0; i < static_cast<int>(batches.size()); ++i)
   {
@@ -110,16 +110,17 @@ static void apply_explicit(work_set<P> const &batches)
       batch<P> const a = batch_operands_list[j][0];
       batch<P> const b = batch_operands_list[j][1];
       batch<P> const c = batch_operands_list[j][2];
+      P const beta =
+          ((i != 0) && (j == batch_operands_list.size() - 1)) ? 1.0 : 0.0;
       batched_gemm(a, b, c, alpha, beta);
     }
-
-    // reduce
-    batch<P> const r_a = batch_operands_list[batch_operands_list.size() - 1][0];
-    batch<P> const r_b = batch_operands_list[batch_operands_list.size() - 1][1];
-    batch<P> const r_c = batch_operands_list[batch_operands_list.size() - 1][2];
-    P const reduction_beta = (i == 0) ? 0.0 : 1.0;
-    batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
   }
+
+  // reduction
+  fk::matrix<P, mem_type::view> const reduction_matrix(
+      system.reduction_space, system.batch_input.size(),
+      system.reduction_space.size() / system.batch_input.size());
+  gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 }
 
 template void
