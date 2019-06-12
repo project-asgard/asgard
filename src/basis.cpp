@@ -423,6 +423,142 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
+template<typename P>
+fk::matrix<P>
+apply_fmwt(fk::matrix<P> const fmwt, fk::matrix<P> const coefficient_matrix,
+           int const kdegree, int const num_levels, bool const fmwt_left,
+           bool const fmwt_trans)
+{
+  int const n_col = kdegree * pow(2, num_levels);
+  fk::matrix<P> product(n_col, n_col);
+  int row_start = 0;
+  int row_end   = 2 * kdegree - 1;
+  int col_start = 0;
+  int col_end   = n_col - 1;
+  if (fmwt_left)
+  {
+    if (fmwt_trans)
+    {
+      fk::matrix<P> const fmwt_sub1 =
+          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
+                                 col_end - col_start + 1);
+      fk::matrix<P> const fmwt_sub1t = fk::matrix<P>(fmwt_sub1).transpose();
+      fk::matrix<P> const partial_product1 =
+          fmwt_sub1t * coefficient_matrix.extract_submatrix(
+                           row_start, 0, row_end - row_start + 1, n_col);
+      product.set_submatrix(col_start, 0, partial_product1);
+    }
+    else
+    {
+      fk::matrix<P> const partial_product1 =
+          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
+                                 col_end - col_start + 1) *
+          coefficient_matrix.extract_submatrix(col_start, 0,
+                                               col_end - col_start + 1, n_col);
+      product.set_submatrix(row_start, 0, partial_product1);
+    }
+  }
+  else
+  {
+    if (fmwt_trans)
+    {
+      fk::matrix<P> const fmwt_sub1 =
+          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
+                                 col_end - col_start + 1);
+      fk::matrix<P> const fmwt_sub1t = fk::matrix<P>(fmwt_sub1).transpose();
+      fk::matrix<P> const partial_product1 =
+          coefficient_matrix.extract_submatrix(0, col_start, n_col,
+                                               col_end - col_start + 1) *
+          fmwt_sub1t;
+      product.set_submatrix(row_start, 0, partial_product1);
+    }
+    else
+    {
+      fk::matrix<P> const partial_product1 =
+          coefficient_matrix.extract_submatrix(0, row_start, n_col,
+                                               row_end - row_start + 1) *
+          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
+                                 col_end - col_start + 1);
+      product.set_submatrix(row_start, 0, partial_product1);
+    }
+  }
+
+  row_start = 2 * kdegree;
+  for (int i_lev = 1; i_lev < num_levels; i_lev++)
+  {
+    int ncells = pow(2, i_lev);
+    int isize  = n_col / ncells;
+
+    for (int icell = 0; icell < ncells; icell++)
+    {
+      row_end   = row_start + kdegree - 1;
+      col_start = icell * isize;
+      col_end   = col_start + isize - 1;
+      if (fmwt_left)
+      {
+        if (fmwt_trans)
+        {
+          fk::matrix<P> const fmwt_sub1 = fmwt.extract_submatrix(
+              row_start, col_start, row_end - row_start + 1,
+              col_end - col_start + 1);
+          fk::matrix<P> const fmwt_sub1t = fk::matrix<P>(fmwt_sub1).transpose();
+          product.set_submatrix(
+              col_start, 0,
+              product.extract_submatrix(col_start, 0, col_end - col_start + 1,
+                                        n_col) +
+                  fmwt_sub1t *
+                      coefficient_matrix.extract_submatrix(
+                          row_start, 0, row_end - row_start + 1, n_col));
+        }
+        else
+        {
+          product.set_submatrix(
+              row_start, 0,
+              product.extract_submatrix(row_start, 0, row_end - row_start + 1,
+                                        n_col) +
+                  fmwt.extract_submatrix(row_start, col_start,
+                                         row_end - row_start + 1,
+                                         col_end - col_start + 1) *
+                      coefficient_matrix.extract_submatrix(
+                          col_start, 0, col_end - col_start + 1, n_col));
+        }
+      }
+      else
+      {
+        if (fmwt_trans)
+        {
+          fk::matrix<P> fmwt_sub1 = fmwt.extract_submatrix(
+              row_start, col_start, row_end - row_start + 1,
+              col_end - col_start + 1);
+          product.set_submatrix(
+              0, row_start,
+              product.extract_submatrix(0, row_start, n_col,
+                                        row_end - row_start + 1) +
+                  coefficient_matrix.extract_submatrix(
+                      0, col_start, n_col, col_end - col_start + 1) *
+                      fmwt_sub1.transpose());
+        }
+        else
+        {
+          product.set_submatrix(
+              0, col_start,
+              product.extract_submatrix(0, col_start, n_col,
+                                        col_end - col_start + 1) +
+                  coefficient_matrix.extract_submatrix(
+                      0, row_start, n_col, row_end - row_start + 1) *
+                      fmwt.extract_submatrix(row_start, col_start,
+                                             row_end - row_start + 1,
+                                             col_end - col_start + 1));
+        }
+      }
+
+      row_start = row_end + 1;
+    }
+  }
+
+  return product;
+}
+
 template std::array<fk::matrix<double>, 6>
 generate_multi_wavelets(int const degree);
 template std::array<fk::matrix<float>, 6>
@@ -432,3 +568,12 @@ template fk::matrix<double>
 operator_two_scale(int const degree, int const num_levels);
 template fk::matrix<float>
 operator_two_scale(int const degree, int const num_levels);
+
+template fk::matrix<double>
+apply_fmwt(fk::matrix<double> const fmwt,
+           fk::matrix<double> const coefficient_matrix, int const kdeg,
+           int const num_levels, bool const fmwt_left, bool const fmwt_trans);
+template fk::matrix<float>
+apply_fmwt(fk::matrix<float> const fmwt,
+           fk::matrix<float> const coefficient_matrix, int const kdeg,
+           int const num_levels, bool const fmwt_left, bool const fmwt_trans);

@@ -447,6 +447,24 @@ fk::matrix<int> meshgrid(int const start, int const length)
   return mesh;
 }
 
+template<typename P, mem_type mem>
+fk::matrix<P> reshape(fk::matrix<P,mem> mat, int const nrow, int const ncol)
+{ 
+  assert(nrow*ncol == mat.size());
+  fk::vector<P> X(mat);
+  fk::matrix<P> Xreshape(nrow, ncol);
+  
+  for (int i = 0; i < ncol; i++)
+  {
+    for (int j = 0; j < nrow; j++)
+    {
+      int const count          = i * nrow + j;
+      Xreshape(j, i) = X(count);
+    }
+  }
+  return Xreshape;
+}
+
 // explicit instantiations
 template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
@@ -482,3 +500,10 @@ template fk::matrix<float>
 horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
 template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);
+
+template fk::matrix<double>
+reshape(fk::matrix<double> mat, int const nrow, int const ncol);
+template fk::matrix<float>
+reshape(fk::matrix<float> mat, int const nrow, int const ncol);
+template fk::matrix<int>
+reshape(fk::matrix<int> mat, int const nrow, int const ncol);
