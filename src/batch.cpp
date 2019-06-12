@@ -2,7 +2,6 @@
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp" // for views
-#include <omp.h>
 
 // object to store lists of operands for batched gemm/gemv.
 // utilized as the primary data structure for other functions
