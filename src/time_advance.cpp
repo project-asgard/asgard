@@ -105,13 +105,23 @@ apply_explicit(work_set<P> const &batches, explicit_system<P> &system)
   for (int i = 0; i < static_cast<int>(batches.size()); ++i)
   {
     auto const batch_operands_list = batches[i];
-    for (int j = 0; j < static_cast<int>(batch_operands_list.size()) - 1; ++j)
+    for (int j = 0; j < static_cast<int>(batch_operands_list.size()); ++j)
     {
       batch<P> const a = batch_operands_list[j][0];
       batch<P> const b = batch_operands_list[j][1];
       batch<P> const c = batch_operands_list[j][2];
-      P const beta =
-          ((i != 0) && (j == batch_operands_list.size() - 1)) ? 1.0 : 0.0;
+
+      // if we are writing into an intermediate product space, use beta = 0
+      // if we are writing into the output space and aren't the first work set,
+      // use beta = 1
+      P const beta = [i, j, &batch_operands_list] {
+        if (i == 0)
+          return 0.0;
+        if (j == static_cast<int>(batch_operands_list.size() - 1))
+          return 1.0;
+        return 0.0;
+      }();
+
       batched_gemm(a, b, c, alpha, beta);
     }
   }
@@ -120,7 +130,7 @@ apply_explicit(work_set<P> const &batches, explicit_system<P> &system)
   fk::matrix<P, mem_type::view> const reduction_matrix(
       system.reduction_space, system.batch_input.size(),
       system.reduction_space.size() / system.batch_input.size());
-  gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+  fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 }
 
 template void

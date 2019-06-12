@@ -600,15 +600,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       return op_row;
     }();
 
-    // calculate reduction inputs
-
-    // calculate the position of this element in the
-    // global system matrix
-    // this is where the item reduces to in the output vector
-    // FIXME currently unused with reduction changes, code
-    // left in to demonstrate global_row position
-    // int const global_row = i * elem_size;
-
     // loop over connected elements. for now, we assume
     // full connectivity
     int const connected_stop =
@@ -647,7 +638,17 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                                i * elements_in_batch * pde.num_terms;
 
         // y space, where kron outputs are written
-        int const y_index = elem_size * kron_index;
+
+        // this is calculated to form a matrix s.t. when it is row-summed
+        // (all row elements added together), the output vector is formed
+        //
+        // so, each work item's output - deg^dim by num_elems*num_terms - is
+        // stacked vertically to form the matrix. the indexing below is designed
+        // to achieve this.
+        int const y_index = ((j - connected_start) * pde.num_terms + k) *
+                                elem_table.size() * elem_size +
+                            i * elem_size;
+
         fk::vector<P, mem_type::view> const y_view(
             system.reduction_space, y_index, y_index + elem_size - 1);
 
