@@ -1,8 +1,6 @@
-# Created by Octave 4.2.2, Wed Jan 23 14:42:14 2019 EST <bgl@rza>
-# name: coord
+# Created from matlab git hash 7dd03a09db1f74f9fd31e919618cc893dffce01e
+# name: foo
 # type: matrix
 # rows: 1
 # columns: 6
- 4 0 4 6 0 7
-
-
+4 0 4 6 0 7
