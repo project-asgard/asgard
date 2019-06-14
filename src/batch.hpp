@@ -62,12 +62,12 @@ private:
 
 // execute a batched gemm given a, b, c batch lists
 template<typename P>
-void batched_gemm(batch<P> const a, batch<P> const b, batch<P> const c,
+void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
                   P const alpha, P const beta);
 
 // execute a batched gemv given a, b, c batch lists
 template<typename P>
-void batched_gemv(batch<P> const a, batch<P> const b, batch<P> const c,
+void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
                   P const alpha, P const beta);
 
 // this could be named better
@@ -113,7 +113,6 @@ allocate_batches(PDE<P> const &pde, int const num_elems);
 // the result of this function is that each a,b,c in each batch operand set,
 // for each dimension, are assigned values for the small gemms that will
 // do the arithmetic for a single connected element.
-
 template<typename P>
 void kronmult_to_batch_sets(
     std::vector<fk::matrix<P, mem_type::view>> const A,
@@ -122,30 +121,84 @@ void kronmult_to_batch_sets(
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde);
 
+// this class stores the input, output, work, and auxiliary vectors
+// that batches compute with in explicit time advance
+template<typename P>
+class explicit_system
+{
+public:
+  explicit_system(PDE<P> const &pde, element_table const &table,
+                  int const limit_MB = -1);
+
+  fk::vector<P> const &get_unit_vector() const;
+  // input, output, workspace for batched gemm/reduction
+  // (unit vector below also falls under this category)
+  fk::vector<P> batch_input;
+  fk::vector<P> reduction_space;
+  fk::vector<P> batch_intermediate;
+  fk::vector<P> batch_output;
+
+  // working vectors for time advance (e.g. intermediate RK result vects,
+  // source vector space)
+  fk::vector<P> scaled_source;
+  fk::vector<P> x_orig;
+  fk::vector<P> result_1;
+  fk::vector<P> result_2;
+  fk::vector<P> result_3;
+
+private:
+  fk::vector<P> unit_vector_;
+};
+
 // use info from pde and element table to create and populate the batch lists
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
-              fk::vector<P> const &x, fk::vector<P> const &y,
-              fk::vector<P> const &work, fk::vector<P> const &unit_vector,
-              fk::vector<P> const &fx);
+              explicit_system<P> const &system, int const connected_start = 0,
+              int const elements_per_batch = -1);
+
+template<typename P>
+using work_set = std::vector<std::vector<batch_operands_set<P>>>;
+
+// use provided workspace size to split batches across connected elements
+//
+// that is, we partition the connected elements for all the work elements in the
+// table (this is equivalent to partitioning the global matrix columnwise, if it
+// were explicitly formed) and assign the work (gemms) for each partition
+// (work_set) to the same intermediate product/output space. this enables memory
+// reuse for large (3/6d) problems.
+//
+// FIXME in the future, we can leverage this approach to perform automatic
+// partial reduction. this can be accomplished by pulling out the reduction
+// batches, having all work sets write into the output space with beta = 1.0
+// (except for the initial work set), and then doing one large gemv to gather
+// results at the end.
+//
+template<typename P>
+work_set<P>
+build_work_set(PDE<P> const &pde, element_table const &elem_table,
+               explicit_system<P> const &system, int const workspace_MB = -1);
 
 extern template class batch<float>;
 extern template class batch<double>;
 
-extern template void batched_gemm(batch<float> const a, batch<float> const b,
-                                  batch<float> const c, float const alpha,
-                                  float const beta);
-extern template void batched_gemm(batch<double> const a, batch<double> const b,
-                                  batch<double> const c, double const alpha,
-                                  double const beta);
+extern template class explicit_system<float>;
+extern template class explicit_system<double>;
 
-extern template void batched_gemv(batch<float> const a, batch<float> const b,
-                                  batch<float> const c, float const alpha,
+extern template void batched_gemm(batch<float> const &a, batch<float> const &b,
+                                  batch<float> const &c, float const alpha,
                                   float const beta);
-extern template void batched_gemv(batch<double> const a, batch<double> const b,
-                                  batch<double> const c, double const alpha,
-                                  double const beta);
+
+extern template void
+batched_gemm(batch<double> const &a, batch<double> const &b,
+             batch<double> const &c, double const alpha, double const beta);
+
+extern template void batched_gemv(batch<float> const &a, batch<float> const &b,
+                                  batch<float> const &c, float const alpha,
+                                  float const beta);
+extern template void
+batched_gemv(batch<double> const &a, batch<double> const &b,
+             batch<double> const &c, double const alpha, double const beta);
 
 extern template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);
@@ -168,13 +221,17 @@ extern template void kronmult_to_batch_sets(
 
 extern template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
-              fk::vector<float> const &x, fk::vector<float> const &y,
-              fk::vector<float> const &work,
-              fk::vector<float> const &unit_vector,
-              fk::vector<float> const &fx);
+              explicit_system<float> const &system, int const connected_start,
+              int const elements_per_batch);
 extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
-              fk::vector<double> const &x, fk::vector<double> const &y,
-              fk::vector<double> const &work,
-              fk::vector<double> const &unit_vector,
-              fk::vector<double> const &fx);
+              explicit_system<double> const &system, int const connected_start,
+              int const elements_per_batch);
+
+extern template work_set<float>
+build_work_set(PDE<float> const &pde, element_table const &elem_table,
+               explicit_system<float> const &system, int const workspace_MB);
+
+extern template work_set<double>
+build_work_set(PDE<double> const &pde, element_table const &elem_table,
+               explicit_system<double> const &system, int const workspace_MB);

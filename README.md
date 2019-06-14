@@ -2,9 +2,15 @@
 
 To cite the ASGarD code in your work, please use: (TODO)
 
-The ASGarD project has the goal of building an solver specifically targeting high-dimensional PDEs where the "curse-of-dimensionality" has previously precluded useful continuum / Eularian (grid or mesh based as opposed to Monte-Carlo sampling) simulation. Our approach is based on a Discontinuous-Galerkin finite-element solver build atop an adaptive hierarchical sparse-grid (note this is different from the "combination tecnique" when applied to sparse-grids).
+The ASGarD project has the goal of building an solver specifically targeting
+high-dimensional PDEs where the "curse-of-dimensionality" has previously
+precluded useful continuum / Eularian (grid or mesh based as opposed to
+Monte-Carlo sampling) simulation. Our approach is based on a
+Discontinuous-Galerkin finite-element solver build atop an adaptive hierarchical
+sparse-grid (note this is different from the "combination tecnique" when applied
+to sparse-grids).
 
-The [developer documentation](https://code.ornl.gov/asgard/asgard/wikis/dev/developer-home)
+The [developer documentation](https://github.com/project-asgard/ASGarD/wiki/developing)
 contains information about how to contribute to the ASGarD project.
 
 - (TODO) user docs about building/using the code
@@ -20,6 +26,7 @@ The ASGarD project is led by David Green (greendl1@ornl.gov) at Oak Ridge
 National Laboratory.
 
 # Dependencies
+*  C++17
 *  cmake 3.13
 *  blas
 
@@ -27,25 +34,25 @@ National Laboratory.
 
 Download and build
 ```
-git clone https://code.ornl.gov/asgard/asgard.git
+git clone https://github.com/project-asgard/asgard.git
 cd asgard
 mkdir build
 cmake ../
 make
-./tests
+ctest
 ./asgard
 ```
 
 # Specific build instructions
 ## OSX (tested on Mojave)
 ```
-git clone https://code.ornl.gov/asgard/asgard.git
+git clone https://github.com/project-asgard/asgard.git
 cd asgard
 mkdir build
 cd build
 cmake ../ -DASGARD_BUILD_OPENBLAS=1
 make
-./tests
+ctest
 ./asgard
 ```
 

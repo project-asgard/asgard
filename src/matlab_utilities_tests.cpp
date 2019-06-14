@@ -211,20 +211,37 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
   }
 }
 
-TEMPLATE_TEST_CASE("norm function", "[matlab]", float, double, int)
+TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", float, double)
 {
   SECTION("zeros -- vector")
   {
-    fk::vector<TestType> vec{0, 0, 0, 0, 0};
-    TestType gold = 0;
-    REQUIRE(norm(vec) == gold);
+    fk::vector<TestType> const vec{0, 0, 0, 0, 0};
+    TestType const gold = 0;
+    REQUIRE(l2_norm(vec) == gold);
   }
 
   SECTION("plus and minus -- vector")
   {
-    fk::vector<TestType> vec{1, -1, 1, -1};
-    TestType gold = 2;
-    REQUIRE(norm(vec) == gold);
+    fk::vector<TestType> const vec{1, -1, 1, -1};
+    TestType const gold = 2;
+    REQUIRE(l2_norm(vec) == gold);
+  }
+}
+
+TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", float, double)
+{
+  SECTION("zeros -- vector")
+  {
+    fk::vector<TestType> const vec{0, 0, 0, 0, 0};
+    TestType const gold = 0;
+    REQUIRE(inf_norm(vec) == gold);
+  }
+
+  SECTION("plus and minus -- vector")
+  {
+    fk::vector<TestType> const vec{1, -1, 1, -4};
+    TestType const gold = 4;
+    REQUIRE(inf_norm(vec) == gold);
   }
 }
 

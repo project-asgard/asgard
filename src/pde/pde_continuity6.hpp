@@ -560,7 +560,9 @@ private:
     P const dt      = x_range / std::pow(2, dim.get_level());
     return dt;
   }
+
   // g-funcs for terms (optional)
+
   static P g_func_identity(P const x, P const time)
   {
     // suppress compiler warnings

@@ -56,6 +56,8 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 set (components
   basis
   batch
+  fast_math
+  lib_dispatch
   coefficients
   connectivity
   element_table
@@ -81,7 +83,9 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE coefficients connectivity element_table pde tensors)
+target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity element_table pde tensors)
+
+target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
@@ -102,9 +106,9 @@ target_link_libraries (program_options PRIVATE clara)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
-target_link_libraries (tensors PRIVATE ${LINALG_LIBS})
+target_link_libraries (tensors PRIVATE lib_dispatch)
 
-target_link_libraries (time_advance PRIVATE batch pde tensors)
+target_link_libraries (time_advance PRIVATE batch fast_math pde tensors)
 
 target_link_libraries (transformations
   PRIVATE connectivity matlab_utilities pde program_options
