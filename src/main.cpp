@@ -181,6 +181,7 @@ int main(int argc, char **argv)
 
   // call to build batches
   std::cout << "  generating: batch lists..." << std::endl;
+    build_batches_implicit<prec>(*pde, table, x, y, work, unit_vector, fval);
   std::vector<batch_operands_set<prec>> const batches =
       build_batches(*pde, table, x, y, work, unit_vector, fval);
 

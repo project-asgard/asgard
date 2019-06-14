@@ -718,13 +718,10 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   return batches;
 }
 
-// function to allocate and build batch lists.
-// given a problem instance (pde/elem table) and
-// memory allocations (x, y, work), enqueue the
-// batch gemms/reduction gemv to perform A*x
+// function to build implicit matrix A.
 template<typename P>
-std::vector<batch_operands_set<P>>
-build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
+void
+build_batches_implicit(PDE<P> const &pde, element_table const &elem_table,
               fk::vector<P> const &x, fk::vector<P> const &y,
               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
               fk::vector<P> const &fx)
@@ -745,6 +742,7 @@ build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
     assert(unit_vector.size() == items_to_reduce);
 
     fk::matrix<P> A(x_size, x_size);
+    fk::matrix<P> A_tmp(x_size, x_size);
 
     std::vector<batch_operands_set<P>> batches =
             allocate_batches<P>(pde, elem_table.size() * elem_table.size());
@@ -853,8 +851,10 @@ build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
 
                 // operator views, windows into operator matrix
                 std::vector<fk::matrix<P, mem_type::view>> operator_views;
-                fk::matrix<P> k_tmp(1,1);
-                k_tmp(0,0)= 1.0;
+                std::vector<fk::matrix<P>> kron_vals;
+                fk::matrix<P> kron0(1,1);
+                kron0(0,0) = 1.0;
+                kron_vals.push_back(kron0);
                 for (int d = pde.num_dims - 1; d >= 0; --d)
                 {
                     operator_views.push_back(fk::matrix<P, mem_type::view>(
@@ -862,12 +862,14 @@ build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
                             operator_row(d) + degree - 1, operator_col(d),
                             operator_col(d) + degree - 1));
 
-                    fk::matrix<P, mem_type::view> &op_view = operator_views.back();
-                    k_tmp = k_tmp.kron(op_view);
+                    fk::matrix<P, mem_type::view> & op_view = operator_views.back();
+                    fk::matrix<P>  k_new = kron_vals[pde.num_dims - 1 - d].kron(op_view);
+                    kron_vals.push_back(k_new);
                 }
                 // calculate the position of this element in the
                 // global system matrix
                 int const global_col = j * elem_size;
+                auto & k_tmp = kron_vals.back();
 
                 fk::matrix<P, mem_type::view>  A_view(A, global_row,
                         global_row + k_tmp.nrows() - 1,
@@ -875,6 +877,7 @@ build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
                         global_col + k_tmp.ncols() - 1);
 
                 A_view = A_view + k_tmp;
+                A.print("Implicit A");
 
                 // x vector input to kronmult
                 //fk::vector<P, mem_type::view> const x_view(x, global_col,
@@ -888,7 +891,7 @@ build_batch_implicit(PDE<P> const &pde, element_table const &elem_table,
 
     // emplace the reduction batch
     // batches.push_back(std::move(reduction_batch));
-    return batches;
+    // return batches;
 }
 
 
@@ -929,6 +932,18 @@ template void kronmult_to_batch_sets(
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
 
+template void
+build_batches_implicit(PDE<float> const &pde, element_table const &elem_table,
+              fk::vector<float> const &x, fk::vector<float> const &y,
+              fk::vector<float> const &work,
+              fk::vector<float> const &unit_vector,
+              fk::vector<float> const &fx);
+template void
+build_batches_implicit(PDE<double> const &pde, element_table const &elem_table,
+              fk::vector<double> const &x, fk::vector<double> const &y,
+              fk::vector<double> const &work,
+              fk::vector<double> const &unit_vector,
+              fk::vector<double> const &fx);
 template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
               fk::vector<float> const &x, fk::vector<float> const &y,

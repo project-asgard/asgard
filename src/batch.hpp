@@ -130,6 +130,12 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               fk::vector<P> const &work, fk::vector<P> const &unit_vector,
               fk::vector<P> const &fx);
 
+template<typename P>
+void build_batches_implicit(PDE<P> const &pde, element_table const &elem_table,
+              fk::vector<P> const &x, fk::vector<P> const &y,
+              fk::vector<P> const &work, fk::vector<P> const &unit_vector,
+              fk::vector<P> const &fx);
+
 extern template class batch<float>;
 extern template class batch<double>;
 
@@ -174,6 +180,19 @@ build_batches(PDE<float> const &pde, element_table const &elem_table,
               fk::vector<float> const &fx);
 extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
+              fk::vector<double> const &x, fk::vector<double> const &y,
+              fk::vector<double> const &work,
+              fk::vector<double> const &unit_vector,
+              fk::vector<double> const &fx);
+
+extern template void
+build_batches_implicit(PDE<float> const &pde, element_table const &elem_table,
+              fk::vector<float> const &x, fk::vector<float> const &y,
+              fk::vector<float> const &work,
+              fk::vector<float> const &unit_vector,
+              fk::vector<float> const &fx);
+extern template void
+build_batches_implicit(PDE<double> const &pde, element_table const &elem_table,
               fk::vector<double> const &x, fk::vector<double> const &y,
               fk::vector<double> const &work,
               fk::vector<double> const &unit_vector,
