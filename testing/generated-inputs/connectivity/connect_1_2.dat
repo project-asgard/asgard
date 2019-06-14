@@ -1,11 +1,9 @@
-# Created by Octave 4.2.2, Wed Jan 23 14:42:16 2019 EST <bgl@rza>
-# name: connectivity
+# Created from matlab git hash 6d23f7842406f993ef2a922a9df21f97be4c6762
+# name: foo
 # type: matrix
 # rows: 4
 # columns: 4
- 1 1 1 1
- 1 1 1 1
- 1 1 1 1
- 1 1 1 1
-
-
+1 1 1 1
+1 1 1 1
+1 1 1 1
+1 1 1 1
