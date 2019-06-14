@@ -15,29 +15,7 @@ addpath(genpath(pwd));
 warning('on');
 % write output files for each component
 
-% quadrature testing
-
-quad_dir = strcat(pwd, "/", "generated-inputs", "/", "quadrature", "/");
-mkdir (quad_dir);
-
-% testing legendre poly/deriv
-
-out_format = strcat(quad_dir, "legendre_");
-
-x = [-1.0];
-degree = 2;
-[deriv, poly] = dlegendre2(x, degree);
-save(strcat(out_format, 'deriv_neg1_2.dat'), 'deriv');
-save(strcat(out_format, 'poly_neg1_2.dat'), 'poly');
-
-x = linspace(-2.5, 3.0, 11);
-degree = 5;
-[deriv, poly] = dlegendre2(x, 5);
-save(strcat(out_format, 'deriv_linspace_5.dat'), 'deriv');
-save(strcat(out_format, 'poly_linspace_5.dat'), 'poly');
-
-
-% transformations testing files
+% transformations testing 
 transformations_dir = strcat(pwd, "/", "generated-inputs", "/", "transformations", "/");
 mkdir (transformations_dir);
 
@@ -145,25 +123,6 @@ l_max = 2.0;
 double_plus = @(n,x) (n + n*2);
 vect = forwardMWT(level, degree, l_min, l_max, double_plus, 0);
 save(filename, 'vect');
-
-clear
-
-% generate quadrature test data
-
-quad_dir = strcat(pwd, "/", "generated-inputs", "/", "quadrature", "/");
-mkdir (quad_dir);
-
-% testing legendre_weights
-
-out_format = strcat(quad_dir, "lgwt_");
-[roots, weights] = lgwt(10, -1, 1);
-save(strcat(out_format, 'roots_10_neg1_1.dat'), 'roots');
-save(strcat(out_format, 'weights_10_neg1_1.dat'), 'weights');
-
-out_format = strcat(quad_dir, "lgwt_");
-[roots, weights] = lgwt(2^5, -5, 2);
-save(strcat(out_format, 'roots_32_neg5_2.dat'), 'roots');
-save(strcat(out_format, 'weights_32_neg5_2.dat'), 'weights');
 
 clear
 
