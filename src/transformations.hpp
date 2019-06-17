@@ -22,7 +22,7 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
   P const domain_min   = dim.domain_min;
   P const domain_max   = dim.domain_max;
 
-  assert(num_levels > 0);
+  assert(num_levels > 1);
   assert(degree > 0);
   assert(domain_max > domain_min);
 
