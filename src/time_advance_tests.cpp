@@ -4,33 +4,12 @@
 #include "tests_general.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-#include <numeric>
 #include <random>
 
 TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   int const test_steps = 5;
 
   SECTION("continuity1, level 2, degree 2, sparse grid")
@@ -106,7 +85,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 
@@ -183,7 +162,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
   SECTION("continuity1, level 4, degree 3, sparse grid")
@@ -259,7 +238,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 }
@@ -268,26 +247,6 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
                    double)
 
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   int const test_steps = 5;
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
@@ -362,7 +321,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 
@@ -439,7 +398,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
   SECTION("continuity2, level 4, degree 3, sparse grid")
@@ -515,7 +474,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 }
@@ -523,26 +482,6 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
 TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
                    double)
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   int const test_steps = 5;
   SECTION("continuity3, level 2, degree 2, sparse grid")
   {
@@ -617,7 +556,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 
@@ -694,7 +633,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 }
@@ -702,25 +641,6 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
 TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
                    double)
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
   int const test_steps = 5;
   SECTION("continuity6, level 2, degree 2, sparse grid")
   {
@@ -794,7 +714,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 
@@ -870,7 +790,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
     }
   }
 }

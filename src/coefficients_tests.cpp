@@ -4,19 +4,6 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
-template<typename P>
-static inline void relaxed_comparison(fk::matrix<double> const first,
-                                      fk::matrix<double> const second)
-{
-  auto first_it = first.begin();
-
-  std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-    REQUIRE(
-        Approx(*first_it++).epsilon(std::numeric_limits<P>::epsilon() * 1e3) ==
-        second_elem);
-  });
-}
-
 TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
                    float)
 {
@@ -26,7 +13,7 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
   fk::matrix<double> const test = generate_coefficients<TestType>(
       continuity1->get_dimensions()[0], continuity1->get_terms()[0][0], 0.0);
-  relaxed_comparison<TestType>(gold, test);
+  REQUIRE(relaxed_comparison<TestType>(gold, test, 1e3));
 }
 
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
@@ -47,7 +34,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
       fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
       fk::matrix<double> const test = generate_coefficients<TestType>(
           pde->get_dimensions()[d], pde->get_terms()[t][d], time);
-      relaxed_comparison<TestType>(gold, test);
+      REQUIRE(relaxed_comparison<TestType>(gold, test, 1e3));
     }
   }
 }
@@ -70,7 +57,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
       fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
       fk::matrix<double> const test = generate_coefficients<TestType>(
           pde->get_dimensions()[d], pde->get_terms()[t][d], time);
-      relaxed_comparison<TestType>(gold, test);
+      REQUIRE(relaxed_comparison<TestType>(gold, test, 1e3));
     }
   }
 }
@@ -93,7 +80,7 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
       fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
       fk::matrix<double> const test = generate_coefficients<TestType>(
           pde->get_dimensions()[d], pde->get_terms()[t][d], time);
-      relaxed_comparison<TestType>(gold, test);
+      REQUIRE(relaxed_comparison<TestType>(gold, test, 1e3));
     }
   }
 }

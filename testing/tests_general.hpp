@@ -10,6 +10,7 @@
 #include "../src/pde.hpp"
 #include "../src/program_options.hpp"
 #include "catch.hpp"
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -67,4 +68,89 @@ dimension<P> make_dummy_dim(
 
 options make_options(std::vector<std::string> const arguments);
 
+// A function to construct a closure that will iterate over two iterators and
+// compare them using a provided lambda.
+// This is used to build functions like `relaxed_comparison` below.
+template<class F>
+inline auto const cons_relaxed_comparison(F const test)
+{
+  return [test](auto const &first_iter, auto const &second_iter) {
+    auto first_ptr = first_iter.begin();
+    for (auto second : second_iter)
+    {
+      // assert(first_ptr < first_iter.end());
+      if (!test(*first_ptr, second))
+      {
+        return false;
+      }
+      first_ptr++;
+    }
+    return true;
+  };
+}
+
+// the relaxed comparison is due to:
+// 1) difference in precision in calculations
+// (c++ float/double vs matlab always double)
+// 2) the reordered operations make very subtle differences
+// requiring relaxed comparison for certain inputs
+template<typename T>
+auto const relaxed_comparison =
+    [](auto const first, auto const second, auto const precision) {
+      return cons_relaxed_comparison(
+          [precision](auto const first, auto const second) {
+            return Approx(first).epsilon(std::numeric_limits<T>::epsilon() *
+                                         precision) == second;
+          })(first, second);
+    };
+
+// This is used for creating a function that reduces two iterators into an
+// accumulated value
+template<class F>
+auto const cons_reduce_comparison(F const transform)
+{
+  // A closure that iterates over the two iterators
+  //  and returns the accumulated value
+  return [transform](auto first_iter, auto second_iter, auto accumulator_init) {
+    auto first_ptr   = first_iter.begin();
+    auto second_ptr  = second_iter.begin();
+    auto accumulator = accumulator_init;
+    for (; first_ptr < first_iter.end();)
+    {
+      accumulator = transform(*first_ptr, *second_ptr, accumulator);
+      first_ptr++;
+      second_ptr++;
+    }
+    return accumulator;
+  };
+}
+
+// Confirm the difference between two iterators is below a tolerance
+template<typename T>
+auto const diff_comparison = [](auto const &first_iter,
+                                auto const &second_iter) {
+  // Create a function that will accumulate the greatest difference
+  // for each pair in the zipped iterators first_iter and second_iter
+  T const result = std::abs(cons_reduce_comparison(
+      [](auto const &first, auto const &second, auto const accumulator) {
+        auto const diff = std::abs(first - second);
+        if (diff > accumulator)
+        {
+          return diff;
+        }
+        return accumulator;
+      })(first_iter, second_iter, *first_iter.begin() - *second_iter.begin()));
+
+  // Return whether or not the difference is greater than the tolerance
+  if constexpr (std::is_same<T, double>::value)
+  {
+    T const tol = std::numeric_limits<T>::epsilon() * 1e5;
+    return result <= tol;
+  }
+  else
+  {
+    T const tol = std::numeric_limits<T>::epsilon() * 1e3;
+    return result <= tol;
+  }
+};
 #endif

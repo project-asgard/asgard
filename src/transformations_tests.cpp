@@ -92,15 +92,6 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e4) ==
-              second_elem);
-    });
-  };
-
   SECTION("transform(2, 2, -1, 1, double)")
   {
     int const degree     = 2;
@@ -120,7 +111,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it);
-    relaxed_comparison(gold, test);
+    REQUIRE(relaxed_comparison<TestType>(gold, test, 1e4));
   }
 
   SECTION("transform(3, 4, -2.0, 2.0, double plus)")
@@ -144,6 +135,6 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus);
 
-    relaxed_comparison(gold, test);
+    REQUIRE(relaxed_comparison<TestType>(gold, test, 1e4));
   }
 }

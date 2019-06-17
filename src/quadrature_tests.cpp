@@ -7,20 +7,6 @@
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
-  // the relaxed comparison is due to:
-  // 1) difference in precision in calculations
-  // (c++ float/double vs matlab always double)
-  // 2) the reordered operations make very subtle differences
-  // requiring relaxed comparison for certain inputs
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
-              second_elem);
-    });
-  };
-
   SECTION("legendre(-1,0)")
   {
     fk::matrix<TestType> const poly_gold  = {{1.0}};
@@ -66,23 +52,14 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     int const degree         = 5;
     auto const [poly, deriv] = legendre(in, degree);
 
-    relaxed_comparison(poly, poly_gold);
-    relaxed_comparison(deriv, deriv_gold);
+    REQUIRE(relaxed_comparison<TestType>(poly, poly_gold, 1e2));
+    REQUIRE(relaxed_comparison<TestType>(deriv, deriv_gold, 1e2));
   }
 }
 
 TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
                    float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
-              second_elem);
-    });
-  };
-
   SECTION("legendre_weights(10, -1, 1)")
   {
     fk::matrix<TestType> const roots_gold =
@@ -98,8 +75,8 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     const int b                 = 1;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
 
-    relaxed_comparison(roots, roots_gold);
-    relaxed_comparison(weights, weights_gold);
+    REQUIRE(relaxed_comparison<TestType>(roots, roots_gold, 1e2));
+    REQUIRE(relaxed_comparison<TestType>(weights, weights_gold, 1e2));
   }
 
   SECTION("legendre_weights(32, -5, 2)")
@@ -117,7 +94,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     const int b                 = 2;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
 
-    relaxed_comparison(roots, roots_gold);
-    relaxed_comparison(weights, weights_gold);
+    REQUIRE(relaxed_comparison<TestType>(roots, roots_gold, 1e2));
+    REQUIRE(relaxed_comparison<TestType>(weights, weights_gold, 1e2));
   }
 }

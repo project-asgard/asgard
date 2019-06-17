@@ -1633,26 +1633,6 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   SECTION("1d, 1 term, degree 2, level 2")
   {
     int const degree = 2;
@@ -1693,7 +1673,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     batch<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("1d, 1 term, degree 4, level 3")
@@ -1737,7 +1717,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     batch<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("2d, 2 terms, level 2, degree 2")
@@ -1792,7 +1772,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -1847,7 +1827,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -1902,7 +1882,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
@@ -1957,32 +1937,12 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 }
 
 TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   // sanity checks for each pde w/ no workspace limit (no splitting)
   SECTION("1d, 1 term, degree 4, level 3")
   {
@@ -2025,7 +1985,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     batch<TestType> const r_c = batches[1][2];
     batched_gemv(r_a, r_b, r_c, alpha, beta);
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -2080,7 +2040,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -2135,7 +2095,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
   {
@@ -2189,7 +2149,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   // now, check highest level of splitting (1 MB limit)
@@ -2240,7 +2200,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       TestType const reduction_beta = (i == 0) ? 0.0 : 1.0;
       batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
     }
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
@@ -2300,7 +2260,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
@@ -2361,7 +2321,7 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
@@ -2422,6 +2382,6 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, system.batch_output);
+    REQUIRE(diff_comparison<TestType>(gold, system.batch_output));
   }
 }
