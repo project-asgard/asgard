@@ -95,7 +95,7 @@ public:
 private:
   void set_level(int level)
   {
-    assert(level > 0);
+    assert(level > 1);
     level_         = level;
     int const dofs = degree_ * two_raised_to(level_);
     to_basis_operator_.clear_and_resize(dofs, dofs) =
@@ -322,13 +322,13 @@ public:
 
     // modify for appropriate level/degree
     // if default lev/degree not used
-    if (num_levels > 0 || degree > 0)
+    if (num_levels > 1 || degree > 0)
     {
       // FIXME -- temp -- eventually independent levels for each dim will be
 
       for (dimension<P> &d : dimensions_)
       {
-        if (num_levels > 0)
+        if (num_levels > 1)
           d.set_level(num_levels);
         if (degree > 0)
           d.set_degree(degree);
@@ -350,7 +350,7 @@ public:
     for (dimension<P> const d : dimensions_)
     {
       assert(d.get_degree() > 0);
-      assert(d.get_level() > 0);
+      assert(d.get_level() > 1);
       assert(d.domain_max > d.domain_min);
     }
 
