@@ -10,21 +10,20 @@
 #include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-
-// continuity_1 2 2 -> 0.2755(MB)
+#include <numeric>
 
 using prec = double;
 int main(int argc, char **argv)
 {
-  std::cout << "Branch: " << GIT_BRANCH << std::endl;
+  std::cout << "Branch: " << GIT_BRANCH << '\n';
   std::cout << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
-            << std::endl;
-  std::cout << "This executable was built on " << BUILD_TIME << std::endl;
+            << '\n';
+  std::cout << "This executable was built on " << BUILD_TIME << '\n';
 
   options opts(argc, argv);
 
   // -- parse user input and generate pde
-  std::cout << "generating: pde..." << std::endl;
+  std::cout << "generating: pde..." << '\n';
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
                             opts.get_degree());
 
@@ -53,23 +52,23 @@ int main(int argc, char **argv)
   std::pair<std::string, double> runtime_info = expected_time(
       opts.get_selected_pde(), opts.get_level(), opts.get_degree());
   std::cout << "Predicted compute time (seconds): " << runtime_info.second
-            << std::endl;
-  std::cout << runtime_info.first << std::endl;
+            << '\n';
+  std::cout << runtime_info.first << '\n';
 
   std::pair<std::string, double> mem_usage_info = total_mem_usage(
       opts.get_selected_pde(), opts.get_level(), opts.get_degree());
   std::cout << "Predicted total mem usage (MB): " << mem_usage_info.second
-            << std::endl;
-  std::cout << mem_usage_info.first << std::endl;
+            << '\n';
+  std::cout << mem_usage_info.first << '\n';
 
-  std::cout << "--- begin setup ---" << std::endl;
+  std::cout << "--- begin setup ---" << '\n';
 
   // -- create forward/reverse mapping between elements and indices
-  std::cout << "  generating: element table..." << std::endl;
+  std::cout << "  generating: element table..." << '\n';
   element_table const table = element_table(opts, pde->num_dims);
 
   // -- generate initial condition vector.
-  std::cout << "  generating: initial conditions..." << std::endl;
+  std::cout << "  generating: initial conditions..." << '\n';
   fk::vector<prec> const initial_condition = [&pde, &table, degree]() {
     std::vector<fk::vector<prec>> initial_conditions;
     for (dimension<prec> const &dim : pde->get_dimensions())
@@ -83,7 +82,7 @@ int main(int argc, char **argv)
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
-  std::cout << "  generating: source vectors..." << std::endl;
+  std::cout << "  generating: source vectors..." << '\n';
   std::vector<fk::vector<prec>> const initial_sources = [&pde, &table,
                                                          degree]() {
     std::vector<fk::vector<prec>> initial_sources;
@@ -104,7 +103,7 @@ int main(int argc, char **argv)
   }();
 
   // -- generate analytic solution vector.
-  std::cout << "  generating: analytic solution at t=0 ..." << std::endl;
+  std::cout << "  generating: analytic solution at t=0 ..." << '\n';
   fk::vector<prec> const analytic_solution = [&pde, &table, degree]() {
     std::vector<fk::vector<prec>> analytic_solutions_D;
     for (int d = 0; d < pde->num_dims; d++)
@@ -116,7 +115,7 @@ int main(int argc, char **argv)
   }();
 
   // -- generate and store coefficient matrices.
-  std::cout << "  generating: coefficient matrices..." << std::endl;
+  std::cout << "  generating: coefficient matrices..." << '\n';
   for (int i = 0; i < pde->num_dims; ++i)
   {
     dimension<prec> const dim = pde->get_dimensions()[i];
@@ -132,7 +131,7 @@ int main(int argc, char **argv)
   if (opts.get_time_steps() < 1)
     return 0;
 
-  std::cout << "--- begin time loop staging ---" << std::endl;
+  std::cout << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
   auto const get_MB = [&](int num_elems) {
     uint64_t const bytes   = num_elems * sizeof(prec);
@@ -140,65 +139,82 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
+  // Our default workspace size is ~1GB.
+  // This is inexact for now - we can't go smaller than one connected element's
+  // space at a time. Vertical splitting would allow this, but we want to hold
+  // off on that until we implement distribution across nodes.
+  //
+  // This 1GB doesn't include batches, coefficient matrices, element table,
+  // or time advance workspace - only the primary memory consumers (kronmult
+  // intermediate and result workspaces).
+  //
+  // FIXME eventually going to be settable from the cmake
+  static int const default_workspace_MB = 100;
 
-  std::cout << "allocating workspace..." << std::endl;
-  explicit_system<prec> system(*pde, table);
-  std::cout << "input vector size (MB): " << get_MB(system.x.size())
-            << std::endl;
-  std::cout << "kronmult output space size (MB): " << get_MB(system.y.size())
-            << std::endl;
+  std::cout << "allocating workspace..." << '\n';
+  explicit_system<prec> system(*pde, table, default_workspace_MB);
+  std::cout << "input vector size (MB): " << get_MB(system.batch_input.size())
+            << '\n';
+  std::cout << "kronmult output space size (MB): "
+            << get_MB(system.reduction_space.size()) << '\n';
   std::cout << "kronmult working space size (MB): "
-            << get_MB(system.work.size()) << std::endl;
-  std::cout << "output vector size (MB): " << get_MB(system.fx.size())
-            << std::endl;
+            << get_MB(system.batch_intermediate.size()) << '\n';
+  std::cout << "output vector size (MB): " << get_MB(system.batch_output.size())
+            << '\n';
   auto const &unit_vect = system.get_unit_vector();
   std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
-            << std::endl;
+            << '\n';
 
-  explicit_workspace<prec> time_advance_work(system);
   std::cout << "explicit time loop workspace size (MB): "
-            << get_MB(system.x.size() * 5) << std::endl;
+            << get_MB(system.batch_input.size() * 5) << '\n';
 
   // call to build batches
-  std::cout << "  generating: batch lists..." << std::endl;
-    build_batches_implicit<prec>(*pde, table, x, y, work, unit_vector, fval);
-  std::vector<batch_operands_set<prec>> const batches =
-      build_batches(*pde, table, system);
+  std::cout << "generating: batch lists..." << '\n';
+
+  auto const work_set =
+      build_work_set(*pde, table, system, default_workspace_MB);
 
   std::cout << "allocating time loop working space, size (MB): "
-            << get_MB(system.x.size() * 5) << std::endl;
-  fk::vector<prec> scaled_source(system.x.size());
-  fk::vector<prec> x_orig(system.x.size());
-  std::vector<fk::vector<prec>> workspace(3, fk::vector<prec>(system.x.size()));
+            << get_MB(system.batch_input.size() * 5) << '\n';
+  fk::vector<prec> scaled_source(system.batch_input.size());
+  fk::vector<prec> x_orig(system.batch_input.size());
+  std::vector<fk::vector<prec>> workspace(
+      3, fk::vector<prec>(system.batch_input.size()));
 
   // -- time loop
-  std::cout << "--- begin time loop ---" << std::endl;
+  std::cout << "--- begin time loop ---" << '\n';
   prec const dt = pde->get_dt() * opts.get_cfl();
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
 
-    // FIXME modify this interface to accept an explicit system
-    // and an explicit TA workspace rather than all these vects
-    explicit_time_advance(*pde, initial_sources, system, time_advance_work,
-                          batches, time, dt);
+    explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
 
-    // print L2-norm difference from analytic solution
+    // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
-      prec const time_multiplier = pde->exact_time(time);
-      auto const error =
-          l2_norm(system.fx - analytic_solution * time_multiplier);
-      auto const relative_error = error / inf_norm(analytic_solution) * 100;
-      std::cout << "L2-norm (numeric-analytic) [wavelet]: " << error
-                << std::endl;
+      prec const time_multiplier = pde->exact_time((i + 1) * dt);
+
+      fk::vector<prec> const analytic_solution_t =
+          analytic_solution * time_multiplier;
+      fk::vector<prec> const diff = system.batch_output - analytic_solution_t;
+      prec const RMSE             = [&diff]() {
+        fk::vector<prec> squared(diff);
+        std::transform(squared.begin(), squared.end(), squared.begin(),
+                       [](prec const &elem) { return elem * elem; });
+        prec const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
+                          squared.size();
+        return std::sqrt(mean);
+      }();
+      auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
+      std::cout << "RMSE (numeric-analytic) [wavelet]: " << RMSE << '\n';
       std::cout << "Relative difference (numeric-analytic) [wavelet]: "
-                << relative_error << " %" << std::endl;
+                << relative_error << " %" << '\n';
     }
 
-    std::cout << "timestep: " << i << " complete" << std::endl;
+    std::cout << "timestep: " << i << " complete" << '\n';
   }
 
-  std::cout << "--- simulation complete ---" << std::endl;
+  std::cout << "--- simulation complete ---" << '\n';
   return 0;
 }
