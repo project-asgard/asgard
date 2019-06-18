@@ -15,6 +15,9 @@ message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
+option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
+option (ASGARD_HDF5_PATH "optional location of lib/ containing HDF5" "")
+option (ASGARD_HIGHFIVE_PATH "optional location of lib/ containing HighFive" "")
 option (ASGARD_BUILD_PROFILE_DEPS "Download and build our own tools (e.g.  graphviz)" OFF)
 option (ASGARD_LAPACK_PATH "optional location of include/ and lib/ containing LAPACK" "")
 option (ASGARD_BLAS_PATH "optional location of include/ and lib/ containing BLAS" "")
@@ -42,11 +45,8 @@ endif()
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets PROFILE_DEPS and PROFILE_LIBS
 include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
-
-if (ASGARD_IO_HIGHFIVE)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
-endif()
 
 ###############################################################################
 ## Building asgard
@@ -105,9 +105,23 @@ target_link_libraries (connectivity
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 
+# if (ASGARD_IO_HIGHFIVE)
+#   target_link_libraries (io PRIVATE tensors)
+# endif()
+
+# link in HighFive / HDF5 if requested and available
 if (ASGARD_IO_HIGHFIVE)
-  target_link_libraries (io PRIVATE tensors)
-endif()
+  if (NOT HighFive_FOUND)
+    # we need to set the relevant target properties
+    # it should have been put into contrib for us if it wasn't found already
+    find_package (HighFIVE PATHS ${HighFive_contrib_PATH})
+  endif ()
+  add_definitions(-DUSE_HIGHFIVE)
+  get_target_property(hfpath HighFive INTERFACE_INCLUDE_DIRECTORIES)
+  message (STATUS "HighFive includes at: ${hfpath}")
+  target_include_directories (io PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_link_libraries (io PRIVATE tensors PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+endif ()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
@@ -162,12 +176,6 @@ target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
-# link in HighFive / HDF5 if requested and available
-if (ASGARD_IO_HIGHFIVE AND HighFive_FOUND)
-  add_definitions(-DUSE_HIGHFIVE)
-  target_include_directories (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_link_libraries (asgard PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
-endif ()
 
 ###############################################################################
 ## Testing asgard
@@ -181,20 +189,19 @@ if (ASGARD_BUILD_TESTS)
   target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
-    target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-    get_target_property(linkdeps ${component} LINK_LIBRARIES)
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
+    # FIXME
+    if (HighFive_FOUND AND "${component}" STREQUAL "io")
+      target_include_directories (io-tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
+      target_link_libraries (io-tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+    endif ()
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
 
-  # FIXME
-  if (HighFive_FOUND)
-    target_include_directories (tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
-    target_link_libraries (tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
-  endif ()
+
 
 else ()
   message (WARNING "warning: tests will not be built.")
