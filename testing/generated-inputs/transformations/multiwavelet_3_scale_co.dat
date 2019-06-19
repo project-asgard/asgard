@@ -1,10 +1,8 @@
-# Created by Octave 4.2.2, Fri Jan 25 12:23:22 2019 EST <3bm@fusiont5>
-# name: scale_co
+# Created from matlab git hash ad4828821a8c411e018aa543ad4b9a847d8c7076
+# name: foo
 # type: matrix
 # rows: 3
 # columns: 3
- 0 0 1
- 0 1.732050807568877 0
- 3.354101966249685 0 -1.118033988749895
-
-
+0 0 1
+0 1.732050807568877 0
+3.354101966249685 0 -1.118033988749895

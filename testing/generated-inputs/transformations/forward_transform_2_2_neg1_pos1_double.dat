@@ -1,15 +1,13 @@
-# Created by Octave 4.2.2, Fri Feb 01 11:08:03 2019 EST <3bm@fusiont5>
-# name: vect
+# Created from matlab git hash ad4828821a8c411e018aa543ad4b9a847d8c7076
+# name: foo
 # type: matrix
 # rows: 8
 # columns: 1
- -0
- 1.632993161855449
- -0
- -0
- 0
- -0
- -0
- -0
-
-
+0
+1.632993161855451
+0
+-0
+-0
+-0
+-0
+-0
