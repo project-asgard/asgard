@@ -9,12 +9,12 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   std::string out_base =
       "../testing/generated-inputs/element_table/element_table";
 
-  int const levels = 1;
-  int const dims   = 1;
-  options o        = make_options({"-l", std::to_string(levels)});
-  element_table t(o, dims);
-
+  SECTION("1D element table")
   {
+    int const levels = 1;
+    int const dims   = 1;
+    options o        = make_options({"-l", std::to_string(levels)});
+    element_table t(o, dims);
     std::string test_base = out_base + "_1_1_SG";
     std::string file_path = test_base + ".dat";
     auto gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
@@ -29,6 +29,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
     REQUIRE(t.size() == 2);
   }
 
+  SECTION("2D element table")
   {
     int const levels_2 = 3;
     int const dims_2   = 2;
@@ -48,6 +49,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
     REQUIRE(t_2.size() == 20);
   }
 
+  SECTION("3D element table")
   {
     int const levels_3 = 4;
     int const dims_3   = 3;
