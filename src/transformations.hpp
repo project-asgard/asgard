@@ -89,7 +89,7 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
   transformed = transformed * (normalize / 2.0);
 
   // transfer to multi-DG bases
-  transformed = forward_trans * transformed;
+  transformed = forward_trans*transformed;
 
   // zero out near-zero values resulting from transform to wavelet space
   std::transform(transformed.begin(), transformed.end(), transformed.begin(),
