@@ -448,18 +448,18 @@ fk::matrix<int> meshgrid(int const start, int const length)
 }
 
 template<typename P, mem_type mem>
-fk::matrix<P> reshape(fk::matrix<P,mem> mat, int const nrow, int const ncol)
-{ 
-  assert(nrow*ncol == mat.size());
+fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol)
+{
+  assert(nrow * ncol == mat.size());
   fk::vector<P> X(mat);
   fk::matrix<P> Xreshape(nrow, ncol);
-  
+
   for (int i = 0; i < ncol; i++)
   {
     for (int j = 0; j < nrow; j++)
     {
-      int const count          = i * nrow + j;
-      Xreshape(j, i) = X(count);
+      int const count = i * nrow + j;
+      Xreshape(j, i)  = X(count);
     }
   }
   return Xreshape;

@@ -176,7 +176,7 @@ extern template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);
 
 template<typename P, mem_type mem>
-fk::matrix<P> reshape(fk::matrix<P,mem> mat, int const nrow, int const ncol);
+fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol);
 
 extern template fk::matrix<double>
 reshape(fk::matrix<double> mat, int const nrow, int const ncol);

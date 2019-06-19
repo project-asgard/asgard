@@ -3,7 +3,7 @@
 #include "tests_general.hpp"
 #include "transformations.hpp"
 #include <numeric>
-#include<random>
+#include <random>
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
@@ -195,8 +195,8 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      auto const f1       = *first_it++;
-      auto const diff     = std::abs(f1 - second_elem);
+      auto const f1   = *first_it++;
+      auto const diff = std::abs(f1 - second_elem);
       REQUIRE(diff < std::numeric_limits<TestType>::epsilon() * 1.0e5 *
                          std::max(std::abs(f1), std::abs(second_elem)));
     });
@@ -209,9 +209,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
   // to the full matrix multiplication (method 1)
   SECTION("Apply fmwt test set 1 - kdeg=2 lev=2")
   {
-    int kdeg             = 2;
-    int lev              = 2;
-    int n = kdeg*pow(2,lev);
+    int kdeg = 2;
+    int lev  = 2;
+    int n    = kdeg * pow(2, lev);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -222,9 +222,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     std::generate(mat1.begin(), mat1.end(), gen);
     fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(kdeg, lev);
 
-    bool fmwt_left  = true;
-    bool fmwt_trans = false;
-    auto const product_left1 = fmwt*mat1;
+    bool fmwt_left           = true;
+    bool fmwt_trans          = false;
+    auto const product_left1 = fmwt * mat1;
     auto const product_left2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
     SECTION("degree = 2, lev 2 fmwt apply left - method 2")
@@ -234,7 +234,8 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 
     fmwt_left  = true;
     fmwt_trans = true;
-    fk::matrix<TestType> fmwt_transpose = fk::matrix<TestType>(fmwt).transpose();
+    fk::matrix<TestType> fmwt_transpose =
+        fk::matrix<TestType>(fmwt).transpose();
     fk::matrix<TestType> product_left_trans1 = fmwt_transpose * mat1;
 
     auto const product_left_trans2 =
@@ -244,9 +245,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
       relaxed_comparison(product_left_trans1, product_left_trans2);
     }
 
-    fmwt_left  = false;
-    fmwt_trans = false;
-    auto const product_right1 = mat1*fmwt;
+    fmwt_left                 = false;
+    fmwt_trans                = false;
+    auto const product_right1 = mat1 * fmwt;
     auto const product_right2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
 
@@ -255,23 +256,22 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
       relaxed_comparison(product_right1, product_right2);
     }
 
-    fmwt_left  = false;
-    fmwt_trans = true;
-    auto const product_right_trans1 = mat1*fmwt_transpose;
+    fmwt_left                       = false;
+    fmwt_trans                      = true;
+    auto const product_right_trans1 = mat1 * fmwt_transpose;
     auto const product_right_trans2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
     SECTION("degree = 2, lev 2 fmwt apply right transpose - method 2")
     {
       relaxed_comparison(product_right_trans1, product_right_trans2);
     }
-
   }
 
   SECTION("Apply fmwt test set 2 - kdeg=4 lev=5")
   {
-    int kdeg             = 4;
-    int lev              = 5;
-    int n = kdeg*pow(2,lev);
+    int kdeg = 4;
+    int lev  = 5;
+    int n    = kdeg * pow(2, lev);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -283,9 +283,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 
     fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(kdeg, lev);
 
-    bool fmwt_left  = true;
-    bool fmwt_trans = false;
-    auto const product_left1 = fmwt*mat1;
+    bool fmwt_left           = true;
+    bool fmwt_trans          = false;
+    auto const product_left1 = fmwt * mat1;
     auto const product_left2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
     SECTION("degree = 4, lev 5 fmwt apply left - method 2")
@@ -295,7 +295,8 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 
     fmwt_left  = true;
     fmwt_trans = true;
-    fk::matrix<TestType> fmwt_transpose = fk::matrix<TestType>(fmwt).transpose();
+    fk::matrix<TestType> fmwt_transpose =
+        fk::matrix<TestType>(fmwt).transpose();
     fk::matrix<TestType> product_left_trans1 = fmwt_transpose * mat1;
     auto const product_left_trans2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
@@ -304,9 +305,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
       relaxed_comparison(product_left_trans1, product_left_trans2);
     }
 
-    fmwt_left  = false;
-    fmwt_trans = false;
-    auto const product_right1 = mat1*fmwt;
+    fmwt_left                 = false;
+    fmwt_trans                = false;
+    auto const product_right1 = mat1 * fmwt;
     auto const product_right2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
     SECTION("degree = 4, lev 5 fmwt apply right - method 2")
@@ -314,15 +315,14 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
       relaxed_comparison(product_right1, product_right2);
     }
 
-    fmwt_left  = false;
-    fmwt_trans = true;
-    auto const product_right_trans1 = mat1*fmwt_transpose;
+    fmwt_left                       = false;
+    fmwt_trans                      = true;
+    auto const product_right_trans1 = mat1 * fmwt_transpose;
     auto const product_right_trans2 =
         apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
     SECTION("degree = 4, lev 5 fmwt apply right transpose - method 2")
     {
       relaxed_comparison(product_right_trans1, product_right_trans2);
     }
-
   }
 }

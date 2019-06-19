@@ -330,27 +330,27 @@ TEST_CASE("read_scalar_from_txt_file returns expected value", "[matlab]")
   }
 }
 
-TEMPLATE_TEST_CASE("reshape() matches matlab implementation for 2d matrices ony", "[matlab]", float,
-                   double,int)
+TEMPLATE_TEST_CASE(
+    "reshape() matches matlab implementation for 2d matrices ony", "[matlab]",
+    float, double, int)
 {
   SECTION("reshape 2x2 to 1x4")
   {
-    fk::matrix<TestType> matrix{{1,3},
-                                {2,4}};
-    fk::matrix<TestType> test = reshape<TestType>(matrix,1,4);
-    fk::matrix<TestType> gold{{1,2,3,4}};
+    fk::matrix<TestType> matrix{{1, 3}, {2, 4}};
+    fk::matrix<TestType> test = reshape<TestType>(matrix, 1, 4);
+    fk::matrix<TestType> gold{{1, 2, 3, 4}};
     REQUIRE(test == gold);
   }
-  
+
   SECTION("reshape 4x6 to 2x12")
   {
-    fk::matrix<TestType> matrix{{1,5,9,13,17,21},
-                                {2,6,10,14,18,22},
-				{3,7,11,15,19,23},
-				{4,8,12,16,20,24}};
-    fk::matrix<TestType> test = reshape<TestType>(matrix,2,12);
-    fk::matrix<TestType> gold{{1,3,5,7,9,11,13,15,17,19,21,23},
-                              {2,4,6,8,10,12,14,16,18,20,22,24}};
+    fk::matrix<TestType> matrix{{1, 5, 9, 13, 17, 21},
+                                {2, 6, 10, 14, 18, 22},
+                                {3, 7, 11, 15, 19, 23},
+                                {4, 8, 12, 16, 20, 24}};
+    fk::matrix<TestType> test = reshape<TestType>(matrix, 2, 12);
+    fk::matrix<TestType> gold{{1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23},
+                              {2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24}};
     REQUIRE(test == gold);
   }
 }
