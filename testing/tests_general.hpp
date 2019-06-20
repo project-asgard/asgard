@@ -81,7 +81,11 @@ inline auto const cons_relaxed_comparison(F const test)
     auto first_ptr = first_iter.begin();
     for (auto second : second_iter)
     {
-      // assert(first_ptr < first_iter.end());
+      // For some reason, you cannot use < operator,
+      // which I would prefer. However, this is just as safe,
+      // it just looks quite a bit scarier.
+      assert(first_ptr != first_iter.end());
+
       if (!test(*first_ptr, second))
       {
         return false;
@@ -102,9 +106,11 @@ inline auto const cons_relaxed_comparison(F const test)
 // and confirming that their values are each equal within a given precision
 template<typename T>
 auto const relaxed_comparison =
-    [](auto const first, auto const second, auto const precision) {
+    [](auto const &first, auto const &second, auto const precision) {
       return cons_relaxed_comparison(
-          [precision](auto const first, auto const second) {
+          [precision](auto const &first, auto const &second) {
+            // Test that the pair of values of each iter in first and second are
+            // within a certain precision of each other
             return Approx(first).epsilon(std::numeric_limits<T>::epsilon() *
                                          precision) == second;
           })(first, second);
@@ -118,11 +124,14 @@ auto const cons_reduce_comparison(F const transform)
 {
   // A closure that iterates over the two iterators
   //  and returns the accumulated value
-  return [transform](auto first_iter, auto second_iter, auto accumulator_init) {
+  return [transform](auto const &first_iter, auto const &second_iter,
+                     auto accumulator_init) {
     auto first_ptr   = first_iter.begin();
     auto second_ptr  = second_iter.begin();
     auto accumulator = accumulator_init;
-    for (; first_ptr < first_iter.end();)
+    // Confirm that both first_ptr and second_ptr are within
+    // the bounds of their respective iterators
+    for (; first_ptr < first_iter.end() && second_ptr < second_ptr.end();)
     {
       accumulator = transform(*first_ptr, *second_ptr, accumulator);
       first_ptr++;
