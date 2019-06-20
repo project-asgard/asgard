@@ -131,7 +131,7 @@ auto const cons_reduce_comparison(F const transform)
     auto accumulator = accumulator_init;
     // Confirm that both first_ptr and second_ptr are within
     // the bounds of their respective iterators
-    while (first_ptr < first_iter.end())
+    while (first_ptr < first_iter.end() && second_ptr < second_iter.end())
     {
       accumulator = transform(*first_ptr, *second_ptr, accumulator);
       first_ptr++;
