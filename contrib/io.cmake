@@ -65,5 +65,5 @@ if (ASGARD_IO_HIGHFIVE)
 
   get_hdf5()
 
-  find_package (HighFive REQUIRED PATHS ${CMAKE_SOURCE_DIR}/contrib/HighFive)
+  find_package (HighFive REQUIRED PATHS ${CMAKE_SOURCE_DIR}/contrib/highfive)
 endif()
