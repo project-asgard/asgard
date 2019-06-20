@@ -6,8 +6,6 @@
 std::string const output_file_name("asgard.h5");
 std::string const output_dataset_name("asgard");
 
-using namespace HighFive;
-
 template<typename P>
 HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
 {
@@ -18,23 +16,24 @@ HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
 
   // Open file object
 
-  HighFive::File file(output_file_name,
-                      File::ReadWrite | File::Create | File::Truncate);
+  HighFive::File file(output_file_name, HighFive::File::ReadWrite |
+                                            HighFive::File::Create |
+                                            HighFive::File::Truncate);
 
   // Create dataspace
 
-  HighFive::DataSpace dataspace =
-      DataSpace({1, vec_size}, {DataSpace::UNLIMITED, vec_size});
+  HighFive::DataSpace dataspace = HighFive::DataSpace(
+      {1, vec_size}, {HighFive::DataSpace::UNLIMITED, vec_size});
 
   // Use chunking
 
   HighFive::DataSetCreateProps props;
-  props.add(Chunking(std::vector<hsize_t>{2, 2}));
+  props.add(HighFive::Chunking(std::vector<hsize_t>{2, 2}));
 
   // Create dataset
 
-  HighFive::DataSet dataset = file.createDataSet(output_dataset_name, dataspace,
-                                                 AtomicType<P>(), props);
+  HighFive::DataSet dataset = file.createDataSet(
+      output_dataset_name, dataspace, HighFive::AtomicType<P>(), props);
 
   // Write initial contion to t=0 slice of output file
 

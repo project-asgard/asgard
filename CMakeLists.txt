@@ -107,7 +107,6 @@ target_link_libraries (element_table
 
 # link in HighFive / HDF5 if requested and available
 if (ASGARD_IO_HIGHFIVE)
-  add_definitions(-DUSE_HIGHFIVE)
   target_include_directories (io PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries (io PRIVATE tensors PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
 endif ()
@@ -162,6 +161,11 @@ if (PROFILE_DEPS)
 endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
+# Generate header file from src/build_info.hpp.in
+configure_file(
+  src/build_info.hpp.in
+  ${CMAKE_BINARY_DIR}/build_info.hpp
+)
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
@@ -181,7 +185,7 @@ if (ASGARD_BUILD_TESTS)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     # FIXME
-    if (HighFive_FOUND AND "${component}" STREQUAL "io")
+    if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_include_directories (io-tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
       target_link_libraries (io-tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
     endif ()
