@@ -84,9 +84,12 @@ foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
 endforeach ()
 
+if (build_hdf5)
+  add_dependencies (io hdf5-ext)
+endif ()
+
 if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
-  set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
 endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
@@ -104,10 +107,8 @@ target_link_libraries (connectivity
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 
-# link in HighFive / HDF5 if requested and available
 if (ASGARD_IO_HIGHFIVE)
-  target_include_directories (io PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_link_libraries (io PRIVATE tensors PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+  target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
 endif ()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
@@ -185,8 +186,7 @@ if (ASGARD_BUILD_TESTS)
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
-      target_include_directories (io-tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
-      target_link_libraries (io-tests PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
+      target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
     add_test (NAME ${component}-test
               COMMAND ${component}-tests

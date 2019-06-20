@@ -119,6 +119,7 @@ if (NOT LINALG_LIBS)
       INSTALL_COMMAND make PREFIX=${OpenBLAS_PATH} install
     )
     set (build_OpenBLAS TRUE)
+    set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
   endif ()
 endif ()
 
