@@ -4,7 +4,7 @@
 #include "connectivity.hpp"
 #include "element_table.hpp"
 #include "mem_usage.hpp"
-#ifdef USE_HIGHFIVE
+#ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
 #endif
 #include "pde.hpp"
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
   }();
 
   // -- setup output file and write initial condition
-#ifdef USE_HIGHFIVE
+#ifdef ASGARD_IO_HIGHFIVE
   auto output_dataset = initialize_output_file(initial_condition);
 #endif
 
@@ -221,7 +221,7 @@ int main(int argc, char **argv)
     }
 
     // write output to file
-#ifdef USE_HIGHFIVE
+#ifdef ASGARD_IO_HIGHFIVE
     update_output_file(output_dataset, system.batch_output);
 #endif
 
