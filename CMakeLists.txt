@@ -105,20 +105,9 @@ target_link_libraries (connectivity
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 
-# if (ASGARD_IO_HIGHFIVE)
-#   target_link_libraries (io PRIVATE tensors)
-# endif()
-
 # link in HighFive / HDF5 if requested and available
 if (ASGARD_IO_HIGHFIVE)
-  if (NOT HighFive_FOUND)
-    # we need to set the relevant target properties
-    # it should have been put into contrib for us if it wasn't found already
-    find_package (HighFIVE PATHS ${HighFive_contrib_PATH})
-  endif ()
   add_definitions(-DUSE_HIGHFIVE)
-  get_target_property(hfpath HighFive INTERFACE_INCLUDE_DIRECTORIES)
-  message (STATUS "HighFive includes at: ${hfpath}")
   target_include_directories (io PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries (io PRIVATE tensors PUBLIC $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
 endif ()

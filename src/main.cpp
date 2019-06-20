@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 
     // write output to file
 #ifdef USE_HIGHFIVE
-    update_output_file(output_dataset, fx);
+    update_output_file(output_dataset, system.batch_output);
 #endif
 
     std::cout << "timestep: " << i << " complete" << '\n';
