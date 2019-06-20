@@ -71,6 +71,9 @@ options make_options(std::vector<std::string> const arguments);
 // A function to construct a closure that will iterate over two iterators and
 // compare them using a provided lambda.
 // This is used to build functions like `relaxed_comparison` below.
+//
+// It runs the test function for each pair of objects in first and second iter,
+// and returns false if at any point the comparison is false
 template<class F>
 inline auto const cons_relaxed_comparison(F const test)
 {
@@ -94,6 +97,9 @@ inline auto const cons_relaxed_comparison(F const test)
 // (c++ float/double vs matlab always double)
 // 2) the reordered operations make very subtle differences
 // requiring relaxed comparison for certain inputs
+//
+// This works by iterating over each element in the first and second iterators,
+// and confirming that their values are each equal within a given precision
 template<typename T>
 auto const relaxed_comparison =
     [](auto const first, auto const second, auto const precision) {
@@ -105,7 +111,8 @@ auto const relaxed_comparison =
     };
 
 // This is used for creating a function that reduces two iterators into an
-// accumulated value
+// accumulated value.
+// This is used to implement diff comparison
 template<class F>
 auto const cons_reduce_comparison(F const transform)
 {
