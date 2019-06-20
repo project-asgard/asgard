@@ -126,12 +126,13 @@ auto const cons_reduce_comparison(F const transform)
   //  and returns the accumulated value
   return [transform](auto const &first_iter, auto const &second_iter,
                      auto accumulator_init) {
+    // Create the iterators
     auto first_ptr   = first_iter.begin();
     auto second_ptr  = second_iter.begin();
     auto accumulator = accumulator_init;
     // Confirm that both first_ptr and second_ptr are within
     // the bounds of their respective iterators
-    for (; first_ptr < first_iter.end() && second_ptr < second_ptr.end();)
+    while (first_ptr < first_iter.end() && second_ptr < second_ptr.end())
     {
       accumulator = transform(*first_ptr, *second_ptr, accumulator);
       first_ptr++;
