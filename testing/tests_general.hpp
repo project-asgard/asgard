@@ -85,7 +85,6 @@ inline auto const cons_relaxed_comparison(F const test)
       // which I would prefer. However, this is just as safe,
       // it just looks quite a bit scarier.
       assert(first_ptr != first_iter.end());
-
       if (!test(*first_ptr, second))
       {
         return false;
@@ -132,7 +131,7 @@ auto const cons_reduce_comparison(F const transform)
     auto accumulator = accumulator_init;
     // Confirm that both first_ptr and second_ptr are within
     // the bounds of their respective iterators
-    while (first_ptr < first_iter.end() && second_ptr < second_ptr.end())
+    while (first_ptr < first_iter.end())
     {
       accumulator = transform(*first_ptr, *second_ptr, accumulator);
       first_ptr++;
