@@ -8,11 +8,12 @@ template<typename P>
 static inline void relaxed_comparison(fk::matrix<double> const first,
                                       fk::matrix<double> const second)
 {
-  auto first_it = first.begin();
+  Catch::StringMaker<P>::precision = 15;
+  auto first_it                    = first.begin();
 
   std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
     REQUIRE(
-        Approx(*first_it++).epsilon(std::numeric_limits<P>::epsilon() * 1e3) ==
+        Approx(*first_it++).epsilon(std::numeric_limits<P>::epsilon() * 1e4) ==
         second_elem);
   });
 }
