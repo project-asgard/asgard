@@ -423,6 +423,10 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
+/*
+ * the general implementation of apply_fmwt(). Users access it through the
+ * helpers at the bottom of the file (and as defined in the header file)
+ */
 template<typename P>
 fk::matrix<P>
 apply_fmwt(fk::matrix<P> const fmwt, fk::matrix<P> const coefficient_matrix,
@@ -559,6 +563,44 @@ apply_fmwt(fk::matrix<P> const fmwt, fk::matrix<P> const coefficient_matrix,
   return product;
 }
 
+/*
+ * These are the user-facing functions for apply_fmwt()
+ */
+template<typename P>
+fk::matrix<P> apply_left_fmwt(fk::matrix<P> const fmwt,
+                              fk::matrix<P> const coefficient_matrix,
+                              int const kdegree, int const num_levels)
+{
+  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, true, false);
+}
+
+template<typename P>
+fk::matrix<P> apply_right_fmwt(fk::matrix<P> const fmwt,
+                               fk::matrix<P> const coefficient_matrix,
+                               int const kdegree, int const num_levels)
+{
+  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, false,
+                    false);
+}
+
+template<typename P>
+fk::matrix<P>
+apply_left_fmwt_transposed(fk::matrix<P> const fmwt,
+                           fk::matrix<P> const coefficient_matrix,
+                           int const kdegree, int const num_levels)
+{
+  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, true, true);
+}
+
+template<typename P>
+fk::matrix<P>
+apply_right_fmwt_transposed(fk::matrix<P> const fmwt,
+                            fk::matrix<P> const coefficient_matrix,
+                            int const kdegree, int const num_levels)
+{
+  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, false, true);
+}
+
 template std::array<fk::matrix<double>, 6>
 generate_multi_wavelets(int const degree);
 template std::array<fk::matrix<float>, 6>
@@ -570,10 +612,37 @@ template fk::matrix<float>
 operator_two_scale(int const degree, int const num_levels);
 
 template fk::matrix<double>
-apply_fmwt(fk::matrix<double> const fmwt,
-           fk::matrix<double> const coefficient_matrix, int const kdeg,
-           int const num_levels, bool const fmwt_left, bool const fmwt_trans);
+apply_left_fmwt(fk::matrix<double> const fmwt,
+                fk::matrix<double> const coefficient_matrix, int const kdeg,
+                int const num_levels);
 template fk::matrix<float>
-apply_fmwt(fk::matrix<float> const fmwt,
-           fk::matrix<float> const coefficient_matrix, int const kdeg,
-           int const num_levels, bool const fmwt_left, bool const fmwt_trans);
+apply_left_fmwt(fk::matrix<float> const fmwt,
+                fk::matrix<float> const coefficient_matrix, int const kdeg,
+                int const num_levels);
+
+template fk::matrix<double>
+apply_left_fmwt_transposed(fk::matrix<double> const fmwt,
+                           fk::matrix<double> const coefficient_matrix,
+                           int const kdeg, int const num_levels);
+template fk::matrix<float>
+apply_left_fmwt_transposed(fk::matrix<float> const fmwt,
+                           fk::matrix<float> const coefficient_matrix,
+                           int const kdeg, int const num_levels);
+
+template fk::matrix<double>
+apply_right_fmwt(fk::matrix<double> const fmwt,
+                 fk::matrix<double> const coefficient_matrix, int const kdeg,
+                 int const num_levels);
+template fk::matrix<float>
+apply_right_fmwt(fk::matrix<float> const fmwt,
+                 fk::matrix<float> const coefficient_matrix, int const kdeg,
+                 int const num_levels);
+
+template fk::matrix<double>
+apply_right_fmwt_transposed(fk::matrix<double> const fmwt,
+                            fk::matrix<double> const coefficient_matrix,
+                            int const kdeg, int const num_levels);
+template fk::matrix<float>
+apply_right_fmwt_transposed(fk::matrix<float> const fmwt,
+                            fk::matrix<float> const coefficient_matrix,
+                            int const kdeg, int const num_levels);

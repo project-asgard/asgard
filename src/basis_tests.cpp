@@ -222,45 +222,36 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     std::generate(mat1.begin(), mat1.end(), gen);
     fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(kdeg, lev);
 
-    bool fmwt_left           = true;
-    bool fmwt_trans          = false;
     auto const product_left1 = fmwt * mat1;
-    auto const product_left2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+    auto const product_left2 = apply_left_fmwt<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 2, lev 2 fmwt apply left - method 2")
     {
       relaxed_comparison(product_left1, product_left2);
     }
 
-    fmwt_left  = true;
-    fmwt_trans = true;
     fk::matrix<TestType> fmwt_transpose =
         fk::matrix<TestType>(fmwt).transpose();
     fk::matrix<TestType> product_left_trans1 = fmwt_transpose * mat1;
 
     auto const product_left_trans2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+        apply_left_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 2, lev 2 fmwt apply left transpose - method 2")
     {
       relaxed_comparison(product_left_trans1, product_left_trans2);
     }
 
-    fmwt_left                 = false;
-    fmwt_trans                = false;
     auto const product_right1 = mat1 * fmwt;
     auto const product_right2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+        apply_right_fmwt<TestType>(fmwt, mat1, kdeg, lev);
 
     SECTION("degree = 2, lev 2 fmwt apply right - method 2")
     {
       relaxed_comparison(product_right1, product_right2);
     }
 
-    fmwt_left                       = false;
-    fmwt_trans                      = true;
     auto const product_right_trans1 = mat1 * fmwt_transpose;
     auto const product_right_trans2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+        apply_right_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 2, lev 2 fmwt apply right transpose - method 2")
     {
       relaxed_comparison(product_right_trans1, product_right_trans2);
@@ -283,43 +274,34 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 
     fk::matrix<TestType> const fmwt = operator_two_scale<TestType>(kdeg, lev);
 
-    bool fmwt_left           = true;
-    bool fmwt_trans          = false;
     auto const product_left1 = fmwt * mat1;
-    auto const product_left2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+    auto const product_left2 = apply_left_fmwt<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply left - method 2")
     {
       relaxed_comparison(product_left1, product_left2);
     }
 
-    fmwt_left  = true;
-    fmwt_trans = true;
     fk::matrix<TestType> fmwt_transpose =
         fk::matrix<TestType>(fmwt).transpose();
     fk::matrix<TestType> product_left_trans1 = fmwt_transpose * mat1;
     auto const product_left_trans2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+        apply_left_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply left transpose - method 2")
     {
       relaxed_comparison(product_left_trans1, product_left_trans2);
     }
 
-    fmwt_left                 = false;
-    fmwt_trans                = false;
     auto const product_right1 = mat1 * fmwt;
     auto const product_right2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+        apply_right_fmwt<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply right - method 2")
     {
       relaxed_comparison(product_right1, product_right2);
     }
 
-    fmwt_left                       = false;
-    fmwt_trans                      = true;
     auto const product_right_trans1 = mat1 * fmwt_transpose;
     auto const product_right_trans2 =
-        apply_fmwt<TestType>(fmwt, mat1, kdeg, lev, fmwt_left, fmwt_trans);
+        apply_right_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply right transpose - method 2")
     {
       relaxed_comparison(product_right_trans1, product_right_trans2);

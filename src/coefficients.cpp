@@ -333,11 +333,14 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   // transform matrix to wavelet space
   // FIXME does stiffness not need this transform?
   fk::matrix<double> const forward_trans = dim.get_to_basis_operator();
-  coefficients =
-      apply_fmwt(forward_trans,
-                 apply_fmwt(forward_trans, coefficients, dim.get_degree(),
-                            dim.get_level(), true, false),
-                 dim.get_degree(), dim.get_level(), false, true);
+
+  // These apply_*_fmwt() routines do the following operation:
+  // coefficients = forward_trans * coefficients * forward_trans_transpose;
+  coefficients = apply_right_fmwt_transposed(
+      forward_trans,
+      apply_left_fmwt(forward_trans, coefficients, dim.get_degree(),
+                      dim.get_level()),
+      dim.get_degree(), dim.get_level());
 
   // zero out near-zero values after conversion to wavelet space
   double const threshold = 1e-10;
