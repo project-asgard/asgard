@@ -573,11 +573,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, elem_table.size() * elements_in_batch);
 
-  batch_operands_set<P> reduction_batch = {
-      batch<P>(elem_table.size(), elem_size, items_to_reduce, elem_size, false),
-      batch<P>(elem_table.size(), items_to_reduce, 1, 1, false),
-      batch<P>(elem_table.size(), elem_size, 1, 1, false)};
-
   // loop over elements
   // FIXME eventually want to do this in parallel
   for (int i = 0; i < elem_table.size(); ++i)
@@ -604,28 +599,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
       return op_row;
     }();
-
-    // calculate reduction inputs
-
-    // calculate the position of this element in the
-    // global system matrix
-    // this is where the item reduces to in the output vector
-    int const global_row = i * elem_size;
-
-    int const workspace_size = elem_size * items_to_reduce;
-    int const reduce_index   = workspace_size * i;
-    fk::matrix<P, mem_type::view> reduction_space(
-        system.reduction_space, elem_size, items_to_reduce, reduce_index);
-    // assign_entry into reduction batch
-    reduction_batch[0].assign_entry(reduction_space, i);
-    reduction_batch[1].assign_entry(
-        fk::matrix<P, mem_type::view>(system.get_unit_vector(), items_to_reduce,
-                                      1, 0),
-        i);
-    reduction_batch[2].assign_entry(
-        fk::matrix<P, mem_type::view>(system.batch_output, elem_size, 1,
-                                      global_row),
-        i);
 
     // loop over connected elements. for now, we assume
     // full connectivity
@@ -665,7 +638,17 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                                i * elements_in_batch * pde.num_terms;
 
         // y space, where kron outputs are written
-        int const y_index = elem_size * kron_index;
+
+        // this is calculated to form a matrix s.t. when it is row-summed
+        // (all row elements added together), the output vector is formed
+        //
+        // so, each work item's output - deg^dim by num_elems*num_terms - is
+        // stacked vertically to form the matrix. the indexing below is designed
+        // to achieve this.
+        int const y_index = ((j - connected_start) * pde.num_terms + k) *
+                                elem_table.size() * elem_size +
+                            i * elem_size;
+
         fk::vector<P, mem_type::view> const y_view(
             system.reduction_space, y_index, y_index + elem_size - 1);
 
@@ -706,9 +689,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
     }
   }
-
-  // emplace the reduction batch
-  batches.push_back(std::move(reduction_batch));
   return batches;
 }
 
