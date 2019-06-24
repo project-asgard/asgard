@@ -1,6 +1,7 @@
 #pragma once
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
+#include <climits>
 
 namespace fm
 {
@@ -10,6 +11,7 @@ fk::vector<P, mem> &
 axpy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y, P const alpha = 1.0)
 {
   assert(x.size() == y.size());
+  assert(x.size() < INT_MAX);
   int n    = x.size();
   int one  = 1;
   P alpha_ = alpha;
@@ -22,6 +24,7 @@ template<typename P, mem_type mem, mem_type omem>
 fk::vector<P, mem> &copy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y)
 {
   assert(x.size() == y.size());
+  assert(x.size() < INT_MAX);
   int n   = x.size();
   int one = 1;
   lib_dispatch::copy(&n, x.data(), &one, y.data(), &one);
@@ -32,7 +35,8 @@ fk::vector<P, mem> &copy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y)
 template<typename P, mem_type mem>
 fk::vector<P, mem> &scal(P const alpha, fk::vector<P, mem> &x)
 {
-  int one  = 1;
+  int one = 1;
+  assert(x.size() < INT_MAX);
   int n    = x.size();
   P alpha_ = alpha;
   lib_dispatch::scal(&n, &alpha_, x.data(), &one);
@@ -46,6 +50,9 @@ gemv(fk::matrix<P, amem> const &A, fk::vector<P, xmem> const &x,
      fk::vector<P, ymem> &y, bool const trans_A = false, P const alpha = 1.0,
      P const beta = 0.0)
 {
+  assert(A.ncols() < INT_MAX);
+  assert(A.nrows() < INT_MAX);
+
   int const rows_A = trans_A ? A.ncols() : A.nrows();
   int const cols_A = trans_A ? A.nrows() : A.ncols();
 
@@ -73,6 +80,12 @@ gemm(fk::matrix<P, amem> const &A, fk::matrix<P, bmem> const &B,
      fk::matrix<P, cmem> &C, bool const trans_A = false,
      bool const trans_B = false, P const alpha = 1.0, P const beta = 0.0)
 {
+  assert(A.ncols() < INT_MAX);
+  assert(A.nrows() < INT_MAX);
+
+  assert(B.ncols() < INT_MAX);
+  assert(B.nrows() < INT_MAX);
+
   int const rows_A = trans_A ? A.ncols() : A.nrows();
   int const cols_A = trans_A ? A.nrows() : A.ncols();
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lib_dispatch.hpp"
+#include <climits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -48,7 +49,7 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector();
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  explicit vector(int const size);
+  explicit vector(int64_t const size);
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector(std::initializer_list<P> list);
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
@@ -59,7 +60,7 @@ public:
   // create view from owner.
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner> const &owner,
-                  int const start_index, int const stop_index);
+                  int64_t const start_index, int64_t const stop_index);
   // overload for default case - whole vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner> const &owner);
@@ -94,8 +95,8 @@ public:
   //
   // subscripting operators
   //
-  P &operator()(int const);
-  P operator()(int const) const;
+  P &operator()(int64_t const);
+  P operator()(int64_t const) const;
   //
   // comparison operators
   //
@@ -128,11 +129,11 @@ public:
   //
   // basic queries to private data
   //
-  int size() const { return size_; }
+  int64_t size() const { return size_; }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   // this can be offsetted for views
-  P *data(int const elem = 0) const { return &data_[elem]; }
+  P *data(int64_t const elem = 0) const { return &data_[elem]; }
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a matrix<view> to be made from a
   // vector<owner>
@@ -149,12 +150,12 @@ public:
   void dump_to_octave(char const *) const;
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  fk::vector<P, mem> &resize(int const size = 0);
+  fk::vector<P, mem> &resize(int64_t const size = 0);
 
   template<mem_type omem>
-  vector<P, mem> &set_subvector(int const, vector<P, omem> const);
+  vector<P, mem> &set_subvector(int64_t const, vector<P, omem> const);
 
-  vector<P> extract(int const, int const) const;
+  vector<P> extract(int64_t const, int64_t const) const;
 
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector<P, mem> &concat(vector<P, omem> const &right);
@@ -170,8 +171,8 @@ public:
   int get_num_views() const;
 
 private:
-  P *data_;  //< pointer to elements
-  int size_; //< dimension
+  P *data_;      //< pointer to elements
+  int64_t size_; //< dimension
   std::shared_ptr<int> ref_count_ = nullptr;
 };
 
@@ -190,23 +191,23 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix();
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  matrix(int rows, int cols);
+  matrix(int64_t rows, int64_t cols);
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix(std::initializer_list<std::initializer_list<P>> list);
 
   // create view from owner.
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit matrix(fk::matrix<P, mem_type::owner> const &owner,
-                  int const start_row, int const stop_row, int const start_col,
-                  int const stop_col);
+                  int64_t const start_row, int64_t const stop_row,
+                  int64_t const start_col, int64_t const stop_col);
   // overload for default case - whole matrix
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit matrix(fk::matrix<P, mem_type::owner> const &owner);
 
   // create matrix view from vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
-  explicit matrix(fk::vector<P, omem> const &source, int const num_rows,
-                  int const num_cols, int const start_index = 0);
+  explicit matrix(fk::vector<P, omem> const &source, int64_t const num_rows,
+                  int64_t const num_cols, int64_t const start_index = 0);
 
   ~matrix();
 
@@ -230,8 +231,8 @@ public:
   //
   // subscripting operators
   //
-  P &operator()(int const, int const);
-  P operator()(int const, int const) const;
+  P &operator()(int64_t const, int64_t const);
+  P operator()(int64_t const, int64_t const) const;
   //
   // comparison operators
   //
@@ -275,15 +276,15 @@ public:
   //
   // basic queries to private data
   //
-  int nrows() const { return nrows_; }
-  int ncols() const { return ncols_; }
+  int64_t nrows() const { return nrows_; }
+  int64_t ncols() const { return ncols_; }
   // for owners: stride == nrows
   // for views:  stride == owner's nrows
-  int stride() const { return stride_; }
-  int size() const { return nrows() * ncols(); }
+  int64_t stride() const { return stride_; }
+  int64_t size() const { return nrows() * ncols(); }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
-  P *data(int const i = 0, int const j = 0) const
+  P *data(int64_t const i = 0, int64_t const j = 0) const
   {
     // return &data_[i * stride() + j]; // row-major
     return &data_[j * stride() + i]; // column-major
@@ -293,20 +294,21 @@ public:
   //
 
   template<mem_type omem>
-  matrix<P, mem> &update_col(int const, fk::vector<P, omem> const &);
-  matrix<P, mem> &update_col(int const, std::vector<P> const &);
+  matrix<P, mem> &update_col(int64_t const, fk::vector<P, omem> const &);
+  matrix<P, mem> &update_col(int64_t const, std::vector<P> const &);
   template<mem_type omem>
-  matrix<P, mem> &update_row(int const, fk::vector<P, omem> const &);
-  matrix<P, mem> &update_row(int const, std::vector<P> const &);
+  matrix<P, mem> &update_row(int64_t const, fk::vector<P, omem> const &);
+  matrix<P, mem> &update_row(int64_t const, std::vector<P> const &);
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  matrix<P> &clear_and_resize(int const, int const);
+  matrix<P> &clear_and_resize(int64_t const, int64_t const);
 
   template<mem_type omem>
-  matrix<P, mem> &set_submatrix(int const row_idx, int const col_idx,
+  matrix<P, mem> &set_submatrix(int64_t const row_idx, int64_t const col_idx,
                                 fk::matrix<P, omem> const &submatrix);
-  matrix<P> extract_submatrix(int const row_idx, int const col_idx,
-                              int const num_rows, int const num_cols) const;
+  matrix<P> extract_submatrix(int64_t const row_idx, int64_t const col_idx,
+                              int64_t const num_rows,
+                              int64_t const num_cols) const;
   void print(std::string const label = "") const;
   void dump_to_octave(char const *name) const;
 
@@ -334,12 +336,12 @@ public:
   }
 
 private:
-  P *data_;    //< pointer to elements
-  int nrows_;  //< row dimension
-  int ncols_;  //< column dimension
-  int stride_; //< leading dimension;
-               // number of elements in memory between successive matrix
-               // elements in a row
+  P *data_;        //< pointer to elements
+  int64_t nrows_;  //< row dimension
+  int64_t ncols_;  //< column dimension
+  int64_t stride_; //< leading dimension;
+                   // number of elements in memory between successive matrix
+                   // elements in a row
   std::shared_ptr<int> ref_count_ = nullptr;
 };
 } // namespace fk
@@ -371,7 +373,7 @@ fk::vector<P, mem>::vector()
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(int const size)
+fk::vector<P, mem>::vector(int64_t const size)
     : data_{new P[size]()}, size_{size}, ref_count_{std::make_shared<int>(0)}
 {}
 
@@ -379,19 +381,23 @@ fk::vector<P, mem>::vector(int const size)
 // https://stackoverflow.com/a/5549918
 // but possibly this is "too clever" for our needs right now
 
+// here we assume list doesn't exceed signed 64 bit indexing - pretty safe, I
+// think
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(std::initializer_list<P> list)
-    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())},
+    : data_{new P[list.size()]}, size_{static_cast<int64_t>(list.size())},
       ref_count_{std::make_shared<int>(0)}
 {
   std::copy(list.begin(), list.end(), data_);
 }
 
+// here we assume std::vect doesn't exceed signed 64 bit indexing - pretty safe,
+// I think
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(std::vector<P> const &v)
-    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())},
+    : data_{new P[v.size()]}, size_{static_cast<int64_t>(v.size())},
       ref_count_{std::make_shared<int>(0)}
 {
   std::copy(v.begin(), v.end(), data_);
@@ -414,7 +420,7 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
   }
   else
   {
-    int i = 0;
+    int64_t i = 0;
     for (auto const &elem : mat)
     {
       (*this)(i++) = elem;
@@ -425,8 +431,8 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
 // vector view constructor given a start and total length
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
-                           int const stop_index)
+fk::vector<P, mem>::vector(fk::vector<P> const &vec, int64_t const start_index,
+                           int64_t const stop_index)
     : ref_count_{vec.ref_count_}
 {
   data_ = nullptr;
@@ -448,7 +454,7 @@ fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(fk::vector<P> const &a)
-    : vector(a, 0, std::max(0, a.size() - 1))
+    : vector(a, 0, std::max(static_cast<int64_t>(0), a.size() - 1))
 {}
 
 template<typename P, mem_type mem>
@@ -550,7 +556,7 @@ fk::vector<P, mem>::vector(vector<PP, omem> const &a)
     : data_{new P[a.size()]}, size_{a.size()}, ref_count_{
                                                    std::make_shared<int>(0)}
 {
-  for (auto i = 0; i < a.size(); ++i)
+  for (int64_t i = 0; i < a.size(); ++i)
   {
     (*this)(i) = static_cast<P>(a(i));
   }
@@ -568,7 +574,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
   assert(size() == a.size());
 
   size_ = a.size();
-  for (auto i = 0; i < a.size(); ++i)
+  for (int64_t i = 0; i < a.size(); ++i)
   {
     (*this)(i) = static_cast<P>(a(i));
   }
@@ -582,7 +588,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
 template<typename P, mem_type mem>
 fk::vector<P, mem> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
 {
-  assert(size() == static_cast<int>(v.size()));
+  assert(size() == static_cast<int64_t>(v.size()));
   std::memcpy(data_, v.data(), v.size() * sizeof(P));
   return *this;
 }
@@ -601,15 +607,17 @@ std::vector<P> fk::vector<P, mem>::to_std() const
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
 template<typename P, mem_type mem>
-P &fk::vector<P, mem>::operator()(int i)
+P &fk::vector<P, mem>::operator()(int64_t i)
 {
+  assert(i >= 0);
   assert(i < size_);
   return data_[i];
 }
 
 template<typename P, mem_type mem>
-P fk::vector<P, mem>::operator()(int i) const
+P fk::vector<P, mem>::operator()(int64_t i) const
 {
+  assert(i >= 0);
   assert(i < size_);
   return data_[i];
 }
@@ -626,7 +634,7 @@ bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
       return true;
   if (size() != other.size())
     return false;
-  for (auto i = 0; i < size(); ++i)
+  for (int64_t i = 0; i < size(); ++i)
     if constexpr (std::is_floating_point<P>::value)
     {
       if (std::abs((*this)(i)-other(i)) > TOL)
@@ -667,7 +675,7 @@ fk::vector<P> fk::vector<P, mem>::operator+(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
-  for (auto i = 0; i < size(); ++i)
+  for (int64_t i = 0; i < size(); ++i)
     ans(i) = (*this)(i) + right(i);
   return ans;
 }
@@ -681,7 +689,7 @@ fk::vector<P> fk::vector<P, mem>::operator-(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
-  for (auto i = 0; i < size(); ++i)
+  for (int64_t i = 0; i < size(); ++i)
     ans(i) = (*this)(i)-right(i);
   return ans;
 }
@@ -694,7 +702,8 @@ template<mem_type omem>
 P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
-  int n           = size();
+  assert(size() < INT_MAX);
+  int n           = static_cast<int>(size());
   int one         = 1;
   vector const &X = (*this);
 
@@ -714,8 +723,11 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
   vector const &X = (*this);
   vector<P> Y(A.ncols());
 
-  int m     = A.nrows();
-  int n     = A.ncols();
+  assert(A.nrows() < INT_MAX);
+  int m = A.nrows();
+  assert(A.ncols() < INT_MAX);
+  int n = A.ncols();
+  assert(A.stride() < INT_MAX);
   int lda   = A.stride();
   int one_i = 1;
 
@@ -734,8 +746,9 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 {
   vector<P> a(*this);
   int one_i = 1;
-  int n     = a.size();
-  P alpha   = x;
+  assert(a.size() < INT_MAX);
+  int n   = a.size();
+  P alpha = x;
 
   lib_dispatch::scal(&n, &alpha, a.data(), &one_i);
 
@@ -753,9 +766,9 @@ fk::vector<P>
 fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
-  for (int i = 0; i < (*this).size(); ++i)
+  for (int64_t i = 0; i < (*this).size(); ++i)
   {
-    for (int j = 0; j < right.size(); ++j)
+    for (int64_t j = 0; j < right.size(); ++j)
     {
       product(i * right.size() + j) = (*this)(i)*right(j);
     }
@@ -767,8 +780,9 @@ template<typename P, mem_type mem>
 fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
 {
   int one_i = 1;
-  int n     = this->size();
-  P alpha   = x;
+  assert(size() < INT_MAX);
+  int n   = size();
+  P alpha = x;
 
   lib_dispatch::scal(&n, &alpha, this->data(), &one_i);
 
@@ -797,13 +811,13 @@ void fk::vector<P, mem>::print(std::string const label) const
 
   if constexpr (std::is_floating_point<P>::value)
   {
-    for (auto i = 0; i < size(); ++i)
+    for (int64_t i = 0; i < size(); ++i)
       std::cout << std::setw(12) << std::setprecision(4) << std::scientific
                 << std::right << (*this)(i);
   }
   else
   {
-    for (auto i = 0; i < size(); ++i)
+    for (int64_t i = 0; i < size(); ++i)
       std::cout << std::right << (*this)(i) << " ";
   }
   std::cout << '\n';
@@ -822,7 +836,7 @@ void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
-  for (auto i = 0; i < size(); ++i)
+  for (int64_t i = 0; i < size(); ++i)
     std::cout << std::setprecision(12) << (*this)(i) << " ";
 
   std::cout.rdbuf(coutbuf);
@@ -834,9 +848,9 @@ void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 //
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
+fk::vector<P, mem> &fk::vector<P, mem>::resize(int64_t const new_size)
 {
-  if (new_size == this->size())
+  if (new_size == size())
     return *this;
   P *old_data{data_};
   data_ = new P[new_size]();
@@ -857,8 +871,8 @@ template<typename P, mem_type mem>
 template<mem_type omem, mem_type, typename>
 fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 {
-  int const old_size = this->size();
-  int const new_size = this->size() + right.size();
+  int64_t const old_size = this->size();
+  int64_t const new_size = this->size() + right.size();
   P *old_data{data_};
   data_ = new P[new_size]();
   std::memcpy(data_, old_data, old_size * sizeof(P));
@@ -872,7 +886,7 @@ fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 template<typename P, mem_type mem>
 template<mem_type omem>
 fk::vector<P, mem> &
-fk::vector<P, mem>::set_subvector(int const index,
+fk::vector<P, mem>::set_subvector(int64_t const index,
                                   fk::vector<P, omem> const sub_vector)
 {
   assert(index >= 0);
@@ -884,15 +898,17 @@ fk::vector<P, mem>::set_subvector(int const index,
 
 // extract subvector, indices inclusive
 template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
+fk::vector<P>
+fk::vector<P, mem>::extract(int64_t const start, int64_t const stop) const
 {
   assert(start >= 0);
+  assert(stop >= 0);
   assert(stop < this->size());
   assert(stop > start);
 
-  int const sub_size = stop - start + 1;
+  int64_t const sub_size = stop - start + 1;
   fk::vector<P> sub_vector(sub_size);
-  for (int i = 0; i < sub_size; ++i)
+  for (int64_t i = 0; i < sub_size; ++i)
   {
     sub_vector(i) = (*this)(i + start);
   }
@@ -925,7 +941,7 @@ fk::matrix<P, mem>::matrix()
 
 template<typename P, mem_type mem>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix(int M, int N)
+fk::matrix<P, mem>::matrix(int64_t M, int64_t N)
     : data_{new P[M * N]()}, nrows_{M}, ncols_{N}, stride_{nrows_},
       ref_count_{std::make_shared<int>(0)}
 
@@ -940,12 +956,12 @@ fk::matrix<P, mem>::matrix(
                                                   llist.begin()->size())},
       stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
 {
-  int row_idx = 0;
+  int64_t row_idx = 0;
   for (auto const &row_list : llist)
   {
     // much simpler for row-major storage
     // std::copy(row_list.begin(), row_list.end(), data(row_idx));
-    int col_idx = 0;
+    int64_t col_idx = 0;
     for (auto const &col_elem : row_list)
     {
       (*this)(row_idx, col_idx) = col_elem;
@@ -959,8 +975,8 @@ fk::matrix<P, mem>::matrix(
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
-                           int const start_row, int const stop_row,
-                           int const start_col, int const stop_col)
+                           int64_t const start_row, int64_t const stop_row,
+                           int64_t const start_col, int64_t const stop_col)
     : ref_count_(owner.ref_count_)
 {
   data_   = nullptr;
@@ -968,8 +984,8 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
   ncols_  = 0;
   stride_ = 0;
 
-  int const view_rows = stop_row - start_row + 1;
-  int const view_cols = stop_col - start_col + 1;
+  int64_t const view_rows = stop_row - start_row + 1;
+  int64_t const view_cols = stop_col - start_col + 1;
   if (owner.size() > 0)
   {
     assert(start_row >= 0);
@@ -989,23 +1005,23 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner)
-    : matrix(owner, 0, std::max(0, owner.nrows() - 1), 0,
-             std::max(0, owner.ncols() - 1))
+    : matrix(owner, 0, std::max(static_cast<int64_t>(0), owner.nrows() - 1), 0,
+             std::max(static_cast<int64_t>(0), owner.ncols() - 1))
 {}
 
 // create matrix view of an existing vector
 template<typename P, mem_type mem>
 template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem>::matrix(fk::vector<P, omem> const &source,
-                           int const num_rows, int const num_cols,
-                           int const start_index)
+                           int64_t const num_rows, int64_t const num_cols,
+                           int64_t const start_index)
     : ref_count_(source.get_ref_count({}))
 {
   assert(start_index >= 0);
   assert(num_rows > 0);
   assert(num_cols > 0);
 
-  int const size = num_rows * num_cols;
+  int64_t const size = num_rows * num_cols;
   assert(start_index + size <= source.size());
 
   data_   = nullptr;
@@ -1055,8 +1071,8 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
     }
     else
     {
-      for (auto j = 0; j < a.ncols(); ++j)
-        for (auto i = 0; i < a.nrows(); ++i)
+      for (int64_t j = 0; j < a.ncols(); ++j)
+        for (int64_t i = 0; i < a.nrows(); ++i)
         {
           (*this)(i, j) = a(i, j);
         }
@@ -1092,8 +1108,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
   }
   else
   {
-    for (auto j = 0; j < a.ncols(); ++j)
-      for (auto i = 0; i < a.nrows(); ++i)
+    for (int64_t j = 0; j < a.ncols(); ++j)
+      for (int64_t i = 0; i < a.nrows(); ++i)
       {
         (*this)(i, j) = a(i, j);
       }
@@ -1112,8 +1128,8 @@ fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
       stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
 
 {
-  for (auto j = 0; j < a.ncols(); ++j)
-    for (auto i = 0; i < a.nrows(); ++i)
+  for (int64_t j = 0; j < a.ncols(); ++j)
+    for (int64_t i = 0; i < a.nrows(); ++i)
     {
       (*this)(i, j) = static_cast<P>(a(i, j));
     }
@@ -1133,8 +1149,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<PP, omem> const &a)
 
   nrows_ = a.nrows();
   ncols_ = a.ncols();
-  for (auto j = 0; j < a.ncols(); ++j)
-    for (auto i = 0; i < a.nrows(); ++i)
+  for (int64_t j = 0; j < a.ncols(); ++j)
+    for (int64_t i = 0; i < a.nrows(); ++i)
     {
       (*this)(i, j) = static_cast<P>(a(i, j));
     }
@@ -1200,8 +1216,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(fk::vector<P, omem> const &v)
 {
   assert(nrows() * ncols() == v.size());
 
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
+  for (int64_t j = 0; j < ncols(); ++j)
+    for (int64_t i = 0; i < nrows(); ++i)
       (*this)(i, j) = v(j + i * ncols());
 
   return *this;
@@ -1213,15 +1229,19 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(fk::vector<P, omem> const &v)
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
 template<typename P, mem_type mem>
-P &fk::matrix<P, mem>::operator()(int const i, int const j)
+P &fk::matrix<P, mem>::operator()(int64_t const i, int64_t const j)
 {
+  assert(i >= 0);
+  assert(j >= 0);
   assert(i < nrows() && j < ncols());
   return *(data(i, j));
 }
 
 template<typename P, mem_type mem>
-P fk::matrix<P, mem>::operator()(int const i, int const j) const
+P fk::matrix<P, mem>::operator()(int64_t const i, int64_t const j) const
 {
+  assert(i >= 0);
+  assert(j >= 0);
   assert(i < nrows() && j < ncols());
   return *(data(i, j));
 }
@@ -1241,8 +1261,8 @@ bool fk::matrix<P, mem>::operator==(matrix<P, omem> const &other) const
 
   if (nrows() != other.nrows() || ncols() != other.ncols())
     return false;
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
+  for (int64_t j = 0; j < ncols(); ++j)
+    for (int64_t i = 0; i < nrows(); ++i)
       if constexpr (std::is_floating_point<P>::value)
       {
         if (std::abs((*this)(i, j) - other(i, j)) > TOL)
@@ -1288,8 +1308,8 @@ fk::matrix<P> fk::matrix<P, mem>::operator+(matrix<P, omem> const &right) const
   ans.nrows_ = nrows();
   ans.ncols_ = ncols();
 
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
+  for (int64_t j = 0; j < ncols(); ++j)
+    for (int64_t i = 0; i < nrows(); ++i)
       ans(i, j) = (*this)(i, j) + right(i, j);
 
   return ans;
@@ -1308,8 +1328,8 @@ fk::matrix<P> fk::matrix<P, mem>::operator-(matrix<P, omem> const &right) const
   ans.nrows_ = nrows();
   ans.ncols_ = ncols();
 
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
+  for (int64_t j = 0; j < ncols(); ++j)
+    for (int64_t i = 0; i < nrows(); ++i)
       ans(i, j) = (*this)(i, j) - right(i, j);
 
   return ans;
@@ -1325,8 +1345,8 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(P const right) const
   ans.nrows_ = nrows();
   ans.ncols_ = ncols();
 
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
+  for (int64_t j = 0; j < ncols(); ++j)
+    for (int64_t i = 0; i < nrows(); ++i)
       ans(i, j) = (*this)(i, j) * right;
 
   return ans;
@@ -1341,13 +1361,17 @@ fk::vector<P> fk::matrix<P, mem>::
 operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
-  assert(ncols() == right.size());
+
+  assert(right.size() < INT_MAX);
+  assert(ncols() == static_cast<int>(right.size()));
 
   matrix<P, mem> const &A = (*this);
   vector<P> Y(A.nrows());
-
-  int m     = A.nrows();
-  int n     = A.ncols();
+  assert(A.nrows() < INT_MAX);
+  int m = A.nrows();
+  assert(A.ncols() < INT_MAX);
+  int n = A.ncols();
+  assert(A.stride() < INT_MAX);
   int lda   = A.stride();
   int one_i = 1;
 
@@ -1370,14 +1394,20 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
 
   // just aliases for easier reading
   matrix const &A = (*this);
-  int m           = A.nrows();
-  int n           = B.ncols();
-  int k           = B.nrows();
+  assert(A.nrows() < INT_MAX);
+  int m = A.nrows();
+  assert(B.ncols() < INT_MAX);
+  int n = B.ncols();
+  assert(B.nrows() < INT_MAX);
+  int k = B.nrows();
 
   matrix<P> C(m, n);
 
+  assert(A.stride() < INT_MAX);
   int lda = A.stride();
+  assert(B.stride() < INT_MAX);
   int ldb = B.stride();
+  assert(C.stride() < INT_MAX);
   int ldc = C.stride();
 
   P one  = 1.0;
@@ -1398,8 +1428,8 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::transpose()
 {
   matrix<P> temp(ncols(), nrows());
 
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
+  for (int64_t j = 0; j < ncols(); ++j)
+    for (int64_t i = 0; i < nrows(); ++i)
       temp(j, i) = (*this)(i, j);
 
   // inelegant manual "move assignment"
@@ -1426,13 +1456,13 @@ template<mem_type omem>
 fk::matrix<P> fk::matrix<P, mem>::kron(matrix<P, omem> const &B) const
 {
   fk::matrix<P> C(nrows() * B.nrows(), ncols() * B.ncols());
-  for (auto i = 0; i < nrows(); ++i)
+  for (int64_t i = 0; i < nrows(); ++i)
   {
-    for (auto j = 0; j < ncols(); ++j)
+    for (int64_t j = 0; j < ncols(); ++j)
     {
-      for (auto k = 0; k < B.nrows(); ++k)
+      for (int64_t k = 0; k < B.nrows(); ++k)
       {
-        for (auto l = 0; l < B.ncols(); ++l)
+        for (int64_t l = 0; l < B.ncols(); ++l)
         {
           C((i * B.nrows() + k), (j * B.ncols() + l)) +=
               (*this)(i, j) * B(k, l);
@@ -1456,14 +1486,18 @@ fk::matrix<P, mem>::invert()
 {
   assert(nrows() == ncols());
 
+  assert(ncols() < INT_MAX);
+  int n = ncols();
   int *ipiv{new int[ncols()]};
-  int lwork{nrows() * ncols()};
+  assert(nrows() * ncols() < INT64_MAX);
+  int lwork = static_cast<int64_t>(nrows() * ncols());
+  assert(stride() < INT_MAX);
   int lda = stride();
   P *work{new P[nrows() * ncols()]};
   int info;
 
-  lib_dispatch::getrf(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
-  lib_dispatch::getri(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
+  lib_dispatch::getrf(&n, &n, data(0, 0), &lda, ipiv, &info);
+  lib_dispatch::getri(&n, data(0, 0), &lda, ipiv, work, &lwork, &info);
 
   delete[] ipiv;
   delete[] work;
@@ -1495,14 +1529,16 @@ fk::matrix<P, mem>::determinant() const
   matrix temp{*this}; // get temp copy to do LU
   int *ipiv{new int[ncols()]};
   int info;
-  int n   = ncols();
+  assert(ncols() < INT_MAX);
+  int n = ncols();
+  assert(stride() < INT_MAX);
   int lda = stride();
 
   lib_dispatch::getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
 
   P det    = 1.0;
   int sign = 1;
-  for (auto i = 0; i < nrows(); ++i)
+  for (int64_t i = 0; i < nrows(); ++i)
   {
     if (ipiv[i] != i + 1)
       sign *= -1;
@@ -1519,13 +1555,14 @@ fk::matrix<P, mem>::determinant() const
 //
 template<typename P, mem_type mem>
 template<mem_type omem>
-fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_col(int const col_idx, fk::vector<P, omem> const &v)
+fk::matrix<P, mem> &fk::matrix<P, mem>::update_col(int64_t const col_idx,
+                                                   fk::vector<P, omem> const &v)
 {
-  assert(nrows() == static_cast<int>(v.size()));
+  assert(nrows() == v.size());
   assert(col_idx < ncols());
 
-  int n{v.size()};
+  assert(v.size() < INT_MAX);
+  int n = static_cast<int>(v.size());
   int one{1};
   int stride = 1;
 
@@ -1539,12 +1576,14 @@ fk::matrix<P, mem>::update_col(int const col_idx, fk::vector<P, omem> const &v)
 //
 template<typename P, mem_type mem>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_col(int const col_idx, std::vector<P> const &v)
+fk::matrix<P, mem>::update_col(int64_t const col_idx, std::vector<P> const &v)
 {
-  assert(nrows() == static_cast<int>(v.size()));
+  assert(v.size() < INT64_MAX);
+  assert(nrows() == static_cast<int64_t>(v.size()));
   assert(col_idx < ncols());
 
-  int n{static_cast<int>(v.size())};
+  assert(v.size() < INT_MAX);
+  int n = static_cast<int>(v.size());
   int one{1};
   int stride = 1;
 
@@ -1560,14 +1599,16 @@ fk::matrix<P, mem>::update_col(int const col_idx, std::vector<P> const &v)
 //
 template<typename P, mem_type mem>
 template<mem_type omem>
-fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
+fk::matrix<P, mem> &fk::matrix<P, mem>::update_row(int64_t const row_idx,
+                                                   fk::vector<P, omem> const &v)
 {
   assert(ncols() == v.size());
   assert(row_idx < nrows());
 
-  int n{v.size()};
+  assert(v.size() < INT_MAX);
+  int n = static_cast<int>(v.size());
   int one{1};
+  assert(stride() < INT_MAX);
   int lda = stride();
 
   lib_dispatch::copy(&n, v.data(), &one, data(row_idx, 0), &lda);
@@ -1580,13 +1621,16 @@ fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
 //
 template<typename P, mem_type mem>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
+fk::matrix<P, mem>::update_row(int64_t const row_idx, std::vector<P> const &v)
 {
-  assert(ncols() == static_cast<int>(v.size()));
+  assert(v.size() < INT64_MAX);
+  assert(ncols() == static_cast<int64_t>(v.size()));
   assert(row_idx < nrows());
 
-  int n{static_cast<int>(v.size())};
+  assert(v.size() < INT_MAX);
+  int n = static_cast<int>(v.size());
   int one{1};
+  assert(stride() < INT_MAX);
   int lda = stride();
 
   lib_dispatch::copy(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0),
@@ -1601,7 +1645,7 @@ fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::matrix<P> &
-fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
+fk::matrix<P, mem>::clear_and_resize(int64_t const rows, int64_t const cols)
 {
   assert(ref_count_.use_count() == 1);
 
@@ -1623,7 +1667,7 @@ fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
 template<typename P, mem_type mem>
 template<mem_type omem>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::set_submatrix(int const row_idx, int const col_idx,
+fk::matrix<P, mem>::set_submatrix(int64_t const row_idx, int64_t const col_idx,
                                   matrix<P, omem> const &submatrix)
 {
   assert(row_idx >= 0);
@@ -1632,9 +1676,9 @@ fk::matrix<P, mem>::set_submatrix(int const row_idx, int const col_idx,
   assert(col_idx + submatrix.ncols() <= ncols());
 
   matrix &matrix = *this;
-  for (auto i = 0; i < submatrix.nrows(); ++i)
+  for (int64_t i = 0; i < submatrix.nrows(); ++i)
   {
-    for (auto j = 0; j < submatrix.ncols(); ++j)
+    for (int64_t j = 0; j < submatrix.ncols(); ++j)
     {
       matrix(i + row_idx, j + col_idx) = submatrix(i, j);
     }
@@ -1647,9 +1691,10 @@ fk::matrix<P, mem>::set_submatrix(int const row_idx, int const col_idx,
 //
 template<typename P, mem_type mem>
 fk::matrix<P>
-fk::matrix<P, mem>::extract_submatrix(int const row_idx, int const col_idx,
-                                      int const num_rows,
-                                      int const num_cols) const
+fk::matrix<P, mem>::extract_submatrix(int64_t const row_idx,
+                                      int64_t const col_idx,
+                                      int64_t const num_rows,
+                                      int64_t const num_cols) const
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -1658,9 +1703,9 @@ fk::matrix<P, mem>::extract_submatrix(int const row_idx, int const col_idx,
 
   matrix<P> submatrix(num_rows, num_cols);
   auto matrix = *this;
-  for (auto i = 0; i < num_rows; ++i)
+  for (int64_t i = 0; i < num_rows; ++i)
   {
-    for (auto j = 0; j < num_cols; ++j)
+    for (int64_t j = 0; j < num_cols; ++j)
     {
       submatrix(i, j) = matrix(i + row_idx, j + col_idx);
     }
@@ -1684,9 +1729,9 @@ void fk::matrix<P, mem>::print(std::string label) const
     std::cout << label << "(view, "
               << "stride == " << std::to_string(stride()) << ")" << '\n';
 
-  for (auto i = 0; i < nrows(); ++i)
+  for (int64_t i = 0; i < nrows(); ++i)
   {
-    for (auto j = 0; j < ncols(); ++j)
+    for (int64_t j = 0; j < ncols(); ++j)
     {
       if constexpr (std::is_floating_point<P>::value)
       {
@@ -1717,9 +1762,9 @@ void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
-  for (auto i = 0; i < nrows(); ++i)
+  for (int64_t i = 0; i < nrows(); ++i)
   {
-    for (auto j = 0; j < ncols(); ++j)
+    for (int64_t j = 0; j < ncols(); ++j)
       std::cout << std::setprecision(12) << (*this)(i, j) << " ";
 
     std::cout << std::setprecision(4) << '\n';
@@ -1745,8 +1790,8 @@ public:
   using reference         = R;
   using pointer           = T;
   using iterator_category = std::forward_iterator_tag;
-  using difference_type   = int;
-  matrix_iterator(pointer ptr, int const stride, int const rows)
+  using difference_type   = int64_t;
+  matrix_iterator(pointer ptr, int64_t const stride, int64_t const rows)
       : ptr_(ptr), start_(ptr), stride_(stride), rows_(rows)
   {}
 
@@ -1785,6 +1830,6 @@ public:
 private:
   pointer ptr_;
   pointer start_;
-  int stride_;
-  int rows_;
+  int64_t stride_;
+  int64_t rows_;
 };

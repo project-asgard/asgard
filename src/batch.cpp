@@ -634,8 +634,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // * elem_table.size() * terms must be replaced by sum of lower indexed
         // connected items (scan) * terms
 
-        int const kron_index = k + (j - connected_start) * pde.num_terms +
-                               i * elements_in_batch * pde.num_terms;
+        int64_t const kron_index =
+            k + static_cast<int64_t>((j - connected_start)) * pde.num_terms +
+            static_cast<int64_t>(i) * elements_in_batch * pde.num_terms;
 
         // y space, where kron outputs are written
 
@@ -645,15 +646,16 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // so, each work item's output - deg^dim by num_elems*num_terms - is
         // stacked vertically to form the matrix. the indexing below is designed
         // to achieve this.
-        int const y_index = ((j - connected_start) * pde.num_terms + k) *
-                                elem_table.size() * elem_size +
-                            i * elem_size;
+        int64_t const y_index =
+            static_cast<int64_t>((j - connected_start) * pde.num_terms + k) *
+                elem_table.size() * elem_size +
+            i * elem_size;
 
         fk::vector<P, mem_type::view> const y_view(
             system.reduction_space, y_index, y_index + elem_size - 1);
 
         // work space, intermediate kron data
-        int const work_index =
+        int64_t const work_index =
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
         std::vector<fk::vector<P, mem_type::view>> work_views(
             num_workspaces,
