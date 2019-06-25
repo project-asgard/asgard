@@ -1,5 +1,6 @@
 #include "batch.hpp"
 #include "coefficients.hpp"
+#include "fast_math.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <numeric>
@@ -1688,11 +1689,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    batch<TestType> const r_a = batches[1][0];
-    batch<TestType> const r_b = batches[1][1];
-    batch<TestType> const r_c = batches[1][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
-
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
     relaxed_comparison(gold, system.batch_output);
   }
 
@@ -1732,10 +1732,11 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    batch<TestType> const r_a = batches[1][0];
-    batch<TestType> const r_b = batches[1][1];
-    batch<TestType> const r_c = batches[1][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     relaxed_comparison(gold, system.batch_output);
   }
@@ -1772,20 +1773,22 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     // batched gemm
     TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
       batch<TestType> const a = batches[i][0];
       batch<TestType> const b = batches[i][1];
       batch<TestType> const c = batches[i][2];
+
+      TestType const beta = (i == 0) ? 0.0 : 1.0;
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity2_sg_l2_d2_t1.dat";
@@ -1827,20 +1830,21 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     // batched gemm
     TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
       batch<TestType> const a = batches[i][0];
       batch<TestType> const b = batches[i][1];
       batch<TestType> const c = batches[i][2];
+      TestType const beta     = (i == 0) ? 0.0 : 1.0;
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity2_fg_l3_d4_t1.dat";
@@ -1882,20 +1886,21 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     // batched gemm
     TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
       batch<TestType> const a = batches[i][0];
       batch<TestType> const b = batches[i][1];
       batch<TestType> const c = batches[i][2];
+      TestType const beta     = (i == 0) ? 0.0 : 1.0;
       batched_gemm(a, b, c, alpha, beta);
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity3_sg_l3_d4_t1.dat";
@@ -1947,10 +1952,11 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity6_sg_l2_d3_t1.dat";
@@ -2020,10 +2026,12 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    batch<TestType> const r_a = batches[1][0];
-    batch<TestType> const r_b = batches[1][1];
-    batch<TestType> const r_c = batches[1][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    // reduce
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     relaxed_comparison(gold, system.batch_output);
   }
@@ -2070,10 +2078,11 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity2_fg_l3_d4_t1.dat";
@@ -2125,10 +2134,11 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity3_sg_l3_d4_t1.dat";
@@ -2179,10 +2189,11 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
     }
 
     // reduce
-    batch<TestType> const r_a = batches[pde->num_dims][0];
-    batch<TestType> const r_b = batches[pde->num_dims][1];
-    batch<TestType> const r_c = batches[pde->num_dims][2];
-    batched_gemv(r_a, r_b, r_c, alpha, beta);
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
 
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity6_sg_l2_d3_t1.dat";
@@ -2230,16 +2241,17 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       batch<TestType> const c = batches[0][2];
 
       TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
+      TestType const beta  = (i == 0) ? 0.0 : 1.0;
       batched_gemm(a, b, c, alpha, beta);
-
-      batch<TestType> const r_a = batches[1][0];
-      batch<TestType> const r_b = batches[1][1];
-      batch<TestType> const r_c = batches[1][2];
-
-      TestType const reduction_beta = (i == 0) ? 0.0 : 1.0;
-      batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
     }
+
+    // reduce
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+
     relaxed_comparison(gold, system.batch_output);
   }
 
@@ -2279,22 +2291,25 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       auto const batches = work_set[i];
       // batched gemm
       TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
+
       for (int j = 0; j < pde->num_dims; ++j)
       {
         batch<TestType> const a = batches[j][0];
         batch<TestType> const b = batches[j][1];
         batch<TestType> const c = batches[j][2];
+        TestType const beta =
+            ((j == pde->num_dims - 1) && (i != 0)) ? 1.0 : 0.0;
         batched_gemm(a, b, c, alpha, beta);
       }
-
-      // reduce
-      batch<TestType> const r_a     = batches[pde->num_dims][0];
-      batch<TestType> const r_b     = batches[pde->num_dims][1];
-      batch<TestType> const r_c     = batches[pde->num_dims][2];
-      TestType const reduction_beta = (i == 0) ? 0.0 : 1.0;
-      batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
     }
+
+    // reduce
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity2_fg_l3_d4_t1.dat";
     fk::vector<TestType> const gold =
@@ -2340,22 +2355,24 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
 
       // batched gemm
       TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
       for (int j = 0; j < pde->num_dims; ++j)
       {
         batch<TestType> const a = batches[j][0];
         batch<TestType> const b = batches[j][1];
         batch<TestType> const c = batches[j][2];
+        TestType const beta =
+            ((j == pde->num_dims - 1) && (i != 0)) ? 1.0 : 0.0;
         batched_gemm(a, b, c, alpha, beta);
       }
-
-      // reduce
-      batch<TestType> const r_a     = batches[pde->num_dims][0];
-      batch<TestType> const r_b     = batches[pde->num_dims][1];
-      batch<TestType> const r_c     = batches[pde->num_dims][2];
-      TestType const reduction_beta = (i == 0) ? 0.0 : 1.0;
-      batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
     }
+
+    // reduce
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity3_sg_l3_d4_t1.dat";
     fk::vector<TestType> const gold =
@@ -2401,22 +2418,24 @@ TEMPLATE_TEST_CASE("batch splitter", "[batch]", float, double)
       auto const batches = work_set[i];
       // batched gemm
       TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
       for (int j = 0; j < pde->num_dims; ++j)
       {
         batch<TestType> const a = batches[j][0];
         batch<TestType> const b = batches[j][1];
         batch<TestType> const c = batches[j][2];
+        TestType const beta =
+            ((j == pde->num_dims - 1) && (i != 0)) ? 1.0 : 0.0;
         batched_gemm(a, b, c, alpha, beta);
       }
-
-      // reduce
-      batch<TestType> const r_a     = batches[pde->num_dims][0];
-      batch<TestType> const r_b     = batches[pde->num_dims][1];
-      batch<TestType> const r_c     = batches[pde->num_dims][2];
-      TestType const reduction_beta = (i == 0) ? 0.0 : 1.0;
-      batched_gemv(r_a, r_b, r_c, alpha, reduction_beta);
     }
+
+    // reduce
+    fk::matrix<TestType, mem_type::view> const reduction_matrix(
+        system.reduction_space, system.batch_input.size(),
+        system.reduction_space.size() / system.batch_input.size());
+
+    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+
     std::string const file_path =
         "../testing/generated-inputs/batch/continuity6_sg_l2_d3_t1.dat";
     fk::vector<TestType> const gold =
