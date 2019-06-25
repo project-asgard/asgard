@@ -2,6 +2,9 @@
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
+// a non-matlab one-liner that had no better home - compute 2^arg
+inline int two_raised_to(int exponent) { return 1 << exponent; }
+
 namespace fm
 {
 // axpy - y = a*x
