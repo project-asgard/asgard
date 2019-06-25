@@ -2,11 +2,13 @@
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
-// a non-matlab one-liner that had no better home - compute 2^arg
-inline int two_raised_to(int exponent) { return 1 << exponent; }
+// // a non-matlab one-liner that had no better home - compute 2^arg
+// inline int two_raised_to(int exponent) { return 1 << exponent; }
 
 namespace fm
 {
+// a non-matlab one-liner that had no better home - compute 2^arg
+inline int two_raised_to(int exponent) { return 1 << exponent; }
 // axpy - y = a*x
 template<typename P, mem_type mem, mem_type omem>
 fk::vector<P, mem> &
