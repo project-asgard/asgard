@@ -3,7 +3,6 @@
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
-#include "mem_usage.hpp"
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
 #endif
