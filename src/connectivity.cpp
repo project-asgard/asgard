@@ -23,7 +23,7 @@ int get_1d_index(int const level, int const cell)
 // Build connectivity for single dimension
 fk::matrix<int> make_1d_connectivity(int const num_levels)
 {
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   int const lev_squared = static_cast<int>(std::pow(2, num_levels));
   fk::matrix<int> grid(lev_squared, lev_squared);

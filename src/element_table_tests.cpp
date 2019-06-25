@@ -9,21 +9,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
   std::string out_base =
       "../testing/generated-inputs/element_table/element_table";
 
-  int const levels = 1;
-  int const dims   = 1;
-  options o        = make_options({"-l", std::to_string(levels)});
-  element_table t(o, dims);
-
-  std::string test_base = out_base + "_1_1_SG_";
-  for (auto i = 0; i < t.size(); ++i)
-  {
-    std::string file_path = test_base + std::to_string(i + 1) + ".dat";
-    fk::vector<int> gold =
-        fk::vector<int>(read_vector_from_txt_file(file_path));
-    REQUIRE(t.get_coords(i) == gold);
-    REQUIRE(t.get_index(gold) == i);
-  }
-
+  std::string test_base;
   int const levels_2 = 3;
   int const dims_2   = 2;
   options o_2        = make_options({"-l", std::to_string(levels_2)});
@@ -55,7 +41,6 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
 
   SECTION("element table size", "[element_table]")
   {
-    REQUIRE(t.size() == 2);
     REQUIRE(t_2.size() == 20);
     REQUIRE(t_3.size() == 4096);
   }

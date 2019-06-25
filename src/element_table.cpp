@@ -16,7 +16,7 @@ element_table::element_table(options const program_opts, int const num_dims)
   bool const use_full_grid = program_opts.using_full_grid();
 
   assert(num_dims > 0);
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   // get permutation table for some num_dims, num_levels
   // each row of this table becomes a level tuple, and is the "level" component

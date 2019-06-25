@@ -9,36 +9,38 @@
 
 TEST_CASE("one-dimensional connectivity", "[connectivity]")
 {
-  SECTION("simple test for indexing function")
-  {
-    std::string base_path = "../testing/generated-inputs/connectivity/get_1d_";
+  // SECTION("simple test for indexing function")
+  // {
+  // std::string base_path = "../testing/generated-inputs/connectivity/get_1d_";
 
-    std::vector<int> const levels{0, 0, 5};
-    std::vector<int> const cells{0, 1, 9};
+  //   std::vector<int> const levels{1, 1, 5};
+  // std::vector<int> const cells{0, 1, 9};
 
-    for (size_t i = 0; i < levels.size(); ++i)
-    {
-      std::string file_path = base_path + std::to_string(levels[i]) + "_" +
-                              std::to_string(cells[i]) + ".dat";
-      int const gold = static_cast<int>(read_scalar_from_txt_file(file_path));
-      // indexing function - adjust MATLAB indexing by -1
-      REQUIRE(get_1d_index(levels[i], cells[i]) == gold - 1);
-    }
-  }
-  SECTION("one-dimensional connectivity function")
-  {
-    std::string base_path =
-        "../testing/generated-inputs/connectivity/connect_1_";
+  //   for (size_t i = 0; i < levels.size(); ++i)
+  //   {
+  //     std::string file_path = base_path + std::to_string(levels[i]) + "_" +
+  //                             std::to_string(cells[i]) + ".dat";
+  //     int const gold =
+  //     static_cast<int>(read_scalar_from_txt_file(file_path));
+  //     // indexing function - adjust MATLAB indexing by -1
+  //     REQUIRE(get_1d_index(levels[i], cells[i]) == gold - 1);
+  //   }
+  // }
 
-    std::vector<int> const levels{1, 2, 8};
-    for (size_t i = 0; i < levels.size(); ++i)
-    {
-      std::string file_path = base_path + std::to_string(levels[i]) + ".dat";
-      fk::matrix<int> const gold =
-          fk::matrix<int>(read_matrix_from_txt_file(file_path));
-      REQUIRE(make_1d_connectivity(levels[i]) == gold);
-    }
-  }
+  //   SECTION("one-dimensional connectivity function")
+  //   {
+  //     std::string base_path =
+  //         "../testing/generated-inputs/connectivity/connect_1_";
+
+  //     std::vector<int> const levels{1, 2, 8};
+  //     for (size_t i = 0; i < levels.size(); ++i)
+  //     {
+  //       std::string file_path = base_path + std::to_string(levels[i]) +
+  //       ".dat"; fk::matrix<int> const gold =
+  //           fk::matrix<int>(read_matrix_from_txt_file(file_path));
+  //       REQUIRE(make_1d_connectivity(levels[i]) == gold);
+  //     }
+  //   }
 }
 TEST_CASE("n-dimensional connectivity", "[connectivity]")
 {
