@@ -13,9 +13,10 @@ function (get_hdf5)
   if (NOT ASGARD_BUILD_HDF5)
     # search for hdf5 under user-supplied path(s)
     if (ASGARD_HDF5_PATH)
-      find_library (hdf5_search hdf5 PATHS ${ASGARD_HDF5_PATH} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
+      find_library (hdf5_search hdf5
+        PATHS ${ASGARD_HDF5_PATH} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
       set (hdf5_include ${ASGARD_HDF5_PATH}/include)
-      set (hdf5_lib ${ASGARD_HDF5_PATH}/lib/libhdf5.so)
+      set (hdf5_lib "-L${ASGARD_HDF5_PATH}/lib -Wl,-rpath,${ASGARD_HDF5_PATH}/lib/ -lhdf5")
       message (STATUS "using external hdf5 found at ${ASGARD_HDF5_PATH}")
       set (HDF5_FOUND TRUE)
     endif ()
@@ -32,7 +33,8 @@ function (get_hdf5)
   # if cmake couldn't find other hdf5, or the user asked to build it
   if (NOT HDF5_FOUND)
     set (hdf5_contrib_path ${CMAKE_SOURCE_DIR}/contrib/hdf5)
-    find_library (hdf5_search hdf5 PATHS ${hdf5_contrib_path} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
+    find_library (hdf5_search hdf5
+      PATHS ${hdf5_contrib_path} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
     if (NOT hdf5_search)
       message (STATUS "libhdf5 not found. We'll build it from source.")
 
@@ -53,7 +55,7 @@ function (get_hdf5)
     endif ()
     # either it was already here, or we just built it here
     set (hdf5_include ${hdf5_contrib_path}/include)
-    set (hdf5_lib ${hdf5_contrib_path}/lib/libhdf5.so)
+    set (hdf5_lib "-L${hdf5_contrib_path}/lib -Wl,-rpath,${hdf5_contrib_path}/lib/ -lhdf5")
   endif ()
 
   target_include_directories (hdf5 INTERFACE ${hdf5_include})
