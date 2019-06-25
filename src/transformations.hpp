@@ -1,6 +1,7 @@
 #pragma once
 
 #include "element_table.hpp"
+#include "fast_math.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
@@ -43,7 +44,7 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
 
   // get grid spacing.
   // hate this name TODO
-  int const n                  = two_raised_to(num_levels);
+  int const n                  = fm::two_raised_to(num_levels);
   int const degrees_freedom_1d = degree * n;
 
   // get the Legendre basis function evaluated at the Legendre-Gauss nodes   //
