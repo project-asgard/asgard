@@ -43,11 +43,6 @@ execute_process(
   OUTPUT_VARIABLE BUILD_TIME
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-# Generate header file from src/build_info.hpp.in
-configure_file(
-  src/build_info.hpp.in
-  ${CMAKE_BINARY_DIR}/build_info.hpp
-)
 
 ###############################################################################
 ## Blas/Lapack
@@ -124,6 +119,7 @@ if (NOT LINALG_LIBS)
       INSTALL_COMMAND make PREFIX=${OpenBLAS_PATH} install
     )
     set (build_OpenBLAS TRUE)
+    set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
   endif ()
 endif ()
 
