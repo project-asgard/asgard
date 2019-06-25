@@ -7,7 +7,7 @@ TEST_CASE("fm::two_raised_to", "[fast_math]")
 {
   SECTION("pow")
   {
-    for (int i = 1; i < 31; i++)
+    for (int i = 0; i < 31; i++)
     {
       REQUIRE(fm::two_raised_to(i) == pow(2, i));
     }
