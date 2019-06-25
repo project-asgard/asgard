@@ -1,6 +1,18 @@
 #include "fast_math.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
+#include <cmath>
+
+TEST_CASE("fm::two_raised_to", "[fast_math]")
+{
+  SECTION("pow")
+  {
+    for (int i = 1; i < 31; i++)
+    {
+      REQUIRE(fm::two_raised_to(i) == pow(2, i));
+    }
+  }
+}
 
 TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
 {
@@ -39,6 +51,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     fm::gemm(in1_t, in2, result, trans_A);
     REQUIRE(result == ans);
   }
+
   SECTION("transpose b")
   {
     fk::matrix<TestType> const in2_t = fk::matrix<TestType>(in2).transpose();
