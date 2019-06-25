@@ -544,9 +544,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               int const elements_per_batch)
 {
   // assume uniform degree for now
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const x_size    = elem_size * elem_table.size();
+  int const degree     = pde.get_dimensions()[0].get_degree();
+  int const elem_size  = static_cast<int>(std::pow(degree, pde.num_dims));
+  int64_t const x_size = static_cast<int64_t>(elem_size) * elem_table.size();
   assert(system.batch_input.size() == x_size);
 
   // check our batch partitioning arguments
@@ -680,7 +680,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
         // calculate the position of this element in the
         // global system matrix
-        int const global_col = j * elem_size;
+        int64_t const global_col = j * elem_size;
 
         // x vector input to kronmult
         fk::vector<P, mem_type::view> const x_view(
@@ -750,7 +750,7 @@ explicit_system<P>::explicit_system(PDE<P> const &pde,
 
   // FIXME note that if problem size/limit are misconfigured for a machine,
   // bad alloc can be thrown here
-  batch_input.resize(elem_size * table.size());
+  batch_input.resize(static_cast<int64_t>(elem_size) * table.size());
   batch_output.resize(batch_input.size());
   reduction_space.resize(batch_input.size() * elems_per_set * pde.num_terms);
 

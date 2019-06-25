@@ -133,8 +133,8 @@ int main(int argc, char **argv)
 
   std::cout << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
-  auto const get_MB = [&](int num_elems) {
-    uint64_t const bytes   = num_elems * sizeof(prec);
+  auto const get_MB = [&](int64_t num_elems) {
+    int64_t const bytes    = num_elems * sizeof(prec);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
   // intermediate and result workspaces).
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 100;
+  static int const default_workspace_MB = 1000;
 
   std::cout << "allocating workspace..." << '\n';
   explicit_system<prec> system(*pde, table, default_workspace_MB);
