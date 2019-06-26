@@ -702,7 +702,7 @@ template<mem_type omem>
 P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
-  assert(size() < INT_MAX);
+  assert(size() <= INT_MAX);
   int n           = static_cast<int>(size());
   int one         = 1;
   vector const &X = (*this);
@@ -723,11 +723,11 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
   vector const &X = (*this);
   vector<P> Y(A.ncols());
 
-  assert(A.nrows() < INT_MAX);
+  assert(A.nrows() <= INT_MAX);
   int m = A.nrows();
-  assert(A.ncols() < INT_MAX);
+  assert(A.ncols() <= INT_MAX);
   int n = A.ncols();
-  assert(A.stride() < INT_MAX);
+  assert(A.stride() <= INT_MAX);
   int lda   = A.stride();
   int one_i = 1;
 
@@ -746,7 +746,7 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 {
   vector<P> a(*this);
   int one_i = 1;
-  assert(a.size() < INT_MAX);
+  assert(a.size() <= INT_MAX);
   int n   = a.size();
   P alpha = x;
 
@@ -780,7 +780,7 @@ template<typename P, mem_type mem>
 fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
 {
   int one_i = 1;
-  assert(size() < INT_MAX);
+  assert(size() <= INT_MAX);
   int n   = size();
   P alpha = x;
 
@@ -1362,16 +1362,16 @@ operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
 
-  assert(right.size() < INT_MAX);
+  assert(right.size() <= INT_MAX);
   assert(ncols() == static_cast<int>(right.size()));
 
   matrix<P, mem> const &A = (*this);
   vector<P> Y(A.nrows());
-  assert(A.nrows() < INT_MAX);
+  assert(A.nrows() <= INT_MAX);
   int m = A.nrows();
-  assert(A.ncols() < INT_MAX);
+  assert(A.ncols() <= INT_MAX);
   int n = A.ncols();
-  assert(A.stride() < INT_MAX);
+  assert(A.stride() <= INT_MAX);
   int lda   = A.stride();
   int one_i = 1;
 
@@ -1394,20 +1394,20 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
 
   // just aliases for easier reading
   matrix const &A = (*this);
-  assert(A.nrows() < INT_MAX);
+  assert(A.nrows() <= INT_MAX);
   int m = A.nrows();
-  assert(B.ncols() < INT_MAX);
+  assert(B.ncols() <= INT_MAX);
   int n = B.ncols();
-  assert(B.nrows() < INT_MAX);
+  assert(B.nrows() <= INT_MAX);
   int k = B.nrows();
 
   matrix<P> C(m, n);
 
-  assert(A.stride() < INT_MAX);
+  assert(A.stride() <= INT_MAX);
   int lda = A.stride();
-  assert(B.stride() < INT_MAX);
+  assert(B.stride() <= INT_MAX);
   int ldb = B.stride();
-  assert(C.stride() < INT_MAX);
+  assert(C.stride() <= INT_MAX);
   int ldc = C.stride();
 
   P one  = 1.0;
@@ -1486,12 +1486,12 @@ fk::matrix<P, mem>::invert()
 {
   assert(nrows() == ncols());
 
-  assert(ncols() < INT_MAX);
+  assert(ncols() <= INT_MAX);
   int n = ncols();
   int *ipiv{new int[ncols()]};
-  assert(nrows() * ncols() < INT64_MAX);
+  assert(nrows() * ncols() <= INT64_MAX);
   int lwork = static_cast<int64_t>(nrows() * ncols());
-  assert(stride() < INT_MAX);
+  assert(stride() <= INT_MAX);
   int lda = stride();
   P *work{new P[nrows() * ncols()]};
   int info;
@@ -1529,9 +1529,9 @@ fk::matrix<P, mem>::determinant() const
   matrix temp{*this}; // get temp copy to do LU
   int *ipiv{new int[ncols()]};
   int info;
-  assert(ncols() < INT_MAX);
+  assert(ncols() <= INT_MAX);
   int n = ncols();
-  assert(stride() < INT_MAX);
+  assert(stride() <= INT_MAX);
   int lda = stride();
 
   lib_dispatch::getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
@@ -1561,7 +1561,7 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::update_col(int64_t const col_idx,
   assert(nrows() == v.size());
   assert(col_idx < ncols());
 
-  assert(v.size() < INT_MAX);
+  assert(v.size() <= INT_MAX);
   int n = static_cast<int>(v.size());
   int one{1};
   int stride = 1;
@@ -1578,11 +1578,11 @@ template<typename P, mem_type mem>
 fk::matrix<P, mem> &
 fk::matrix<P, mem>::update_col(int64_t const col_idx, std::vector<P> const &v)
 {
-  assert(v.size() < INT64_MAX);
+  assert(v.size() <= INT64_MAX);
   assert(nrows() == static_cast<int64_t>(v.size()));
   assert(col_idx < ncols());
 
-  assert(v.size() < INT_MAX);
+  assert(v.size() <= INT_MAX);
   int n = static_cast<int>(v.size());
   int one{1};
   int stride = 1;
@@ -1605,10 +1605,10 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::update_row(int64_t const row_idx,
   assert(ncols() == v.size());
   assert(row_idx < nrows());
 
-  assert(v.size() < INT_MAX);
+  assert(v.size() <= INT_MAX);
   int n = static_cast<int>(v.size());
   int one{1};
-  assert(stride() < INT_MAX);
+  assert(stride() <= INT_MAX);
   int lda = stride();
 
   lib_dispatch::copy(&n, v.data(), &one, data(row_idx, 0), &lda);
@@ -1623,14 +1623,14 @@ template<typename P, mem_type mem>
 fk::matrix<P, mem> &
 fk::matrix<P, mem>::update_row(int64_t const row_idx, std::vector<P> const &v)
 {
-  assert(v.size() < INT64_MAX);
+  assert(v.size() <= INT64_MAX);
   assert(ncols() == static_cast<int64_t>(v.size()));
   assert(row_idx < nrows());
 
-  assert(v.size() < INT_MAX);
+  assert(v.size() <= INT_MAX);
   int n = static_cast<int>(v.size());
   int one{1};
-  assert(stride() < INT_MAX);
+  assert(stride() <= INT_MAX);
   int lda = stride();
 
   lib_dispatch::copy(&n, const_cast<P *>(v.data()), &one, data(row_idx, 0),
