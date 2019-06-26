@@ -174,6 +174,10 @@ int main(int argc, char **argv)
   auto const work_set =
       build_work_set(*pde, table, system, default_workspace_MB);
 
+  auto A = build_implicit_system(*pde, table, system);
+  A.print("Implicit A");
+  std::exit(0);
+
   std::cout << "allocating time loop working space, size (MB): "
             << get_MB(system.batch_input.size() * 5) << '\n';
   fk::vector<prec> scaled_source(system.batch_input.size());

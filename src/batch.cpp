@@ -796,6 +796,128 @@ build_work_set(PDE<P> const &pde, element_table const &elem_table,
 
   return work_split;
 }
+template<typename P> fk::matrix<P>
+build_implicit_system(const PDE<P> &pde, element_table const &elem_table,
+                      const explicit_system<P> &system,
+                      int const connected_start, int const elements_per_batch)
+{
+  // assume uniform degree for now
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const x_size    = elem_size * elem_table.size();
+  assert(system.batch_input.size() == x_size);
+  // System Matrix
+  fk::matrix<P> A(x_size, x_size);
+
+  // check our batch partitioning arguments
+  int const elements_in_batch =
+      elements_per_batch < 0 ? elem_table.size() : elements_per_batch;
+
+  // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
+
+  //assert(system.reduction_space.size() >=
+  //       (x_size * elements_in_batch * pde.num_terms));
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  assert(system.batch_intermediate.size() ==
+         system.reduction_space.size() * num_workspaces);
+
+  //int const items_to_reduce = pde.num_terms * elements_in_batch;
+  //assert(system.get_unit_vector().size() >= items_to_reduce);
+
+  std::vector<batch_operands_set<P>> batches =
+      allocate_batches<P>(pde, elem_table.size() * elements_in_batch);
+
+  // loop over elements
+  // FIXME eventually want to do this in parallel
+  for (int i = 0; i < elem_table.size(); ++i)
+  {
+    // first, get linearized indices for this element
+    //
+    // calculate from the level/cell indices for each
+    // dimension
+    fk::vector<int> const coords = elem_table.get_coords(i);
+    assert(coords.size() == pde.num_dims * 2);
+    fk::vector<int> elem_indices = linearize(coords);
+
+    // calculate the row portion of the
+    // operator position used for this
+    // element's gemm calls
+    fk::vector<int> operator_row = [&] {
+      fk::vector<int> op_row(pde.num_dims);
+      for (int d = 0; d < pde.num_dims; ++d)
+      {
+        // FIXME here we would have to use each dimension's
+        // degree when calculating the index if we want different
+        // degree in each dim
+        op_row(d) = elem_indices(d) * degree;
+      }
+      return op_row;
+    }();
+
+    int const global_row = i * elem_size;
+
+    // loop over connected elements. for now, we assume
+    // full connectivity
+    int const connected_stop =
+        std::min(connected_start + elements_in_batch, elem_table.size());
+    for (int j = connected_start; j < connected_stop; ++j)
+    {
+      // get linearized indices for this connected element
+      fk::vector<int> coords = elem_table.get_coords(j);
+      assert(coords.size() == pde.num_dims * 2);
+      fk::vector<int> connected_indices = linearize(coords);
+
+      // calculate the col portion of the
+      // operator position used for this
+      // element's gemm calls
+      fk::vector<int> operator_col = [&] {
+        fk::vector<int> op_col(pde.num_dims);
+        for (int d = 0; d < pde.num_dims; ++d)
+        {
+          // FIXME here we would have to use each dimension's
+          // degree when calculating the index if we want different
+          // degree in each dim
+          op_col(d) = connected_indices(d) * degree;
+        }
+        return op_col;
+      }();
+
+      for (int k = 0; k < pde.num_terms; ++k)
+      {
+        std::vector<fk::matrix<P>> kron_vals;
+        fk::matrix<P> kron0(1,1);
+        kron0(0,0) = 1.0;
+        kron_vals.push_back(kron0);
+        for (int d = pde.num_dims - 1; d >= 0; --d)
+        {
+          fk::matrix<P, mem_type::view> op_view =
+              fk::matrix<P, mem_type::view>(pde.get_coefficients(k, d),
+                  operator_row(d),
+                  operator_row(d) + degree - 1,
+                  operator_col(d),
+                  operator_col(d) + degree - 1);
+          fk::matrix<P>  k_new = kron_vals[pde.num_dims - 1 - d].kron(op_view);
+          kron_vals.push_back(k_new);
+        }
+
+        // calculate the position of this element in the
+        // global system matrix
+        int const global_col = j * elem_size;
+        auto & k_tmp = kron_vals.back();
+
+        fk::matrix<P, mem_type::view>  A_view(A, global_row,
+                                              global_row + k_tmp.nrows() - 1,
+                                              global_col,
+                                              global_col + k_tmp.ncols() - 1);
+
+        A_view = A_view + k_tmp;
+      }
+    }
+  }
+  return A;
+}
 
 template class batch<float>;
 template class batch<double>;
@@ -845,6 +967,16 @@ template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
+
+template fk::matrix<double>
+build_implicit_system(PDE<double> const &pde, element_table const &elem_table,
+    explicit_system<double> const &system, int const connected_start,
+    int const elements_per_batch);
+
+template fk::matrix<float>
+build_implicit_system(PDE<float> const &pde, element_table const &elem_table,
+    explicit_system<float> const &system, int const connected_start,
+    int const elements_per_batch);
 
 template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,
