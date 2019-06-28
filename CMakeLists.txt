@@ -61,14 +61,14 @@ include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 set (components
   basis
   batch
-  fast_math
-  lib_dispatch
   coefficients
   connectivity
   element_table
+  fast_math
+  lib_dispatch
   matlab_utilities
-  permutations
   pde
+  permutations
   program_options
   quadrature
   tensors
@@ -95,8 +95,6 @@ target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity element_table pde tensors)
 
-target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
-
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
 
@@ -106,9 +104,14 @@ target_link_libraries (connectivity
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 
+target_link_libraries (fast_math
+  PRIVATE lib_dispatch tensors)
+
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
 endif ()
+
+target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
