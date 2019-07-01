@@ -12,16 +12,15 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
       tasks.begin(), tasks.end(), [&](const task &a, const task &b) {
         int const a_elems = a.elem_end - a.elem_start + 1;
         int const b_elems = b.elem_end - b.elem_start + 1;
-
         return a_elems < b_elems;
       });
   int const max_elems = max_elem_task.elem_end - max_elem_task.elem_start + 1;
 
   task const max_conn_task = *std::max_element(
       tasks.begin(), tasks.end(), [&](const task &a, const task &b) {
+        // FIXME this is wrong
         int const a_conn = a.conn_end - a.conn_start + 1;
         int const b_conn = b.conn_end - b.conn_start + 1;
-
         return a_conn < b_conn;
       });
   int const max_conn = max_conn_task.conn_end - max_conn_task.conn_start + 1;
@@ -150,44 +149,7 @@ assign_elements_to_tasks(element_table const &table, int const num_tasks)
     task_list.emplace_back(
         task(task_start_row, task_end_row, task_start_col, task_end_col));
   }
-  /*task_assignments tasking;
-  for(int elem = 0; elem < table.size(); ++elem) {
-    for(int conn = 0; conn < table.size(); ++conn) {
 
-              int64_t const flat_index = elem * table.size() + conn;
-              int const task_assignment = flat_index / elems_per_task;
-
-              if(task_assignment > task_index) {
-                  task_index++;
-                  int const rank_assignment = task_index / elems_per_task;
-                  if(rank_assignment > rank_index) {
-                  rank_index++;
-                  }
-
-              }
-
-              int const task_position = task_index % elems_per_task;
-
-                  task_list.emplace_back(task(elem_start, elem-1, conn_start,
-  conn-1)); elem_start = elem; conn_start = conn;
-              }
-    }
-
-    assert(static_cast<int>(task_list.size()) == num_tasks);
-
-  }
-
-
-
-  for(int i = 0; i < num_ranks; ++i) {
-          std::vector<task> tasks_this_rank;
-          for(int j = 0; j < tasks_per_rank; ++j) {
-          task my_task(task_list[i
-          }
-  }
-
-
-                  return tasking;*/
   return task_list;
 }
 
@@ -195,49 +157,3 @@ template int get_num_tasks(element_table const &table, PDE<float> const &pde,
                            int const num_ranks, int const rank_size_MB);
 template int get_num_tasks(element_table const &table, PDE<double> const &pde,
                            int const num_ranks, int const rank_size_MB);
-
-/*
-template<typename P>
-std::vector<task> build_task_list(element_table const &table, PDE<P> const &pde,
-int const num_ranks, int const rank_size_MB) {
-
-  assert(num_ranks > 0);
-  assert(rank_size_MB > 0);
-
-  // determine total problem size
-  double const num_elems = static_cast<double>(table.size()) * table.size();
-  double const space_per_elem = get_element_size_MB(pde);
-  double const problem_size_MB = space_per_elem * num_elems;
-
-  // determine number of tasks
-  int const problem_size_per_rank = static_cast<int>(std::ceil(problem_size_MB))
-/ rank_size_MB; int const num_tasks = [problem_size_per_rank, num_ranks] {
-        if(problem_size_per_rank % num_ranks == 0) {
-                return problem_size_per_rank;
-        }
-        int const tasks_per_rank =
-std::ceil(static_cast<double>(problem_size_per_rank) / num_ranks); return
-tasks_per_rank * num_ranks;
-  }();
-
-  // build task list
-  // we iterate over row-major element grid to divide elements into tasks
-  int const elems_per_task = static_cast<int>(num_elems)/num_tasks;
-  int const leftover_elems = static_cast<int>(num_elems) % num_tasks;
-
-
-
-  for(int64_t row = 0; row < table.size(); ++row) {
-        for(int64_t col = 0; col < table.size(); ++col) {
-            int64_t const flat_index = row * table.size() + col;
-            int64_t const task_assignment = flat_index / elems_per_task;
-
-        }
-
-
-  }
-  std::vector<task> tasks;
-  return tasks;
-
-
-}*/

@@ -41,6 +41,12 @@ public:
   fk::vector<P> reduction_space;
   fk::vector<P> batch_intermediate;
   fk::vector<P> batch_output;
+  int64_t size()
+  {
+    return batch_input.size() + reduction_space.size() +
+           batch_intermediate.size() + batch_output.size() +
+           unit_vector_.size();
+  };
 
 private:
   fk::vector<P> unit_vector_;
@@ -59,20 +65,3 @@ extern template int get_num_tasks(element_table const &table,
 extern template int get_num_tasks(element_table const &table,
                                   PDE<double> const &pde, int const num_ranks,
                                   int const rank_size_MB);
-
-/*
-class task_list
-{
-
-public:
-
-  template<typename P>
-  task_list(element_table const &table, PDE<P> const &pde, int const num_ranks,
-         int const rank_size_MB);
-
-private:
-
-  std::vector<std::vector<task>> tasks_by_rank;
-  std::vector<task> get_tasks(int const rank_num);
-
-};*/
