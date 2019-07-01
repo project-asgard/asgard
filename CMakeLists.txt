@@ -70,7 +70,8 @@ set (components
   pde
   permutations
   program_options
-  quadrature
+  quadrature 
+  tasking
   tensors
   time_advance
   transformations
@@ -122,6 +123,8 @@ target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 target_link_libraries (program_options PRIVATE clara)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
+
+target_link_libraries (tasking PRIVATE element_table pde)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 
