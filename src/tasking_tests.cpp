@@ -270,7 +270,7 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
 
 TEST_CASE("tasking list generation, continuity 6", "[tasking]")
 {
-  SECTION("1 rank, deg 3, level 4, 1-1000 MB")
+  SECTION("1 rank, deg 3, level 4, 10-10000 MB")
   {
     int const degree = 3;
     int const level  = 4;
@@ -283,7 +283,7 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
     element_table const table(o, pde->num_dims);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 1; limit_MB <= 10000; limit_MB *= 10)
     {
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
@@ -294,9 +294,9 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
     }
   }
 
-  SECTION("1 rank, deg 3, level 4, 1-1000 MB")
+  SECTION("1 ranks, deg 4, level 4, 10-1000 MB")
   {
-    int const degree = 3;
+    int const degree = 4;
     int const level  = 4;
     int const ranks  = 1;
 
@@ -307,7 +307,7 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
     element_table const table(o, pde->num_dims);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
@@ -318,7 +318,7 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
     }
   }
 
-  SECTION("2 ranks, deg 3, level 4, 1-1000 MB")
+  SECTION("2 ranks, deg 3, level 4, 10-10000 MB")
   {
     int const degree = 3;
     int const level  = 4;
@@ -331,7 +331,7 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
     element_table const table(o, pde->num_dims);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
@@ -342,9 +342,9 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
     }
   }
 
-  SECTION("11 ranks, deg 3, level 4, 1-1000 MB")
+  SECTION("11 ranks, deg 4, level 4, 10-10000 MB")
   {
-    int const degree = 3;
+    int const degree = 4;
     int const level  = 4;
     int const ranks  = 11;
 
@@ -355,7 +355,7 @@ TEST_CASE("tasking list generation, continuity 6", "[tasking]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
     element_table const table(o, pde->num_dims);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
