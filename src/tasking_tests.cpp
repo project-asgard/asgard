@@ -58,15 +58,15 @@ auto const validity_check = [](std::vector<task> const &tasks,
   }
 };
 
-// check that a given task vector occupies between 50% and 100% of the limit
-// only expected to pass when problem size > limit_MB * num_ranks
+// check that a given task vector occupies between 50% and 101% of the limit
+// only expected to pass when problem size > limit_MB * ranks
 
 auto const size_check = [](std::vector<task> const &tasks,
                            PDE<double> const &pde, element_table const &table,
                            int const limit_MB, bool const large_problem) {
   task_workspace const work(pde, table, tasks);
   double lower_bound    = static_cast<double>(limit_MB * 0.5);
-  double upper_bound    = static_cast<double>(limit_MB * 1.0);
+  double upper_bound    = static_cast<double>(limit_MB * 1.01);
   double workspace_size = work.size_MB();
   if (large_problem)
   {
@@ -93,6 +93,7 @@ TEST_CASE("tasking list generation, continuity 2", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -115,6 +116,7 @@ TEST_CASE("tasking list generation, continuity 2", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -141,7 +143,7 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
     {
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
-
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -164,6 +166,7 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -186,6 +189,7 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -210,6 +214,7 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -232,6 +237,7 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
@@ -254,6 +260,106 @@ TEST_CASE("tasking list generation, continuity 3", "[tasking]")
       int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
       auto const tasks    = assign_elements_to_tasks(table, num_tasks);
 
+      assert(tasks.size() % ranks == 0);
+      assert(static_cast<int>(tasks.size()) == num_tasks);
+      validity_check(tasks, table);
+      size_check(tasks, *pde, table, limit_MB, large_problem);
+    }
+  }
+}
+
+TEST_CASE("tasking list generation, continuity 6", "[tasking]")
+{
+  SECTION("1 rank, deg 3, level 4, 1-1000 MB")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    int const ranks  = 1;
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    bool const large_problem = true;
+    options const o          = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    element_table const table(o, pde->num_dims);
+
+    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    {
+      int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
+      auto const tasks    = assign_elements_to_tasks(table, num_tasks);
+      assert(tasks.size() % ranks == 0);
+      assert(static_cast<int>(tasks.size()) == num_tasks);
+      validity_check(tasks, table);
+      size_check(tasks, *pde, table, limit_MB, large_problem);
+    }
+  }
+
+  SECTION("1 rank, deg 3, level 4, 1-1000 MB")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    int const ranks  = 1;
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    bool const large_problem = true;
+    options const o          = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    element_table const table(o, pde->num_dims);
+
+    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    {
+      int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
+      auto const tasks    = assign_elements_to_tasks(table, num_tasks);
+      assert(tasks.size() % ranks == 0);
+      assert(static_cast<int>(tasks.size()) == num_tasks);
+      validity_check(tasks, table);
+      size_check(tasks, *pde, table, limit_MB, large_problem);
+    }
+  }
+
+  SECTION("2 ranks, deg 3, level 4, 1-1000 MB")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    int const ranks  = 2;
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    bool const large_problem = true;
+    options const o          = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    element_table const table(o, pde->num_dims);
+
+    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    {
+      int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
+      auto const tasks    = assign_elements_to_tasks(table, num_tasks);
+      assert(tasks.size() % ranks == 0);
+      assert(static_cast<int>(tasks.size()) == num_tasks);
+      validity_check(tasks, table);
+      size_check(tasks, *pde, table, limit_MB, large_problem);
+    }
+  }
+
+  SECTION("11 ranks, deg 3, level 4, 1-1000 MB")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    int const ranks  = 11;
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    bool const large_problem = true;
+    options const o          = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    element_table const table(o, pde->num_dims);
+
+    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    {
+      int const num_tasks = get_num_tasks(table, *pde, ranks, limit_MB);
+      auto const tasks    = assign_elements_to_tasks(table, num_tasks);
+      assert(tasks.size() % ranks == 0);
       assert(static_cast<int>(tasks.size()) == num_tasks);
       validity_check(tasks, table);
       size_check(tasks, *pde, table, limit_MB, large_problem);
