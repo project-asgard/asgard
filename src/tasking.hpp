@@ -41,11 +41,14 @@ public:
   fk::vector<P> reduction_space;
   fk::vector<P> batch_intermediate;
   fk::vector<P> batch_output;
-  int64_t size()
+  double size_MB() const
   {
-    return batch_input.size() + reduction_space.size() +
-           batch_intermediate.size() + batch_output.size() +
-           unit_vector_.size();
+    int64_t num_elems = batch_input.size() + reduction_space.size() +
+                        batch_intermediate.size() + batch_output.size() +
+                        unit_vector_.size();
+    double const bytes     = static_cast<double>(num_elems) * sizeof(P);
+    double const megabytes = bytes * 1e-6;
+    return megabytes;
   };
 
 private:

@@ -16,12 +16,20 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
       });
   int const max_elems = max_elem_task.elem_end - max_elem_task.elem_start + 1;
 
+  auto const get_conn_in_task = [&table](task const &t) -> int64_t {
+    if (t.elem_end > t.elem_start)
+    {
+      if (t.elem_end > t.elem_start + 1)
+      {
+        return table.size();
+      }
+      return (std::max(table.size() - t.conn_start + 1, t.conn_end + 1));
+    }
+    return t.conn_end - t.conn_start + 1;
+  };
   task const max_conn_task = *std::max_element(
       tasks.begin(), tasks.end(), [&](const task &a, const task &b) {
-        // FIXME this is wrong
-        int const a_conn = a.conn_end - a.conn_start + 1;
-        int const b_conn = b.conn_end - b.conn_start + 1;
-        return a_conn < b_conn;
+        return get_conn_in_task(a) < get_conn_in_task(b);
       });
   int const max_conn = max_conn_task.conn_end - max_conn_task.conn_start + 1;
 
@@ -29,7 +37,7 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
     if (t.elem_end > t.elem_start)
     {
       int64_t const full_row_elems =
-          static_cast<int64_t>(t.elem_end - t.elem_start) * table.size();
+          static_cast<int64_t>(t.elem_end - t.elem_start - 1) * table.size();
       int64_t const partial_row_elems =
           t.conn_end + 1 + table.size() - t.conn_start + 1;
       return full_row_elems + partial_row_elems;
@@ -88,8 +96,9 @@ static double get_element_size_MB(PDE<P> const &pde)
       get_MB(static_cast<double>(num_workspaces) * pde.num_terms * elem_size);
   // calc in and out vector sizes for each elem
   // FIXME since we will scheme to have most elems require overlapping pieces of
-  // x and y, in general only need this much addtl xy space per elem
-  double const elem_xy_space_MB = get_MB(elem_size);
+  // x and y, we will never need this more than this addtl xy space per elem
+  double const elem_xy_space_MB = get_MB(elem_size * 1.5);
+
   return elem_reduction_space_MB + elem_intermediate_space_MB +
          elem_xy_space_MB;
 }
@@ -111,7 +120,7 @@ int get_num_tasks(element_table const &table, PDE<P> const &pde,
 
   // determine number of tasks
   int const problem_size_per_rank =
-      static_cast<int>(std::ceil(problem_size_MB)) / rank_size_MB;
+      static_cast<int>(std::ceil(std::ceil(problem_size_MB) / rank_size_MB));
   int const num_tasks = [problem_size_per_rank, num_ranks] {
     if (problem_size_per_rank % num_ranks == 0)
     {
@@ -133,25 +142,34 @@ assign_elements_to_tasks(element_table const &table, int const num_tasks)
   assert(num_tasks > 0);
 
   int64_t const num_elems = static_cast<int64_t>(table.size()) * table.size();
-  int64_t const elems_per_task = num_elems / num_tasks;
+
+  int64_t const elems_left_over = num_elems % num_tasks;
+  int64_t const elems_per_task =
+      num_elems / num_tasks + elems_left_over / num_tasks;
+  int64_t const still_left_over = elems_left_over % num_tasks;
 
   std::vector<task> task_list;
+  int64_t assigned = 0;
   for (int i = 0; i < num_tasks; ++i)
   {
-    int64_t const task_start = i * elems_per_task;
-    int64_t const task_end   = (i + 1) * elems_per_task - 1;
+    int64_t const elems_this_task =
+        i < still_left_over ? elems_per_task + 1 : elems_per_task;
+    int64_t const task_end = assigned + elems_this_task - 1;
 
-    int64_t const task_start_row = task_start / table.size();
-    int64_t const task_start_col = task_start % table.size();
+    int64_t const task_start_row = assigned / table.size();
+    int64_t const task_start_col = assigned % table.size();
     int64_t const task_end_row   = task_end / table.size();
     int64_t const task_end_col   = task_end % table.size();
-
+    assigned += elems_this_task;
     task_list.emplace_back(
         task(task_start_row, task_end_row, task_start_col, task_end_col));
   }
 
   return task_list;
 }
+
+template class task_workspace<float>;
+template class task_workspace<double>;
 
 template int get_num_tasks(element_table const &table, PDE<float> const &pde,
                            int const num_ranks, int const rank_size_MB);
