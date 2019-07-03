@@ -128,7 +128,7 @@ int get_num_tasks(element_table const &table, PDE<P> const &pde,
   double const problem_size_per_rank = problem_size_MB / rank_size_MB;
   int const num_tasks                = [problem_size_per_rank, num_ranks] {
     int const tasks_per_rank =
-        std::max(1, static_cast<int>(problem_size_per_rank / num_ranks + 1));
+        static_cast<int>(problem_size_per_rank / num_ranks + 1);
     return tasks_per_rank * num_ranks;
   }();
   return num_tasks;
