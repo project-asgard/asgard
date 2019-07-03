@@ -58,9 +58,7 @@ auto const validity_check = [](std::vector<task> const &tasks,
   }
 };
 
-// check that a given task vector occupies between 50% and 101% of the limit
-// only expected to pass when problem size > limit_MB * ranks
-
+// check that a given task vector occupies between 50% and 101% of the limiit
 auto const size_check = [](std::vector<task> const &tasks,
                            PDE<double> const &pde, element_table const &table,
                            int const limit_MB, bool const large_problem) {

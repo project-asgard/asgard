@@ -120,10 +120,8 @@ int get_num_tasks(element_table const &table, PDE<P> const &pde,
   // roundoff of elements over tasks will cause us to exceed the limit
   //
   // also not feasible to solve problem with such a workspace limit
-  // FIXME
-  assert(space_per_elem < (0.5 * rank_size_MB));
-  std::cout << space_per_elem << std::endl;
 
+  assert(space_per_elem < (0.5 * rank_size_MB));
   double const problem_size_MB = space_per_elem * num_elems;
 
   // determine number of tasks
@@ -133,22 +131,6 @@ int get_num_tasks(element_table const &table, PDE<P> const &pde,
         std::max(1, static_cast<int>(problem_size_per_rank / num_ranks + 1));
     return tasks_per_rank * num_ranks;
   }();
-
-  int64_t const num_elemsi = static_cast<int64_t>(table.size()) * table.size();
-
-  int64_t const elems_left_over = num_elemsi % num_tasks;
-  int64_t const elems_per_task  = num_elems / num_tasks;
-  if ((elems_per_task + 1) * space_per_elem > 0.9 * rank_size_MB)
-  {
-    int64_t roundoff_tasks = (elems_left_over / elems_per_task);
-    roundoff_tasks -= roundoff_tasks % num_ranks;
-
-    std::cout << num_tasks << std::endl;
-    std::cout << roundoff_tasks << std::endl;
-    // int64_t const still_left_over = elems_left_over % num_tasks;
-    return num_tasks + roundoff_tasks;
-  }
-
   return num_tasks;
 }
 
