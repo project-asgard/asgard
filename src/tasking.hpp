@@ -3,6 +3,7 @@
 #include "pde.hpp"
 #include "tensors.hpp"
 
+using element_group = std::map<int, std::pair<int, int>>;
 class task
 {
 public:
@@ -31,9 +32,12 @@ template<typename P>
 class task_workspace
 {
 public:
+  // old. phase out
   task_workspace(PDE<P> const &pde, element_table const &table,
                  std::vector<task> const &tasks);
 
+  // new
+  task_workspace(PDE<P> const &pde, std::vector<element_group> const &groups);
   fk::vector<P> const &get_unit_vector() const;
   // input, output, workspace for batched gemm/reduction
   // (unit vector below also falls under this category)
@@ -64,8 +68,8 @@ std::vector<task>
 assign_elements_to_tasks(element_table const &table, int const num_tasks);
 
 // new, phase in
-using task_map = std::map<int, std::pair<int, int>>;
-task_map assign_elements(element_table const &table, int const num_tasks);
+std::vector<element_group>
+assign_elements(element_table const &table, int const num_tasks);
 
 extern template int get_num_tasks(element_table const &table,
                                   PDE<float> const &pde, int const num_ranks,

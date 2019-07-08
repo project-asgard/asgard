@@ -61,6 +61,57 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
 }
 
 template<typename P>
+task_workspace<P>::task_workspace(PDE<P> const &pde,
+                                  std::vector<element_group> const &groups)
+{
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+
+  int const max_elems =
+      (*std::max_element(groups.begin(), groups.end(),
+                         [&](const element_group &a, const element_group &b) {
+                           return a.size() < b.size();
+                         }))
+          .size();
+
+  int const max_conn = [&groups]() {
+    int current_max = 0;
+    for (element_group const &group : groups)
+    {
+      for (const auto &[row, cols] : group)
+      {
+        current_max = std::max(current_max, cols.second - cols.first + 1);
+      }
+    }
+    return current_max;
+  }();
+
+  auto const get_elems_in_group = [](element_group const &g) -> int64_t {
+    int num_elems = 0;
+    for (const auto &[row, cols] : g)
+    {
+      num_elems += cols.second - cols.first + 1;
+    }
+    return num_elems;
+  };
+  int const max_total = get_elems_in_group(
+      *std::max_element(groups.begin(), groups.end(),
+                        [&](const element_group &a, const element_group &b) {
+                          return get_elems_in_group(a) < get_elems_in_group(b);
+                        }));
+
+  batch_input.resize(elem_size * max_conn);
+  batch_output.resize(elem_size * max_elems);
+  reduction_space.resize(elem_size * max_total * pde.num_terms);
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  batch_intermediate.resize(reduction_space.size() * num_workspaces);
+  unit_vector_.resize(pde.num_terms * max_conn);
+  std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
+}
+
+template<typename P>
 fk::vector<P> const &task_workspace<P>::get_unit_vector() const
 {
   return unit_vector_;
@@ -134,6 +185,7 @@ int get_num_tasks(element_table const &table, PDE<P> const &pde,
   return num_tasks;
 }
 
+// FIXME old, delete
 // divide the problem given the previously computed number of tasks
 // this function divides via a greedy, row-major split.
 std::vector<task>
@@ -168,7 +220,8 @@ assign_elements_to_tasks(element_table const &table, int const num_tasks)
   return task_list;
 }
 
-task_map assign_elements(element_table const &table, int const num_tasks)
+std::vector<element_group>
+assign_elements(element_table const &table, int const num_tasks)
 {
   assert(num_tasks > 0);
 
@@ -179,57 +232,59 @@ task_map assign_elements(element_table const &table, int const num_tasks)
       num_elems / num_tasks + elems_left_over / num_tasks;
   int64_t const still_left_over = elems_left_over % num_tasks;
 
-  task_map taskings;
+  std::vector<element_group> grouping;
   int64_t assigned = 0;
 
   for (int i = 0; i < num_tasks; ++i)
   {
-    std::map<int, std::vector<int>> task_map;
+    std::map<int, std::vector<int>> group_map;
 
-    auto const insert = [&task_map](int const key, int col) {
-      task_map.try_emplace(key, std::vector<int>());
-      task_map[key].push_back(col);
+    auto const insert = [&group_map](int const key, int col) {
+      group_map.try_emplace(key, std::vector<int>());
+      group_map[key].push_back(col);
     };
     int64_t const elems_this_task =
         i < still_left_over ? elems_per_task + 1 : elems_per_task;
     int64_t const task_end = assigned + elems_this_task - 1;
 
-    int64_t const task_start_row = assigned / table.size();
-    int64_t const task_start_col = assigned % table.size();
-    int64_t const task_end_row   = task_end / table.size();
-    int64_t const task_end_col   = task_end % table.size();
+    int64_t const group_start_row = assigned / table.size();
+    int64_t const group_start_col = assigned % table.size();
+    int64_t const group_end_row   = task_end / table.size();
+    int64_t const group_end_col   = task_end % table.size();
 
-    if (task_end_row > task_start_row)
+    if (group_end_row > group_start_row)
     {
-      for (int i = task_start_row + 1; i < task_end_row; ++i)
+      for (int i = group_start_row + 1; i < group_end_row; ++i)
       {
         for (int j = 0; j < table.size(); ++j)
         {
           insert(i, j);
         }
       }
-      for (int j = task_start_col; j < table.size(); ++j)
+      for (int j = group_start_col; j < table.size(); ++j)
       {
-        insert(task_start_row, j);
+        insert(group_start_row, j);
       }
-      for (int j = 0; j <= task_end_col; ++j)
+      for (int j = 0; j <= group_end_col; ++j)
       {
-        insert(task_end_row, j);
+        insert(group_end_row, j);
       }
     }
     else
     {
-      for (int j = task_start_col; j <= task_end_col; ++j)
+      for (int j = group_start_col; j <= group_end_col; ++j)
       {
-        insert(task_start_row, j);
+        insert(group_start_row, j);
       }
     }
-    for (const auto &[row, cols] : task_map)
+    element_group group;
+    for (const auto &[row, cols] : group_map)
     {
-      taskings[row] = std::make_pair(cols[0], cols.back());
+      group[row] = std::make_pair(cols[0], cols.back());
     }
+    grouping.push_back(group);
   }
-  return taskings;
+  return grouping;
 }
 
 template class task_workspace<float>;
