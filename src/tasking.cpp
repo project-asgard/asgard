@@ -14,7 +14,7 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
         int const b_elems = b.elem_end - b.elem_start + 1;
         return a_elems < b_elems;
       });
-  int const max_elems = max_elem_task_end_row - max_elem_task_start_row + 1;
+  int const max_elems = max_elem_task.elem_end - max_elem_task.elem_start + 1;
 
   auto const get_conn_in_task = [&table](task const &t) -> int64_t {
     if (t.elem_end > t.elem_start)
@@ -31,7 +31,7 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
       tasks.begin(), tasks.end(), [&](const task &a, const task &b) {
         return get_conn_in_task(a) < get_conn_in_task(b);
       });
-  int const max_conn = max_conn_task_end_col - max_conn_task_start_col + 1;
+  int const max_conn = max_conn_task.conn_end - max_conn_task.conn_start + 1;
 
   auto const get_elems_in_task = [&table](task const &t) -> int64_t {
     if (t.elem_end > t.elem_start)
@@ -182,13 +182,14 @@ task_map assign_elements(element_table const &table, int const num_tasks)
   task_map taskings;
   int64_t assigned = 0;
 
-  auto const insert = [&taskings](int const key, int col) {
-    taskings.try_emplace(key, std::vector<int>());
-    taskings[key].push_back(col);
-  };
-
   for (int i = 0; i < num_tasks; ++i)
   {
+    std::map<int, std::vector<int>> task_map;
+
+    auto const insert = [&task_map](int const key, int col) {
+      task_map.try_emplace(key, std::vector<int>());
+      task_map[key].push_back(col);
+    };
     int64_t const elems_this_task =
         i < still_left_over ? elems_per_task + 1 : elems_per_task;
     int64_t const task_end = assigned + elems_this_task - 1;
@@ -222,6 +223,10 @@ task_map assign_elements(element_table const &table, int const num_tasks)
       {
         insert(task_start_row, j);
       }
+    }
+    for (const auto &[row, cols] : task_map)
+    {
+      taskings[row] = std::make_pair(cols[0], cols.back());
     }
   }
   return taskings;

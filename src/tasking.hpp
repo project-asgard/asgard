@@ -64,7 +64,7 @@ std::vector<task>
 assign_elements_to_tasks(element_table const &table, int const num_tasks);
 
 // new, phase in
-using task_map = std::map<int, std::vector<int>>;
+using task_map = std::map<int, std::pair<int, int>>;
 task_map assign_elements(element_table const &table, int const num_tasks);
 
 extern template int get_num_tasks(element_table const &table,
