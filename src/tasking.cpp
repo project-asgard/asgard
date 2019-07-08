@@ -14,7 +14,7 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
         int const b_elems = b.elem_end - b.elem_start + 1;
         return a_elems < b_elems;
       });
-  int const max_elems = max_elem_task.elem_end - max_elem_task.elem_start + 1;
+  int const max_elems = max_elem_task_end_row - max_elem_task_start_row + 1;
 
   auto const get_conn_in_task = [&table](task const &t) -> int64_t {
     if (t.elem_end > t.elem_start)
@@ -31,7 +31,7 @@ task_workspace<P>::task_workspace(PDE<P> const &pde, element_table const &table,
       tasks.begin(), tasks.end(), [&](const task &a, const task &b) {
         return get_conn_in_task(a) < get_conn_in_task(b);
       });
-  int const max_conn = max_conn_task.conn_end - max_conn_task.conn_start + 1;
+  int const max_conn = max_conn_task_end_col - max_conn_task_start_col + 1;
 
   auto const get_elems_in_task = [&table](task const &t) -> int64_t {
     if (t.elem_end > t.elem_start)
@@ -166,6 +166,65 @@ assign_elements_to_tasks(element_table const &table, int const num_tasks)
   }
 
   return task_list;
+}
+
+task_map assign_elements(element_table const &table, int const num_tasks)
+{
+  assert(num_tasks > 0);
+
+  int64_t const num_elems = static_cast<int64_t>(table.size()) * table.size();
+
+  int64_t const elems_left_over = num_elems % num_tasks;
+  int64_t const elems_per_task =
+      num_elems / num_tasks + elems_left_over / num_tasks;
+  int64_t const still_left_over = elems_left_over % num_tasks;
+
+  task_map taskings;
+  int64_t assigned = 0;
+
+  auto const insert = [&taskings](int const key, int col) {
+    taskings.try_emplace(key, std::vector<int>());
+    taskings[key].push_back(col);
+  };
+
+  for (int i = 0; i < num_tasks; ++i)
+  {
+    int64_t const elems_this_task =
+        i < still_left_over ? elems_per_task + 1 : elems_per_task;
+    int64_t const task_end = assigned + elems_this_task - 1;
+
+    int64_t const task_start_row = assigned / table.size();
+    int64_t const task_start_col = assigned % table.size();
+    int64_t const task_end_row   = task_end / table.size();
+    int64_t const task_end_col   = task_end % table.size();
+
+    if (task_end_row > task_start_row)
+    {
+      for (int i = task_start_row + 1; i < task_end_row; ++i)
+      {
+        for (int j = 0; j < table.size(); ++j)
+        {
+          insert(i, j);
+        }
+      }
+      for (int j = task_start_col; j < table.size(); ++j)
+      {
+        insert(task_start_row, j);
+      }
+      for (int j = 0; j <= task_end_col; ++j)
+      {
+        insert(task_end_row, j);
+      }
+    }
+    else
+    {
+      for (int j = task_start_col; j <= task_end_col; ++j)
+      {
+        insert(task_start_row, j);
+      }
+    }
+  }
+  return taskings;
 }
 
 template class task_workspace<float>;

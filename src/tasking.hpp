@@ -59,8 +59,13 @@ template<typename P>
 int get_num_tasks(element_table const &table, PDE<P> const &pde,
                   int const num_ranks, int const rank_size_MB);
 
+// old, phase out
 std::vector<task>
 assign_elements_to_tasks(element_table const &table, int const num_tasks);
+
+// new, phase in
+using task_map = std::map<int, std::vector<int>>;
+task_map assign_elements(element_table const &table, int const num_tasks);
 
 extern template int get_num_tasks(element_table const &table,
                                   PDE<float> const &pde, int const num_ranks,
