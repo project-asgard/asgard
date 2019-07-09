@@ -64,14 +64,14 @@ set (components
   coefficients
   connectivity
   element_table
-  fast_math
+  fast_math 
+  grouping
   lib_dispatch
   matlab_utilities
   pde
   permutations
   program_options
   quadrature 
-  tasking
   tensors
   time_advance
   transformations
@@ -124,7 +124,7 @@ target_link_libraries (program_options PRIVATE clara)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
-target_link_libraries (tasking PRIVATE element_table pde)
+target_link_libraries (grouping PRIVATE element_table pde)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 
