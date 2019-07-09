@@ -70,6 +70,17 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
 std::vector<element_group>
 assign_elements(element_table const &table, int const num_groups);
 
+// data management functions
+template<typename P>
+void copy_group_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                       host_workspace<P> const &host_space,
+                       element_group const &group);
+
+template<typename P>
+void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                        host_workspace<P> const &host_space,
+                        element_group const &group);
+
 // math on groups
 template<typename P>
 void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
@@ -81,6 +92,26 @@ extern template int get_num_groups(element_table const &table,
 extern template int get_num_groups(element_table const &table,
                                    PDE<double> const &pde, int const num_ranks,
                                    int const rank_size_MB);
+
+extern template void copy_group_inputs(PDE<float> const &pde,
+                                       rank_workspace<float> &rank_space,
+                                       host_workspace<float> const &host_space,
+                                       element_group const &group);
+
+extern template void copy_group_inputs(PDE<double> const &pde,
+                                       rank_workspace<double> &rank_space,
+                                       host_workspace<double> const &host_space,
+                                       element_group const &group);
+
+extern template void copy_group_outputs(PDE<float> const &pde,
+                                        rank_workspace<float> &rank_space,
+                                        host_workspace<float> const &host_space,
+                                        element_group const &group);
+
+extern template void
+copy_group_outputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
+                   host_workspace<double> const &host_space,
+                   element_group const &group);
 
 extern template void reduce_group(PDE<float> const &pde,
                                   rank_workspace<float> &rank_space,

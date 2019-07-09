@@ -1661,7 +1661,6 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     int const level  = 2;
 
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    int const elem_size = static_cast<int>(std::pow(degree, pde->num_dims));
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -1688,11 +1687,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     for (auto const &group : groups)
     {
       // copy in inputs
-      auto const x_range = columns_in_group(group);
-      fk::vector<TestType, mem_type::view> const x_view(
-          host_space.x, x_range.first * elem_size,
-          x_range.second * elem_size + 1);
-      fm::copy(x_view, rank_space.batch_input);
+      copy_group_inputs(*pde, rank_space, host_space, group);
 
       // build batches for this group
       std::vector<batch_operands_set<TestType>> batches =
@@ -1712,19 +1707,8 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       reduce_group(*pde, rank_space, group);
 
       // copy outputs back
-      auto const y_range = rows_in_group(group);
-      fk::vector<TestType, mem_type::view> y_view(
-          host_space.fx, y_range.first * elem_size,
-          y_range.second * elem_size + 1);
-
-      fk::vector<TestType, mem_type::view> const out_view(
-          rank_space.batch_output, 0,
-          (y_range.second - y_range.first) * elem_size + 1);
-
-      // FIXME
-      y_view = fm::axpy(out_view, y_view);
+      copy_group_outputs(*pde, rank_space, host_space, group);
     }
-
     relaxed_comparison(gold, host_space.fx);
   }
 

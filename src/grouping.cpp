@@ -241,12 +241,47 @@ assign_elements(element_table const &table, int const num_groups)
   return grouping;
 }
 
+auto const element_size = [](auto const &pde) {
+  int const degree = pde.get_dimensions()[0].get_degree();
+  return static_cast<int>(std::pow(degree, pde.num_dims));
+};
+
+template<typename P>
+void copy_group_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                       host_workspace<P> const &host_space,
+                       element_group const &group)
+{
+  int const elem_size = element_size(pde);
+  auto const x_range  = columns_in_group(group);
+  fk::vector<P, mem_type::view> const x_view(
+      host_space.x, x_range.first * elem_size, x_range.second * elem_size + 1);
+  fm::copy(x_view, rank_space.batch_input);
+}
+
+template<typename P>
+void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                        host_workspace<P> const &host_space,
+                        element_group const &group)
+{
+  int const elem_size = element_size(pde);
+  auto const y_range  = rows_in_group(group);
+  fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.first * elem_size,
+                                       y_range.second * elem_size + 1);
+
+  fk::vector<P, mem_type::view> const out_view(
+      rank_space.batch_output, 0,
+      (y_range.second - y_range.first) * elem_size + 1);
+
+  y_view = fm::axpy(out_view, y_view);
+}
 template<typename P>
 void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
                   element_group const &group)
 {
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  // int const degree    = pde.get_dimensions()[0].get_degree();
+  // int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elem_size = element_size(pde);
+
   fm::scal(static_cast<P>(0.0), rank_space.batch_output);
   for (const auto &[row, cols] : group)
   {
@@ -293,6 +328,26 @@ template int get_num_groups(element_table const &table, PDE<float> const &pde,
                             int const num_ranks, int const rank_size_MB);
 template int get_num_groups(element_table const &table, PDE<double> const &pde,
                             int const num_ranks, int const rank_size_MB);
+
+template void copy_group_inputs(PDE<float> const &pde,
+                                rank_workspace<float> &rank_space,
+                                host_workspace<float> const &host_space,
+                                element_group const &group);
+
+template void copy_group_inputs(PDE<double> const &pde,
+                                rank_workspace<double> &rank_space,
+                                host_workspace<double> const &host_space,
+                                element_group const &group);
+
+template void copy_group_outputs(PDE<float> const &pde,
+                                 rank_workspace<float> &rank_space,
+                                 host_workspace<float> const &host_space,
+                                 element_group const &group);
+
+template void copy_group_outputs(PDE<double> const &pde,
+                                 rank_workspace<double> &rank_space,
+                                 host_workspace<double> const &host_space,
+                                 element_group const &group);
 
 template void reduce_group(PDE<float> const &pde,
                            rank_workspace<float> &rank_space,
