@@ -1,5 +1,24 @@
 #include "grouping.hpp"
 
+int num_elements_in_group(element_group const &g)
+{
+  int num_elems = 0;
+  for (const auto &[row, cols] : g)
+  {
+    num_elems += cols.second - cols.first + 1;
+  }
+  return num_elems;
+}
+int max_connected_in_group(element_group const &g)
+{
+  int current_max = 0;
+  for (const auto &[row, cols] : g)
+  {
+    current_max = std::max(current_max, cols.second - cols.first + 1);
+  }
+  return current_max;
+}
+
 template<typename P>
 rank_workspace<P>::rank_workspace(PDE<P> const &pde,
                                   std::vector<element_group> const &groups)
@@ -9,36 +28,21 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
 
   int const max_elems =
       (*std::max_element(groups.begin(), groups.end(),
-                         [&](const element_group &a, const element_group &b) {
+                         [](const element_group &a, const element_group &b) {
                            return a.size() < b.size();
                          }))
           .size();
+  int const max_conn = max_connected_in_group(*std::max_element(
+      groups.begin(), groups.end(),
+      [](const element_group &a, const element_group &b) {
+        return max_connected_in_group(a) < max_connected_in_group(b);
+      }));
 
-  int const max_conn = [&groups]() {
-    int current_max = 0;
-    for (element_group const &group : groups)
-    {
-      for (const auto &[row, cols] : group)
-      {
-        current_max = std::max(current_max, cols.second - cols.first + 1);
-      }
-    }
-    return current_max;
-  }();
-
-  auto const get_elems_in_group = [](element_group const &g) {
-    int num_elems = 0;
-    for (const auto &[row, cols] : g)
-    {
-      num_elems += cols.second - cols.first + 1;
-    }
-    return num_elems;
-  };
-  int const max_total = get_elems_in_group(
-      *std::max_element(groups.begin(), groups.end(),
-                        [&](const element_group &a, const element_group &b) {
-                          return get_elems_in_group(a) < get_elems_in_group(b);
-                        }));
+  int const max_total = num_elements_in_group(*std::max_element(
+      groups.begin(), groups.end(),
+      [](const element_group &a, const element_group &b) {
+        return num_elements_in_group(a) < num_elements_in_group(b);
+      }));
 
   batch_input.resize(elem_size * max_conn);
   batch_output.resize(elem_size * max_elems);

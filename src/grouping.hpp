@@ -5,6 +5,10 @@
 
 using element_group = std::map<int, std::pair<int, int>>;
 
+// convenience functions when working with element groups
+int num_elements_in_group(element_group const &g);
+int max_connected_in_group(element_group const &g);
+
 template<typename P>
 class rank_workspace
 {

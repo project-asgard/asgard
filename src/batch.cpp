@@ -1,5 +1,6 @@
 #include "batch.hpp"
 #include "connectivity.hpp"
+#include "grouping.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp" // for views
 
@@ -692,6 +693,167 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   return batches;
 }
 
+// function to allocate and build batch lists.
+// given a problem instance (pde/elem table) and
+// memory allocations (x, y, work), enqueue the
+// batch gemms/reduction gemv to perform A*x
+template<typename P>
+std::vector<batch_operands_set<P>>
+build_batches(PDE<P> const &pde, element_table const &elem_table,
+              rank_workspace<P> const &workspace, element_group const &group)
+{
+  // assume uniform degree for now
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const x_size    = group.size();
+  assert(workspace.batch_input.size() == x_size);
+
+  auto const get_elems_in_group = [](element_group const &g) {
+    int num_elems = 0;
+    for (const auto &[row, cols] : g)
+    {
+      num_elems += cols.second - cols.first + 1;
+    }
+    return num_elems;
+  };
+  int const elements_in_group = get_elems_in_group(group);
+
+  // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
+  assert(workspace.reduction_space.size() >=
+         (elem_size * elements_in_group * pde.num_terms));
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  assert(workspace.batch_intermediate.size() ==
+         workspace.reduction_space.size() * num_workspaces);
+
+  int const max_connected       = max_connected_in_group(group);
+  int const max_items_to_reduce = pde.num_terms * max_connected;
+  assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
+
+  std::vector<batch_operands_set<P>> batches =
+      allocate_batches<P>(pde, elements_in_group);
+
+  // loop over elements
+  // FIXME eventually want to do this in parallel
+
+  for (const auto &[i, connected] : group)
+  {
+    // for (int i = 0; i < elem_table.size(); ++i)
+    // {
+    // first, get linearized indices for this element
+    //
+    // calculate from the level/cell indices for each
+    // dimension
+    fk::vector<int> const coords = elem_table.get_coords(i);
+    assert(coords.size() == pde.num_dims * 2);
+    fk::vector<int> elem_indices = linearize(coords);
+
+    // calculate the row portion of the
+    // operator position used for this
+    // element's gemm calls
+    fk::vector<int> operator_row = [&] {
+      fk::vector<int> op_row(pde.num_dims);
+      for (int d = 0; d < pde.num_dims; ++d)
+      {
+        // FIXME here we would have to use each dimension's
+        // degree when calculating the index if we want different
+        // degree in each dim
+        op_row(d) = elem_indices(d) * degree;
+      }
+      return op_row;
+    }();
+
+    // loop over connected elements. for now, we assume
+    // full connectivity
+
+    for (int j = connected.first; j <= connected.second; ++j)
+    {
+      // get linearized indices for this connected element
+      fk::vector<int> coords = elem_table.get_coords(j);
+      assert(coords.size() == pde.num_dims * 2);
+      fk::vector<int> connected_indices = linearize(coords);
+
+      // calculate the col portion of the
+      // operator position used for this
+      // element's gemm calls
+      fk::vector<int> operator_col = [&] {
+        fk::vector<int> op_col(pde.num_dims);
+        for (int d = 0; d < pde.num_dims; ++d)
+        {
+          // FIXME here we would have to use each dimension's
+          // degree when calculating the index if we want different
+          // degree in each dim
+          op_col(d) = connected_indices(d) * degree;
+        }
+        return op_col;
+      }();
+
+      for (int k = 0; k < pde.num_terms; ++k)
+      {
+        // term major y-space layout, followed by connected items, finally work
+        // items note that this index assumes uniform connected items (full
+        // connectivity) if connectivity is instead computed for each element, i
+        // * elem_table.size() * terms must be replaced by sum of lower indexed
+        // connected items (scan) * terms
+
+        // FIXME did I get this right?
+        int const kron_index = k + (j - connected.first) * pde.num_terms +
+                               i * elements_in_group * pde.num_terms;
+
+        // y space, where kron outputs are written
+
+        // this is calculated to form a matrix s.t. when it is row-summed
+        // (all row elements added together), the output vector is formed
+        //
+        // so, each work item's output - deg^dim by num_elems*num_terms - is
+        // stacked vertically to form the matrix. the indexing below is designed
+        // to achieve this.
+        int const y_index = elem_size * kron_index;
+
+        fk::vector<P, mem_type::view> const y_view(
+            workspace.reduction_space, y_index, y_index + elem_size - 1);
+
+        // work space, intermediate kron data
+        int const work_index =
+            elem_size * kron_index * std::min(pde.num_dims - 1, 2);
+        std::vector<fk::vector<P, mem_type::view>> work_views(
+            num_workspaces, fk::vector<P, mem_type::view>(
+                                workspace.batch_intermediate, work_index,
+                                work_index + elem_size - 1));
+        if (num_workspaces == 2)
+        {
+          work_views[1] = fk::vector<P, mem_type::view>(
+              workspace.batch_intermediate, work_index + elem_size,
+              work_index + elem_size * 2 - 1);
+        }
+
+        // operator views, windows into operator matrix
+        std::vector<fk::matrix<P, mem_type::view>> operator_views;
+        for (int d = pde.num_dims - 1; d >= 0; --d)
+        {
+          operator_views.push_back(fk::matrix<P, mem_type::view>(
+              pde.get_coefficients(k, d), operator_row(d),
+              operator_row(d) + degree - 1, operator_col(d),
+              operator_col(d) + degree - 1));
+        }
+
+        // calculate the position of this element in the
+        // global system matrix
+        int const global_col = j * elem_size;
+
+        // x vector input to kronmult
+        fk::vector<P, mem_type::view> const x_view(
+            workspace.batch_input, global_col, global_col + elem_size - 1);
+
+        kronmult_to_batch_sets(operator_views, x_view, y_view, work_views,
+                               batches, kron_index, pde);
+      }
+    }
+  }
+  return batches;
+}
+
 // determine how many connected elements will be assigned to each work_set,
 // given the workspace limit argument. because our partioning is done in terms
 // of connected elements, we may not be able to exactly meet the limit.
@@ -845,6 +1007,15 @@ template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
+
+extern template std::vector<batch_operands_set<float>>
+build_batches(PDE<float> const &pde, element_table const &elem_table,
+              rank_workspace<float> const &workspace,
+              element_group const &group);
+extern template std::vector<batch_operands_set<double>>
+build_batches(PDE<double> const &pde, element_table const &elem_table,
+              rank_workspace<double> const &workspace,
+              element_group const &group);
 
 template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,

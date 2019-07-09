@@ -1,6 +1,7 @@
 #pragma once
 
 #include "element_table.hpp"
+#include "grouping.hpp"
 #include "pde/pde_base.hpp"
 #include "tensors.hpp"
 #include <array>
@@ -158,6 +159,11 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               int const elements_per_batch = -1);
 
 template<typename P>
+std::vector<batch_operands_set<P>>
+build_batches(PDE<P> const &pde, element_table const &elem_table,
+              rank_workspace<P> const &workspace, element_group const &group);
+
+template<typename P>
 using work_set = std::vector<std::vector<batch_operands_set<P>>>;
 
 // use provided workspace size to split batches across connected elements
@@ -227,6 +233,15 @@ extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
+
+extern template std::vector<batch_operands_set<float>>
+build_batches(PDE<float> const &pde, element_table const &elem_table,
+              rank_workspace<float> const &workspace,
+              element_group const &group);
+extern template std::vector<batch_operands_set<double>>
+build_batches(PDE<double> const &pde, element_table const &elem_table,
+              rank_workspace<double> const &workspace,
+              element_group const &group);
 
 extern template work_set<float>
 build_work_set(PDE<float> const &pde, element_table const &elem_table,

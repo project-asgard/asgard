@@ -51,6 +51,48 @@ auto const size_check = [](std::vector<element_group> const &groups,
   REQUIRE(workspace_size < upper_bound);
 };
 
+TEST_CASE("group convenience functions", "[grouping]")
+{
+  SECTION("elements in group - empty")
+  {
+    element_group g;
+    assert(num_elements_in_group(g) == 0);
+  }
+  SECTION("elements in group - single row")
+  {
+    element_group g;
+    g[2] = std::make_pair(0, 4);
+    assert(num_elements_in_group(g) == 5);
+  }
+
+  SECTION("elements in group - multiple rows")
+  {
+    element_group g;
+    g[3] = std::make_pair(1, 2);
+    g[4] = std::make_pair(5, 10);
+    assert(num_elements_in_group(g) == 8);
+  }
+
+  SECTION("max connected in group - empty")
+  {
+    element_group g;
+    assert(max_connected_in_group(g) == 0);
+  }
+  SECTION("max connected in group - single row")
+  {
+    element_group g;
+    g[2] = std::make_pair(0, 4);
+    assert(max_connected_in_group(g) == 5);
+  }
+  SECTION("max connected in group - multiple rows")
+  {
+    element_group g;
+    g[3] = std::make_pair(1, 2);
+    g[4] = std::make_pair(5, 10);
+    assert(max_connected_in_group(g) == 6);
+  }
+}
+
 TEST_CASE("element grouping, continuity 2", "[grouping]")
 {
   SECTION("1 rank, deg 5, level 6, 1-1000 MB")
@@ -172,10 +214,10 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     }
   }
 
-  SECTION("1 rank, deg 4, level 7, 1-1000 MB")
+  SECTION("1 rank, deg 4, level 6, 1-1000 MB")
   {
     int const degree = 4;
-    int const level  = 7;
+    int const level  = 6;
     int const ranks  = 1;
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
@@ -197,10 +239,10 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     }
   }
 
-  SECTION("2 ranks, deg 4, level 7, 1-1000 MB")
+  SECTION("2 ranks, deg 4, level 6, 1-1000 MB")
   {
     int const degree = 4;
-    int const level  = 7;
+    int const level  = 6;
     int const ranks  = 2;
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
@@ -220,10 +262,10 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     }
   }
 
-  SECTION("3 ranks, deg 4, level 7, 1-1000 MB")
+  SECTION("3 ranks, deg 4, level 6, 1-1000 MB")
   {
     int const degree = 4;
-    int const level  = 7;
+    int const level  = 6;
     int const ranks  = 3;
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
@@ -260,30 +302,6 @@ TEST_CASE("element grouping, continuity 6", "[grouping]")
     element_table const table(o, pde->num_dims);
 
     for (int limit_MB = 1; limit_MB <= 10000; limit_MB *= 10)
-    {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("1 ranks, deg 4, level 4, 10-1000 MB")
-  {
-    int const degree = 4;
-    int const level  = 4;
-    int const ranks  = 1;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-
-    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
       int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
       auto const groups    = assign_elements(table, num_groups);
