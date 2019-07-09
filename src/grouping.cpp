@@ -1,4 +1,5 @@
 #include "grouping.hpp"
+#include "fast_math.hpp"
 
 int num_elements_in_group(element_group const &g)
 {
@@ -240,6 +241,48 @@ assign_elements(element_table const &table, int const num_groups)
   return grouping;
 }
 
+template<typename P>
+void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                  element_group const &group)
+{
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  fm::scal(static_cast<P>(0.0), rank_space.batch_output);
+  for (const auto &[row, cols] : group)
+  {
+    int const prev_row_elems = [i = row, &group] {
+      if (i == group.begin()->first)
+      {
+        return 0;
+      }
+      int prev_elems = 0;
+      for (int r = group.begin()->first; r < i; ++r)
+      {
+        prev_elems += group.at(r).second - group.at(r).first + 1;
+      }
+      return prev_elems;
+    }();
+
+    fk::matrix<P, mem_type::view> const reduction_matrix(
+        rank_space.reduction_space, elem_size,
+        (cols.second - cols.first + 1) * pde.num_terms,
+        prev_row_elems * elem_size * pde.num_terms);
+
+    int const reduction_row = row - group.begin()->first;
+    fk::vector<P, mem_type::view> output_view(
+        rank_space.batch_output, reduction_row * elem_size,
+        ((reduction_row + 1) * elem_size) - 1);
+
+    fk::vector<P, mem_type::view> const unit_view(
+        rank_space.get_unit_vector(), 0,
+        (cols.second - cols.first) * pde.num_terms);
+
+    P const alpha     = 1.0;
+    P const beta      = 1.0;
+    bool const transA = false;
+    fm::gemv(reduction_matrix, unit_view, output_view, transA, alpha, beta);
+  }
+}
 template class rank_workspace<float>;
 template class rank_workspace<double>;
 
@@ -250,3 +293,11 @@ template int get_num_groups(element_table const &table, PDE<float> const &pde,
                             int const num_ranks, int const rank_size_MB);
 template int get_num_groups(element_table const &table, PDE<double> const &pde,
                             int const num_ranks, int const rank_size_MB);
+
+template void reduce_group(PDE<float> const &pde,
+                           rank_workspace<float> &rank_space,
+                           element_group const &group);
+
+template void reduce_group(PDE<double> const &pde,
+                           rank_workspace<double> &rank_space,
+                           element_group const &group);

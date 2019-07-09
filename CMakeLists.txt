@@ -102,6 +102,8 @@ target_link_libraries (coefficients
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
 
+target_link_libraries(grouping PRIVATE fast_math)
+
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 

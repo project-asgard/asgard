@@ -1709,40 +1709,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       batched_gemm(a, b, c, alpha, beta);
 
       // do the reduction
-      fm::scal(static_cast<TestType>(0.0), rank_space.batch_output);
-      for (const auto &[row, cols] : group)
-      {
-        int const prev_row_elems = [i = row, &group] {
-          if (i == group.begin()->first)
-          {
-            return 0;
-          }
-          int prev_elems = 0;
-          for (int r = group.begin()->first; r < i; ++r)
-          {
-            prev_elems += group.at(r).second - group.at(r).first + 1;
-          }
-          return prev_elems;
-        }();
-
-        fk::matrix<TestType, mem_type::view> const reduction_matrix(
-            rank_space.reduction_space, elem_size,
-            (cols.second - cols.first + 1) * pde->num_terms,
-            prev_row_elems * elem_size * pde->num_terms);
-
-        int const reduction_row = row - group.begin()->first;
-        fk::vector<TestType, mem_type::view> output_view(
-            rank_space.batch_output, reduction_row * elem_size,
-            ((reduction_row + 1) * elem_size) - 1);
-
-        fk::vector<TestType, mem_type::view> const unit_view(
-            rank_space.get_unit_vector(), 0,
-            (cols.second - cols.first) * pde->num_terms);
-        TestType const reduction_beta = 1.0;
-        bool const transA             = false;
-        fm::gemv(reduction_matrix, unit_view, output_view, transA, alpha,
-                 reduction_beta);
-      }
+      reduce_group(*pde, rank_space, group);
 
       // copy outputs back
       auto const y_range = rows_in_group(group);

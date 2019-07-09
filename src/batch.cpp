@@ -728,11 +728,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   // loop over elements
   // FIXME eventually want to do this in parallel
-  int const group_row_begin = group.begin()->first;
   for (const auto &[i, connected] : group)
   {
-    // for (int i = 0; i < elem_table.size(); ++i)
-    // {
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
@@ -758,7 +755,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-
     for (int j = connected.first; j <= connected.second; ++j)
     {
       // get linearized indices for this connected element

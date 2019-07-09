@@ -62,6 +62,7 @@ public:
   };
 };
 
+// assigning groups
 template<typename P>
 int get_num_groups(element_table const &table, PDE<P> const &pde,
                    int const num_ranks = 1, int const rank_size_MB = 1000);
@@ -69,9 +70,22 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
 std::vector<element_group>
 assign_elements(element_table const &table, int const num_groups);
 
+// math on groups
+template<typename P>
+void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                  element_group const &group);
+
 extern template int get_num_groups(element_table const &table,
                                    PDE<float> const &pde, int const num_ranks,
                                    int const rank_size_MB);
 extern template int get_num_groups(element_table const &table,
                                    PDE<double> const &pde, int const num_ranks,
                                    int const rank_size_MB);
+
+extern template void reduce_group(PDE<float> const &pde,
+                                  rank_workspace<float> &rank_space,
+                                  element_group const &group);
+
+extern template void reduce_group(PDE<double> const &pde,
+                                  rank_workspace<double> &rank_space,
+                                  element_group const &group);
