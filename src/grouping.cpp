@@ -254,7 +254,8 @@ void copy_group_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
   int const elem_size = element_size(pde);
   auto const x_range  = columns_in_group(group);
   fk::vector<P, mem_type::view> const x_view(
-      host_space.x, x_range.first * elem_size, x_range.second * elem_size + 1);
+      host_space.x, x_range.first * elem_size,
+      (x_range.second + 1) * elem_size - 1);
   fm::copy(x_view, rank_space.batch_input);
 }
 
@@ -266,11 +267,11 @@ void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
   int const elem_size = element_size(pde);
   auto const y_range  = rows_in_group(group);
   fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.first * elem_size,
-                                       y_range.second * elem_size + 1);
+                                       (y_range.second + 1) * elem_size - 1);
 
   fk::vector<P, mem_type::view> const out_view(
       rank_space.batch_output, 0,
-      (y_range.second - y_range.first) * elem_size + 1);
+      (y_range.second - y_range.first + 1) * elem_size - 1);
 
   y_view = fm::axpy(out_view, y_view);
 }
@@ -310,7 +311,7 @@ void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
 
     fk::vector<P, mem_type::view> const unit_view(
         rank_space.get_unit_vector(), 0,
-        (cols.second - cols.first) * pde.num_terms);
+        (cols.second - cols.first + 1) * pde.num_terms - 1);
 
     P const alpha     = 1.0;
     P const beta      = 1.0;
