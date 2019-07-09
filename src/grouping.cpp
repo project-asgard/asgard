@@ -93,6 +93,7 @@ host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
   int64_t const vector_size = elem_size * static_cast<int64_t>(table.size());
   x_orig.resize(vector_size);
   x.resize(vector_size);
+  fx.resize(vector_size);
   scaled_source.resize(vector_size);
   result_1.resize(vector_size);
   result_2.resize(vector_size);

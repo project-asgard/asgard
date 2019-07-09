@@ -47,6 +47,7 @@ public:
   fk::vector<P> scaled_source;
   fk::vector<P> x_orig;
   fk::vector<P> x;
+  fk::vector<P> fx;
   fk::vector<P> result_1;
   fk::vector<P> result_2;
   fk::vector<P> result_3;

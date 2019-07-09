@@ -94,7 +94,7 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity element_table pde tensors)
+target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity grouping element_table pde tensors)
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)

@@ -1,6 +1,7 @@
 #include "batch.hpp"
 #include "coefficients.hpp"
 #include "fast_math.hpp"
+#include "grouping.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <numeric>
@@ -1660,6 +1661,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     int const level  = 2;
 
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    int const elem_size = static_cast<int>(std::pow(degree, pde->num_dims));
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -1674,26 +1676,61 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
     pde->set_coefficients(coefficient_matrix, 0, 0);
 
-    explicit_system<TestType> system(*pde, elem_table);
-    std::generate(system.batch_input.begin(), system.batch_input.end(), gen);
-    fk::vector<TestType> const gold = coefficient_matrix * system.batch_input;
+    host_workspace<TestType> host_space(*pde, elem_table);
+    auto const groups =
+        assign_elements(elem_table, get_num_groups(elem_table, *pde));
+    rank_workspace<TestType> rank_space(*pde, groups);
 
-    std::vector<batch_operands_set<TestType>> batches =
-        build_batches(*pde, elem_table, system);
+    std::generate(host_space.x.begin(), host_space.x.end(), gen);
+    fk::vector<TestType> const gold = coefficient_matrix * host_space.x;
 
-    batch<TestType> const a = batches[0][0];
-    batch<TestType> const b = batches[0][1];
-    batch<TestType> const c = batches[0][2];
+    for (auto const &group : groups)
+    {
+      // build batches for this group
+      std::vector<batch_operands_set<TestType>> batches =
+          build_batches(*pde, elem_table, rank_space, group);
 
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
+      // copy in inputs
+      auto const x_range = columns_in_group(group);
+      fk::vector<TestType, mem_type::view> const x_view(
+          host_space.x, x_range.first, x_range.second);
+      fm::copy(x_view, rank_space.batch_input);
 
-    fk::matrix<TestType, mem_type::view> const reduction_matrix(
-        system.reduction_space, system.batch_input.size(),
-        system.reduction_space.size() / system.batch_input.size());
-    fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
-    relaxed_comparison(gold, system.batch_output);
+      batch<TestType> const a = batches[0][0];
+      batch<TestType> const b = batches[0][1];
+      batch<TestType> const c = batches[0][2];
+
+      TestType const alpha = 1.0;
+      TestType const beta  = 0.0;
+
+      batched_gemm(a, b, c, alpha, beta);
+
+      fm::scal(static_cast<TestType>(0.0), rank_space.batch_output);
+      // do the reduction
+      for (const auto &[row, cols] : group)
+      {
+        fk::matrix<TestType, mem_type::view> const reduction_matrix(
+            rank_space.reduction_space, elem_size,
+            cols.second - cols.first + 1);
+
+        int const reduction_row = row - group.begin()->first;
+        fk::vector<TestType, mem_type::view> output_view(
+            rank_space.batch_output, reduction_row * elem_size,
+            (reduction_row + 1) * elem_size);
+
+        TestType const reduction_beta = 1.0;
+        fm::gemv(reduction_matrix, rank_space.get_unit_vector(), output_view,
+                 alpha, reduction_beta);
+      }
+
+      // copy outputs back
+      auto const y_range = rows_in_group(group);
+      fk::vector<TestType, mem_type::view> const y_view(
+          host_space.fx, y_range.first, y_range.second);
+      // fm::copy(
+    }
+
+    relaxed_comparison(gold, host_space.fx);
   }
 
   SECTION("1d, 1 term, degree 4, level 3")

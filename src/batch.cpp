@@ -708,15 +708,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   int const x_size    = group.size();
   assert(workspace.batch_input.size() == x_size);
 
-  auto const get_elems_in_group = [](element_group const &g) {
-    int num_elems = 0;
-    for (const auto &[row, cols] : g)
-    {
-      num_elems += cols.second - cols.first + 1;
-    }
-    return num_elems;
-  };
-  int const elements_in_group = get_elems_in_group(group);
+  int const elements_in_group = num_elements_in_group(group);
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
   assert(workspace.reduction_space.size() >=
@@ -736,7 +728,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   // loop over elements
   // FIXME eventually want to do this in parallel
-
+  int const group_row_begin = group.begin()->first;
   for (const auto &[i, connected] : group)
   {
     // for (int i = 0; i < elem_table.size(); ++i)
@@ -792,23 +784,23 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       for (int k = 0; k < pde.num_terms; ++k)
       {
         // term major y-space layout, followed by connected items, finally work
-        // items note that this index assumes uniform connected items (full
-        // connectivity) if connectivity is instead computed for each element, i
-        // * elem_table.size() * terms must be replaced by sum of lower indexed
-        // connected items (scan) * terms
-
-        // FIXME did I get this right?
-        int const kron_index = k + (j - connected.first) * pde.num_terms +
-                               i * elements_in_group * pde.num_terms;
+        // items.
+        int const prev_row_elems = [i = i, group_row_begin, &group] {
+          if (i == group_row_begin)
+          {
+            return 0;
+          }
+          int prev_elems = 0;
+          for (int r = group_row_begin; r < i; ++r)
+          {
+            prev_elems += group.at(r).second - group.at(r).first + 1;
+          }
+          return prev_elems;
+        }();
+        int const total_prev_elems = prev_row_elems + j - connected.first;
+        int const kron_index       = k + total_prev_elems * pde.num_terms;
 
         // y space, where kron outputs are written
-
-        // this is calculated to form a matrix s.t. when it is row-summed
-        // (all row elements added together), the output vector is formed
-        //
-        // so, each work item's output - deg^dim by num_elems*num_terms - is
-        // stacked vertically to form the matrix. the indexing below is designed
-        // to achieve this.
         int const y_index = elem_size * kron_index;
 
         fk::vector<P, mem_type::view> const y_view(
@@ -840,11 +832,12 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
         // calculate the position of this element in the
         // global system matrix
-        int const global_col = j * elem_size;
-
+        // int const global_col = j * elem_size;
+        // FIXME
+        int const x_index = total_prev_elems % elem_table.size();
         // x vector input to kronmult
         fk::vector<P, mem_type::view> const x_view(
-            workspace.batch_input, global_col, global_col + elem_size - 1);
+            workspace.batch_input, x_index, x_index + elem_size - 1);
 
         kronmult_to_batch_sets(operator_views, x_view, y_view, work_views,
                                batches, kron_index, pde);
@@ -1008,11 +1001,11 @@ build_batches(PDE<double> const &pde, element_table const &elem_table,
               explicit_system<double> const &system, int const connected_start,
               int const elements_per_batch);
 
-extern template std::vector<batch_operands_set<float>>
+template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
               rank_workspace<float> const &workspace,
               element_group const &group);
-extern template std::vector<batch_operands_set<double>>
+template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
               element_group const &group);
