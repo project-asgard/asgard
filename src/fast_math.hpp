@@ -11,7 +11,7 @@ inline int two_raised_to(int exponent)
   return 1 << exponent;
 }
 
-// axpy - y = a*x
+// axpy - y += a*x
 template<typename P, mem_type mem, mem_type omem>
 fk::vector<P, mem> &
 axpy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y, P const alpha = 1.0)

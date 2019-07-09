@@ -706,7 +706,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const x_size    = group.size();
-  assert(workspace.batch_input.size() == x_size);
+  assert(workspace.batch_input.size() >= x_size);
 
   int const elements_in_group = num_elements_in_group(group);
 
@@ -834,7 +834,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // global system matrix
         // int const global_col = j * elem_size;
         // FIXME
-        int const x_index = total_prev_elems % elem_table.size();
+        int const x_index = (total_prev_elems % elem_table.size()) * elem_size;
+
         // x vector input to kronmult
         fk::vector<P, mem_type::view> const x_view(
             workspace.batch_input, x_index, x_index + elem_size - 1);

@@ -120,7 +120,7 @@ static double get_element_size_MB(PDE<P> const &pde)
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   // number of intermediate workspaces for kron product.
   // FIXME this only applies to explicit
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  int const num_workspaces = std::max(pde.num_dims - 1, 2);
 
   // calc size of reduction space for a single work item
   double const elem_reduction_space_MB = get_MB(pde.num_terms * elem_size);
