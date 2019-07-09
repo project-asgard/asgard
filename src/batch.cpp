@@ -785,13 +785,13 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       {
         // term major y-space layout, followed by connected items, finally work
         // items.
-        int const prev_row_elems = [i = i, group_row_begin, &group] {
-          if (i == group_row_begin)
+        int const prev_row_elems = [i = i, &group] {
+          if (i == group.begin()->first)
           {
             return 0;
           }
           int prev_elems = 0;
-          for (int r = group_row_begin; r < i; ++r)
+          for (int r = group.begin()->first; r < i; ++r)
           {
             prev_elems += group.at(r).second - group.at(r).first + 1;
           }
@@ -830,10 +830,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               operator_col(d) + degree - 1));
         }
 
-        // calculate the position of this element in the
-        // global system matrix
-        // int const global_col = j * elem_size;
-        // FIXME
         int const x_index = (total_prev_elems % elem_table.size()) * elem_size;
 
         // x vector input to kronmult
