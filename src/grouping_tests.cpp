@@ -91,6 +91,35 @@ TEST_CASE("group convenience functions", "[grouping]")
     g[4] = std::make_pair(5, 10);
     assert(max_connected_in_group(g) == 6);
   }
+
+  SECTION("columns in group - single row")
+  {
+    element_group g;
+    g[2] = std::make_pair(0, 4);
+    assert(columns_in_group(g) == std::make_pair(0, 4));
+  }
+
+  SECTION("columns in group - multiple rows")
+  {
+    element_group g;
+    g[3] = std::make_pair(1, 2);
+    g[4] = std::make_pair(5, 10);
+    assert(columns_in_group(g) == std::make_pair(1, 10));
+  }
+
+  SECTION("rows in group - single row")
+  {
+    element_group g;
+    g[2] = std::make_pair(0, 4);
+    assert(rows_in_group(g) == std::make_pair(2, 2));
+  }
+  SECTION("rows in group - multiple rows")
+  {
+    element_group g;
+    g[3] = std::make_pair(1, 2);
+    g[4] = std::make_pair(5, 10);
+    assert(rows_in_group(g) == std::make_pair(3, 4));
+  }
 }
 
 TEST_CASE("element grouping, continuity 2", "[grouping]")

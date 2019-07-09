@@ -19,6 +19,30 @@ int max_connected_in_group(element_group const &g)
   return current_max;
 }
 
+std::pair<int, int> columns_in_group(element_group const &g)
+{
+  assert(g.size() > 0);
+  int const min_col =
+      (*std::min_element(g.begin(), g.end(),
+                         [](const auto &a, const auto &b) {
+                           return a.second.first < b.second.first;
+                         }))
+          .second.first;
+
+  int const max_col =
+      (*std::max_element(g.begin(), g.end(),
+                         [](const auto &a, const auto &b) {
+                           return a.second.second < b.second.second;
+                         }))
+          .second.second;
+  return std::make_pair(min_col, max_col);
+}
+std::pair<int, int> rows_in_group(element_group const &g)
+{
+  assert(g.size() > 0);
+  return std::make_pair(g.begin()->first, g.rbegin()->first);
+}
+
 template<typename P>
 rank_workspace<P>::rank_workspace(PDE<P> const &pde,
                                   std::vector<element_group> const &groups)
@@ -59,6 +83,20 @@ template<typename P>
 fk::vector<P> const &rank_workspace<P>::get_unit_vector() const
 {
   return unit_vector_;
+}
+
+template<typename P>
+host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
+{
+  int const degree          = pde.get_dimensions()[0].get_degree();
+  int const elem_size       = static_cast<int>(std::pow(degree, pde.num_dims));
+  int64_t const vector_size = elem_size * static_cast<int64_t>(table.size());
+  x_orig.resize(vector_size);
+  x.resize(vector_size);
+  scaled_source.resize(vector_size);
+  result_1.resize(vector_size);
+  result_2.resize(vector_size);
+  result_3.resize(vector_size);
 }
 
 // calculate how much workspacespace we need on device for single connected
@@ -203,6 +241,9 @@ assign_elements(element_table const &table, int const num_groups)
 
 template class rank_workspace<float>;
 template class rank_workspace<double>;
+
+template class host_workspace<float>;
+template class host_workspace<double>;
 
 template int get_num_groups(element_table const &table, PDE<float> const &pde,
                             int const num_ranks, int const rank_size_MB);

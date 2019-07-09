@@ -9,6 +9,9 @@ using element_group = std::map<int, std::pair<int, int>>;
 int num_elements_in_group(element_group const &g);
 int max_connected_in_group(element_group const &g);
 
+std::pair<int, int> columns_in_group(element_group const &g);
+std::pair<int, int> rows_in_group(element_group const &g);
+
 template<typename P>
 class rank_workspace
 {
@@ -16,7 +19,6 @@ public:
   rank_workspace(PDE<P> const &pde, std::vector<element_group> const &groups);
   fk::vector<P> const &get_unit_vector() const;
   // input, output, workspace for batched gemm/reduction
-  // (unit vector below also falls under this category)
   fk::vector<P> batch_input;
   fk::vector<P> reduction_space;
   fk::vector<P> batch_intermediate;
@@ -36,8 +38,32 @@ private:
 };
 
 template<typename P>
+class host_workspace
+{
+public:
+  host_workspace(PDE<P> const &pde, element_table const &table);
+  // working vectors for time advance (e.g. intermediate RK result vects,
+  // source vector space)
+  fk::vector<P> scaled_source;
+  fk::vector<P> x_orig;
+  fk::vector<P> x;
+  fk::vector<P> result_1;
+  fk::vector<P> result_2;
+  fk::vector<P> result_3;
+
+  double size_MB() const
+  {
+    int64_t num_elems = scaled_source.size() + x_orig.size() + result_1.size() +
+                        result_2.size() + result_3.size();
+    double const bytes     = static_cast<double>(num_elems) * sizeof(P);
+    double const megabytes = bytes * 1e-6;
+    return megabytes;
+  };
+};
+
+template<typename P>
 int get_num_groups(element_table const &table, PDE<P> const &pde,
-                   int const num_ranks, int const rank_size_MB);
+                   int const num_ranks = 1, int const rank_size_MB = 1000);
 
 std::vector<element_group>
 assign_elements(element_table const &table, int const num_groups);
