@@ -3,9 +3,13 @@
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
+
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
 #endif
+
+#include "grouping.hpp"
+#include "mem_usage.hpp"
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -156,37 +160,34 @@ int main(int argc, char **argv)
   // intermediate and result workspaces).
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 100;
+  static int const default_workspace_MB = 1000;
+
+  // FIXME stand-in
+  static int const ranks = 1;
+
+  host_workspace<prec> host_space(*pde, table);
+  std::vector<element_group> const groups = assign_elements(
+      table, get_num_groups(table, *pde, ranks, default_workspace_MB));
+  rank_workspace<prec> rank_space(*pde, groups);
 
   std::cout << "allocating workspace..." << '\n';
-  explicit_system<prec> system(*pde, table, default_workspace_MB);
-  std::cout << "input vector size (MB): " << get_MB(system.batch_input.size())
-            << '\n';
+
+  std::cout << "input vector size (MB): "
+            << get_MB(rank_space.batch_input.size()) << '\n';
   std::cout << "kronmult output space size (MB): "
-            << get_MB(system.reduction_space.size()) << '\n';
+            << get_MB(rank_space.reduction_space.size()) << '\n';
   std::cout << "kronmult working space size (MB): "
-            << get_MB(system.batch_intermediate.size()) << '\n';
-  std::cout << "output vector size (MB): " << get_MB(system.batch_output.size())
-            << '\n';
-  auto const &unit_vect = system.get_unit_vector();
+            << get_MB(rank_space.batch_intermediate.size()) << '\n';
+  std::cout << "output vector size (MB): "
+            << get_MB(rank_space.batch_output.size()) << '\n';
+  auto const &unit_vect = rank_space.get_unit_vector();
   std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
             << '\n';
 
-  std::cout << "explicit time loop workspace size (MB): "
-            << get_MB(system.batch_input.size() * 5) << '\n';
+  std::cout << "explicit time loop workspace size (host) (MB): "
+            << host_space.size_MB() << '\n';
 
-  // call to build batches
-  std::cout << "generating: batch lists..." << '\n';
-
-  auto const work_set =
-      build_work_set(*pde, table, system, default_workspace_MB);
-
-  std::cout << "allocating time loop working space, size (MB): "
-            << get_MB(system.batch_input.size() * 5) << '\n';
-  fk::vector<prec> scaled_source(system.batch_input.size());
-  fk::vector<prec> x_orig(system.batch_input.size());
-  std::vector<fk::vector<prec>> workspace(
-      3, fk::vector<prec>(system.batch_input.size()));
+  host_space.x = initial_condition;
 
   // -- time loop
   std::cout << "--- begin time loop ---" << '\n';
@@ -195,7 +196,8 @@ int main(int argc, char **argv)
   {
     prec const time = i * dt;
 
-    explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
+    explicit_time_advance(*pde, table, initial_sources, host_space, rank_space,
+                          groups, time, dt);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
@@ -204,7 +206,7 @@ int main(int argc, char **argv)
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = system.batch_output - analytic_solution_t;
+      fk::vector<prec> const diff = host_space.fx - analytic_solution_t;
       prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),

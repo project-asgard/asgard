@@ -4,32 +4,18 @@
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde,
+void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           explicit_system<P> &system,
-                           work_set<P> const &batches, P const time, P const dt)
+                           host_workspace<P> &host_space,
+                           rank_workspace<P> &rank_space,
+                           std::vector<element_group> groups, P const time,
+                           P const dt)
 {
-  assert(system.scaled_source.size() == system.batch_input.size());
-  assert(system.batch_input.size() == system.batch_output.size());
-  assert(system.x_orig.size() == system.batch_input.size());
-  assert(system.result_1.size() == system.batch_input.size());
-  assert(system.result_2.size() == system.batch_input.size());
-  assert(system.result_3.size() == system.batch_input.size());
-
-  fm::copy(system.batch_input, system.x_orig);
-
   assert(time >= 0);
-
-  for (auto const &ops_list : batches)
-  {
-    assert(static_cast<int>(ops_list.size()) == pde.num_dims);
-    for (batch_operands_set<P> ops : ops_list)
-    {
-      assert(ops.size() == 3);
-    }
-  }
+  assert(dt >= 0);
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
 
+  fm::copy(host_space.x, host_space.x_orig);
   // see
   // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Explicit_Runge%E2%80%93Kutta_methods
   P const a21 = 0.5;
@@ -41,40 +27,41 @@ void explicit_time_advance(PDE<P> const &pde,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
-  apply_explicit(batches, system);
-  scale_sources(pde, unscaled_sources, system.scaled_source, time);
-  fm::axpy(system.scaled_source, system.batch_output);
-  fm::copy(system.batch_output, system.result_1);
+  apply_explicit(pde, table, groups, host_space, rank_space);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
+  fm::axpy(host_space.scaled_source, host_space.fx);
+  fm::copy(host_space.fx, host_space.result_1);
   P const fx_scale_1 = a21 * dt;
-  fm::axpy(system.batch_output, system.batch_input, fx_scale_1);
+  fm::axpy(host_space.fx, host_space.x, fx_scale_1);
 
-  apply_explicit(batches, system);
-  scale_sources(pde, unscaled_sources, system.scaled_source, time + c2 * dt);
-  fm::axpy(system.scaled_source, system.batch_output);
-  fm::copy(system.batch_output, system.result_2);
-  fm::copy(system.x_orig, system.batch_input);
+  apply_explicit(pde, table, groups, host_space, rank_space);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source,
+                time + c2 * dt);
+  fm::axpy(host_space.scaled_source, host_space.fx);
+  fm::copy(host_space.fx, host_space.result_2);
+  fm::copy(host_space.x_orig, host_space.x);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
-  fm::axpy(system.result_1, system.batch_input, fx_scale_2a);
-  fm::axpy(system.result_2, system.batch_input, fx_scale_2b);
+  fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
+  fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
-  apply_explicit(batches, system);
-  scale_sources(pde, unscaled_sources, system.scaled_source, time + c3 * dt);
-  fm::axpy(system.scaled_source, system.batch_output);
-  fm::copy(system.batch_output, system.result_3);
+  apply_explicit(pde, table, groups, host_space, rank_space);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source,
+                time + c3 * dt);
+  fm::axpy(host_space.scaled_source, host_space.fx);
+  fm::copy(host_space.fx, host_space.result_3);
 
   P const scale_1 = dt * b1;
   P const scale_2 = dt * b2;
   P const scale_3 = dt * b3;
 
-  fm::copy(system.x_orig, system.batch_input);
-  fm::axpy(system.result_1, system.batch_input, scale_1);
-  fm::axpy(system.result_2, system.batch_input, scale_2);
-  fm::axpy(system.result_3, system.batch_input, scale_3);
+  fm::copy(host_space.x_orig, host_space.x);
+  fm::axpy(host_space.result_1, host_space.x, scale_1);
+  fm::axpy(host_space.result_2, host_space.x, scale_2);
+  fm::axpy(host_space.result_3, host_space.x, scale_3);
 
-  fm::copy(system.batch_input, system.batch_output);
+  fm::copy(host_space.x, host_space.fx);
 }
-
 // scale source vectors for time
 template<typename P>
 static fk::vector<P> &
@@ -97,51 +84,52 @@ scale_sources(PDE<P> const &pde,
 // gemm (explicit time advance).
 template<typename P>
 static void
-apply_explicit(work_set<P> const &batches, explicit_system<P> &system)
+apply_explicit(PDE<P> const &pde, element_table const &elem_table,
+               std::vector<element_group> const &groups,
+               host_workspace<P> &host_space, rank_workspace<P> &rank_space)
 {
-  // batched gemm
-  P const alpha = 1.0;
-
-  for (int i = 0; i < static_cast<int>(batches.size()); ++i)
+  fm::scal(static_cast<P>(0.0), host_space.fx);
+  for (auto const &group : groups)
   {
-    auto const batch_operands_list = batches[i];
-    for (int j = 0; j < static_cast<int>(batch_operands_list.size()); ++j)
-    {
-      batch<P> const a = batch_operands_list[j][0];
-      batch<P> const b = batch_operands_list[j][1];
-      batch<P> const c = batch_operands_list[j][2];
+    // copy in inputs
+    copy_group_inputs(pde, rank_space, host_space, group);
 
-      // if we are writing into an intermediate product space, use beta = 0
-      // if we are writing into the output space and aren't the first work set,
-      // use beta = 1
-      P const beta = [i, j, &batch_operands_list] {
-        if (i == 0)
-          return 0.0;
-        if (j == static_cast<int>(batch_operands_list.size() - 1))
-          return 1.0;
-        return 0.0;
-      }();
+    // build batches for this group
+    std::vector<batch_operands_set<P>> batches =
+        build_batches(pde, elem_table, rank_space, group);
+
+    // do the gemms
+    P const alpha = 1.0;
+    P const beta  = 0.0;
+    for (int i = 0; i < pde.num_dims; ++i)
+    {
+      batch<P> const a = batches[i][0];
+      batch<P> const b = batches[i][1];
+      batch<P> const c = batches[i][2];
 
       batched_gemm(a, b, c, alpha, beta);
     }
-  }
 
-  // reduction
-  fk::matrix<P, mem_type::view> const reduction_matrix(
-      system.reduction_space, system.batch_input.size(),
-      system.reduction_space.size() / system.batch_input.size());
-  fm::gemv(reduction_matrix, system.get_unit_vector(), system.batch_output);
+    // do the reduction
+    reduce_group(pde, rank_space, group);
+
+    // copy outputs back
+    copy_group_outputs(pde, rank_space, host_space, group);
+  }
 }
 
 template void
-explicit_time_advance(PDE<float> const &pde,
+explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
-                      explicit_system<float> &system,
-                      work_set<float> const &batches, float const time,
+                      host_workspace<float> &host_space,
+                      rank_workspace<float> &rank_space,
+                      std::vector<element_group> groups, float const time,
                       float const dt);
+
 template void
-explicit_time_advance(PDE<double> const &pde,
+explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
-                      explicit_system<double> &system,
-                      work_set<double> const &batches, double const time,
+                      host_workspace<double> &host_space,
+                      rank_workspace<double> &rank_space,
+                      std::vector<element_group> groups, double const time,
                       double const dt);
