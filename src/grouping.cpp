@@ -94,8 +94,7 @@ fk::vector<P> const &rank_workspace<P>::get_unit_vector() const
 template<typename P>
 host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
 {
-  int const degree          = pde.get_dimensions()[0].get_degree();
-  int const elem_size       = static_cast<int>(std::pow(degree, pde.num_dims));
+  int elem_size             = element_segment_size(pde);
   int64_t const vector_size = elem_size * static_cast<int64_t>(table.size());
   x_orig.resize(vector_size);
   x.resize(vector_size);
@@ -113,7 +112,7 @@ host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
 // all be resident*
 
 template<typename P>
-static double get_element_segment_size_MB(PDE<P> const &pde)
+static double get_element_size_MB(PDE<P> const &pde)
 {
   auto const get_MB = [](auto const num_elems) -> double {
     assert(num_elems > 0);
@@ -125,13 +124,15 @@ static double get_element_segment_size_MB(PDE<P> const &pde)
   int const elem_size = element_segment_size(pde);
   // number of intermediate workspaces for kron product.
   // FIXME this only applies to explicit
-  int const num_workspaces = std::max(pde.num_dims - 1, 2);
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
 
   // calc size of reduction space for a single work item
   double const elem_reduction_space_MB = get_MB(pde.num_terms * elem_size);
   // calc size of intermediate space for a single work item
   double const elem_intermediate_space_MB =
-      get_MB(static_cast<double>(num_workspaces) * pde.num_terms * elem_size);
+      num_workspaces == 0 ? 0.0
+                          : get_MB(static_cast<double>(num_workspaces) *
+                                   pde.num_terms * elem_size);
 
   // calc in and out vector sizes for each elem
   // since we will scheme to have most elems require overlapping pieces of
@@ -152,7 +153,7 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
   assert(rank_size_MB > 0);
   // determine total problem size
   double const num_elems = static_cast<double>(table.size()) * table.size();
-  double const space_per_elem = get_element_segment_size_MB(pde);
+  double const space_per_elem = get_element_size_MB(pde);
 
   // make sure rank size is something reasonable
   // a single element is the finest we can split the problem
@@ -163,7 +164,6 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
   assert(space_per_elem < (0.5 * rank_size_MB));
   double const problem_size_MB = space_per_elem * num_elems;
 
-  std::cout << problem_size_MB << std::endl;
   // determine number of groups
   double const problem_size_per_rank = problem_size_MB / rank_size_MB;
   int const num_groups               = [problem_size_per_rank, num_ranks] {
@@ -171,6 +171,7 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
         static_cast<int>(problem_size_per_rank / num_ranks + 1);
     return groups_per_rank * num_ranks;
   }();
+
   return num_groups;
 }
 
