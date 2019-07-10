@@ -422,8 +422,9 @@ auto const test_copy_out = [](PDE<double> const &pde,
   for (int i = 0; i < num_elems; ++i)
   {
     int const fx_index = i + y_range.first * elem_size;
-    REQUIRE(host_space.fx(fx_index) - fx_prior(fx_index) ==
-            rank_space.batch_output(i));
+    REQUIRE(std::abs(host_space.fx(fx_index) - fx_prior(fx_index) -
+                     rank_space.batch_output(i)) <
+            std::numeric_limits<double>::epsilon() * num_elems);
   }
 };
 
@@ -460,6 +461,185 @@ TEST_CASE("group data management functions", "[grouping]")
       // copy in inputs
       copy_group_inputs(*pde, rank_space, host_space, group);
       test_copy_in(*pde, group, rank_space, host_space);
+    }
+  }
+
+  SECTION("copy in deg 4/lev 5, continuity 3")
+  {
+    int const degree = 4;
+    int const level  = 5;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(host_space.x.begin(), host_space.x.end(), gen);
+
+    int const ranks    = 3;
+    int const limit_MB = 10;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    for (auto const &group : groups)
+    {
+      // copy in inputs
+      copy_group_inputs(*pde, rank_space, host_space, group);
+      test_copy_in(*pde, group, rank_space, host_space);
+    }
+  }
+
+  SECTION("copy in deg 4/lev 2, continuity 6")
+  {
+    int const degree = 4;
+    int const level  = 2;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(host_space.x.begin(), host_space.x.end(), gen);
+
+    int const ranks    = 7;
+    int const limit_MB = 100;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    for (auto const &group : groups)
+    {
+      // copy in inputs
+      copy_group_inputs(*pde, rank_space, host_space, group);
+      test_copy_in(*pde, group, rank_space, host_space);
+    }
+  }
+
+  SECTION("copy out deg 2/lev 4, continuity 1")
+  {
+    int const degree = 2;
+    int const level  = 4;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    int const ranks    = 2;
+    int const limit_MB = 1;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(rank_space.batch_output.begin(),
+                  rank_space.batch_output.end(), gen);
+    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
+
+    for (auto const &group : groups)
+    {
+      fk::vector<double> fx_orig(host_space.fx);
+      // copy out inputs
+      copy_group_outputs(*pde, rank_space, host_space, group);
+      test_copy_out(*pde, group, rank_space, host_space, fx_orig);
+    }
+  }
+
+  SECTION("copy out deg 4/lev 5, continuity 3")
+  {
+    int const degree = 4;
+    int const level  = 5;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    int const ranks    = 3;
+    int const limit_MB = 10;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(rank_space.batch_output.begin(),
+                  rank_space.batch_output.end(), gen);
+    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
+
+    for (auto const &group : groups)
+    {
+      fk::vector<double> fx_orig(host_space.fx);
+      // copy out inputs
+      copy_group_outputs(*pde, rank_space, host_space, group);
+      test_copy_out(*pde, group, rank_space, host_space, fx_orig);
+    }
+  }
+
+  SECTION("copy out deg 4/lev 2, continuity 6")
+  {
+    int const degree = 4;
+    int const level  = 2;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    int const ranks    = 7;
+    int const limit_MB = 100;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(rank_space.batch_output.begin(),
+                  rank_space.batch_output.end(), gen);
+    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
+
+    for (auto const &group : groups)
+    {
+      fk::vector<double> fx_orig(host_space.fx);
+      // copy out inputs
+      copy_group_outputs(*pde, rank_space, host_space, group);
+      test_copy_out(*pde, group, rank_space, host_space, fx_orig);
     }
   }
 }
