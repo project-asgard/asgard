@@ -1,9 +1,7 @@
-# Created by Octave 4.2.2, Wed Jan 23 14:42:15 2019 EST <bgl@rza>
-# name: tuples
+# Created from matlab git hash 316ba49708589b009cc86a4d833a621d1cfe0d1f
+# name: foo
 # type: matrix
 # rows: 2
 # columns: 1
- 0
- 1
-
-
+0
+1

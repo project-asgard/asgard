@@ -1,4 +1,3 @@
-
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <fstream>
@@ -1477,6 +1476,9 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       }; // clang-format on
       fk::matrix<TestType, mem_type::view> const in_v_p(in_own, 1, 3, 1, 3);
       fk::matrix<TestType, mem_type::view> const in_v(in);
+
+      Catch::StringMaker<TestType>::precision = 15;
+
       REQUIRE(in.determinant() == Approx(-0.020200));
       REQUIRE(in_v.determinant() == Approx(-0.020200));
       REQUIRE(in_v_p.determinant() == Approx(-0.020200));

@@ -1,22 +1,20 @@
-# Created by Octave 4.2.2, Wed Jan 23 14:42:14 2019 EST <bgl@rza>
-# name: tuples
+# Created from matlab git hash 316ba49708589b009cc86a4d833a621d1cfe0d1f
+# name: foo
 # type: matrix
 # rows: 15
 # columns: 2
- 0 0
- 1 0
- 0 1
- 2 0
- 1 1
- 0 2
- 3 0
- 2 1
- 1 2
- 0 3
- 4 0
- 3 1
- 2 2
- 1 3
- 0 4
-
-
+0 0
+1 0
+0 1
+2 0
+1 1
+0 2
+3 0
+2 1
+1 2
+0 3
+4 0
+3 1
+2 2
+1 3
+0 4

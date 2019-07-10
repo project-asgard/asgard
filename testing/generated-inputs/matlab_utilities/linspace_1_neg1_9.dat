@@ -1,8 +1,6 @@
-# Created by Octave 4.2.2, Fri Feb 01 13:33:51 2019 EST <3bm@fusiont5>
-# name: w2
+# Created from matlab git hash 316ba49708589b009cc86a4d833a621d1cfe0d1f
+# name: foo
 # type: matrix
 # rows: 1
 # columns: 9
- 1 0.75 0.5 0.25 0 -0.25 -0.5 -0.75 -1
-
-
+1 0.75 0.5 0.25 0 -0.25 -0.5 -0.75 -1
