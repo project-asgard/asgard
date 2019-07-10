@@ -55,6 +55,8 @@ public:
 private:
   // a map keyed on the element coordinates
   std::map<fk::vector<int>, int> forward_table;
+  // a map keyed on the element index
+  std::map<long int, long int> forward_table_sparse;
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
 };
