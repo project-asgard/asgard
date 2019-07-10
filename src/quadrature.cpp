@@ -186,7 +186,7 @@ legendre_weights(const int polynomial_degree, const int interval_start,
   //% Legendre polynomial values for poly degree 0 to polynomial_degree_plus_one
   //% at the (estimated) zeros of the polynomial of degree polynomial_degree
   // legendre_y_values=zeros(polynomial_degree,polynomial_degree+2);
-  fk::matrix<P> legendre_y_values(polynomial_degree, (polynomial_degree + 2));
+  fk::matrix<P> legendre_y_values(polynomial_degree, (polynomial_degree + 1));
   // The y values of the derivative of the legendre polynomial
   // of degree equals polynomial_degree at each of the (estimated) root
   // locations
@@ -229,7 +229,7 @@ legendre_weights(const int polynomial_degree, const int interval_start,
     // for i=1:polynomial_degree-1
     // Set values of Legendre polynomial P_i
     // we set the i+1th column of L at each iter
-    for (int i = 1; i < (polynomial_degree + 1); ++i)
+    for (int i = 1; i < (polynomial_degree); ++i)
     {
       // Legendre polynomials P_i-1 and P_i are used in a recurrence relation to
       // produce P_i+1
@@ -255,15 +255,15 @@ legendre_weights(const int polynomial_degree, const int interval_start,
       }
       legendre_y_values.update_col(i + 1, next);
     }
-    // P'_i(x_roots) = ((i+1)*x_roots*P_i(x_roots) -
-    // (i+1)*P_i+1(x_roots))/(1-x_roots.^2) Here we want to produce
+    // P'_i(x_roots) = i*(P_i-1(x_roots) -
+    // x_roots*P_i(x_roots))/(1-x_roots.^2) Here we want to produce
     // P'_polynomial_degree(x_roots) so P_polynomial_degree and
     // P_polynomial_degree-1 are needed
     fk::vector<P> legendre_polynomial_degree =
         legendre_y_values.extract_submatrix(0, polynomial_degree,
                                             legendre_y_values.nrows(), 1);
-    fk::vector<P> legendre_polynomial_degree_plus_one =
-        legendre_y_values.extract_submatrix(0, polynomial_degree + 1,
+    fk::vector<P> legendre_polynomial_degree_minus_one =
+        legendre_y_values.extract_submatrix(0, polynomial_degree - 1,
                                             legendre_y_values.nrows(), 1);
     // legendre_polynomial_scaled = P_i(x_roots)*x_roots
     fk::vector<P> legendre_polynomial_degree_scaled(
@@ -283,9 +283,10 @@ legendre_weights(const int polynomial_degree, const int interval_start,
     // calculation of part of legendre_prime_y_values
     // P'i(x_roots) = ((i+1)*x_roots*P_i(x_roots) - (i+1)*P_i+1(x_roots))
     // division by (1-x_roots^2) next
-    legendre_prime_y_values = (legendre_polynomial_degree_scaled -
-                               legendre_polynomial_degree_plus_one) *
-                              (polynomial_degree + 1);
+    legendre_prime_y_values = (legendre_polynomial_degree_minus_one
+        - legendre_polynomial_degree_scaled
+                               ) *
+                              (polynomial_degree);
     auto const element_division = [](P const &one, P const &two) {
       return one / two;
     };
