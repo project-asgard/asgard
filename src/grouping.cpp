@@ -4,7 +4,7 @@
 int num_elements_in_group(element_group const &g)
 {
   int num_elems = 0;
-  for (const auto &[row, cols] : g)
+  for (auto const &[row, cols] : g)
   {
     num_elems += cols.second - cols.first + 1;
   }
@@ -13,7 +13,7 @@ int num_elements_in_group(element_group const &g)
 int max_connected_in_group(element_group const &g)
 {
   int current_max = 0;
-  for (const auto &[row, cols] : g)
+  for (auto const &[row, cols] : g)
   {
     current_max = std::max(current_max, cols.second - cols.first + 1);
   }
@@ -25,14 +25,14 @@ std::pair<int, int> columns_in_group(element_group const &g)
   assert(g.size() > 0);
   int const min_col =
       (*std::min_element(g.begin(), g.end(),
-                         [](const auto &a, const auto &b) {
+                         [](auto const &a, auto const &b) {
                            return a.second.first < b.second.first;
                          }))
           .second.first;
 
   int const max_col =
       (*std::max_element(g.begin(), g.end(),
-                         [](const auto &a, const auto &b) {
+                         [](auto const &a, auto const &b) {
                            return a.second.second < b.second.second;
                          }))
           .second.second;
@@ -238,7 +238,7 @@ assign_elements(element_table const &table, int const num_groups)
     }
 
     element_group group;
-    for (const auto &[row, cols] : group_map)
+    for (auto const &[row, cols] : group_map)
     {
       group[row] = std::make_pair(cols[0], cols.back());
     }
@@ -284,7 +284,7 @@ void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
   int const elem_size = element_segment_size(pde);
 
   fm::scal(static_cast<P>(0.0), rank_space.batch_output);
-  for (const auto &[row, cols] : group)
+  for (auto const &[row, cols] : group)
   {
     int const prev_row_elems = [i = row, &group] {
       if (i == group.begin()->first)

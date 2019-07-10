@@ -643,3 +643,163 @@ TEST_CASE("group data management functions", "[grouping]")
     }
   }
 }
+
+auto const test_reduction = [](PDE<double> const &pde,
+                               element_group const &group,
+                               rank_workspace<double> const &rank_space) {
+  int const elem_size = element_segment_size(pde);
+  auto const x_range  = columns_in_group(group);
+
+  fk::vector<double> total_sum(rank_space.batch_output.size());
+  for (auto const &[row, cols] : group)
+  {
+    int const prev_row_elems = [i = row, &group] {
+      if (i == group.begin()->first)
+      {
+        return 0;
+      }
+      int prev_elems = 0;
+      for (int r = group.begin()->first; r < i; ++r)
+      {
+        prev_elems += group.at(r).second - group.at(r).first + 1;
+      }
+      return prev_elems;
+    }();
+    int const reduction_offset = prev_row_elems * pde.num_terms * elem_size;
+    fk::matrix<double, mem_type::view> const reduction_matrix(
+        rank_space.reduction_space, elem_size,
+        (cols.second - cols.first + 1) * pde.num_terms, reduction_offset);
+
+    fk::vector<double> sum(reduction_matrix.nrows());
+    for (int i = 0; i < reduction_matrix.nrows(); ++i)
+    {
+      for (int j = 0; j < reduction_matrix.ncols(); ++j)
+        sum(i) += reduction_matrix(i, j);
+    }
+    int const row_this_task = row - group.begin()->first;
+    fk::vector<double, mem_type::view> partial_sum(
+        total_sum, row_this_task * elem_size,
+        (row_this_task + 1) * elem_size - 1);
+
+    partial_sum = partial_sum + sum;
+  }
+
+  fk::vector<double> const diff = rank_space.batch_output - total_sum;
+  auto abs_compare              = [](double const a, double const b) {
+    return (std::abs(a) < std::abs(b));
+  };
+  double const result =
+      std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
+  int const num_cols = (x_range.second - x_range.first + 1) * pde.num_terms;
+  // tol = epsilon * possible number of additions for an element
+  double const tol = std::numeric_limits<double>::epsilon() * num_cols * 3;
+  REQUIRE(result <= tol);
+};
+
+TEST_CASE("group reduction function", "[grouping]")
+{
+  SECTION("reduction deg 2/lev 4, continuity 1")
+  {
+    int const degree = 2;
+    int const level  = 4;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    int const ranks    = 2;
+    int const limit_MB = 1;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-3.0, 3.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(rank_space.reduction_space.begin(),
+                  rank_space.reduction_space.end(), gen);
+
+    for (auto const &group : groups)
+    {
+      // reduce and test
+      reduce_group(*pde, rank_space, group);
+      test_reduction(*pde, group, rank_space);
+    }
+  }
+
+  SECTION("reduction deg 5/lev 6, continuity 3")
+  {
+    int const degree = 5;
+    int const level  = 6;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    int const ranks    = 4;
+    int const limit_MB = 11;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-3.0, 3.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(rank_space.reduction_space.begin(),
+                  rank_space.reduction_space.end(), gen);
+
+    for (auto const &group : groups)
+    {
+      // reduce and test
+      reduce_group(*pde, rank_space, group);
+      test_reduction(*pde, group, rank_space);
+    }
+  }
+
+  SECTION("reduction deg 3/lev 2, continuity 6")
+  {
+    int const degree = 3;
+    int const level  = 2;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    int const ranks    = 7;
+    int const limit_MB = 100;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-3.0, 3.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(rank_space.reduction_space.begin(),
+                  rank_space.reduction_space.end(), gen);
+
+    for (auto const &group : groups)
+    {
+      // reduce and test
+      reduce_group(*pde, rank_space, group);
+      test_reduction(*pde, group, rank_space);
+    }
+  }
+}
