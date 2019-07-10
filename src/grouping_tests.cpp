@@ -389,3 +389,77 @@ TEST_CASE("element grouping, continuity 6", "[grouping]")
     }
   }
 }
+
+// FIXME we should eventually put this in the pde class
+auto const element_segment_size = [](auto const &pde) {
+  int const degree = pde.get_dimensions()[0].get_degree();
+  return static_cast<int>(std::pow(degree, pde.num_dims));
+};
+
+auto const test_copy_in = [](PDE<double> const &pde, element_group const &group,
+                             rank_workspace<double> const &rank_space,
+                             host_workspace<double> const &host_space) {
+  int const elem_size  = element_segment_size(pde);
+  auto const x_range   = columns_in_group(group);
+  auto const num_elems = (x_range.second - x_range.first + 1) * elem_size;
+
+  for (int i = 0; i < num_elems; ++i)
+  {
+    REQUIRE(rank_space.batch_input(i) ==
+            host_space.x(i + x_range.first * elem_size));
+  }
+};
+
+auto const test_copy_out = [](PDE<double> const &pde,
+                              element_group const &group,
+                              rank_workspace<double> const &rank_space,
+                              host_workspace<double> const &host_space,
+                              fk::vector<double> const &fx_prior) {
+  int const elem_size  = element_segment_size(pde);
+  auto const y_range   = rows_in_group(group);
+  auto const num_elems = (y_range.second - y_range.first + 1) * elem_size;
+
+  for (int i = 0; i < num_elems; ++i)
+  {
+    int const fx_index = i + y_range.first * elem_size;
+    REQUIRE(host_space.fx(fx_index) - fx_prior(fx_index) ==
+            rank_space.batch_output(i));
+  }
+};
+
+TEST_CASE("group data management functions", "[grouping]")
+{
+  SECTION("copy in deg 2/lev 4, continuity 1")
+  {
+    int const degree = 2;
+    int const level  = 4;
+
+    auto pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const elem_table(o, pde->num_dims);
+
+    host_workspace<double> host_space(*pde, elem_table);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    std::generate(host_space.x.begin(), host_space.x.end(), gen);
+
+    int const ranks    = 2;
+    int const limit_MB = 1;
+    auto const groups  = assign_elements(
+        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, groups);
+
+    for (auto const &group : groups)
+    {
+      // copy in inputs
+      copy_group_inputs(*pde, rank_space, host_space, group);
+      test_copy_in(*pde, group, rank_space, host_space);
+    }
+  }
+}

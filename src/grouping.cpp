@@ -44,12 +44,16 @@ std::pair<int, int> rows_in_group(element_group const &g)
   return std::make_pair(g.begin()->first, g.rbegin()->first);
 }
 
+auto const element_segment_size = [](auto const &pde) {
+  int const degree = pde.get_dimensions()[0].get_degree();
+  return static_cast<int>(std::pow(degree, pde.num_dims));
+};
+
 template<typename P>
 rank_workspace<P>::rank_workspace(PDE<P> const &pde,
                                   std::vector<element_group> const &groups)
 {
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elem_size = element_segment_size(pde);
 
   int const max_elems =
       (*std::max_element(groups.begin(), groups.end(),
@@ -57,6 +61,7 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
                            return a.size() < b.size();
                          }))
           .size();
+
   int const max_conn = max_connected_in_group(*std::max_element(
       groups.begin(), groups.end(),
       [](const element_group &a, const element_group &b) {
@@ -106,11 +111,6 @@ host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
 //
 // *does not include operator matrices - working for now on assumption they'll
 // all be resident*
-
-auto const element_segment_size = [](auto const &pde) {
-  int const degree = pde.get_dimensions()[0].get_degree();
-  return static_cast<int>(std::pow(degree, pde.num_dims));
-};
 
 template<typename P>
 static double get_element_segment_size_MB(PDE<P> const &pde)
@@ -163,6 +163,7 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
   assert(space_per_elem < (0.5 * rank_size_MB));
   double const problem_size_MB = space_per_elem * num_elems;
 
+  std::cout << problem_size_MB << std::endl;
   // determine number of groups
   double const problem_size_per_rank = problem_size_MB / rank_size_MB;
   int const num_groups               = [problem_size_per_rank, num_ranks] {
@@ -274,6 +275,7 @@ void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
 
   y_view = fm::axpy(out_view, y_view);
 }
+
 template<typename P>
 void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
                   element_group const &group)
