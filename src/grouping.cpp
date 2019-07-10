@@ -101,13 +101,19 @@ host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
   result_3.resize(vector_size);
 }
 
-// calculate how much workspacespace we need on device for single connected
+// calculate how much workspace we need on device to compute a single connected
 // element
 //
 // *does not include operator matrices - working for now on assumption they'll
 // all be resident*
+
+auto const element_segment_size = [](auto const &pde) {
+  int const degree = pde.get_dimensions()[0].get_degree();
+  return static_cast<int>(std::pow(degree, pde.num_dims));
+};
+
 template<typename P>
-static double get_element_size_MB(PDE<P> const &pde)
+static double get_element_segment_size_MB(PDE<P> const &pde)
 {
   auto const get_MB = [](auto const num_elems) -> double {
     assert(num_elems > 0);
@@ -116,9 +122,7 @@ static double get_element_size_MB(PDE<P> const &pde)
     return megabytes;
   };
 
-  // FIXME assume uniform degree
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elem_size = element_segment_size(pde);
   // number of intermediate workspaces for kron product.
   // FIXME this only applies to explicit
   int const num_workspaces = std::max(pde.num_dims - 1, 2);
@@ -148,14 +152,14 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
   assert(rank_size_MB > 0);
   // determine total problem size
   double const num_elems = static_cast<double>(table.size()) * table.size();
-  double const space_per_elem = get_element_size_MB(pde);
+  double const space_per_elem = get_element_segment_size_MB(pde);
+
   // make sure rank size is something reasonable
   // a single element is the finest we can split the problem
   // if that requires a lot of space relative to rank size,
   // roundoff of elements over groups will cause us to exceed the limit
   //
-  // also not feasible to solve problem with such a workspace limit
-
+  // also not feasible to solve problem with a tiny workspace limit
   assert(space_per_elem < (0.5 * rank_size_MB));
   double const problem_size_MB = space_per_elem * num_elems;
 
@@ -241,17 +245,12 @@ assign_elements(element_table const &table, int const num_groups)
   return grouping;
 }
 
-auto const element_size = [](auto const &pde) {
-  int const degree = pde.get_dimensions()[0].get_degree();
-  return static_cast<int>(std::pow(degree, pde.num_dims));
-};
-
 template<typename P>
 void copy_group_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                        host_workspace<P> const &host_space,
                        element_group const &group)
 {
-  int const elem_size = element_size(pde);
+  int const elem_size = element_segment_size(pde);
   auto const x_range  = columns_in_group(group);
   fk::vector<P, mem_type::view> const x_view(
       host_space.x, x_range.first * elem_size,
@@ -264,7 +263,7 @@ void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                         host_workspace<P> const &host_space,
                         element_group const &group)
 {
-  int const elem_size = element_size(pde);
+  int const elem_size = element_segment_size(pde);
   auto const y_range  = rows_in_group(group);
   fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.first * elem_size,
                                        (y_range.second + 1) * elem_size - 1);
@@ -279,9 +278,7 @@ template<typename P>
 void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
                   element_group const &group)
 {
-  // int const degree    = pde.get_dimensions()[0].get_degree();
-  // int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const elem_size = element_size(pde);
+  int const elem_size = element_segment_size(pde);
 
   fm::scal(static_cast<P>(0.0), rank_space.batch_output);
   for (const auto &[row, cols] : group)

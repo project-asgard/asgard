@@ -12,6 +12,9 @@ int max_connected_in_group(element_group const &g);
 std::pair<int, int> columns_in_group(element_group const &g);
 std::pair<int, int> rows_in_group(element_group const &g);
 
+// workspace for the primary computation in time advance. along with
+// the coefficient matrices, we need this space resident on whatever
+// accelerator we are using
 template<typename P>
 class rank_workspace
 {
@@ -37,6 +40,10 @@ private:
   fk::vector<P> unit_vector_;
 };
 
+// larger, host-side memory space holding the entire input/output vectors.
+// FIXME when we split the problem with MPI, we can restrict this to
+// only the portions of x and y needed for a given rank's
+// assigned element groups.
 template<typename P>
 class host_workspace
 {
@@ -54,15 +61,16 @@ public:
 
   double size_MB() const
   {
-    int64_t num_elems = scaled_source.size() + x_orig.size() + result_1.size() +
-                        result_2.size() + result_3.size();
+    int64_t num_elems = scaled_source.size() + x_orig.size() + fx.size() +
+                        x.size() + result_1.size() + result_2.size() +
+                        result_3.size();
     double const bytes     = static_cast<double>(num_elems) * sizeof(P);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };
 };
 
-// assigning groups
+// functions to assign groups
 template<typename P>
 int get_num_groups(element_table const &table, PDE<P> const &pde,
                    int const num_ranks = 1, int const rank_size_MB = 1000);
@@ -81,7 +89,7 @@ void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                         host_workspace<P> const &host_space,
                         element_group const &group);
 
-// math on groups
+// reduce an element group's results after batched gemm
 template<typename P>
 void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
                   element_group const &group);
