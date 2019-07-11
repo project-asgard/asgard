@@ -280,7 +280,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   legendre_poly  = legendre_poly * (1.0 / std::sqrt(h));
   legendre_prime = legendre_prime * (1.0 / std::sqrt(h) * 2.0 / h);
 
-  auto const legendre_poly_t = fk::matrix<double>(legendre_poly).transpose();
+  auto const legendre_poly_t  = fk::matrix<double>(legendre_poly).transpose();
+  auto const legendre_prime_t = fk::matrix<double>(legendre_prime).transpose();
 
   // get jacobian
   auto jacobi = h / 2;
@@ -343,24 +344,38 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
 
     fk::matrix<double> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
-    for (int i = 0; i < tmp.nrows() - 1; i++)
+    for (int i = 0; i <= tmp.nrows() - 1; i++)
     {
-      for (int j = 0; j < tmp.ncols() - 1; j++)
+      for (int j = 0; j <= tmp.ncols() - 1; j++)
       {
-        if (term_1D.coeff == coefficient_type::mass)
-        {
-          tmp(i, j) = data_real_quad(j) * legendre_poly(i, j) *
-                      quadrature_weights(j) * jacobi;
-        }
-        else if (term_1D.coeff == coefficient_type::grad)
-        {
-          tmp(i, j) = -data_real_quad(j) * legendre_prime(i, j) *
-                      quadrature_weights(j) * jacobi;
-        }
+        std::cout << i << "," << j << std::endl;
+        tmp(i, j) = data_real_quad(i) * legendre_poly(i, j) *
+                    quadrature_weights(i) * jacobi;
       }
     }
 
-    auto block = legendre_poly_t * tmp;
+    fk::matrix<double> block(dim.get_degree(), dim.get_degree());
+
+    if (term_1D.coeff == coefficient_type::mass)
+    {
+      block = legendre_poly_t * tmp;
+    }
+    else if (term_1D.coeff == coefficient_type::grad)
+    {
+      block = legendre_prime_t * tmp * (-1);
+    }
+
+    std::copy(quadrature_weights.begin(), quadrature_weights.end(),
+              std::ostream_iterator<P>(std::cout, " "));
+    std::cout << std::endl;
+    std::copy(data_real_quad.begin(), data_real_quad.end(),
+              std::ostream_iterator<P>(std::cout, " "));
+    std::cout << std::endl;
+    legendre_poly.print();
+    std::cout << jacobi << std::endl;
+    std::cout << std::endl;
+
+    tmp.print();
 
     // set the block at the correct position
     fk::matrix<double> curr_block =

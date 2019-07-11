@@ -30,71 +30,71 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   relaxed_comparison<TestType>(gold, test);
 }
 
-TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
-{
-  int const level     = 4;
-  int const degree    = 3;
-  TestType const time = 1.0;
-  auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-  std::string const filename_base =
-      "../testing/generated-inputs/coefficients/continuity2_coefficients_l" +
-      std::to_string(level) + "_d" + std::to_string(degree) + "_";
-  for (int t = 0; t < pde->num_terms; ++t)
-  {
-    for (int d = 0; d < pde->num_dims; ++d)
-    {
-      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
-                                   std::to_string(d + 1) + ".dat";
-      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
-      fk::matrix<double> const test = generate_coefficients<TestType>(
-          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
-      relaxed_comparison<TestType>(gold, test);
-    }
-  }
-}
-
-TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
-{
-  int const level     = 3;
-  int const degree    = 5;
-  TestType const time = 1.0;
-  auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-  std::string const filename_base =
-      "../testing/generated-inputs/coefficients/continuity3_coefficients_l" +
-      std::to_string(level) + "_d" + std::to_string(degree) + "_";
-  for (int t = 0; t < pde->num_terms; ++t)
-  {
-    for (int d = 0; d < pde->num_dims; ++d)
-    {
-      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
-                                   std::to_string(d + 1) + ".dat";
-      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
-      fk::matrix<double> const test = generate_coefficients<TestType>(
-          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
-      relaxed_comparison<TestType>(gold, test);
-    }
-  }
-}
-
-TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
-{
-  int const level     = 2;
-  int const degree    = 4;
-  TestType const time = 1.0;
-  auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-  std::string const filename_base =
-      "../testing/generated-inputs/coefficients/continuity6_coefficients_l" +
-      std::to_string(level) + "_d" + std::to_string(degree) + "_";
-  for (int t = 0; t < pde->num_terms; ++t)
-  {
-    for (int d = 0; d < pde->num_dims; ++d)
-    {
-      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
-                                   std::to_string(d + 1) + ".dat";
-      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
-      fk::matrix<double> const test = generate_coefficients<TestType>(
-          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
-      relaxed_comparison<TestType>(gold, test);
-    }
-  }
-}
+//TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
+//{
+//  int const level     = 4;
+//  int const degree    = 3;
+//  TestType const time = 1.0;
+//  auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+//  std::string const filename_base =
+//      "../testing/generated-inputs/coefficients/continuity2_coefficients_l" +
+//      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+//  for (int t = 0; t < pde->num_terms; ++t)
+//  {
+//    for (int d = 0; d < pde->num_dims; ++d)
+//    {
+//      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+//                                   std::to_string(d + 1) + ".dat";
+//      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+//      fk::matrix<double> const test = generate_coefficients<TestType>(
+//          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
+//      relaxed_comparison<TestType>(gold, test);
+//    }
+//  }
+//}
+//
+//TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
+//{
+//  int const level     = 3;
+//  int const degree    = 5;
+//  TestType const time = 1.0;
+//  auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+//  std::string const filename_base =
+//      "../testing/generated-inputs/coefficients/continuity3_coefficients_l" +
+//      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+//  for (int t = 0; t < pde->num_terms; ++t)
+//  {
+//    for (int d = 0; d < pde->num_dims; ++d)
+//    {
+//      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+//                                   std::to_string(d + 1) + ".dat";
+//      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+//      fk::matrix<double> const test = generate_coefficients<TestType>(
+//          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
+//      relaxed_comparison<TestType>(gold, test);
+//    }
+//  }
+//}
+//
+//TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
+//{
+//  int const level     = 2;
+//  int const degree    = 4;
+//  TestType const time = 1.0;
+//  auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+//  std::string const filename_base =
+//      "../testing/generated-inputs/coefficients/continuity6_coefficients_l" +
+//      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+//  for (int t = 0; t < pde->num_terms; ++t)
+//  {
+//    for (int d = 0; d < pde->num_dims; ++d)
+//    {
+//      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+//                                   std::to_string(d + 1) + ".dat";
+//      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+//      fk::matrix<double> const test = generate_coefficients<TestType>(
+//          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
+//      relaxed_comparison<TestType>(gold, test);
+//    }
+//  }
+//}
