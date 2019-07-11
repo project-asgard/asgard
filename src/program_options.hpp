@@ -18,7 +18,7 @@ private:
   bool use_implicit_stepping  = false; // enable implicit(/explicit) stepping
   bool use_full_grid          = false; // enable full(/sparse) grid
   bool do_poisson             = false; // do poisson solve for electric field
-  double cfl = 0.01; // the Courant-Friedrichs-Lewy (CFL) condition
+  double cfl = 0.1; // the Courant-Friedrichs-Lewy (CFL) condition
 
   // default
   std::string selected_pde = "continuity_2";

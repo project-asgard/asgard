@@ -9,7 +9,6 @@
 #endif
 
 #include "grouping.hpp"
-#include "mem_usage.hpp"
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -151,11 +150,8 @@ int main(int argc, char **argv)
   };
 
   // Our default workspace size is ~1GB.
-  // This is inexact for now - we can't go smaller than one connected element's
-  // space at a time. Vertical splitting would allow this, but we want to hold
-  // off on that until we implement distribution across nodes.
-  //
-  // This 1GB doesn't include batches, coefficient matrices, element table,
+
+  // This 1GB doesn't include coefficient matrices, element table,
   // or time advance workspace - only the primary memory consumers (kronmult
   // intermediate and result workspaces).
   //

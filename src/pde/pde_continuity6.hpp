@@ -556,7 +556,7 @@ private:
 
   static P get_dt_(dimension<P> const &dim)
   {
-    P const x_range = dim.domain_max;
+    P const x_range = dim.domain_max - dim.domain_min;
     P const dt      = x_range / std::pow(2, dim.get_level());
     return dt;
   }

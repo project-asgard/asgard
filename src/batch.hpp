@@ -122,74 +122,13 @@ void kronmult_to_batch_sets(
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde);
 
-// this class stores the input, output, work, and auxiliary vectors
-// that batches compute with in explicit time advance
-template<typename P>
-class explicit_system
-{
-public:
-  explicit_system(PDE<P> const &pde, element_table const &table,
-                  int const limit_MB = -1);
-
-  fk::vector<P> const &get_unit_vector() const;
-  // input, output, workspace for batched gemm/reduction
-  // (unit vector below also falls under this category)
-  fk::vector<P> batch_input;
-  fk::vector<P> reduction_space;
-  fk::vector<P> batch_intermediate;
-  fk::vector<P> batch_output;
-
-  // working vectors for time advance (e.g. intermediate RK result vects,
-  // source vector space)
-  fk::vector<P> scaled_source;
-  fk::vector<P> x_orig;
-  fk::vector<P> result_1;
-  fk::vector<P> result_2;
-  fk::vector<P> result_3;
-
-private:
-  fk::vector<P> unit_vector_;
-};
-
-// use info from pde and element table to create and populate the batch lists
-template<typename P>
-std::vector<batch_operands_set<P>>
-build_batches(PDE<P> const &pde, element_table const &elem_table,
-              explicit_system<P> const &system, int const connected_start = 0,
-              int const elements_per_batch = -1);
-
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
               rank_workspace<P> const &workspace, element_group const &group);
 
-template<typename P>
-using work_set = std::vector<std::vector<batch_operands_set<P>>>;
-
-// use provided workspace size to split batches across connected elements
-//
-// that is, we partition the connected elements for all the work elements in the
-// table (this is equivalent to partitioning the global matrix columnwise, if it
-// were explicitly formed) and assign the work (gemms) for each partition
-// (work_set) to the same intermediate product/output space. this enables memory
-// reuse for large (3/6d) problems.
-//
-// FIXME in the future, we can leverage this approach to perform automatic
-// partial reduction. this can be accomplished by pulling out the reduction
-// batches, having all work sets write into the output space with beta = 1.0
-// (except for the initial work set), and then doing one large gemv to gather
-// results at the end.
-//
-template<typename P>
-work_set<P>
-build_work_set(PDE<P> const &pde, element_table const &elem_table,
-               explicit_system<P> const &system, int const workspace_MB = -1);
-
 extern template class batch<float>;
 extern template class batch<double>;
-
-extern template class explicit_system<float>;
-extern template class explicit_system<double>;
 
 extern template void batched_gemm(batch<float> const &a, batch<float> const &b,
                                   batch<float> const &c, float const alpha,
@@ -227,26 +166,9 @@ extern template void kronmult_to_batch_sets(
 
 extern template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
-              explicit_system<float> const &system, int const connected_start,
-              int const elements_per_batch);
-extern template std::vector<batch_operands_set<double>>
-build_batches(PDE<double> const &pde, element_table const &elem_table,
-              explicit_system<double> const &system, int const connected_start,
-              int const elements_per_batch);
-
-extern template std::vector<batch_operands_set<float>>
-build_batches(PDE<float> const &pde, element_table const &elem_table,
               rank_workspace<float> const &workspace,
               element_group const &group);
 extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
               element_group const &group);
-
-extern template work_set<float>
-build_work_set(PDE<float> const &pde, element_table const &elem_table,
-               explicit_system<float> const &system, int const workspace_MB);
-
-extern template work_set<double>
-build_work_set(PDE<double> const &pde, element_table const &elem_table,
-               explicit_system<double> const &system, int const workspace_MB);
