@@ -387,21 +387,21 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     auto FCR = term_1D.g_func(xR, time);
 
     auto trace_value_1 =
-        (-1) * (legendre_poly_L_t * legendre_poly_R) * FCL / 2 +
-        term_1D.get_flux_scale() * std::abs(FCL) / 2 * (-1) *
-            legendre_poly_L_t * (+1) * legendre_poly_R;
+        (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
+        (legendre_poly_L_t * legendre_poly_R) *
+            (+1 * term_1D.get_flux_scale() * std::abs(FCL) / 2 * -1);
     auto trace_value_2 =
-        (-1) * (legendre_poly_L_t * legendre_poly_L) * FCL / 2 +
-        term_1D.get_flux_scale() * std::abs(FCL) / 2 * (-1) *
-            legendre_poly_L_t * (-1) * legendre_poly_L;
+        (legendre_poly_L_t * legendre_poly_L) * (-1 * FCL / 2) +
+        (legendre_poly_L_t * legendre_poly_L) *
+            (-1 * term_1D.get_flux_scale() * std::abs(FCL) / 2 * -1);
     auto trace_value_3 =
-        (+1) * (legendre_poly_R_t * legendre_poly_R) * FCR / 2 +
-        term_1D.get_flux_scale() * std::abs(FCR) / 2 * (+1) *
-            legendre_poly_R_t * (+1) * legendre_poly_R;
+        (legendre_poly_R_t * legendre_poly_R) * (+1 * FCR / 2) +
+        (legendre_poly_R_t * legendre_poly_R) *
+            (+1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
     auto trace_value_4 =
-        (+1) * (legendre_poly_R_t * legendre_poly_L) * FCR / 2 +
-        term_1D.get_flux_scale() * std::abs(FCR) / 2 * (+1) *
-            legendre_poly_R_t * (-1) * legendre_poly_L;
+        (legendre_poly_R_t * legendre_poly_L) * (+1 * FCR / 2) +
+        (legendre_poly_R_t * legendre_poly_L) *
+            (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -412,15 +412,17 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       if (i == 0)
       {
         trace_value_1 =
-            (-1) * (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L));
+            (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
         trace_value_2 =
-            (-1) * (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L));
-        trace_value_3 = (+1) * (legendre_poly_R_t * legendre_poly_R) * FCR / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCR) / 2 * (+1) *
-                            legendre_poly_R_t * (+1) * legendre_poly_R;
-        trace_value_4 = (+1) * (legendre_poly_R_t * legendre_poly_L) * FCR / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCR) / 2 * (+1) *
-                            legendre_poly_R_t * (-1) * legendre_poly_L;
+            (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+        trace_value_3 =
+            (legendre_poly_R_t * legendre_poly_R) * (+1 * FCR / 2) +
+            (legendre_poly_R_t * legendre_poly_R) *
+                (+1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
+        trace_value_4 =
+            (legendre_poly_R_t * legendre_poly_L) * (+1 * FCR / 2) +
+            (legendre_poly_R_t * legendre_poly_L) *
+                (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
       }
     }
 
@@ -428,16 +430,18 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     {
       if (i == N - 1)
       {
-        trace_value_1 = (-1) * (legendre_poly_L_t * legendre_poly_R) * FCL / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCL) / 2 * (-1) *
-                            legendre_poly_L_t * (+1) * legendre_poly_R;
-        trace_value_2 = (-1) * (legendre_poly_L_t * legendre_poly_L) * FCL / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCL) / 2 * (-1) *
-                            legendre_poly_L_t * (-1) * legendre_poly_L;
+        trace_value_1 =
+            (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
+            (legendre_poly_L_t * legendre_poly_R) *
+                (+1 * term_1D.get_flux_scale() * std::abs(FCL) / 2 * -1);
+        trace_value_2 =
+            (legendre_poly_L_t * legendre_poly_L) * (-1 * FCL / 2) +
+            (legendre_poly_L_t * legendre_poly_L) *
+                (-1 * term_1D.get_flux_scale() * std::abs(FCL) / 2 * -1);
         trace_value_3 =
-            (+1) * (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R));
+            (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
         trace_value_4 =
-            (+1) * (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R));
+            (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
       }
     }
 
@@ -452,15 +456,16 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       if (i == 0)
       {
         trace_value_1 =
-            (-1) * (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L));
-        trace_value_2 =
-            (-1) * (legendre_poly_L_t * legendre_poly_L) * FCL; // xL
-        trace_value_3 = (+1) * (legendre_poly_R_t * legendre_poly_R) * FCR / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCR) / 2 * (+1) *
-                            legendre_poly_R_t * (+1) * legendre_poly_R;
-        trace_value_4 = (+1) * (legendre_poly_R_t * legendre_poly_L) * FCR / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCR) / 2 * (+1) *
-                            legendre_poly_R_t * (-1) * legendre_poly_L; // xR
+            (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+        trace_value_2 = (legendre_poly_L_t * legendre_poly_L) * (-1 * FCL);
+        trace_value_3 =
+            (legendre_poly_R_t * legendre_poly_R) * (+1 * FCR / 2) +
+            (legendre_poly_R_t * legendre_poly_R) *
+                (+1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
+        trace_value_4 =
+            (legendre_poly_R_t * legendre_poly_L) * (+1 * FCR / 2) +
+            (legendre_poly_R_t * legendre_poly_L) *
+                (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
       }
     }
 
@@ -468,15 +473,17 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     {
       if (i == N - 1)
       {
-        trace_value_1 = (-1) * (legendre_poly_L_t * legendre_poly_R) * FCL / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCL) / 2 * (-1) *
-                            legendre_poly_L_t * (+1) * legendre_poly_R;
-        trace_value_2 = (-1) * (legendre_poly_L_t * legendre_poly_L) * FCL / 2 +
-                        term_1D.get_flux_scale() * std::abs(FCL) / 2 * (-1) *
-                            legendre_poly_L_t * (-1) * legendre_poly_L; // xL
-        trace_value_3 = (+1) * (legendre_poly_R_t * legendre_poly_R) * FCR;
-        trace_value_4 = (+1) * (legendre_poly_R_t *
-                                (legendre_poly_R - legendre_poly_R)); // xR
+        trace_value_1 =
+            (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
+            (legendre_poly_L_t * legendre_poly_R) *
+                (+1 * term_1D.get_flux_scale() * std::abs(FCL) / 2 * -1);
+        trace_value_2 =
+            (legendre_poly_L_t * legendre_poly_L) * (-1 * FCL / 2) +
+            (legendre_poly_L_t * legendre_poly_L) *
+                (-1 * term_1D.get_flux_scale() * std::abs(FCL) / 2 * -1);
+        trace_value_3 = (legendre_poly_R_t * legendre_poly_R) * (+1 * FCR);
+        trace_value_4 =
+            (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
       }
     }
 
