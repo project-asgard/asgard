@@ -132,7 +132,7 @@ int main(int argc, char **argv)
     for (int j = 0; j < pde->num_terms; ++j)
     {
       term<prec> const partial_term = pde->get_terms()[j][i];
-      fk::matrix<prec> const coeff  = generate_coefficients(dim, partial_term);
+      fk::matrix<prec> const coeff  = generate_coefficients_old(dim, partial_term);
       pde->set_coefficients(coeff, j, i);
     }
   }

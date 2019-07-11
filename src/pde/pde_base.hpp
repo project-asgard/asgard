@@ -135,6 +135,7 @@ enum class flux_type
 {
   central,
   upwind,
+  downwind,
   lax_friedrich
 };
 
@@ -186,7 +187,11 @@ public:
     }
     else if (flux == flux_type::upwind)
     {
-      flux_scale_ = 1.0;
+      flux_scale_ = +1.0;
+    }
+    else if (flux == flux_type::downwind)
+    {
+      flux_scale_ = -1.0;
     }
     else
     {
