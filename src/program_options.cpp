@@ -91,6 +91,7 @@ int options::get_level() const { return level; }
 int options::get_degree() const { return degree; }
 int options::get_time_steps() const { return num_time_steps; }
 int options::get_write_frequency() const { return write_frequency; }
+int options::get_max_levels() const { return max_levels; }
 int options::get_visualization_frequency() const
 {
   return visualization_frequency;

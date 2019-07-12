@@ -15,6 +15,8 @@ element_table::element_table(options const program_opts, int const num_dims)
 {
   int const num_levels     = program_opts.get_level();
   bool const use_full_grid = program_opts.using_full_grid();
+  int const max_levels     = program_opts.get_max_levels();
+  std::cout << " max levels " << max_levels << std::endl;
 
   assert(num_dims > 0);
   assert(num_levels > 0);
@@ -47,12 +49,14 @@ element_table::element_table(options const program_opts, int const num_dims)
       fk::vector<int> cell_indices =
           index_set.extract_submatrix(cell_set, 0, 1, num_dims);
 
+      long int element_idx = lev_cell_to_element_index(level_tuple, cell_indices,max_levels);
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       fk::vector<int> key = level_tuple;
       key.concat(cell_indices);
 
       forward_table[key] = index++;
+      forward_table_sparse[key] = element_idx;
       // note the matlab code has an option to append 1d cell indices to the
       // reverse element table. //FIXME do we need to precompute or can we call
       // the 1d helper as needed?
@@ -140,4 +144,45 @@ element_table::get_cell_index_set(fk::vector<int> const level_tuple)
   }
 
   return cell_index_set;
+}
+
+long int element_table::lev_cell_to_1D_index(int const level, int const cell){
+  std::cout << " here3 "<< level << "level and cell "<<cell << std::endl;
+
+  long int index = 0;
+  std::cout << " here3.5 " << std::endl;
+
+  if(level > 0)
+  {
+    index=fm::two_raised_to(level-1) + cell;
+  } 
+
+  std::cout << " here4 1d index "<< index << std::endl;
+  return index;
+}
+
+long int element_table::lev_cell_to_element_index(fk::vector<int> const levels, fk::vector<int> const cells, int const max_levels){
+  
+  std::cout << " here1 " << std::endl;
+  int const num_dimensions = levels.size();
+  assert(cells.size() == num_dimensions);
+
+  long int eIdx=0;
+  long int stride = 1;
+  std::cout << " here2 " << std::endl;
+
+  for(int d=0; d< num_dimensions; d++)
+  {
+    assert(levels(d) <= max_levels);
+    long int idx_1D = lev_cell_to_1D_index(levels(d),cells(d));
+    eIdx = eIdx + (idx_1D)*stride;
+    stride = stride * fm::two_raised_to(max_levels);
+  }
+
+  std::cout << " here5 eIdx"<< eIdx << std::endl;
+  assert(eIdx >= 0);
+  assert(eIdx < pow(fm::two_raised_to(max_levels),num_dimensions));
+  std::cout << " here6 " << std::endl;
+
+  return eIdx;
 }
