@@ -101,7 +101,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
   auto const relaxed_comparison = [](auto const first, auto const second) {
-    Catch::StringMaker<double>::precision = 19;
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
       auto difference = std::abs(*first_it++ - second_elem);
