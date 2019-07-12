@@ -536,66 +536,28 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       }
     }
 
-    if (i == 0)
-    {
-      // Add trace part 2
-      fk::matrix<double, mem_type::view> block2(
-          coefficients, row2, row2 + dim.get_degree() - 1, col2,
-          col2 + dim.get_degree() - 1);
-      block2 = block2 + trace_value_2;
-
-      // Add trace part 3
-      fk::matrix<double, mem_type::view> block3(
-          coefficients, row3, row3 + dim.get_degree() - 1, col3,
-          col3 + dim.get_degree() - 1);
-      block3 = block3 + trace_value_3;
-
-      // Add trace part 4
-      fk::matrix<double, mem_type::view> block4(
-          coefficients, row4, row4 + dim.get_degree() - 1, col4,
-          col4 + dim.get_degree() - 1);
-      block4 = block4 + trace_value_4;
-    }
-    else if (i == N - 1)
+    if (i != 0)
     {
       // Add trace part 1
       fk::matrix<double, mem_type::view> block1(
           coefficients, row1, row1 + dim.get_degree() - 1, col1,
           col1 + dim.get_degree() - 1);
       block1 = block1 + trace_value_1;
-
-      // Add trace part 2
-      fk::matrix<double, mem_type::view> block2(
-          coefficients, row2, row2 + dim.get_degree() - 1, col2,
-          col2 + dim.get_degree() - 1);
-      block2 = block2 + trace_value_2;
-
-      // Add trace part 3
-      fk::matrix<double, mem_type::view> block3(
-          coefficients, row3, row3 + dim.get_degree() - 1, col3,
-          col3 + dim.get_degree() - 1);
-      block3 = block3 + trace_value_3;
     }
-    else
+    // Add trace part 2
+    fk::matrix<double, mem_type::view> block2(coefficients, row2,
+                                              row2 + dim.get_degree() - 1, col2,
+                                              col2 + dim.get_degree() - 1);
+    block2 = block2 + trace_value_2;
+
+    // Add trace part 3
+    fk::matrix<double, mem_type::view> block3(coefficients, row3,
+                                              row3 + dim.get_degree() - 1, col3,
+                                              col3 + dim.get_degree() - 1);
+    block3 = block3 + trace_value_3;
+
+    if (i != N - 1)
     {
-      // Add trace part 1
-      fk::matrix<double, mem_type::view> block1(
-          coefficients, row1, row1 + dim.get_degree() - 1, col1,
-          col1 + dim.get_degree() - 1);
-      block1 = block1 + trace_value_1;
-
-      // Add trace part 2
-      fk::matrix<double, mem_type::view> block2(
-          coefficients, row2, row2 + dim.get_degree() - 1, col2,
-          col2 + dim.get_degree() - 1);
-      block2 = block2 + trace_value_2;
-
-      // Add trace part 3
-      fk::matrix<double, mem_type::view> block3(
-          coefficients, row3, row3 + dim.get_degree() - 1, col3,
-          col3 + dim.get_degree() - 1);
-      block3 = block3 + trace_value_3;
-
       // Add trace part 4
       fk::matrix<double, mem_type::view> block4(
           coefficients, row4, row4 + dim.get_degree() - 1, col4,
@@ -614,8 +576,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     //      coefficients);
     //}
 
-    std::cout<<term_1D.get_flux_scale()<<std::endl;
-    std::cout<<i<<std::endl;
+    std::cout << term_1D.get_flux_scale() << std::endl;
+    std::cout << i << std::endl;
     coefficients.print();
   }
 
