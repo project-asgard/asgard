@@ -52,11 +52,14 @@ public:
   // Return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
 
+  long int lev_cell_to_1D_index(int const level, int const cell);
+  
+  long int lev_cell_to_element_index(fk::vector<int> const levels, fk::vector<int> const cells, int const max_levels);
 private:
   // a map keyed on the element coordinates
   std::map<fk::vector<int>, int> forward_table;
   // a map keyed on the element index
-  std::map<long int, long int> forward_table_sparse;
+  std::map<fk::vector<int>,long int> forward_table_sparse;
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
 };
