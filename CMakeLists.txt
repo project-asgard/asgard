@@ -102,7 +102,7 @@ target_link_libraries (coefficients
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
 
-target_link_libraries(grouping PRIVATE fast_math)
+target_link_libraries(grouping PRIVATE element_table fast_math pde)
 
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
@@ -125,8 +125,6 @@ target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 target_link_libraries (program_options PRIVATE clara)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
-
-target_link_libraries (grouping PRIVATE element_table pde)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 
