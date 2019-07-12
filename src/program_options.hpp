@@ -15,6 +15,7 @@ private:
   int num_time_steps          = 10; // number of time loop iterations
   int write_frequency         = 0;  // write output every this many iterations
   int visualization_frequency = 0;  // visualize output every this many iters
+  int max_levels              = 8;  // max levels for adaptivity
   bool use_implicit_stepping  = false; // enable implicit(/explicit) stepping
   bool use_full_grid          = false; // enable full(/sparse) grid
   bool do_poisson             = false; // do poisson solve for electric field
@@ -38,6 +39,8 @@ public:
   int get_time_steps() const;
   int get_write_frequency() const;
   int get_visualization_frequency() const;
+  int get_max_levels() const;
+  void update_max_levels(int max_levels) { this->max_levels = max_levels; }
   bool using_implicit() const;
   bool using_full_grid() const;
   double get_cfl() const;
