@@ -123,9 +123,9 @@ legendre(fk::vector<P> const domain, int const degree)
 
 //% lgwt.m
 //% This script is for computing the Legendre-Gauss nodes (roots on x) and
-//weights % on an interval % [interval_start,interval_end] for Legendre
-//polynomial degree polynomial_degree % These are later used for computing
-//definite integrals using Legendre-Gauss % Quadrature.
+// weights % on an interval % [interval_start,interval_end] for Legendre
+// polynomial degree polynomial_degree % These are later used for computing
+// definite integrals using Legendre-Gauss % Quadrature.
 //%
 //% Suppose you have a continuous function f(x) which is defined on
 //% [interval_start,interval_end]
@@ -283,9 +283,8 @@ legendre_weights(const int polynomial_degree, const int interval_start,
     // calculation of part of legendre_prime_y_values
     // P'i(x_roots) = ((i+1)*x_roots*P_i(x_roots) - (i+1)*P_i+1(x_roots))
     // division by (1-x_roots^2) next
-    legendre_prime_y_values = (legendre_polynomial_degree_minus_one
-        - legendre_polynomial_degree_scaled
-                               ) *
+    legendre_prime_y_values = (legendre_polynomial_degree_minus_one -
+                               legendre_polynomial_degree_scaled) *
                               (polynomial_degree);
     auto const element_division = [](P const &one, P const &two) {
       return one / two;
