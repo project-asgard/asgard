@@ -348,7 +348,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     {
       for (int j = 0; j <= tmp.ncols() - 1; j++)
       {
-        std::cout << i << "," << j << std::endl;
         tmp(i, j) = data_real_quad(i) * legendre_poly(i, j) *
                     quadrature_weights(i) * jacobi;
       }
@@ -376,6 +375,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     std::cout << std::endl;
 
     tmp.print();
+    block.print();
 
     // set the block at the correct position
     fk::matrix<double> curr_block =
@@ -417,6 +417,11 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         (legendre_poly_R_t * legendre_poly_L) * (+1 * FCR / 2) +
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
+
+    trace_value_1.print();
+    trace_value_2.print();
+    trace_value_3.print();
+    trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -608,6 +613,10 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     //      apply_flux_operator(row_indices, col_indices, flux_op,
     //      coefficients);
     //}
+
+    std::cout<<term_1D.get_flux_scale()<<std::endl;
+    std::cout<<i<<std::endl;
+    coefficients.print();
   }
 
   // transform matrix to wavelet space
