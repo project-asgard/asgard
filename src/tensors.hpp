@@ -469,7 +469,6 @@ static void
 copy_to_device(P const *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-
   cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
 #else
   std::copy(source, source + num_elems, dest);
@@ -811,6 +810,7 @@ operator=(fk::vector<P, omem, resource::host> const &a)
 {
   assert(a.size() == size());
   copy_to_device(a.data(), data_, a.size());
+  return *this;
 }
 // to host
 template<typename P, mem_type mem, resource res>
@@ -829,6 +829,7 @@ operator=(vector<P, omem, resource::device> const &a)
 {
   assert(a.size() == size());
   copy_to_host(a.data(), data_, a.size());
+  return *this;
 }
 
 //
@@ -1447,6 +1448,7 @@ operator=(fk::matrix<P, omem, resource::host> const &a)
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
   copy_matrix_to_device(a, data_);
+  return *this;
 }
 // to host
 template<typename P, mem_type mem, resource res>
@@ -1466,6 +1468,7 @@ operator=(matrix<P, omem, resource::device> const &a)
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
   copy_matrix_to_host(a, data_);
+  return *this;
 }
 
 //

@@ -724,15 +724,144 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
   SECTION("ctors")
   {
     // from init list
-    fk::vector<TestType, mem_type::owner, resource::device> const vect(
-        {1, 3, 5, 7, 9});
-    fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
-    assert(copy == gold);
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          {1, 3, 5, 7, 9});
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+      assert(copy == gold);
+    }
+    // from size w/ copy assignment to device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(5);
+      vect = gold;
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+      assert(copy == gold);
+    }
+
+    // transfer construction
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+      assert(copy == gold);
+    }
   }
 
-  SECTION("copy and move");
+  SECTION("copy and move")
+  {
+    // copy owner
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const copy_d(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
+          copy_d);
+      assert(copy_h == gold);
+    }
+    // move owner
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const moved_d(
+          std::move(vect));
+      assert(vect.data() == nullptr);
+      assert(vect.size() == 0);
+      fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
+          moved_d);
+      assert(moved_h == gold);
+    }
 
-  SECTION("copy to/from device");
+    // copy view
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> const view_d(vect);
+      assert(vect.get_num_views() == 1);
+      fk::vector<TestType, mem_type::view, resource::device> const view_copy_d(
+          view_d);
+      assert(vect.get_num_views() == 2);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
+          view_copy_d);
+      assert(copy_h == gold);
+    }
+    // move view
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+
+      fk::vector<TestType, mem_type::view, resource::device> view_d(vect);
+      assert(vect.get_num_views() == 1);
+
+      fk::vector<TestType, mem_type::view, resource::device> const view_moved_d(
+          std::move(view_d));
+      assert(view_d.data() == nullptr);
+      assert(view_d.size() == 0);
+      assert(vect.get_num_views() == 1);
+
+      fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
+          view_moved_d);
+      assert(moved_h == gold);
+    }
+  }
+
+  SECTION("transfer assignment")
+  {
+    // owner device to owner host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType> vect_h(5);
+      vect_h = vect;
+      assert(vect_h == gold);
+    }
+
+    // owner device to view host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType> vect_h(5);
+      fk::vector<TestType, mem_type::view> vect_view(vect_h);
+      vect_view = vect;
+      assert(vect_view == gold);
+    }
+
+    // FIXME view device to owner host
+    // FIXME owner device to view host
+
+    // owner device to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect;
+      fk::vector<TestType> const vect_h(vect_d);
+      assert(vect_h == gold);
+    }
+
+    // owner device to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect_d);
+      vect_view = vect;
+      fk::vector<TestType, mem_type::owner> const vect_h(vect_view);
+      assert(vect_h == gold);
+    }
+
+    // view device to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect_view;
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          vect_d);
+      assert(vect_h == gold);
+    }
+
+    // FIXME view device to view device
+
+    // owner host to owner device
+    {}
+
+    // FIXME owner host to view device
+    // FIXME view host to view device
+    // FIXME view host to owner device
+  }
 
   SECTION("views");
 }
