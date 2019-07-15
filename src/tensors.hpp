@@ -6,6 +6,7 @@
 #endif
 
 #include "lib_dispatch.hpp"
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -488,9 +489,9 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::host> const source,
 {
 #ifdef ASGARD_BUILD_CUDA
   cublasSetMatrix(source.nrows(), source.ncols(), sizeof(P), source.data(),
-                  source.stride(), dest, source.nrows());
+                  source.stride(), dest, source.stride());
 #else
-  std::copy(source.begin(), source.end(), dest);
+  std::memcpy(dest, source.data(), source.stride() * source.ncols());
 #endif
 }
 
@@ -501,9 +502,9 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::device> const source,
 {
 #ifdef ASGARD_BUILD_CUDA
   cublasGetMatrix(source.nrows(), source.ncols(), sizeof(P), source.data(),
-                  source.stride(), dest, source.nrows());
+                  source.stride(), dest, source.stride());
 #else
-  std::copy(source.begin(), source.end(), dest);
+  std::memcpy(dest, source.data(), source.stride() * source.ncols());
 #endif
 }
 
@@ -1183,36 +1184,50 @@ fk::matrix<P, mem, res>::matrix()
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem, resource res>
 template<mem_type, typename>
-fk::matrix<P, mem, res>::matrix(int M, int N)
-    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}, stride_{nrows_},
-      ref_count_{std::make_shared<int>(0)}
+fk::matrix<P, mem, res>::matrix(int m, int n)
+    : nrows_{m}, ncols_{n}, stride_{nrows_}, ref_count_{
+                                                 std::make_shared<int>(0)}
 
 {
-  // FIXME device impl.
+  if constexpr (res == resource::host)
+  {
+    data_ = new P[nrows() * ncols()]();
+  }
+  else
+  {
+    allocate_device(data_, nrows() * ncols());
+  }
 }
 
 template<typename P, mem_type mem, resource res>
 template<mem_type, typename>
 fk::matrix<P, mem, res>::matrix(
     std::initializer_list<std::initializer_list<P>> llist)
-    : data_{new P[llist.size() * llist.begin()->size()]()},
-      nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
+    : nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
                                                   llist.begin()->size())},
       stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
 {
-  // FIXME device impl.
-  int row_idx = 0;
-  for (auto const &row_list : llist)
+  if constexpr (res == resource::host)
   {
-    // much simpler for row-major storage
-    // std::copy(row_list.begin(), row_list.end(), data(row_idx));
-    int col_idx = 0;
-    for (auto const &col_elem : row_list)
+    data_       = new P[llist.size() * llist.begin()->size()]();
+    int row_idx = 0;
+    for (auto const &row_list : llist)
     {
-      (*this)(row_idx, col_idx) = col_elem;
-      ++col_idx;
+      // much simpler for row-major storage
+      // std::copy(row_list.begin(), row_list.end(), data(row_idx));
+      int col_idx = 0;
+      for (auto const &col_elem : row_list)
+      {
+        (*this)(row_idx, col_idx) = col_elem;
+        ++col_idx;
+      }
+      ++row_idx;
     }
-    ++row_idx;
+  }
+  else
+  {
+    fk::matrix<P, mem, resource::host> const wrap(llist);
+    copy_matrix_to_device(wrap, data_);
   }
 }
 
@@ -1263,7 +1278,6 @@ fk::matrix<P, mem, res>::matrix(fk::vector<P, omem, res> const &source,
                                 int const start_index)
     : ref_count_(source.get_ref_count({}))
 {
-  // FIXME device impl.
   assert(start_index >= 0);
   assert(num_rows > 0);
   assert(num_cols > 0);
@@ -1288,11 +1302,17 @@ fk::matrix<P, mem, res>::matrix(fk::vector<P, omem, res> const &source,
 template<typename P, mem_type mem, resource res>
 fk::matrix<P, mem, res>::~matrix()
 {
-  // FIXME device impl.
   if constexpr (mem == mem_type::owner)
   {
     assert(ref_count_.use_count() == 1);
-    delete[] data_;
+    if constexpr (res == resource::host)
+    {
+      delete[] data_;
+    }
+    else
+    {
+      delete_device(data_);
+    }
   }
 }
 
@@ -1307,24 +1327,18 @@ fk::matrix<P, mem, res>::matrix(matrix<P, mem, res> const &a)
   // FIXME device impl.
   if constexpr (mem == mem_type::owner)
   {
-    data_      = new P[a.size()]();
     ref_count_ = std::make_shared<int>(0);
 
-    // for optimization - if the matrices are contiguous, use memcpy
-    // for performance
-    if (stride() == nrows() && a.stride() == a.nrows())
+    if constexpr (res == resource::host)
     {
-      std::memcpy(data_, a.data(), a.size() * sizeof(P));
+      data_ = new P[a.stride() * a.ncols()]();
 
-      // else copy using loops. noticably slower in testing
+      std::memcpy(data_, a.data(), a.stride() * a.ncols());
     }
     else
     {
-      for (auto j = 0; j < a.ncols(); ++j)
-        for (auto i = 0; i < a.nrows(); ++i)
-        {
-          (*this)(i, j) = a(i, j);
-        }
+      allocate_device(data_, a.stride() * a.ncols());
+      copy_matrix_to_device(a, data_, a.stride());
     }
   }
   else
