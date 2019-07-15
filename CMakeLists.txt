@@ -50,6 +50,7 @@ include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
 if(ASGARD_BUILD_CUDA)
   find_package(CUDA 9.0 REQUIRED)
+  add_compile_definitions(ASGARD_BUILD_CUDA)
 endif()
 ###############################################################################
 ## Building asgard
