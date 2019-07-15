@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef ASGARD_BUILD_CUDA
+#include <cublas_v2.h>
+#include <cuda_runtime_api.h>
+#endif
+
 #include "lib_dispatch.hpp"
 #include <memory>
 #include <string>
@@ -424,6 +429,84 @@ private:
 };
 } // namespace fk
 
+// device allocation and transfer helpers
+// FIXME all the below need error checking or asserts...probably checking
+
+template<typename P>
+static void allocate_device(P *&ptr, int const num_elems)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cudaMalloc(ptr, num_elems * sizeof(P));
+#else
+  ptr = new P[num_elems]();
+#endif
+}
+template<typename P>
+static void delete_device(P *const ptr)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cudaFree(ptr);
+#else
+  delete[] ptr;
+#endif
+}
+
+template<typename P>
+static void copy_on_device(P *const source, P *const dest, int const num_elems)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
+template<typename P>
+static void copy_to_device(P *const source, P *const dest, int const num_elems)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
+template<typename P>
+static void copy_to_host(P *const source, P *const dest, int const num_elems)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
+template<typename P, mem_type mem>
+static void
+copy_matrix_to_device(fk::matrix<P, mem, resource::host> const source,
+                      P *const dest)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cublasSetMatrix(source.nrows(), source.ncols(), sizeof(P), source.data(),
+                  source.stride(), dest, source.nrows());
+#else
+  std::copy(source.begin(), source.end(), dest);
+#endif
+}
+
+template<typename P, mem_type mem>
+static void
+copy_matrix_to_host(fk::matrix<P, mem, resource::device> const source,
+                    P *const dest)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cublasGetMatrix(source.nrows(), source.ncols(), sizeof(P), source.data(),
+                  source.stride(), dest, source.nrows());
+#else
+  std::copy(source.begin(), source.end(), dest);
+#endif
+}
+
 //
 // This would otherwise be the start of the tensors.cpp, if we were still doing
 // the explicit instantiations
@@ -452,9 +535,16 @@ fk::vector<P, mem, res>::vector()
 template<typename P, mem_type mem, resource res>
 template<mem_type, typename>
 fk::vector<P, mem, res>::vector(int const size)
-    : data_{new P[size]()}, size_{size}, ref_count_{std::make_shared<int>(0)}
+    : size_{size}, ref_count_{std::make_shared<int>(0)}
 {
-  // FIXME device implementation
+  if constexpr (res == resource::host)
+  {
+    data_ = new P[size_]();
+  }
+  else
+  {
+    allocate_device(data_, size_);
+  }
 }
 
 // can also do this with variadic template constructor for constness
@@ -463,11 +553,18 @@ fk::vector<P, mem, res>::vector(int const size)
 template<typename P, mem_type mem, resource res>
 template<mem_type, typename>
 fk::vector<P, mem, res>::vector(std::initializer_list<P> list)
-    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())},
-      ref_count_{std::make_shared<int>(0)}
+    : size_{static_cast<int>(list.size())}, ref_count_{std::make_shared<int>(0)}
 {
-  // FIXME device impl.
-  std::copy(list.begin(), list.end(), data_);
+  if constexpr (res == resource::host)
+  {
+    data_ = new P[size_]();
+    std::copy(list.begin(), list.end(), data_);
+  }
+  else
+  {
+    allocate_device(data_, size_);
+    copy_to_device(list.begin(), data_, size_);
+  }
 }
 
 template<typename P, mem_type mem, resource res>
@@ -536,11 +633,18 @@ fk::vector<P, mem, res>::vector(fk::vector<P, mem_type::owner, res> const &a)
 template<typename P, mem_type mem, resource res>
 fk::vector<P, mem, res>::~vector()
 {
-  // FIXME device impl.
   if constexpr (mem == mem_type::owner)
   {
     assert(ref_count_.use_count() == 1);
-    delete[] data_;
+
+    if constexpr (res == resource::host)
+    {
+      delete[] data_;
+    }
+    else
+    {
+      delete_device(data_);
+    }
   }
 }
 
@@ -550,12 +654,20 @@ fk::vector<P, mem, res>::~vector()
 template<typename P, mem_type mem, resource res>
 fk::vector<P, mem, res>::vector(vector<P, mem, res> const &a) : size_{a.size_}
 {
-  // FIXME device impl.
   if constexpr (mem == mem_type::owner)
   {
-    data_      = new P[a.size()];
     ref_count_ = std::make_shared<int>(0);
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+
+    if constexpr (res == resource::host)
+    {
+      data_ = new P[a.size()];
+      std::memcpy(data_, a.data(), a.size() * sizeof(P));
+    }
+    else
+    {
+      allocate_device(data_, a.size());
+      copy_on_device(a.data(), data_, a.size());
+    }
   }
   else
   {
@@ -573,13 +685,19 @@ template<typename P, mem_type mem, resource res>
 fk::vector<P, mem, res> &fk::vector<P, mem, res>::
 operator=(vector<P, mem, res> const &a)
 {
-  // FIXME device impl.
   if (&a == this)
     return *this;
 
   assert(size() == a.size());
 
-  std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  if constexpr (res == resource::host)
+  {
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  }
+  else
+  {
+    copy_on_device(a.data(), data_, a.size());
+  }
 
   return *this;
 }
@@ -593,7 +711,6 @@ template<typename P, mem_type mem, resource res>
 fk::vector<P, mem, res>::vector(vector<P, mem, res> &&a)
     : data_{a.data_}, size_{a.size_}
 {
-  // FIXME device impl.
   if constexpr (mem == mem_type::owner)
   {
     assert(a.ref_count_.use_count() == 1);
@@ -611,7 +728,6 @@ template<typename P, mem_type mem, resource res>
 fk::vector<P, mem, res> &fk::vector<P, mem, res>::
 operator=(vector<P, mem, res> &&a)
 {
-  // FIXME device impl.
   if (&a == this)
     return *this;
 
@@ -670,31 +786,39 @@ operator=(vector<PP, omem> const &a)
 // transfer functions
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::host> const &)
+fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::host> const &a)
+    : size_{a.size()}, ref_count_{std::make_shared<int>(0)}
 {
-  // FIXME device impl.
+  allocate_device(data_, a.size());
+  copy_to_device(a.data(), data_, a.size());
 }
 
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
 fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(fk::vector<P, omem, resource::host> const &)
+operator=(fk::vector<P, omem, resource::host> const &a)
 {
-  // FIXME device impl.
+  assert(a.size() == size());
+  copy_to_device(a.data(), data_, a.size());
 }
 // to host
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::device> const &)
+fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::device> const &a)
+    : data_{new P[a.size()]()}, size_{a.size()}, ref_count_{
+                                                     std::make_shared<int>(0)}
+
 {
-  // FIXME device impl.
+  allocate_device(data_, a.size());
+  copy_to_host(a.data(), data_, a.size());
 }
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
 fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(vector<P, omem, resource::device> const &)
+operator=(vector<P, omem, resource::device> const &a)
 {
-  // FIXME device impl.
+  assert(a.size() == size());
+  copy_to_host(a.data(), data_, a.size());
 }
 
 //
