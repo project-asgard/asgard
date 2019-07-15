@@ -95,11 +95,18 @@ public:
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
   // device transfer construction/assignment
+  // to device
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = res, typename = enable_for_device<r_>>
   explicit vector(vector<P, omem, resource::host> const &);
   template<mem_type omem, resource r_ = res, typename = enable_for_device<r_>>
   vector<P, mem, res> &operator=(vector<P, omem, resource::host> const &);
+  // to host
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = res, typename = enable_for_host<r_>>
+  explicit vector(vector<P, omem, resource::device> const &);
+  template<mem_type omem, resource r_ = res, typename = enable_for_host<r_>>
+  vector<P, mem, res> &operator=(vector<P, omem, resource::device> const &);
 
   //
   // copy out of std::vector
@@ -260,11 +267,18 @@ public:
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
 
   // transfer constructor/assign
+  // to device
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = res, typename = enable_for_device<r_>>
   explicit matrix(matrix<P, omem, resource::host> const &);
   template<mem_type omem, resource r_ = res, typename = enable_for_device<r_>>
   matrix<P, mem, res> &operator=(matrix<P, omem, resource::host> const &);
+  // to host
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = res, typename = enable_for_host<r_>>
+  explicit matrix(matrix<P, omem, resource::device> const &);
+  template<mem_type omem, resource r_ = res, typename = enable_for_host<r_>>
+  matrix<P, mem, res> &operator=(matrix<P, omem, resource::device> const &);
 
   // move constructor/assign
   matrix(matrix<P, mem, res> &&);
@@ -651,6 +665,36 @@ operator=(vector<PP, omem> const &a)
   }
 
   return *this;
+}
+
+// transfer functions
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, mem_type, typename, resource, typename>
+fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::host> const &)
+{
+  // FIXME device impl.
+}
+
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, resource, typename>
+fk::vector<P, mem, res> &fk::vector<P, mem, res>::
+operator=(fk::vector<P, omem, resource::host> const &)
+{
+  // FIXME device impl.
+}
+// to host
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, mem_type, typename, resource, typename>
+fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::device> const &)
+{
+  // FIXME device impl.
+}
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, resource, typename>
+fk::vector<P, mem, res> &fk::vector<P, mem, res>::
+operator=(vector<P, omem, resource::device> const &)
+{
+  // FIXME device impl.
 }
 
 //
@@ -1238,6 +1282,36 @@ operator=(matrix<PP, omem> const &a)
       (*this)(i, j) = static_cast<P>(a(i, j));
     }
   return *this;
+}
+
+// transfer functions
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, mem_type, typename, resource, typename>
+fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, resource::host> const &)
+{
+  // FIXME device impl.
+}
+
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, resource, typename>
+fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
+operator=(fk::matrix<P, omem, resource::host> const &)
+{
+  // FIXME device impl.
+}
+// to host
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, mem_type, typename, resource, typename>
+fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, resource::device> const &)
+{
+  // FIXME device impl.
+}
+template<typename P, mem_type mem, resource res>
+template<mem_type omem, resource, typename>
+fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
+operator=(matrix<P, omem, resource::device> const &)
+{
+  // FIXME device impl.
 }
 
 //
