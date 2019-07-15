@@ -716,6 +716,27 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   }
 } // end fk::vector utilities
 
+TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
+                   int)
+{
+  fk::vector<TestType> const gold = {1, 3, 5, 7, 9};
+
+  SECTION("ctors")
+  {
+    // from init list
+    fk::vector<TestType, mem_type::owner, resource::device> const vect(
+        {1, 3, 5, 7, 9});
+    fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+    assert(copy == gold);
+  }
+
+  SECTION("copy and move");
+
+  SECTION("copy to/from device");
+
+  SECTION("views");
+}
+
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
                    double, float, int)
 {
@@ -2028,3 +2049,15 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   }
 
 } // end fk::matrix utilities
+
+TEMPLATE_TEST_CASE("fk::matrix device functions", "[tensors]", double, float,
+                   int)
+{
+  SECTION("ctors");
+
+  SECTION("copy and move");
+
+  SECTION("copy to/from device");
+
+  SECTION("views");
+}

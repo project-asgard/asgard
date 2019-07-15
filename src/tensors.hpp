@@ -7,6 +7,7 @@
 
 #include "lib_dispatch.hpp"
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -428,7 +429,6 @@ private:
                // elements in a row
   std::shared_ptr<int> ref_count_ = nullptr;
 };
-} // namespace fk
 
 // device allocation and transfer helpers
 // FIXME all the below need error checking or asserts...probably checking
@@ -437,7 +437,7 @@ template<typename P>
 static void allocate_device(P *&ptr, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-  cudaMalloc(ptr, num_elems * sizeof(P));
+  cudaMalloc((void **)&ptr, num_elems * sizeof(P));
 #else
   ptr = new P[num_elems]();
 #endif
@@ -453,9 +453,11 @@ static void delete_device(P *const ptr)
 }
 
 template<typename P>
-static void copy_on_device(P *const source, P *const dest, int const num_elems)
+static void
+copy_on_device(P const *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
+
   cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
 #else
   std::copy(source, source + num_elems, dest);
@@ -463,9 +465,11 @@ static void copy_on_device(P *const source, P *const dest, int const num_elems)
 }
 
 template<typename P>
-static void copy_to_device(P *const source, P *const dest, int const num_elems)
+static void
+copy_to_device(P const *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
+
   cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
 #else
   std::copy(source, source + num_elems, dest);
@@ -476,6 +480,7 @@ template<typename P>
 static void copy_to_host(P *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
+
   cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
 #else
   std::copy(source, source + num_elems, dest);
@@ -488,6 +493,7 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::host> const source,
                       P *const dest)
 {
 #ifdef ASGARD_BUILD_CUDA
+
   cudaMemcpy2D(dest, source.nrows(), source.data(), source.stride() * sizeof(P),
                source.nrows() * sizeof(P), source.ncols(),
                cudaMemcpyDeviceToDevice);
@@ -502,12 +508,15 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::device> const source,
                     P *const dest)
 {
 #ifdef ASGARD_BUILD_CUDA
+
   cublasGetMatrix(source.nrows(), source.ncols(), sizeof(P), source.data(),
                   source.stride(), dest, source.stride());
 #else
   std::copy(source.begin(), source.end(), dest);
 #endif
 }
+
+} // namespace fk
 
 //
 // This would otherwise be the start of the tensors.cpp, if we were still doing
@@ -2120,3 +2129,5 @@ private:
   int stride_;
   int rows_;
 };
+
+template class fk::vector<float, mem_type::owner, resource::device>;
