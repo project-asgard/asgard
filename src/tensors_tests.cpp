@@ -2590,5 +2590,42 @@ TEMPLATE_TEST_CASE("fk::matrix device functions", "[tensors]", double, float,
         assert(copy == gold_2);
       }
     }
+
+    // view copying - stride != num_rows
+    fk::matrix<TestType, mem_type::view, resource::host> const gold_view(
+        gold, 0, 0, 0, 4);
+    // host to device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(
+          mat, 0, 0, 0, 4);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+          mat_view);
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_d);
+      assert(mat_h == gold_view);
+    }
+
+    // device to device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(mat);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat_d, 0, 0, 0, 4);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat_d2(
+          mat_view);
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_d2);
+      assert(mat_h == gold_view);
+    }
+
+    // device to host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(mat);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat_d, 0, 0, 0, 4);
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          mat_view);
+      assert(mat_h == gold_view);
+    }
   }
 }
