@@ -102,13 +102,15 @@ public:
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
   // device transfer construction/assignment
-  // to device
-  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = res, typename = enable_for_device<r_>>
-  explicit vector(vector<P, omem, resource::host> const &);
-  template<mem_type omem, resource r_ = res, typename = enable_for_device<r_>>
-  vector<P, mem, res> &operator=(vector<P, omem, resource::host> const &);
-  // to host
+  // host to device / device to device
+  template<mem_type omem, resource ores, mem_type m_ = mem,
+           typename = enable_for_owner<m_>, resource r_ = res,
+           typename = enable_for_device<r_>>
+  explicit vector(vector<P, omem, ores> const &);
+  template<mem_type omem, resource ores, resource r_ = res,
+           typename = enable_for_device<r_>>
+  vector<P, mem, res> &operator=(vector<P, omem, ores> const &);
+  // device to host
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = res, typename = enable_for_host<r_>>
   explicit vector(vector<P, omem, resource::device> const &);
@@ -795,23 +797,38 @@ operator=(vector<PP, omem> const &a)
 
 // transfer functions
 template<typename P, mem_type mem, resource res>
-template<mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::host> const &a)
+template<mem_type omem, resource ores, mem_type, typename, resource, typename>
+fk::vector<P, mem, res>::vector(fk::vector<P, omem, ores> const &a)
     : size_{a.size()}, ref_count_{std::make_shared<int>(0)}
 {
   allocate_device(data_, a.size());
-  copy_to_device(a.data(), data_, a.size());
+  if constexpr (ores == resource::device)
+  {
+    copy_on_device(a.data(), data_, a.size());
+  }
+  else
+  {
+    copy_to_device(a.data(), data_, a.size());
+  }
 }
 
 template<typename P, mem_type mem, resource res>
-template<mem_type omem, resource, typename>
+template<mem_type omem, resource ores, resource, typename>
 fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(fk::vector<P, omem, resource::host> const &a)
+operator=(fk::vector<P, omem, ores> const &a)
 {
   assert(a.size() == size());
-  copy_to_device(a.data(), data_, a.size());
+  if constexpr (ores == resource::device)
+  {
+    copy_on_device(a.data(), data_, a.size());
+  }
+  else
+  {
+    copy_to_device(a.data(), data_, a.size());
+  }
   return *this;
 }
+
 // to host
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, mem_type, typename, resource, typename>

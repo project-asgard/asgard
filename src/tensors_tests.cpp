@@ -738,11 +738,19 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       assert(copy == gold);
     }
 
-    // transfer construction
+    // transfer construction - device to host
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
       fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
       assert(copy == gold);
+    }
+
+    // transfer construction - host to device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const copy(vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(copy);
+      assert(vect_h == gold);
     }
   }
 
@@ -819,9 +827,6 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       assert(vect_view == gold);
     }
 
-    // FIXME view device to owner host
-    // FIXME owner device to view host
-
     // owner device to owner device
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
@@ -841,6 +846,16 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       assert(vect_h == gold);
     }
 
+    // view device to owner host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
+      vect_h = vect_view;
+      assert(vect_h == gold);
+    }
+
     // view device to owner device
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
@@ -853,17 +868,81 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       assert(vect_h == gold);
     }
 
-    // FIXME view device to view device
+    // view device to view host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
+      fk::vector<TestType, mem_type::view, resource::host> vect_view_h(vect_h);
+      vect_view_h = vect_view;
+      assert(vect_view_h == gold);
+    }
+
+    // view device to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view_2(
+          vect_d);
+      vect_view_2 = vect_view;
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          vect_view_2);
+      assert(vect_h == gold);
+    }
 
     // owner host to owner device
-    {}
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect;
+      fk::vector<TestType> const vect_h(vect_d);
+      assert(vect_h == gold);
+    }
 
-    // FIXME owner host to view device
-    // FIXME view host to view device
-    // FIXME view host to owner device
+    // owner host to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect_d);
+      vect_view = vect;
+      fk::vector<TestType> const vect_h(vect_view);
+      assert(vect_h == gold);
+    }
+
+    // view host to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect_view;
+      fk::vector<TestType> const vect_h(vect_d);
+      assert(vect_h == gold);
+    }
+
+    // view host to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view_d(
+          vect_d);
+      vect_view_d = vect_view;
+      fk::vector<TestType> const vect_h(vect_view_d);
+      assert(vect_h == gold);
+    }
   }
 
-  SECTION("views");
+  SECTION("views")
+  {
+    // ref counting
+    {} // semantics
+    {}
+  }
 }
 
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
