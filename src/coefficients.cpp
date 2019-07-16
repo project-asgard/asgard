@@ -604,7 +604,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   //                 });
   //};
   // normalize(coefficients);
-  coefficients.print();
+  //coefficients.print();
   return coefficients;
 }
 // construct 1D coefficient matrix
