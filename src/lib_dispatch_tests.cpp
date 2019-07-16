@@ -302,12 +302,28 @@ TEMPLATE_TEST_CASE(
   }
   SECTION("lib_dispatch::copy - inc = 1")
   {
-    fk::vector<TestType> x_test(x);
+    fk::vector<TestType> const x_test(x);
     fk::vector<TestType> y_test(x.size());
     int n   = x.size();
     int inc = 1;
     lib_dispatch::copy(&n, x_test.data(), &inc, y_test.data(), &inc);
     REQUIRE(y_test == x);
+  }
+  SECTION("lib_dispatch::copy - inc = 1, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const x_test(x);
+      fk::vector<TestType, mem_type::owner, resource::device> y_test(x.size());
+      int n   = x.size();
+      int inc = 1;
+
+      lib_dispatch::copy(&n, x_test.data(), &inc, y_test.data(), &inc,
+                         resource::device);
+
+      fk::vector<TestType, mem_type::owner, resource::host> const y(y_test);
+      REQUIRE(y == x);
+    }
   }
   SECTION("lib_dispatch::copy - inc =/= 1")
   {
@@ -320,6 +336,25 @@ TEMPLATE_TEST_CASE(
     int incy = 3;
     lib_dispatch::copy(&n, x_test.data(), &incx, y_test.data(), &incy);
     REQUIRE(y_test == gold);
+  }
+
+  SECTION("lib_dispatch::copy - inc =/= 1, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType> x_test{1, 0, 2, 0, 3, 0, 4, 0, 5};
+      fk::vector<TestType, mem_type::owner, resource::device> const x_d(x_test);
+      fk::vector<TestType> const gold{1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5};
+      fk::vector<TestType, mem_type::owner, resource::device> y_d(gold.size());
+
+      int n    = x.size();
+      int incx = 2;
+      int incy = 3;
+      lib_dispatch::copy(&n, x_d.data(), &incx, y_d.data(), &incy,
+                         resource::device);
+      fk::vector<TestType> const y_h(y_d);
+      REQUIRE(y_h == gold);
+    }
   }
 }
 

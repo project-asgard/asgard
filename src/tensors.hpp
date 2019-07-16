@@ -440,6 +440,7 @@ static void allocate_device(P *&ptr, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
   cudaMalloc((void **)&ptr, num_elems * sizeof(P));
+  cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
 #else
   ptr = new P[num_elems]();
 #endif

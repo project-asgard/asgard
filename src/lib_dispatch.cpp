@@ -2,6 +2,23 @@
 #include <iostream>
 #include <type_traits>
 
+#ifdef ASGARD_BUILD_CUDA
+#include <cublas_v2.h>
+struct cublas_handler
+{
+  cublasHandle_t handle;
+  cublas_handler()
+  {
+    if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
+    {
+      std::cerr << "could not initialize cublas!" << std::endl;
+    }
+  }
+  ~cublas_handler() { cublasDestroy(handle); }
+};
+static cublas_handler cublas;
+#endif
+
 //
 // temporary. used to ignore compiler warnings until we implement
 // switching on res variable
@@ -13,7 +30,6 @@ namespace lib_dispatch
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
 {
-  ignore(res);
   assert(n);
   assert(x);
   assert(incx);
@@ -23,6 +39,30 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   assert(*incy >= 0);
   assert(*n >= 0);
 
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDcopy(cublas.handle, *n, x, *incx, y, *incy);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasScopy(cublas.handle, *n, x, *incx, y, *incy);
+      assert(success == 0);
+    }
+    else
+    {
+      std::cerr << "dispatch failed; no non-fp blas available on device"
+                << "\n";
+    }
+    return;
+#endif
+  }
+
+  // host execution
   if constexpr (std::is_same<P, double>::value)
   {
     dcopy_(n, x, incx, y, incy);
