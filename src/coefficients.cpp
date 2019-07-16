@@ -364,18 +364,18 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       block = legendre_prime_t * tmp * (-1);
     }
 
-    std::copy(quadrature_weights.begin(), quadrature_weights.end(),
-              std::ostream_iterator<P>(std::cout, " "));
-    std::cout << std::endl;
-    std::copy(data_real_quad.begin(), data_real_quad.end(),
-              std::ostream_iterator<P>(std::cout, " "));
-    std::cout << std::endl;
-    legendre_poly.print();
-    std::cout << jacobi << std::endl;
-    std::cout << std::endl;
+    // std::copy(quadrature_weights.begin(), quadrature_weights.end(),
+    //          std::ostream_iterator<P>(std::cout, " "));
+    // std::cout << std::endl;
+    // std::copy(data_real_quad.begin(), data_real_quad.end(),
+    //          std::ostream_iterator<P>(std::cout, " "));
+    // std::cout << std::endl;
+    // legendre_poly.print();
+    // std::cout << jacobi << std::endl;
+    // std::cout << std::endl;
 
-    tmp.print();
-    block.print();
+    // tmp.print();
+    // block.print();
 
     // set the block at the correct position
     fk::matrix<double> curr_block =
@@ -418,10 +418,10 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
 
-    trace_value_1.print();
-    trace_value_2.print();
-    trace_value_3.print();
-    trace_value_4.print();
+    // trace_value_1.print();
+    // trace_value_2.print();
+    // trace_value_3.print();
+    // trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -536,7 +536,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       }
     }
 
-    if (i != 0)
+    if (i != 0 || dim.left == boundary_condition::periodic ||
+        dim.right == boundary_condition::periodic)
     {
       // Add trace part 1
       fk::matrix<double, mem_type::view> block1(
@@ -556,7 +557,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
                                               col3 + dim.get_degree() - 1);
     block3 = block3 + trace_value_3;
 
-    if (i != N - 1)
+    if (i != N - 1 || dim.left == boundary_condition::periodic ||
+        dim.right == boundary_condition::periodic)
     {
       // Add trace part 4
       fk::matrix<double, mem_type::view> block4(
@@ -576,9 +578,9 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     //      coefficients);
     //}
 
-    std::cout << term_1D.get_flux_scale() << std::endl;
-    std::cout << i << std::endl;
-    coefficients.print();
+    // std::cout << term_1D.get_flux_scale() << std::endl;
+    // std::cout << i << std::endl;
+    // coefficients.print();
   }
 
   // transform matrix to wavelet space
@@ -593,15 +595,16 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
                       dim.get_level()),
       dim.get_degree(), dim.get_level());
 
-  // zero out near-zero values after conversion to wavelet space
-  double const threshold = 1e-10;
-  auto const normalize   = [threshold](fk::matrix<double> &matrix) {
-    std::transform(matrix.begin(), matrix.end(), matrix.begin(),
-                   [threshold](double &elem) {
-                     return std::abs(elem) < threshold ? 0.0 : elem;
-                   });
-  };
-  normalize(coefficients);
+  //// zero out near-zero values after conversion to wavelet space
+  // double const threshold = 1e-10;
+  // auto const normalize   = [threshold](fk::matrix<double> &matrix) {
+  //  std::transform(matrix.begin(), matrix.end(), matrix.begin(),
+  //                 [threshold](double &elem) {
+  //                   return std::abs(elem) < threshold ? 0.0 : elem;
+  //                 });
+  //};
+  // normalize(coefficients);
+  coefficients.print();
   return coefficients;
 }
 // construct 1D coefficient matrix
