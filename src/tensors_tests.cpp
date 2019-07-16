@@ -738,17 +738,38 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       assert(copy == gold);
     }
 
-    // transfer construction - device to host
+    // transfer construction - owner device to host
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
       fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
       assert(copy == gold);
     }
 
-    // transfer construction - host to device
+    // transfer construction - owner host to device
     {
       fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
       fk::vector<TestType, mem_type::owner, resource::device> const copy(vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(copy);
+      assert(vect_h == gold);
+    }
+
+    // transfer construction - view device to host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect_view);
+      assert(copy == gold);
+    }
+
+    // transfer construction - view host to device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> const copy(
+          vect_view);
       fk::vector<TestType, mem_type::owner, resource::host> const vect_h(copy);
       assert(vect_h == gold);
     }
@@ -765,6 +786,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           copy_d);
       assert(copy_h == gold);
     }
+
     // move owner
     {
       fk::vector<TestType, mem_type::owner, resource::device> vect(gold);
@@ -789,6 +811,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           view_copy_d);
       assert(copy_h == gold);
     }
+
     // move view
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
@@ -939,9 +962,41 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
   SECTION("views")
   {
-    // ref counting
-    {} // semantics
-    {}
+    // ref counting on device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      assert(vect.get_num_views() == 0);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      assert(vect.get_num_views() == 1);
+      {
+        fk::vector<TestType, mem_type::view, resource::device> const
+            vect_view_2(vect);
+        assert(vect.get_num_views() == 2);
+        fk::vector<TestType, mem_type::view, resource::device> const
+            vect_view_3(vect_view);
+        assert(vect.get_num_views() == 3);
+      }
+      assert(vect.get_num_views() == 1);
+    }
+
+    // view semantics on device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
+      {
+        fk::vector<TestType, mem_type::owner, resource::host> const copy(
+            vect_view);
+        assert(copy == gold);
+      }
+      fk::vector<TestType, mem_type::owner, resource::host> const gold_2(
+          {1, 2, 3, 4, 5});
+      vect_view = gold_2;
+      {
+        fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+        assert(copy == gold_2);
+      }
+    }
   }
 }
 
