@@ -276,12 +276,14 @@ public:
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
 
   // transfer constructor/assign
-  // to device
-  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = res, typename = enable_for_device<r_>>
-  explicit matrix(matrix<P, omem, resource::host> const &);
-  template<mem_type omem, resource r_ = res, typename = enable_for_device<r_>>
-  matrix<P, mem, res> &operator=(matrix<P, omem, resource::host> const &);
+  // host to device / device to device
+  template<mem_type omem, resource ores, mem_type m_ = mem,
+           typename = enable_for_owner<m_>, resource r_ = res,
+           typename = enable_for_device<r_>>
+  explicit matrix(matrix<P, omem, ores> const &);
+  template<mem_type omem, resource ores, resource r_ = res,
+           typename = enable_for_device<r_>>
+  matrix<P, mem, res> &operator=(matrix<P, omem, ores> const &);
   // to host
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = res, typename = enable_for_host<r_>>
@@ -1448,23 +1450,37 @@ operator=(matrix<PP, omem> const &a)
 
 // transfer functions
 template<typename P, mem_type mem, resource res>
-template<mem_type omem, mem_type, typename, resource, typename>
-fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, resource::host> const &a)
+template<mem_type omem, resource ores, mem_type, typename, resource, typename>
+fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, ores> const &a)
     : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
       ref_count_{std::make_shared<int>(0)}
 {
   allocate_device(data_, a.size());
-  copy_matrix_to_device(a, data_);
+  if constexpr (ores == resource::host)
+  {
+    copy_matrix_to_device(a, data_);
+  }
+  else
+  {
+    copy_matrix_on_device(a, data_);
+  }
 }
 
 template<typename P, mem_type mem, resource res>
-template<mem_type omem, resource, typename>
+template<mem_type omem, resource ores, resource, typename>
 fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
-operator=(fk::matrix<P, omem, resource::host> const &a)
+operator=(fk::matrix<P, omem, ores> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
-  copy_matrix_to_device(a, data_);
+  if constexpr (ores == resource::host)
+  {
+    copy_matrix_to_device(a, data_);
+  }
+  else
+  {
+    copy_matrix_on_device(a, data_);
+  }
   return *this;
 }
 // to host
