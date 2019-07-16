@@ -1,7 +1,6 @@
 #pragma once
 
 #ifdef ASGARD_BUILD_CUDA
-#include <cublas_v2.h>
 #include <cuda_runtime_api.h>
 #endif
 
@@ -436,7 +435,6 @@ private:
 
 // device allocation and transfer helpers
 // FIXME all the below need error checking or asserts...probably checking
-
 template<typename P>
 static void allocate_device(P *&ptr, int const num_elems)
 {
@@ -461,7 +459,6 @@ static void
 copy_on_device(P const *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-
   cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
 #else
   std::copy(source, source + num_elems, dest);
@@ -492,14 +489,13 @@ static void copy_to_host(P *const source, P *const dest, int const num_elems)
 
 template<typename P, mem_type mem>
 static void
-copy_matrix_on_device(fk::matrix<P, mem, resource::host> const source,
+copy_matrix_on_device(fk::matrix<P, mem, resource::device> const &source,
                       P *const dest)
 {
 #ifdef ASGARD_BUILD_CUDA
-
-  cudaMemcpy2D(dest, source.nrows(), source.data(), source.stride() * sizeof(P),
-               source.nrows() * sizeof(P), source.ncols(),
-               cudaMemcpyDeviceToDevice);
+  cudaMemcpy2D(dest, source.nrows() * sizeof(P), source.data(),
+               source.stride() * sizeof(P), source.nrows() * sizeof(P),
+               source.ncols(), cudaMemcpyDeviceToDevice);
 #else
   std::copy(source.begin(), source.end(), dest);
 #endif
@@ -507,13 +503,28 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::host> const source,
 
 template<typename P, mem_type mem>
 static void
-copy_matrix_to_host(fk::matrix<P, mem, resource::device> const source,
+copy_matrix_to_device(fk::matrix<P, mem, resource::host> const &source,
+                      P *const dest)
+{
+#ifdef ASGARD_BUILD_CUDA
+  cudaMemcpy2D(dest, source.nrows() * sizeof(P), source.data(),
+               source.stride() * sizeof(P), source.nrows() * sizeof(P),
+               source.ncols(), cudaMemcpyHostToDevice);
+#else
+  std::copy(source.begin(), source.end(), dest);
+#endif
+}
+
+template<typename P, mem_type mem>
+static void
+copy_matrix_to_host(fk::matrix<P, mem, resource::device> const &source,
                     P *const dest)
 {
 #ifdef ASGARD_BUILD_CUDA
+  cudaMemcpy2D(dest, source.nrows() * sizeof(P), source.data(),
+               source.stride() * sizeof(P), source.nrows() * sizeof(P),
+               source.ncols(), cudaMemcpyDeviceToHost);
 
-  cublasGetMatrix(source.nrows(), source.ncols(), sizeof(P), source.data(),
-                  source.stride(), dest, source.stride());
 #else
   std::copy(source.begin(), source.end(), dest);
 #endif
@@ -1256,6 +1267,7 @@ fk::matrix<P, mem, res>::matrix(
   else
   {
     fk::matrix<P, mem, resource::host> const wrap(llist);
+    allocate_device(data_, llist.size() * llist.begin()->size());
     copy_matrix_to_device(wrap, data_);
   }
 }

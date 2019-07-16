@@ -2316,11 +2316,279 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
 TEMPLATE_TEST_CASE("fk::matrix device functions", "[tensors]", double, float,
                    int)
 {
-  SECTION("ctors");
+  // clang-format off
+  fk::matrix<TestType> const gold = {{ 1,  3,  5,  7,  9},
+  				     {11, 13, 15, 17, 19}};
+  // clang-format on
 
-  SECTION("copy and move");
+  SECTION("ctors")
+  {
+    // from init list
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          {{1, 3, 5, 7, 9}, {11, 13, 15, 17, 19}});
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      assert(copy == gold);
+    }
+    // from size w/ copy assignment to device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> mat(2, 5);
+      mat = gold;
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      assert(copy == gold);
+    }
 
-  SECTION("copy to/from device");
+    // transfer construction - owner device to host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      assert(copy == gold);
+    }
 
-  SECTION("views");
+    // transfer construction - owner host to device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy(mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(copy);
+      assert(mat_h == gold);
+    }
+
+    // transfer construction - view device to host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat_view);
+      assert(copy == gold);
+    }
+
+    // transfer construction - view host to device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy(
+          mat_view);
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(copy);
+      assert(mat_h == gold);
+    }
+  }
+
+  SECTION("copy and move")
+  {
+    // copy owner
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy_d(mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy_h(
+          copy_d);
+      assert(copy_h == gold);
+    }
+
+    // move owner
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const moved_d(
+          std::move(mat));
+      assert(mat.data() == nullptr);
+      assert(mat.size() == 0);
+      fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
+          moved_d);
+      assert(moved_h == gold);
+    }
+
+    // copy view
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> const view_d(mat);
+      assert(mat.get_num_views() == 1);
+      fk::matrix<TestType, mem_type::view, resource::device> const view_copy_d(
+          view_d);
+      assert(mat.get_num_views() == 2);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy_h(
+          view_copy_d);
+      assert(copy_h == gold);
+    }
+
+    // move view
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+
+      fk::matrix<TestType, mem_type::view, resource::device> view_d(mat);
+      assert(mat.get_num_views() == 1);
+
+      fk::matrix<TestType, mem_type::view, resource::device> const view_moved_d(
+          std::move(view_d));
+      assert(view_d.data() == nullptr);
+      assert(view_d.size() == 0);
+      assert(mat.get_num_views() == 1);
+
+      fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
+          view_moved_d);
+      assert(moved_h == gold);
+    }
+  }
+
+  SECTION("transfer assignment")
+  {
+    // owner device to owner host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType> mat_h(2, 5);
+      mat_h = mat;
+      assert(mat_h == gold);
+    }
+
+    // owner device to view host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType> mat_h(2, 5);
+      fk::matrix<TestType, mem_type::view> mat_view(mat_h);
+      mat_view = mat;
+      assert(mat_view == gold);
+    }
+
+    // owner device to owner device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d = mat;
+      fk::matrix<TestType> const mat_h(mat_d);
+      assert(mat_h == gold);
+    }
+
+    // owner device to view device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat_d);
+      mat_view = mat;
+      fk::matrix<TestType, mem_type::owner> const mat_h(mat_view);
+      assert(mat_h == gold);
+    }
+
+    // view device to owner host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> mat_h(2, 5);
+      mat_h = mat_view;
+      assert(mat_h == gold);
+    }
+
+    // view device to owner device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d = mat_view;
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_d);
+      assert(mat_h == gold);
+    }
+
+    // view device to view host
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> mat_h(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::host> mat_view_h(mat_h);
+      mat_view_h = mat_view;
+      assert(mat_view_h == gold);
+    }
+
+    // view device to view device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view_2(mat_d);
+      mat_view_2 = mat_view;
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          mat_view_2);
+      assert(mat_h == gold);
+    }
+
+    // owner host to owner device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d = mat;
+      fk::matrix<TestType> const mat_h(mat_d);
+      assert(mat_h == gold);
+    }
+
+    // owner host to view device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat_d);
+      mat_view = mat;
+      fk::matrix<TestType> const mat_h(mat_view);
+      assert(mat_h == gold);
+    }
+
+    // view host to owner device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d = mat_view;
+      fk::matrix<TestType> const mat_h(mat_d);
+      assert(mat_h == gold);
+    }
+
+    // view host to view device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view_d(mat_d);
+      mat_view_d = mat_view;
+      fk::matrix<TestType> const mat_h(mat_view_d);
+      assert(mat_h == gold);
+    }
+  }
+
+  SECTION("views")
+  {
+    // ref counting on device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      assert(mat.get_num_views() == 0);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      assert(mat.get_num_views() == 1);
+      {
+        fk::matrix<TestType, mem_type::view, resource::device> const mat_view_2(
+            mat);
+        assert(mat.get_num_views() == 2);
+        fk::matrix<TestType, mem_type::view, resource::device> const mat_view_3(
+            mat_view);
+        assert(mat.get_num_views() == 3);
+      }
+      assert(mat.get_num_views() == 1);
+    }
+
+    // view semantics on device
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat);
+      {
+        fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+            mat_view);
+        assert(copy == gold);
+      }
+      fk::matrix<TestType, mem_type::owner, resource::host> const gold_2(
+          {{1, 2, 3, 4, 5}, {11, 12, 13, 14, 15}});
+      mat_view = gold_2;
+      {
+        fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+        assert(copy == gold_2);
+      }
+    }
+  }
 }
