@@ -3,8 +3,9 @@
 #include <type_traits>
 
 #ifdef ASGARD_BUILD_CUDA
-#include "cusolverDn.h"
 #include <cublas_v2.h>
+#include <cuda_runtime_api.h>
+#include <cusolverDn.h>
 
 struct device_handler
 {
@@ -34,7 +35,7 @@ struct device_handler
     cusolverDnDestroy(solve_handle);
   }
 };
-static device_handler cublas;
+static device_handler device;
 
 inline cublasOperation_t cublas_trans(char trans)
 {
@@ -81,12 +82,12 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDcopy(cublas.handle, *n, x, *incx, y, *incy);
+      auto const success = cublasDcopy(device.handle, *n, x, *incx, y, *incy);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasScopy(cublas.handle, *n, x, *incx, y, *incy);
+      auto const success = cublasScopy(device.handle, *n, x, *incx, y, *incy);
       assert(success == 0);
     }
     return;
@@ -135,13 +136,13 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDdot(cublas.handle, *n, x, *incx, y, *incy, &result);
+          cublasDdot(device.handle, *n, x, *incx, y, *incy, &result);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSdot(cublas.handle, *n, x, *incx, y, *incy, &result);
+          cublasSdot(device.handle, *n, x, *incx, y, *incy, &result);
       assert(success == 0);
     }
     return result;
@@ -192,13 +193,13 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDaxpy(cublas.handle, *n, alpha, x, *incx, y, *incy);
+          cublasDaxpy(device.handle, *n, alpha, x, *incx, y, *incy);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSaxpy(cublas.handle, *n, alpha, x, *incx, y, *incy);
+          cublasSaxpy(device.handle, *n, alpha, x, *incx, y, *incy);
       assert(success == 0);
     }
     return;
@@ -242,12 +243,12 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const res)
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDscal(cublas.handle, *n, alpha, x, *incx);
+      auto const success = cublasDscal(device.handle, *n, alpha, x, *incx);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSscal(cublas.handle, *n, alpha, x, *incx);
+      auto const success = cublasSscal(device.handle, *n, alpha, x, *incx);
       assert(success == 0);
     }
     return;
@@ -359,14 +360,14 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDgemv(cublas.handle, cublas_trans(*trans), *m, *n, alpha, A,
+          cublasDgemv(device.handle, cublas_trans(*trans), *m, *n, alpha, A,
                       *lda, x, *incx, beta, y, *incy);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSgemv(cublas.handle, cublas_trans(*trans), *m, *n, alpha, A,
+          cublasSgemv(device.handle, cublas_trans(*trans), *m, *n, alpha, A,
                       *lda, x, *incx, beta, y, *incy);
       assert(success == 0);
     }
@@ -426,14 +427,14 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemm(cublas.handle, cublas_trans(*transa),
+      auto const success = cublasDgemm(device.handle, cublas_trans(*transa),
                                        cublas_trans(*transb), *m, *n, *k, alpha,
                                        A, *lda, B, *ldb, beta, C, *ldc);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemm(cublas.handle, cublas_trans(*transa),
+      auto const success = cublasSgemm(device.handle, cublas_trans(*transa),
                                        cublas_trans(*transb), *m, *n, *k, alpha,
                                        A, *lda, B, *ldb, beta, C, *ldc);
       assert(success == 0);
@@ -463,7 +464,6 @@ template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
            resource const res)
 {
-  ignore(res);
   assert(m);
   assert(n);
   assert(A);
@@ -473,6 +473,53 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   assert(*lda >= 0);
   assert(*m >= 0);
   assert(*n >= 0);
+
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    P *workspace;
+    int workspace_size;
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto status = cusolverDnDgetrf_bufferSize(device.solve_handle, *m, *n, A,
+                                                *lda, &workspace_size);
+      assert(status == 0);
+
+      auto cuda_stat =
+          cudaMalloc((void **)&workspace, sizeof(P) * workspace_size);
+      assert(cuda_stat == 0);
+
+      status = cusolverDnDgetrf(device.solve_handle, *m, *n, A, *lda, workspace,
+                                ipiv, info);
+      cuda_stat = cudaDeviceSynchronize();
+      assert(cuda_stat == 0);
+      assert(status == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto status = cusolverDnSgetrf_bufferSize(device.solve_handle, *m, *n, A,
+                                                *lda, &workspace_size);
+      assert(status == 0);
+
+      auto cuda_stat =
+          cudaMalloc((void **)&workspace, sizeof(P) * workspace_size);
+      assert(cuda_stat == 0);
+
+      status = cusolverDnSgetrf(device.solve_handle, *m, *n, A, *lda, workspace,
+                                ipiv, info);
+      cuda_stat = cudaDeviceSynchronize();
+      assert(cuda_stat == 0);
+      assert(status == 0);
+    }
+    return;
+#endif
+  }
 
   if constexpr (std::is_same<P, double>::value)
   {
