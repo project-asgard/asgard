@@ -171,7 +171,7 @@ bool batch<P>::clear_entry(int const position)
 // provide a direct access to P**
 // from batch_, but avoid for now
 template<typename P>
-P *const *batch<P>::get_list() const
+P** batch<P>::get_list() const
 {
   return batch_;
 }
@@ -209,7 +209,7 @@ batch<P> &batch<P>::clear_all()
 // for calling cpu/gpu blas etc.
 template<typename P>
 void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta)
+                  P const alpha, P const beta, resource res)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -237,31 +237,31 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   assert(c.ncols() == cols_b);
 
   // setup blas args
-  int m = rows_a;
-  int n = cols_b; // technically these should be of op(A) or (B), but our dims
-                  // are the same when transposing
-  int k                  = cols_a;
-  int lda                = a.get_stride();
-  int ldb                = b.get_stride();
-  int ldc                = c.get_stride();
-  char const transpose_a = a.get_trans() ? 't' : 'n';
-  char const transpose_b = b.get_trans() ? 't' : 'n';
-  P alpha_               = alpha;
-  P beta_                = beta;
+  int  m = rows_a;
+  int  n = cols_b; // technically these should be of op(A) or (B), but our
+                        // dims are the same when transposing
+  int  k            = cols_a;
+  int  lda          = a.get_stride();
+  int  ldb          = b.get_stride();
+  int  ldc          = c.get_stride();
+  char const trans_a = a.get_trans() ? 't' : 'n';
+  char const trans_b = b.get_trans() ? 't' : 'n';
 
-  for (int i = 0; i < num_entries; ++i)
-  {
-    if (a(i) && b(i) && c(i))
-      lib_dispatch::gemm(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i),
-                         &lda, b(i), &ldb, &beta_, c(i), &ldc);
-  }
+  P alpha_ = alpha;
+  P beta_ = beta;
+
+  int num_batch = num_entries;
+
+  lib_dispatch::batched_gemm(a.get_list(), &lda, &trans_a, b.get_list(), &ldb,
+                             &trans_b, c.get_list(), &ldc, &m, &n, &k, &alpha_,
+                             &beta_, &num_batch, res);
 }
 
 // execute a batched gemv given a, b, c batch lists
 // and other blas information
 template<typename P>
 void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta)
+                  P const alpha, P const beta, resource res)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -686,18 +686,18 @@ template class batch<double>;
 
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
-                           float const beta);
+                           float const beta, resource res);
 
 template void batched_gemm(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
-                           double const beta);
+                           double const beta, resource res);
 
 template void batched_gemv(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
-                           float const beta);
+                           float const beta, resource res);
 template void batched_gemv(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
-                           double const beta);
+                           double const beta, resource res);
 
 template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);

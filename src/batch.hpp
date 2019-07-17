@@ -27,7 +27,7 @@ public:
   void assign_entry(fk::matrix<P, mem_type::view> const a, int const position);
   bool clear_entry(int const position);
 
-  P *const *get_list() const;
+  P ** get_list() const;
 
   bool is_filled() const;
   batch &clear_all();
@@ -64,12 +64,12 @@ private:
 // execute a batched gemm given a, b, c batch lists
 template<typename P>
 void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta);
+                  P const alpha, P const beta, resource res = resource::host);
 
 // execute a batched gemv given a, b, c batch lists
 template<typename P>
 void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta);
+                  P const alpha, P const beta, resource res = resource::host);
 
 // this could be named better
 struct matrix_size_set
@@ -132,18 +132,20 @@ extern template class batch<double>;
 
 extern template void batched_gemm(batch<float> const &a, batch<float> const &b,
                                   batch<float> const &c, float const alpha,
-                                  float const beta);
+                                  float const beta, resource res);
 
-extern template void
-batched_gemm(batch<double> const &a, batch<double> const &b,
-             batch<double> const &c, double const alpha, double const beta);
+extern template void batched_gemm(batch<double> const &a,
+                                  batch<double> const &b,
+                                  batch<double> const &c, double const alpha,
+                                  double const beta, resource res);
 
 extern template void batched_gemv(batch<float> const &a, batch<float> const &b,
                                   batch<float> const &c, float const alpha,
-                                  float const beta);
-extern template void
-batched_gemv(batch<double> const &a, batch<double> const &b,
-             batch<double> const &c, double const alpha, double const beta);
+                                  float const beta, resource res);
+extern template void batched_gemv(batch<double> const &a,
+                                  batch<double> const &b,
+                                  batch<double> const &c, double const alpha,
+                                  double const beta, resource res);
 
 extern template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);
