@@ -401,6 +401,9 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     auto FCL = term_1D.g_func(xL, time);
     auto FCR = term_1D.g_func(xR, time);
 
+    std::cout<<"FCL: "<<FCL<<std::endl;
+    std::cout<<"FCR: "<<FCR<<std::endl;
+
     auto trace_value_1 =
         (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
         (legendre_poly_L_t * legendre_poly_R) *
@@ -418,10 +421,10 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
 
-    // trace_value_1.print();
-    // trace_value_2.print();
-    // trace_value_3.print();
-    // trace_value_4.print();
+    trace_value_1.print();
+    trace_value_2.print();
+    trace_value_3.print();
+    trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -578,10 +581,11 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     //      coefficients);
     //}
 
-    // std::cout << term_1D.get_flux_scale() << std::endl;
-    // std::cout << i << std::endl;
-    // coefficients.print();
+    std::cout << term_1D.get_flux_scale() << std::endl;
+    std::cout << i << std::endl;
+    coefficients.print();
   }
+  coefficients.print();
 
   // transform matrix to wavelet space
   // FIXME does stiffness not need this transform?
@@ -604,7 +608,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   //                 });
   //};
   // normalize(coefficients);
-  //coefficients.print();
+  coefficients.print();
   return coefficients;
 }
 // construct 1D coefficient matrix
