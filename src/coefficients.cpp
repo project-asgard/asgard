@@ -401,6 +401,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     auto FCL = term_1D.g_func(xL, time);
     auto FCR = term_1D.g_func(xR, time);
 
+    std::cout<<term_1D.name<<std::endl;
     std::cout<<"FCL: "<<FCL<<std::endl;
     std::cout<<"FCR: "<<FCR<<std::endl;
 
@@ -421,10 +422,10 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
 
-    trace_value_1.print();
-    trace_value_2.print();
-    trace_value_3.print();
-    trace_value_4.print();
+    //trace_value_1.print();
+    //trace_value_2.print();
+    //trace_value_3.print();
+    //trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -581,9 +582,9 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     //      coefficients);
     //}
 
-    std::cout << term_1D.get_flux_scale() << std::endl;
-    std::cout << i << std::endl;
-    coefficients.print();
+    //std::cout << term_1D.get_flux_scale() << std::endl;
+    //std::cout << i << std::endl;
+    //coefficients.print();
   }
   coefficients.print();
 
