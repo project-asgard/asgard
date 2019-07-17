@@ -434,13 +434,14 @@ private:
 };
 
 // device allocation and transfer helpers
-// FIXME all the below need error checking or asserts...probably checking
 template<typename P>
 static void allocate_device(P *&ptr, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-  cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
+  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
+  assert(success == 0);
+  success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
+  assert(success == 0);
 #else
   ptr = new P[num_elems]();
 #endif
@@ -460,7 +461,9 @@ static void
 copy_on_device(P const *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
+  assert(success == 0);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -471,7 +474,9 @@ static void
 copy_to_device(P const *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
+  assert(success == 0);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -481,8 +486,9 @@ template<typename P>
 static void copy_to_host(P *const source, P *const dest, int const num_elems)
 {
 #ifdef ASGARD_BUILD_CUDA
-
-  cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
+  assert(success == 0);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -497,9 +503,11 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> const &source,
   assert(source.ncols() == dest.ncols());
 
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
-               source.stride() * sizeof(P), source.nrows() * sizeof(P),
-               source.ncols(), cudaMemcpyDeviceToDevice);
+  auto const success =
+      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                   source.ncols(), cudaMemcpyDeviceToDevice);
+  assert(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
 #endif
@@ -513,9 +521,11 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::host> const &source,
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
-               source.stride() * sizeof(P), source.nrows() * sizeof(P),
-               source.ncols(), cudaMemcpyHostToDevice);
+  auto const success =
+      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                   source.ncols(), cudaMemcpyHostToDevice);
+  assert(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
 #endif
@@ -529,10 +539,11 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::device> const &source,
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
-               source.stride() * sizeof(P), source.nrows() * sizeof(P),
-               source.ncols(), cudaMemcpyDeviceToHost);
-
+  auto const success =
+      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                   source.ncols(), cudaMemcpyDeviceToHost);
+  assert(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
 #endif

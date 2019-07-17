@@ -469,18 +469,24 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
     assert(*m == *n);
     ignore(m);
 
+    P **A_d;
+    auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
+    assert(stat == 0);
+    stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
+    assert(stat == 0);
+
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDgetrfBatched(device.handle, *n, &A, *lda, ipiv, info, 1);
-      assert(success);
+          cublasDgetrfBatched(device.handle, *n, A_d, *lda, ipiv, info, 1);
+      assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSgetrfBatched(device.handle, *n, &A, *lda, ipiv, info, 1);
-      assert(success);
+          cublasSgetrfBatched(device.handle, *n, A_d, *lda, ipiv, info, 1);
+      assert(success == 0);
     }
     return;
 #endif
@@ -526,18 +532,30 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     assert(*lwork == (*n) * (*n));
     ignore(lwork);
 
+    P **A_d;
+    P **work_d;
+    auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
+    assert(stat == 0);
+    stat = cudaMalloc((void **)&work_d, sizeof(P *));
+    assert(stat == 0);
+
+    stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
+    assert(stat == 0);
+    stat = cudaMemcpy(work_d, &work, sizeof(P *), cudaMemcpyHostToDevice);
+    assert(stat == 0);
+
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetriBatched(device.handle, *n, &A, *lda,
-                                               ipiv, &work, *n, info, 1);
-      assert(success);
+      auto const success = cublasDgetriBatched(device.handle, *n, A_d, *lda,
+                                               nullptr, work_d, *n, info, 1);
+      assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetriBatched(device.handle, *n, &A, *lda,
-                                               ipiv, &work, *n, info, 1);
-      assert(success);
+      auto const success = cublasSgetriBatched(device.handle, *n, A_d, *lda,
+                                               nullptr, work_d, *n, info, 1);
+      assert(success == 0);
     }
     return;
 #endif

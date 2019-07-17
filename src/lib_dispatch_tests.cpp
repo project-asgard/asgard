@@ -773,3 +773,45 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
     }
   }
 }
+
+TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
+                   "[lib_dispatch]", float, double)
+{
+  // (square slices of) our golden matrix is singular, so here's a
+  // well conditioned one
+  fk::matrix<TestType> const test{{0.767135868133925, -0.641484652834663},
+                                  {0.641484652834663, 0.767135868133926}};
+
+  fk::matrix<TestType, mem_type::owner, resource::device> test_d(test);
+  fk::vector<int, mem_type::owner, resource::device> ipiv_d(test_d.nrows());
+  fk::vector<int, mem_type::owner, resource::device> info_d(10);
+
+  int m   = test.nrows();
+  int n   = test.ncols();
+  int lda = test.stride();
+
+  lib_dispatch::getrf(&m, &n, test_d.data(), &lda, ipiv_d.data(), info_d.data(),
+                      resource::device);
+
+  auto stat = cudaDeviceSynchronize();
+  REQUIRE(stat == 0);
+  fk::vector<int> const info_check(info_d);
+  REQUIRE(info_check(0) == 0);
+
+  m = test.nrows();
+  n = test.ncols();
+  fk::matrix<TestType, mem_type::owner, resource::device> work(2, 2);
+  int size = m * n;
+  lib_dispatch::getri(&n, test_d.data(), &lda, ipiv_d.data(), work.data(),
+                      &size, info_d.data(), resource::device);
+
+  stat = cudaDeviceSynchronize();
+  REQUIRE(stat == 0);
+  fk::vector<int> const info_check_2(info_d);
+  REQUIRE(info_check_2(0) == 0);
+
+  fk::matrix<TestType> const test_copy(work);
+
+  // A * inv(A) == I
+  REQUIRE((test * test_copy) == eye<TestType>(2));
+}
