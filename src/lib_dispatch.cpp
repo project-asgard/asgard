@@ -5,12 +5,11 @@
 #ifdef ASGARD_BUILD_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime_api.h>
-#include <cusolverDn.h>
 
 struct device_handler
 {
   cublasHandle_t handle;
-  cusolverDnHandle_t solve_handle;
+
   device_handler()
   {
     auto success = cublasCreate(&handle);
@@ -18,22 +17,8 @@ struct device_handler
 
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
     assert(success == 0);
-
-    cudaStream_t stream;
-    success = cublasGetStream(handle, &stream);
-    assert(success == 0);
-
-    auto solve_success = cusolverDnCreate(&solve_handle);
-    assert(solve_success == 0);
-
-    solve_success = cusolverDnSetStream(solve_handle, stream);
-    assert(solve_success == 0);
   }
-  ~device_handler()
-  {
-    cublasDestroy(handle);
-    cusolverDnDestroy(solve_handle);
-  }
+  ~device_handler() { cublasDestroy(handle); }
 };
 static device_handler device;
 
@@ -481,41 +466,21 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
 
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
+    assert(*m == *n);
+    ignore(m);
 
-    P *workspace;
-    int workspace_size;
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto status = cusolverDnDgetrf_bufferSize(device.solve_handle, *m, *n, A,
-                                                *lda, &workspace_size);
-      assert(status == 0);
-
-      auto cuda_stat =
-          cudaMalloc((void **)&workspace, sizeof(P) * workspace_size);
-      assert(cuda_stat == 0);
-
-      status = cusolverDnDgetrf(device.solve_handle, *m, *n, A, *lda, workspace,
-                                ipiv, info);
-      cuda_stat = cudaDeviceSynchronize();
-      assert(cuda_stat == 0);
-      assert(status == 0);
+      auto const success =
+          cublasDgetrfBatched(device.handle, *n, &A, *lda, ipiv, info, 1);
+      assert(success);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto status = cusolverDnSgetrf_bufferSize(device.solve_handle, *m, *n, A,
-                                                *lda, &workspace_size);
-      assert(status == 0);
-
-      auto cuda_stat =
-          cudaMalloc((void **)&workspace, sizeof(P) * workspace_size);
-      assert(cuda_stat == 0);
-
-      status = cusolverDnSgetrf(device.solve_handle, *m, *n, A, *lda, workspace,
-                                ipiv, info);
-      cuda_stat = cudaDeviceSynchronize();
-      assert(cuda_stat == 0);
-      assert(status == 0);
+      auto const success =
+          cublasSgetrfBatched(device.handle, *n, &A, *lda, ipiv, info, 1);
+      assert(success);
     }
     return;
 #endif
@@ -540,7 +505,6 @@ template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            resource const res)
 {
-  ignore(res);
   assert(n);
   assert(A);
   assert(lda);
@@ -551,6 +515,33 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   assert(*lda >= 0);
   assert(*n >= 0);
 
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    assert(*lwork == (*n) * (*n));
+    ignore(lwork);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDgetriBatched(device.handle, *n, &A, *lda,
+                                               ipiv, &work, *n, info, 1);
+      assert(success);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasSgetriBatched(device.handle, *n, &A, *lda,
+                                               ipiv, &work, *n, info, 1);
+      assert(success);
+    }
+    return;
+#endif
+  }
   if constexpr (std::is_same<P, double>::value)
   {
     dgetri_(n, A, lda, ipiv, work, lwork, info);

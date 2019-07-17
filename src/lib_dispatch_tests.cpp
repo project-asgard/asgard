@@ -290,6 +290,22 @@ TEMPLATE_TEST_CASE(
     lib_dispatch::scal(&n, &alpha, test.data(), &incx);
     REQUIRE(test == x_tripled);
   }
+
+  SECTION("lib_dispatch::scal - inc = 1, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> test(x);
+      int n          = x.size();
+      TestType alpha = scale;
+      int incx       = 1;
+
+      lib_dispatch::scal(&n, &alpha, test.data(), &incx, resource::device);
+
+      fk::vector<TestType, mem_type::owner, resource::host> const test_h(test);
+      REQUIRE(test_h == x_tripled);
+    }
+  }
   SECTION("lib_dispatch::scal - incx =/= 1")
   {
     fk::vector<TestType> test{1, 0, 2, 0, 3, 0, 4, 0, 5};
