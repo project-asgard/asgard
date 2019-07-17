@@ -488,46 +488,53 @@ static void copy_to_host(P *const source, P *const dest, int const num_elems)
 #endif
 }
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, mem_type omem>
 static void
 copy_matrix_on_device(fk::matrix<P, mem, resource::device> const &source,
-                      P *const dest)
+                      fk::matrix<P, omem, resource::device> &dest)
 {
+  assert(source.nrows() == dest.nrows());
+  assert(source.ncols() == dest.ncols());
+
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy2D(dest, source.nrows() * sizeof(P), source.data(),
+  cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                source.stride() * sizeof(P), source.nrows() * sizeof(P),
                source.ncols(), cudaMemcpyDeviceToDevice);
 #else
-  std::copy(source.begin(), source.end(), dest);
+  std::copy(source.begin(), source.end(), dest.begin());
 #endif
 }
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, mem_type omem>
 static void
 copy_matrix_to_device(fk::matrix<P, mem, resource::host> const &source,
-                      P *const dest)
+                      fk::matrix<P, omem, resource::device> &dest)
 {
+  assert(source.nrows() == dest.nrows());
+  assert(source.ncols() == dest.ncols());
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy2D(dest, source.nrows() * sizeof(P), source.data(),
+  cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                source.stride() * sizeof(P), source.nrows() * sizeof(P),
                source.ncols(), cudaMemcpyHostToDevice);
 #else
-  std::copy(source.begin(), source.end(), dest);
+  std::copy(source.begin(), source.end(), dest.begin());
 #endif
 }
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, mem_type omem>
 static void
 copy_matrix_to_host(fk::matrix<P, mem, resource::device> const &source,
-                    P *const dest)
+                    fk::matrix<P, omem, resource::host> &dest)
 {
+  assert(source.nrows() == dest.nrows());
+  assert(source.ncols() == dest.ncols());
 #ifdef ASGARD_BUILD_CUDA
-  cudaMemcpy2D(dest, source.nrows() * sizeof(P), source.data(),
+  cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                source.stride() * sizeof(P), source.nrows() * sizeof(P),
                source.ncols(), cudaMemcpyDeviceToHost);
 
 #else
-  std::copy(source.begin(), source.end(), dest);
+  std::copy(source.begin(), source.end(), dest.begin());
 #endif
 }
 
@@ -1269,7 +1276,7 @@ fk::matrix<P, mem, res>::matrix(
   {
     fk::matrix<P, mem, resource::host> const wrap(llist);
     allocate_device(data_, llist.size() * llist.begin()->size());
-    copy_matrix_to_device(wrap, data_);
+    copy_matrix_to_device(wrap, *this);
   }
 }
 
@@ -1378,7 +1385,7 @@ fk::matrix<P, mem, res>::matrix(matrix<P, mem, res> const &a)
     else
     {
       allocate_device(data_, a.size());
-      copy_matrix_on_device(a, data_);
+      copy_matrix_on_device(a, *this);
     }
   }
   else
@@ -1410,7 +1417,7 @@ operator=(matrix<P, mem, res> const &a)
     }
     else
     {
-      copy_matrix_on_device(a, data_);
+      copy_matrix_on_device(a, *this);
     }
   }
   else
@@ -1471,11 +1478,11 @@ fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, ores> const &a)
   allocate_device(data_, a.size());
   if constexpr (ores == resource::host)
   {
-    copy_matrix_to_device(a, data_);
+    copy_matrix_to_device(a, *this);
   }
   else
   {
-    copy_matrix_on_device(a, data_);
+    copy_matrix_on_device(a, *this);
   }
 }
 
@@ -1488,11 +1495,11 @@ operator=(fk::matrix<P, omem, ores> const &a)
   assert(a.ncols() == ncols());
   if constexpr (ores == resource::host)
   {
-    copy_matrix_to_device(a, data_);
+    copy_matrix_to_device(a, *this);
   }
   else
   {
-    copy_matrix_on_device(a, data_);
+    copy_matrix_on_device(a, *this);
   }
   return *this;
 }
@@ -1504,7 +1511,7 @@ fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, resource::device> const &a)
     : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
       stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
 {
-  copy_matrix_to_host(a, data_);
+  copy_matrix_to_host(a, *this);
 }
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
@@ -1513,7 +1520,7 @@ operator=(matrix<P, omem, resource::device> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
-  copy_matrix_to_host(a, data_);
+  copy_matrix_to_host(a, *this);
   return *this;
 }
 

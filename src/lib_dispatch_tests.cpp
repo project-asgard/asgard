@@ -7,6 +7,8 @@
 //
 // direct calls into BLAS are not covered for now
 //
+// exception: all device code paths are tested
+//
 TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
                    "[lib_dispatch]", float, double, int)
 {
@@ -30,6 +32,9 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     };
   // clang-format on
 
+  fk::matrix<TestType, mem_type::owner, resource::device> const in1_d(in1);
+  fk::matrix<TestType, mem_type::owner, resource::device> const in2_d(in2);
+
   SECTION("no transpose")
   {
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
@@ -48,7 +53,31 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
                        in2.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == ans);
   }
+  SECTION("no transpose, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> result_d(
+          in1.nrows(), in2.ncols());
 
+      TestType alpha     = 1.0;
+      TestType beta      = 0.0;
+      int m              = in1.nrows();
+      int k              = in1.ncols();
+      int n              = in2.ncols();
+      int lda            = in1.stride();
+      int ldb            = in2.stride();
+      int ldc            = result_d.stride();
+      char const trans_a = 'n';
+      char const trans_b = 'n';
+
+      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_d.data(),
+                         &lda, in2_d.data(), &ldb, &beta, result_d.data(), &ldc,
+                         resource::device);
+      fk::matrix<TestType> const result(result_d);
+      REQUIRE(result == ans);
+    }
+  }
   SECTION("transpose a")
   {
     fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
@@ -109,6 +138,36 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     REQUIRE(result == ans);
   }
 
+  SECTION("both transpose, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
+      fk::matrix<TestType> const in2_t = fk::matrix<TestType>(in2).transpose();
+      fk::matrix<TestType, mem_type::owner, resource::device> const in1_t_d(
+          in1_t);
+      fk::matrix<TestType, mem_type::owner, resource::device> const in2_t_d(
+          in2_t);
+      fk::matrix<TestType, mem_type::owner, resource::device> result_d(
+          in1.nrows(), in2.ncols());
+
+      TestType alpha     = 1.0;
+      TestType beta      = 0.0;
+      int m              = in1_t.ncols();
+      int k              = in1_t.nrows();
+      int n              = in2_t.nrows();
+      int lda            = in1_t.stride();
+      int ldb            = in2_t.stride();
+      int ldc            = result_d.stride();
+      char const trans_a = 't';
+      char const trans_b = 't';
+      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t_d.data(),
+                         &lda, in2_t_d.data(), &ldb, &beta, result_d.data(),
+                         &ldc, resource::device);
+      fk::matrix<TestType> const result(result_d);
+      REQUIRE(result == ans);
+    }
+  }
   SECTION("test scaling")
   {
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
@@ -136,6 +195,41 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
                        in2.data(), &ldb, &beta, result.data(), &ldc);
     REQUIRE(result == gold);
+  }
+
+  SECTION("test scaling, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::matrix<TestType> result(in1.nrows(), in2.ncols());
+      std::fill(result.begin(), result.end(), 1.0);
+      fk::matrix<TestType, mem_type::owner, resource::device> result_d(result);
+
+      fk::matrix<TestType> const gold = [&] {
+        fk::matrix<TestType> ans = (in1 * in2) * 2.0;
+        std::transform(
+            ans.begin(), ans.end(), ans.begin(),
+            [](TestType const elem) -> TestType { return elem + 1.0; });
+
+        return ans;
+      }();
+
+      TestType alpha     = 2.0;
+      TestType beta      = 1.0;
+      int m              = in1.nrows();
+      int k              = in1.ncols();
+      int n              = in2.ncols();
+      int lda            = in1.stride();
+      int ldb            = in2.stride();
+      int ldc            = result.stride();
+      char const trans_a = 'n';
+      char const trans_b = 'n';
+      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_d.data(),
+                         &lda, in2_d.data(), &ldb, &beta, result_d.data(), &ldc,
+                         resource::device);
+      result = result_d;
+      REQUIRE(result == gold);
+    }
   }
 
   SECTION("lda =/= nrows")
@@ -170,6 +264,46 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
                        &beta, result.data(), &ldc);
     REQUIRE(result_view == ans);
   }
+
+  SECTION("lda =/= nrows, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> in1_extended_d(
+          in1.nrows() + 1, in1.ncols());
+      fk::matrix<TestType, mem_type::view, resource::device> in1_view_d(
+          in1_extended_d, 0, in1.nrows() - 1, 0, in1.ncols() - 1);
+      in1_view_d = in1_d;
+
+      fk::matrix<TestType, mem_type::owner, resource::device> in2_extended_d(
+          in2.nrows() + 1, in2.ncols());
+      fk::matrix<TestType, mem_type::view, resource::device> in2_view_d(
+          in2_extended_d, 0, in2.nrows() - 1, 0, in2.ncols() - 1);
+      in2_view_d = in2_d;
+
+      fk::matrix<TestType, mem_type::owner, resource::device> result_d(
+          in1.nrows() + 2, in2.ncols());
+      fk::matrix<TestType, mem_type::view, resource::device> result_view_d(
+          result_d, 0, in1.nrows() - 1, 0, in2.ncols() - 1);
+
+      TestType alpha     = 1.0;
+      TestType beta      = 0.0;
+      int m              = in1.nrows();
+      int k              = in1.ncols();
+      int n              = in2.ncols();
+      int lda            = in1_extended_d.stride();
+      int ldb            = in2_extended_d.stride();
+      int ldc            = result_d.stride();
+      char const trans_a = 'n';
+      char const trans_b = 'n';
+
+      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha,
+                         in1_extended_d.data(), &lda, in2_extended_d.data(),
+                         &ldb, &beta, result_d.data(), &ldc, resource::device);
+      fk::matrix<TestType> const result(result_view_d);
+      REQUIRE(result == ans);
+    }
+  }
 }
 
 TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
@@ -186,9 +320,10 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
      {  8, -1, -8},
      { -9,  9,  8},
     };
-
+    fk::matrix<TestType, mem_type::owner, resource::device> const A_d(A);
     fk::vector<TestType> const x
      {2, 1, -7};
+    fk::vector<TestType, mem_type::owner, resource::device> const x_d(x);
   // clang-format on
 
   SECTION("no transpose")
@@ -207,6 +342,28 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
                        &beta, result.data(), &inc);
     REQUIRE(result == ans);
   }
+  SECTION("no transpose, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> result_d(
+          ans.size());
+
+      TestType alpha     = 1.0;
+      TestType beta      = 0.0;
+      int m              = A.nrows();
+      int n              = A.ncols();
+      int lda            = A.stride();
+      int inc            = 1;
+      char const trans_a = 'n';
+
+      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda, x_d.data(),
+                         &inc, &beta, result_d.data(), &inc, resource::device);
+
+      fk::vector<TestType> const result(result_d);
+      REQUIRE(result == ans);
+    }
+  }
 
   SECTION("transpose A")
   {
@@ -224,6 +381,32 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_trans.data(), &lda, x.data(),
                        &inc, &beta, result.data(), &inc);
     REQUIRE(result == ans);
+  }
+
+  SECTION("transpose A, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::matrix<TestType> const A_trans = fk::matrix<TestType>(A).transpose();
+      fk::matrix<TestType, mem_type::owner, resource::device> const A_trans_d(
+          A_trans);
+      fk::vector<TestType, mem_type::owner, resource::device> result_d(
+          ans.size());
+
+      TestType alpha     = 1.0;
+      TestType beta      = 0.0;
+      int m              = A_trans.nrows();
+      int n              = A_trans.ncols();
+      int lda            = A_trans.stride();
+      int inc            = 1;
+      char const trans_a = 't';
+
+      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_trans_d.data(), &lda,
+                         x_d.data(), &inc, &beta, result_d.data(), &inc,
+                         resource::device);
+      fk::vector<TestType> const result(result_d);
+      REQUIRE(result == ans);
+    }
   }
 
   SECTION("test scaling")
@@ -252,6 +435,38 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     REQUIRE(result == gold);
   }
 
+  SECTION("test scaling, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType> result(ans.size());
+      std::fill(result.begin(), result.end(), 1.0);
+      fk::vector<TestType, mem_type::owner, resource::device> result_d(result);
+
+      fk::vector<TestType> const gold = [&] {
+        fk::vector<TestType> ans = (A * x) * 2.0;
+        std::transform(
+            ans.begin(), ans.end(), ans.begin(),
+            [](TestType const elem) -> TestType { return elem + 1.0; });
+
+        return ans;
+      }();
+
+      TestType alpha     = 2.0;
+      TestType beta      = 1.0;
+      int m              = A.nrows();
+      int n              = A.ncols();
+      int lda            = A.stride();
+      int inc            = 1;
+      char const trans_a = 'n';
+
+      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda, x_d.data(),
+                         &inc, &beta, result_d.data(), &inc, resource::device);
+      result = result_d;
+      REQUIRE(result == gold);
+    }
+  }
+
   SECTION("inc =/= 1")
   {
     fk::vector<TestType> result(ans.size() * 2 - 1);
@@ -271,6 +486,35 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda,
                        x_padded.data(), &incx, &beta, result.data(), &incy);
     REQUIRE(result == gold);
+  }
+
+  SECTION("inc =/= 1, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> result_d(
+          ans.size() * 2 - 1);
+
+      fk::vector<TestType> const gold     = {27, 0, 42, 0, 69, 0, 71, 0, -65};
+      fk::vector<TestType> const x_padded = {2, 0, 0, 1, 0, 0, -7};
+      fk::vector<TestType, mem_type::owner, resource::device> const x_padded_d(
+          x_padded);
+
+      TestType alpha     = 1.0;
+      TestType beta      = 0.0;
+      int m              = A.nrows();
+      int n              = A.ncols();
+      int lda            = A.stride();
+      int incx           = 3;
+      int incy           = 2;
+      char const trans_a = 'n';
+
+      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda,
+                         x_padded_d.data(), &incx, &beta, result_d.data(),
+                         &incy, resource::device);
+      fk::vector<TestType> const result(result_d);
+      REQUIRE(result == gold);
+    }
   }
 }
 
