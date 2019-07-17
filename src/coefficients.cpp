@@ -331,17 +331,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       return data_real_quad;
     }();
 
-    // perform volume integral to get a degree x degree block
-    //// FIXME is this description correct?
-    // fk::matrix<double> const block =
-    //    volume_integral(dim, term_1D, basis, basis_prime, quadrature_weights,
-    //                    data_real_quad, h);
-
-    //    std::vector<double> const tmp(data_real_quad.size());
-    //    std::transform(data_real_quad.begin(), data_real_quad.end(),
-    //                   quadrature_weights.begin(), tmp.begin(),
-    //                   std::multiplies<double>());
-
     fk::matrix<double> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
     for (int i = 0; i <= tmp.nrows() - 1; i++)
@@ -363,19 +352,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     {
       block = legendre_prime_t * tmp * (-1);
     }
-
-    // std::copy(quadrature_weights.begin(), quadrature_weights.end(),
-    //          std::ostream_iterator<P>(std::cout, " "));
-    // std::cout << std::endl;
-    // std::copy(data_real_quad.begin(), data_real_quad.end(),
-    //          std::ostream_iterator<P>(std::cout, " "));
-    // std::cout << std::endl;
-    // legendre_poly.print();
-    // std::cout << jacobi << std::endl;
-    // std::cout << std::endl;
-
-    // tmp.print();
-    // block.print();
 
     // set the block at the correct position
     fk::matrix<double> curr_block =
@@ -401,9 +377,9 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     auto FCL = term_1D.g_func(xL, time);
     auto FCR = term_1D.g_func(xR, time);
 
-    std::cout<<term_1D.name<<std::endl;
-    std::cout<<"FCL: "<<FCL<<std::endl;
-    std::cout<<"FCR: "<<FCR<<std::endl;
+    //std::cout << term_1D.name << std::endl;
+    //std::cout << "FCL: " << FCL << std::endl;
+    //std::cout << "FCR: " << FCR << std::endl;
 
     auto trace_value_1 =
         (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
@@ -421,11 +397,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         (legendre_poly_R_t * legendre_poly_L) * (+1 * FCR / 2) +
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
-
-    //trace_value_1.print();
-    //trace_value_2.print();
-    //trace_value_3.print();
-    //trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -511,82 +482,69 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       }
     }
 
-    // Add trace values to matrix
-
-    int row1 = current;
-    int col1 = current - dim.get_degree();
-
-    int row2 = current;
-    int col2 = current;
-
-    int row3 = current;
-    int col3 = current;
-
-    int row4 = current;
-    int col4 = current + dim.get_degree();
-
-    if (dim.left == boundary_condition::periodic ||
-        dim.right == boundary_condition::periodic)
+    if (term_1D.coeff == coefficient_type::grad)
     {
-      if (i == 0)
+      // Add trace values to matrix
+
+      int row1 = current;
+      int col1 = current - dim.get_degree();
+
+      int row2 = current;
+      int col2 = current;
+
+      int row3 = current;
+      int col3 = current;
+
+      int row4 = current;
+      int col4 = current + dim.get_degree();
+
+      if (dim.left == boundary_condition::periodic ||
+          dim.right == boundary_condition::periodic)
       {
-        row1 = current;
-        col1 = last;
+        if (i == 0)
+        {
+          row1 = current;
+          col1 = last;
+        }
+        if (i == N - 1)
+        {
+          row4 = current;
+          col4 = first;
+        }
       }
-      if (i == N - 1)
+
+      if (i != 0 || dim.left == boundary_condition::periodic ||
+          dim.right == boundary_condition::periodic)
       {
-        row4 = current;
-        col4 = first;
+        // Add trace part 1
+        fk::matrix<double, mem_type::view> block1(
+            coefficients, row1, row1 + dim.get_degree() - 1, col1,
+            col1 + dim.get_degree() - 1);
+        block1 = block1 + trace_value_1;
+      }
+      // Add trace part 2
+      fk::matrix<double, mem_type::view> block2(
+          coefficients, row2, row2 + dim.get_degree() - 1, col2,
+          col2 + dim.get_degree() - 1);
+      block2 = block2 + trace_value_2;
+
+      // Add trace part 3
+      fk::matrix<double, mem_type::view> block3(
+          coefficients, row3, row3 + dim.get_degree() - 1, col3,
+          col3 + dim.get_degree() - 1);
+      block3 = block3 + trace_value_3;
+
+      if (i != N - 1 || dim.left == boundary_condition::periodic ||
+          dim.right == boundary_condition::periodic)
+      {
+        // Add trace part 4
+        fk::matrix<double, mem_type::view> block4(
+            coefficients, row4, row4 + dim.get_degree() - 1, col4,
+            col4 + dim.get_degree() - 1);
+        block4 = block4 + trace_value_4;
       }
     }
-
-    if (i != 0 || dim.left == boundary_condition::periodic ||
-        dim.right == boundary_condition::periodic)
-    {
-      // Add trace part 1
-      fk::matrix<double, mem_type::view> block1(
-          coefficients, row1, row1 + dim.get_degree() - 1, col1,
-          col1 + dim.get_degree() - 1);
-      block1 = block1 + trace_value_1;
-    }
-    // Add trace part 2
-    fk::matrix<double, mem_type::view> block2(coefficients, row2,
-                                              row2 + dim.get_degree() - 1, col2,
-                                              col2 + dim.get_degree() - 1);
-    block2 = block2 + trace_value_2;
-
-    // Add trace part 3
-    fk::matrix<double, mem_type::view> block3(coefficients, row3,
-                                              row3 + dim.get_degree() - 1, col3,
-                                              col3 + dim.get_degree() - 1);
-    block3 = block3 + trace_value_3;
-
-    if (i != N - 1 || dim.left == boundary_condition::periodic ||
-        dim.right == boundary_condition::periodic)
-    {
-      // Add trace part 4
-      fk::matrix<double, mem_type::view> block4(
-          coefficients, row4, row4 + dim.get_degree() - 1, col4,
-          col4 + dim.get_degree() - 1);
-      block4 = block4 + trace_value_4;
-    }
-
-    // if (term_1D.coeff == coefficient_type::grad)
-    //{
-    //  auto const [row_indices, col_indices] = flux_or_boundary_indices(dim,
-    //  i);
-
-    //  fk::matrix<double> const flux_op = get_flux_operator(dim, term_1D, h,
-    //  i); coefficients =
-    //      apply_flux_operator(row_indices, col_indices, flux_op,
-    //      coefficients);
-    //}
-
-    //std::cout << term_1D.get_flux_scale() << std::endl;
-    //std::cout << i << std::endl;
-    //coefficients.print();
   }
-  coefficients.print();
 
   // transform matrix to wavelet space
   // FIXME does stiffness not need this transform?
@@ -600,16 +558,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
                       dim.get_level()),
       dim.get_degree(), dim.get_level());
 
-  //// zero out near-zero values after conversion to wavelet space
-  // double const threshold = 1e-10;
-  // auto const normalize   = [threshold](fk::matrix<double> &matrix) {
-  //  std::transform(matrix.begin(), matrix.end(), matrix.begin(),
-  //                 [threshold](double &elem) {
-  //                   return std::abs(elem) < threshold ? 0.0 : elem;
-  //                 });
-  //};
-  // normalize(coefficients);
-  coefficients.print();
   return coefficients;
 }
 // construct 1D coefficient matrix

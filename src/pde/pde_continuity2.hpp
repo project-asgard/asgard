@@ -158,7 +158,7 @@ private:
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -5.0;
+    return -1.0;
   }
 
   static P g_func_t1_d1(P const x, P const time)
@@ -166,7 +166,7 @@ private:
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return -9.0;
+    return -1.0;
   }
 
   // define dimensions
