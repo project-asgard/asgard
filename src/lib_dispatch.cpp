@@ -3,20 +3,51 @@
 #include <type_traits>
 
 #ifdef ASGARD_BUILD_CUDA
+#include "cusolverDn.h"
 #include <cublas_v2.h>
-struct cublas_handler
+
+struct device_handler
 {
   cublasHandle_t handle;
-  cublas_handler()
+  cusolverDnHandle_t solve_handle;
+  device_handler()
   {
-    if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
-    {
-      std::cerr << "could not initialize cublas!" << std::endl;
-    }
+    auto success = cublasCreate(&handle);
+    assert(success == 0);
+
+    success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
+    assert(success == 0);
+
+    cudaStream_t stream;
+    success = cublasGetStream(handle, &stream);
+    assert(success == 0);
+
+    auto solve_success = cusolverDnCreate(&solve_handle);
+    assert(solve_success == 0);
+
+    solve_success = cusolverDnSetStream(solve_handle, stream);
+    assert(solve_success == 0);
   }
-  ~cublas_handler() { cublasDestroy(handle); }
+  ~device_handler()
+  {
+    cublasDestroy(handle);
+    cusolverDnDestroy(solve_handle);
+  }
 };
-static cublas_handler cublas;
+static device_handler cublas;
+
+inline cublasOperation_t cublas_trans(char trans)
+{
+  if (trans == 'N' || trans == 'n')
+  {
+    return CUBLAS_OP_N;
+  }
+  else
+  {
+    return CUBLAS_OP_T;
+  }
+}
+
 #endif
 
 //
@@ -43,6 +74,11 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_BUILD_CUDA
+
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDcopy(cublas.handle, *n, x, *incx, y, *incy);
@@ -52,11 +88,6 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
     {
       auto const success = cublasScopy(cublas.handle, *n, x, *incx, y, *incy);
       assert(success == 0);
-    }
-    else
-    {
-      std::cerr << "dispatch failed; no non-fp blas available on device"
-                << "\n";
     }
     return;
 #endif
@@ -83,7 +114,6 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
 template<typename P>
 P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
 {
-  ignore(res);
   assert(n);
   assert(x);
   assert(incx);
@@ -93,6 +123,31 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   assert(*incy >= 0);
   assert(*n >= 0);
 
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    P result;
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success =
+          cublasDdot(cublas.handle, *n, x, *incx, y, *incy, &result);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success =
+          cublasSdot(cublas.handle, *n, x, *incx, y, *incy, &result);
+      assert(success == 0);
+    }
+    return result;
+
+#endif
+  }
   if constexpr (std::is_same<P, double>::value)
   {
     return ddot_(n, x, incx, y, incy);
@@ -116,7 +171,6 @@ template<typename P>
 void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
           resource const res)
 {
-  ignore(res);
   assert(n);
   assert(alpha);
   assert(x);
@@ -126,6 +180,30 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   assert(*incx >= 0);
   assert(*incy >= 0);
   assert(*n >= 0);
+
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success =
+          cublasDaxpy(cublas.handle, *n, alpha, x, *incx, y, *incy);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success =
+          cublasSaxpy(cublas.handle, *n, alpha, x, *incx, y, *incy);
+      assert(success == 0);
+    }
+    return;
+#endif
+  }
 
   if constexpr (std::is_same<P, double>::value)
   {
@@ -147,13 +225,34 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
 template<typename P>
 void scal(int *n, P *alpha, P *x, int *incx, resource const res)
 {
-  ignore(res);
   assert(n);
   assert(alpha);
   assert(x);
   assert(incx);
   assert(*n >= 0);
   assert(*incx >= 0);
+
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDscal(cublas.handle, *n, alpha, x, *incx);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasSscal(cublas.handle, *n, alpha, x, *incx);
+      assert(success == 0);
+    }
+    return;
+#endif
+  }
 
   if constexpr (std::is_same<P, double>::value)
   {
@@ -231,7 +330,6 @@ template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, resource const res)
 {
-  ignore(res);
   assert(trans);
   assert(m);
   assert(n);
@@ -249,6 +347,32 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   assert(*incx >= 0);
   assert(*incy >= 0);
   assert(*trans == 't' || *trans == 'n');
+
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success =
+          cublasDgemv(cublas.handle, cublas_trans(*trans), *m, *n, alpha, A,
+                      *lda, x, *incx, beta, y, *incy);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success =
+          cublasSgemv(cublas.handle, cublas_trans(*trans), *m, *n, alpha, A,
+                      *lda, x, *incx, beta, y, *incy);
+      assert(success == 0);
+    }
+    return;
+#endif
+  }
 
   if constexpr (std::is_same<P, double>::value)
   {
@@ -273,7 +397,6 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
           resource const res)
 {
-  ignore(res);
   assert(transa);
   assert(transb);
   assert(m);
@@ -292,6 +415,32 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   assert(*k >= 0);
   assert(*transa == 't' || *transa == 'n');
   assert(*transb == 't' || *transb == 'n');
+
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDgemm(cublas.handle, cublas_trans(*transa),
+                                       cublas_trans(*transb), *m, *n, *k, alpha,
+                                       A, *lda, B, *ldb, beta, C, *ldc);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasSgemm(cublas.handle, cublas_trans(*transa),
+                                       cublas_trans(*transb), *m, *n, *k, alpha,
+                                       A, *lda, B, *ldb, beta, C, *ldc);
+      assert(success == 0);
+    }
+    return;
+#endif
+  }
 
   if constexpr (std::is_same<P, double>::value)
   {
