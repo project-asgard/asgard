@@ -774,11 +774,12 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
   }
 }
 
+// this test is cublas specific - out of place inversion
 TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
                    "[lib_dispatch]", float, double)
 {
-  // (square slices of) our golden matrix is singular, so here's a
-  // well conditioned one
+#ifdef ASGARD_BUILD_CUDA
+
   fk::matrix<TestType> const test{{0.767135868133925, -0.641484652834663},
                                   {0.641484652834663, 0.767135868133926}};
 
@@ -814,4 +815,6 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
 
   // A * inv(A) == I
   REQUIRE((test * test_copy) == eye<TestType>(2));
+
+#endif
 }

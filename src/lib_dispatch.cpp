@@ -572,17 +572,67 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
 }
 
 template<typename P>
-void batched_gemm(P **a, int * lda, char const *transa, P **b, int* ldb, char const* transb,
-                  P **c, int * ldc, int * m, int * n, int*  k, P * alpha, P* beta,
-                  int * num_batch, resource const res)
+void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
+                  int *ldb, char const *transb, P **const &c, int *ldc, int *m,
+                  int *n, int *k, P *alpha, P *beta, int *num_batch,
+                  resource const res)
 {
+  assert(transa);
+  assert(transb);
+  assert(m);
+  assert(n);
+  assert(k);
+  assert(alpha);
+  assert(a);
+  assert(lda);
+  assert(b);
+  assert(ldb);
+  assert(beta);
+  assert(c);
+  assert(ldc);
+  assert(*m >= 0);
+  assert(*n >= 0);
+  assert(*k >= 0);
+  assert(*transa == 't' || *transa == 'n');
+  assert(*transb == 't' || *transb == 'n');
+  assert(*num_batch > 0);
 
+  if (res == resource::device)
+  { // device execution (fallback to host)
+
+#ifdef ASGARD_BUILD_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDgemmBatched(
+          device.handle, cublas_trans(*transa), cublas_trans(*transb), *m, *n,
+          *k, alpha, a, *lda, b, *ldb, beta, c, *ldc, *num_batch);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasSgemmBatched(
+          device.handle, cublas_trans(*transa), cublas_trans(*transb), *m, *n,
+          *k, alpha, a, *lda, b, *ldb, beta, c, *ldc, *num_batch);
+      assert(success == 0);
+    }
+    return;
+#endif
+  }
+
+  for (int i = 0; i < *num_batch; ++i)
+  {
+    gemm(transa, transb, m, n, k, alpha, a[i], lda, b[i], ldb, beta, c[i], ldc,
+         resource::host);
+  }
 }
 
 template<typename P>
-void batched_gemv(P **a, int * lda, char const* transb, P **b, P **c,
-                  int * m, int * n, P * alpha, P * beta,
-                  int * num_batch, resource const res)
+void batched_gemv(P **a, int *lda, char const *transb, P **b, P **c, int *m,
+                  int *n, P *alpha, P *beta, int *num_batch, resource const res)
 {}
 
 template void
@@ -643,23 +693,24 @@ template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
 template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
                     int *lwork, int *info, resource const res);
 
-template void batched_gemm(float **a, int *lda, char const *transa, float **b,
-                           int *ldb, char const *transb, float **c, int *ldc,
-                           int *m, int *n, int *k, float *alpha, float *beta,
-                           int *num_batch, resource const res);
+template void batched_gemm(float **const &a, int *lda, char const *transa,
+                           float **const &b, int *ldb, char const *transb,
+                           float **const &c, int *ldc, int *m, int *n, int *k,
+                           float *alpha, float *beta, int *num_batch,
+                           resource const res);
 
-template void
-batched_gemm(double **a, int *lda, char const *transa, double **b, int *ldb,
-             char const *transb, double **c, int *ldc, int *m, int *n, int *k,
-             double *alpha, double *beta, int *num_batch, resource const res);
+template void batched_gemm(double **const &a, int *lda, char const *transa,
+                           double **const &b, int *ldb, char const *transb,
+                           double **const &c, int *ldc, int *m, int *n, int *k,
+                           double *alpha, double *beta, int *num_batch,
+                           resource const res);
 
 template void batched_gemv(float **a, int *lda, char const *transa, float **b,
-                           float **c, int *m, int *n, float *alpha,
-                           float *beta, int *num_batch, resource res);
+                           float **c, int *m, int *n, float *alpha, float *beta,
+                           int *num_batch, resource res);
 
-template void batched_gemv(double **a, int *lda, char const *transa,
-                           double **b, double **c, int *m, int *n,
-                           double *alpha, double *beta, int *num_batch,
-                           resource res);
+template void batched_gemv(double **a, int *lda, char const *transa, double **b,
+                           double **c, int *m, int *n, double *alpha,
+                           double *beta, int *num_batch, resource res);
 
 } // namespace lib_dispatch

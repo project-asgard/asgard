@@ -117,13 +117,15 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            resource const res = resource::host);
 
 template<typename P>
-void batched_gemm(P **a, int *lda, char const *transa, P **b, int *ldb,
-                  char const *transb, P **c, int *ldc, int *m, int *n, int *k,
-                  P *alpha, P *beta, int *num_batch, resource const res = resource::host);
+void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
+                  int *ldb, char const *transb, P **const &c, int *ldc, int *m,
+                  int *n, int *k, P *alpha, P *beta, int *num_batch,
+                  resource const res = resource::host);
 
 template<typename P>
 void batched_gemv(P **a, int *lda, char const *transa, P **b, P **c, int *m,
-                  int *n, P *alpha, P *beta, int *num_batch, resource const res = resource::host);
+                  int *n, P *alpha, P *beta, int *num_batch,
+                  resource const res = resource::host);
 
 extern template void
 copy(int *n, float *x, int *incx, float *y, int *incy, resource const res);
@@ -188,14 +190,16 @@ extern template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
                            int *lwork, int *info, resource const res);
 
 extern template void
-batched_gemm(float **a, int *lda, char const *transa, float **b, int *ldb,
-             char const *transb, float **c, int *ldc, int *m, int *n, int *k,
-             float *alpha, float *beta, int *num_batch, resource const res);
+batched_gemm(float **const &a, int *lda, char const *transa, float **const &b,
+             int *ldb, char const *transb, float **const &c, int *ldc, int *m,
+             int *n, int *k, float *alpha, float *beta, int *num_batch,
+             resource const res);
 
 extern template void
-batched_gemm(double **a, int *lda, char const *transa, double **b, int *ldb,
-             char const *transb, double **c, int *ldc, int *m, int *n, int *k,
-             double *alpha, double *beta, int *num_batch, resource const res);
+batched_gemm(double **const &a, int *lda, char const *transa, double **const &b,
+             int *ldb, char const *transb, double **const &c, int *ldc, int *m,
+             int *n, int *k, double *alpha, double *beta, int *num_batch,
+             resource const res);
 
 extern template void batched_gemv(float **a, int *lda, char const *transa,
                                   float **b, float **c, int *m, int *n,

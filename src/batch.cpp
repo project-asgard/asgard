@@ -171,7 +171,7 @@ bool batch<P>::clear_entry(int const position)
 // provide a direct access to P**
 // from batch_, but avoid for now
 template<typename P>
-P** batch<P>::get_list() const
+P **const &batch<P>::get_list() const
 {
   return batch_;
 }
@@ -237,18 +237,18 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   assert(c.ncols() == cols_b);
 
   // setup blas args
-  int  m = rows_a;
-  int  n = cols_b; // technically these should be of op(A) or (B), but our
-                        // dims are the same when transposing
-  int  k            = cols_a;
-  int  lda          = a.get_stride();
-  int  ldb          = b.get_stride();
-  int  ldc          = c.get_stride();
+  int m = rows_a;
+  int n = cols_b; // technically these should be of op(A) or (B), but our
+                  // dims are the same when transposing
+  int k              = cols_a;
+  int lda            = a.get_stride();
+  int ldb            = b.get_stride();
+  int ldc            = c.get_stride();
   char const trans_a = a.get_trans() ? 't' : 'n';
   char const trans_b = b.get_trans() ? 't' : 'n';
 
   P alpha_ = alpha;
-  P beta_ = beta;
+  P beta_  = beta;
 
   int num_batch = num_entries;
 
