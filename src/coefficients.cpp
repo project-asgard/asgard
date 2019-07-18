@@ -206,29 +206,29 @@ get_flux_operator(dimension<P> const &dim, term<P> const term_1D,
   return flux_op;
 }
 
-// apply flux operator to coeff at indices specified by
-// row indices and col indices FIXME elaborate?
-static fk::matrix<double> apply_flux_operator(fk::matrix<int> const row_indices,
-                                              fk::matrix<int> const col_indices,
-                                              fk::matrix<double> const flux,
-                                              fk::matrix<double> coeff)
-{
-  assert(row_indices.nrows() == col_indices.nrows());
-  assert(row_indices.nrows() == flux.nrows());
-  assert(row_indices.ncols() == col_indices.ncols());
-  assert(row_indices.ncols() == flux.ncols());
-
-  for (int i = 0; i < flux.nrows(); ++i)
-  {
-    for (int j = 0; j < flux.ncols(); ++j)
-    {
-      int const row   = row_indices(i, j);
-      int const col   = col_indices(i, j);
-      coeff(row, col) = coeff(row, col) - flux(i, j);
-    }
-  }
-  return coeff;
-}
+//// apply flux operator to coeff at indices specified by
+//// row indices and col indices FIXME elaborate?
+//static fk::matrix<double> apply_flux_operator(fk::matrix<int> const row_indices,
+//                                              fk::matrix<int> const col_indices,
+//                                              fk::matrix<double> const flux,
+//                                              fk::matrix<double> coeff)
+//{
+//  assert(row_indices.nrows() == col_indices.nrows());
+//  assert(row_indices.nrows() == flux.nrows());
+//  assert(row_indices.ncols() == col_indices.ncols());
+//  assert(row_indices.ncols() == flux.ncols());
+//
+//  for (int i = 0; i < flux.nrows(); ++i)
+//  {
+//    for (int j = 0; j < flux.ncols(); ++j)
+//    {
+//      int const row   = row_indices(i, j);
+//      int const col   = col_indices(i, j);
+//      coeff(row, col) = coeff(row, col) - flux(i, j);
+//    }
+//  }
+//  return coeff;
+//}
 
 // construct 1D coefficient matrix - new conventions
 // this routine returns a 2D array representing an operator coefficient
@@ -237,7 +237,7 @@ static fk::matrix<double> apply_flux_operator(fk::matrix<int> const row_indices,
 template<typename P>
 fk::matrix<double>
 generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
-                      double const time)
+                      double const time, bool const rotate)
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
@@ -331,6 +331,17 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       return data_real_quad;
     }();
 
+    // perform volume integral to get a degree x degree block
+    //// FIXME is this description correct?
+    // fk::matrix<double> const block =
+    //    volume_integral(dim, term_1D, basis, basis_prime, quadrature_weights,
+    //                    data_real_quad, h);
+
+    //    std::vector<double> const tmp(data_real_quad.size());
+    //    std::transform(data_real_quad.begin(), data_real_quad.end(),
+    //                   quadrature_weights.begin(), tmp.begin(),
+    //                   std::multiplies<double>());
+
     fk::matrix<double> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
     for (int i = 0; i <= tmp.nrows() - 1; i++)
@@ -352,6 +363,19 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     {
       block = legendre_prime_t * tmp * (-1);
     }
+
+    // std::copy(quadrature_weights.begin(), quadrature_weights.end(),
+    //          std::ostream_iterator<P>(std::cout, " "));
+    // std::cout << std::endl;
+    // std::copy(data_real_quad.begin(), data_real_quad.end(),
+    //          std::ostream_iterator<P>(std::cout, " "));
+    // std::cout << std::endl;
+    // legendre_poly.print();
+    // std::cout << jacobi << std::endl;
+    // std::cout << std::endl;
+
+    // tmp.print();
+    // block.print();
 
     // set the block at the correct position
     fk::matrix<double> curr_block =
@@ -397,6 +421,11 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         (legendre_poly_R_t * legendre_poly_L) * (+1 * FCR / 2) +
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
+
+    //trace_value_1.print();
+    //trace_value_2.print();
+    //trace_value_3.print();
+    //trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -545,155 +574,29 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       }
     }
   }
+  //coefficients.print();
 
-  // transform matrix to wavelet space
-  // FIXME does stiffness not need this transform?
-  fk::matrix<double> const forward_trans = dim.get_to_basis_operator();
-
-  // These apply_*_fmwt() routines do the following operation:
-  // coefficients = forward_trans * coefficients * forward_trans_transpose;
-  coefficients = apply_right_fmwt_transposed(
-      forward_trans,
-      apply_left_fmwt(forward_trans, coefficients, dim.get_degree(),
-                      dim.get_level()),
-      dim.get_degree(), dim.get_level());
-
-  return coefficients;
-}
-// construct 1D coefficient matrix
-// this routine returns a 2D array representing an operator coefficient
-// matrix for a single dimension (1D). Each term in a PDE requires D many
-// coefficient matricies
-template<typename P>
-fk::matrix<double>
-generate_coefficients_old(dimension<P> const &dim, term<P> const term_1D,
-                          double const time)
-{
-  assert(time >= 0.0);
-  // note that N is the number of grid points at this level
-  int const N = fm::two_raised_to(dim.get_level());
-  // note that h is the symbol typically reserved for grid spacing
-  double const h               = (dim.domain_max - dim.domain_min) / N;
-  int const degrees_freedom_1d = dim.get_degree() * N;
-  fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
-
-  // set number of quatrature points
-  // FIXME should this be order dependent?
-  // FIXME is this a global quantity??
-  int const quad_num = 10;
-
-  // get quadrature points and quadrature_weights.
-  // we do the two-step store because we cannot have 'static' bindings
-  static const auto legendre_values =
-      legendre_weights<double>(quad_num, -1.0, 1.0);
-  auto const [quadrature_points, quadrature_weights] = legendre_values;
-
-  // get the basis functions and derivatives for all k
-  auto const [legendre_poly, legendre_prime] =
-      legendre(quadrature_points, dim.get_degree());
-
-  // these matrices are quad_num by degree
-  fk::matrix<double> const basis = legendre_poly * (1.0 / std::sqrt(h));
-  fk::matrix<double> const basis_prime =
-      legendre_prime * (1.0 / std::sqrt(h) * 2.0 / h);
-
-  // convert term input data from wavelet space to realspace
-  fk::matrix<double> const forward_trans_transpose =
-      dim.get_from_basis_operator();
-  fk::vector<double> const data = fk::vector<double>(term_1D.get_data());
-  fk::vector<double> const data_real =
-      forward_trans_transpose * fk::vector<double>(term_1D.get_data());
-
-  for (int i = 0; i < N; ++i)
+  if (rotate)
   {
-    // get index for current element
-    int const current = dim.get_degree() * i;
+    // transform matrix to wavelet space
+    fk::matrix<double> const forward_trans = dim.get_to_basis_operator();
 
-    // map quadrature points from [-1,1] to physical domain of this i element
-    fk::vector<double> const quadrature_points_i =
-        [&, quadrature_points = quadrature_points]() {
-          fk::vector<double> quadrature_points_copy = quadrature_points;
-          std::transform(
-              quadrature_points_copy.begin(), quadrature_points_copy.end(),
-              quadrature_points_copy.begin(), [&](double const elem) {
-                return ((elem + 1) / 2 + i) * h + dim.domain_min;
-              });
-          return quadrature_points_copy;
-        }();
-
-    fk::vector<double> const data_real_quad = [&]() {
-      // get realspace data at quadrature points
-      fk::vector<double> data_real_quad =
-          basis * fk::vector<double, mem_type::view>(
-                      data_real, current, current + dim.get_degree() - 1);
-
-      // apply g_func
-      std::transform(data_real_quad.begin(), data_real_quad.end(),
-                     data_real_quad.begin(),
-                     std::bind(term_1D.g_func, std::placeholders::_1, time));
-      return data_real_quad;
-    }();
-
-    // perform volume integral to get a degree x degree block
-    fk::matrix<double> const block =
-        volume_integral(dim, term_1D, basis, basis_prime, quadrature_weights,
-                        data_real_quad, h);
-    // set the block at the correct position
-    fk::matrix<double> curr_block =
-        fk::matrix<double, mem_type::view>(
-            coefficients, current, current + dim.get_degree() - 1, current,
-            current + dim.get_degree() - 1) +
-        block;
-    coefficients.set_submatrix(current, current, curr_block);
-
-    // setup numerical flux choice/boundary conditions
-    // FIXME is this grad only? not sure yet
-    if (term_1D.coeff == coefficient_type::grad)
-    {
-      auto const [row_indices, col_indices] = flux_or_boundary_indices(dim, i);
-
-      fk::matrix<double> const flux_op = get_flux_operator(dim, term_1D, h, i);
-      coefficients =
-          apply_flux_operator(row_indices, col_indices, flux_op, coefficients);
-    }
+    // These apply_*_fmwt() routines do the following operation:
+    // coefficients = forward_trans * coefficients * forward_trans_transpose;
+    coefficients = apply_right_fmwt_transposed(
+        forward_trans,
+        apply_left_fmwt(forward_trans, coefficients, dim.get_degree(),
+                        dim.get_level()),
+        dim.get_degree(), dim.get_level());
   }
-
-  // transform matrix to wavelet space
-  // FIXME does stiffness not need this transform?
-  fk::matrix<double> const forward_trans = dim.get_to_basis_operator();
-
-  // These apply_*_fmwt() routines do the following operation:
-  // coefficients = forward_trans * coefficients * forward_trans_transpose;
-  coefficients = apply_right_fmwt_transposed(
-      forward_trans,
-      apply_left_fmwt(forward_trans, coefficients, dim.get_degree(),
-                      dim.get_level()),
-      dim.get_degree(), dim.get_level());
-
-  // zero out near-zero values after conversion to wavelet space
-  double const threshold = 1e-10;
-  auto const normalize   = [threshold](fk::matrix<double> &matrix) {
-    std::transform(matrix.begin(), matrix.end(), matrix.begin(),
-                   [threshold](double &elem) {
-                     return std::abs(elem) < threshold ? 0.0 : elem;
-                   });
-  };
-  normalize(coefficients);
+  //coefficients.print();
   return coefficients;
 }
 
 template fk::matrix<double>
-generate_coefficients_old(dimension<float> const &dim,
-                          term<float> const term_1D, double const time);
+generate_coefficients(dimension<float> const &dim, term<float> const term_1D,
+                      double const time, bool const rotate);
 
 template fk::matrix<double>
-generate_coefficients_old(dimension<double> const &dim,
-                          term<double> const term_1D, double const time);
-
-template fk::matrix<double> generate_coefficients(dimension<float> const &dim,
-                                                  term<float> const term_1D,
-                                                  double const time);
-
-template fk::matrix<double> generate_coefficients(dimension<double> const &dim,
-                                                  term<double> const term_1D,
-                                                  double const time);
+generate_coefficients(dimension<double> const &dim, term<double> const term_1D,
+                      double const time, bool const rotate);

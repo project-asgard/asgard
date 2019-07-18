@@ -795,8 +795,6 @@ void fk::vector<P, mem>::print(std::string const label) const
   else
     std::cout << label << "(view)" << '\n';
 
-  std::cout << label << "(size : " << size() << ")" << std::endl;
-
   if constexpr (std::is_floating_point<P>::value)
   {
     for (auto i = 0; i < size(); ++i)
@@ -1685,9 +1683,6 @@ void fk::matrix<P, mem>::print(std::string label) const
   else
     std::cout << label << "(view, "
               << "stride == " << std::to_string(stride()) << ")" << '\n';
-
-  std::cout << label << "(size : " << (*this).nrows() << " x "
-            << (*this).ncols() << ")" << std::endl;
 
   for (auto i = 0; i < nrows(); ++i)
   {

@@ -1791,7 +1791,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         auto term                     = pde->get_terms()[j][i];
         dimension<TestType> const dim = pde->get_dimensions()[i];
         fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients_old(dim, term, init_time));
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
         pde->set_coefficients(coeffs, j, i);
       }
     }
@@ -1859,7 +1859,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         auto term                     = pde->get_terms()[j][i];
         dimension<TestType> const dim = pde->get_dimensions()[i];
         fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients_old(dim, term, init_time));
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
         pde->set_coefficients(coeffs, j, i);
       }
     }
@@ -1927,7 +1927,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         auto term                     = pde->get_terms()[j][i];
         dimension<TestType> const dim = pde->get_dimensions()[i];
         fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients_old(dim, term, init_time));
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
         pde->set_coefficients(coeffs, j, i);
       }
     }
@@ -1995,7 +1995,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         auto term                     = pde->get_terms()[j][i];
         dimension<TestType> const dim = pde->get_dimensions()[i];
         fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients_old(dim, term, init_time));
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
         pde->set_coefficients(coeffs, j, i);
       }
     }
