@@ -176,9 +176,9 @@ public:
        boundary_condition const BCL_2 = boundary_condition::neumann,
        boundary_condition const BCR_2 = boundary_condition::neumann)
       : coeff_type(coeff_type), g_func(g_func), time_dependent(time_dependent),
-        flux(flux), name(name), data_(data), owning_dim(owning_dim),
-        g_func_1(g_func_1), g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2),
-        BCL_1(BCL_1), BCR_1(BCR_1), BCL_2(BCL_2), BCR_2(BCR_2)
+        flux(flux), name(name), owning_dim(owning_dim), g_func_1(g_func_1),
+        g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2), BCL_1(BCL_1),
+        BCR_1(BCR_1), BCL_2(BCL_2), BCR_2(BCR_2), data_(data)
   {
     set_data(owning_dim, data);
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
