@@ -124,7 +124,7 @@ enum class coefficient_type
 {
   grad,
   mass,
-  stiffness
+  diff
 };
 
 enum class flux_type
@@ -152,13 +152,33 @@ using g_func_type = std::function<P(P const, P const)>;
 template<typename P>
 class term
 {
+  static P g_func_default(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
 public:
-  term(coefficient_type const coeff, g_func_type<P> const g_func,
+  term(coefficient_type const coeff_type, g_func_type<P> const g_func,
        bool const time_dependent, flux_type const flux,
        fk::vector<P> const data, std::string const name,
-       dimension<P> const owning_dim)
-      : coeff(coeff), g_func(g_func), time_dependent(time_dependent),
-        flux(flux), name(name), data_(data)
+       dimension<P> const owning_dim,
+       // optional parts for diff type operators
+       // TODO : yes, i know ...
+       g_func_type<P> const g_func_1  = g_func_default,
+       g_func_type<P> const g_func_2  = g_func_default,
+       flux_type const flux_1         = flux_type::upwind,
+       flux_type const flux_2         = flux_type::downwind,
+       boundary_condition const BCL_1 = boundary_condition::neumann,
+       boundary_condition const BCR_1 = boundary_condition::neumann,
+       boundary_condition const BCL_2 = boundary_condition::neumann,
+       boundary_condition const BCR_2 = boundary_condition::neumann)
+      : coeff_type(coeff_type), g_func(g_func), time_dependent(time_dependent),
+        flux(flux), name(name), data_(data), owning_dim(owning_dim),
+        g_func_1(g_func_1), g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2),
+        BCL_1(BCL_1), BCR_1(BCR_1), BCL_2(BCL_2), BCR_2(BCR_2)
   {
     set_data(owning_dim, data);
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
@@ -222,11 +242,21 @@ public:
   };
 
   // public but const data. no getters
-  coefficient_type const coeff;
+  coefficient_type const coeff_type;
   g_func_type<P> const g_func;
   bool const time_dependent;
   flux_type const flux;
   std::string const name;
+  dimension<P> const owning_dim;
+  // fields required for the diff operator type
+  g_func_type<P> const g_func_1;
+  g_func_type<P> const g_func_2;
+  flux_type const flux_1;
+  flux_type const flux_2;
+  boundary_condition const BCL_1;
+  boundary_condition const BCR_1;
+  boundary_condition const BCL_2;
+  boundary_condition const BCR_2;
 
 private:
   // this is to hold data that may change over the course of the simulation,

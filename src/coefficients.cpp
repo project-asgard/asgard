@@ -8,14 +8,57 @@
 #include "transformations.hpp"
 #include <numeric>
 
+// wrap generate_coefficients to allow for construction of the diffusion type
+// operators
+template<typename P>
+fk::matrix<double>
+generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
+                      double const time, bool const rotate)
+{
+  if (term_1D.coeff_type == coefficient_type::diff)
+  {
+    // LDG method for diff operator
+    // Breaks second order operator to two first order operators with alternting
+    // directions on the upwinding
+
+    dimension<P> dim_A = dim;
+
+    // Equation 1 of LDG
+
+    term<P> term_1D_A(coefficient_type::grad, term_1D.g_func_1,
+                      term_1D.time_dependent, term_1D.flux_1,
+                      term_1D.get_data(), term_1D.name, term_1D.owning_dim);
+
+    // dimA.BCL = term.BCL1;
+    // dimA.BCR = term.BCR1;
+
+    term<P> term_1D_B(coefficient_type::grad, term_1D.g_func_2,
+                      term_1D.time_dependent, term_1D.flux_2,
+                      term_1D.get_data(), term_1D.name, term_1D.owning_dim);
+
+    auto coefficients =
+        generate_mass_or_grad_coefficients(dim_A, term_1D, time, rotate);
+
+    return coefficients;
+  }
+  else
+  {
+    auto coefficients =
+        generate_mass_or_grad_coefficients(dim, term_1D, time, rotate);
+
+    return coefficients;
+  }
+}
+
 // construct 1D coefficient matrix - new conventions
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
 // coefficient matricies
 template<typename P>
 fk::matrix<double>
-generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
-                      double const time, bool const rotate)
+generate_mass_or_grad_coefficients(dimension<P> const &dim,
+                                   term<P> const term_1D, double const time,
+                                   bool const rotate)
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
@@ -132,15 +175,14 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       }
       fk::matrix<double> block(dim.get_degree(), dim.get_degree());
 
-      if (term_1D.coeff == coefficient_type::mass)
+      if (term_1D.coeff_type == coefficient_type::mass)
       {
         block = legendre_poly_t * tmp;
       }
-      else if (term_1D.coeff == coefficient_type::grad)
+      else if (term_1D.coeff_type == coefficient_type::grad)
       {
         block = legendre_prime_t * tmp * (-1);
       }
-      return block;
     }();
 
     // set the block at the correct position
@@ -270,7 +312,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       }
     }
 
-    if (term_1D.coeff == coefficient_type::grad)
+    if (term_1D.coeff_type == coefficient_type::grad)
     {
       // Add trace values to matrix
 
