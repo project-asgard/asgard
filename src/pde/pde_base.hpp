@@ -166,6 +166,7 @@ public:
        fk::vector<P> const data, std::string const name,
        dimension<P> const owning_dim,
        // optional parts for diff type operators
+
        // FIXME there are likely better ways to do this; and that
        // this could all likely be avoided with a DSL for the
        // PDE spec which could handle diff terms internally.
@@ -184,6 +185,8 @@ public:
         g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2),
         BC_left_1(BC_left_1), BC_right_1(BC_right_1), BC_left_2(BC_left_2),
         BC_right_2(BC_right_2), data_(data)
+
+
   {
     set_data(owning_dim, data);
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
@@ -253,11 +256,13 @@ public:
   flux_type const flux;
   std::string const name;
   dimension<P> const owning_dim;
+  
   // fields required for the diff operator type
   g_func_type<P> const g_func_1;
   g_func_type<P> const g_func_2;
   flux_type const flux_1;
   flux_type const flux_2;
+
   boundary_condition const BC_left_1;
   boundary_condition const BC_right_1;
   boundary_condition const BC_left_2;
