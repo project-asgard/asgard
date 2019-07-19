@@ -21,25 +21,32 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     // Breaks second order operator to two first order operators with alternting
     // directions on the upwinding
 
-    dimension<P> dim_A = dim;
-
     // Equation 1 of LDG
 
-    term<P> term_1D_A(coefficient_type::grad, term_1D.g_func_1,
+    dimension<P> dim_1(term_1D.BCL_1, term_1D.BCR_1, dim.domain_min,
+                       dim.domain_max, dim.get_level(), dim.get_degree(),
+                       dim.initial_condition, dim.name);
+
+    term<P> term_1D_1(coefficient_type::grad, term_1D.g_func_1,
                       term_1D.time_dependent, term_1D.flux_1,
                       term_1D.get_data(), term_1D.name, term_1D.owning_dim);
+    auto coefficients_1 =
+        generate_mass_or_grad_coefficients(dim_1, term_1D_1, time, rotate);
 
-    // dimA.BCL = term.BCL1;
-    // dimA.BCR = term.BCR1;
+    // Equation 2 of LDG
 
-    term<P> term_1D_B(coefficient_type::grad, term_1D.g_func_2,
+    dimension<P> dim_2(term_1D.BCL_2, term_1D.BCR_2, dim.domain_min,
+                       dim.domain_max, dim.get_level(), dim.get_degree(),
+                       dim.initial_condition, dim.name);
+
+    term<P> term_1D_2(coefficient_type::grad, term_1D.g_func_2,
                       term_1D.time_dependent, term_1D.flux_2,
                       term_1D.get_data(), term_1D.name, term_1D.owning_dim);
 
-    auto coefficients =
-        generate_mass_or_grad_coefficients(dim_A, term_1D, time, rotate);
+    auto coefficients_2 =
+        generate_mass_or_grad_coefficients(dim_2, term_1D_2, time, rotate);
 
-    return coefficients;
+    return coefficients_1 * coefficients_2;
   }
   else
   {
