@@ -285,21 +285,18 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   assert(c.ncols() == 1);
 
   // setup blas args
-  int m                  = rows_a;
-  int n                  = cols_a;
-  int lda                = a.get_stride();
-  int stride_b           = b.get_stride();
-  int stride_c           = c.get_stride();
+  int m   = rows_a;
+  int n   = cols_a;
+  int lda = a.get_stride();
+
   char const transpose_a = a.get_trans() ? 't' : 'n';
   P alpha_               = alpha;
   P beta_                = beta;
 
-  for (int i = 0; i < num_entries; ++i)
-  {
-    if (a(i) && b(i) && c(i))
-      lib_dispatch::gemv(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i),
-                         &stride_b, &beta_, c(i), &stride_c);
-  }
+  int num_batch = num_entries;
+
+  lib_dispatch::batched_gemv(a.get_list(), &lda, &transpose_a, b.get_list(),
+                             c.get_list(), &m, &n, &alpha_, &beta_, &num_batch);
 }
 
 // --- batch allocation code --- /
