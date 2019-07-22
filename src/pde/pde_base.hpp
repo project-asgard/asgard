@@ -28,7 +28,7 @@ auto const ignore = [](auto ignored) { (void)ignored; };
 
 // for passing around vector/scalar-valued functions used by the PDE
 template<typename P>
-using vector_func = std::function<fk::vector<P>(fk::vector<P> const)>;
+using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
