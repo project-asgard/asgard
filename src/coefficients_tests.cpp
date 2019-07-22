@@ -180,12 +180,14 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
 TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
 {
   int const level     = 2;
-  int const degree    = 4;
+  int const degree    = 2;
   TestType const time = 1.0;
-  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
-  std::string const filename_base =
-      "../testing/generated-inputs/coefficients/continuity6_coefficients_l" +
-      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
+  std::string const filename_base = "../testing/generated-inputs/coefficients/"
+                                    "fokkerplanck1_4p2_coefficients_l" +
+                                    std::to_string(level) + "_d" +
+                                    std::to_string(degree) + "_";
   for (int t = 0; t < pde->num_terms; ++t)
   {
     for (int d = 0; d < pde->num_dims; ++d)
