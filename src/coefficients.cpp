@@ -30,8 +30,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     // Breaks second order operator to two first order operators with alternting
     // directions on the upwinding
 
-    std::cout << "DIFF" << std::endl;
-
     // Equation 1 of LDG
 
     dimension<P> dim_1(term_1D.BCL_1, term_1D.BCR_1, dim.domain_min,
@@ -40,7 +38,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
 
     term<P> term_1D_1(coefficient_type::grad, term_1D.g_func_1,
                       term_1D.time_dependent, term_1D.flux_1,
-                      term_1D.get_data(), term_1D.name, term_1D.owning_dim);
+                      term_1D.get_data(), term_1D.name, dim_1);
+
     auto coefficients_1 =
         generate_mass_or_grad_coefficients(dim_1, term_1D_1, time, rotate);
 
@@ -52,7 +51,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
 
     term<P> term_1D_2(coefficient_type::grad, term_1D.g_func_2,
                       term_1D.time_dependent, term_1D.flux_2,
-                      term_1D.get_data(), term_1D.name, term_1D.owning_dim);
+                      term_1D.get_data(), term_1D.name, dim_2);
 
     auto coefficients_2 =
         generate_mass_or_grad_coefficients(dim_2, term_1D_2, time, rotate);
@@ -211,7 +210,8 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
         block;
     coefficients.set_submatrix(current, current, curr_block);
 
-    coefficients.print("Grad - pre BC");
+    // coefficients.print("Grad - pre BC");
+
     // setup numerical flux choice/boundary conditions
     //
     // - <funcCoef*{q},p>
@@ -247,14 +247,14 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(FCR) / 2 * +1);
 
-    std::cout << "FCL: " << FCL << std::endl;
-    std::cout << "FCR: " << FCR << std::endl;
-    std::cout << "FluxVal: " << term_1D.get_flux_scale() << std::endl;
+    // std::cout << "FCL: " << FCL << std::endl;
+    // std::cout << "FCR: " << FCR << std::endl;
+    // std::cout << "FluxVal: " << term_1D.get_flux_scale() << std::endl;
 
-    trace_value_1.print();
-    trace_value_2.print();
-    trace_value_3.print();
-    trace_value_4.print();
+    // trace_value_1.print();
+    // trace_value_2.print();
+    // trace_value_3.print();
+    // trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -403,7 +403,7 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
       }
     }
 
-    coefficients.print("Grad - post BC");
+    // coefficients.print("Grad - post BC");
   }
 
   if (rotate)
