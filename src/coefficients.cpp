@@ -250,7 +250,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   // set number of quatrature points
   // FIXME should this be order dependent?
   // FIXME is this a global quantity??
-  int const quad_num = 10;
+  int const quad_num = dim.get_degree()+1;
 
   // get quadrature points and weights.
   // we do the two-step store because we cannot have 'static' bindings
