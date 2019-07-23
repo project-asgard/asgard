@@ -64,6 +64,7 @@ private:
   {
     ignore(t);
     auto f = analytic_solution_dim0(x, 0);
+
     return f;
   }
 
@@ -72,6 +73,7 @@ private:
   analytic_solution_dim0(fk::vector<P> const x, P const time = 0)
   {
     fk::vector<P> f(x.size());
+
 
     std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
 
@@ -168,13 +170,16 @@ private:
               fk::vector<P>(),        // additional data vector
               "d_dx",                 // name
               dim0_,                  // owning dim
+
               g_func_1, g_func_2,
               flux_type::downwind,           // flux_1
               flux_type::upwind,             // flux_2
+
               boundary_condition::dirichlet, // BCL_1
               boundary_condition::dirichlet, // BCR_1
               boundary_condition::neumann,   // BCL_2
               boundary_condition::neumann    // BCR_2
+
       );
 
   inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
