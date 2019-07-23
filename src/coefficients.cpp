@@ -8,15 +8,6 @@
 #include "transformations.hpp"
 #include <numeric>
 
-template<typename P>
-void print(std::vector<P> const &input)
-{
-  for (auto it = input.cbegin(); it != input.cend(); it++)
-  {
-    std::cout << *it << ' ';
-  }
-}
-
 // wrap generate_coefficients to allow for construction of the diffusion type
 // operators
 template<typename P>
@@ -29,8 +20,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
     // LDG method for diff operator
     // Breaks second order operator to two first order operators with alternting
     // directions on the upwinding
-
-    std::cout << "DIFF" << std::endl;
 
     // Equation 1 of LDG
 
@@ -213,7 +202,6 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
         block;
     coefficients.set_submatrix(current, current, curr_block);
 
-    coefficients.print("Grad - pre BC");
     // setup numerical flux choice/boundary conditions
     //
     // - <funcCoef*{q},p>
@@ -248,11 +236,6 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
         (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) +
         (legendre_poly_R_t * legendre_poly_L) *
             (-1 * term_1D.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-
-    trace_value_1.print();
-    trace_value_2.print();
-    trace_value_3.print();
-    trace_value_4.print();
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
@@ -402,8 +385,6 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
         block4 = block4 + trace_value_4;
       }
     }
-
-    coefficients.print("Grad - post BC");
   }
 
   if (rotate)
