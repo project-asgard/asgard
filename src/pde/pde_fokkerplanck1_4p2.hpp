@@ -93,18 +93,23 @@ private:
 
     std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
 
-    auto [P_m, dP_m] = legendre(x, h.size());
+    // auto [P_m, dP_m] = legendre(x, h.size());
 
-	P_m.print();
-x.print();
+    //P_m.print();
+    x.print();
 
     for (unsigned int l = 1; l < h.size(); ++l)
     {
       auto L = l - 1;
 
-      fk::vector<P> tmp = P_m.extract_submatrix(0, l-1, x.size(), 1);
+      // fk::vector<P> tmp = P_m.extract_submatrix(0, l-1, x.size(), 1);
+      fk::vector<P> P_m(x.size());
+      for (int j = 0; j < x.size(); ++j)
+      {
+        P_m(j) = std::legendre(L, x(j));
+      }
 
-	tmp.print();
+      //tmp.print();
 
       f = f + (tmp * h[l - 1] * std::exp(-L * (L + 1) * time));
     }
@@ -191,28 +196,27 @@ x.print();
               fk::vector<P>(),        // additional data vector
               "d_dx",                 // name
               dim0_,                  // owning dim
-              g_func_1,
-              g_func_2,
-              flux_type::downwind,   // flux_1
-              flux_type::upwind,     // flux_2
+              g_func_1, g_func_2,
+              flux_type::downwind,           // flux_1
+              flux_type::upwind,             // flux_2
               boundary_condition::dirichlet, // BCL_1
               boundary_condition::dirichlet, // BCR_1
               boundary_condition::neumann,   // BCL_2
               boundary_condition::neumann    // BCR_2
-       );
+      );
 
-       inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
 
-       inline static term_set<P> const terms_ = {terms0_};
+  inline static term_set<P> const terms_ = {terms0_};
 
-       // define sources
+  // define sources
 
-       inline static std::vector<source<P>> const sources_ = {};
+  inline static std::vector<source<P>> const sources_ = {};
 
-       // define exact soln functions
-       inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-           analytic_solution_dim0};
+  // define exact soln functions
+  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
+      analytic_solution_dim0};
 
-       inline static scalar_func<P> const exact_scalar_func_ =
-           analytic_solution_time;
+  inline static scalar_func<P> const exact_scalar_func_ =
+      analytic_solution_time;
 };
