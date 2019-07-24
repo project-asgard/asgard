@@ -74,7 +74,6 @@ private:
   {
     fk::vector<P> f(x.size());
 
-
     std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
 
     auto const [P_m, dP_m] =
