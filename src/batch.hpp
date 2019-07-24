@@ -24,7 +24,9 @@ public:
   bool operator==(batch<P>) const;
   P *operator()(int const) const;
 
-  void assign_entry(fk::matrix<P, mem_type::view> const a, int const position);
+  template<resource res>
+  void
+  assign_entry(fk::matrix<P, mem_type::view, res> const a, int const position);
   bool clear_entry(int const position);
 
   P **const &get_list() const;

@@ -128,7 +128,8 @@ P *batch<P>::operator()(int const position) const
 // at the index indicated by position argument
 // cannot overwrite previous assignment
 template<typename P>
-void batch<P>::assign_entry(fk::matrix<P, mem_type::view> const a,
+template<resource res>
+void batch<P>::assign_entry(fk::matrix<P, mem_type::view, res> const a,
                             int const position)
 {
   // make sure this matrix is the
@@ -296,7 +297,8 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   int num_batch = num_entries;
 
   lib_dispatch::batched_gemv(a.get_list(), &lda, &transpose_a, b.get_list(),
-                             c.get_list(), &m, &n, &alpha_, &beta_, &num_batch);
+                             c.get_list(), &m, &n, &alpha_, &beta_, &num_batch,
+                             res);
 }
 
 // --- batch allocation code --- /
@@ -680,6 +682,19 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 template class batch<float>;
 template class batch<double>;
+
+template void batch<float>::assign_entry(
+    fk::matrix<float, mem_type::view, resource::host> const a,
+    int const position);
+template void batch<double>::assign_entry(
+    fk::matrix<double, mem_type::view, resource::host> const a,
+    int const position);
+template void batch<float>::assign_entry(
+    fk::matrix<float, mem_type::view, resource::device> const a,
+    int const position);
+template void batch<double>::assign_entry(
+    fk::matrix<double, mem_type::view, resource::device> const a,
+    int const position);
 
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
