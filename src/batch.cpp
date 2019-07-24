@@ -668,13 +668,17 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
         // operator views, windows into operator matrix
         std::vector<fk::matrix<P, mem_type::view>> operator_views;
+        //A printf("workitem : %d  j = %d  Term : %d \n", i, j, k);
         for (int d = pde.num_dims - 1; d >= 0; --d)
         {
           operator_views.push_back(fk::matrix<P, mem_type::view>(
               pde.get_coefficients(k, d), operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1));
+          auto H = operator_views.back();
+          //H.print("OP_VIEW_OLD");
         }
+        //printf("##########################################\n");
 
         // calculate the position of this element in the
         // global system matrix
@@ -689,6 +693,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
     }
   }
+  //std::cout << "#######################################" << std::endl;
   return batches;
 }
 
@@ -887,34 +892,52 @@ build_implicit_system(const PDE<P> &pde, element_table const &elem_table,
       for (int k = 0; k < pde.num_terms; ++k)
       {
         std::vector<fk::matrix<P>> kron_vals;
+        printf("workitem : %d  j = %d  Term : %d \n\n", i, j, k);
+
         fk::matrix<P> kron0(1,1);
         kron0(0,0) = 1.0;
         kron_vals.push_back(kron0);
-        for (int d = pde.num_dims - 1; d >= 0; --d)
+        for (int d = 0; d < pde.num_dims ; ++d)
         {
+          printf("pde.get_coefficients(%d, %d) :\n", k, d);
+          pde.get_coefficients(k, d).print("COEFF");
+          printf("View: (%d, %d) -> (%d, %d) \n", operator_row(d),
+                  operator_col(d),
+                  operator_row(d) + degree - 1,
+                  operator_col(d) + degree - 1);
           fk::matrix<P, mem_type::view> op_view =
               fk::matrix<P, mem_type::view>(pde.get_coefficients(k, d),
                   operator_row(d),
                   operator_row(d) + degree - 1,
                   operator_col(d),
                   operator_col(d) + degree - 1);
-          fk::matrix<P>  k_new = kron_vals[pde.num_dims - 1 - d].kron(op_view);
+          op_view.print("OP_VIEW");
+          fk::matrix<P>  k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(k_new);
+          //k_new.print("K_NEW");
         }
 
         // calculate the position of this element in the
         // global system matrix
         int const global_col = j * elem_size;
         auto & k_tmp = kron_vals.back();
+        k_tmp.print("K_TMP");
+        printf("Writing into A(%d, %d) of size %d\n\n", global_row, global_col, k_tmp.nrows());
 
         fk::matrix<P, mem_type::view>  A_view(A, global_row,
                                               global_row + k_tmp.nrows() - 1,
                                               global_col,
                                               global_col + k_tmp.ncols() - 1);
 
+        //A_view.print("A_view 1");
         A_view = A_view + k_tmp;
+        A_view.print("A_view 2");
+        A.print("ALL A");
       }
     }
+    std::cout << "#######################################" << std::endl;
+    A.print("A After workitem");
+    std::cout << "#######################################" << std::endl;
   }
   return A;
 }
