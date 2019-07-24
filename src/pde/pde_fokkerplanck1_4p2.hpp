@@ -81,7 +81,6 @@ private:
   {
     ignore(t);
     auto f = analytic_solution_dim0(x, 0);
-    f.print();
     return f;
   }
 
@@ -93,25 +92,14 @@ private:
 
     std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
 
-    // auto [P_m, dP_m] = legendre(x, h.size());
+    auto [P_m, dP_m] = legendre(x, h.size(), legendre_normalization::matlab);
 
-    //P_m.print();
-    x.print();
-
-    for (unsigned int l = 1; l < h.size(); ++l)
+    for (unsigned int l = 1; l <= h.size(); ++l)
     {
       auto L = l - 1;
 
-      // fk::vector<P> tmp = P_m.extract_submatrix(0, l-1, x.size(), 1);
-      fk::vector<P> P_m(x.size());
-      for (int j = 0; j < x.size(); ++j)
-      {
-        P_m(j) = std::legendre(L, x(j));
-      }
-
-      //tmp.print();
-
-      f = f + (tmp * h[l - 1] * std::exp(-L * (L + 1) * time));
+      fk::vector<P> P_0 = P_m.extract_submatrix(0, l - 1, x.size(), 1);
+      f                 = f + (P_0 * h[l - 1] * std::exp(-L * (L + 1) * time));
     }
 
     return f;
