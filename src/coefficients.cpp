@@ -200,6 +200,7 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
       {
         block = legendre_prime_t * tmp * (-1);
       }
+      return block;
     }();
 
     // set the block at the correct position

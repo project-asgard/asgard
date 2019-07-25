@@ -75,7 +75,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
       fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
       fk::matrix<double> const test = generate_coefficients<TestType>(
           pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
-      relaxed_comparison<TestType>(gold, test);
+      relaxed_comparison<TestType>(gold, test, 1e2);
     }
   }
 }
