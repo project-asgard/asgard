@@ -35,7 +35,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // Negative one to zero --zero to one -- and negative one to one
   // since this is done on the "reference element" -1 to 1
   // the intervals are fixed to be (-1,0), (0,1), and (-1,1)
-  int const quad_num = fm::two_raised_to(12);
+  int const quad_num = degree + 3;
   P const neg1       = -1.0;
   P const zero       = 0.0;
   P const one        = 1.0;

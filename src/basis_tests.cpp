@@ -6,15 +6,9 @@
 #include <random>
 #include <iostream>
 
-int main1()
-{
-  std::cout << "does it even start?" << std::endl;
-  return 0; 
-}
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-  std::cout << "Answer from template test case 1, def " << std::endl;
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
@@ -26,7 +20,6 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 
   SECTION("Multiwavelet generation, degree = 1")
   {
-    std::cout << "Answer from template test case 1/ section 1 " << std::endl;
     int const degree = 1;
     std::string out_base =
         "../testing/generated-inputs/transformations/multiwavelet_" +
@@ -64,7 +57,6 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 
   SECTION("Multiwavelet generation, degree = 3")
   {
-    std::cout << "Answer from template test case 1 sect 2  " << std::endl;
     int const degree = 3;
     std::string out_base =
         "../testing/generated-inputs/transformations/multiwavelet_" +
@@ -110,7 +102,6 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
-  std::cout << "Answer from template test case 2 / section 1 " << std::endl;
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
@@ -121,7 +112,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
   SECTION("operator_two_scale(2, 2)")
   {
-    std::cout << "Answer from template test case 2 / section 2 " << std::endl;
     int const degree = 2;
     int const levels = 2;
 
@@ -139,7 +129,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
   SECTION("operator_two_scale(2, 3)")
   {
-    std::cout << "Answer from template test case 2 / section 3 " << std::endl;
     int const degree = 2;
     int const levels = 3;
 
@@ -157,7 +146,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
   SECTION("operator_two_scale(4, 3)")
   {
-    std::cout << "Answer from template test case 2 / section 3 " << std::endl;
     int const degree = 4;
     int const levels = 3;
 
@@ -174,7 +162,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
   SECTION("operator_two_scale(5, 5)")
   {
-    std::cout << "Answer from template test case 2 / section 4 " << std::endl;
     int const degree = 5;
     int const levels = 5;
     dimension const dim =
@@ -191,7 +178,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
   SECTION("operator_two_scale(2, 6)")
   {
-    std::cout << "Answer from template test case 2 / section 5 " << std::endl;
     int const degree = 2;
     int const levels = 6;
 

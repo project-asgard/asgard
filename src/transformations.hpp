@@ -37,7 +37,7 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
   // we do the two-step store because we cannot have 'static' bindings
-  int const quad_num = dim.get_degree()+1;;
+  int const quad_num =  dim.get_degree() + 7;
   static const auto legendre_values =
       legendre_weights<P>(quad_num, -1, 1);
   auto const [roots, weights] = legendre_values;
