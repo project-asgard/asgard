@@ -68,24 +68,44 @@ private:
   }
 
   // analytic solution
+
+  // static fk::vector<P>
+  // analytic_solution_dim0(fk::vector<P> const x, P const time = 0)
+  //{
+  //  fk::vector<P> f(x.size());
+
+  //  std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
+
+  //  auto [P_m, dP_m] = legendre(x, h.size(), legendre_normalization::matlab);
+  //  ignore(dP_m);
+
+  //  for (unsigned int l = 1; l <= h.size(); ++l)
+  //  {
+  //    auto L = l - 1;
+
+  //    fk::vector<P> P_0 = P_m.extract_submatrix(0, l - 1, x.size(), 1);
+  //    f                 = f + (P_0 * h[l - 1] * std::exp(-L * (L + 1) *
+  //    time));
+  //  }
+
+  //  return f;
+  //}
+
+  static P phi(P const z, P const t) { return std::tanh(std::atanh(z) - t); }
+  static P f0(P const z) { return z * 0 + 1; }
+
   static fk::vector<P>
-  analytic_solution_dim0(fk::vector<P> const x, P const time = 0)
+  analytic_solution_dim0(fk::vector<P> const z, P const t = 0)
   {
-    fk::vector<P> f(x.size());
-
-    std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
-
-    auto [P_m, dP_m] = legendre(x, h.size(), legendre_normalization::matlab);
-    ignore(dP_m);
-
-    for (unsigned int l = 1; l <= h.size(); ++l)
+    fk::vector<P> f(z.size());
+    for (int i = 0; i < z.size(); ++i)
     {
-      auto L = l - 1;
-
-      fk::vector<P> P_0 = P_m.extract_submatrix(0, l - 1, x.size(), 1);
-      f                 = f + (P_0 * h[l - 1] * std::exp(-L * (L + 1) * time));
+      auto p  = phi(z(i), t);
+      auto t1 = 1 - std::pow(p, 2);
+      auto t2 = 1 - std::pow(z(i), 2);
+      auto t3 = f0(p);
+      f(i)    = t1 / t2 * t3;
     }
-
     return f;
   }
 
@@ -105,7 +125,7 @@ private:
   {
     P const x_range = dim.domain_max - dim.domain_min;
     P const dx      = x_range / std::pow(2, dim.get_level());
-    P const dt      = std::pow(dx, 2);
+    P const dt      = dx;
     // this will be scaled by CFL
     // from command line
     return dt;
@@ -123,7 +143,7 @@ private:
   {
     // suppress compiler warnings
     ignore(time);
-    return 1 - std::pow(x, 2);
+    return -1 * (1 - std::pow(x, 2));
   }
   static P g_func_2(P const x, P const time)
   {
@@ -135,47 +155,33 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -1.0,                         // domain min
-                   1.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   initial_condition_dim0,       // initial condition
-                   "x");                         // name
+      dimension<P>(boundary_condition::neumann, // left boundary condition
+                   boundary_condition::neumann, // right boundary condition
+                   -1.0,                        // domain min
+                   1.0,                         // domain max
+                   2,                           // levels
+                   2,                           // degree
+                   initial_condition_dim0,      // initial condition
+                   "x");                        // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
   // define terms (1 in this case)
-  // d/dz( (1-z^2) df/dz )
   //
-  //    termC_z.type = 'diff';
-  // eq1 : 1 * d/dx (1-z^2) q
-  //    termC_z.G1 = @(z,p,t,dat) 1-z.^2;
-  //    termC_z.LF1 = -1; % upwind left
-  //    termC_z.BCL1 = 'D';
-  //    termC_z.BCR1 = 'D';
-  // eq2 : q = df/dx
-  //    termC_z.G2 = @(z,p,t,dat) z*0+1;
-  //    termC_z.LF2 = +1; % upwind right
-  //    termC_z.BCL2 = 'N';
-  //    termC_z.BCR2 = 'N';
+  //  -d/dz ( (1-z^2)*f )
+  //
+  // term2_z.type = 'grad'; % grad (see coeff_matrix.m for available types)
+  // term2_z.G = @(z,p,t,dat) -1.*(1-z.^2); % G function for use in coeff_matrix
+  // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
 
   inline static term<P> const term0_dim0_ =
-      term<P>(coefficient_type::diff, // operator type
-              g_func_0,               // UNUSED for type "diff"
+      term<P>(coefficient_type::grad, // operator type
+              g_func_1,               //
               false,                  // time-dependent
-              flux_type::central,     // UNUSED for type "diff"
+              flux_type::downwind,    //
               fk::vector<P>(),        // additional data vector
               "d_dx",                 // name
-              dim0_,                  // owning dim
-              g_func_1, g_func_2,
-              flux_type::downwind,           // flux_1
-              flux_type::upwind,             // flux_2
-              boundary_condition::dirichlet, // BCL_1
-              boundary_condition::dirichlet, // BCR_1
-              boundary_condition::neumann,   // BCL_2
-              boundary_condition::neumann    // BCR_2
+              dim0_                   // owning dim
       );
 
   inline static const std::vector<term<P>> terms0_ = {term0_dim0_};

@@ -136,14 +136,14 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -1.0,                         // domain min
-                   1.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   initial_condition_dim0,       // initial condition
-                   "x");                         // name
+      dimension<P>(boundary_condition::dirichlet, // left boundary condition
+                   boundary_condition::dirichlet, // right boundary condition
+                   -1.0,                          // domain min
+                   1.0,                           // domain max
+                   2,                             // levels
+                   2,                             // degree
+                   initial_condition_dim0,        // initial condition
+                   "x");                          // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
