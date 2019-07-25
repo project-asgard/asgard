@@ -16,7 +16,8 @@ combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
-fk::vector<P> forward_transform(dimension<P> const &dim, F function, P const t = 0)
+fk::vector<P>
+forward_transform(dimension<P> const &dim, F function, P const t = 0)
 {
   int const num_levels = dim.get_level();
   int const degree     = dim.get_degree();

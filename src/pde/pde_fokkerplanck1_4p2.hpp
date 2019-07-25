@@ -58,23 +58,6 @@ private:
   // "source" member objects below for this PDE
   //
 
-  //    function ret = soln(z,t)
-  //
-  //      h = [3,0.5,1,0.7,3,0,3];
-  //
-  //      ret = zeros(size(z));
-  //      for l=1:numel(h)
-  //
-  //          L = l-1;
-  //          P_m = legendre(L,z); % Use matlab rather than Lin's legendre.
-  //          P = P_m(1,:)';
-  //
-  //          ret = ret + h(l) * P * exp(-L*(L+1)*t);
-  //
-  //      end
-  //
-  //  end
-
   // specify initial condition vector functions...
   static fk::vector<P>
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
@@ -93,6 +76,7 @@ private:
     std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
 
     auto [P_m, dP_m] = legendre(x, h.size(), legendre_normalization::matlab);
+    ignore(dP_m);
 
     for (unsigned int l = 1; l <= h.size(); ++l)
     {
@@ -121,9 +105,10 @@ private:
   {
     P const x_range = dim.domain_max - dim.domain_min;
     P const dx      = x_range / std::pow(2, dim.get_level());
-    // return dx; this will be scaled by CFL
+    P const dt      = std::pow(dx, 2);
+    // this will be scaled by CFL
     // from command line
-    return dx;
+    return dt;
   }
 
   // g-funcs
