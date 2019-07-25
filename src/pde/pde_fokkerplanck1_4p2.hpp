@@ -76,6 +76,7 @@ private:
 
     std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
 
+
     auto const [P_m, dP_m] =
         legendre(x, legendre_coeffs.size(), legendre_normalization::matlab);
     ignore(dP_m);
