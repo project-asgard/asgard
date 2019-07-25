@@ -36,12 +36,12 @@ auto const validity_check = [](std::vector<element_group> const &groups,
   }
 };
 
-// check that a given task vector occupies between 50% and 101% of the limiit
+// check that a given task vector occupies between 49% and 101% of the limiit
 auto const size_check = [](std::vector<element_group> const &groups,
                            PDE<double> const &pde, int const limit_MB,
                            bool const large_problem) {
   rank_workspace const work(pde, groups);
-  double lower_bound    = static_cast<double>(limit_MB * 0.5);
+  double lower_bound    = static_cast<double>(limit_MB * 0.49);
   double upper_bound    = static_cast<double>(limit_MB * 1.01);
   double workspace_size = work.size_MB();
   if (large_problem)
