@@ -247,7 +247,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   int const degrees_freedom_1d = dim.get_degree() * two_to_level;
   fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
-  // set number of quatrature points
+  // set number of quadrature points
   // FIXME should this be order dependent?
   // FIXME is this a global quantity??
   int const quad_num = dim.get_degree()+1;
