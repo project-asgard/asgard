@@ -604,19 +604,41 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
+    P **a_d;
+    P **b_d;
+    P **c_d;
+    size_t const list_size = *num_batch * sizeof(P *);
+
+    auto stat = cudaMalloc((void **)&a_d, list_size);
+    assert(stat == 0);
+    stat = cudaMalloc((void **)&b_d, list_size);
+    assert(stat == 0);
+    stat = cudaMalloc((void **)&c_d, list_size);
+    assert(stat == 0);
+    stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
+    assert(stat == 0);
+    stat = cudaMemcpy(b_d, b, list_size, cudaMemcpyHostToDevice);
+    assert(stat == 0);
+    stat = cudaMemcpy(c_d, c, list_size, cudaMemcpyHostToDevice);
+    assert(stat == 0);
+
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemmBatched(
           device.handle, cublas_trans(*transa), cublas_trans(*transb), *m, *n,
-          *k, alpha, a, *lda, b, *ldb, beta, c, *ldc, *num_batch);
+          *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+      auto const cuda_stat = cudaDeviceSynchronize();
+      assert(cuda_stat == 0);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemmBatched(
           device.handle, cublas_trans(*transa), cublas_trans(*transb), *m, *n,
-          *k, alpha, a, *lda, b, *ldb, beta, c, *ldc, *num_batch);
+          *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+      auto const cuda_stat = cudaDeviceSynchronize();
+      assert(cuda_stat == 0);
       assert(success == 0);
     }
     return;
