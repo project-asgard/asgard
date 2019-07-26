@@ -2,10 +2,9 @@
 #include "pde.hpp"
 #include "tests_general.hpp"
 #include "transformations.hpp"
+#include <iostream>
 #include <numeric>
 #include <random>
-#include <iostream>
-
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
