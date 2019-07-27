@@ -685,19 +685,42 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     int ldb           = *n;
     int ldc           = *m;
     int k             = 1;
+
+    P **a_d;
+    P **x_d;
+    P **y_d;
+    size_t const list_size = *num_batch * sizeof(P *);
+
+    auto stat = cudaMalloc((void **)&a_d, list_size);
+    assert(stat == 0);
+    stat = cudaMalloc((void **)&x_d, list_size);
+    assert(stat == 0);
+    stat = cudaMalloc((void **)&y_d, list_size);
+    assert(stat == 0);
+    stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
+    assert(stat == 0);
+    stat = cudaMemcpy(x_d, x, list_size, cudaMemcpyHostToDevice);
+    assert(stat == 0);
+    stat = cudaMemcpy(y_d, y, list_size, cudaMemcpyHostToDevice);
+    assert(stat == 0);
+
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemmBatched(
           device.handle, cublas_trans(*trans), cublas_trans(transb), *m, k, *n,
-          alpha, a, *lda, x, ldb, beta, y, ldc, *num_batch);
+          alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc, *num_batch);
+      auto const cuda_stat = cudaDeviceSynchronize();
+      assert(cuda_stat == 0);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemmBatched(
           device.handle, cublas_trans(*trans), cublas_trans(transb), *m, k, *n,
-          alpha, a, *lda, x, ldb, beta, y, ldc, *num_batch);
+          alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc, *num_batch);
+      auto const cuda_stat = cudaDeviceSynchronize();
+      assert(cuda_stat == 0);
       assert(success == 0);
     }
     return;
