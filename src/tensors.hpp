@@ -181,7 +181,7 @@ public:
   // owners - specifically, we want to allow a matrix<view> to be made from a
   // vector<owner>
   std::shared_ptr<int>
-      get_ref_count(access_badge<matrix<P, mem_type::view>>) const
+      get_ref_count(access_badge<matrix<P, mem_type::view, res>>) const
   {
     return ref_count_;
   }
