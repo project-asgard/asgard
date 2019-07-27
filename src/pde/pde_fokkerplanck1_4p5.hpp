@@ -15,19 +15,20 @@
 
 // ---------------------------------------------------------------------------
 //
-// the "fokkerplanck 1d - problem 4.4" pde
+// the "fokkerplanck 1d - problem 4.5" pde
 //
-// Problem 4.4 from the RE paper - evolution of the pitch angle dependence
-// of f in the presence of electric field acceleration and collisions
+// Problem 4.5 from the RE paper - evolution of the pitch angle dependence
+// of f in the presence of electric field acceleration and collisions and
+// radiation damping
 //
-// df/dt == -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz)
+// df/dt == -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz) - R d/dz(z(1-z^2) f)
 //
 // ---------------------------------------------------------------------------
 template<typename P>
-class PDE_fokkerplanck_1d_4p4 : public PDE<P>
+class PDE_fokkerplanck_1d_4p5 : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_1d_4p4(int const num_levels = -1, int const degree = -1)
+  PDE_fokkerplanck_1d_4p5(int const num_levels = -1, int const degree = -1)
       : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
                dimensions_, terms_, sources_, exact_vector_funcs_,
                exact_scalar_func_, get_dt_, do_poisson_solve_,
@@ -40,7 +41,7 @@ private:
 
   static int constexpr num_dims_           = 1;
   static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 2;
+  static int constexpr num_terms_          = 3;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = true;
 
@@ -59,8 +60,9 @@ private:
   }
 
   static P constexpr sig = 0.1;
-  static P constexpr E   = 4.0;
+  static P constexpr E   = 2.0;
   static P constexpr C   = 1.0;
+  static P constexpr R   = 2.0;
 
   // analytic solution
 
@@ -71,25 +73,12 @@ private:
   }
   static P f0(P const z)
   {
-    static P const shift = 0.36;
     switch (1)
     {
     case 1:
       return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
-    case 2:
-      return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2));
-    case 3:
-      return std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
-    case 4:
-      return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
-             std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
     }
   }
-
-  //    function ret = soln(z,t)
-  //        A = E/C;
-  //        ret = A / (2*sinh(A)) * exp(A*z);
-  //    end
 
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
   {
@@ -102,6 +91,13 @@ private:
     return f;
   }
 
+  //  function ret = soln(z,t)
+  //      A = E/C;
+  //      B = R/C;
+  //      Q = .03;
+  //      ret = Q * exp(A*z + (B/2)*z.^2);
+  //  end
+
   static fk::vector<P>
   analytic_solution_dim0(fk::vector<P> const z, P const t = 0)
   {
@@ -109,8 +105,10 @@ private:
     fk::vector<P> f(z.size());
     for (int i = 0; i < z.size(); ++i)
     {
-      auto A = E / C;
-      f(i)   = A / (2 * std::sinh(A) * std::exp(A * z(i)));
+      auto A           = E / C;
+      auto B           = R / C;
+      static const P Q = 0.03;
+      f(i)             = Q * std::exp(A * z(i) + (B / 2) * std::pow(z(i), 2));
     }
     return f;
   }
@@ -164,6 +162,13 @@ private:
     ignore(time);
     return 1.0;
   }
+  static P g_func_t3_z(P const x, P const time)
+  {
+    // suppress compiler warnings
+    // -R * z.*(1-z.^2);
+    ignore(time);
+    return -R * x * (1 - std::pow(x, 2));
+  }
 
   // define dimensions
   inline static dimension<P> const dim0_ =
@@ -180,7 +185,7 @@ private:
 
   // define terms
 
-  // term 1
+  // term E
   //
   // -E d/dz((1-z^2) f)
 
@@ -196,7 +201,7 @@ private:
 
   inline static const std::vector<term<P>> termE = {termE_z};
 
-  // term 2
+  // term C
   //
   // +C * d/dz( (1-z^2) df/dz )
   //
@@ -231,7 +236,27 @@ private:
 
   inline static const std::vector<term<P>> termC = {termC_z};
 
-  inline static term_set<P> const terms_ = {termE, termC};
+  // term R
+  //
+  // - R d/dz(z(1-z^2) f)
+  //
+  // termR_z.type = 'grad'; % grad (see coeff_matrix.m for available types)
+  // termR_z.G = @(z,p,t,dat) -R * z.*(1-z.^2); % G function for use in
+  // coeff_matrix construction. termR_z.LF = -1; % Upwind
+
+  inline static term<P> const termR_z =
+      term<P>(coefficient_type::grad, // operator type
+              g_func_t3_z,            //
+              false,                  // time-dependent
+              flux_type::downwind,    //
+              fk::vector<P>(),        // additional data vector
+              "d_dx",                 // name
+              dim0_                   // owning dim
+      );
+
+  inline static const std::vector<term<P>> termR = {termR_z};
+
+  inline static term_set<P> const terms_ = {termE, termC, termR};
 
   // define sources
 
