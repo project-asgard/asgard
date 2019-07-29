@@ -156,7 +156,7 @@ int main(int argc, char **argv)
   // intermediate and result workspaces).
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 1000;
+  static int const default_workspace_MB = 7000;
 
   // FIXME stand-in
   static int const ranks = 1;

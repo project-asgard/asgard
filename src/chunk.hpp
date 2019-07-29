@@ -39,12 +39,14 @@ class rank_workspace
 {
 public:
   rank_workspace(PDE<P> const &pde, std::vector<element_chunk> const &chunks);
-  fk::vector<P> const &get_unit_vector() const;
+  fk::vector<P, mem_type::owner, resource::device> const &
+  get_unit_vector() const;
+
   // input, output, workspace for batched gemm/reduction
-  fk::vector<P> batch_input;
-  fk::vector<P> reduction_space;
-  fk::vector<P> batch_intermediate;
-  fk::vector<P> batch_output;
+  fk::vector<P, mem_type::owner, resource::device> batch_input;
+  fk::vector<P, mem_type::owner, resource::device> reduction_space;
+  fk::vector<P, mem_type::owner, resource::device> batch_intermediate;
+  fk::vector<P, mem_type::owner, resource::device> batch_output;
   double size_MB() const
   {
     int64_t num_elems = batch_input.size() + reduction_space.size() +
@@ -56,7 +58,7 @@ public:
   };
 
 private:
-  fk::vector<P> unit_vector_;
+  fk::vector<P, mem_type::owner, resource::device> unit_vector_;
 };
 
 // larger, host-side memory space holding the entire input/output vectors.

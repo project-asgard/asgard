@@ -59,8 +59,7 @@ class vector
   friend class vector;
 
 public:
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = res, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector();
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   explicit vector(int const size);
@@ -241,8 +240,7 @@ class matrix
                          // out of line
 
 public:
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = res, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix();
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix(int rows, int cols);
@@ -389,7 +387,13 @@ public:
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = res, typename = enable_for_host<r_>>
-  matrix<P> &clear_and_resize(int const, int const);
+  matrix<P, mem_type::owner, resource::host> &
+  clear_and_resize(int const, int const);
+
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = res, typename = enable_for_device<r_>>
+  matrix<P, mem_type::owner, resource::device> &
+  clear_and_resize(int const, int const);
 
   template<mem_type omem, resource r_ = res, typename = enable_for_host<r_>>
   matrix<P, mem> &set_submatrix(int const row_idx, int const col_idx,
@@ -574,7 +578,7 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::device> const &source,
 //
 //-----------------------------------------------------------------------------
 template<typename P, mem_type mem, resource res>
-template<mem_type, typename, resource, typename>
+template<mem_type, typename>
 fk::vector<P, mem, res>::vector()
     : data_{nullptr}, size_{0}, ref_count_{std::make_shared<int>(0)}
 {}
@@ -1263,7 +1267,7 @@ int fk::vector<P, mem, res>::get_num_views() const
 //-----------------------------------------------------------------------------
 
 template<typename P, mem_type mem, resource res>
-template<mem_type, typename, resource, typename>
+template<mem_type, typename>
 fk::matrix<P, mem, res>::matrix()
     : data_{nullptr}, nrows_{0}, ncols_{0}, stride_{nrows_},
       ref_count_{std::make_shared<int>(0)}
@@ -2034,9 +2038,10 @@ fk::matrix<P, mem, res>::update_row(int const row_idx, std::vector<P> const &v)
 //
 // Resize, clearing all data
 //
+// host specialization
 template<typename P, mem_type mem, resource res>
 template<mem_type, typename, resource, typename>
-fk::matrix<P> &
+fk::matrix<P, mem_type::owner, resource::host> &
 fk::matrix<P, mem, res>::clear_and_resize(int const rows, int const cols)
 {
   assert(ref_count_.use_count() == 1);
@@ -2047,6 +2052,26 @@ fk::matrix<P, mem, res>::clear_and_resize(int const rows, int const cols)
     assert(cols == rows);
   delete[] data_;
   data_   = new P[rows * cols]();
+  nrows_  = rows;
+  ncols_  = cols;
+  stride_ = nrows_;
+  return *this;
+}
+
+// device specialization
+template<typename P, mem_type mem, resource res>
+template<mem_type, typename, resource, typename>
+fk::matrix<P, mem_type::owner, resource::device> &
+fk::matrix<P, mem, res>::clear_and_resize(int const rows, int const cols)
+{
+  assert(ref_count_.use_count() == 1);
+
+  assert(rows >= 0);
+  assert(cols >= 0);
+  if (rows == 0 || cols == 0)
+    assert(cols == rows);
+  delete_device(data_);
+  allocate_device(data_, rows * cols);
   nrows_  = rows;
   ncols_  = cols;
   stride_ = nrows_;
