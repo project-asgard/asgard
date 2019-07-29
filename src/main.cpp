@@ -176,7 +176,6 @@ int main(int argc, char **argv)
 
   auto A = build_implicit_system(*pde, table, system);
   A.print("Implicit A");
-  std::exit(0);
 
   std::cout << "allocating time loop working space, size (MB): "
             << get_MB(system.batch_input.size() * 5) << '\n';

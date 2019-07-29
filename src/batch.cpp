@@ -810,6 +810,7 @@ build_implicit_system(const PDE<P> &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const x_size    = elem_size * elem_table.size();
+  printf("degree = %d  elem_size = %d  x_size= %d\n", degree, elem_size, x_size);
   assert(system.batch_input.size() == x_size);
   // System Matrix
   fk::matrix<P> A(x_size, x_size);
@@ -905,6 +906,7 @@ build_implicit_system(const PDE<P> &pde, element_table const &elem_table,
                   operator_col(d),
                   operator_row(d) + degree - 1,
                   operator_col(d) + degree - 1);
+          printf("=====================================\n");
           fk::matrix<P, mem_type::view> op_view =
               fk::matrix<P, mem_type::view>(pde.get_coefficients(k, d),
                   operator_row(d),
@@ -912,6 +914,8 @@ build_implicit_system(const PDE<P> &pde, element_table const &elem_table,
                   operator_col(d),
                   operator_col(d) + degree - 1);
           op_view.print("OP_VIEW");
+          printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+
           fk::matrix<P>  k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(k_new);
           //k_new.print("K_NEW");
