@@ -554,6 +554,24 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     // REQUIRE(test_enlarged_v == gold_enlarged);
   }
 
+  SECTION("vector resize, device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> test_reduced_d{
+        2, 3, 4, 5, 6, 7, 8};
+    fk::vector<TestType, mem_type::owner> const gold_enlarged{2, 3, 4, 0, 0};
+    fk::vector<TestType, mem_type::owner, resource::device> test_enlarged_d{
+        2, 3, 4};
+
+    test_reduced_d.resize(gold.size());
+    test_enlarged_d.resize(gold.size());
+
+    fk::vector<TestType, mem_type::owner> const test_enlarged(test_enlarged_d);
+    fk::vector<TestType, mem_type::owner> const test_reduced(test_reduced_d);
+
+    REQUIRE(test_reduced == gold);
+    REQUIRE(test_enlarged == gold_enlarged);
+  }
+
   SECTION("vector concatenation")
   {
     fk::vector<TestType> test_left = {2, 3, 4};
