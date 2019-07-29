@@ -654,7 +654,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
 
 // restricted subset of gemv functionality provided by
 // calling batched gemm - no non-unit increments allowed for
-// x or y
+// x or y for now
 template<typename P>
 void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
                   P **const &y, int *m, int *n, P *alpha, P *beta,
