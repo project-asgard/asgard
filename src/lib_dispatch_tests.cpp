@@ -821,7 +821,6 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
 
 TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 {
-
   int num_batch = 3;
   // clang-format off
   fk::matrix<TestType> const a1 {
@@ -879,11 +878,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int a_ncols     = a_stop_col - a_start_col + 1;
-    int a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -908,8 +907,8 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     int const b_stop_row  = 3;
     int const b_start_col = 2;
     int const b_stop_col  = 2;
-    int b_ncols     = b_stop_col - b_start_col + 1;
-    int b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
@@ -933,7 +932,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 0);
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
-    int c_stride = c.stride();
+    int c_stride                   = c.stride();
     std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v.data());
@@ -955,7 +954,10 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     TestType alpha = 1.0;
     TestType beta  = 0.0;
 
-    lib_dispatch::batched_gemm(a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b, c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta, &num_batch, resource::host);
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+        &num_batch, resource::host);
 
     // compare
     REQUIRE(c == gold);
@@ -967,11 +969,11 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int a_ncols     = a_stop_col - a_start_col + 1;
-    int a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -1001,11 +1003,10 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 2;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
@@ -1058,16 +1059,20 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_v * b3_v;
 
     // call batched gemm
+    int c_stride   = c_d.stride();
     TestType alpha = 1.0;
     TestType beta  = 0.0;
 
-    lib_dispatch::batched_gemm(a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b, c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta, &num_batch, resource::device);
-    
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+        &num_batch, resource::device);
+
     // compare
     fk::matrix<TestType> const c(c_d);
     REQUIRE(c == gold);
-  }  }
-/*
+  }
+
   auto get_trans =
       [](fk::matrix<TestType, mem_type::view> orig) -> fk::matrix<TestType> {
     fk::matrix<TestType> builder(orig);
@@ -1076,15 +1081,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: trans a, no trans b, alpha = 1.0, beta = 0.0")
   {
-    bool const trans_a = true;
+    char const trans_a = 't';
     // make 3x2 (pre-trans) "a" views
     int const a_start_row = 1;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 1;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -1098,7 +1103,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v.data());
@@ -1108,15 +1113,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x2 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 1;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
@@ -1125,7 +1129,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v.data());
@@ -1141,7 +1145,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v.data());
       builder.push_back(c2_v.data());
@@ -1160,9 +1164,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_t * b3_v;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    int c_stride   = c.stride();
+
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_ncols, &b_ncols, &a_nrows, &alpha, &beta,
+        &num_batch, resource::host);
 
     // compare
     REQUIRE(c == gold);
@@ -1170,15 +1179,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: trans a, no trans b, alpha = 1.0, beta = 0.0, device")
   {
-    bool const trans_a = true;
+    char const trans_a = 't';
     // make 3x2 (pre-trans) "a" views
     int const a_start_row = 1;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 1;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -1199,7 +1208,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v_d.data());
@@ -1209,15 +1218,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x2 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 1;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
@@ -1233,7 +1241,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v_d.data());
@@ -1252,7 +1260,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
                                                                   1);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v_d.data());
       builder.push_back(c2_v_d.data());
@@ -1271,9 +1279,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_t * b3_v;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+
+    int c_stride = c_d.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_ncols, &b_ncols, &a_nrows, &alpha, &beta,
+        &num_batch, resource::device);
 
     fk::matrix<TestType> const c(c_d);
     // compare
@@ -1282,15 +1295,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: no trans a, trans b, alpha = 1.0, beta = 0.0")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -1299,7 +1312,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v.data());
@@ -1309,15 +1322,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = true;
+    char const trans_b = 't';
     // make 2x3 (pre trans) "b" views
     int const b_start_row = 0;
     int const b_stop_row  = 1;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 0;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_nrows           = b_stop_row - b_start_row + 1;
+
+    int b_stride = b1.nrows();
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
@@ -1326,7 +1339,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v.data());
@@ -1347,7 +1360,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(c1_v.data());
@@ -1366,9 +1379,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_v * b3_t;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    int c_stride   = c.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_nrows, &a_ncols, &alpha, &beta,
+        &num_batch, resource::host);
 
     // compare
     REQUIRE(c == gold);
@@ -1376,15 +1393,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: no trans a, trans b, alpha = 1.0, beta = 0.0, device")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -1400,7 +1417,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v_d.data());
@@ -1410,15 +1427,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = true;
+    char const trans_b = 't';
     // make 2x3 (pre trans) "b" views
     int const b_start_row = 0;
     int const b_stop_row  = 1;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 0;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_nrows           = b_stop_row - b_start_row + 1;
+
+    int b_stride = b1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
@@ -1434,7 +1451,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v_d.data());
@@ -1458,7 +1475,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
                                                                   1);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(c1_v_d.data());
@@ -1477,9 +1494,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_v * b3_t;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    int c_stride   = c_d.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_nrows, &a_ncols, &alpha, &beta,
+        &num_batch, resource::device);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -1488,15 +1509,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0")
   {
-    bool const trans_a = true;
+    char const trans_a = 't';
     // make 3x2 (pre-trans) "a" views
     int const a_start_row = 1;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 1;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -1510,7 +1531,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v.data());
@@ -1520,15 +1541,16 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = true;
+    char const trans_b = 't';
     // make 2x3 (pre trans) "b" views
     int const b_start_row = 0;
     int const b_stop_row  = 1;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 0;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+
+    int b_nrows = b_stop_row - b_start_row + 1;
+
+    int b_stride = b1.nrows();
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
@@ -1537,7 +1559,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v.data());
@@ -1558,7 +1580,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v.data());
       builder.push_back(c2_v.data());
@@ -1576,9 +1598,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_t * b3_t;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    int c_stride   = c.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_ncols, &b_nrows, &a_nrows, &alpha, &beta,
+        &num_batch, resource::host);
 
     // compare
     REQUIRE(c == gold);
@@ -1586,15 +1612,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0, device")
   {
-    bool const trans_a = true;
+    char const trans_a = 't';
     // make 3x2 (pre-trans) "a" views
     int const a_start_row = 1;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 1;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -1615,7 +1641,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v_d.data());
@@ -1625,15 +1651,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = true;
+    char const trans_b = 't';
     // make 2x3 (pre trans) "b" views
     int const b_start_row = 0;
     int const b_stop_row  = 1;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 0;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_nrows           = b_stop_row - b_start_row + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
@@ -1649,7 +1674,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v_d.data());
@@ -1673,7 +1698,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
                                                                   1);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v_d.data());
       builder.push_back(c2_v_d.data());
@@ -1691,9 +1716,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = a3_t * b3_t;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    int c_stride   = c_d.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_ncols, &b_nrows, &a_nrows, &alpha, &beta,
+        &num_batch, resource::device);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -1702,15 +1731,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 1.0")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -1719,7 +1748,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v.data());
@@ -1729,15 +1758,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 2;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
@@ -1746,7 +1774,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v.data());
@@ -1770,7 +1798,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v.data());
       builder.push_back(c2_v.data());
@@ -1788,9 +1816,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = (a3_v * b3_v) * 2.0;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 1.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
+    TestType alpha = 1.0;
+    TestType beta  = 1.0;
+    int c_stride   = c.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+        &num_batch, resource::host);
 
     // compare
     REQUIRE(c == gold);
@@ -1798,15 +1830,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 1.0, device")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -1822,7 +1854,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v_d.data());
@@ -1832,15 +1864,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 2;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
@@ -1856,7 +1887,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v_d.data());
@@ -1885,7 +1916,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
                                                                   0);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v_d.data());
       builder.push_back(c2_v_d.data());
@@ -1903,9 +1934,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = (a3_v * b3_v) * 2.0;
 
     // call batched gemm
-    TestType const alpha = 1.0;
-    TestType const beta  = 1.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    TestType alpha = 1.0;
+    TestType beta  = 1.0;
+    int c_stride   = c_d.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+        &num_batch, resource::device);
 
     // compare
     c = c_d;
@@ -1914,15 +1949,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 0.0")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -1931,7 +1966,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v.data());
@@ -1941,15 +1976,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 2;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
@@ -1958,7 +1992,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v.data());
@@ -1974,7 +2008,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v.data());
       builder.push_back(c2_v.data());
@@ -1992,9 +2026,13 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = (a3_v * b3_v) * 3.0;
 
     // call batched gemm
-    TestType const alpha = 3.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
+    TestType alpha = 3.0;
+    TestType beta  = 1.0;
+    int c_stride   = c.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+        &num_batch, resource::host);
 
     // compare
     REQUIRE(c == gold);
@@ -2002,15 +2040,15 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 
   SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 0.0")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows           = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols           = a_stop_col - a_start_col + 1;
+    int a_stride          = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -2026,7 +2064,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v_d.data());
@@ -2036,15 +2074,14 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
     int const b_start_col = 2;
     int const b_stop_col  = 2;
-    int const b_ncols     = b_stop_col - b_start_col + 1;
-    int const b_stride    = b1.nrows();
+    int b_ncols           = b_stop_col - b_start_col + 1;
+    int b_stride          = b1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
@@ -2060,7 +2097,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v_d.data());
@@ -2079,7 +2116,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
                                                                   0);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v_d.data());
       builder.push_back(c2_v_d.data());
@@ -2097,16 +2134,20 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
     gold3_v = (a3_v * b3_v) * 3.0;
 
     // call batched gemm
-    TestType const alpha = 3.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    TestType alpha = 3.0;
+    TestType beta  = 1.0;
+    int c_stride   = c_d.stride();
+    lib_dispatch::batched_gemm(
+        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
+        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+        &num_batch, resource::device);
 
     // compare
     fk::matrix<TestType> const c(c_d);
     REQUIRE(c == gold);
   }
 }
-
+/*
 TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
 {
   int const num_batch = 3;
@@ -2131,12 +2172,12 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
          {24, 34, 44},
          {25, 35, 45},
          {26, 36, 46},
-  };  
+  };
 
   fk::vector<TestType> const b1 {
          {1},
          {1},
-	 {1},
+         {1},
          {1},
   };
   // clang-format on
@@ -2150,15 +2191,15 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
   // test batched gemv as reduction tool w/ unit vector
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows     = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols     = a_stop_col - a_start_col + 1;
+    int a_stride    = a1.nrows();
 
     fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
@@ -2177,13 +2218,12 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
-    int const b_ncols     = 1;
-    int const b_stride    = 1;
+    int b_ncols     = 1;
+    int b_stride    = 1;
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_nrows, b_ncols, 0);
 
@@ -2231,15 +2271,15 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
 
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0, device")
   {
-    bool const trans_a = false;
+    char const trans_a = 'n';
     // make 2x3 "a" views
     int const a_start_row = 2;
     int const a_stop_row  = 3;
-    int const a_nrows     = a_stop_row - a_start_row + 1;
+    int a_nrows     = a_stop_row - a_start_row + 1;
     int const a_start_col = 0;
     int const a_stop_col  = 2;
-    int const a_ncols     = a_stop_col - a_start_col + 1;
-    int const a_stride    = a1.nrows();
+    int a_ncols     = a_stop_col - a_start_col + 1;
+    int a_stride    = a1.nrows();
 
     fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
         a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
@@ -2255,7 +2295,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    std::vector<TestType *> const a = [&] {
+    std::vector<TestType *> a_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(a1_v_d.data());
@@ -2265,20 +2305,19 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
       return builder;
     }();
 
-    bool const trans_b = false;
+    char const trans_b = 'n';
     // make 3x1 "b" views
     int const b_start_row = 1;
     int const b_stop_row  = 3;
-    int const b_nrows     = b_stop_row - b_start_row + 1;
-    int const b_ncols     = 1;
-    int const b_stride    = 1;
+    int b_ncols     = 1;
+    int b_stride    = 1;
 
     fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
         b1_d, b_nrows, b_ncols, 0);
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_nrows, b_ncols, 0);
 
-    std::vector<TestType *> const b = [&] {
+    std::vector<TestType *> b_vect = [&] {
       std::vector<TestType *> builder;
 
       builder.push_back(b1_v_d.data());
@@ -2297,7 +2336,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
                                                                   0);
 
-    std::vector<TestType *> const c = [&] {
+    std::vector<TestType *> c_vect = [&] {
       std::vector<TestType *> builder;
       builder.push_back(c1_v_d.data());
       builder.push_back(c2_v_d.data());
@@ -2315,8 +2354,9 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     gold3_v = a3_v * b1_v;
 
     // call batched gemv
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
+    TestType alpha = 1.0;
+    TestType beta  = 0.0;
+    int c_stride = c_d.stride();
     batched_gemv(a_batch, b_batch, c_batch, alpha, beta, resource::device);
 
     // compare
