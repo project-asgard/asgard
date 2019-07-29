@@ -6,6 +6,7 @@ int num_elements_in_group(element_group const &g)
   int num_elems = 0;
   for (auto const &[row, cols] : g)
   {
+    ignore(row);
     num_elems += cols.second - cols.first + 1;
   }
   return num_elems;
@@ -15,6 +16,7 @@ int max_connected_in_group(element_group const &g)
   int current_max = 0;
   for (auto const &[row, cols] : g)
   {
+    ignore(row);
     current_max = std::max(current_max, cols.second - cols.first + 1);
   }
   return current_max;
