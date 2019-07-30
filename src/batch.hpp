@@ -157,7 +157,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               explicit_system<P> const &system, int const connected_start = 0,
               int const elements_per_batch = -1);
 
-template<typename P> fk::matrix<P>
+template<typename P>
+fk::matrix<P>
 build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
                       explicit_system<P> const &system,
                       int const connected_start    = 0,

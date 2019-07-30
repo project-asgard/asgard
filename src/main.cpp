@@ -174,8 +174,6 @@ int main(int argc, char **argv)
   auto const work_set =
       build_work_set(*pde, table, system, default_workspace_MB);
 
-  auto A = build_implicit_system(*pde, table, system);
-  A.print("Implicit A");
 
   std::cout << "allocating time loop working space, size (MB): "
             << get_MB(system.batch_input.size() * 5) << '\n';
@@ -187,11 +185,18 @@ int main(int argc, char **argv)
   // -- time loop
   std::cout << "--- begin time loop ---" << '\n';
   prec const dt = pde->get_dt() * opts.get_cfl();
+  system.batch_input = initial_condition;
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
 
-    explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
+    auto A = build_implicit_system(*pde, table, system);
+    A.print("Implicit A");
+    // explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
+    initial_condition.print("Initial Conditions");
+    printf("===================================\n");
+    // system.batch_input = initial_condition;
+    implicit_time_advance(*pde, initial_sources, system, work_set, time, dt, A);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)

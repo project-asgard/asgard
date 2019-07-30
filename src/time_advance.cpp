@@ -1,4 +1,5 @@
 #include "time_advance.hpp"
+#include "cstdio"
 #include "fast_math.hpp"
 
 // this function executes an explicit time step using the current solution
@@ -74,6 +75,49 @@ void explicit_time_advance(PDE<P> const &pde,
 
   fm::copy(system.batch_input, system.batch_output);
 }
+// this function executes an explicit time step using the current solution
+// vector x. on exit, the next solution vector is stored in fx.
+template<typename P>
+void implicit_time_advance(PDE<P> const &pde,
+                           std::vector<fk::vector<P>> const &unscaled_sources,
+                           explicit_system<P> &system,
+                           work_set<P> const &batches, P const time, P const dt,
+                           fk::matrix<P> &A)
+{
+  assert(system.scaled_source.size() == system.batch_input.size());
+  assert(system.batch_input.size() == system.batch_output.size());
+  assert(system.x_orig.size() == system.batch_input.size());
+  assert(system.result_1.size() == system.batch_input.size());
+  assert(system.result_2.size() == system.batch_input.size());
+  assert(system.result_3.size() == system.batch_input.size());
+
+  fm::copy(system.batch_input, system.x_orig);
+  scale_sources(pde, unscaled_sources, system.scaled_source, time + dt);
+  // AA = I - dt*A;
+  for (int i = 0; i < A.nrows(); ++i)
+  {
+    for (int j = 0; j < A.ncols(); ++j)
+    {
+      A(i, j) = -dt * A(i, j);
+    }
+    A(i, i) += 1.0;
+  }
+  printf(" t = %.3f   dt = %.3f\n", time, dt);
+  system.scaled_source.print("Scaled Sources");
+  printf("===================================\n");
+  A.print("AA");
+  printf("===================================\n");
+
+  system.batch_input = system.batch_input + system.scaled_source * dt;
+  system.batch_input.print("batch_input");
+  printf("===================================\n");
+//  system.batch_output.print("b");
+//  printf("===================================\n");
+  fm::gesv(A, system.batch_input);
+  system.batch_input.print("solution");
+  printf("===================================\n");
+  fm::copy(system.batch_input, system.batch_output);
+}
 
 // scale source vectors for time
 template<typename P>
@@ -145,3 +189,16 @@ explicit_time_advance(PDE<double> const &pde,
                       explicit_system<double> &system,
                       work_set<double> const &batches, double const time,
                       double const dt);
+
+template void
+implicit_time_advance(PDE<float> const &pde,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      explicit_system<float> &system,
+                      work_set<float> const &batches, float const time,
+                      float const dt, fk::matrix<float> &A);
+template void
+implicit_time_advance(PDE<double> const &pde,
+                      std::vector<fk::vector<double>> const &unscaled_sources,
+                      explicit_system<double> &system,
+                      work_set<double> const &batches, double const time,
+                      double const dt, fk::matrix<double> &A);

@@ -76,6 +76,10 @@ extern "C"
 
   void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
                int *info);
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+              int *ldb, int *info);
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+              int *ldb, int *info);
 }
 
 // -- precision/execution resource wrapper for blas --
@@ -115,6 +119,10 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
 template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            resource const res = resource::host);
+
+template<typename P>
+void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
+          int *info);
 
 extern template void
 copy(int *n, float *x, int *incx, float *y, int *incy, resource const res);
@@ -177,4 +185,10 @@ extern template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
                            int *lwork, int *info, resource const res);
 extern template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
                            int *lwork, int *info, resource const res);
+
+extern template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv,
+                          double *b, int *ldb, int *info);
+extern template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv,
+                          float *b, int *ldb, int *info);
+/* Auxiliary routines prototypes */
 } // namespace lib_dispatch
