@@ -25,7 +25,7 @@ HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
   HighFive::DataSpace dataspace = HighFive::DataSpace(
       {1, vec_size}, {HighFive::DataSpace::UNLIMITED, vec_size});
 
-  // Use chunking
+  // Use chunk
 
   HighFive::DataSetCreateProps props;
   props.add(HighFive::Chunking(std::vector<hsize_t>{2, 2}));

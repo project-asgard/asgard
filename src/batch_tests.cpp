@@ -6,6 +6,7 @@
 #include "tests_general.hpp"
 #include <numeric>
 #include <random>
+
 TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
 {
   bool const do_trans = true;

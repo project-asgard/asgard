@@ -16,7 +16,7 @@
 // - coordinates are composed of a set of dimension-many pairs (level, cell).
 //   (technically, an element's coordinates will also have a degree component,
 //   but we omit this as we assume uniform degree).
-// - in our table, coordinates are stored with all level components grouped,
+// - in our table, coordinates are stored with all level components chunked,
 //   followed by cell components so that a single coordinate will look like
 //   e.g.: (lev_1, lev_2, ..., lev_dim, cell_1, cell_2, ..., cell_dim).
 //

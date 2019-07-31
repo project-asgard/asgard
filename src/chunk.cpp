@@ -39,6 +39,7 @@ limits columns_in_chunk(element_chunk const &g)
                           .second.stop;
   return limits(min_col, max_col);
 }
+
 limits rows_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
@@ -272,6 +273,7 @@ void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
 {
   int const elem_size = element_segment_size(pde);
   auto const y_range  = rows_in_chunk(chunk);
+
   fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.start * elem_size,
                                        (y_range.stop + 1) * elem_size - 1);
 
