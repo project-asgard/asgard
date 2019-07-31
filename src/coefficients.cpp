@@ -19,10 +19,10 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
-  int const N = fm::two_raised_to(dim.get_level());
-  // note that num_points is the symbol typically reserved for grid spacing
-  double const num_points               = (dim.domain_max - dim.domain_min) / N;
-  int const degrees_freedom_1d = dim.get_degree() * N;
+  int const num_points = fm::two_raised_to(dim.get_level());
+  // note that grid_spacing is the symbol typically reserved for grid spacing
+  double const grid_spacing               = (dim.domain_max - dim.domain_min) / num_points;
+  int const degrees_freedom_1d = dim.get_degree() * num_points;
   fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
   // set number of quatrature points
@@ -44,8 +44,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   auto [legendre_poly_R, legendre_prime_R] =
       legendre(fk::vector<double>{+1}, dim.get_degree());
 
-  legendre_poly_L = legendre_poly_L * (1 / std::sqrt(num_points));
-  legendre_poly_R = legendre_poly_R * (1 / std::sqrt(num_points));
+  legendre_poly_L = legendre_poly_L * (1 / std::sqrt(grid_spacing));
+  legendre_poly_R = legendre_poly_R * (1 / std::sqrt(grid_spacing));
 
   auto legendre_poly_L_t = fk::matrix<double>(legendre_poly_L).transpose();
   auto legendre_poly_R_t = fk::matrix<double>(legendre_poly_R).transpose();
@@ -55,14 +55,14 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   auto [legendre_poly, legendre_prime] =
       legendre(quadrature_points, dim.get_degree());
 
-  legendre_poly  = legendre_poly * (1.0 / std::sqrt(num_points));
-  legendre_prime = legendre_prime * (1.0 / std::sqrt(num_points) * 2.0 / num_points);
+  legendre_poly  = legendre_poly * (1.0 / std::sqrt(grid_spacing));
+  legendre_prime = legendre_prime * (1.0 / std::sqrt(grid_spacing) * 2.0 / grid_spacing);
 
   auto const legendre_poly_t  = fk::matrix<double>(legendre_poly).transpose();
   auto const legendre_prime_t = fk::matrix<double>(legendre_prime).transpose();
 
   // get jacobian
-  auto jacobi = num_points / 2;
+  auto jacobi = grid_spacing / 2;
 
   // convert term input data from wavelet space to realspace
   fk::matrix<double> const forward_trans_transpose =
@@ -71,16 +71,16 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   fk::vector<double> const data_real =
       forward_trans_transpose * fk::vector<double>(term_1D.get_data());
 
-  for (int i = 0; i < N; ++i)
+  for (int i = 0; i < num_points; ++i)
   {
     // get left and right locations for this element
-    auto xL = dim.domain_min + i * num_points;
-    auto xR = xL + num_points;
+    auto xL = dim.domain_min + i * grid_spacing;
+    auto xR = xL + grid_spacing;
 
     // get index for current, firs and last element
     int const current = dim.get_degree() * i;
     int const first   = 0;
-    int const last    = dim.get_degree() * (N - 1);
+    int const last    = dim.get_degree() * (num_points - 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<double> const quadrature_points_i =
@@ -89,7 +89,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
           std::transform(
               quadrature_points_copy.begin(), quadrature_points_copy.end(),
               quadrature_points_copy.begin(), [&](double const elem) {
-                return ((elem + 1) / 2 + i) * num_points + dim.domain_min;
+                return ((elem + 1) / 2 + i) * grid_spacing + dim.domain_min;
               });
           return quadrature_points_copy;
         }();
@@ -197,7 +197,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
 
     if (dim.right == boundary_condition::dirichlet) // right dirichlet
     {
-      if (i == N - 1)
+      if (i == num_points - 1)
       {
         trace_value_1 =
             (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
@@ -215,9 +215,9 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     }
 
     // If neumann
-    // (gradient u)*n = g
+    // (gradient u)*num_points = g
     // by splitting grad u = q by LDG methods, the B.C is changed to
-    // q*n = g (=> q = g for 1D variable)
+    // q*num_points = g (=> q = g for 1D variable)
     // only work for derivatives greater than 1
 
     if (dim.left == boundary_condition::neumann) // left neumann
@@ -240,7 +240,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
 
     if (dim.right == boundary_condition::neumann) // right neumann
     {
-      if (i == N - 1)
+      if (i == num_points - 1)
       {
         trace_value_1 =
             (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
@@ -280,7 +280,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
           row1 = current;
           col1 = last;
         }
-        if (i == N - 1)
+        if (i == num_points - 1)
         {
           row4 = current;
           col4 = first;
@@ -308,7 +308,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
           col3 + dim.get_degree() - 1);
       block3 = block3 + trace_value_3;
 
-      if (i != N - 1 || dim.left == boundary_condition::periodic ||
+      if (i != num_points - 1 || dim.left == boundary_condition::periodic ||
           dim.right == boundary_condition::periodic)
       {
         // Add trace part 4
