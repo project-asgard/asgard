@@ -36,14 +36,15 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       legendre_weights<double>(quad_num, -1.0, 1.0);
   auto const [quadrature_points, quadrature_weights] = legendre_values;
 
-  // get the "trace" values
-  // (values at the left and right of each element for all k)
-
   auto const [legendre_poly_L, legendre_poly_R] = [&]() {
     auto [lP_L, lPP_L] = legendre(fk::vector<double>{-1}, dim.get_degree());
     lP_L               = lP_L * (1 / std::sqrt(grid_spacing));
     auto [lP_R, lPP_R] = legendre(fk::vector<double>{+1}, dim.get_degree());
     lP_R               = lP_R * (1 / std::sqrt(grid_spacing));
+    // this is to get around unused warnings (until c++20)
+    auto const ignore = [](auto ignored) { (void)ignored; };
+    ignore(lPP_L);
+    ignore(lPP_R);
     return std::array<fk::matrix<double>, 2>{lP_L, lP_R};
   }();
 
@@ -166,6 +167,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     auto const FCL = term_1D.g_func(x_left, time);
     auto const FCR = term_1D.g_func(x_right, time);
 
+    // get the "trace" values
+    // (values at the left and right of each element for all k)
     auto trace_value_1 =
         (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
         (legendre_poly_L_t * legendre_poly_R) *
