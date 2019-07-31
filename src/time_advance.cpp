@@ -1,4 +1,5 @@
 #include "time_advance.hpp"
+#include "element_table.hpp"
 #include "fast_math.hpp"
 
 // this function executes an explicit time step using the current solution
@@ -12,7 +13,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            P const dt)
 {
   assert(time >= 0);
-  assert(dt >= 0);
+  assert(dt > 0);
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
 
   fm::copy(host_space.x, host_space.x_orig);

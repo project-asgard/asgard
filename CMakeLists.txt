@@ -71,7 +71,7 @@ set (components
   pde
   permutations
   program_options
-  quadrature 
+  quadrature
   tensors
   time_advance
   transformations

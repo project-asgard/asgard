@@ -12,6 +12,12 @@ int max_connected_in_group(element_group const &g);
 std::pair<int, int> columns_in_group(element_group const &g);
 std::pair<int, int> rows_in_group(element_group const &g);
 
+// FIXME we should eventually put this in the pde class?
+auto const element_segment_size = [](auto const &pde) {
+  int const degree = pde.get_dimensions()[0].get_degree();
+  return static_cast<int>(std::pow(degree, pde.num_dims));
+};
+
 // workspace for the primary computation in time advance. along with
 // the coefficient matrices, we need this space resident on whatever
 // accelerator we are using

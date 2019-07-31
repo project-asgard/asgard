@@ -390,12 +390,6 @@ TEST_CASE("element grouping, continuity 6", "[grouping]")
   }
 }
 
-// FIXME we should eventually put this in the pde class
-auto const element_segment_size = [](auto const &pde) {
-  int const degree = pde.get_dimensions()[0].get_degree();
-  return static_cast<int>(std::pow(degree, pde.num_dims));
-};
-
 auto const test_copy_in = [](PDE<double> const &pde, element_group const &group,
                              rank_workspace<double> const &rank_space,
                              host_workspace<double> const &host_space) {

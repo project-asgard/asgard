@@ -46,11 +46,6 @@ std::pair<int, int> rows_in_group(element_group const &g)
   return std::make_pair(g.begin()->first, g.rbegin()->first);
 }
 
-auto const element_segment_size = [](auto const &pde) {
-  int const degree = pde.get_dimensions()[0].get_degree();
-  return static_cast<int>(std::pow(degree, pde.num_dims));
-};
-
 template<typename P>
 rank_workspace<P>::rank_workspace(PDE<P> const &pde,
                                   std::vector<element_group> const &groups)
@@ -145,7 +140,7 @@ static double get_element_size_MB(PDE<P> const &pde)
 }
 
 // determine how many groups will be required to solve the problem
-// a task is a subset of all elements whose total workspace requirement
+// a group is a subset of all elements whose total workspace requirement
 // is less than the limit passed in rank_size_MB
 template<typename P>
 int get_num_groups(element_table const &table, PDE<P> const &pde,
@@ -179,6 +174,11 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
 
 // divide the problem given the previously computed number of groups
 // this function divides via a greedy, row-major split.
+// i.e., consecutive elements are taken row-wise until the end of a
+// row, and continuing as needed to the next row, beginning with the first
+// element of the new row (typewriter style). this is done to minimize the
+// portion of the y-vector written to by each task, and ultimately the size of
+// communication between ranks.
 std::vector<element_group>
 assign_elements(element_table const &table, int const num_groups)
 {
