@@ -554,24 +554,6 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     // REQUIRE(test_enlarged_v == gold_enlarged);
   }
 
-  SECTION("vector resize, device")
-  {
-    fk::vector<TestType, mem_type::owner, resource::device> test_reduced_d{
-        2, 3, 4, 5, 6, 7, 8};
-    fk::vector<TestType, mem_type::owner> const gold_enlarged{2, 3, 4, 0, 0};
-    fk::vector<TestType, mem_type::owner, resource::device> test_enlarged_d{
-        2, 3, 4};
-
-    test_reduced_d.resize(gold.size());
-    test_enlarged_d.resize(gold.size());
-
-    fk::vector<TestType, mem_type::owner> const test_enlarged(test_enlarged_d);
-    fk::vector<TestType, mem_type::owner> const test_reduced(test_reduced_d);
-
-    REQUIRE(test_reduced == gold);
-    REQUIRE(test_enlarged == gold_enlarged);
-  }
-
   SECTION("vector concatenation")
   {
     fk::vector<TestType> test_left = {2, 3, 4};
@@ -741,6 +723,12 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
   SECTION("ctors")
   {
+    // default
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect;
+      assert(vect.size() == 0);
+      assert(vect.data() == nullptr);
+    }
     // from init list
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
@@ -976,6 +964,24 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType> const vect_h(vect_view_d);
       assert(vect_h == gold);
     }
+  }
+
+  SECTION("vector resize")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> test_reduced_d{
+        1, 3, 5, 7, 9, 11, 13};
+    fk::vector<TestType, mem_type::owner> const gold_enlarged{1, 3, 5, 0, 0};
+    fk::vector<TestType, mem_type::owner, resource::device> test_enlarged_d{
+        1, 3, 5};
+
+    test_reduced_d.resize(gold.size());
+    test_enlarged_d.resize(gold.size());
+
+    fk::vector<TestType, mem_type::owner> const test_enlarged(test_enlarged_d);
+    fk::vector<TestType, mem_type::owner> const test_reduced(test_reduced_d);
+
+    REQUIRE(test_reduced == gold);
+    REQUIRE(test_enlarged == gold_enlarged);
   }
 
   SECTION("views")
@@ -1981,6 +1987,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     // clang-format on
     REQUIRE(gold_copy == test);
   }
+
   SECTION("matrix set submatrix(row, col, submatrix)")
   {
     // clang-format off
@@ -2341,6 +2348,13 @@ TEMPLATE_TEST_CASE("fk::matrix device functions", "[tensors]", double, float,
 
   SECTION("ctors")
   {
+    // default
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat;
+      assert(mat.size() == 0);
+      assert(mat.data() == nullptr);
+    }
+
     // from init list
     {
       fk::matrix<TestType, mem_type::owner, resource::device> const mat(
@@ -2569,6 +2583,19 @@ TEMPLATE_TEST_CASE("fk::matrix device functions", "[tensors]", double, float,
       fk::matrix<TestType> const mat_h(mat_view_d);
       assert(mat_h == gold);
     }
+  }
+  SECTION("clear and resize")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> gold_copy(gold);
+    gold_copy.clear_and_resize(2, 1);
+    // clang-format off
+    fk::matrix<TestType> const test {
+      {0},
+      {0},
+      };
+    // clang-format on
+    fk::matrix<TestType> const gold_copy_h(gold_copy);
+    REQUIRE(gold_copy_h == test);
   }
 
   SECTION("views")
