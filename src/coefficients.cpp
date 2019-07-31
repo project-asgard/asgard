@@ -100,7 +100,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
           return quadrature_points_copy;
         }();
 
-    fk::vector<double> const G_func = [&, legendre_poly = legendre_poly]() {
+    fk::vector<double> const g_func = [&, legendre_poly = legendre_poly]() {
       // get realspace data at quadrature points
       // NOTE : this is unused pending updating G functions to accept "dat"
       fk::vector<double> data_real_quad =
@@ -109,15 +109,12 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
                                              current + dim.get_degree() - 1);
       // get g(x,t,dat)
       // FIXME : add dat as a argument to the G functions
-      std::transform(data_real_quad.begin(), data_real_quad.end(),
-                     data_real_quad.begin(),
-                     std::bind(term_1D.g_func, std::placeholders::_1, time));
-      fk::vector<double> G(quadrature_points_i.size());
+      fk::vector<double> g(quadrature_points_i.size());
       for (int i = 0; i < quadrature_points_i.size(); ++i)
       {
-        G(i) = term_1D.g_func(quadrature_points_i(i), time);
+        g(i) = term_1D.g_func(quadrature_points_i(i), time);
       }
-      return G;
+      return g;
     }();
 
     auto const tmp = [&, legendre_poly = legendre_poly,
@@ -129,7 +126,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
         for (int j = 0; j <= tmp.ncols() - 1; j++)
         {
           tmp(i, j) =
-              G_func(i) * legendre_poly(i, j) * quadrature_weights(i) * jacobi;
+              g_func(i) * legendre_poly(i, j) * quadrature_weights(i) * jacobi;
         }
       }
       return tmp;
