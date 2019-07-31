@@ -80,8 +80,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   for (int i = 0; i < num_points; ++i)
   {
     // get left and right locations for this element
-    auto xL = dim.domain_min + i * grid_spacing;
-    auto xR = xL + grid_spacing;
+    auto const x_left  = dim.domain_min + i * grid_spacing;
+    auto const x_right = x_left + grid_spacing;
 
     // get index for current, firs and last element
     int const current = dim.get_degree() * i;
@@ -100,45 +100,57 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
           return quadrature_points_copy;
         }();
 
-    fk::vector<double> const data_real_quad = [&, legendre_poly =
-                                                      legendre_poly]() {
+    fk::vector<double> const G_func = [&, legendre_poly = legendre_poly]() {
       // get realspace data at quadrature points
+      // NOTE : this is unused pending updating G functions to accept "dat"
       fk::vector<double> data_real_quad =
           legendre_poly *
           fk::vector<double, mem_type::view>(data_real, current,
                                              current + dim.get_degree() - 1);
-
-      // apply g_func
+      // get g(x,t,dat)
+      // FIXME : add dat as a argument to the G functions
       std::transform(data_real_quad.begin(), data_real_quad.end(),
                      data_real_quad.begin(),
                      std::bind(term_1D.g_func, std::placeholders::_1, time));
-      return data_real_quad;
+      fk::vector<double> G(quadrature_points_i.size());
+      for (int i = 0; i < quadrature_points_i.size(); ++i)
+      {
+        G(i) = term_1D.g_func(quadrature_points_i(i), time);
+      }
+      return G;
     }();
 
-    fk::matrix<double> tmp(legendre_poly.nrows(), legendre_poly.ncols());
+    auto const tmp = [&, legendre_poly = legendre_poly,
+                      quadrature_weights = quadrature_weights]() {
+      fk::matrix<double> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
-    for (int i = 0; i <= tmp.nrows() - 1; i++)
-    {
-      for (int j = 0; j <= tmp.ncols() - 1; j++)
+      for (int i = 0; i <= tmp.nrows() - 1; i++)
       {
-        tmp(i, j) = data_real_quad(i) * legendre_poly(i, j) *
-                    quadrature_weights(i) * jacobi;
+        for (int j = 0; j <= tmp.ncols() - 1; j++)
+        {
+          tmp(i, j) =
+              G_func(i) * legendre_poly(i, j) * quadrature_weights(i) * jacobi;
+        }
       }
-    }
+      return tmp;
+    }();
 
-    fk::matrix<double> block(dim.get_degree(), dim.get_degree());
+    auto const block = [&]() {
+      fk::matrix<double> block(dim.get_degree(), dim.get_degree());
 
-    if (term_1D.coeff == coefficient_type::mass)
-    {
-      block = legendre_poly_t * tmp;
-    }
-    else if (term_1D.coeff == coefficient_type::grad)
-    {
-      block = legendre_prime_t * tmp * (-1);
-    }
+      if (term_1D.coeff == coefficient_type::mass)
+      {
+        block = legendre_poly_t * tmp;
+      }
+      else if (term_1D.coeff == coefficient_type::grad)
+      {
+        block = legendre_prime_t * tmp * (-1);
+      }
+      return block;
+    }();
 
     // set the block at the correct position
-    fk::matrix<double> curr_block =
+    fk::matrix<double> const curr_block =
         fk::matrix<double, mem_type::view>(
             coefficients, current, current + dim.get_degree() - 1, current,
             current + dim.get_degree() - 1) +
@@ -158,8 +170,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
     // dat is going to be used in the G function (above it is used as linear
     // multuplication but this is not always true)
 
-    auto FCL = term_1D.g_func(xL, time);
-    auto FCR = term_1D.g_func(xR, time);
+    auto const FCL = term_1D.g_func(x_left, time);
+    auto const FCR = term_1D.g_func(x_right, time);
 
     auto trace_value_1 =
         (legendre_poly_L_t * legendre_poly_R) * (-1 * FCL / 2) +
