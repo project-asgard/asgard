@@ -20,8 +20,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
   int const N = fm::two_raised_to(dim.get_level());
-  // note that h is the symbol typically reserved for grid spacing
-  double const h               = (dim.domain_max - dim.domain_min) / N;
+  // note that num_points is the symbol typically reserved for grid spacing
+  double const num_points               = (dim.domain_max - dim.domain_min) / N;
   int const degrees_freedom_1d = dim.get_degree() * N;
   fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
@@ -44,8 +44,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   auto [legendre_poly_R, legendre_prime_R] =
       legendre(fk::vector<double>{+1}, dim.get_degree());
 
-  legendre_poly_L = legendre_poly_L * (1 / std::sqrt(h));
-  legendre_poly_R = legendre_poly_R * (1 / std::sqrt(h));
+  legendre_poly_L = legendre_poly_L * (1 / std::sqrt(num_points));
+  legendre_poly_R = legendre_poly_R * (1 / std::sqrt(num_points));
 
   auto legendre_poly_L_t = fk::matrix<double>(legendre_poly_L).transpose();
   auto legendre_poly_R_t = fk::matrix<double>(legendre_poly_R).transpose();
@@ -55,14 +55,14 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   auto [legendre_poly, legendre_prime] =
       legendre(quadrature_points, dim.get_degree());
 
-  legendre_poly  = legendre_poly * (1.0 / std::sqrt(h));
-  legendre_prime = legendre_prime * (1.0 / std::sqrt(h) * 2.0 / h);
+  legendre_poly  = legendre_poly * (1.0 / std::sqrt(num_points));
+  legendre_prime = legendre_prime * (1.0 / std::sqrt(num_points) * 2.0 / num_points);
 
   auto const legendre_poly_t  = fk::matrix<double>(legendre_poly).transpose();
   auto const legendre_prime_t = fk::matrix<double>(legendre_prime).transpose();
 
   // get jacobian
-  auto jacobi = h / 2;
+  auto jacobi = num_points / 2;
 
   // convert term input data from wavelet space to realspace
   fk::matrix<double> const forward_trans_transpose =
@@ -74,8 +74,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   for (int i = 0; i < N; ++i)
   {
     // get left and right locations for this element
-    auto xL = dim.domain_min + i * h;
-    auto xR = xL + h;
+    auto xL = dim.domain_min + i * num_points;
+    auto xR = xL + num_points;
 
     // get index for current, firs and last element
     int const current = dim.get_degree() * i;
@@ -89,7 +89,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
           std::transform(
               quadrature_points_copy.begin(), quadrature_points_copy.end(),
               quadrature_points_copy.begin(), [&](double const elem) {
-                return ((elem + 1) / 2 + i) * h + dim.domain_min;
+                return ((elem + 1) / 2 + i) * num_points + dim.domain_min;
               });
           return quadrature_points_copy;
         }();
