@@ -73,13 +73,9 @@ public:
 
       : left(left), right(right), domain_min(domain_min),
         domain_max(domain_max), initial_condition(initial_condition),
-        name(name), level_(level), degree_(degree)
+        name(name), degree_(degree)
   {
-    int const dofs = degree_ * fm::two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dofs, dofs) =
-        operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dofs, dofs) =
-        fk::matrix<double>(to_basis_operator_).transpose();
+    set_level(level);
   }
 
   int get_level() const { return level_; }
