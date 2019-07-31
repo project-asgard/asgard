@@ -21,7 +21,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   // setup jacobi of variable x and define coeff_mat
   int const num_points = fm::two_raised_to(dim.get_level());
   // note that grid_spacing is the symbol typically reserved for grid spacing
-  double const grid_spacing               = (dim.domain_max - dim.domain_min) / num_points;
+  double const grid_spacing    = (dim.domain_max - dim.domain_min) / num_points;
   int const degrees_freedom_1d = dim.get_degree() * num_points;
   fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
@@ -39,24 +39,30 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
   // get the "trace" values
   // (values at the left and right of each element for all k)
 
-  auto [legendre_poly_L, legendre_prime_L] =
-      legendre(fk::vector<double>{-1}, dim.get_degree());
-  auto [legendre_poly_R, legendre_prime_R] =
-      legendre(fk::vector<double>{+1}, dim.get_degree());
+  auto const [legendre_poly_L, legendre_poly_R] = [&]() {
+    auto [lP_L, lPP_L] = legendre(fk::vector<double>{-1}, dim.get_degree());
+    lP_L               = lP_L * (1 / std::sqrt(grid_spacing));
+    auto [lP_R, lPP_R] = legendre(fk::vector<double>{+1}, dim.get_degree());
+    lP_R               = lP_R * (1 / std::sqrt(grid_spacing));
+    return std::array<fk::matrix<double>, 2>{lP_L, lP_R};
+  }();
 
-  legendre_poly_L = legendre_poly_L * (1 / std::sqrt(grid_spacing));
-  legendre_poly_R = legendre_poly_R * (1 / std::sqrt(grid_spacing));
-
-  auto legendre_poly_L_t = fk::matrix<double>(legendre_poly_L).transpose();
-  auto legendre_poly_R_t = fk::matrix<double>(legendre_poly_R).transpose();
+  auto const legendre_poly_L_t =
+      fk::matrix<double>(legendre_poly_L).transpose();
+  auto const legendre_poly_R_t =
+      fk::matrix<double>(legendre_poly_R).transpose();
 
   // get the basis functions and derivatives for all k
   // this auto is std::array<fk::matrix<P>, 2>
-  auto [legendre_poly, legendre_prime] =
-      legendre(quadrature_points, dim.get_degree());
+  auto const [legendre_poly,
+              legendre_prime] = [&, quadrature_points = quadrature_points]() {
+    auto [lP, lPP] = legendre(quadrature_points, dim.get_degree());
 
-  legendre_poly  = legendre_poly * (1.0 / std::sqrt(grid_spacing));
-  legendre_prime = legendre_prime * (1.0 / std::sqrt(grid_spacing) * 2.0 / grid_spacing);
+    lP  = lP * (1.0 / std::sqrt(grid_spacing));
+    lPP = lPP * (1.0 / std::sqrt(grid_spacing) * 2.0 / grid_spacing);
+
+    return std::array<fk::matrix<double>, 2>{lP, lPP};
+  }();
 
   auto const legendre_poly_t  = fk::matrix<double>(legendre_poly).transpose();
   auto const legendre_prime_t = fk::matrix<double>(legendre_prime).transpose();
