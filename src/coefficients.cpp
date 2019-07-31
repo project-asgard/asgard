@@ -117,8 +117,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
       return g;
     }();
 
-    auto const tmp = [&, legendre_poly = legendre_poly,
-                      quadrature_weights = quadrature_weights]() {
+    auto const block = [&, legendre_poly = legendre_poly,
+                        quadrature_weights = quadrature_weights]() {
       fk::matrix<double> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
       for (int i = 0; i <= tmp.nrows() - 1; i++)
@@ -129,10 +129,6 @@ generate_coefficients(dimension<P> const &dim, term<P> const term_1D,
               g_func(i) * legendre_poly(i, j) * quadrature_weights(i) * jacobi;
         }
       }
-      return tmp;
-    }();
-
-    auto const block = [&]() {
       fk::matrix<double> block(dim.get_degree(), dim.get_degree());
 
       if (term_1D.coeff == coefficient_type::mass)
