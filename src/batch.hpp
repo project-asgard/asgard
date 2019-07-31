@@ -1,7 +1,7 @@
 #pragma once
 
+#include "chunk.hpp"
 #include "element_table.hpp"
-#include "grouping.hpp"
 #include "pde/pde_base.hpp"
 #include "tensors.hpp"
 #include <array>
@@ -125,7 +125,7 @@ void kronmult_to_batch_sets(
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
-              rank_workspace<P> const &workspace, element_group const &group);
+              rank_workspace<P> const &workspace, element_chunk const &chunk);
 
 extern template class batch<float>;
 extern template class batch<double>;
@@ -167,8 +167,8 @@ extern template void kronmult_to_batch_sets(
 extern template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
               rank_workspace<float> const &workspace,
-              element_group const &group);
+              element_chunk const &chunk);
 extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
-              element_group const &group);
+              element_chunk const &chunk);

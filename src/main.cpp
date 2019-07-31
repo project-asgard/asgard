@@ -8,7 +8,7 @@
 #include "io.hpp"
 #endif
 
-#include "grouping.hpp"
+#include "chunk.hpp"
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -162,9 +162,9 @@ int main(int argc, char **argv)
   static int const ranks = 1;
 
   host_workspace<prec> host_space(*pde, table);
-  std::vector<element_group> const groups = assign_elements(
-      table, get_num_groups(table, *pde, ranks, default_workspace_MB));
-  rank_workspace<prec> rank_space(*pde, groups);
+  std::vector<element_chunk> const chunks = assign_elements(
+      table, get_num_chunks(table, *pde, ranks, default_workspace_MB));
+  rank_workspace<prec> rank_space(*pde, chunks);
 
   std::cout << "allocating workspace..." << '\n';
 
@@ -193,7 +193,7 @@ int main(int argc, char **argv)
     prec const time = i * dt;
 
     explicit_time_advance(*pde, table, initial_sources, host_space, rank_space,
-                          groups, time, dt);
+                          chunks, time, dt);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)

@@ -9,7 +9,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            rank_workspace<P> &rank_space,
-                           std::vector<element_group> groups, P const time,
+                           std::vector<element_chunk> chunks, P const time,
                            P const dt)
 {
   assert(time >= 0);
@@ -28,14 +28,14 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
-  apply_explicit(pde, table, groups, host_space, rank_space);
+  apply_explicit(pde, table, chunks, host_space, rank_space);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.fx);
   fm::copy(host_space.fx, host_space.result_1);
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.fx, host_space.x, fx_scale_1);
 
-  apply_explicit(pde, table, groups, host_space, rank_space);
+  apply_explicit(pde, table, chunks, host_space, rank_space);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
   fm::axpy(host_space.scaled_source, host_space.fx);
@@ -46,7 +46,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
-  apply_explicit(pde, table, groups, host_space, rank_space);
+  apply_explicit(pde, table, chunks, host_space, rank_space);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c3 * dt);
   fm::axpy(host_space.scaled_source, host_space.fx);
@@ -86,18 +86,18 @@ scale_sources(PDE<P> const &pde,
 template<typename P>
 static void
 apply_explicit(PDE<P> const &pde, element_table const &elem_table,
-               std::vector<element_group> const &groups,
+               std::vector<element_chunk> const &chunks,
                host_workspace<P> &host_space, rank_workspace<P> &rank_space)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
-  for (auto const &group : groups)
+  for (auto const &chunk : chunks)
   {
     // copy in inputs
-    copy_group_inputs(pde, rank_space, host_space, group);
+    copy_chunk_inputs(pde, rank_space, host_space, chunk);
 
-    // build batches for this group
+    // build batches for this chunk
     std::vector<batch_operands_set<P>> batches =
-        build_batches(pde, elem_table, rank_space, group);
+        build_batches(pde, elem_table, rank_space, chunk);
 
     // do the gemms
     P const alpha = 1.0;
@@ -112,10 +112,10 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
     }
 
     // do the reduction
-    reduce_group(pde, rank_space, group);
+    reduce_chunk(pde, rank_space, chunk);
 
     // copy outputs back
-    copy_group_outputs(pde, rank_space, host_space, group);
+    copy_chunk_outputs(pde, rank_space, host_space, chunk);
   }
 }
 
@@ -124,7 +124,7 @@ explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
                       rank_workspace<float> &rank_space,
-                      std::vector<element_group> groups, float const time,
+                      std::vector<element_chunk> chunks, float const time,
                       float const dt);
 
 template void
@@ -132,5 +132,5 @@ explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       host_workspace<double> &host_space,
                       rank_workspace<double> &rank_space,
-                      std::vector<element_group> groups, double const time,
+                      std::vector<element_chunk> chunks, double const time,
                       double const dt);

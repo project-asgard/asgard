@@ -1,6 +1,6 @@
 #include "batch.hpp"
+#include "chunk.hpp"
 #include "connectivity.hpp"
-#include "grouping.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp" // for views
 
@@ -541,35 +541,35 @@ static fk::vector<int> linearize(fk::vector<int> const &coords)
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
-              rank_workspace<P> const &workspace, element_group const &group)
+              rank_workspace<P> const &workspace, element_chunk const &chunk)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const x_size    = group.size();
+  int const x_size    = chunk.size();
   assert(workspace.batch_input.size() >= x_size);
 
-  int const elements_in_group = num_elements_in_group(group);
+  int const elements_in_chunk = num_elements_in_chunk(chunk);
 
   // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
   assert(workspace.reduction_space.size() >=
-         (elem_size * elements_in_group * pde.num_terms));
+         (elem_size * elements_in_chunk * pde.num_terms));
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   assert(workspace.batch_intermediate.size() ==
          workspace.reduction_space.size() * num_workspaces);
 
-  int const max_connected       = max_connected_in_group(group);
+  int const max_connected       = max_connected_in_chunk(chunk);
   int const max_items_to_reduce = pde.num_terms * max_connected;
   assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
 
   std::vector<batch_operands_set<P>> batches =
-      allocate_batches<P>(pde, elements_in_group);
+      allocate_batches<P>(pde, elements_in_chunk);
 
   // loop over elements
   // FIXME eventually want to do this in parallel
-  for (const auto &[i, connected] : group)
+  for (const auto &[i, connected] : chunk)
   {
     // first, get linearized indices for this element
     //
@@ -596,7 +596,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-    for (int j = connected.first; j <= connected.second; ++j)
+    for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
       fk::vector<int> coords = elem_table.get_coords(j);
@@ -622,19 +622,19 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       {
         // term major y-space layout, followed by connected items, finally work
         // items.
-        int const prev_row_elems = [i = i, &group] {
-          if (i == group.begin()->first)
+        int const prev_row_elems = [i = i, &chunk] {
+          if (i == chunk.begin()->first)
           {
             return 0;
           }
           int prev_elems = 0;
-          for (int r = group.begin()->first; r < i; ++r)
+          for (int r = chunk.begin()->first; r < i; ++r)
           {
-            prev_elems += group.at(r).second - group.at(r).first + 1;
+            prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
           }
           return prev_elems;
         }();
-        int const total_prev_elems = prev_row_elems + j - connected.first;
+        int const total_prev_elems = prev_row_elems + j - connected.start;
         int const kron_index       = k + total_prev_elems * pde.num_terms;
 
         // y space, where kron outputs are written
@@ -721,8 +721,8 @@ template void kronmult_to_batch_sets(
 template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
               rank_workspace<float> const &workspace,
-              element_group const &group);
+              element_chunk const &chunk);
 template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
-              element_group const &group);
+              element_chunk const &chunk);

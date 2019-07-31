@@ -1,5 +1,5 @@
+#include "chunk.hpp"
 #include "coefficients.hpp"
-#include "grouping.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
@@ -87,11 +87,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       initial_sources.push_back(combine_dimensions(
           degree, table, initial_sources_dim, initial_scale));
     }
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -101,7 +101,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t" +
@@ -167,11 +167,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -181,7 +181,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t" +
@@ -246,11 +246,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -260,7 +260,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t" +
@@ -352,11 +352,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -366,7 +366,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t" +
@@ -432,11 +432,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -446,7 +446,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t" +
@@ -511,11 +511,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -525,7 +525,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t" +
@@ -616,11 +616,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -630,7 +630,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t" +
@@ -696,11 +696,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -710,7 +710,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t" +
@@ -800,11 +800,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -814,7 +814,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity6_sg_l2_d2_t" +
@@ -880,11 +880,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
 
-    // -- prep workspace/groups
+    // -- prep workspace/chunks
     host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_group> const groups =
-        assign_elements(table, get_num_groups(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
     host_space.x = initial_condition;
 
     // -- time loop
@@ -894,7 +894,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     {
       TestType const time = i * dt;
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, groups, time, dt);
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t" +

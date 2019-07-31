@@ -1,9 +1,9 @@
 
-#include "grouping.hpp"
+#include "chunk.hpp"
 #include "tests_general.hpp"
 
 // check for complete, non-overlapping element assignment
-auto const validity_check = [](std::vector<element_group> const &groups,
+auto const validity_check = [](std::vector<element_chunk> const &chunks,
                                element_table const &table) {
   enum element_status
   {
@@ -14,11 +14,11 @@ auto const validity_check = [](std::vector<element_group> const &groups,
   fk::matrix<element_status> coverage(table.size(), table.size());
 
   // non-overlapping check
-  for (element_group const &group : groups)
+  for (element_chunk const &chunk : chunks)
   {
-    for (const auto &[row, cols] : group)
+    for (const auto &[row, cols] : chunk)
     {
-      for (int col = cols.first; col <= cols.second; ++col)
+      for (int col = cols.start; col <= cols.stop; ++col)
       {
         REQUIRE(coverage(row, col) == element_status::unassigned);
         coverage(row, col) = element_status::assigned;
@@ -37,10 +37,10 @@ auto const validity_check = [](std::vector<element_group> const &groups,
 };
 
 // check that a given task vector occupies between 49% and 101% of the limiit
-auto const size_check = [](std::vector<element_group> const &groups,
+auto const size_check = [](std::vector<element_chunk> const &chunks,
                            PDE<double> const &pde, int const limit_MB,
                            bool const large_problem) {
-  rank_workspace const work(pde, groups);
+  rank_workspace const work(pde, chunks);
   double lower_bound    = static_cast<double>(limit_MB * 0.49);
   double upper_bound    = static_cast<double>(limit_MB * 1.01);
   double workspace_size = work.size_MB();
@@ -51,78 +51,78 @@ auto const size_check = [](std::vector<element_group> const &groups,
   REQUIRE(workspace_size < upper_bound);
 };
 
-TEST_CASE("group convenience functions", "[grouping]")
+TEST_CASE("chunk convenience functions", "[chunk]")
 {
-  SECTION("elements in group - empty")
+  SECTION("elements in chunk - empty")
   {
-    element_group g;
-    assert(num_elements_in_group(g) == 0);
+    element_chunk g;
+    assert(num_elements_in_chunk(g) == 0);
   }
-  SECTION("elements in group - single row")
+  SECTION("elements in chunk - single row")
   {
-    element_group g;
-    g[2] = std::make_pair(0, 4);
-    assert(num_elements_in_group(g) == 5);
-  }
-
-  SECTION("elements in group - multiple rows")
-  {
-    element_group g;
-    g[3] = std::make_pair(1, 2);
-    g[4] = std::make_pair(5, 10);
-    assert(num_elements_in_group(g) == 8);
+    element_chunk g;
+    g.insert({2, limits(0, 4)});
+    assert(num_elements_in_chunk(g) == 5);
   }
 
-  SECTION("max connected in group - empty")
+  SECTION("elements in chunk - multiple rows")
   {
-    element_group g;
-    assert(max_connected_in_group(g) == 0);
-  }
-  SECTION("max connected in group - single row")
-  {
-    element_group g;
-    g[2] = std::make_pair(0, 4);
-    assert(max_connected_in_group(g) == 5);
-  }
-  SECTION("max connected in group - multiple rows")
-  {
-    element_group g;
-    g[3] = std::make_pair(1, 2);
-    g[4] = std::make_pair(5, 10);
-    assert(max_connected_in_group(g) == 6);
+    element_chunk g;
+    g.insert({3, limits(1, 2)});
+    g.insert({4, limits(5, 10)});
+    assert(num_elements_in_chunk(g) == 8);
   }
 
-  SECTION("columns in group - single row")
+  SECTION("max connected in chunk - empty")
   {
-    element_group g;
-    g[2] = std::make_pair(0, 4);
-    assert(columns_in_group(g) == std::make_pair(0, 4));
+    element_chunk g;
+    assert(max_connected_in_chunk(g) == 0);
+  }
+  SECTION("max connected in chunk - single row")
+  {
+    element_chunk g;
+    g.insert({2, limits(0, 4)});
+    assert(max_connected_in_chunk(g) == 5);
+  }
+  SECTION("max connected in chunk - multiple rows")
+  {
+    element_chunk g;
+    g.insert({3, limits(1, 2)});
+    g.insert({4, limits(5, 10)});
+    assert(max_connected_in_chunk(g) == 6);
   }
 
-  SECTION("columns in group - multiple rows")
+  SECTION("columns in chunk - single row")
   {
-    element_group g;
-    g[3] = std::make_pair(1, 2);
-    g[4] = std::make_pair(5, 10);
-    assert(columns_in_group(g) == std::make_pair(1, 10));
+    element_chunk g;
+    g.insert({2, limits(0, 4)});
+    assert(columns_in_chunk(g) == limits(0, 4));
   }
 
-  SECTION("rows in group - single row")
+  SECTION("columns in chunk - multiple rows")
   {
-    element_group g;
-    g[2] = std::make_pair(0, 4);
-    assert(rows_in_group(g) == std::make_pair(2, 2));
+    element_chunk g;
+    g.insert({3, limits(1, 2)});
+    g.insert({4, limits(5, 10)});
+    assert(columns_in_chunk(g) == limits(1, 10));
   }
-  SECTION("rows in group - multiple rows")
+
+  SECTION("rows in chunk - single row")
   {
-    element_group g;
-    g[3] = std::make_pair(1, 2);
-    g[4] = std::make_pair(5, 10);
-    assert(rows_in_group(g) == std::make_pair(3, 4));
+    element_chunk g;
+    g.insert({2, limits(0, 4)});
+    assert(rows_in_chunk(g) == limits(2, 2));
+  }
+  SECTION("rows in chunk - multiple rows")
+  {
+    element_chunk g;
+    g.insert({3, limits(1, 2)});
+    g.insert({4, limits(5, 10)});
+    assert(rows_in_chunk(g) == limits(3, 4));
   }
 }
 
-TEST_CASE("element grouping, continuity 2", "[grouping]")
+TEST_CASE("element chunk, continuity 2", "[chunk]")
 {
   SECTION("1 rank, deg 5, level 6, 1-1000 MB")
   {
@@ -137,13 +137,13 @@ TEST_CASE("element grouping, continuity 2", "[grouping]")
     element_table const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -160,18 +160,18 @@ TEST_CASE("element grouping, continuity 2", "[grouping]")
     element_table const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 }
 
-TEST_CASE("element grouping, continuity 3", "[grouping]")
+TEST_CASE("element chunk, continuity 3", "[chunk]")
 {
   SECTION("1 rank, deg 5, level 6, 1-1000 MB")
   {
@@ -188,12 +188,12 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
 
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -210,13 +210,13 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     element_table const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -233,13 +233,13 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     element_table const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -258,13 +258,13 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
 
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -281,13 +281,13 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     element_table const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -304,18 +304,18 @@ TEST_CASE("element grouping, continuity 3", "[grouping]")
     element_table const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
 
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 }
 
-TEST_CASE("element grouping, continuity 6", "[grouping]")
+TEST_CASE("element chunk, continuity 6", "[chunk]")
 {
   SECTION("1 rank, deg 3, level 4, 10-10000 MB")
   {
@@ -332,12 +332,12 @@ TEST_CASE("element grouping, continuity 6", "[grouping]")
 
     for (int limit_MB = 1; limit_MB <= 10000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -356,12 +356,12 @@ TEST_CASE("element grouping, continuity 6", "[grouping]")
 
     for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 
@@ -380,49 +380,49 @@ TEST_CASE("element grouping, continuity 6", "[grouping]")
 
     for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
-      int const num_groups = get_num_groups(table, *pde, ranks, limit_MB);
-      auto const groups    = assign_elements(table, num_groups);
-      assert(groups.size() % ranks == 0);
-      assert(static_cast<int>(groups.size()) == num_groups);
-      validity_check(groups, table);
-      size_check(groups, *pde, limit_MB, large_problem);
+      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
+      auto const chunks    = assign_elements(table, num_chunks);
+      assert(chunks.size() % ranks == 0);
+      assert(static_cast<int>(chunks.size()) == num_chunks);
+      validity_check(chunks, table);
+      size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
 }
 
-auto const test_copy_in = [](PDE<double> const &pde, element_group const &group,
+auto const test_copy_in = [](PDE<double> const &pde, element_chunk const &chunk,
                              rank_workspace<double> const &rank_space,
                              host_workspace<double> const &host_space) {
   int const elem_size  = element_segment_size(pde);
-  auto const x_range   = columns_in_group(group);
-  auto const num_elems = (x_range.second - x_range.first + 1) * elem_size;
+  auto const x_range   = columns_in_chunk(chunk);
+  auto const num_elems = (x_range.stop - x_range.start + 1) * elem_size;
 
   for (int i = 0; i < num_elems; ++i)
   {
     REQUIRE(rank_space.batch_input(i) ==
-            host_space.x(i + x_range.first * elem_size));
+            host_space.x(i + x_range.start * elem_size));
   }
 };
 
 auto const test_copy_out = [](PDE<double> const &pde,
-                              element_group const &group,
+                              element_chunk const &chunk,
                               rank_workspace<double> const &rank_space,
                               host_workspace<double> const &host_space,
                               fk::vector<double> const &fx_prior) {
   int const elem_size  = element_segment_size(pde);
-  auto const y_range   = rows_in_group(group);
-  auto const num_elems = (y_range.second - y_range.first + 1) * elem_size;
+  auto const y_range   = rows_in_chunk(chunk);
+  auto const num_elems = (y_range.stop - y_range.start + 1) * elem_size;
 
   for (int i = 0; i < num_elems; ++i)
   {
-    int const fx_index = i + y_range.first * elem_size;
+    int const fx_index = i + y_range.start * elem_size;
     REQUIRE(std::abs(host_space.fx(fx_index) - fx_prior(fx_index) -
                      rank_space.batch_output(i)) <
             std::numeric_limits<double>::epsilon() * num_elems);
   }
 };
 
-TEST_CASE("group data management functions", "[grouping]")
+TEST_CASE("chunk data management functions", "[chunk]")
 {
   SECTION("copy in deg 2/lev 4, continuity 1")
   {
@@ -446,15 +446,15 @@ TEST_CASE("group data management functions", "[grouping]")
 
     int const ranks    = 2;
     int const limit_MB = 1;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
-      test_copy_in(*pde, group, rank_space, host_space);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
+      test_copy_in(*pde, chunk, rank_space, host_space);
     }
   }
 
@@ -480,15 +480,15 @@ TEST_CASE("group data management functions", "[grouping]")
 
     int const ranks    = 3;
     int const limit_MB = 10;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
-      test_copy_in(*pde, group, rank_space, host_space);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
+      test_copy_in(*pde, chunk, rank_space, host_space);
     }
   }
 
@@ -514,15 +514,15 @@ TEST_CASE("group data management functions", "[grouping]")
 
     int const ranks    = 7;
     int const limit_MB = 100;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
-      test_copy_in(*pde, group, rank_space, host_space);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
+      test_copy_in(*pde, chunk, rank_space, host_space);
     }
   }
 
@@ -542,9 +542,9 @@ TEST_CASE("group data management functions", "[grouping]")
 
     int const ranks    = 2;
     int const limit_MB = 1;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -554,12 +554,12 @@ TEST_CASE("group data management functions", "[grouping]")
                   rank_space.batch_output.end(), gen);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       fk::vector<double> fx_orig(host_space.fx);
       // copy out inputs
-      copy_group_outputs(*pde, rank_space, host_space, group);
-      test_copy_out(*pde, group, rank_space, host_space, fx_orig);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
+      test_copy_out(*pde, chunk, rank_space, host_space, fx_orig);
     }
   }
 
@@ -579,9 +579,9 @@ TEST_CASE("group data management functions", "[grouping]")
 
     int const ranks    = 3;
     int const limit_MB = 10;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -591,12 +591,12 @@ TEST_CASE("group data management functions", "[grouping]")
                   rank_space.batch_output.end(), gen);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       fk::vector<double> fx_orig(host_space.fx);
       // copy out inputs
-      copy_group_outputs(*pde, rank_space, host_space, group);
-      test_copy_out(*pde, group, rank_space, host_space, fx_orig);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
+      test_copy_out(*pde, chunk, rank_space, host_space, fx_orig);
     }
   }
 
@@ -616,9 +616,9 @@ TEST_CASE("group data management functions", "[grouping]")
 
     int const ranks    = 7;
     int const limit_MB = 100;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -628,41 +628,41 @@ TEST_CASE("group data management functions", "[grouping]")
                   rank_space.batch_output.end(), gen);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       fk::vector<double> fx_orig(host_space.fx);
       // copy out inputs
-      copy_group_outputs(*pde, rank_space, host_space, group);
-      test_copy_out(*pde, group, rank_space, host_space, fx_orig);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
+      test_copy_out(*pde, chunk, rank_space, host_space, fx_orig);
     }
   }
 }
 
 auto const test_reduction = [](PDE<double> const &pde,
-                               element_group const &group,
+                               element_chunk const &chunk,
                                rank_workspace<double> const &rank_space) {
   int const elem_size = element_segment_size(pde);
-  auto const x_range  = columns_in_group(group);
+  auto const x_range  = columns_in_chunk(chunk);
 
   fk::vector<double> total_sum(rank_space.batch_output.size());
-  for (auto const &[row, cols] : group)
+  for (auto const &[row, cols] : chunk)
   {
-    int const prev_row_elems = [i = row, &group] {
-      if (i == group.begin()->first)
+    int const prev_row_elems = [i = row, &chunk] {
+      if (i == chunk.begin()->first)
       {
         return 0;
       }
       int prev_elems = 0;
-      for (int r = group.begin()->first; r < i; ++r)
+      for (int r = chunk.begin()->first; r < i; ++r)
       {
-        prev_elems += group.at(r).second - group.at(r).first + 1;
+        prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
       }
       return prev_elems;
     }();
     int const reduction_offset = prev_row_elems * pde.num_terms * elem_size;
     fk::matrix<double, mem_type::view> const reduction_matrix(
         rank_space.reduction_space, elem_size,
-        (cols.second - cols.first + 1) * pde.num_terms, reduction_offset);
+        (cols.stop - cols.start + 1) * pde.num_terms, reduction_offset);
 
     fk::vector<double> sum(reduction_matrix.nrows());
     for (int i = 0; i < reduction_matrix.nrows(); ++i)
@@ -670,7 +670,7 @@ auto const test_reduction = [](PDE<double> const &pde,
       for (int j = 0; j < reduction_matrix.ncols(); ++j)
         sum(i) += reduction_matrix(i, j);
     }
-    int const row_this_task = row - group.begin()->first;
+    int const row_this_task = row - chunk.begin()->first;
     fk::vector<double, mem_type::view> partial_sum(
         total_sum, row_this_task * elem_size,
         (row_this_task + 1) * elem_size - 1);
@@ -684,13 +684,18 @@ auto const test_reduction = [](PDE<double> const &pde,
   };
   double const result =
       std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-  int const num_cols = (x_range.second - x_range.first + 1) * pde.num_terms;
-  // tol = epsilon * possible number of additions for an element
-  double const tol = std::numeric_limits<double>::epsilon() * num_cols * 3;
+  int const num_cols = (x_range.stop - x_range.start + 1) * pde.num_terms;
+  // tol = epsilon * possible number of additions for an element * 10
+  double const tol = std::numeric_limits<double>::epsilon() * num_cols * 10;
+  if (result > tol)
+  {
+    std::cout << result << std::endl;
+    std::cout << tol << std::endl;
+  }
   REQUIRE(result <= tol);
 };
 
-TEST_CASE("group reduction function", "[grouping]")
+TEST_CASE("chunk reduction function", "[chunk]")
 {
   SECTION("reduction deg 2/lev 4, continuity 1")
   {
@@ -708,9 +713,9 @@ TEST_CASE("group reduction function", "[grouping]")
 
     int const ranks    = 2;
     int const limit_MB = 1;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -719,11 +724,11 @@ TEST_CASE("group reduction function", "[grouping]")
     std::generate(rank_space.reduction_space.begin(),
                   rank_space.reduction_space.end(), gen);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // reduce and test
-      reduce_group(*pde, rank_space, group);
-      test_reduction(*pde, group, rank_space);
+      reduce_chunk(*pde, rank_space, chunk);
+      test_reduction(*pde, chunk, rank_space);
     }
   }
 
@@ -743,9 +748,9 @@ TEST_CASE("group reduction function", "[grouping]")
 
     int const ranks    = 4;
     int const limit_MB = 11;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -754,11 +759,11 @@ TEST_CASE("group reduction function", "[grouping]")
     std::generate(rank_space.reduction_space.begin(),
                   rank_space.reduction_space.end(), gen);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // reduce and test
-      reduce_group(*pde, rank_space, group);
-      test_reduction(*pde, group, rank_space);
+      reduce_chunk(*pde, rank_space, chunk);
+      test_reduction(*pde, chunk, rank_space);
     }
   }
 
@@ -778,9 +783,9 @@ TEST_CASE("group reduction function", "[grouping]")
 
     int const ranks    = 7;
     int const limit_MB = 100;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<double> rank_space(*pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -789,11 +794,11 @@ TEST_CASE("group reduction function", "[grouping]")
     std::generate(rank_space.reduction_space.begin(),
                   rank_space.reduction_space.end(), gen);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // reduce and test
-      reduce_group(*pde, rank_space, group);
-      test_reduction(*pde, group, rank_space);
+      reduce_chunk(*pde, rank_space, chunk);
+      test_reduction(*pde, chunk, rank_space);
     }
   }
 }

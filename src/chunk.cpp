@@ -1,74 +1,73 @@
-#include "grouping.hpp"
+#include "chunk.hpp"
 #include "fast_math.hpp"
 
-int num_elements_in_group(element_group const &g)
+int num_elements_in_chunk(element_chunk const &g)
 {
   int num_elems = 0;
   for (auto const &[row, cols] : g)
   {
     ignore(row);
-    num_elems += cols.second - cols.first + 1;
+    num_elems += cols.stop - cols.start + 1;
   }
   return num_elems;
 }
-int max_connected_in_group(element_group const &g)
+int max_connected_in_chunk(element_chunk const &g)
 {
   int current_max = 0;
   for (auto const &[row, cols] : g)
   {
     ignore(row);
-    current_max = std::max(current_max, cols.second - cols.first + 1);
+    current_max = std::max(current_max, cols.stop - cols.start + 1);
   }
   return current_max;
 }
 
-std::pair<int, int> columns_in_group(element_group const &g)
+limits columns_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
   int const min_col =
       (*std::min_element(g.begin(), g.end(),
                          [](auto const &a, auto const &b) {
-                           return a.second.first < b.second.first;
+                           return a.second.start < b.second.stop;
                          }))
-          .second.first;
+          .second.start;
 
-  int const max_col =
-      (*std::max_element(g.begin(), g.end(),
-                         [](auto const &a, auto const &b) {
-                           return a.second.second < b.second.second;
-                         }))
-          .second.second;
-  return std::make_pair(min_col, max_col);
+  int const max_col = (*std::max_element(g.begin(), g.end(),
+                                         [](auto const &a, auto const &b) {
+                                           return a.second.stop < b.second.stop;
+                                         }))
+                          .second.stop;
+  return limits(min_col, max_col);
 }
-std::pair<int, int> rows_in_group(element_group const &g)
+limits rows_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
-  return std::make_pair(g.begin()->first, g.rbegin()->first);
+  return limits(g.begin()->first, g.rbegin()->first);
 }
 
 template<typename P>
 rank_workspace<P>::rank_workspace(PDE<P> const &pde,
-                                  std::vector<element_group> const &groups)
+                                  std::vector<element_chunk> const &chunks)
 {
   int const elem_size = element_segment_size(pde);
 
   int const max_elems =
-      (*std::max_element(groups.begin(), groups.end(),
-                         [](const element_group &a, const element_group &b) {
+      (*std::max_element(chunks.begin(), chunks.end(),
+                         [](const element_chunk &a, const element_chunk &b) {
                            return a.size() < b.size();
                          }))
           .size();
 
-  int const max_conn = max_connected_in_group(*std::max_element(
-      groups.begin(), groups.end(),
-      [](const element_group &a, const element_group &b) {
-        return max_connected_in_group(a) < max_connected_in_group(b);
+  int const max_conn = max_connected_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](const element_chunk &a, const element_chunk &b) {
+        return max_connected_in_chunk(a) < max_connected_in_chunk(b);
       }));
 
-  int const max_total = num_elements_in_group(*std::max_element(
-      groups.begin(), groups.end(),
-      [](const element_group &a, const element_group &b) {
-        return num_elements_in_group(a) < num_elements_in_group(b);
+  int const max_total = num_elements_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](const element_chunk &a, const element_chunk &b) {
+        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
       }));
 
   batch_input.resize(elem_size * max_conn);
@@ -139,11 +138,11 @@ static double get_element_size_MB(PDE<P> const &pde)
           elem_xy_space_MB);
 }
 
-// determine how many groups will be required to solve the problem
-// a group is a subset of all elements whose total workspace requirement
+// determine how many chunks will be required to solve the problem
+// a chunk is a subset of all elements whose total workspace requirement
 // is less than the limit passed in rank_size_MB
 template<typename P>
-int get_num_groups(element_table const &table, PDE<P> const &pde,
+int get_num_chunks(element_table const &table, PDE<P> const &pde,
                    int const num_ranks, int const rank_size_MB)
 {
   assert(num_ranks > 0);
@@ -155,165 +154,165 @@ int get_num_groups(element_table const &table, PDE<P> const &pde,
   // make sure rank size is something reasonable
   // a single element is the finest we can split the problem
   // if that requires a lot of space relative to rank size,
-  // roundoff of elements over groups will cause us to exceed the limit
+  // roundoff of elements over chunks will cause us to exceed the limit
   //
   // also not feasible to solve problem with a tiny workspace limit
   assert(space_per_elem < (0.5 * rank_size_MB));
   double const problem_size_MB = space_per_elem * num_elems;
 
-  // determine number of groups
+  // determine number of chunks
   double const problem_size_per_rank = problem_size_MB / rank_size_MB;
-  int const num_groups               = [problem_size_per_rank, num_ranks] {
-    int const groups_per_rank =
+  int const num_chunks               = [problem_size_per_rank, num_ranks] {
+    int const chunks_per_rank =
         static_cast<int>(problem_size_per_rank / num_ranks + 1);
-    return groups_per_rank * num_ranks;
+    return chunks_per_rank * num_ranks;
   }();
 
-  return num_groups;
+  return num_chunks;
 }
 
-// divide the problem given the previously computed number of groups
+// divide the problem given the previously computed number of chunks
 // this function divides via a greedy, row-major split.
 // i.e., consecutive elements are taken row-wise until the end of a
 // row, and continuing as needed to the next row, beginning with the first
 // element of the new row (typewriter style). this is done to minimize the
 // portion of the y-vector written to by each task, and ultimately the size of
 // communication between ranks.
-std::vector<element_group>
-assign_elements(element_table const &table, int const num_groups)
+std::vector<element_chunk>
+assign_elements(element_table const &table, int const num_chunks)
 {
-  assert(num_groups > 0);
+  assert(num_chunks > 0);
 
   int64_t const num_elems = static_cast<int64_t>(table.size()) * table.size();
 
-  int64_t const elems_left_over = num_elems % num_groups;
+  int64_t const elems_left_over = num_elems % num_chunks;
   int64_t const elems_per_task =
-      num_elems / num_groups + elems_left_over / num_groups;
-  int64_t const still_left_over = elems_left_over % num_groups;
+      num_elems / num_chunks + elems_left_over / num_chunks;
+  int64_t const still_left_over = elems_left_over % num_chunks;
 
-  std::vector<element_group> grouping;
+  std::vector<element_chunk> chunks;
   int64_t assigned = 0;
 
-  for (int i = 0; i < num_groups; ++i)
+  for (int i = 0; i < num_chunks; ++i)
   {
-    std::map<int, std::vector<int>> group_map;
+    std::map<int, std::vector<int>> chunk_map;
 
-    auto const insert = [&group_map](int const key, int col) {
-      group_map.try_emplace(key, std::vector<int>());
-      group_map[key].push_back(col);
+    auto const insert = [&chunk_map](int const key, int col) {
+      chunk_map.try_emplace(key, std::vector<int>());
+      chunk_map[key].push_back(col);
     };
     int64_t const elems_this_task =
         i < still_left_over ? elems_per_task + 1 : elems_per_task;
     int64_t const task_end = assigned + elems_this_task - 1;
 
-    int64_t const group_start_row = assigned / table.size();
-    int64_t const group_start_col = assigned % table.size();
-    int64_t const group_end_row   = task_end / table.size();
-    int64_t const group_end_col   = task_end % table.size();
+    int64_t const chunk_start_row = assigned / table.size();
+    int64_t const chunk_start_col = assigned % table.size();
+    int64_t const chunk_end_row   = task_end / table.size();
+    int64_t const chunk_end_col   = task_end % table.size();
 
     assigned += elems_this_task;
 
-    if (group_end_row > group_start_row)
+    if (chunk_end_row > chunk_start_row)
     {
-      for (int i = group_start_row + 1; i < group_end_row; ++i)
+      for (int i = chunk_start_row + 1; i < chunk_end_row; ++i)
       {
         for (int j = 0; j < table.size(); ++j)
         {
           insert(i, j);
         }
       }
-      for (int j = group_start_col; j < table.size(); ++j)
+      for (int j = chunk_start_col; j < table.size(); ++j)
       {
-        insert(group_start_row, j);
+        insert(chunk_start_row, j);
       }
-      for (int j = 0; j <= group_end_col; ++j)
+      for (int j = 0; j <= chunk_end_col; ++j)
       {
-        insert(group_end_row, j);
+        insert(chunk_end_row, j);
       }
     }
     else
     {
-      for (int j = group_start_col; j <= group_end_col; ++j)
+      for (int j = chunk_start_col; j <= chunk_end_col; ++j)
       {
-        insert(group_start_row, j);
+        insert(chunk_start_row, j);
       }
     }
 
-    element_group group;
-    for (auto const &[row, cols] : group_map)
+    element_chunk chunk;
+    for (auto const &[row, cols] : chunk_map)
     {
-      group[row] = std::make_pair(cols[0], cols.back());
+      chunk.insert({row, limits(cols[0], cols.back())});
     }
-    grouping.push_back(group);
+    chunks.push_back(chunk);
   }
-  return grouping;
+  return chunks;
 }
 
 template<typename P>
-void copy_group_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+void copy_chunk_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                        host_workspace<P> const &host_space,
-                       element_group const &group)
+                       element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
-  auto const x_range  = columns_in_group(group);
+  auto const x_range  = columns_in_chunk(chunk);
   fk::vector<P, mem_type::view> const x_view(
-      host_space.x, x_range.first * elem_size,
-      (x_range.second + 1) * elem_size - 1);
+      host_space.x, x_range.start * elem_size,
+      (x_range.stop + 1) * elem_size - 1);
   fm::copy(x_view, rank_space.batch_input);
 }
 
 template<typename P>
-void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                         host_workspace<P> const &host_space,
-                        element_group const &group)
+                        element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
-  auto const y_range  = rows_in_group(group);
-  fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.first * elem_size,
-                                       (y_range.second + 1) * elem_size - 1);
+  auto const y_range  = rows_in_chunk(chunk);
+  fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.start * elem_size,
+                                       (y_range.stop + 1) * elem_size - 1);
 
   fk::vector<P, mem_type::view> const out_view(
       rank_space.batch_output, 0,
-      (y_range.second - y_range.first + 1) * elem_size - 1);
+      (y_range.stop - y_range.start + 1) * elem_size - 1);
 
   y_view = fm::axpy(out_view, y_view);
 }
 
 template<typename P>
-void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
-                  element_group const &group)
+void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                  element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
 
   fm::scal(static_cast<P>(0.0), rank_space.batch_output);
-  for (auto const &[row, cols] : group)
+  for (auto const &[row, cols] : chunk)
   {
-    int const prev_row_elems = [i = row, &group] {
-      if (i == group.begin()->first)
+    int const prev_row_elems = [i = row, &chunk] {
+      if (i == chunk.begin()->first)
       {
         return 0;
       }
       int prev_elems = 0;
-      for (int r = group.begin()->first; r < i; ++r)
+      for (int r = chunk.begin()->first; r < i; ++r)
       {
-        prev_elems += group.at(r).second - group.at(r).first + 1;
+        prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
       }
       return prev_elems;
     }();
 
     fk::matrix<P, mem_type::view> const reduction_matrix(
         rank_space.reduction_space, elem_size,
-        (cols.second - cols.first + 1) * pde.num_terms,
+        (cols.stop - cols.start + 1) * pde.num_terms,
         prev_row_elems * elem_size * pde.num_terms);
 
-    int const reduction_row = row - group.begin()->first;
+    int const reduction_row = row - chunk.begin()->first;
     fk::vector<P, mem_type::view> output_view(
         rank_space.batch_output, reduction_row * elem_size,
         ((reduction_row + 1) * elem_size) - 1);
 
     fk::vector<P, mem_type::view> const unit_view(
         rank_space.get_unit_vector(), 0,
-        (cols.second - cols.first + 1) * pde.num_terms - 1);
+        (cols.stop - cols.start + 1) * pde.num_terms - 1);
 
     P const alpha     = 1.0;
     P const beta      = 1.0;
@@ -327,35 +326,35 @@ template class rank_workspace<double>;
 template class host_workspace<float>;
 template class host_workspace<double>;
 
-template int get_num_groups(element_table const &table, PDE<float> const &pde,
+template int get_num_chunks(element_table const &table, PDE<float> const &pde,
                             int const num_ranks, int const rank_size_MB);
-template int get_num_groups(element_table const &table, PDE<double> const &pde,
+template int get_num_chunks(element_table const &table, PDE<double> const &pde,
                             int const num_ranks, int const rank_size_MB);
 
-template void copy_group_inputs(PDE<float> const &pde,
+template void copy_chunk_inputs(PDE<float> const &pde,
                                 rank_workspace<float> &rank_space,
                                 host_workspace<float> const &host_space,
-                                element_group const &group);
+                                element_chunk const &chunk);
 
-template void copy_group_inputs(PDE<double> const &pde,
+template void copy_chunk_inputs(PDE<double> const &pde,
                                 rank_workspace<double> &rank_space,
                                 host_workspace<double> const &host_space,
-                                element_group const &group);
+                                element_chunk const &chunk);
 
-template void copy_group_outputs(PDE<float> const &pde,
+template void copy_chunk_outputs(PDE<float> const &pde,
                                  rank_workspace<float> &rank_space,
                                  host_workspace<float> const &host_space,
-                                 element_group const &group);
+                                 element_chunk const &chunk);
 
-template void copy_group_outputs(PDE<double> const &pde,
+template void copy_chunk_outputs(PDE<double> const &pde,
                                  rank_workspace<double> &rank_space,
                                  host_workspace<double> const &host_space,
-                                 element_group const &group);
+                                 element_chunk const &chunk);
 
-template void reduce_group(PDE<float> const &pde,
+template void reduce_chunk(PDE<float> const &pde,
                            rank_workspace<float> &rank_space,
-                           element_group const &group);
+                           element_chunk const &chunk);
 
-template void reduce_group(PDE<double> const &pde,
+template void reduce_chunk(PDE<double> const &pde,
                            rank_workspace<double> &rank_space,
-                           element_group const &group);
+                           element_chunk const &chunk);

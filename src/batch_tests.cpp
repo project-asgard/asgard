@@ -1,7 +1,7 @@
 #include "batch.hpp"
+#include "chunk.hpp"
 #include "coefficients.hpp"
 #include "fast_math.hpp"
-#include "grouping.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <numeric>
@@ -1676,22 +1676,22 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     pde->set_coefficients(coefficient_matrix, 0, 0);
 
     host_workspace<TestType> host_space(*pde, elem_table);
-    auto const groups =
-        assign_elements(elem_table, get_num_groups(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    auto const chunks =
+        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
 
     std::generate(host_space.x.begin(), host_space.x.end(), gen);
     fk::vector<TestType> const gold = coefficient_matrix * host_space.x;
 
     fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
 
-      // build batches for this group
+      // build batches for this chunk
       std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, group);
+          build_batches(*pde, elem_table, rank_space, chunk);
 
       // do the gemm
       batch<TestType> const a = batches[0][0];
@@ -1704,10 +1704,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       batched_gemm(a, b, c, alpha, beta);
 
       // do the reduction
-      reduce_group(*pde, rank_space, group);
+      reduce_chunk(*pde, rank_space, chunk);
 
       // copy outputs back
-      copy_group_outputs(*pde, rank_space, host_space, group);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
     }
     relaxed_comparison(gold, host_space.fx);
   }
@@ -1733,23 +1733,23 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     pde->set_coefficients(coefficient_matrix, 0, 0);
 
     host_workspace<TestType> host_space(*pde, elem_table);
-    auto const groups =
-        assign_elements(elem_table, get_num_groups(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    auto const chunks =
+        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
 
     std::generate(host_space.x.begin(), host_space.x.end(), gen);
     fk::vector<TestType> const gold = coefficient_matrix * host_space.x;
 
     fm::scal(static_cast<TestType>(0.0), host_space.fx);
 
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
 
-      // build batches for this group
+      // build batches for this chunk
       std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, group);
+          build_batches(*pde, elem_table, rank_space, chunk);
 
       // do the gemm
       batch<TestType> const a = batches[0][0];
@@ -1762,10 +1762,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       batched_gemm(a, b, c, alpha, beta);
 
       // do the reduction
-      reduce_group(*pde, rank_space, group);
+      reduce_chunk(*pde, rank_space, chunk);
 
       // copy outputs back
-      copy_group_outputs(*pde, rank_space, host_space, group);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
     }
 
     relaxed_comparison(gold, host_space.fx);
@@ -1798,19 +1798,19 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    auto const groups =
-        assign_elements(elem_table, get_num_groups(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    auto const chunks =
+        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
 
     fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
 
-      // build batches for this group
+      // build batches for this chunk
       std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, group);
+          build_batches(*pde, elem_table, rank_space, chunk);
 
       // do the gemms
       TestType const alpha = 1.0;
@@ -1825,10 +1825,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
 
       // do the reduction
-      reduce_group(*pde, rank_space, group);
+      reduce_chunk(*pde, rank_space, chunk);
 
       // copy outputs back
-      copy_group_outputs(*pde, rank_space, host_space, group);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
     }
 
     std::string const file_path =
@@ -1866,19 +1866,19 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    auto const groups =
-        assign_elements(elem_table, get_num_groups(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    auto const chunks =
+        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
 
     fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
 
-      // build batches for this group
+      // build batches for this chunk
       std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, group);
+          build_batches(*pde, elem_table, rank_space, chunk);
 
       // do the gemms
       TestType const alpha = 1.0;
@@ -1893,10 +1893,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
 
       // do the reduction
-      reduce_group(*pde, rank_space, group);
+      reduce_chunk(*pde, rank_space, chunk);
 
       // copy outputs back
-      copy_group_outputs(*pde, rank_space, host_space, group);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
     }
 
     std::string const file_path =
@@ -1934,19 +1934,19 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    auto const groups =
-        assign_elements(elem_table, get_num_groups(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    auto const chunks =
+        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
 
     fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
 
-      // build batches for this group
+      // build batches for this chunk
       std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, group);
+          build_batches(*pde, elem_table, rank_space, chunk);
 
       // do the gemms
       TestType const alpha = 1.0;
@@ -1961,10 +1961,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
 
       // do the reduction
-      reduce_group(*pde, rank_space, group);
+      reduce_chunk(*pde, rank_space, chunk);
 
       // copy outputs back
-      copy_group_outputs(*pde, rank_space, host_space, group);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
     }
 
     std::string const file_path =
@@ -2004,19 +2004,19 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
     int const ranks    = 2;
     int const limit_MB = 100;
-    auto const groups  = assign_elements(
-        elem_table, get_num_groups(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<TestType> rank_space(*pde, groups);
+    auto const chunks  = assign_elements(
+        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
+    rank_workspace<TestType> rank_space(*pde, chunks);
 
     fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &group : groups)
+    for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_group_inputs(*pde, rank_space, host_space, group);
+      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
 
-      // build batches for this group
+      // build batches for this chunk
       std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, group);
+          build_batches(*pde, elem_table, rank_space, chunk);
 
       // do the gemms
       TestType const alpha = 1.0;
@@ -2031,10 +2031,10 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
 
       // do the reduction
-      reduce_group(*pde, rank_space, group);
+      reduce_chunk(*pde, rank_space, chunk);
 
       // copy outputs back
-      copy_group_outputs(*pde, rank_space, host_space, group);
+      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
     }
 
     std::string const file_path =

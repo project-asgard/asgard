@@ -3,14 +3,27 @@
 #include "pde.hpp"
 #include "tensors.hpp"
 
-using element_group = std::map<int, std::pair<int, int>>;
+struct limits
+{
+  limits(int const start, int const stop) : start(start), stop(stop){};
+  limits(limits const &l) : start(l.start), stop(l.stop){};
+  limits(limits const &&l) : start(l.start), stop(l.stop){};
+  bool operator==(const limits &rhs) const
+  {
+    return start == rhs.start && stop == rhs.stop;
+  }
+  int const start;
+  int const stop;
+};
 
-// convenience functions when working with element groups
-int num_elements_in_group(element_group const &g);
-int max_connected_in_group(element_group const &g);
+using element_chunk = std::map<int, limits>;
 
-std::pair<int, int> columns_in_group(element_group const &g);
-std::pair<int, int> rows_in_group(element_group const &g);
+// convenience functions when working with element chunks
+int num_elements_in_chunk(element_chunk const &g);
+int max_connected_in_chunk(element_chunk const &g);
+
+limits columns_in_chunk(element_chunk const &g);
+limits rows_in_chunk(element_chunk const &g);
 
 // FIXME we should eventually put this in the pde class?
 auto const element_segment_size = [](auto const &pde) {
@@ -25,7 +38,7 @@ template<typename P>
 class rank_workspace
 {
 public:
-  rank_workspace(PDE<P> const &pde, std::vector<element_group> const &groups);
+  rank_workspace(PDE<P> const &pde, std::vector<element_chunk> const &chunks);
   fk::vector<P> const &get_unit_vector() const;
   // input, output, workspace for batched gemm/reduction
   fk::vector<P> batch_input;
@@ -49,7 +62,7 @@ private:
 // larger, host-side memory space holding the entire input/output vectors.
 // FIXME when we split the problem with MPI, we can restrict this to
 // only the portions of x and y needed for a given rank's
-// assigned element groups.
+// assigned element chunks.
 template<typename P>
 class host_workspace
 {
@@ -76,61 +89,61 @@ public:
   };
 };
 
-// functions to assign groups
+// functions to assign chunks
 template<typename P>
-int get_num_groups(element_table const &table, PDE<P> const &pde,
+int get_num_chunks(element_table const &table, PDE<P> const &pde,
                    int const num_ranks = 1, int const rank_size_MB = 1000);
 
-std::vector<element_group>
-assign_elements(element_table const &table, int const num_groups);
+std::vector<element_chunk>
+assign_elements(element_table const &table, int const num_chunks);
 
 // data management functions
 template<typename P>
-void copy_group_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+void copy_chunk_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                        host_workspace<P> const &host_space,
-                       element_group const &group);
+                       element_chunk const &chunk);
 
 template<typename P>
-void copy_group_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
+void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                         host_workspace<P> const &host_space,
-                        element_group const &group);
+                        element_chunk const &chunk);
 
-// reduce an element group's results after batched gemm
+// reduce an element chunk's results after batched gemm
 template<typename P>
-void reduce_group(PDE<P> const &pde, rank_workspace<P> &rank_space,
-                  element_group const &group);
+void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
+                  element_chunk const &chunk);
 
-extern template int get_num_groups(element_table const &table,
+extern template int get_num_chunks(element_table const &table,
                                    PDE<float> const &pde, int const num_ranks,
                                    int const rank_size_MB);
-extern template int get_num_groups(element_table const &table,
+extern template int get_num_chunks(element_table const &table,
                                    PDE<double> const &pde, int const num_ranks,
                                    int const rank_size_MB);
 
-extern template void copy_group_inputs(PDE<float> const &pde,
+extern template void copy_chunk_inputs(PDE<float> const &pde,
                                        rank_workspace<float> &rank_space,
                                        host_workspace<float> const &host_space,
-                                       element_group const &group);
+                                       element_chunk const &chunk);
 
-extern template void copy_group_inputs(PDE<double> const &pde,
+extern template void copy_chunk_inputs(PDE<double> const &pde,
                                        rank_workspace<double> &rank_space,
                                        host_workspace<double> const &host_space,
-                                       element_group const &group);
+                                       element_chunk const &chunk);
 
-extern template void copy_group_outputs(PDE<float> const &pde,
+extern template void copy_chunk_outputs(PDE<float> const &pde,
                                         rank_workspace<float> &rank_space,
                                         host_workspace<float> const &host_space,
-                                        element_group const &group);
+                                        element_chunk const &chunk);
 
 extern template void
-copy_group_outputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
+copy_chunk_outputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
                    host_workspace<double> const &host_space,
-                   element_group const &group);
+                   element_chunk const &chunk);
 
-extern template void reduce_group(PDE<float> const &pde,
+extern template void reduce_chunk(PDE<float> const &pde,
                                   rank_workspace<float> &rank_space,
-                                  element_group const &group);
+                                  element_chunk const &chunk);
 
-extern template void reduce_group(PDE<double> const &pde,
+extern template void reduce_chunk(PDE<double> const &pde,
                                   rank_workspace<double> &rank_space,
-                                  element_group const &group);
+                                  element_chunk const &chunk);
