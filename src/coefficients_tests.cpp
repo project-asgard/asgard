@@ -10,11 +10,9 @@ static inline void relaxed_comparison(fk::matrix<double> const first,
 {
   Catch::StringMaker<P>::precision = 15;
   auto first_it                    = first.begin();
-
   std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-    REQUIRE(
-        Approx(*first_it++).epsilon(std::numeric_limits<P>::epsilon() * 1e4) ==
-        second_elem);
+    auto tol = std::numeric_limits<P>::epsilon() * 1e4;
+    REQUIRE_THAT(*first_it++, Catch::Matchers::WithinAbs(second_elem, tol));
   });
 }
 
@@ -53,10 +51,35 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
   }
 }
 
+TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
+                   float)
+{
+  int const level     = 4;
+  int const degree    = 4;
+  TestType const time = 1.0;
+  auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+  std::string const filename_base = "../testing/generated-inputs/coefficients/"
+                                    "continuity3_coefficients_norotate_l" +
+                                    std::to_string(level) + "_d" +
+                                    std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test);
+    }
+  }
+}
+
 TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
 {
-  int const level     = 3;
-  int const degree    = 5;
+  int const level     = 4;
+  int const degree    = 4;
   TestType const time = 1.0;
   auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   std::string const filename_base =

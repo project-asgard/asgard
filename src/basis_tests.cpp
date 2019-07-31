@@ -101,11 +101,15 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
   auto const relaxed_comparison = [](auto const first, auto const second) {
+    Catch::StringMaker<TestType>::precision = 20;
+
     auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      auto difference = std::abs(*first_it++ - second_elem);
-      REQUIRE(difference <= std::numeric_limits<TestType>::epsilon() * 1e4);
-    });
+    auto tol      = std::numeric_limits<TestType>::epsilon() * 1e3;
+    std::for_each(second.begin(), second.end(),
+                  [&first_it, tol](auto &second_elem) {
+                    REQUIRE_THAT(*first_it++,
+                                 Catch::Matchers::WithinAbs(second_elem, tol));
+                  });
   };
 
   SECTION("operator_two_scale(2, 2)")
@@ -195,10 +199,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
   auto const relaxed_comparison = [](auto const first, auto const second) {
     auto first_it = first.begin();
     std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      auto const f1   = *first_it++;
-      auto const diff = std::abs(f1 - second_elem);
-      REQUIRE(diff < std::numeric_limits<TestType>::epsilon() * 1.0e5 *
-                         std::max(std::abs(f1), std::abs(second_elem)));
+      auto const f1 = *first_it++;
+      auto tol      = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE_THAT(f1, Catch::Matchers::WithinAbs(second_elem, tol));
     });
   };
 
