@@ -101,15 +101,11 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
   auto const relaxed_comparison = [](auto const first, auto const second) {
-    Catch::StringMaker<TestType>::precision = 20;
-
     auto first_it = first.begin();
-    auto tol      = std::numeric_limits<TestType>::epsilon() * 1e3;
-    std::for_each(second.begin(), second.end(),
-                  [&first_it, tol](auto &second_elem) {
-                    REQUIRE_THAT(*first_it++,
-                                 Catch::Matchers::WithinAbs(second_elem, tol));
-                  });
+    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
+      auto difference = std::abs(*first_it++ - second_elem);
+      REQUIRE(difference <= std::numeric_limits<TestType>::epsilon() * 1e4);
+    });
   };
 
   SECTION("operator_two_scale(2, 2)")
@@ -196,11 +192,12 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
 TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
+  auto const relaxed_comparison = [](auto const first, auto const second, auto const n,auto const max) {
     auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      auto const f1 = *first_it++;
-      auto tol      = std::numeric_limits<TestType>::epsilon() * 1e3;
+    Catch::StringMaker<TestType>::precision = 15;
+    std::for_each(second.begin(), second.end(), [&first_it,&n,&max](auto &second_elem) {
+      auto const f1   = *first_it++;
+      auto tol = std::numeric_limits<TestType>::epsilon()*n*n/10.0*max;		 
       REQUIRE_THAT(f1, Catch::Matchers::WithinAbs(second_elem, tol));
     });
   };
@@ -219,7 +216,8 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     // here is the distro you want to generate random values within
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    TestType distBounds = 200.0;
+    std::uniform_real_distribution<TestType> dist(-distBounds, distBounds);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
     fk::matrix<TestType> mat1(n, n);
     std::generate(mat1.begin(), mat1.end(), gen);
@@ -229,7 +227,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     auto const product_left2 = apply_left_fmwt<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 2, lev 2 fmwt apply left - method 2")
     {
-      relaxed_comparison(product_left1, product_left2);
+      relaxed_comparison(product_left1, product_left2,n,distBounds);
     }
 
     fk::matrix<TestType> fmwt_transpose =
@@ -240,7 +238,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
         apply_left_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 2, lev 2 fmwt apply left transpose - method 2")
     {
-      relaxed_comparison(product_left_trans1, product_left_trans2);
+      relaxed_comparison(product_left_trans1, product_left_trans2,n,distBounds);
     }
 
     auto const product_right1 = mat1 * fmwt;
@@ -249,7 +247,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 
     SECTION("degree = 2, lev 2 fmwt apply right - method 2")
     {
-      relaxed_comparison(product_right1, product_right2);
+      relaxed_comparison(product_right1, product_right2,n,distBounds);
     }
 
     auto const product_right_trans1 = mat1 * fmwt_transpose;
@@ -257,7 +255,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
         apply_right_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 2, lev 2 fmwt apply right transpose - method 2")
     {
-      relaxed_comparison(product_right_trans1, product_right_trans2);
+      relaxed_comparison(product_right_trans1, product_right_trans2,n,distBounds);
     }
   }
 
@@ -270,7 +268,8 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     // here is the distro you want to generate random values within
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
+    TestType distBounds = 200.0;
+    std::uniform_real_distribution<TestType> dist(-distBounds, distBounds);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
     fk::matrix<TestType> mat1(n, n);
     std::generate(mat1.begin(), mat1.end(), gen);
@@ -281,7 +280,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
     auto const product_left2 = apply_left_fmwt<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply left - method 2")
     {
-      relaxed_comparison(product_left1, product_left2);
+      relaxed_comparison(product_left1, product_left2,n,distBounds);
     }
 
     fk::matrix<TestType> fmwt_transpose =
@@ -291,7 +290,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
         apply_left_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply left transpose - method 2")
     {
-      relaxed_comparison(product_left_trans1, product_left_trans2);
+      relaxed_comparison(product_left_trans1, product_left_trans2,n,distBounds);
     }
 
     auto const product_right1 = mat1 * fmwt;
@@ -299,7 +298,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
         apply_right_fmwt<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply right - method 2")
     {
-      relaxed_comparison(product_right1, product_right2);
+      relaxed_comparison(product_right1, product_right2,n,distBounds);
     }
 
     auto const product_right_trans1 = mat1 * fmwt_transpose;
@@ -307,7 +306,7 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
         apply_right_fmwt_transposed<TestType>(fmwt, mat1, kdeg, lev);
     SECTION("degree = 4, lev 5 fmwt apply right transpose - method 2")
     {
-      relaxed_comparison(product_right_trans1, product_right_trans2);
+      relaxed_comparison(product_right_trans1, product_right_trans2,n,distBounds);
     }
   }
 }
