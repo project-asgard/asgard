@@ -42,6 +42,7 @@ args = parser.parse_args()
 # The name of the PDE
 PDE = args.pde
 
+
 # The range of levels to profile
 LEVELS = list(range(args.level_min, args.level_max+1))
 # The range of degrees to profile

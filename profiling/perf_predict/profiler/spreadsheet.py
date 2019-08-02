@@ -25,19 +25,19 @@ class ExcelSheet:
 # Generates a CSV sheet with time data
 class TimeSheet(ExcelSheet):
     def __init__(self):
-        super().__init__(2 + len(LEVELS), (1 + len(DEGREES)))
+        super().__init__(2 + LEVELS[-1], DEGREES[-1])
 
         self.put(
             0, 0, 'PDE Time used'
         )
 
         self.put(1, 0, 'degree')
-        for x in LEVELS:
+        for level in range(2, LEVELS[-1]+1):
             self.put(
-                x+1, 0, f'level {x}'
+                level, 0, f'level {level}'
             )
 
-        for degree in DEGREES:
+        for degree in range(2, DEGREES[-1]+1):
             self.put(
                 1, degree-1, f'{degree}'
             )
@@ -45,12 +45,12 @@ class TimeSheet(ExcelSheet):
     # Record the seconds elapsed for asgard for a level and degree
     def add_seconds(self, level, degree, seconds):
         if degree <= DEGREES[-1] and level <= LEVELS[-1]:
-            self.put(level + 1, degree - 1, seconds)
+            self.put(level, degree - 1, seconds)
 
     # Returns the seconds for compute time at a given level and degree
     def get_seconds(self, level, degree):
         if degree <= DEGREES[-1] and level <= LEVELS[-1]:
-            return self.get(level + 1, degree - 1)
+            return self.get(level, degree - 1)
         return 0
 
 
@@ -59,19 +59,19 @@ class TimeSheet(ExcelSheet):
 # adapt to the data added to the spreadsheet
 class MemorySheet(ExcelSheet):
     def __init__(self):
-        super().__init__(2 + len(LEVELS), 1 + len(DEGREES))
+        super().__init__(2 + LEVELS[-1], DEGREES[-1])
 
         self.put(
             0, 0, 'PDE Actual Peak Mem Usage'
         )
 
         self.put(1, 0, 'degree')
-        for x in LEVELS:
+        for level in range(2, LEVELS[-1]+1):
             self.put(
-                x+1, 0, f'level {x}'
+                level, 0, f'level {level}'
             )
 
-        for degree in DEGREES:
+        for degree in range(2, DEGREES[-1]+1):
             self.put(
                 1, degree-1, f'{degree}'
             )
@@ -79,11 +79,10 @@ class MemorySheet(ExcelSheet):
     # Add total and workspace mem usage for a level and degree
     def add_data(self, level, degree, total):
         if degree <= DEGREES[-1] and level <= LEVELS[-1]:
-            self.put(level + 1, degree - 1, total)
+            self.put(level, degree - 1, total)
 
     # Returns the total and workspace memory usage at a given level and degree
     def get_data(self, level, degree):
         if degree <= DEGREES[-1] and level <= LEVELS[-1]:
-            total = self.get(level+1, degree-1)
-            return total
+            return self.get(level, degree - 1)
         return 0
