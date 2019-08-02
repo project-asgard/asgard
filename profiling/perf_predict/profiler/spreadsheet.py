@@ -59,14 +59,10 @@ class TimeSheet(ExcelSheet):
 # adapt to the data added to the spreadsheet
 class MemorySheet(ExcelSheet):
     def __init__(self):
-        super().__init__(2 + len(LEVELS), 2 * (1 + len(DEGREES)))
+        super().__init__(2 + len(LEVELS), 1 + len(DEGREES))
 
         self.put(
             0, 0, 'PDE Actual Peak Mem Usage'
-        )
-
-        self.put(
-            0, self.height/2, 'PDE Workspace Usage'
         )
 
         self.put(1, 0, 'degree')

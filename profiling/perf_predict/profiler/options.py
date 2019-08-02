@@ -20,7 +20,7 @@ parser.add_argument('-od', '--out-degree', dest='out_degree', default=4,
 
 parser.add_argument('-lmax', '--level-max', dest='level_max', default=5,
                     type=int, help='The maximum level value to profile')
-parser.add_argument('-lmin', '--level-min', dest='level_min', default=1,
+parser.add_argument('-lmin', '--level-min', dest='level_min', default=2,
                     type=int, help='The minimum level value to profile')
 
 parser.add_argument('-dmax', '--degree-max', dest='degree_max', default=6,
