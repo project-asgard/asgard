@@ -1,4 +1,7 @@
 #include "batch.hpp"
+
+#include <omp.h>
+
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
@@ -602,10 +605,23 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, elements_in_chunk);
 
-  // loop over elements
-  // FIXME eventually want to do this in parallel
-  for (const auto &[i, connected] : chunk)
+  std::vector<int> const index_to_key = [&chunk]() {
+    std::vector<int> builder;
+    for (const auto &[i, connected] : chunk)
+    {
+      builder.push_back(i);
+    }
+    return builder;
+  }();
+// loop over elements
+// FIXME eventually want to do this in parallel
+#pragma omp parallel for
+  for (int chunk_num = 0; chunk_num < chunk.size(); ++chunk_num)
   {
+    int const i          = index_to_key[chunk_num];
+    auto const connected = chunk.at(i);
+    // for (const auto &[i, connected] : chunk)
+    //{
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
