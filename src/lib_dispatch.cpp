@@ -641,6 +641,14 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
       assert(cuda_stat == 0);
       assert(success == 0);
     }
+
+    stat = cudaFree(a_d);
+    assert(stat == 0);
+    stat = cudaFree(b_d);
+    assert(stat == 0);
+    stat = cudaFree(c_d);
+    assert(stat == 0);
+
     return;
 #endif
   }
@@ -723,7 +731,16 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
       assert(cuda_stat == 0);
       assert(success == 0);
     }
+
+    stat = cudaFree(a_d);
+    assert(stat == 0);
+    stat = cudaFree(x_d);
+    assert(stat == 0);
+    stat = cudaFree(y_d);
+    assert(stat == 0);
+
     return;
+
 #endif
   }
 

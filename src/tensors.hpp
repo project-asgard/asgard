@@ -734,8 +734,8 @@ fk::vector<P, mem, res>::vector(vector<P, mem, res> const &a) : size_{a.size_}
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem, resource res>
-fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(vector<P, mem, res> const &a)
+fk::vector<P, mem, res> &
+fk::vector<P, mem, res>::operator=(vector<P, mem, res> const &a)
 {
   if (&a == this)
     return *this;
@@ -777,8 +777,8 @@ fk::vector<P, mem, res>::vector(vector<P, mem, res> &&a)
 // vector move assignment
 //
 template<typename P, mem_type mem, resource res>
-fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(vector<P, mem, res> &&a)
+fk::vector<P, mem, res> &
+fk::vector<P, mem, res>::operator=(vector<P, mem, res> &&a)
 {
   if (&a == this)
     return *this;
@@ -821,8 +821,8 @@ fk::vector<P, mem, res>::vector(vector<PP, omem> const &a)
 //
 template<typename P, mem_type mem, resource res>
 template<typename PP, mem_type omem, resource, typename>
-fk::vector<P, mem> &fk::vector<P, mem, res>::
-operator=(vector<PP, omem> const &a)
+fk::vector<P, mem> &
+fk::vector<P, mem, res>::operator=(vector<PP, omem> const &a)
 {
   assert(size() == a.size());
 
@@ -854,8 +854,8 @@ fk::vector<P, mem, res>::vector(fk::vector<P, omem, ores> const &a)
 
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource ores, resource, typename>
-fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(fk::vector<P, omem, ores> const &a)
+fk::vector<P, mem, res> &
+fk::vector<P, mem, res>::operator=(fk::vector<P, omem, ores> const &a)
 {
   assert(a.size() == size());
   if constexpr (ores == resource::device)
@@ -881,8 +881,8 @@ fk::vector<P, mem, res>::vector(fk::vector<P, omem, resource::device> const &a)
 }
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::vector<P, mem, res> &fk::vector<P, mem, res>::
-operator=(vector<P, omem, resource::device> const &a)
+fk::vector<P, mem, res> &
+fk::vector<P, mem, res>::operator=(vector<P, omem, resource::device> const &a)
 {
   assert(a.size() == size());
   copy_to_host(a.data(), data_, a.size());
@@ -980,8 +980,8 @@ bool fk::vector<P, mem, res>::operator<(vector<P, omem> const &other) const
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::vector<P> fk::vector<P, mem, res>::
-operator+(vector<P, omem> const &right) const
+fk::vector<P>
+fk::vector<P, mem, res>::operator+(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -995,8 +995,8 @@ operator+(vector<P, omem> const &right) const
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::vector<P> fk::vector<P, mem, res>::
-operator-(vector<P, omem> const &right) const
+fk::vector<P>
+fk::vector<P, mem, res>::operator-(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -1025,8 +1025,8 @@ P fk::vector<P, mem, res>::operator*(vector<P, omem> const &right) const
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::vector<P> fk::vector<P, mem, res>::
-operator*(fk::matrix<P, omem> const &A) const
+fk::vector<P>
+    fk::vector<P, mem, res>::operator*(fk::matrix<P, omem> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
@@ -1447,8 +1447,8 @@ fk::matrix<P, mem, res>::matrix(matrix<P, mem, res> const &a)
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem, resource res>
-fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
-operator=(matrix<P, mem, res> const &a)
+fk::matrix<P, mem, res> &
+fk::matrix<P, mem, res>::operator=(matrix<P, mem, res> const &a)
 {
   if (&a == this)
     return *this;
@@ -1499,8 +1499,8 @@ fk::matrix<P, mem, res>::matrix(matrix<PP, omem> const &a)
 //
 template<typename P, mem_type mem, resource res>
 template<typename PP, mem_type omem, resource, typename>
-fk::matrix<P, mem> &fk::matrix<P, mem, res>::
-operator=(matrix<PP, omem> const &a)
+fk::matrix<P, mem> &
+fk::matrix<P, mem, res>::operator=(matrix<PP, omem> const &a)
 {
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
@@ -1534,8 +1534,8 @@ fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, ores> const &a)
 
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource ores, resource, typename>
-fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
-operator=(fk::matrix<P, omem, ores> const &a)
+fk::matrix<P, mem, res> &
+fk::matrix<P, mem, res>::operator=(fk::matrix<P, omem, ores> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
@@ -1561,8 +1561,8 @@ fk::matrix<P, mem, res>::matrix(fk::matrix<P, omem, resource::device> const &a)
 }
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
-operator=(matrix<P, omem, resource::device> const &a)
+fk::matrix<P, mem, res> &
+fk::matrix<P, mem, res>::operator=(matrix<P, omem, resource::device> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
@@ -1596,8 +1596,8 @@ fk::matrix<P, mem, res>::matrix(matrix<P, mem, res> &&a)
 // matrix move assignment
 //
 template<typename P, mem_type mem, resource res>
-fk::matrix<P, mem, res> &fk::matrix<P, mem, res>::
-operator=(matrix<P, mem, res> &&a)
+fk::matrix<P, mem, res> &
+fk::matrix<P, mem, res>::operator=(matrix<P, mem, res> &&a)
 {
   if (&a == this)
     return *this;
@@ -1625,8 +1625,8 @@ operator=(matrix<P, mem, res> &&a)
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::matrix<P, mem> &fk::matrix<P, mem, res>::
-operator=(fk::vector<P, omem> const &v)
+fk::matrix<P, mem> &
+fk::matrix<P, mem, res>::operator=(fk::vector<P, omem> const &v)
 {
   assert(nrows() * ncols() == v.size());
 
@@ -1712,8 +1712,8 @@ bool fk::matrix<P, mem, res>::operator<(matrix<P, omem> const &other) const
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::matrix<P> fk::matrix<P, mem, res>::
-operator+(matrix<P, omem> const &right) const
+fk::matrix<P>
+fk::matrix<P, mem, res>::operator+(matrix<P, omem> const &right) const
 {
   assert(nrows() == right.nrows() && ncols() == right.ncols());
 
@@ -1733,8 +1733,8 @@ operator+(matrix<P, omem> const &right) const
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::matrix<P> fk::matrix<P, mem, res>::
-operator-(matrix<P, omem> const &right) const
+fk::matrix<P>
+fk::matrix<P, mem, res>::operator-(matrix<P, omem> const &right) const
 {
   assert(nrows() == right.nrows() && ncols() == right.ncols());
 
@@ -1772,8 +1772,8 @@ fk::matrix<P> fk::matrix<P, mem, res>::operator*(P const right) const
 //
 template<typename P, mem_type mem, resource res>
 template<mem_type omem, resource, typename>
-fk::vector<P> fk::matrix<P, mem, res>::
-operator*(fk::vector<P, omem> const &right) const
+fk::vector<P>
+    fk::matrix<P, mem, res>::operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
   assert(ncols() == right.size());
