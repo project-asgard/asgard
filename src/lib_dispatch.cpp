@@ -690,9 +690,13 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
     char const transb = 'n';
-    int ldb           = *n;
-    int ldc           = *m;
-    int k             = 1;
+
+    int gemm_m = *trans == 't' ? *n : *m;
+    int gemm_k = *trans == 't' ? *m : *n;
+    int gemm_n = 1;
+
+    int ldb = gemm_k;
+    int ldc = gemm_m;
 
     P **a_d;
     P **x_d;
@@ -716,8 +720,9 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemmBatched(
-          device.handle, cublas_trans(*trans), cublas_trans(transb), *m, k, *n,
-          alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc, *num_batch);
+          device.handle, cublas_trans(*trans), cublas_trans(transb), gemm_m,
+          gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
+          *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       assert(cuda_stat == 0);
       assert(success == 0);
@@ -725,8 +730,9 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemmBatched(
-          device.handle, cublas_trans(*trans), cublas_trans(transb), *m, k, *n,
-          alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc, *num_batch);
+          device.handle, cublas_trans(*trans), cublas_trans(transb), gemm_m,
+          gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
+          *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       assert(cuda_stat == 0);
       assert(success == 0);

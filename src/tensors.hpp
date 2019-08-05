@@ -214,8 +214,17 @@ public:
 
   typedef P *iterator;
   typedef const P *const_iterator;
-  iterator begin() { return data(); }
-  iterator end() { return data() + size(); }
+
+  template<resource r_ = res, typename = enable_for_host<r_>>
+  iterator begin()
+  {
+    return data();
+  }
+  template<resource r_ = res, typename = enable_for_host<r_>>
+  iterator end()
+  {
+    return data() + size();
+  }
   const_iterator begin() const { return data(); }
   const_iterator end() const { return data() + size(); }
 

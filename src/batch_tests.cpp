@@ -2027,7 +2027,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
+    batched_gemm(a, b, c, alpha, beta, resource::device);
 
     fk::vector<TestType, mem_type::owner> const y_h(y);
     REQUIRE(gold == y_h);
@@ -2109,7 +2109,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
+    batched_gemm(a, b, c, alpha, beta, resource::device);
 
     fk::vector<TestType> const y_e0_h(y_e0);
     fk::vector<TestType> const y_e1_h(y_e1);
@@ -2220,7 +2220,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batch<TestType> const c = batches[k][2];
       TestType const alpha    = 1.0;
       TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta);
+      batched_gemm(a, b, c, alpha, beta, resource::device);
     }
 
     fk::vector<TestType> const y_h(y_own);
@@ -2337,7 +2337,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batch<TestType> const c = batches[k][2];
       TestType const alpha    = 1.0;
       TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta);
+      batched_gemm(a, b, c, alpha, beta, resource::device);
     }
 
     // this method of computing "correctness" borrowed from ed's tests:
@@ -2465,7 +2465,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batch<TestType> const c = batches[k][2];
       TestType const alpha    = 1.0;
       TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta);
+      batched_gemm(a, b, c, alpha, beta, resource::device);
     }
 
     // this method of computing "correctness" borrowed from ed's tests:
@@ -2553,7 +2553,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       TestType const alpha = 1.0;
       TestType const beta  = 0.0;
 
-      batched_gemm(a, b, c, alpha, beta);
+      batched_gemm(a, b, c, alpha, beta, resource::device);
 
       // do the reduction
       reduce_chunk(*pde, rank_space, chunk);
@@ -2612,7 +2612,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       TestType const alpha = 1.0;
       TestType const beta  = 0.0;
 
-      batched_gemm(a, b, c, alpha, beta);
+      batched_gemm(a, b, c, alpha, beta, resource::device);
 
       // do the reduction
       reduce_chunk(*pde, rank_space, chunk);
@@ -2674,7 +2674,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta);
+        batched_gemm(a, b, c, alpha, beta, resource::device);
       }
 
       // do the reduction
@@ -2742,7 +2742,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta);
+        batched_gemm(a, b, c, alpha, beta, resource::device);
       }
 
       // do the reduction
@@ -2810,7 +2810,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta);
+        batched_gemm(a, b, c, alpha, beta, resource::device);
       }
 
       // do the reduction
@@ -2880,7 +2880,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta);
+        batched_gemm(a, b, c, alpha, beta, resource::device);
       }
 
       // do the reduction

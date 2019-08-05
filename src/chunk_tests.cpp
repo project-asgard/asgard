@@ -550,9 +550,11 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    fk::matrix<double> builder(rank_space.batch_output.size());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.batch_output.begin(),
-                  rank_space.batch_output.end(), gen);
+    std::generate(builder.begin(), builder.end(), gen);
+    rank_space.batch_output = builder;
+    builder.clear_and_resize(host_space.fx.begin());
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
