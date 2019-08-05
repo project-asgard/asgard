@@ -614,9 +614,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     return builder;
   }();
 // loop over elements
-// FIXME eventually want to do this in parallel
 #pragma omp parallel for
-  for (int chunk_num = 0; chunk_num < chunk.size(); ++chunk_num)
+  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
+       ++chunk_num)
   {
     int const i          = index_to_key[chunk_num];
     auto const connected = chunk.at(i);
