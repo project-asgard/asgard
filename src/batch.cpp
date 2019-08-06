@@ -1,6 +1,8 @@
 #include "batch.hpp"
 
+#ifdef ASGARD_USE_OPENMP
 #include <omp.h>
+#endif
 
 #include "chunk.hpp"
 #include "connectivity.hpp"
@@ -613,15 +615,19 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     }
     return builder;
   }();
+
 // loop over elements
+#ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
+#endif
   for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
        ++chunk_num)
   {
-    int const i          = index_to_key[chunk_num];
+    // row we are addressing in element grid
+    int const i = index_to_key[chunk_num];
+    // connected start/stop for this row
     auto const connected = chunk.at(i);
-    // for (const auto &[i, connected] : chunk)
-    //{
+
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
