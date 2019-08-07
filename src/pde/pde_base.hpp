@@ -241,7 +241,11 @@ public:
                                          degrees_freedom_1d) = new_coefficients;
   }
 
-  fk::matrix<P, mem_type::owner, resource::device> const &get_coefficients() const { return coefficients_; }
+  fk::matrix<P, mem_type::owner, resource::device> const &
+  get_coefficients() const
+  {
+    return coefficients_;
+  }
 
   // small helper to return degrees of freedom given dimension
   int degrees_freedom(dimension<P> const d) const
@@ -431,7 +435,8 @@ public:
   }
   term_set<P> const &get_terms() const { return terms_; }
 
-  fk::matrix<P, mem_type::owner, resource::device> const &get_coefficients(int const term, int const dim) const
+  fk::matrix<P, mem_type::owner, resource::device> const &
+  get_coefficients(int const term, int const dim) const
   {
     return terms_[term][dim].get_coefficients();
   }
