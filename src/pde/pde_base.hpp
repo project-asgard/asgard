@@ -167,18 +167,19 @@ public:
        dimension<P> const owning_dim,
        // optional parts for diff type operators
        // TODO : yes, i know ...
-       g_func_type<P> const g_func_1  = g_func_default,
-       g_func_type<P> const g_func_2  = g_func_default,
-       flux_type const flux_1         = flux_type::upwind,
-       flux_type const flux_2         = flux_type::downwind,
-       boundary_condition const BCL_1 = boundary_condition::neumann,
-       boundary_condition const BCR_1 = boundary_condition::neumann,
-       boundary_condition const BCL_2 = boundary_condition::neumann,
-       boundary_condition const BCR_2 = boundary_condition::neumann)
+       g_func_type<P> const g_func_1       = g_func_default,
+       g_func_type<P> const g_func_2       = g_func_default,
+       flux_type const flux_1              = flux_type::upwind,
+       flux_type const flux_2              = flux_type::downwind,
+       boundary_condition const BC_left_1  = boundary_condition::neumann,
+       boundary_condition const BC_right_1 = boundary_condition::neumann,
+       boundary_condition const BC_left_2  = boundary_condition::neumann,
+       boundary_condition const BC_right_2 = boundary_condition::neumann)
       : coeff_type(coeff_type), g_func(g_func), time_dependent(time_dependent),
         flux(flux), name(name), owning_dim(owning_dim), g_func_1(g_func_1),
-        g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2), BCL_1(BCL_1),
-        BCR_1(BCR_1), BCL_2(BCL_2), BCR_2(BCR_2), data_(data)
+        g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2),
+        BC_left_1(BC_left_1), BC_right_1(BC_right_1), BC_left_2(BC_left_2),
+        BC_right_2(BC_right_2), data_(data)
   {
     set_data(owning_dim, data);
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
@@ -253,10 +254,10 @@ public:
   g_func_type<P> const g_func_2;
   flux_type const flux_1;
   flux_type const flux_2;
-  boundary_condition const BCL_1;
-  boundary_condition const BCR_1;
-  boundary_condition const BCL_2;
-  boundary_condition const BCR_2;
+  boundary_condition const BC_left_1;
+  boundary_condition const BC_right_1;
+  boundary_condition const BC_left_2;
+  boundary_condition const BC_right_2;
 
 private:
   // this is to hold data that may change over the course of the simulation,

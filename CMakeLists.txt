@@ -9,7 +9,7 @@ project (asgard
 ###############################################################################
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_options ("-g" "-Wall" "-Wextra" "-Wpedantic" "-Wfatal-errors")
+add_compile_options ("-g" "-Wall" "-Wextra" "-Wpedantic")
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
 # set up possible commandline input variable defaults (override with -D)

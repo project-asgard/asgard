@@ -73,17 +73,16 @@ private:
   {
     fk::vector<P> f(x.size());
 
-    std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
+    std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
 
-    auto [P_m, dP_m] = legendre(x, h.size(), legendre_normalization::matlab);
+    auto const [P_m, dP_m] =
+        legendre(x, legendre_coeffs.size(), legendre_normalization::matlab);
     ignore(dP_m);
 
-    for (unsigned int l = 1; l <= h.size(); ++l)
+    for (size_t i = 0; i < legendre_coeffs.size(); ++i)
     {
-      auto L = l - 1;
-
-      fk::vector<P> P_0 = P_m.extract_submatrix(0, l - 1, x.size(), 1);
-      f                 = f + (P_0 * h[l - 1] * std::exp(-L * (L + 1) * time));
+      fk::vector<P> const P_0 = P_m.extract_submatrix(0, i, x.size(), 1);
+      f = f + (P_0 * legendre_coeffs[i] * std::exp(-i * (i + 1) * time));
     }
 
     return f;
