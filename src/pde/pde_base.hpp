@@ -166,7 +166,11 @@ public:
        fk::vector<P> const data, std::string const name,
        dimension<P> const owning_dim,
        // optional parts for diff type operators
-       // TODO : yes, i know ...
+       // FIXME there are likely better ways to do this; and that
+       // this could all likely be avoided with a DSL for the
+       // PDE spec which could handle diff terms internally.
+       // Also, building terms by chaining like this may be getting 
+       // generalized in the very near future. 
        g_func_type<P> const g_func_1       = g_func_default,
        g_func_type<P> const g_func_2       = g_func_default,
        flux_type const flux_1              = flux_type::upwind,

@@ -79,7 +79,7 @@ private:
         legendre(x, legendre_coeffs.size(), legendre_normalization::matlab);
     ignore(dP_m);
 
-    for (size_t i = 0; i < legendre_coeffs.size(); ++i)
+    for (int i = 0; i < static_cast<int>(legendre_coeffs.size()); ++i)
     {
       fk::vector<P> const P_0 = P_m.extract_submatrix(0, i, x.size(), 1);
       f = f + (P_0 * legendre_coeffs[i] * std::exp(-i * (i + 1) * time));
