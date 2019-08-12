@@ -5,11 +5,11 @@
 
 std::vector<element_chunk>
 get_my_chunks(std::vector<element_chunk> const &all_chunks, int const my_rank,
-              int const all_ranks);
+              int const num_ranks);
 
 using rank_to_inputs = std::map<int, limits<int64_t>>;
 rank_to_inputs get_input_map(std::vector<element_chunk> const &my_chunks,
-                             int const my_rank, int const all_ranks);
+                             int const my_rank, int const num_ranks);
 
 // simplifying assumptions made here: the set of chunks assigned to a rank is
 // contiguous that is, the set represents a rectangular sub-area of the element
