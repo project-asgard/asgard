@@ -89,6 +89,7 @@ set (components
   matlab_utilities
   pde
   permutations
+  plan
   program_options
   quadrature
   tensors

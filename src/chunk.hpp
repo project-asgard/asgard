@@ -3,27 +3,28 @@
 #include "pde.hpp"
 #include "tensors.hpp"
 
+template<typename P = int>
 struct limits
 {
-  limits(int const start, int const stop) : start(start), stop(stop){};
+  limits(P const start, P const stop) : start(start), stop(stop){};
   limits(limits const &l) : start(l.start), stop(l.stop){};
   limits(limits const &&l) : start(l.start), stop(l.stop){};
   bool operator==(const limits &rhs) const
   {
     return start == rhs.start && stop == rhs.stop;
   }
-  int const start;
-  int const stop;
+  P const start;
+  P const stop;
 };
 
-using element_chunk = std::map<int, limits>;
+using element_chunk = std::map<int, limits<int>>;
 
 // convenience functions when working with element chunks
 int num_elements_in_chunk(element_chunk const &g);
 int max_connected_in_chunk(element_chunk const &g);
 
-limits columns_in_chunk(element_chunk const &g);
-limits rows_in_chunk(element_chunk const &g);
+limits<int> columns_in_chunk(element_chunk const &g);
+limits<int> rows_in_chunk(element_chunk const &g);
 
 // FIXME we should eventually put this in the pde class?
 auto const element_segment_size = [](auto const &pde) {

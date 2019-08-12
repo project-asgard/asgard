@@ -22,7 +22,7 @@ int max_connected_in_chunk(element_chunk const &g)
   return current_max;
 }
 
-limits columns_in_chunk(element_chunk const &g)
+limits<> columns_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
   int const min_col =
@@ -37,13 +37,13 @@ limits columns_in_chunk(element_chunk const &g)
                                            return a.second.stop < b.second.stop;
                                          }))
                           .second.stop;
-  return limits(min_col, max_col);
+  return limits<>(min_col, max_col);
 }
 
-limits rows_in_chunk(element_chunk const &g)
+limits<> rows_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
-  return limits(g.begin()->first, g.rbegin()->first);
+  return limits<>(g.begin()->first, g.rbegin()->first);
 }
 
 template<typename P>
