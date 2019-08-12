@@ -56,20 +56,23 @@ static bool is_contiguous(std::vector<element_chunk> const &chunks)
   return true;
 }
 
-rank_to_inputs get_my_inputs(std::vector<element_chunk> const &my_chunks,
+rank_to_inputs get_input_map(std::vector<element_chunk> const &my_chunks,
                              int const my_rank, int const num_ranks)
 {
   assert(my_rank < num_ranks);
   assert(is_contiguous(my_chunks));
+  limits<> const my_inputs = get_input_range(my_chunks);
+
+  auto const are_overlapping = [](limits<> const &a, limits<> const &b) {
+    return (b.start >= a.start && b.start <= a.stop);
+  };
 }
 
-template<typename P>
-limits<int64_t>
-get_input_range(std::vector<element_chunk> const &my_chunks, PDE<P> const &pde)
+limits<> get_input_range(std::vector<element_chunk> const &my_chunks)
 {
   assert(is_contiguous(my_chunks));
 
-  int64_t const first_col =
+  int const first_col =
       columns_in_chunk(
           *std::min_element(my_chunks.begin(), my_chunks.end(),
                             [](const element_chunk &a, const element_chunk &b) {
@@ -78,7 +81,7 @@ get_input_range(std::vector<element_chunk> const &my_chunks, PDE<P> const &pde)
                             }))
           .start;
 
-  int64_t const last_col =
+  int const last_col =
       columns_in_chunk(
           *std::max_element(my_chunks.begin(), my_chunks.end(),
                             [](const element_chunk &a, const element_chunk &b) {
@@ -87,17 +90,14 @@ get_input_range(std::vector<element_chunk> const &my_chunks, PDE<P> const &pde)
                             }))
           .stop;
 
-  return limits<int64_t>(first_col * element_segment_size(pde),
-                         last_col * element_segment_size(pde));
+  return limits<>(first_col, last_col);
 }
 
-template<typename P>
-limits<int64_t>
-get_output_range(std::vector<element_chunk> const &my_chunks, PDE<P> const &pde)
+limits<> get_output_range(std::vector<element_chunk> const &my_chunks)
 {
   assert(is_contiguous(my_chunks));
 
-  int64_t const first_row =
+  int const first_row =
       rows_in_chunk(
           *std::min_element(my_chunks.begin(), my_chunks.end(),
                             [](const element_chunk &a, const element_chunk &b) {
@@ -106,7 +106,7 @@ get_output_range(std::vector<element_chunk> const &my_chunks, PDE<P> const &pde)
                             }))
           .start;
 
-  int64_t const last_row =
+  int const last_row =
       columns_in_chunk(
           *std::max_element(my_chunks.begin(), my_chunks.end(),
                             [](const element_chunk &a, const element_chunk &b) {
@@ -115,20 +115,5 @@ get_output_range(std::vector<element_chunk> const &my_chunks, PDE<P> const &pde)
                             }))
           .stop;
 
-  return limits<int64_t>(first_row * element_segment_size(pde),
-                         last_row * element_segment_size(pde));
+  return limits<>(first_row, last_row);
 }
-
-template limits<int64_t>
-get_input_range(std::vector<element_chunk> const &my_chunks,
-                PDE<float> const &pde);
-template limits<int64_t>
-get_input_range(std::vector<element_chunk> const &my_chunks,
-                PDE<double> const &pde);
-
-template limits<int64_t>
-get_output_range(std::vector<element_chunk> const &my_chunks,
-                 PDE<float> const &pde);
-template limits<int64_t>
-get_output_range(std::vector<element_chunk> const &my_chunks,
-                 PDE<double> const &pde);
