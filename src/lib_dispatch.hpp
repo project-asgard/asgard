@@ -76,6 +76,16 @@ extern "C"
 
   void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
                int *info);
+
+  // --------------------------------------------------------------------------
+  // Given matrix "A" and vector "b", solves Ax = b for "x"
+  // --------------------------------------------------------------------------
+  /* search */
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *B,
+              int *ldb, int *info);
+
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *B,
+              int *ldb, int *info);
 }
 
 // -- precision/execution resource wrapper for blas --
@@ -107,6 +117,10 @@ template<typename P>
 void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
           resource const res = resource::host);
+
+template<typename P>
+void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *B, int *ldb,
+          int *info);
 
 template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,

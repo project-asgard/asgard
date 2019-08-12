@@ -9,8 +9,7 @@
 //
 TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
                    "[lib_dispatch]", float, double, int)
-{
-  // clang-format off
+{ // clang-format off
     fk::matrix<TestType> const ans{
         {360,  610,  860},
         {710, 1210, 1710},
@@ -384,5 +383,29 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
     TestType const ans = lib_dispatch::dot(&n, x_extended.data(), &incx,
                                            y_extended.data(), &incy);
     REQUIRE(ans == gold);
+  }
+}
+
+TEMPLATE_TEST_CASE("solve Ax = b (lib_dispatch::gesv)", "[lib_dispatch]", float,
+                   double)
+{
+  fk::matrix<TestType> const matrix = {{2, 2, 3}, {4, 5, 6}, {7, 8, 9}};
+
+  fk::vector<TestType> const correct_answer = {1, 1, 1};
+
+  SECTION("lib_dispatch::gesv")
+  {
+    int n    = 3;
+    int nrhs = 1;
+    int lda  = matrix.stride();
+    fk::vector<int> ipiv(n);
+    fk::vector<TestType> vector = {7, 15, 24};
+    int ldb                     = n;
+    int info                    = -1;
+
+    lib_dispatch::gesv(&n, &nrhs, matrix.data(), &lda, ipiv.data(),
+                       vector.data(), &ldb, &info);
+
+    REQUIRE(vector == correct_answer);
   }
 }

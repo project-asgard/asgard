@@ -271,6 +271,35 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
 }
 
 template<typename P>
+void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *B, int *ldb,
+          int *info)
+{
+  assert(n);
+  assert(nrhs);
+  assert(A);
+  assert(lda);
+  assert(ipiv);
+  assert(B);
+  assert(ldb);
+  assert(info);
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dgesv_(n, nrhs, A, lda, ipiv, B, ldb, info);
+  }
+
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sgesv_(n, nrhs, A, lda, ipiv, B, ldb, info);
+  }
+
+  else
+  {
+    std::cerr << "gesv not implemented for non-floating types" << std::endl;
+  }
+}
+
+template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
            resource const res)
 {
@@ -377,6 +406,12 @@ template void gemm(char const *transa, char const *transb, int *m, int *n,
 template void gemm(char const *transa, char const *transb, int *m, int *n,
                    int *k, int *alpha, int *A, int *lda, int *B, int *ldb,
                    int *beta, int *C, int *ldc, resource const res);
+
+template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *B,
+                   int *ldb, int *info);
+
+template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *B,
+                   int *ldb, int *info);
 
 template void getrf(int *m, int *n, float *A, int *lda, int *ipiv, int *info,
                     resource const res);
