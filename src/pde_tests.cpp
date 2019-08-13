@@ -22,7 +22,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
       relaxed_compare(fx, gold);
     }
   }
@@ -33,7 +33,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x)(0);
+      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
       relaxed_compare(fx, gold);
     }
     TestType const gold =
@@ -52,7 +52,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
         std::string const full_path =
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x)(0);
+        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
         relaxed_compare(fx, gold);
       }
       TestType const gold =
@@ -82,7 +82,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
       relaxed_compare(fx, gold);
     }
   }
@@ -93,7 +93,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x)(0);
+      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
       relaxed_compare(fx, gold);
     }
     TestType const gold =
@@ -112,7 +112,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
         std::string const full_path =
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x)(0);
+        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
         relaxed_compare(fx, gold);
       }
       TestType const gold =
@@ -144,7 +144,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
 
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
       relaxed_compare(fx, gold);
     }
   }
@@ -155,7 +155,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x)(0);
+      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
       relaxed_compare(fx, gold);
     }
     TestType const gold =
@@ -174,7 +174,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
         std::string const full_path =
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x)(0);
+        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
         relaxed_compare(fx, gold);
       }
 
@@ -207,7 +207,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
 
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x)(0);
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
       relaxed_compare(fx, gold);
     }
   }
@@ -218,7 +218,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
     {
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x)(0);
+      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
       relaxed_compare(fx, gold);
     }
     TestType const gold =
@@ -237,7 +237,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
         std::string const full_path =
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x)(0);
+        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
         relaxed_compare(fx, gold);
       }
 

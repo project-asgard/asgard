@@ -289,12 +289,6 @@ TEST_CASE("read_vector_from_txt_file returns expected vector", "[matlab]")
         "read_vector_txt_neg1_1_100T.dat");
     REQUIRE(test == gold);
   }
-  SECTION("read_vector_from_txt_file fails on non-existent path")
-  {
-    fk::vector<double> test =
-        read_vector_from_txt_file("this/path/does/not/exist");
-    REQUIRE(test.size() == 0);
-  }
 }
 
 TEST_CASE("read_matrix_from_txt_file returns expected vector", "[matlab]")

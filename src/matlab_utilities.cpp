@@ -287,7 +287,8 @@ fk::vector<double> read_vector_from_txt_file(std::string const &path)
   // read failed, return empty
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::string tmp_str;

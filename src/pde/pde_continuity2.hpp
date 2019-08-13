@@ -46,25 +46,31 @@ private:
   //
 
   // specify initial condition vector functions...
-  static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
-  static fk::vector<P> initial_condition_dim1(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
 
   // specify exact solution vectors/time function...
-  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
-  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -76,16 +82,18 @@ private:
   // specify source functions...
 
   // source 0
-  static fk::vector<P> source_0_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_0_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -95,16 +103,18 @@ private:
   static P source_0_time(P const time) { return 2.0 * std::cos(2.0 * time); }
 
   // source 1
-  static fk::vector<P> source_1_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_1_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(2.0 * PI * x); });
@@ -117,16 +127,18 @@ private:
   }
 
   // source 2
-  static fk::vector<P> source_2_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_2_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_2_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_2_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
