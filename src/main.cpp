@@ -3,7 +3,12 @@
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
-#include "mem_usage.hpp"
+
+#ifdef ASGARD_IO_HIGHFIVE
+#include "io.hpp"
+#endif
+
+#include "chunk.hpp"
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -79,6 +84,11 @@ int main(int argc, char **argv)
     return combine_dimensions(degree, table, initial_conditions);
   }();
 
+  // -- setup output file and write initial condition
+#ifdef ASGARD_IO_HIGHFIVE
+  auto output_dataset = initialize_output_file(initial_condition);
+#endif
+
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
@@ -140,59 +150,52 @@ int main(int argc, char **argv)
   };
 
   // Our default workspace size is ~1GB.
-  // This is inexact for now - we can't go smaller than one connected element's
-  // space at a time. Vertical splitting would allow this, but we want to hold
-  // off on that until we implement distribution across nodes.
-  //
-  // This 1GB doesn't include batches, coefficient matrices, element table,
+
+  // This 1GB doesn't include coefficient matrices, element table,
   // or time advance workspace - only the primary memory consumers (kronmult
   // intermediate and result workspaces).
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 100;
+  static int const default_workspace_MB = 1000;
+
+  // FIXME stand-in
+  static int const ranks = 1;
+
+  host_workspace<prec> host_space(*pde, table);
+  std::vector<element_chunk> const chunks = assign_elements(
+      table, get_num_chunks(table, *pde, ranks, default_workspace_MB));
+  rank_workspace<prec> rank_space(*pde, chunks);
 
   std::cout << "allocating workspace..." << '\n';
-  explicit_system<prec> system(*pde, table, default_workspace_MB);
-  std::cout << "input vector size (MB): " << get_MB(system.batch_input.size())
-            << '\n';
+
+  std::cout << "input vector size (MB): "
+            << get_MB(rank_space.batch_input.size()) << '\n';
   std::cout << "kronmult output space size (MB): "
-            << get_MB(system.reduction_space.size()) << '\n';
+            << get_MB(rank_space.reduction_space.size()) << '\n';
   std::cout << "kronmult working space size (MB): "
-            << get_MB(system.batch_intermediate.size()) << '\n';
-  std::cout << "output vector size (MB): " << get_MB(system.batch_output.size())
-            << '\n';
-  auto const &unit_vect = system.get_unit_vector();
+            << get_MB(rank_space.batch_intermediate.size()) << '\n';
+  std::cout << "output vector size (MB): "
+            << get_MB(rank_space.batch_output.size()) << '\n';
+  auto const &unit_vect = rank_space.get_unit_vector();
   std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
             << '\n';
 
-  std::cout << "explicit time loop workspace size (MB): "
-            << get_MB(system.batch_input.size() * 5) << '\n';
+  std::cout << "explicit time loop workspace size (host) (MB): "
+            << host_space.size_MB() << '\n';
 
-  // call to build batches
-  std::cout << "generating: batch lists..." << '\n';
-
-  auto const work_set =
-      build_work_set(*pde, table, system, default_workspace_MB);
-
-
-  std::cout << "allocating time loop working space, size (MB): "
-            << get_MB(system.batch_input.size() * 5) << '\n';
-  fk::vector<prec> scaled_source(system.batch_input.size());
-  fk::vector<prec> x_orig(system.batch_input.size());
-  std::vector<fk::vector<prec>> workspace(
-      3, fk::vector<prec>(system.batch_input.size()));
+  host_space.x = initial_condition;
 
   // -- time loop
   std::cout << "--- begin time loop ---" << '\n';
   prec const dt = pde->get_dt() * opts.get_cfl();
-  system.batch_input = initial_condition;
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
 
+    explicit_time_advance(*pde, table, initial_sources, host_space, rank_space,
+                          chunks, time, dt);
     auto A = build_implicit_system(*pde, table, system);
     A.print("Implicit A");
-    // explicit_time_advance(*pde, initial_sources, system, work_set, time, dt);
     initial_condition.print("Initial Conditions");
     printf("===================================\n");
     // system.batch_input = initial_condition;
@@ -205,7 +208,7 @@ int main(int argc, char **argv)
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = system.batch_output - analytic_solution_t;
+      fk::vector<prec> const diff = host_space.fx - analytic_solution_t;
       prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
@@ -219,6 +222,11 @@ int main(int argc, char **argv)
       std::cout << "Relative difference (numeric-analytic) [wavelet]: "
                 << relative_error << " %" << '\n';
     }
+
+    // write output to file
+#ifdef ASGARD_IO_HIGHFIVE
+    update_output_file(output_dataset, host_space.fx);
+#endif
 
     std::cout << "timestep: " << i << " complete" << '\n';
   }

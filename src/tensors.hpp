@@ -422,7 +422,7 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
   }
 }
 
-// vector view constructor given a start and total length
+// vector view constructor given a start and stop index
 template<typename P, mem_type mem>
 template<mem_type, typename>
 fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,

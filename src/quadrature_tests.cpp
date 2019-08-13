@@ -97,7 +97,6 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     const int a                 = -1;
     const int b                 = 1;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
-
     relaxed_comparison(roots, roots_gold);
     relaxed_comparison(weights, weights_gold);
   }
@@ -107,7 +106,6 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     fk::matrix<TestType> const roots_gold =
         fk::matrix<TestType>(read_matrix_from_txt_file(
             "../testing/generated-inputs/quadrature/lgwt_roots_32_neg5_2.dat"));
-
     fk::matrix<TestType> const weights_gold = fk::matrix<
         TestType>(read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_32_neg5_2.dat"));

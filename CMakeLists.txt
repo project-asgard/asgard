@@ -15,6 +15,8 @@ message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
+option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
+option (ASGARD_HDF5_PATH "optional location of lib/ containing HDF5" "")
 option (ASGARD_BUILD_PROFILE_DEPS "Download and build our own tools (e.g.  graphviz)" OFF)
 option (ASGARD_LAPACK_PATH "optional location of include/ and lib/ containing LAPACK" "")
 option (ASGARD_BLAS_PATH "optional location of include/ and lib/ containing BLAS" "")
@@ -25,6 +27,7 @@ option (ASGARD_PROFILE_GPERF_MEM "enable memory profiling support using gperftoo
 option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
+option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -41,6 +44,8 @@ endif()
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets PROFILE_DEPS and PROFILE_LIBS
 include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
+# sets HighFive_FOUND
+include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
 ###############################################################################
 ## Building asgard
@@ -56,36 +61,40 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 set (components
   basis
   batch
-  fast_math
-  lib_dispatch
   coefficients
   connectivity
   element_table
+  fast_math 
+  chunk
+  lib_dispatch
   matlab_utilities
-  mem_usage
-  permutations
   pde
+  permutations
   program_options
   quadrature
   tensors
   time_advance
   transformations
 )
+if (ASGARD_IO_HIGHFIVE)
+  list (APPEND components io)
+endif()
 
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
 endforeach ()
 
+if (build_hdf5)
+  add_dependencies (io hdf5-ext)
+endif ()
+
 if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
-  set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
 endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity element_table pde tensors)
-
-target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
+target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
@@ -93,8 +102,19 @@ target_link_libraries (coefficients
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
 
+target_link_libraries(chunk PRIVATE element_table fast_math pde)
+
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
+
+target_link_libraries (fast_math
+  PRIVATE lib_dispatch tensors)
+
+if (ASGARD_IO_HIGHFIVE)
+  target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
+endif ()
+
+target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
@@ -108,7 +128,7 @@ target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde tensors)
+target_link_libraries (time_advance PRIVATE batch fast_math pde tensors INTERFACE element_table)
 
 target_link_libraries (transformations
   PRIVATE connectivity matlab_utilities pde program_options
@@ -124,7 +144,6 @@ set (main_app_link_deps
   connectivity
   element_table
   matlab_utilities
-  mem_usage
   pde
   program_options
   quadrature
@@ -132,6 +151,10 @@ set (main_app_link_deps
   time_advance
   transformations
 )
+if (ASGARD_IO_HIGHFIVE)
+  list (APPEND main_app_link_deps io)
+endif()
+
 foreach (link_dep IN LISTS main_app_link_deps)
   target_link_libraries (asgard PRIVATE ${link_dep})
 endforeach ()
@@ -142,8 +165,14 @@ if (PROFILE_DEPS)
 endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
+# Generate header file from src/build_info.hpp.in
+configure_file(
+  src/build_info.hpp.in
+  ${CMAKE_BINARY_DIR}/build_info.hpp
+)
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
+
 
 ###############################################################################
 ## Testing asgard
@@ -157,14 +186,18 @@ if (ASGARD_BUILD_TESTS)
   target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
-    target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-    get_target_property(linkdeps ${component} LINK_LIBRARIES)
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
+    # FIXME
+    if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
+      target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
+    endif ()
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
+
+
 
 else ()
   message (WARNING "warning: tests will not be built.")

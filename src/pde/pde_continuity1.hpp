@@ -102,7 +102,7 @@ private:
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return 1.0;
+    return -1.0;
   }
 
   // define dimensions

@@ -4,7 +4,14 @@
 
 namespace fm
 {
-// axpy - y = a*x
+// a non-matlab one-liner that had no better home - compute 2^arg
+inline int two_raised_to(int exponent)
+{
+  assert(exponent >= 0);
+  return 1 << exponent;
+}
+
+// axpy - y += a*x
 template<typename P, mem_type mem, mem_type omem>
 fk::vector<P, mem> &
 axpy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y, P const alpha = 1.0)
@@ -21,7 +28,7 @@ axpy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y, P const alpha = 1.0)
 template<typename P, mem_type mem, mem_type omem>
 fk::vector<P, mem> &copy(fk::vector<P, omem> const &x, fk::vector<P, mem> &y)
 {
-  assert(x.size() == y.size());
+  assert(y.size() >= x.size());
   int n   = x.size();
   int one = 1;
   lib_dispatch::copy(&n, x.data(), &one, y.data(), &one);
