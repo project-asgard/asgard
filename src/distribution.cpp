@@ -4,8 +4,8 @@
 // divide element grid into rectangular sub-areas, which will be assigned to
 // each rank require number of ranks to be a perfect square or an even number;
 // otherwise, we will ignore (leave unused) the highest rank.
-element_subgrid split_problem(int const num_ranks, int const my_rank,
-                              element_table const &table)
+element_subgrid get_my_subgrid(int const num_ranks, int const my_rank,
+                               element_table const &table)
 {
   assert(num_ranks > 0);
   assert(num_ranks % 2 == 0 || num_ranks == 1 ||
