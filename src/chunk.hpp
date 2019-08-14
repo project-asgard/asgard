@@ -1,4 +1,5 @@
 #pragma once
+#include "distribution.hpp"
 #include "element_table.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -92,10 +93,16 @@ public:
   };
 };
 
+// need declaration for grid assignment here FIXME
+
 // functions to assign chunks
 template<typename P>
 int get_num_chunks(element_table const &table, PDE<P> const &pde,
                    int const num_ranks = 1, int const rank_size_MB = 1000);
+
+template<typename P>
+int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
+                   int const rank_size_MB = 1000);
 
 std::vector<element_chunk>
 assign_elements(element_table const &table, int const num_chunks);
@@ -121,6 +128,13 @@ extern template int get_num_chunks(element_table const &table,
                                    int const rank_size_MB);
 extern template int get_num_chunks(element_table const &table,
                                    PDE<double> const &pde, int const num_ranks,
+                                   int const rank_size_MB);
+
+extern template int get_num_chunks(element_subgrid const grid,
+                                   PDE<float> const &pde,
+                                   int const rank_size_MB);
+extern template int get_num_chunks(element_subgrid const grid,
+                                   PDE<double> const &pde,
                                    int const rank_size_MB);
 
 extern template void copy_chunk_inputs(PDE<float> const &pde,

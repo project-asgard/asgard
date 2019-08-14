@@ -4,8 +4,8 @@
 // divide element grid into rectangular sub-areas, which will be assigned to
 // each rank require number of ranks to be a perfect square or an even number;
 // otherwise, we will ignore (leave unused) the highest rank.
-element_subgrid get_my_subgrid(int const num_ranks, int const my_rank,
-                               element_table const &table)
+element_subgrid
+get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
 {
   assert(num_ranks > 0);
   assert(num_ranks % 2 == 0 || num_ranks == 1 ||
@@ -17,16 +17,6 @@ element_subgrid get_my_subgrid(int const num_ranks, int const my_rank,
   {
     return element_subgrid(0, table.size(), 0, table.size());
   }
-
-  // TODO move this check outside the class to simplify implementation;
-  // call return on unused rank instead of returning a signaling value
-
-  // determine how many active ranks there will be
-  /*int const num_splits = [num_ranks] {
-    if (std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)) ||
-        num_ranks % 2 == 0)
-      return num_ranks return num_ranks - 1;
-  }();*/
 
   // determine the side lengths that will give us the "squarest" rectangles
   // possible
@@ -68,4 +58,23 @@ element_subgrid get_my_subgrid(int const num_ranks, int const my_rank,
       subgrid_start_row + grid_rows + (left_over_rows > grid_row_index ? 1 : 0);
 
   return element_subgrid(start_row, stop_row, start_col, stop_col);
+}
+
+distribution_plan get_plan(int const num_ranks, element_table const &table)
+{
+  assert(num_ranks > 0);
+
+  int const num_splits = [num_ranks] {
+    if (std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)) ||
+        num_ranks % 2 == 0)
+      return num_ranks;
+    return num_ranks - 1;
+  }();
+
+  distribution_plan plan;
+  for (int i = 0; i < num_splits; ++i)
+  {
+    plan[i] = get_subgrid(num_ranks, i, table);
+  }
+  return plan;
 }

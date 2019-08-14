@@ -176,6 +176,33 @@ int get_num_chunks(element_table const &table, PDE<P> const &pde,
   return num_chunks;
 }
 
+// determine how many chunks will be required to solve the problem
+// a chunk is a subset of the element subgrid whose total workspace requirement
+// is less than the limit passed in rank_size_MB
+template<typename P>
+int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
+                   int const rank_size_MB)
+{
+  assert(grid.size() > 0);
+  assert(rank_size_MB > 0);
+
+  // determine total problem size
+  auto const num_elems        = grid.size();
+  double const space_per_elem = get_element_size_MB(pde);
+
+  // make sure rank size is something reasonable
+  // a single element is the finest we can split the problem
+  // if that requires a lot of space relative to rank size,
+  // roundoff of elements over chunks will cause us to exceed the limit
+  //
+  // also not feasible to solve problem with a tiny workspace limit
+  assert(space_per_elem < (0.5 * rank_size_MB));
+  double const problem_size_MB = space_per_elem * num_elems;
+
+  // determine number of chunks
+  return static_cast<int>(std::ceil(problem_size_MB / rank_size_MB));
+}
+
 // divide the problem given the previously computed number of chunks
 // this function divides via a greedy, row-major split.
 // i.e., consecutive elements are taken row-wise until the end of a
@@ -227,6 +254,85 @@ assign_elements(element_table const &table, int const num_chunks)
         }
       }
       for (int j = chunk_start_col; j < table.size(); ++j)
+      {
+        insert(chunk_start_row, j);
+      }
+      for (int j = 0; j <= chunk_end_col; ++j)
+      {
+        insert(chunk_end_row, j);
+      }
+    }
+    else
+    {
+      for (int j = chunk_start_col; j <= chunk_end_col; ++j)
+      {
+        insert(chunk_start_row, j);
+      }
+    }
+
+    element_chunk chunk;
+    for (auto const &[row, cols] : chunk_map)
+    {
+      chunk.insert({row, limits(cols[0], cols.back())});
+    }
+    chunks.push_back(chunk);
+  }
+  return chunks;
+}
+
+// divide the problem given the previously computed number of chunks
+// this function divides via a greedy, row-major split.
+// i.e., consecutive elements are taken row-wise until the end of a
+// row, and continuing as needed to the next row, beginning with the first
+// element of the new row (typewriter style). this is done to minimize the
+// portion of the y-vector written to by each task, and ultimately the size of
+// communication between ranks.
+std::vector<element_chunk>
+assign_elements(element_subgrid const &grid, int const num_chunks)
+{
+  assert(num_chunks > 0);
+
+  auto const num_elems = grid.size();
+
+  int64_t const elems_left_over = num_elems % num_chunks;
+  int64_t const elems_per_chunk =
+      num_elems / num_chunks + elems_left_over / num_chunks;
+  int64_t const still_left_over = elems_left_over % num_chunks;
+
+  std::vector<element_chunk> chunks;
+  int64_t assigned = 0;
+
+  for (int i = 0; i < num_chunks; ++i)
+  {
+    std::map<int, std::vector<int>> chunk_map;
+    // --------------------------------------------------------------- //
+    auto const insert = [&chunk_map](int const key, int col) {
+      chunk_map.try_emplace(key, std::vector<int>());
+      chunk_map[key].push_back(col);
+    };
+    int64_t const elems_this_chunk =
+        i < still_left_over ? elems_per_chunk + 1 : elems_per_chunk;
+    int64_t const chunk_end = assigned + elems_this_chunk - 1;
+
+    // FIXME need to take into account not starting at zero (local translation
+    // functions)
+    int64_t const chunk_start_row = assigned / grid.ncols();
+    int64_t const chunk_start_col = assigned % grid.ncols();
+    int64_t const chunk_end_row   = chunk_end / grid.ncols();
+    int64_t const chunk_end_col   = chunk_end % grid.ncols();
+
+    assigned += elems_this_chunk;
+
+    if (chunk_end_row > chunk_start_row)
+    {
+      for (int i = chunk_start_row + 1; i < chunk_end_row; ++i)
+      {
+        for (int j = 0; j < grid.ncols(); ++j)
+        {
+          insert(i, j);
+        }
+      }
+      for (int j = chunk_start_col; j < grid.ncols(); ++j)
       {
         insert(chunk_start_row, j);
       }
@@ -337,6 +443,11 @@ template int get_num_chunks(element_table const &table, PDE<float> const &pde,
                             int const num_ranks, int const rank_size_MB);
 template int get_num_chunks(element_table const &table, PDE<double> const &pde,
                             int const num_ranks, int const rank_size_MB);
+
+template int get_num_chunks(element_subgrid const grid, PDE<float> const &pde,
+                            int const rank_size_MB);
+template int get_num_chunks(element_subgrid const grid, PDE<double> const &pde,
+                            int const rank_size_MB);
 
 template void copy_chunk_inputs(PDE<float> const &pde,
                                 rank_workspace<float> &rank_space,
