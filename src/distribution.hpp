@@ -25,9 +25,7 @@ struct element_subgrid
   {
     return (row_stop - row_start + 1) * (col_stop - col_start + 1);
   };
-
   P nrows() const { return row_stop - row_start + 1; }
-
   P ncols() const { return col_stop - col_start + 1; }
 
   P const row_start;
@@ -40,8 +38,8 @@ struct element_subgrid
 using distribution_plan = map<int, element_subgrid>;
 
 // given a rank, determine element subgrid
-element_subgrid split_problem(int const num_ranks, int const my_rank,
-                              element_table const &table);
+element_subgrid get_my_subgrid(int const num_ranks, int const my_rank,
+                               element_table const &table);
 
 // FIXME parterning bi-directional
 //
