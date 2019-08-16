@@ -76,7 +76,6 @@ private:
 
     std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
 
-
     auto const [P_m, dP_m] =
         legendre(x, legendre_coeffs.size(), legendre_normalization::matlab);
     ignore(dP_m);
@@ -172,8 +171,8 @@ private:
               dim0_,                  // owning dim
 
               g_func_1, g_func_2,
-              flux_type::downwind,           // flux_1
-              flux_type::upwind,             // flux_2
+              flux_type::downwind, // flux_1
+              flux_type::upwind,   // flux_2
 
               boundary_condition::dirichlet, // BCL_1
               boundary_condition::dirichlet, // BCR_1

@@ -1337,8 +1337,8 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(P const right) const
 //
 template<typename P, mem_type mem>
 template<mem_type omem>
-fk::vector<P>
-    fk::matrix<P, mem>::operator*(fk::vector<P, omem> const &right) const
+fk::vector<P> fk::matrix<P, mem>::
+operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
   assert(ncols() == right.size());

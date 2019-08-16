@@ -186,7 +186,6 @@ public:
         BC_left_1(BC_left_1), BC_right_1(BC_right_1), BC_left_2(BC_left_2),
         BC_right_2(BC_right_2), data_(data)
 
-
   {
     set_data(owning_dim, data);
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
@@ -256,7 +255,7 @@ public:
   flux_type const flux;
   std::string const name;
   dimension<P> const owning_dim;
-  
+
   // fields required for the diff operator type
   g_func_type<P> const g_func_1;
   g_func_type<P> const g_func_2;
