@@ -7,7 +7,13 @@ struct element_subgrid
   element_subgrid(int const row_start, int const row_stop, int const col_start,
                   int const col_stop)
       : row_start(row_start), row_stop(row_stop), col_start(col_start),
-        col_stop(col_stop){};
+        col_stop(col_stop)
+  {
+    assert(row_start >= 0);
+    assert(row_stop >= row_start);
+    assert(col_start >= 0);
+    assert(col_stop >= col_start);
+  };
   element_subgrid(element_subgrid const &e)
       : row_start(e.row_start), row_stop(e.row_stop), col_start(e.col_start),
         col_stop(e.col_stop){};
@@ -26,15 +32,33 @@ struct element_subgrid
   int ncols() const { return col_stop - col_start + 1; }
 
   // translation from local/global x and y
-  int to_global_row(int const local_row) const { return local_row + row_start; }
-  int to_global_col(int const local_col) const { return local_col + col_start; }
+  int to_global_row(int const local_row) const
+  {
+    assert(local_row >= 0);
+    assert(local_row < nrows());
+    return local_row + row_start;
+  }
+  int to_global_col(int const local_col) const
+  {
+    assert(local_col >= 0);
+    assert(local_col < ncols());
+    return local_col + col_start;
+  }
   int to_local_row(int const global_row) const
   {
-    return global_row - row_start;
+    assert(global_row >= 0);
+    int local = global_row - row_start;
+    assert(local >= 0);
+    assert(local < ncols());
+    return local;
   };
   int to_local_col(int const global_col) const
   {
-    return global_col - col_start;
+    assert(global_col >= 0);
+    int local = global_col - col_start;
+    assert(local >= 0);
+    assert(local < nrows());
+    return local;
   };
 
   int const row_start;
