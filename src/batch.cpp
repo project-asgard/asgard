@@ -612,6 +612,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     for (const auto &[i, connected] : chunk)
     {
       builder.push_back(i);
+      ignore(connected);
     }
     return builder;
   }();
