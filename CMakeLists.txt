@@ -129,6 +129,8 @@ target_link_libraries (connectivity
 
 target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
 
+target_link_libraries(distribution PRIVATE element_table)
+
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
 

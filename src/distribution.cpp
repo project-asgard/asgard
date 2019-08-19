@@ -8,14 +8,17 @@ element_subgrid
 get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
 {
   assert(num_ranks > 0);
+
   assert(num_ranks % 2 == 0 || num_ranks == 1 ||
-         std::sqrt(num_ranks == std::floor(std::sqrt(num_ranks))));
-  assert(my_rank > 0);
+         std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)));
+  assert(my_rank >= 0);
   assert(my_rank < num_ranks);
+
+  assert(static_cast<int64_t>(table.size()) * table.size() > num_ranks);
 
   if (num_ranks == 1)
   {
-    return element_subgrid(0, table.size(), 0, table.size());
+    return element_subgrid(0, table.size() - 1, 0, table.size() - 1);
   }
 
   // determine the side lengths that will give us the "squarest" rectangles
@@ -53,9 +56,9 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
   int const start_row =
       grid_row_index * grid_rows + std::min(grid_row_index, left_over_rows);
   int const stop_col =
-      start_col + grid_cols + (left_over_cols > grid_col_index ? 1 : 0);
+      start_col + grid_cols + (left_over_cols > grid_col_index ? 1 : 0) - 1;
   int const stop_row =
-      start_row + grid_rows + (left_over_rows > grid_row_index ? 1 : 0);
+      start_row + grid_rows + (left_over_rows > grid_row_index ? 1 : 0) - 1;
 
   return element_subgrid(start_row, stop_row, start_col, stop_col);
 }
@@ -74,7 +77,8 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
   distribution_plan plan;
   for (int i = 0; i < num_splits; ++i)
   {
-    plan.emplace(i, get_subgrid(num_ranks, i, table));
+    plan.emplace(i, get_subgrid(num_splits, i, table));
   }
+
   return plan;
 }
