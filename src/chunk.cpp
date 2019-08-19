@@ -196,6 +196,8 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
   // roundoff of elements over chunks will cause us to exceed the limit
   //
   // also not feasible to solve problem with a tiny workspace limit
+  // FIXME cannot remember why this assert makes sense, even with
+  // what I wrote above...
   assert(space_per_elem < (0.5 * rank_size_MB));
   double const problem_size_MB = space_per_elem * num_elems;
 
@@ -306,16 +308,14 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   {
     std::map<int, std::vector<int>> chunk_map;
     // --------------------------------------------------------------- //
-    auto const insert = [&chunk_map](int const key, int const col) {
-      chunk_map.try_emplace(global_row(key), std::vector<int>());
-      chunk_map[key].push_back(col);
+    auto const insert = [&chunk_map, &grid](int const key, int const col) {
+      chunk_map.try_emplace(grid.to_global_row(key), std::vector<int>());
+      chunk_map[key].push_back(grid.to_global_col(col));
     };
     int64_t const elems_this_chunk =
         i < still_left_over ? elems_per_chunk + 1 : elems_per_chunk;
     int64_t const chunk_end = assigned + elems_this_chunk - 1;
 
-    // FIXME need to take into account not starting at zero (local translation
-    // functions)
     int64_t const chunk_start_row = assigned / grid.ncols();
     int64_t const chunk_start_col = assigned % grid.ncols();
     int64_t const chunk_end_row   = chunk_end / grid.ncols();

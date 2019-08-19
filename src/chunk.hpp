@@ -93,8 +93,6 @@ public:
   };
 };
 
-// need declaration for grid assignment here FIXME
-
 // functions to assign chunks
 template<typename P>
 int get_num_chunks(element_table const &table, PDE<P> const &pde,
@@ -106,6 +104,9 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
 
 std::vector<element_chunk>
 assign_elements(element_table const &table, int const num_chunks);
+
+std::vector<element_chunk>
+assign_elements(element_subgrid const &grid, int const num_chunks);
 
 // data management functions
 template<typename P>

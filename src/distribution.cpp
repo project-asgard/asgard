@@ -53,9 +53,9 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
   int const start_row =
       grid_row_index * grid_rows + std::min(grid_row_index, left_over_rows);
   int const stop_col =
-      subgrid_start_col + grid_cols + (left_over_cols > grid_col_index ? 1 : 0);
+      start_col + grid_cols + (left_over_cols > grid_col_index ? 1 : 0);
   int const stop_row =
-      subgrid_start_row + grid_rows + (left_over_rows > grid_row_index ? 1 : 0);
+      start_row + grid_rows + (left_over_rows > grid_row_index ? 1 : 0);
 
   return element_subgrid(start_row, stop_row, start_col, stop_col);
 }

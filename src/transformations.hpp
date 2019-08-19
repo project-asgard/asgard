@@ -1,5 +1,6 @@
 #pragma once
 
+#include "distribution.hpp"
 #include "element_table.hpp"
 #include "fast_math.hpp"
 #include "pde.hpp"
@@ -14,7 +15,7 @@
 template<typename P>
 fk::matrix<P>
 recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
-               int index = 0);
+               int const index = 0);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
@@ -29,6 +30,13 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
+                   std::vector<fk::vector<P>> const &, P const = 1.0);
+
+// get only the elements of the combined vector that fall within
+// subgrid range
+template<typename P>
+fk::vector<P>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
@@ -135,11 +143,11 @@ combine_dimensions(int const, element_table const &,
 /* extern instantiations */
 extern template fk::matrix<double>
 recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
-               int index);
+               int const index);
 
 extern template fk::matrix<float>
 recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
-               int index);
+               int const index);
 
 extern template std::vector<fk::matrix<double>>
 gen_realspace_transform(PDE<double> const &pde);
@@ -154,3 +162,10 @@ wavelet_to_realspace(PDE<double> const &pde,
 extern template fk::vector<float>
 wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
                      element_table const &table, int const max_mem_mb);
+
+extern template fk::vector<double>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
+                   std::vector<fk::vector<double>> const &, double const = 1.0);
+extern template fk::vector<float>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
+                   std::vector<fk::vector<float>> const &, float const = 1.0);
