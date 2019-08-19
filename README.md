@@ -55,6 +55,40 @@ make
 ctest
 ./asgard
 ```
+## Cori GPU Node (NERSC)
+
+access the login node:
+```
+ssh cori.nersc.gov
+module load esslurm
+```
+
+after log in, request an interactive job.
+e.g., for 30 minutes in length, 5 cpu cores, 1 gpu:
+```
+salloc -C gpu -N 1 -t 30 -c 10 --gres=gpu:1 -A [project name]
+```
+(the `c` argument is for 5 cores (hyperthreading))
+
+load some required modules:
+```
+module load cuda
+module load cmake
+module load gcc
+```
+
+make a build directory, make project:
+```
+mkdir build
+cd build
+cmake ../ -DASGARD_USE_CUDA=1 -DASGARD_USE_OPENMP=0
+```
+(open issue prevents parallel batch building)
+
+finally, use `srun` to launch the application:
+```
+srun asgard -p continuity_6 -l 3 -d 4
+```
 
 # References
 
