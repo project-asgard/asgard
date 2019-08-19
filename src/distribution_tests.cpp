@@ -292,4 +292,23 @@ TEST_CASE("distribution plan function", "[distribution]")
       assert(grid == plan_extra.at(rank));
     }
   }
+
+  SECTION("20 ranks")
+  {
+    int const degree   = 5;
+    int const level    = 5;
+    int const num_dims = 6;
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const table(o, num_dims);
+
+    int const num_ranks = 20;
+    auto const plan     = get_plan(num_ranks, table);
+    check_coverage(table, plan);
+    check_even_sizing(table, plan);
+    int const ncols = 5;
+    check_rowmaj_layout(plan, ncols);
+  }
 }
