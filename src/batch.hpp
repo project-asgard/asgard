@@ -128,6 +128,15 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               rank_workspace<P> const &workspace, element_chunk const &chunk);
 
 template<typename P>
+fk::vector<int> get_operator_col(const PDE<P> &pde, const int degree,
+                                 const fk::vector<int> &connected_indices);
+
+template<typename P>
+fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
+                                 const fk::vector<int> &elem_indices);
+
+
+template<typename P>
 fk::matrix<P>
 build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
                       explicit_system<P> const &system,
@@ -180,3 +189,18 @@ extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);
+
+extern template fk::vector<int>
+    get_operator_col(const PDE<double> &pde, const int degree,
+        const fk::vector<int> &connected_indices);
+extern template fk::vector<int>
+    get_operator_col(const PDE<float> &pde, const int degree,
+        const fk::vector<int> &connected_indices);
+
+extern template fk::vector<int>
+    get_operator_row(const PDE<double> &pde, const int degree,
+        const fk::vector<int> &elem_indices);
+extern template fk::vector<int>
+    get_operator_row(const PDE<float> &pde, const int degree,
+        const fk::vector<int> &elem_indices);
+

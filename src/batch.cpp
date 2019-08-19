@@ -534,6 +534,10 @@ static fk::vector<int> linearize(fk::vector<int> const &coords)
   return elem_indices;
 }
 
+fk::vector<int> get_operator_col(const PDE<P> &pde, const int degree,
+                                 const fk::vector<int> &connected_indices);
+fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
+                                 const fk::vector<int> &elem_indices);
 // function to allocate and build batch lists.
 // given a problem instance (pde/elem table) and
 // memory allocations (x, y, work), enqueue the
@@ -578,21 +582,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     fk::vector<int> const coords = elem_table.get_coords(i);
     assert(coords.size() == pde.num_dims * 2);
     fk::vector<int> elem_indices = linearize(coords);
-
-    // calculate the row portion of the
-    // operator position used for this
-    // element's gemm calls
-    fk::vector<int> operator_row = [&] {
-      fk::vector<int> op_row(pde.num_dims);
-      for (int d = 0; d < pde.num_dims; ++d)
-      {
-        // FIXME here we would have to use each dimension's
-        // degree when calculating the index if we want different
-        // degree in each dim
-        op_row(d) = elem_indices(d) * degree;
-      }
-      return op_row;
-    }();
+    fk::vector<int> operator_row = get_operator_row(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
@@ -602,21 +592,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       fk::vector<int> coords = elem_table.get_coords(j);
       assert(coords.size() == pde.num_dims * 2);
       fk::vector<int> connected_indices = linearize(coords);
-
-      // calculate the col portion of the
-      // operator position used for this
-      // element's gemm calls
-      fk::vector<int> operator_col = [&] {
-        fk::vector<int> op_col(pde.num_dims);
-        for (int d = 0; d < pde.num_dims; ++d)
-        {
-          // FIXME here we would have to use each dimension's
-          // degree when calculating the index if we want different
-          // degree in each dim
-          op_col(d) = connected_indices(d) * degree;
-        }
-        return op_col;
-      }();
+      fk::vector<int> operator_col =
+          get_operator_col(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
       {
@@ -679,6 +656,43 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     }
   }
   return batches;
+}
+fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
+                                 const fk::vector<int> &elem_indices)
+{ // calculate the row portion of the
+  // operator position used for this
+  // element's gemm calls
+  fk::vector<int> operator_row = [&] {
+    fk::vector<int> op_row(pde.num_dims);
+    for (int d = 0; d < pde.num_dims; ++d)
+    {
+      // FIXME here we would have to use each dimension's
+      // degree when calculating the index if we want different
+      // degree in each dim
+      op_row(d) = elem_indices(d) * degree;
+    }
+    return op_row;
+  }();
+  return operator_row;
+}
+
+fk::vector<int> get_operator_col(const PDE<P> &pde, const int degree,
+                                 const fk::vector<int> &connected_indices)
+{ // calculate the col portion of the
+  // operator position used for this
+  // element's gemm calls
+  fk::vector<int> operator_col = [&] {
+    fk::vector<int> op_col(pde.num_dims);
+    for (int d = 0; d < pde.num_dims; ++d)
+    {
+      // FIXME here we would have to use each dimension's
+      // degree when calculating the index if we want different
+      // degree in each dim
+      op_col(d) = connected_indices(d) * degree;
+    }
+    return op_col;
+  }();
+  return operator_col;
 }
 
 // determine how many connected elements will be assigned to each work_set,
