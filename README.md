@@ -82,6 +82,7 @@ make a build directory, make project:
 mkdir build
 cd build
 cmake ../ -DASGARD_USE_CUDA=1 -DASGARD_USE_OPENMP=0
+make -j
 ```
 (open issue prevents parallel batch building)
 
