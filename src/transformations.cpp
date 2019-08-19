@@ -54,7 +54,12 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
   int const num_dims = vectors.size();
   assert(num_dims > 0);
 
-  fk::vector<P> combined(table.size() * std::pow(degree, num_dims));
+  int64_t const vector_size =
+      table.size() * static_cast<int64_t>(std::pow(degree, num_dims));
+  // FIXME here we want to catch the 64-bit solution vector problem
+  // and halt execution if we spill over. there is an open issue for this
+  assert(vector_size < INT_MAX);
+  fk::vector<P> combined(vector_size);
 
   for (int i = 0; i < table.size(); ++i)
   {
