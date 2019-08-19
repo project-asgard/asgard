@@ -20,7 +20,7 @@ combine_dimensions(int const, element_table const &,
 // subgrid range
 template<typename P>
 fk::vector<P>
-combine_dimensions(int const, element_table const &, element_grid const &,
+combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
@@ -123,9 +123,9 @@ combine_dimensions(int const, element_table const &,
 extern template fk::vector<float>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
-extern template fk::vector<P>
-combine_dimensions(int const, element_table const &, element_grid const &,
+extern template fk::vector<double>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
-extern template fk::vector<P>
-combine_dimensions(int const, element_table const &, element_grid const &,
+extern template fk::vector<float>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<float>> const &, float const = 1.0);

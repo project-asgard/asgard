@@ -109,7 +109,7 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
     }
     fk::vector<P> const partial_result =
         kron_d(kron_list, kron_list.size()) * time_scale;
-    combined.set_subvector(to_local_row(i) * std::pow(degree, num_dims),
+    combined.set_subvector(grid.to_local_row(i) * std::pow(degree, num_dims),
                            partial_result);
   }
   return combined;
@@ -122,9 +122,9 @@ template fk::vector<float>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
-template fk::vector<P>
-combine_dimensions(int const, element_table const &, element_grid const &,
+template fk::vector<double>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
-template fk::vector<P>
-combine_dimensions(int const, element_table const &, element_grid const &,
+template fk::vector<float>
+combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
