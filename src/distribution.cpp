@@ -1,5 +1,23 @@
 #include "distribution.hpp"
 #include <cmath>
+#include <numeric>
+
+// determine the side lengths that will give us the "squarest" rectangles
+// possible
+auto const get_num_subgrid_cols = [](int const num_ranks) {
+  int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
+  while (trial_factor > 0)
+  {
+    int const other_factor = num_ranks / trial_factor;
+    if (trial_factor * other_factor == num_ranks)
+    {
+      return std::max(trial_factor, other_factor);
+    }
+    trial_factor++;
+  }
+  // I believe this is mathematically impossible...
+  assert(false);
+};
 
 // divide element grid into rectangular sub-areas, which will be assigned to
 // each rank require number of ranks to be a perfect square or an even number;
@@ -21,44 +39,28 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
     return element_subgrid(0, table.size() - 1, 0, table.size() - 1);
   }
 
-  // determine the side lengths that will give us the "squarest" rectangles
-  // possible
-  int const horz_divisions = [num_ranks] {
-    int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
-    while (trial_factor > 0)
-    {
-      int const other_factor = num_ranks / trial_factor;
-      if (trial_factor * other_factor == num_ranks)
-      {
-        return std::max(trial_factor, other_factor);
-      }
-      trial_factor++;
-    }
-    // I believe this is mathematically impossible...
-    assert(false);
-  }();
-
-  int const vert_divisions = num_ranks / horz_divisions;
+  int const num_subgrid_cols = get_num_subgrid_cols(num_ranks);
+  int const num_subgrid_rows = num_ranks / num_subgrid_cols;
 
   // determine which subgrid of the element grid belongs to my rank
-  int const grid_row_index = my_rank / horz_divisions;
-  int const grid_col_index = my_rank % horz_divisions;
+  int const grid_row_index = my_rank / num_subgrid_cols;
+  int const grid_col_index = my_rank % num_subgrid_cols;
 
   // split the elements into subgrids
-  int const left_over_cols = table.size() % horz_divisions;
-  int const grid_cols      = table.size() / horz_divisions;
-  int const left_over_rows = table.size() % vert_divisions;
-  int const grid_rows      = table.size() / vert_divisions;
+  int const left_over_cols = table.size() % num_subgrid_cols;
+  int const subgrid_width  = table.size() / num_subgrid_cols;
+  int const left_over_rows = table.size() % num_subgrid_rows;
+  int const subgrid_height = table.size() / num_subgrid_rows;
 
   // define the bounds of my subgrid
   int const start_col =
-      grid_col_index * grid_cols + std::min(grid_col_index, left_over_cols);
-  int const start_row =
-      grid_row_index * grid_rows + std::min(grid_row_index, left_over_rows);
+      grid_col_index * subgrid_width + std::min(grid_col_index, left_over_cols);
+  int const start_row = grid_row_index * subgrid_height +
+                        std::min(grid_row_index, left_over_rows);
   int const stop_col =
-      start_col + grid_cols + (left_over_cols > grid_col_index ? 1 : 0) - 1;
-  int const stop_row =
-      start_row + grid_rows + (left_over_rows > grid_row_index ? 1 : 0) - 1;
+      start_col + subgrid_width + (left_over_cols > grid_col_index ? 1 : 0) - 1;
+  int const stop_row = start_row + subgrid_height +
+                       (left_over_rows > grid_row_index ? 1 : 0) - 1;
 
   return element_subgrid(start_row, stop_row, start_col, stop_col);
 }
@@ -81,4 +83,16 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
   }
 
   return plan;
+}
+
+// get the rank number of everyone on my row
+// assumes row major ordering - the get_plan function
+// is tested for this layout
+fk::vector<int>
+get_reduction_partners(distribution_plan const &plan, int const my_rank)
+{
+  int const num_partners = get_num_subgrid_cols(plan.size());
+  fk::vector<int> partners(num_partners);
+  std::iota(partners.begin(), partners.end(), my_rank - my_rank % num_partners);
+  return partners;
 }
