@@ -133,25 +133,16 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
   return transformed;
 }
 
-extern template fk::vector<double>
-combine_dimensions(int const, element_table const &,
-                   std::vector<fk::vector<double>> const &, double const);
-extern template fk::vector<float>
-combine_dimensions(int const, element_table const &,
-                   std::vector<fk::vector<float>> const &, float const);
-
 /* extern instantiations */
 extern template fk::matrix<double>
 recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
                int const index);
-
 extern template fk::matrix<float>
 recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
                int const index);
 
 extern template std::vector<fk::matrix<double>>
 gen_realspace_transform(PDE<double> const &pde);
-
 extern template std::vector<fk::matrix<float>>
 gen_realspace_transform(PDE<float> const &pde);
 
@@ -163,6 +154,12 @@ extern template fk::vector<float>
 wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
                      element_table const &table, int const max_mem_mb);
 
+extern template fk::vector<double>
+combine_dimensions(int const, element_table const &,
+                   std::vector<fk::vector<double>> const &, double const);
+extern template fk::vector<float>
+combine_dimensions(int const, element_table const &,
+                   std::vector<fk::vector<float>> const &, float const);
 extern template fk::vector<double>
 combine_dimensions(int const, element_table const &, element_subgrid const &,
                    std::vector<fk::vector<double>> const &, double const = 1.0);

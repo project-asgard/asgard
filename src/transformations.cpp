@@ -241,7 +241,7 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
     }
     fk::vector<P> const partial_result =
         kron_d(kron_list, kron_list.size()) * time_scale;
-    combined.set_subvector(to_local_row(i) * std::pow(degree, num_dims),
+    combined.set_subvector(grid.to_local_row(i) * std::pow(degree, num_dims),
                            partial_result);
   }
   return combined;

@@ -74,7 +74,7 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
   distribution_plan plan;
   for (int i = 0; i < num_splits; ++i)
   {
-    plan[i] = get_subgrid(num_ranks, i, table);
+    plan.emplace(i, get_subgrid(num_ranks, i, table));
   }
   return plan;
 }

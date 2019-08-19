@@ -444,9 +444,9 @@ template int get_num_chunks(element_table const &table, PDE<float> const &pde,
 template int get_num_chunks(element_table const &table, PDE<double> const &pde,
                             int const num_ranks, int const rank_size_MB);
 
-template int get_num_chunks(element_subgrid const grid, PDE<float> const &pde,
+template int get_num_chunks(element_subgrid const &grid, PDE<float> const &pde,
                             int const rank_size_MB);
-template int get_num_chunks(element_subgrid const grid, PDE<double> const &pde,
+template int get_num_chunks(element_subgrid const &grid, PDE<double> const &pde,
                             int const rank_size_MB);
 
 template void copy_chunk_inputs(PDE<float> const &pde,
