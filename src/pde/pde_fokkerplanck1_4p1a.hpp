@@ -69,28 +69,6 @@ private:
 
   // analytic solution
 
-  // static fk::vector<P>
-  // analytic_solution_dim0(fk::vector<P> const x, P const time = 0)
-  //{
-  //  fk::vector<P> f(x.size());
-
-  //  std::vector<P> h = {3, 0.5, 1, 0.7, 3, 0, 3};
-
-  //  auto [P_m, dP_m] = legendre(x, h.size(), legendre_normalization::matlab);
-  //  ignore(dP_m);
-
-  //  for (unsigned int l = 1; l <= h.size(); ++l)
-  //  {
-  //    auto L = l - 1;
-
-  //    fk::vector<P> P_0 = P_m.extract_submatrix(0, l - 1, x.size(), 1);
-  //    f                 = f + (P_0 * h[l - 1] * std::exp(-L * (L + 1) *
-  //    time));
-  //  }
-
-  //  return f;
-  //}
-
   static P phi(P const z, P const t) { return std::tanh(std::atanh(z) - t); }
   static P f0(P const z) { return z * 0 + 1; }
 
