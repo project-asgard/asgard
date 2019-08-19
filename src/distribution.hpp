@@ -25,6 +25,26 @@ struct element_subgrid
   int nrows() const { return row_stop - row_start + 1; }
   int ncols() const { return col_stop - col_start + 1; }
 
+// translation from local/global x and y
+int to_global_row(int const local_row) const
+{
+  return local_row + grid.row_start;
+}
+int to_global_col(int const local_col) const
+{
+  return local_col + grid.col_start;
+}
+int to_local_row(int const global_row) const
+{
+  return global_row - grid.row_start;
+};
+int to_local_col(int const global_col) const
+{
+  return global_col - grid.col_start;
+};
+
+
+
   int const row_start;
   int const row_stop;
   int const col_start;
@@ -40,23 +60,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table);
 
 distribution_plan get_plan(int const num_ranks, element_table const &table);
 
-// FIXME translation from local/global x and y
-int64_t global_row(int64_t const local_row, element_subgrid const grid)
-{
-  return global_row - grid.row_start;
-}
-int64_t global_col(int64_t const local_col, element_subgrid const grid)
-{
-  return global_col - grid.col_start;
-}
-int64_t local_row(int64_t const global_row, element_subgrid const grid)
-{
-  return local_row + grid.row_start;
-};
-int64_t local_col(int64_t const global_col, element_subgrid const grid)
-{
-  return local_col + grid.col_start;
-};
+
 
 // FIXME matching bi-directional
 //

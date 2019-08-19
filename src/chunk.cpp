@@ -306,8 +306,8 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   {
     std::map<int, std::vector<int>> chunk_map;
     // --------------------------------------------------------------- //
-    auto const insert = [&chunk_map](int const key, int col) {
-      chunk_map.try_emplace(key, std::vector<int>());
+    auto const insert = [&chunk_map](int const key, int const col) {
+      chunk_map.try_emplace(global_row(key), std::vector<int>());
       chunk_map[key].push_back(col);
     };
     int64_t const elems_this_chunk =
