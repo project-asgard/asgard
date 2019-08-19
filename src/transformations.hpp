@@ -1,5 +1,6 @@
 #pragma once
 
+#include "distribution.hpp"
 #include "element_table.hpp"
 #include "fast_math.hpp"
 #include "pde.hpp"
@@ -13,6 +14,13 @@
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
+                   std::vector<fk::vector<P>> const &, P const = 1.0);
+
+// get only the elements of the combined vector that fall within
+// subgrid range
+template<typename P>
+fk::vector<P>
+combine_dimensions(int const, element_table const &, element_grid const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
@@ -115,3 +123,9 @@ combine_dimensions(int const, element_table const &,
 extern template fk::vector<float>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
+extern template fk::vector<P>
+combine_dimensions(int const, element_table const &, element_grid const &,
+                   std::vector<fk::vector<double>> const &, double const = 1.0);
+extern template fk::vector<P>
+combine_dimensions(int const, element_table const &, element_grid const &,
+                   std::vector<fk::vector<float>> const &, float const = 1.0);
