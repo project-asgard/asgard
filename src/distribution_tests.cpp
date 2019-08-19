@@ -64,6 +64,7 @@ auto const check_coverage = [](element_table const &table,
 
   for (auto const &[rank, grid] : to_test)
   {
+    ignore(rank);
     for (int row = grid.row_start; row <= grid.row_stop; ++row)
     {
       for (int col = grid.col_start; col <= grid.col_stop; ++col)
@@ -91,6 +92,7 @@ auto const check_even_sizing = [](element_table const &table,
   auto const size = to_test.at(0).size();
   for (auto const &[rank, grid] : to_test)
   {
+    ignore(rank);
     REQUIRE(std::abs(size - grid.size()) <
             table.size() *
                 2); // at most, a subgrid's size should differ from
