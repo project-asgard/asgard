@@ -689,7 +689,7 @@ auto const test_reduction = [](PDE<double> const &pde,
     partial_sum = partial_sum + sum;
   }
 
-  fk::vector<double> output_copy(rank_space.batch_output);
+  fk::vector<double> const output_copy(rank_space.batch_output);
   fk::vector<double> const diff = output_copy - total_sum;
   auto abs_compare              = [](double const a, double const b) {
     return (std::abs(a) < std::abs(b));

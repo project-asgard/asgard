@@ -28,7 +28,7 @@ option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
-option (ASGARD_BUILD_CUDA "Build CUDA support for asgard" OFF)
+option (ASGARD_USE_CUDA "Link CUDA support for asgard" OFF)
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -48,9 +48,10 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
-if(ASGARD_BUILD_CUDA)
+if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
-  add_compile_definitions(ASGARD_BUILD_CUDA)
+  add_compile_definitions(ASGARD_USE_CUDA)
+  include_directories(${CUDA_INCLUDE_DIRS})
 endif()
 ###############################################################################
 ## Building asgard
@@ -120,7 +121,7 @@ if (ASGARD_IO_HIGHFIVE)
 endif ()
 
 target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
-if (ASGARD_BUILD_CUDA)
+if (ASGARD_USE_CUDA)
 	target_link_libraries(lib_dispatch PRIVATE ${CUDA_CUBLAS_LIBRARIES})
 endif()
 
@@ -135,7 +136,7 @@ target_link_libraries (program_options PRIVATE clara)
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
-if (ASGARD_BUILD_CUDA)
+if (ASGARD_USE_CUDA)
 	target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 

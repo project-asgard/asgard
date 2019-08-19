@@ -1,7 +1,7 @@
 #pragma once
 
-#ifdef ASGARD_BUILD_CUDA
-#include <cuda_runtime_api.h>
+#ifdef ASGARD_USE_CUDA
+#include <cuda_runtime.h>
 #endif
 
 #include "lib_dispatch.hpp"
@@ -454,7 +454,7 @@ private:
 template<typename P>
 static void allocate_device(P *&ptr, int const num_elems)
 {
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
   assert(success == 0);
   success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
@@ -466,7 +466,7 @@ static void allocate_device(P *&ptr, int const num_elems)
 template<typename P>
 static void delete_device(P *const ptr)
 {
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   cudaFree(ptr);
 #else
   delete[] ptr;
@@ -477,7 +477,7 @@ template<typename P>
 static void
 copy_on_device(P const *const source, P *const dest, int const num_elems)
 {
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
   assert(success == 0);
@@ -490,7 +490,7 @@ template<typename P>
 static void
 copy_to_device(P const *const source, P *const dest, int const num_elems)
 {
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
   assert(success == 0);
@@ -502,7 +502,7 @@ copy_to_device(P const *const source, P *const dest, int const num_elems)
 template<typename P>
 static void copy_to_host(P *const source, P *const dest, int const num_elems)
 {
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
   assert(success == 0);
@@ -519,7 +519,7 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> const &source,
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
@@ -537,7 +537,7 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::host> const &source,
 {
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
@@ -555,7 +555,7 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::device> const &source,
 {
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),

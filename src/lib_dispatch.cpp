@@ -2,9 +2,9 @@
 #include <iostream>
 #include <type_traits>
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
-#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
 
 struct device_handler
 {
@@ -33,10 +33,8 @@ inline cublasOperation_t cublas_trans(char trans)
     return CUBLAS_OP_T;
   }
 }
-
-#endif
-
 auto const ignore = [](auto ignored) { (void)ignored; };
+#endif
 
 namespace lib_dispatch
 {
@@ -55,7 +53,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -108,7 +106,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -166,7 +164,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -217,7 +215,7 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const res)
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -333,7 +331,7 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -401,7 +399,7 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -458,7 +456,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -520,7 +518,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -600,7 +598,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -686,7 +684,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
   if (res == resource::device)
   { // device execution (fallback to host)
 
-#ifdef ASGARD_BUILD_CUDA
+#ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
     char const transb = 'n';
