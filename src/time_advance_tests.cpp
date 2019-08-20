@@ -1226,7 +1226,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
 
   int const test_steps = 5;
 
-  SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
+  SECTION("fokkerplanck_1_4p3, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
     int const level  = 2;
@@ -1243,20 +1243,15 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
-      dimension<TestType> const dim = pde->get_dimensions()[i];
       for (int j = 0; j < pde->num_terms; ++j)
       {
-        auto term = pde->get_terms()[j][i];
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
         fk::matrix<TestType> coeffs =
             fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
         pde->set_coefficients(coeffs, j, i);
       }
     }
-
-    static int const default_workspace_MB = 100;
-    explicit_system<TestType> system(*pde, table, default_workspace_MB);
-    auto const batches =
-        build_work_set(*pde, table, system, default_workspace_MB);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -1266,11 +1261,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
       initial_conditions.push_back(
           forward_transform<TestType>(dim, dim.initial_condition));
     }
-
     fk::vector<TestType> const initial_condition =
         combine_dimensions(degree, table, initial_conditions, initial_scale);
-
-    system.batch_input = initial_condition;
 
     // -- generate sources.
     // these will be scaled later for time
@@ -1289,14 +1281,21 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
           degree, table, initial_sources_dim, initial_scale));
     }
 
+    // -- prep workspace/chunks
+    host_workspace<TestType> host_space(*pde, table);
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+    rank_workspace<TestType> rank_space(*pde, chunks);
+    host_space.x = initial_condition;
+
     // -- time loop
     TestType const dt = pde->get_dt() * o.get_cfl();
 
     for (int i = 0; i < test_steps; ++i)
     {
       TestType const time = i * dt;
-
-      explicit_time_advance(*pde, initial_sources, system, batches, time, dt);
+      explicit_time_advance(*pde, table, initial_sources, host_space,
+                            rank_space, chunks, time, dt);
 
       std::string const file_path =
           "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l" +
@@ -1305,7 +1304,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
       fk::vector<TestType> const gold =
           fk::vector<TestType>(read_vector_from_txt_file(file_path));
 
-      relaxed_comparison(gold, system.batch_output);
+      relaxed_comparison(gold, host_space.fx);
     }
   }
 }
