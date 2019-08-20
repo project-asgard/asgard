@@ -86,8 +86,7 @@ generate_mass_or_grad_coefficients(dimension<P> const &dim,
   static const auto legendre_values =
       legendre_weights<double>(quad_num, -1.0, 1.0);
   auto const [quadrature_points, quadrature_weights] = legendre_values;
-
-  auto const [legendre_poly_L, legendre_poly_R] = [&]() {
+  auto const [legendre_poly_L, legendre_poly_R]      = [&]() {
     auto [lP_L, lPP_L] = legendre(fk::vector<double>{-1}, dim.get_degree());
     lP_L               = lP_L * (1 / std::sqrt(grid_spacing));
     auto [lP_R, lPP_R] = legendre(fk::vector<double>{+1}, dim.get_degree());
