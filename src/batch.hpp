@@ -29,7 +29,7 @@ public:
   assign_entry(fk::matrix<P, mem_type::view, res> const a, int const position);
   bool clear_entry(int const position);
 
-  P **const &get_list() const;
+  P **get_list() const;
 
   bool is_filled() const;
   batch &clear_all();

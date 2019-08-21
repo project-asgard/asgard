@@ -172,7 +172,7 @@ bool batch<P>::clear_entry(int const position)
 // provide a direct access to P**
 // from batch_, but avoid for now
 template<typename P>
-P **const &batch<P>::get_list() const
+P **batch<P>::get_list() const
 {
   return batch_;
 }

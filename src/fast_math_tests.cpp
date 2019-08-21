@@ -25,8 +25,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     fk::matrix<TestType> const in1{
         {3, 4,  5,  6,  7},
         {8, 9, 10, 11, 12},
-    };
-   
+    }; 
     fk::matrix<TestType> const in2{
         {12, 22, 32},
 	{13, 23, 33},
