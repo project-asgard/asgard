@@ -101,10 +101,12 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
   auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      auto difference = std::abs(*first_it++ - second_elem);
-      REQUIRE(difference <= std::numeric_limits<TestType>::epsilon() * 1e4);
+    auto first_it                           = first.begin();
+    Catch::StringMaker<TestType>::precision = 15;
+    auto tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+    std::for_each(second.begin(), second.end(), [&](auto &second_elem) {
+      auto const f1 = *first_it++;
+      REQUIRE_THAT(f1, Catch::Matchers::WithinAbs(second_elem, tol));
     });
   };
 
@@ -196,13 +198,13 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
                                      auto const n, auto const max) {
     auto first_it                           = first.begin();
     Catch::StringMaker<TestType>::precision = 15;
-    std::for_each(
-        second.begin(), second.end(), [&first_it, &n, &max](auto &second_elem) {
-          auto const f1 = *first_it++;
-          auto tol =
-              std::numeric_limits<TestType>::epsilon() * n * n / 10.0 * max;
-          REQUIRE_THAT(f1, Catch::Matchers::WithinAbs(second_elem, tol));
-        });
+    // if the largest matrix we are testing below is 128x128, with a max
+    // value of 200, then this gives us ~ epsilon() * 3e3
+    auto tol = std::numeric_limits<TestType>::epsilon() * n * n / 10.0 * max;
+    std::for_each(second.begin(), second.end(), [&](auto &second_elem) {
+      auto const f1 = *first_it++;
+      REQUIRE_THAT(f1, Catch::Matchers::WithinAbs(second_elem, tol));
+    });
   };
 
   // Testing of various apply fmwt methods
