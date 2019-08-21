@@ -51,10 +51,9 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   assert(*n >= 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
@@ -73,7 +72,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 #endif
   }
 
-  // host execution
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     dcopy_(n, x, incx, y, incy);
@@ -104,8 +103,8 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   assert(*n >= 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -125,9 +124,10 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
       assert(success == 0);
     }
     return result;
-
 #endif
   }
+
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     return ddot_(n, x, incx, y, incy);
@@ -162,8 +162,8 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   assert(*n >= 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -185,6 +185,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
 #endif
   }
 
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     daxpy_(n, alpha, x, incx, y, incy);
@@ -213,8 +214,8 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
   assert(*incx >= 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -234,6 +235,7 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
 #endif
   }
 
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     dscal_(n, alpha, x, incx);
@@ -329,8 +331,8 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   assert(*trans == 't' || *trans == 'n');
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -354,6 +356,7 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
 #endif
   }
 
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     dgemv_(trans, m, n, alpha, A, lda, x, incx, beta, y, incy);
@@ -397,8 +400,8 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   assert(*transb == 't' || *transb == 'n');
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -422,6 +425,7 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
 #endif
   }
 
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     dgemm_(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
@@ -454,8 +458,8 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   assert(*n >= 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
@@ -486,6 +490,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
 #endif
   }
 
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     dgetrf_(m, n, A, lda, ipiv, info);
@@ -516,8 +521,8 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   assert(*n >= 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
@@ -554,6 +559,8 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     return;
 #endif
   }
+
+  // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
     dgetri_(n, A, lda, ipiv, work, lwork, info);
@@ -596,8 +603,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   assert(*num_batch > 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -651,6 +658,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
 #endif
   }
 
+  // default execution on the host for any resource
   for (int i = 0; i < *num_batch; ++i)
   {
     gemm(transa, transb, m, n, k, alpha, a[i], lda, b[i], ldb, beta, c[i], ldc,
@@ -682,8 +690,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
   assert(*num_batch > 0);
 
   if (resrc == resource::device)
-  { // device execution (fallback to host)
-
+  {
+    // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
@@ -748,6 +756,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
 #endif
   }
 
+  // default execution on the host for any resource
   int incx = 1;
   int incy = 1;
   for (int i = 0; i < *num_batch; ++i)
