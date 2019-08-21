@@ -6,27 +6,29 @@
 #include "tests_general.hpp"
 #include <numeric>
 #include <random>
-
-TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
+TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
 {
   bool const do_trans = true;
 
   // clang-format off
-  fk::matrix<TestType> const first {
+  fk::matrix<TestType, mem_type::owner, resrc> const first {
          {12, 22, 32},
          {13, 23, 33},
          {14, 24, 34},
          {15, 25, 35},
          {16, 26, 36},
   };
-  fk::matrix<TestType> const second {
+  fk::matrix<TestType, mem_type::owner, resrc> const second {
          {17, 27, 37},
          {18, 28, 38},
          {19, 29, 39},
          {20, 30, 40},
          {21, 31, 41},
   };
-  fk::matrix<TestType> const third {
+  fk::matrix<TestType, mem_type::owner, resrc> const third {
          {22, 32, 42},
          {23, 33, 43},
          {24, 34, 44},
@@ -42,17 +44,16 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
   int const ncols     = stop_col - start_col + 1;
   int const stride    = first.nrows();
 
-  fk::matrix<TestType, mem_type::view> const first_v(first, start_row, stop_row,
-                                                     start_col, stop_col);
-  fk::matrix<TestType, mem_type::view> const second_v(
+  fk::matrix<TestType, mem_type::view, resrc> const first_v(
+      first, start_row, stop_row, start_col, stop_col);
+  fk::matrix<TestType, mem_type::view, resrc> const second_v(
       second, start_row, stop_row, start_col, stop_col);
-  fk::matrix<TestType, mem_type::view> const third_v(third, start_row, stop_row,
-                                                     start_col, stop_col);
+  fk::matrix<TestType, mem_type::view, resrc> const third_v(
+      third, start_row, stop_row, start_col, stop_col);
 
-  int const num_batch                        = 3;
-  batch<TestType, resource::host> const gold = [&] {
-    batch<TestType, resource::host> builder(num_batch, nrows, ncols, stride,
-                                            do_trans);
+  int const num_batch               = 3;
+  batch<TestType, resrc> const gold = [&] {
+    batch<TestType, resrc> builder(num_batch, nrows, ncols, stride, do_trans);
 
     builder.assign_entry(first_v, 0);
     builder.assign_entry(second_v, 1);
@@ -65,8 +66,8 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
   {
     SECTION("constructor")
     {
-      batch<TestType, resource::host> const empty(num_batch, nrows, ncols,
-                                                  stride, do_trans);
+      batch<TestType, resrc> const empty(num_batch, nrows, ncols, stride,
+                                         do_trans);
       REQUIRE(empty.num_entries() == num_batch);
       REQUIRE(empty.nrows() == nrows);
       REQUIRE(empty.ncols() == ncols);
@@ -81,30 +82,28 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
 
     SECTION("copy construction")
     {
-      batch<TestType, resource::host> const gold_copy(gold);
+      batch<TestType, resrc> const gold_copy(gold);
       REQUIRE(gold_copy == gold);
     }
 
     SECTION("copy assignment")
     {
-      batch<TestType, resource::host> test(num_batch, nrows, ncols, stride,
-                                           do_trans);
+      batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
       test = gold;
       REQUIRE(test == gold);
     }
 
     SECTION("move construction")
     {
-      batch<TestType, resource::host> gold_copy(gold);
+      batch<TestType, resrc> gold_copy(gold);
       batch const test = std::move(gold_copy);
       REQUIRE(test == gold);
     }
 
     SECTION("move assignment")
     {
-      batch<TestType, resource::host> test(num_batch, nrows, ncols, stride,
-                                           do_trans);
-      batch<TestType, resource::host> gold_copy(gold);
+      batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
+      batch<TestType, resrc> gold_copy(gold);
       test = std::move(gold_copy);
       REQUIRE(test == gold);
     }
@@ -114,8 +113,7 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
   {
     SECTION("insert/getter")
     {
-      batch<TestType, resource::host> test(num_batch, nrows, ncols, stride,
-                                           do_trans);
+      batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
       test.assign_entry(first_v, 0);
       TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
@@ -146,7 +144,7 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
 
     SECTION("clear")
     {
-      batch<TestType, resource::host> test(gold);
+      batch<TestType, resrc> test(gold);
 
       // clear should return true when
       // an element was assigned to that index
@@ -192,15 +190,15 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
     SECTION("is_filled")
     {
       REQUIRE(gold.is_filled());
-      batch<TestType, resource::host> test(gold);
+      batch<TestType, resrc> test(gold);
       test.clear_entry(0);
       REQUIRE(!test.is_filled());
     }
 
     SECTION("clear_all")
     {
-      batch<TestType, resource::host> const test = [&] {
-        batch<TestType, resource::host> gold_copy(gold);
+      batch<TestType, resrc> const test = [&] {
+        batch<TestType, resrc> gold_copy(gold);
         return gold_copy.clear_all();
       }();
 
