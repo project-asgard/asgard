@@ -192,13 +192,8 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void dump_to_octave(char const *) const;
 
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
-  fk::vector<P, mem, resource::host> &resize(int const size = 0);
-
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_device<r_>>
-  fk::vector<P, mem, resource::device> &resize(int const size = 0);
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  fk::vector<P, mem_type::owner, resrc> &resize(int const size = 0);
 
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &set_subvector(int const, vector<P, omem> const);
@@ -1168,54 +1163,45 @@ void fk::vector<P, mem, resrc>::dump_to_octave(char const *filename) const
 }
 
 //
-// resrcize the vector
+// resize the vector
 // (currently supports a subset of the std::vector.resize() interface)
 //
-// host specialization
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, resource, typename>
-fk::vector<P, mem, resource::host> &
+template<mem_type, typename>
+fk::vector<P, mem_type::owner, resrc> &
 fk::vector<P, mem, resrc>::resize(int const new_size)
 {
   assert(new_size >= 0);
   if (new_size == this->size())
     return *this;
   P *old_data{data_};
-  data_ = new P[new_size]();
-  if (size() > 0 && new_size > 0)
+
+  if constexpr (resrc == resource::host)
   {
-    if (size() < new_size)
-      std::memcpy(data_, old_data, size() * sizeof(P));
-    else
-      std::memcpy(data_, old_data, new_size * sizeof(P));
+    data_ = new P[new_size]();
+    if (size() > 0 && new_size > 0)
+    {
+      if (size() < new_size)
+        std::memcpy(data_, old_data, size() * sizeof(P));
+      else
+        std::memcpy(data_, old_data, new_size * sizeof(P));
+    }
+    delete[] old_data;
+  }
+  else
+  {
+    allocate_device(data_, new_size);
+    if (size() > 0 && new_size > 0)
+    {
+      if (size() < new_size)
+        copy_on_device(data_, old_data, size());
+      else
+        copy_on_device(data_, old_data, new_size);
+    }
+    delete_device(old_data);
   }
 
   size_ = new_size;
-  delete[] old_data;
-  return *this;
-}
-
-// device specialization
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, resource, typename>
-fk::vector<P, mem, resource::device> &
-fk::vector<P, mem, resrc>::resize(int const new_size)
-{
-  assert(new_size >= 0);
-  if (new_size == this->size())
-    return *this;
-  P *old_data{data_};
-  allocate_device(data_, new_size);
-  if (size() > 0 && new_size > 0)
-  {
-    if (size() < new_size)
-      copy_on_device(data_, old_data, size());
-    else
-      copy_on_device(data_, old_data, new_size);
-  }
-
-  size_ = new_size;
-  delete_device(old_data);
   return *this;
 }
 
