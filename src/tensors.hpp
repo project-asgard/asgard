@@ -43,7 +43,7 @@ namespace fk
 {
 // forward declarations
 template<typename P, mem_type mem = mem_type::owner,
-         resource resrc = resource::host> // default to be an owner, on host
+         resource resrc = resource::host> // default to be an owner only on host
 class vector;
 template<typename P, mem_type mem = mem_type::owner,
          resource resrc = resource::host>
@@ -1293,7 +1293,7 @@ fk::matrix<P, mem, resrc>::matrix()
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(int m, int n)
+fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
     : nrows_{m}, ncols_{n}, stride_{nrows_}, ref_count_{
                                                  std::make_shared<int>(0)}
 
