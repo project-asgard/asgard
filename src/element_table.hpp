@@ -40,12 +40,20 @@ public:
 
   // reverse lookup
   fk::vector<int> get_coords(int const index) const;
+  fk::vector<int> get_coords_sparse(long int const index) const;
 
   // returns the number of elements in table
   int size() const
   {
     assert(forward_table.size() == reverse_table.size());
     return forward_table.size();
+  }
+  
+  // returns the number of elements in table
+  int size_sparse() const
+  {
+    assert(forward_table_sparse.size() > 0);
+    return forward_table_sparse.size();
   }
 
   // Static construction helper
