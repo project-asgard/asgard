@@ -227,7 +227,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_d.data(),
                          &lda, in2_d.data(), &ldb, &beta, result_d.data(), &ldc,
                          resource::device);
-      result = result_d;
+      result.transfer_from(result_d);
       REQUIRE(result == gold);
     }
   }
@@ -462,7 +462,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
 
       lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda, x_d.data(),
                          &inc, &beta, result_d.data(), &inc, resource::device);
-      result = result_d;
+      result.transfer_from(result_d);
       REQUIRE(result == gold);
     }
   }
@@ -672,7 +672,7 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
       fk::vector<TestType, mem_type::owner, resource::device> y_d(y);
       lib_dispatch::axpy(&n, &alpha, x_d.data(), &inc, y_d.data(), &inc,
                          resource::device);
-      y = y_d;
+      y.transfer_from(y_d);
       REQUIRE(y == gold);
     }
   }
@@ -1943,7 +1943,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
         &num_batch, resource::device);
 
     // compare
-    c = c_d;
+    c.transfer_from(c_d);
     REQUIRE(c == gold);
   }
 
@@ -2725,7 +2725,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
                                &alpha, &beta, &num_batch, resource::device);
 
     // compare
-    c = c_d;
+    c.transfer_from(c_d);
     REQUIRE(c == gold);
   }
 }

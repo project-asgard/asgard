@@ -39,6 +39,29 @@ using enable_for_host = std::enable_if_t<resrc == resource::host>;
 template<resource resrc>
 using enable_for_device = std::enable_if_t<resrc == resource::device>;
 
+// resource arguments allow developers to select host (CPU only) or device
+// (accelerator if enabled, fall back to host) allocation for tensors. device
+// tensors have a restricted API - most member functions are disabled. the fast
+// math component is designed to allow BLAS on host and device tensors.
+
+// mem_type arguments allow for the selection of owner or view (read/write
+// window into underlying owner memory) semantics.
+
+// device owners can be constructed with no-arg, size, or
+// initializer list constructors.
+//
+// device owners are allocated in accelerator DRAM when
+// the appropriate build option is set, with allocation
+// falling back to CPU RAM otherwise.
+//
+// additionally, device owners can be transfer constructed from a
+// host owner or copy/move constructed from another device owner.
+//
+// host owners can be created with any of the below constructors.
+//
+// device views can only be created from a device owner, and host
+// views can only be constructor from host owners
+
 namespace fk
 {
 // forward declarations
@@ -84,9 +107,13 @@ public:
   vector(vector<P, mem, resrc> const &);
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> const &);
 
-  // move precision constructor/assignment (required to be same to same)
+  // move constructor/assignment (required to be same to same)
   vector(vector<P, mem, resrc> &&);
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> &&);
+
+  // assignment owner <-> view
+  template<mem_type omem>
+  vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
 
   // converting constructor/assignment overloads
   template<typename PP, mem_type omem, mem_type m_ = mem,
@@ -97,21 +124,23 @@ public:
            typename = enable_for_host<r_>>
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
-  // device transfer construction/assignment
-  // host to device / device to device
+  // device transfer construction/copy
+  // host to device / device to device contstruction
   template<mem_type omem, resource oresrc, mem_type m_ = mem,
            typename = enable_for_owner<m_>, resource r_ = resrc,
            typename = enable_for_device<r_>>
   explicit vector(vector<P, omem, oresrc> const &);
-  template<mem_type omem, resource oresrc, resource r_ = resrc,
-           typename = enable_for_device<r_>>
-  vector<P, mem, resrc> &operator=(vector<P, omem, oresrc> const &);
-  // device to host
+  // host to device copy
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
+  vector<P, mem, resrc> &transfer_from(vector<P, omem, resource::host> const &);
+  // device to host construction
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   explicit vector(vector<P, omem, resource::device> const &);
+  // device to host copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P, mem, resrc> &operator=(vector<P, omem, resource::device> const &);
+  vector<P, mem, resrc> &
+  transfer_from(vector<P, omem, resource::device> const &);
 
   //
   // copy out of std::vector
@@ -269,6 +298,10 @@ public:
   matrix(matrix<P, mem, resrc> const &);
   matrix<P, mem, resrc> &operator=(matrix<P, mem, resrc> const &);
 
+  // assignment owner <-> view
+  template<mem_type omem>
+  matrix<P, mem, resrc> &operator=(matrix<P, omem, resrc> const &);
+
   // converting construction/assign
   template<typename PP, mem_type omem, mem_type m_ = mem,
            typename = enable_for_owner<m_>, resource r_ = resrc,
@@ -278,21 +311,23 @@ public:
            typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
 
-  // transfer constructor/assign
-  // host to device / device to device
+  // transfer constructor / copy
+  // host to device / device to device constructor
   template<mem_type omem, resource oresrc, mem_type m_ = mem,
            typename = enable_for_owner<m_>, resource r_ = resrc,
            typename = enable_for_device<r_>>
   explicit matrix(matrix<P, omem, oresrc> const &);
-  template<mem_type omem, resource oresrc, resource r_ = resrc,
-           typename = enable_for_device<r_>>
-  matrix<P, mem, resrc> &operator=(matrix<P, omem, oresrc> const &);
-  // to host
+  // host to device copy
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
+  matrix<P, mem, resrc> &transfer_from(matrix<P, omem, resource::host> const &);
+  // device to host / dev to dev constructor
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   explicit matrix(matrix<P, omem, resource::device> const &);
+  // device to host copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  matrix<P, mem, resrc> &operator=(matrix<P, omem, resource::device> const &);
+  matrix<P, mem, resrc> &
+  transfer_from(matrix<P, omem, resource::device> const &);
 
   // move constructor/assign
   matrix(matrix<P, mem, resrc> &&);
@@ -839,6 +874,24 @@ operator=(vector<PP, omem> const &a)
   return *this;
 }
 
+// assignment owner <-> view
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
+operator=(vector<P, omem, resrc> const &a)
+{
+  assert(size() == a.size());
+  if constexpr (resrc == resource::host)
+  {
+    std::memcpy(data_, a.data(), size() * sizeof(P));
+  }
+  else
+  {
+    copy_on_device(data_, a.data(), size());
+  }
+  return *this;
+}
+
 // transfer functions
 // dev->dev and host->dev, constructor
 template<typename P, mem_type mem, resource resrc>
@@ -857,25 +910,18 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, oresrc> const &a)
   }
 }
 
-// dev->dev and host->dev, assignment
+// host->dev copy
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource oresrc, resource, typename>
-fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
-operator=(fk::vector<P, omem, oresrc> const &a)
+template<mem_type omem, resource, typename>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
+    fk::vector<P, omem, resource::host> const &a)
 {
   assert(a.size() == size());
-  if constexpr (oresrc == resource::device)
-  {
-    copy_on_device(data_, a.data(), a.size());
-  }
-  else
-  {
-    copy_to_device(data_, a.data(), a.size());
-  }
+  copy_to_device(data_, a.data(), a.size());
   return *this;
 }
 
-// dev -> host, constructor
+// dev -> host constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc>::vector(
@@ -887,11 +933,11 @@ fk::vector<P, mem, resrc>::vector(
   copy_to_host(data_, a.data(), a.size());
 }
 
-// dev -> host, assignment
+// dev -> host copy
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, resource, typename>
-fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
-operator=(vector<P, omem, resource::device> const &a)
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
+    vector<P, omem, resource::device> const &a)
 {
   assert(a.size() == size());
   copy_to_host(data_, a.data(), a.size());
@@ -1476,6 +1522,25 @@ operator=(matrix<P, mem, resrc> const &a)
   return *this;
 }
 
+// assignment owner <-> view
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
+operator=(matrix<P, omem, resrc> const &a)
+{
+  assert(nrows() == a.nrows());
+  assert(ncols() == a.ncols());
+  if constexpr (resrc == resource::host)
+  {
+    std::copy(a.begin(), a.end(), begin());
+  }
+  else
+  {
+    copy_matrix_on_device(*this, a);
+  }
+  return *this;
+}
+
 //
 // converting matrix copy constructor
 //
@@ -1534,22 +1599,17 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, oresrc> const &a)
   }
 }
 
-// dev->dev and host->dev, assignment
+// host->dev copy
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource oresrc, resource, typename>
-fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
-operator=(fk::matrix<P, omem, oresrc> const &a)
+template<mem_type omem, resource, typename>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
+    fk::matrix<P, omem, resource::host> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
-  if constexpr (oresrc == resource::host)
-  {
-    copy_matrix_to_device(*this, a);
-  }
-  else
-  {
-    copy_matrix_on_device(*this, a);
-  }
+
+  copy_matrix_to_device(*this, a);
+
   return *this;
 }
 
@@ -1565,11 +1625,11 @@ fk::matrix<P, mem, resrc>::matrix(
   copy_matrix_to_host(*this, a);
 }
 
-// dev->host, assignment
+// dev->host copy
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, resource, typename>
-fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
-operator=(matrix<P, omem, resource::device> const &a)
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
+    matrix<P, omem, resource::device> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());

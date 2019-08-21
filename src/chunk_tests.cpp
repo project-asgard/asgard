@@ -554,7 +554,7 @@ TEST_CASE("chunk data management functions", "[chunk]")
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
     std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
-    rank_space.batch_output = batch_out_h;
+    rank_space.batch_output.transfer_from(batch_out_h);
 
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
@@ -595,7 +595,7 @@ TEST_CASE("chunk data management functions", "[chunk]")
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
     std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
-    rank_space.batch_output = batch_out_h;
+    rank_space.batch_output.transfer_from(batch_out_h);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -635,7 +635,7 @@ TEST_CASE("chunk data management functions", "[chunk]")
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
     std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
-    rank_space.batch_output = batch_out_h;
+    rank_space.batch_output.transfer_from(batch_out_h);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -731,7 +731,7 @@ TEST_CASE("chunk reduction function", "[chunk]")
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
     std::generate(reduction_h.begin(), reduction_h.end(), gen);
-    rank_space.reduction_space = reduction_h;
+    rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {
@@ -768,7 +768,7 @@ TEST_CASE("chunk reduction function", "[chunk]")
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
     std::generate(reduction_h.begin(), reduction_h.end(), gen);
-    rank_space.reduction_space = reduction_h;
+    rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {
@@ -805,7 +805,7 @@ TEST_CASE("chunk reduction function", "[chunk]")
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
     std::generate(reduction_h.begin(), reduction_h.end(), gen);
-    rank_space.reduction_space = reduction_h;
+    rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {

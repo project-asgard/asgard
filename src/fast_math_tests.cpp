@@ -185,7 +185,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       TestType const beta  = 1.0;
 
       fm::gemm(in1_d, in2_d, result_d, trans_A, trans_B, alpha, beta);
-      result = result_d;
+      result.transfer_from(result_d);
       REQUIRE(result == gold);
     }
   }
@@ -223,14 +223,14 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
 
       fk::matrix<TestType, mem_type::view, resource::device> in1_view_d(
           in1_extended_d, 0, in1.nrows() - 1, 0, in1.ncols() - 1);
-      in1_view_d = in1;
+      in1_view_d.transfer_from(in1);
 
       fk::matrix<TestType, mem_type::owner, resource::device> in2_extended_d(
           in2.nrows() + 1, in2.ncols());
 
       fk::matrix<TestType, mem_type::view, resource::device> in2_view_d(
           in2_extended_d, 0, in2.nrows() - 1, 0, in2.ncols() - 1);
-      in2_view_d = in2;
+      in2_view_d.transfer_from(in2);
 
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
           in1.nrows() + 2, in2.ncols());
@@ -353,7 +353,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
       TestType const beta  = 1.0;
 
       fm::gemv(A_d, x_d, result_d, trans_A, alpha, beta);
-      result = result_d;
+      result.transfer_from(result_d);
       REQUIRE(result == gold);
     }
   }
@@ -407,22 +407,22 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       fk::vector<TestType> const ans = {16, 19, 22, 25, 28};
       fk::vector<TestType> result(ans.size());
 
-      result = fm::axpy(rhs_d, test_d, scale);
+      result.transfer_from(fm::axpy(rhs_d, test_d, scale));
       REQUIRE(result == ans);
 
-      test_d = gold;
+      test_d.transfer_from(gold);
 
-      result = fm::axpy(rhs_view_d, test_d, scale);
+      result.transfer_from(fm::axpy(rhs_view_d, test_d, scale));
       REQUIRE(result == ans);
 
-      result = fm::axpy(rhs_d, test_view_d, scale);
+      result.transfer_from(fm::axpy(rhs_d, test_view_d, scale));
       REQUIRE(result == ans);
-      result = test_own_d;
+      result.transfer_from(test_own_d);
       REQUIRE(result == ans);
-      test_view_d = gold;
-      result      = fm::axpy(rhs_view_d, test_view_d, scale);
+      test_view_d.transfer_from(gold);
+      result.transfer_from(fm::axpy(rhs_view_d, test_view_d, scale));
       REQUIRE(result == ans);
-      result = test_own_d;
+      result.transfer_from(test_own_d);
       REQUIRE(result == ans);
     }
   }
@@ -464,21 +464,21 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
       fk::vector<TestType> answer(gold.size());
 
-      answer = fm::copy(gold_d, test_d);
+      answer.transfer_from(fm::copy(gold_d, test_d));
       REQUIRE(answer == gold);
       fm::scal(static_cast<TestType>(0.0), test_d);
-      answer = fm::copy(gold_view_d, test_d);
+      answer.transfer_from(fm::copy(gold_view_d, test_d));
       REQUIRE(answer == gold);
 
-      answer = fm::copy(gold_d, test_view_d);
+      answer.transfer_from(fm::copy(gold_d, test_view_d));
       REQUIRE(answer == gold);
-      answer = test_own_d;
+      answer.transfer_from(test_own_d);
       REQUIRE(answer == gold);
 
       fm::scal(static_cast<TestType>(0.0), test_own_d);
-      answer = fm::copy(gold_view_d, test_view_d);
+      answer.transfer_from(fm::copy(gold_view_d, test_view_d));
       REQUIRE(answer == gold);
-      answer = test_own_d;
+      answer.transfer_from(test_own_d);
       REQUIRE(answer == gold);
     }
   }
@@ -521,26 +521,26 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
       fk::vector<TestType> result(ans.size());
 
-      result = fm::scal(x, test_d);
+      result.transfer_from(fm::scal(x, test_d));
       REQUIRE(result == ans);
 
-      result = fm::scal(x, test_view_d);
+      result.transfer_from(fm::scal(x, test_view_d));
       REQUIRE(result == ans);
-      result = test_own_d;
+      result.transfer_from(test_own_d);
       REQUIRE(result == ans);
 
-      test_d     = gold;
-      test_own_d = gold;
+      test_d.transfer_from(gold);
+      test_own_d.transfer_from(gold);
 
       TestType const x2 = 0.0;
       fk::vector<TestType> const zeros(gold.size());
 
-      result = fm::scal(x2, test_d);
+      result.transfer_from(fm::scal(x2, test_d));
       REQUIRE(result == zeros);
 
-      result = fm::scal(x2, test_view_d);
+      result.transfer_from(fm::scal(x2, test_view_d));
       REQUIRE(result == zeros);
-      result = test_own_d;
+      result.transfer_from(test_own_d);
       REQUIRE(result == zeros);
     }
   }

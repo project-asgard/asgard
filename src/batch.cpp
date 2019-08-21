@@ -169,7 +169,7 @@ bool batch<P, resrc>::clear_entry(int const position)
 // pointers for batched blas call
 // for performance, may have to
 // provide a direct access to P**
-// from batch_, but avoid for now
+// from batch_, ~~but avoid for now~~ yep :-(
 template<typename P, resource resrc>
 P **batch<P, resrc>::get_list() const
 {
@@ -395,6 +395,11 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
 //
 // batch offset is the 0-indexed ordinal numbering
 // of the connected element these gemms address
+//
+// note that the view inputs are device tensors;
+// this indicates that they will be resident on the
+// accelerator when the appropriate build options
+// are set.
 template<typename P>
 static void kron_base(fk::matrix<P, mem_type::view, resource::device> const A,
                       fk::vector<P, mem_type::view, resource::device> x,
@@ -430,6 +435,10 @@ static void kron_base(fk::matrix<P, mem_type::view, resource::device> const A,
 //
 //   1 batch set to perform the reduction of connected element
 //   contributions to each work item.
+//
+// like the other batch building functions, the tensor arguments
+// are resident on the accelerator when the appropriate build option
+// is set
 template<typename P>
 void kronmult_to_batch_sets(
     std::vector<fk::matrix<P, mem_type::view, resource::device>> const A,

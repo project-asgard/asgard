@@ -237,8 +237,8 @@ public:
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     assert(degrees_freedom_1d == new_coefficients.nrows());
     assert(degrees_freedom_1d == new_coefficients.ncols());
-    this->coefficients_.clear_and_resize(degrees_freedom_1d,
-                                         degrees_freedom_1d) = new_coefficients;
+    this->coefficients_.clear_and_resize(degrees_freedom_1d, degrees_freedom_1d)
+        .transfer_from(new_coefficients);
   }
 
   fk::matrix<P, mem_type::owner, resource::device> const &

@@ -82,7 +82,7 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
   unit_vector_.resize(pde.num_terms * max_conn);
   fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
   std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
-  unit_vector_ = unit_vect;
+  unit_vector_.transfer_from(unit_vect);
 }
 
 template<typename P>
@@ -263,7 +263,7 @@ void copy_chunk_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
   fk::vector<P, mem_type::view> const x_view(
       host_space.x, x_range.start * elem_size,
       (x_range.stop + 1) * elem_size - 1);
-  rank_space.batch_input = x_view;
+  rank_space.batch_input.transfer_from(x_view);
 }
 
 template<typename P>

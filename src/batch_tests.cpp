@@ -1329,7 +1329,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
-    c = c_d;
+    c.transfer_from(c_d);
     REQUIRE(c == gold);
   }
 
@@ -2022,7 +2022,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     fk::matrix<TestType> coeff_h(coefficient_matrix);
     coeff_h.set_submatrix(0, 0, A);
-    coefficient_matrix = coeff_h;
+    coefficient_matrix.transfer_from(coeff_h);
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
     fk::vector<TestType, mem_type::owner, resource::device> const x(x_h);
@@ -2078,7 +2078,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     // clang-format on
     fk::matrix<TestType> coeff_h(coefficient_matrix);
     coeff_h.set_submatrix(0, 0, A);
-    coefficient_matrix = coeff_h;
+    coefficient_matrix.transfer_from(coeff_h);
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
     fk::vector<TestType, mem_type::owner, resource::device> const x(x_h);
