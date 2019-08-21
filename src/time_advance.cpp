@@ -108,7 +108,7 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
       batch<P> const b = batches[i][1];
       batch<P> const c = batches[i][2];
 
-      batched_gemm(a, b, c, alpha, beta, resource::device);
+      batched_gemm(a, b, c, alpha, beta);
     }
 
     // do the reduction

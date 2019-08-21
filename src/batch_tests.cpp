@@ -49,9 +49,10 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
   fk::matrix<TestType, mem_type::view> const third_v(third, start_row, stop_row,
                                                      start_col, stop_col);
 
-  int const num_batch        = 3;
-  batch<TestType> const gold = [&] {
-    batch<TestType> builder(num_batch, nrows, ncols, stride, do_trans);
+  int const num_batch                        = 3;
+  batch<TestType, resource::host> const gold = [&] {
+    batch<TestType, resource::host> builder(num_batch, nrows, ncols, stride,
+                                            do_trans);
 
     builder.assign_entry(first_v, 0);
     builder.assign_entry(second_v, 1);
@@ -64,7 +65,8 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
   {
     SECTION("constructor")
     {
-      batch<TestType> const empty(num_batch, nrows, ncols, stride, do_trans);
+      batch<TestType, resource::host> const empty(num_batch, nrows, ncols,
+                                                  stride, do_trans);
       REQUIRE(empty.num_entries() == num_batch);
       REQUIRE(empty.nrows() == nrows);
       REQUIRE(empty.ncols() == ncols);
@@ -79,28 +81,30 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
 
     SECTION("copy construction")
     {
-      batch<TestType> const gold_copy(gold);
+      batch<TestType, resource::host> const gold_copy(gold);
       REQUIRE(gold_copy == gold);
     }
 
     SECTION("copy assignment")
     {
-      batch<TestType> test(num_batch, nrows, ncols, stride, do_trans);
+      batch<TestType, resource::host> test(num_batch, nrows, ncols, stride,
+                                           do_trans);
       test = gold;
       REQUIRE(test == gold);
     }
 
     SECTION("move construction")
     {
-      batch<TestType> gold_copy(gold);
+      batch<TestType, resource::host> gold_copy(gold);
       batch const test = std::move(gold_copy);
       REQUIRE(test == gold);
     }
 
     SECTION("move assignment")
     {
-      batch<TestType> test(num_batch, nrows, ncols, stride, do_trans);
-      batch<TestType> gold_copy(gold);
+      batch<TestType, resource::host> test(num_batch, nrows, ncols, stride,
+                                           do_trans);
+      batch<TestType, resource::host> gold_copy(gold);
       test = std::move(gold_copy);
       REQUIRE(test == gold);
     }
@@ -110,7 +114,8 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
   {
     SECTION("insert/getter")
     {
-      batch<TestType> test(num_batch, nrows, ncols, stride, do_trans);
+      batch<TestType, resource::host> test(num_batch, nrows, ncols, stride,
+                                           do_trans);
       test.assign_entry(first_v, 0);
       TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
@@ -141,7 +146,7 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
 
     SECTION("clear")
     {
-      batch<TestType> test(gold);
+      batch<TestType, resource::host> test(gold);
 
       // clear should return true when
       // an element was assigned to that index
@@ -187,15 +192,15 @@ TEMPLATE_TEST_CASE("batch", "[batch]", float, double)
     SECTION("is_filled")
     {
       REQUIRE(gold.is_filled());
-      batch<TestType> test(gold);
+      batch<TestType, resource::host> test(gold);
       test.clear_entry(0);
       REQUIRE(!test.is_filled());
     }
 
     SECTION("clear_all")
     {
-      batch<TestType> const test = [&] {
-        batch<TestType> gold_copy(gold);
+      batch<TestType, resource::host> const test = [&] {
+        batch<TestType, resource::host> gold_copy(gold);
         return gold_copy.clear_all();
       }();
 
@@ -296,8 +301,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -323,8 +329,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b2_v, 1);
@@ -339,8 +346,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(), false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, b_ncols,
+                                              c.nrows(), false);
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
       builder.assign_entry(c3_v, 2);
@@ -464,7 +472,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     // call batched gemm
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -501,8 +509,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -528,8 +537,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b2_v, 1);
@@ -544,8 +554,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_ncols, b_ncols, c.nrows(), false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_ncols, b_ncols,
+                                              c.nrows(), false);
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
       builder.assign_entry(c3_v, 2);
@@ -676,7 +687,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     // call batched gemm
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     fk::matrix<TestType> const c(c_d);
     // compare
@@ -702,8 +713,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -729,8 +741,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b2_v, 1);
@@ -750,8 +763,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, b_nrows, c.nrows(), false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, b_nrows,
+                                              c.nrows(), false);
 
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
@@ -882,7 +896,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     // call batched gemm
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -913,8 +927,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType> const a2_t = get_trans(a2_v);
     fk::matrix<TestType> const a3_t = get_trans(a3_v);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -940,8 +955,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b2_v, 1);
@@ -961,8 +977,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_ncols, b_nrows, c.nrows(), false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_ncols, b_nrows,
+                                              c.nrows(), false);
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
       builder.assign_entry(c3_v, 2);
@@ -1096,7 +1113,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     // call batched gemm
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -1122,8 +1139,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -1149,8 +1167,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b2_v, 1);
@@ -1173,8 +1192,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(), false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, b_ncols,
+                                              c.nrows(), false);
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
       builder.assign_entry(c3_v, 2);
@@ -1308,7 +1328,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     // call batched gemm
     TestType const alpha = 1.0;
     TestType const beta  = 1.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     c = c_d;
@@ -1334,8 +1354,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -1361,8 +1382,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
                                                     b_start_col, b_stop_col);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b2_v, 1);
@@ -1377,8 +1399,9 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, b_ncols, c.nrows(), false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, b_ncols,
+                                              c.nrows(), false);
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
       builder.assign_entry(c3_v, 2);
@@ -1502,7 +1525,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     // call batched gemm
     TestType const alpha = 3.0;
     TestType const beta  = 0.0;
-    batched_gemm(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -1570,8 +1593,9 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
                                                     a_start_col, a_stop_col);
 
-    batch<TestType> const a_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, a_ncols, a_stride, trans_a);
+    batch<TestType, resource::host> const a_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, a_ncols,
+                                              a_stride, trans_a);
 
       builder.assign_entry(a1_v, 0);
       builder.assign_entry(a2_v, 1);
@@ -1590,8 +1614,9 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
 
     fk::matrix<TestType, mem_type::view> const b1_v(b1, b_nrows, b_ncols, 0);
 
-    batch<TestType> const b_batch = [&] {
-      batch<TestType> builder(num_batch, b_nrows, b_ncols, b_stride, trans_b);
+    batch<TestType, resource::host> const b_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, b_nrows, b_ncols,
+                                              b_stride, trans_b);
 
       builder.assign_entry(b1_v, 0);
       builder.assign_entry(b1_v, 1);
@@ -1606,8 +1631,9 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
     fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
 
-    batch<TestType> const c_batch = [&] {
-      batch<TestType> builder(num_batch, a_nrows, b_ncols, 1, false);
+    batch<TestType, resource::host> const c_batch = [&] {
+      batch<TestType, resource::host> builder(num_batch, a_nrows, b_ncols, 1,
+                                              false);
       builder.assign_entry(c1_v, 0);
       builder.assign_entry(c2_v, 1);
       builder.assign_entry(c3_v, 2);
@@ -1720,7 +1746,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     // call batched gemv
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemv(a_batch, b_batch, c_batch, alpha, beta, resource::device);
+    batched_gemv(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
     fk::matrix<TestType> const c(c_d);
@@ -2027,7 +2053,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta, resource::device);
+    batched_gemm(a, b, c, alpha, beta);
 
     fk::vector<TestType, mem_type::owner> const y_h(y);
     REQUIRE(gold == y_h);
@@ -2109,7 +2135,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 
     TestType const alpha = 1.0;
     TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta, resource::device);
+    batched_gemm(a, b, c, alpha, beta);
 
     fk::vector<TestType> const y_e0_h(y_e0);
     fk::vector<TestType> const y_e1_h(y_e1);
@@ -2220,7 +2246,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batch<TestType> const c = batches[k][2];
       TestType const alpha    = 1.0;
       TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta, resource::device);
+      batched_gemm(a, b, c, alpha, beta);
     }
 
     fk::vector<TestType> const y_h(y_own);
@@ -2337,7 +2363,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batch<TestType> const c = batches[k][2];
       TestType const alpha    = 1.0;
       TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta, resource::device);
+      batched_gemm(a, b, c, alpha, beta);
     }
 
     // this method of computing "correctness" borrowed from ed's tests:
@@ -2465,7 +2491,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batch<TestType> const c = batches[k][2];
       TestType const alpha    = 1.0;
       TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta, resource::device);
+      batched_gemm(a, b, c, alpha, beta);
     }
 
     // this method of computing "correctness" borrowed from ed's tests:
@@ -2553,7 +2579,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       TestType const alpha = 1.0;
       TestType const beta  = 0.0;
 
-      batched_gemm(a, b, c, alpha, beta, resource::device);
+      batched_gemm(a, b, c, alpha, beta);
 
       // do the reduction
       reduce_chunk(*pde, rank_space, chunk);
@@ -2612,7 +2638,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       TestType const alpha = 1.0;
       TestType const beta  = 0.0;
 
-      batched_gemm(a, b, c, alpha, beta, resource::device);
+      batched_gemm(a, b, c, alpha, beta);
 
       // do the reduction
       reduce_chunk(*pde, rank_space, chunk);
@@ -2674,7 +2700,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta, resource::device);
+        batched_gemm(a, b, c, alpha, beta);
       }
 
       // do the reduction
@@ -2742,7 +2768,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta, resource::device);
+        batched_gemm(a, b, c, alpha, beta);
       }
 
       // do the reduction
@@ -2810,7 +2836,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta, resource::device);
+        batched_gemm(a, b, c, alpha, beta);
       }
 
       // do the reduction
@@ -2880,7 +2906,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         batch<TestType> const b = batches[i][1];
         batch<TestType> const c = batches[i][2];
 
-        batched_gemm(a, b, c, alpha, beta, resource::device);
+        batched_gemm(a, b, c, alpha, beta);
       }
 
       // do the reduction

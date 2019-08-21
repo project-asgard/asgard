@@ -7,9 +7,9 @@
 // object to store lists of operands for batched gemm/gemv.
 // utilized as the primary data structure for other functions
 // within this component.
-template<typename P>
-batch<P>::batch(int const num_entries, int const nrows, int const ncols,
-                int const stride, bool const do_trans)
+template<typename P, resource resrc>
+batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
+                       int const stride, bool const do_trans)
     : num_entries_(num_entries), nrows_(nrows), ncols_(ncols), stride_(stride),
       do_trans_(do_trans), batch_{new P *[num_entries]()}
 {
@@ -23,8 +23,8 @@ batch<P>::batch(int const num_entries, int const nrows, int const ncols,
   }
 }
 
-template<typename P>
-batch<P>::batch(batch<P> const &other)
+template<typename P, resource resrc>
+batch<P, resrc>::batch(batch<P, resrc> const &other)
     : num_entries_(other.num_entries()), nrows_(other.nrows()),
       ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{new P *[other.num_entries()]()}
@@ -32,8 +32,8 @@ batch<P>::batch(batch<P> const &other)
   std::memcpy(batch_, other.batch_, other.num_entries() * sizeof(P *));
 }
 
-template<typename P>
-batch<P> &batch<P>::operator=(batch<P> const &other)
+template<typename P, resource resrc>
+batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
 {
   if (&other == this)
   {
@@ -48,8 +48,8 @@ batch<P> &batch<P>::operator=(batch<P> const &other)
   return *this;
 }
 
-template<typename P>
-batch<P>::batch(batch<P> &&other)
+template<typename P, resource resrc>
+batch<P, resrc>::batch(batch<P, resrc> &&other)
     : num_entries_(other.num_entries()), nrows_(other.nrows()),
       ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{other.batch_}
@@ -57,8 +57,8 @@ batch<P>::batch(batch<P> &&other)
   other.batch_ = nullptr;
 }
 
-template<typename P>
-batch<P> &batch<P>::operator=(batch<P> &&other)
+template<typename P, resource resrc>
+batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> &&other)
 {
   if (&other == this)
   {
@@ -75,14 +75,14 @@ batch<P> &batch<P>::operator=(batch<P> &&other)
   return *this;
 }
 
-template<typename P>
-batch<P>::~batch()
+template<typename P, resource resrc>
+batch<P, resrc>::~batch()
 {
   delete[] batch_;
 }
 
-template<typename P>
-bool batch<P>::operator==(batch<P> other) const
+template<typename P, resource resrc>
+bool batch<P, resrc>::operator==(batch<P, resrc> other) const
 {
   if (nrows() != other.nrows())
   {
@@ -116,8 +116,8 @@ bool batch<P>::operator==(batch<P> other) const
   return true;
 }
 
-template<typename P>
-P *batch<P>::operator()(int const position) const
+template<typename P, resource resrc>
+P *batch<P, resrc>::operator()(int const position) const
 {
   assert(position >= 0);
   assert(position < num_entries());
@@ -127,10 +127,9 @@ P *batch<P>::operator()(int const position) const
 // assign the provided view's data pointer
 // at the index indicated by position argument
 // cannot overwrite previous assignment
-template<typename P>
-template<resource resrc>
-void batch<P>::assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
-                            int const position)
+template<typename P, resource resrc>
+void batch<P, resrc>::assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
+                                   int const position)
 {
   // make sure this matrix is the
   // same dimensions as others in batch
@@ -158,8 +157,8 @@ void batch<P>::assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
 // clear one assignment
 // returns true if there was a previous assignment,
 // false if nothing was assigned
-template<typename P>
-bool batch<P>::clear_entry(int const position)
+template<typename P, resource resrc>
+bool batch<P, resrc>::clear_entry(int const position)
 {
   P *temp          = batch_[position];
   batch_[position] = nullptr;
@@ -171,16 +170,16 @@ bool batch<P>::clear_entry(int const position)
 // for performance, may have to
 // provide a direct access to P**
 // from batch_, but avoid for now
-template<typename P>
-P **batch<P>::get_list() const
+template<typename P, resource resrc>
+P **batch<P, resrc>::get_list() const
 {
   return batch_;
 }
 
 // verify that every allocated pointer
 // has been assigned to
-template<typename P>
-bool batch<P>::is_filled() const
+template<typename P, resource resrc>
+bool batch<P, resrc>::is_filled() const
 {
   for (P *const ptr : (*this))
   {
@@ -193,8 +192,8 @@ bool batch<P>::is_filled() const
 }
 
 // clear assignments
-template<typename P>
-batch<P> &batch<P>::clear_all()
+template<typename P, resource resrc>
+batch<P, resrc> &batch<P, resrc>::clear_all()
 {
   for (P *&ptr : (*this))
   {
@@ -208,9 +207,9 @@ batch<P> &batch<P>::clear_all()
 // if we store info in the batch about where it is
 // resrcident, this could be an abstraction point
 // for calling cpu/gpu blas etc.
-template<typename P>
-void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta, resource resrc)
+template<typename P, resource resrc>
+void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -259,9 +258,9 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
 
 // execute a batched gemv given a, b, c batch lists
 // and other blas information
-template<typename P>
-void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta, resource resrc)
+template<typename P, resource resrc>
+void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -687,34 +686,40 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 template class batch<float>;
 template class batch<double>;
-
-template void batch<float>::assign_entry(
-    fk::matrix<float, mem_type::view, resource::host> const a,
-    int const position);
-template void batch<double>::assign_entry(
-    fk::matrix<double, mem_type::view, resource::host> const a,
-    int const position);
-template void batch<float>::assign_entry(
-    fk::matrix<float, mem_type::view, resource::device> const a,
-    int const position);
-template void batch<double>::assign_entry(
-    fk::matrix<double, mem_type::view, resource::device> const a,
-    int const position);
+template class batch<float, resource::host>;
+template class batch<double, resource::host>;
 
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
-                           float const beta, resource resrc);
-
+                           float const beta);
 template void batched_gemm(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
-                           double const beta, resource resrc);
+                           double const beta);
+
+template void batched_gemm(batch<float, resource::host> const &a,
+                           batch<float, resource::host> const &b,
+                           batch<float, resource::host> const &c,
+                           float const alpha, float const beta);
+template void batched_gemm(batch<double, resource::host> const &a,
+                           batch<double, resource::host> const &b,
+                           batch<double, resource::host> const &c,
+                           double const alpha, double const beta);
 
 template void batched_gemv(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
-                           float const beta, resource resrc);
+                           float const beta);
 template void batched_gemv(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
-                           double const beta, resource resrc);
+                           double const beta);
+
+template void batched_gemv(batch<float, resource::host> const &a,
+                           batch<float, resource::host> const &b,
+                           batch<float, resource::host> const &c,
+                           float const alpha, float const beta);
+template void batched_gemv(batch<double, resource::host> const &a,
+                           batch<double, resource::host> const &b,
+                           batch<double, resource::host> const &c,
+                           double const alpha, double const beta);
 
 template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);
