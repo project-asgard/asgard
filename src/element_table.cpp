@@ -83,6 +83,13 @@ fk::vector<int> element_table::get_coords(int const index) const
   return reverse_table[index];
 }
 
+fk::vector<int> element_table::get_coords_sparse(long int const index) const
+{
+  assert(index >= 0);
+  assert(static_cast<size_t>(index) < reverse_table.size());
+  return reverse_table[index];
+}
+
 // Static construction helper
 // Return the cell indices, given a level tuple
 // Each row in the returned matrix is the cell portion of an element's
