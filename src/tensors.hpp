@@ -5,8 +5,6 @@
 #endif
 
 #include "lib_dispatch.hpp"
-#include <cstring>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -175,7 +173,7 @@ public:
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   // this can be offsetted for views
-  P *data(int const elem = 0) const { return data_ + elem; }
+  P *data(int const elem = 0) const { return &data_[elem]; }
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a matrix<view> to be made from a
   // vector<owner>
@@ -379,7 +377,7 @@ public:
   P *data(int const i = 0, int const j = 0) const
   {
     // return &data_[i * stride() + j]; // row-major
-    return data_ + (j * stride() + i); // column-major
+    return &data_[j * stride() + i]; // column-major
   }
 
   //
@@ -394,15 +392,8 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_row(int const, std::vector<P> const &);
 
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
-  matrix<P, mem_type::owner, resource::host> &
-  clear_and_resize(int const, int const);
-
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_device<r_>>
-  matrix<P, mem_type::owner, resource::device> &
-  clear_and_resize(int const, int const);
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  matrix<P, mem_type::owner, resrc> &clear_and_resize(int const, int const);
 
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &set_submatrix(int const row_idx, int const col_idx,
@@ -450,7 +441,12 @@ private:
   std::shared_ptr<int> ref_count_ = nullptr;
 };
 
+//-----------------------------------------------------------------------------
+//
 // device allocation and transfer helpers
+//
+//-----------------------------------------------------------------------------
+
 template<typename P>
 static void allocate_device(P *&ptr, int const num_elems)
 {
@@ -475,7 +471,7 @@ static void delete_device(P *const ptr)
 
 template<typename P>
 static void
-copy_on_device(P const *const source, P *const dest, int const num_elems)
+copy_on_device(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto const success =
@@ -488,7 +484,7 @@ copy_on_device(P const *const source, P *const dest, int const num_elems)
 
 template<typename P>
 static void
-copy_to_device(P const *const source, P *const dest, int const num_elems)
+copy_to_device(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto const success =
@@ -500,7 +496,8 @@ copy_to_device(P const *const source, P *const dest, int const num_elems)
 }
 
 template<typename P>
-static void copy_to_host(P *const source, P *const dest, int const num_elems)
+static void
+copy_to_host(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto const success =
@@ -513,8 +510,8 @@ static void copy_to_host(P *const source, P *const dest, int const num_elems)
 
 template<typename P, mem_type mem, mem_type omem>
 static void
-copy_matrix_on_device(fk::matrix<P, mem, resource::device> const &source,
-                      fk::matrix<P, omem, resource::device> &dest)
+copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
+                      fk::matrix<P, omem, resource::device> const &source)
 {
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
@@ -532,8 +529,8 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> const &source,
 
 template<typename P, mem_type mem, mem_type omem>
 static void
-copy_matrix_to_device(fk::matrix<P, mem, resource::host> const &source,
-                      fk::matrix<P, omem, resource::device> &dest)
+copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
+                      fk::matrix<P, omem, resource::host> const &source)
 {
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
@@ -550,8 +547,8 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::host> const &source,
 
 template<typename P, mem_type mem, mem_type omem>
 static void
-copy_matrix_to_host(fk::matrix<P, mem, resource::device> const &source,
-                    fk::matrix<P, omem, resource::host> &dest)
+copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
+                    fk::matrix<P, omem, resource::device> const &source)
 {
   assert(source.nrows() == dest.nrows());
   assert(source.ncols() == dest.ncols());
@@ -624,7 +621,7 @@ fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
   else
   {
     allocate_device(data_, size_);
-    copy_to_device(list.begin(), data_, size_);
+    copy_to_device(data_, list.begin(), size_);
   }
 }
 
@@ -730,7 +727,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
     else
     {
       allocate_device(data_, a.size());
-      copy_on_device(a.data(), data_, a.size());
+      copy_on_device(data_, a.data(), a.size());
     }
   }
   else
@@ -760,7 +757,7 @@ operator=(vector<P, mem, resrc> const &a)
   }
   else
   {
-    copy_on_device(a.data(), data_, a.size());
+    copy_on_device(data_, a.data(), a.size());
   }
 
   return *this;
@@ -857,11 +854,11 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, oresrc> const &a)
   allocate_device(data_, a.size());
   if constexpr (oresrc == resource::device)
   {
-    copy_on_device(a.data(), data_, a.size());
+    copy_on_device(data_, a.data(), a.size());
   }
   else
   {
-    copy_to_device(a.data(), data_, a.size());
+    copy_to_device(data_, a.data(), a.size());
   }
 }
 
@@ -874,11 +871,11 @@ operator=(fk::vector<P, omem, oresrc> const &a)
   assert(a.size() == size());
   if constexpr (oresrc == resource::device)
   {
-    copy_on_device(a.data(), data_, a.size());
+    copy_on_device(data_, a.data(), a.size());
   }
   else
   {
-    copy_to_device(a.data(), data_, a.size());
+    copy_to_device(data_, a.data(), a.size());
   }
   return *this;
 }
@@ -892,7 +889,7 @@ fk::vector<P, mem, resrc>::vector(
                                                      std::make_shared<int>(0)}
 
 {
-  copy_to_host(a.data(), data_, a.size());
+  copy_to_host(data_, a.data(), a.size());
 }
 
 // dev -> host, assignment
@@ -902,7 +899,7 @@ fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, omem, resource::device> const &a)
 {
   assert(a.size() == size());
-  copy_to_host(a.data(), data_, a.size());
+  copy_to_host(data_, a.data(), a.size());
   return *this;
 }
 
@@ -1212,9 +1209,9 @@ fk::vector<P, mem, resrc>::resize(int const new_size)
   if (size() > 0 && new_size > 0)
   {
     if (size() < new_size)
-      copy_on_device(old_data, data_, size());
+      copy_on_device(data_, old_data, size());
     else
-      copy_on_device(old_data, data_, new_size);
+      copy_on_device(data_, old_data, new_size);
   }
 
   size_ = new_size;
@@ -1340,7 +1337,7 @@ fk::matrix<P, mem, resrc>::matrix(
   {
     fk::matrix<P, mem, resource::host> const wrap(llist);
     allocate_device(data_, llist.size() * llist.begin()->size());
-    copy_matrix_to_device(wrap, *this);
+    copy_matrix_to_device(*this, wrap);
   }
 }
 
@@ -1449,7 +1446,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
     else
     {
       allocate_device(data_, a.size());
-      copy_matrix_on_device(a, *this);
+      copy_matrix_on_device(*this, a);
     }
   }
   else
@@ -1481,7 +1478,7 @@ operator=(matrix<P, mem, resrc> const &a)
     }
     else
     {
-      copy_matrix_on_device(a, *this);
+      copy_matrix_on_device(*this, a);
     }
   }
   else
@@ -1543,11 +1540,11 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, oresrc> const &a)
   allocate_device(data_, a.size());
   if constexpr (oresrc == resource::host)
   {
-    copy_matrix_to_device(a, *this);
+    copy_matrix_to_device(*this, a);
   }
   else
   {
-    copy_matrix_on_device(a, *this);
+    copy_matrix_on_device(*this, a);
   }
 }
 
@@ -1561,11 +1558,11 @@ operator=(fk::matrix<P, omem, oresrc> const &a)
   assert(a.ncols() == ncols());
   if constexpr (oresrc == resource::host)
   {
-    copy_matrix_to_device(a, *this);
+    copy_matrix_to_device(*this, a);
   }
   else
   {
-    copy_matrix_on_device(a, *this);
+    copy_matrix_on_device(*this, a);
   }
   return *this;
 }
@@ -1579,7 +1576,7 @@ fk::matrix<P, mem, resrc>::matrix(
     : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
       stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
 {
-  copy_matrix_to_host(a, *this);
+  copy_matrix_to_host(*this, a);
 }
 
 // dev->host, assignment
@@ -1590,7 +1587,7 @@ operator=(matrix<P, omem, resource::device> const &a)
 {
   assert(a.nrows() == nrows());
   assert(a.ncols() == ncols());
-  copy_matrix_to_host(a, *this);
+  copy_matrix_to_host(*this, a);
   return *this;
 }
 
@@ -2065,10 +2062,9 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
 //
 // Resize, clearing all data
 //
-// host specialization
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, resource, typename>
-fk::matrix<P, mem_type::owner, resource::host> &
+template<mem_type, typename>
+fk::matrix<P, mem_type::owner, resrc> &
 fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
 {
   assert(ref_count_.use_count() == 1);
@@ -2077,28 +2073,18 @@ fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
   assert(cols >= 0);
   if (rows == 0 || cols == 0)
     assert(cols == rows);
-  delete[] data_;
-  data_   = new P[rows * cols]();
-  nrows_  = rows;
-  ncols_  = cols;
-  stride_ = nrows_;
-  return *this;
-}
 
-// device specialization
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, resource, typename>
-fk::matrix<P, mem_type::owner, resource::device> &
-fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
-{
-  assert(ref_count_.use_count() == 1);
+  if constexpr (resrc == resource::host)
+  {
+    delete[] data_;
+    data_ = new P[rows * cols]();
+  }
+  else
+  {
+    delete_device(data_);
+    allocate_device(data_, rows * cols);
+  }
 
-  assert(rows >= 0);
-  assert(cols >= 0);
-  if (rows == 0 || cols == 0)
-    assert(cols == rows);
-  delete_device(data_);
-  allocate_device(data_, rows * cols);
   nrows_  = rows;
   ncols_  = cols;
   stride_ = nrows_;
