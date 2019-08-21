@@ -41,14 +41,11 @@ namespace lib_dispatch
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
-  assert(n);
   assert(x);
-  assert(incx);
   assert(y);
-  assert(incy);
-  assert(*incx >= 0);
-  assert(*incy >= 0);
-  assert(*n >= 0);
+  assert(incx && *incx >= 0);
+  assert(incy && *incy >= 0);
+  assert(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -93,14 +90,11 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 template<typename P>
 P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
-  assert(n);
   assert(x);
-  assert(incx);
   assert(y);
-  assert(incy);
-  assert(*incx >= 0);
-  assert(*incy >= 0);
-  assert(*n >= 0);
+  assert(incx && *incx >= 0);
+  assert(incy && *incy >= 0);
+  assert(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -151,15 +145,12 @@ template<typename P>
 void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
           resource const resrc)
 {
-  assert(n);
   assert(alpha);
   assert(x);
-  assert(incx);
   assert(y);
-  assert(incy);
-  assert(*incx >= 0);
-  assert(*incy >= 0);
-  assert(*n >= 0);
+  assert(incx && *incx >= 0);
+  assert(incy && *incy >= 0);
+  assert(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -206,12 +197,10 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
 template<typename P>
 void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
 {
-  assert(n);
   assert(alpha);
   assert(x);
-  assert(incx);
-  assert(*n >= 0);
-  assert(*incx >= 0);
+  assert(n && *n >= 0);
+  assert(incx && *incx >= 0);
 
   if (resrc == resource::device)
   {
@@ -312,23 +301,17 @@ template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, resource const resrc)
 {
-  assert(trans);
-  assert(m);
-  assert(n);
   assert(alpha);
   assert(A);
-  assert(lda);
   assert(x);
-  assert(incx);
   assert(beta);
   assert(y);
-  assert(incy);
-  assert(*m >= 0);
-  assert(*n >= 0);
-  assert(*lda >= 0);
-  assert(*incx >= 0);
-  assert(*incy >= 0);
-  assert(*trans == 't' || *trans == 'n');
+  assert(m && *m >= 0);
+  assert(n && *n >= 0);
+  assert(lda && *lda >= 0);
+  assert(incx && *incx >= 0);
+  assert(incy && *incy >= 0);
+  assert(trans && (*trans == 't' || *trans == 'n'));
 
   if (resrc == resource::device)
   {
@@ -380,24 +363,19 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
           resource const resrc)
 {
-  assert(transa);
-  assert(transb);
-  assert(m);
-  assert(n);
-  assert(k);
   assert(alpha);
   assert(A);
-  assert(lda);
+  assert(lda && *lda >= 0);
   assert(B);
-  assert(ldb);
+  assert(ldb && *ldb >= 0);
   assert(beta);
   assert(C);
-  assert(ldc);
-  assert(*m >= 0);
-  assert(*n >= 0);
-  assert(*k >= 0);
-  assert(*transa == 't' || *transa == 'n');
-  assert(*transb == 't' || *transb == 'n');
+  assert(ldc && *ldc >= 0);
+  assert(m && *m >= 0);
+  assert(n && *n >= 0);
+  assert(k && *k >= 0);
+  assert(transa && (*transa == 't' || *transa == 'n'));
+  assert(transb && (*transb == 't' || *transb == 'n'));
 
   if (resrc == resource::device)
   {
@@ -447,15 +425,12 @@ template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
            resource const resrc)
 {
-  assert(m);
-  assert(n);
   assert(A);
-  assert(lda);
   assert(ipiv);
   assert(info);
-  assert(*lda >= 0);
-  assert(*m >= 0);
-  assert(*n >= 0);
+  assert(lda && *lda >= 0);
+  assert(m && *m >= 0);
+  assert(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -510,15 +485,13 @@ template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            resource const resrc)
 {
-  assert(n);
   assert(A);
-  assert(lda);
   assert(ipiv);
   assert(work);
   assert(lwork);
   assert(info);
-  assert(*lda >= 0);
-  assert(*n >= 0);
+  assert(lda && *lda >= 0);
+  assert(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -582,25 +555,20 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
                   int *n, int *k, P *alpha, P *beta, int *num_batch,
                   resource const resrc)
 {
-  assert(transa);
-  assert(transb);
-  assert(m);
-  assert(n);
-  assert(k);
   assert(alpha);
   assert(a);
-  assert(lda);
+  assert(lda && *lda >= 0);
   assert(b);
-  assert(ldb);
+  assert(ldb && *ldb >= 0);
   assert(beta);
   assert(c);
-  assert(ldc);
-  assert(*m >= 0);
-  assert(*n >= 0);
-  assert(*k >= 0);
-  assert(*transa == 't' || *transa == 'n');
-  assert(*transb == 't' || *transb == 'n');
-  assert(*num_batch > 0);
+  assert(ldc && *ldc >= 0);
+  assert(m && *m >= 0);
+  assert(n && *n >= 0);
+  assert(k && *k >= 0);
+  assert(transa && (*transa == 't' || *transa == 'n'));
+  assert(transb && (*transb == 't' || *transb == 'n'));
+  assert(num_batch && *num_batch > 0);
 
   if (resrc == resource::device)
   {
@@ -674,20 +642,17 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
                   P **const &y, int *m, int *n, P *alpha, P *beta,
                   int *num_batch, resource const resrc)
 {
-  assert(trans);
-  assert(m);
-  assert(n);
   assert(alpha);
   assert(a);
-  assert(lda);
+  assert(lda && *lda >= 0);
   assert(x);
   assert(beta);
   assert(y);
-  assert(*m >= 0);
-  assert(*n >= 0);
+  assert(m && *m >= 0);
+  assert(n && *n >= 0);
 
-  assert(*trans == 't' || *trans == 'n');
-  assert(*num_batch > 0);
+  assert(trans && (*trans == 't' || *trans == 'n'));
+  assert(num_batch && *num_batch > 0);
 
   if (resrc == resource::device)
   {
