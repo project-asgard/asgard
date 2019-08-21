@@ -128,8 +128,8 @@ P *batch<P>::operator()(int const position) const
 // at the index indicated by position argument
 // cannot overwrite previous assignment
 template<typename P>
-template<resource res>
-void batch<P>::assign_entry(fk::matrix<P, mem_type::view, res> const a,
+template<resource resrc>
+void batch<P>::assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
                             int const position)
 {
   // make sure this matrix is the
@@ -206,11 +206,11 @@ batch<P> &batch<P>::clear_all()
 // execute a batched gemm given a, b, c batch lists
 // and other blas information
 // if we store info in the batch about where it is
-// resident, this could be an abstraction point
+// resrcident, this could be an abstraction point
 // for calling cpu/gpu blas etc.
 template<typename P>
 void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta, resource res)
+                  P const alpha, P const beta, resource resrc)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -254,14 +254,14 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
 
   lib_dispatch::batched_gemm(a.get_list(), &lda, &trans_a, b.get_list(), &ldb,
                              &trans_b, c.get_list(), &ldc, &m, &n, &k, &alpha_,
-                             &beta_, &num_batch, res);
+                             &beta_, &num_batch, resrc);
 }
 
 // execute a batched gemv given a, b, c batch lists
 // and other blas information
 template<typename P>
 void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta, resource res)
+                  P const alpha, P const beta, resource resrc)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -297,7 +297,7 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
 
   lib_dispatch::batched_gemv(a.get_list(), &lda, &transpose_a, b.get_list(),
                              c.get_list(), &m, &n, &alpha_, &beta_, &num_batch,
-                             res);
+                             resrc);
 }
 
 // --- batch allocation code --- /
@@ -445,15 +445,15 @@ void kronmult_to_batch_sets(
   int const degree = pde.get_dimensions()[0].get_degree();
 
   // check vector sizes
-  int const result_size = std::pow(degree, pde.num_dims);
-  assert(x.size() == result_size);
-  assert(y.size() == result_size);
+  int const resrcult_size = std::pow(degree, pde.num_dims);
+  assert(x.size() == resrcult_size);
+  assert(y.size() == resrcult_size);
 
   // check workspace sizes
   assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
   for (fk::vector<P, mem_type::view, resource::device> const &vector : work)
   {
-    assert(vector.size() == result_size);
+    assert(vector.size() == resrcult_size);
   }
 
   // check matrix sizes
@@ -703,18 +703,18 @@ template void batch<double>::assign_entry(
 
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
-                           float const beta, resource res);
+                           float const beta, resource resrc);
 
 template void batched_gemm(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
-                           double const beta, resource res);
+                           double const beta, resource resrc);
 
 template void batched_gemv(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
-                           float const beta, resource res);
+                           float const beta, resource resrc);
 template void batched_gemv(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
-                           double const beta, resource res);
+                           double const beta, resource resrc);
 
 template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);

@@ -39,7 +39,7 @@ auto const ignore = [](auto ignored) { (void)ignored; };
 namespace lib_dispatch
 {
 template<typename P>
-void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
+void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
   assert(n);
   assert(x);
@@ -50,7 +50,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   assert(*incy >= 0);
   assert(*n >= 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -92,7 +92,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const res)
 }
 
 template<typename P>
-P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
+P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
   assert(n);
   assert(x);
@@ -103,7 +103,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
   assert(*incy >= 0);
   assert(*n >= 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -149,7 +149,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const res)
 
 template<typename P>
 void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
-          resource const res)
+          resource const resrc)
 {
   assert(n);
   assert(alpha);
@@ -161,7 +161,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   assert(*incy >= 0);
   assert(*n >= 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -203,7 +203,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
 }
 
 template<typename P>
-void scal(int *n, P *alpha, P *x, int *incx, resource const res)
+void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
 {
   assert(n);
   assert(alpha);
@@ -212,7 +212,7 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const res)
   assert(*n >= 0);
   assert(*incx >= 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -308,7 +308,7 @@ static void basic_gemv(P const *A, bool const trans_A, int const lda,
 
 template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
-          int *incx, P *beta, P *y, int *incy, resource const res)
+          int *incx, P *beta, P *y, int *incy, resource const resrc)
 {
   assert(trans);
   assert(m);
@@ -328,7 +328,7 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   assert(*incy >= 0);
   assert(*trans == 't' || *trans == 'n');
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -375,7 +375,7 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
 template<typename P>
 void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
-          resource const res)
+          resource const resrc)
 {
   assert(transa);
   assert(transb);
@@ -396,7 +396,7 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   assert(*transa == 't' || *transa == 'n');
   assert(*transb == 't' || *transb == 'n');
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -441,7 +441,7 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
 
 template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
-           resource const res)
+           resource const resrc)
 {
   assert(m);
   assert(n);
@@ -453,7 +453,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   assert(*m >= 0);
   assert(*n >= 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -503,7 +503,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
 
 template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
-           resource const res)
+           resource const resrc)
 {
   assert(n);
   assert(A);
@@ -515,7 +515,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   assert(*lda >= 0);
   assert(*n >= 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -573,7 +573,7 @@ template<typename P>
 void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
                   int *ldb, char const *transb, P **const &c, int *ldc, int *m,
                   int *n, int *k, P *alpha, P *beta, int *num_batch,
-                  resource const res)
+                  resource const resrc)
 {
   assert(transa);
   assert(transb);
@@ -595,7 +595,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   assert(*transb == 't' || *transb == 'n');
   assert(*num_batch > 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -658,13 +658,13 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   }
 }
 
-// restricted subset of gemv functionality provided by
+// resrctricted subset of gemv functionality provided by
 // calling batched gemm - no non-unit increments allowed for
 // x or y for now
 template<typename P>
 void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
                   P **const &y, int *m, int *n, P *alpha, P *beta,
-                  int *num_batch, resource const res)
+                  int *num_batch, resource const resrc)
 {
   assert(trans);
   assert(m);
@@ -681,7 +681,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
   assert(*trans == 't' || *trans == 'n');
   assert(*num_batch > 0);
 
-  if (res == resource::device)
+  if (resrc == resource::device)
   { // device execution (fallback to host)
 
 #ifdef ASGARD_USE_CUDA
@@ -758,82 +758,82 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
 }
 
 template void
-copy(int *n, float *x, int *incx, float *y, int *incy, resource const res);
+copy(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
 template void
-copy(int *n, double *x, int *incx, double *y, int *incy, resource const res);
+copy(int *n, double *x, int *incx, double *y, int *incy, resource const resrc);
 template void
-copy(int *n, int *x, int *incx, int *y, int *incy, resource const res);
+copy(int *n, int *x, int *incx, int *y, int *incy, resource const resrc);
 
 template float
-dot(int *n, float *x, int *incx, float *y, int *incy, resource const res);
+dot(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
 template double
-dot(int *n, double *x, int *incx, double *y, int *incy, resource const res);
+dot(int *n, double *x, int *incx, double *y, int *incy, resource const resrc);
 template int
-dot(int *n, int *x, int *incx, int *y, int *incy, resource const res);
+dot(int *n, int *x, int *incx, int *y, int *incy, resource const resrc);
 
 template void axpy(int *n, float *alpha, float *x, int *incx, float *y,
-                   int *incy, resource const res);
+                   int *incy, resource const resrc);
 template void axpy(int *n, double *alpha, double *x, int *incx, double *y,
-                   int *incy, resource const res);
+                   int *incy, resource const resrc);
 template void axpy(int *n, int *alpha, int *x, int *incx, int *y, int *incy,
-                   resource const res);
+                   resource const resrc);
 
 template void
-scal(int *n, float *alpha, float *x, int *incx, resource const res);
+scal(int *n, float *alpha, float *x, int *incx, resource const resrc);
 template void
-scal(int *n, double *alpha, double *x, int *incx, resource const res);
-template void scal(int *n, int *alpha, int *x, int *incx, resource const res);
+scal(int *n, double *alpha, double *x, int *incx, resource const resrc);
+template void scal(int *n, int *alpha, int *x, int *incx, resource const resrc);
 
 template void gemv(char const *trans, int *m, int *n, float *alpha, float *A,
                    int *lda, float *x, int *incx, float *beta, float *y,
-                   int *incy, resource const res);
+                   int *incy, resource const resrc);
 template void gemv(char const *trans, int *m, int *n, double *alpha, double *A,
                    int *lda, double *x, int *incx, double *beta, double *y,
-                   int *incy, resource const res);
+                   int *incy, resource const resrc);
 template void gemv(char const *trans, int *m, int *n, int *alpha, int *A,
                    int *lda, int *x, int *incx, int *beta, int *y, int *incy,
-                   resource const res);
+                   resource const resrc);
 
 template void gemm(char const *transa, char const *transb, int *m, int *n,
                    int *k, float *alpha, float *A, int *lda, float *B, int *ldb,
-                   float *beta, float *C, int *ldc, resource const res);
+                   float *beta, float *C, int *ldc, resource const resrc);
 template void gemm(char const *transa, char const *transb, int *m, int *n,
                    int *k, double *alpha, double *A, int *lda, double *B,
                    int *ldb, double *beta, double *C, int *ldc,
-                   resource const res);
+                   resource const resrc);
 template void gemm(char const *transa, char const *transb, int *m, int *n,
                    int *k, int *alpha, int *A, int *lda, int *B, int *ldb,
-                   int *beta, int *C, int *ldc, resource const res);
+                   int *beta, int *C, int *ldc, resource const resrc);
 
 template void getrf(int *m, int *n, float *A, int *lda, int *ipiv, int *info,
-                    resource const res);
+                    resource const resrc);
 template void getrf(int *m, int *n, double *A, int *lda, int *ipiv, int *info,
-                    resource const res);
+                    resource const resrc);
 
 template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
-                    int *lwork, int *info, resource const res);
+                    int *lwork, int *info, resource const resrc);
 template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
-                    int *lwork, int *info, resource const res);
+                    int *lwork, int *info, resource const resrc);
 
 template void batched_gemm(float **const &a, int *lda, char const *transa,
                            float **const &b, int *ldb, char const *transb,
                            float **const &c, int *ldc, int *m, int *n, int *k,
                            float *alpha, float *beta, int *num_batch,
-                           resource const res);
+                           resource const resrc);
 
 template void batched_gemm(double **const &a, int *lda, char const *transa,
                            double **const &b, int *ldb, char const *transb,
                            double **const &c, int *ldc, int *m, int *n, int *k,
                            double *alpha, double *beta, int *num_batch,
-                           resource const res);
+                           resource const resrc);
 template void batched_gemv(float **const &a, int *lda, char const *transa,
                            float **const &x, float **const &y, int *m, int *n,
                            float *alpha, float *beta, int *num_batch,
-                           resource const res);
+                           resource const resrc);
 
 template void batched_gemv(double **const &a, int *lda, char const *transa,
                            double **const &x, double **const &y, int *m, int *n,
                            double *alpha, double *beta, int *num_batch,
-                           resource const res);
+                           resource const resrc);
 
 } // namespace lib_dispatch

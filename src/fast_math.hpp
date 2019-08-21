@@ -12,46 +12,48 @@ inline int two_raised_to(int exponent)
 }
 
 // axpy - y += a*x
-template<typename P, mem_type mem, mem_type omem, resource res>
-fk::vector<P, mem, res> &axpy(fk::vector<P, omem, res> const &x,
-                              fk::vector<P, mem, res> &y, P const alpha = 1.0)
+template<typename P, mem_type mem, mem_type omem, resource resrc>
+fk::vector<P, mem, resrc> &
+axpy(fk::vector<P, omem, resrc> const &x, fk::vector<P, mem, resrc> &y,
+     P const alpha = 1.0)
 {
   assert(x.size() == y.size());
   int n    = x.size();
   int one  = 1;
   P alpha_ = alpha;
-  lib_dispatch::axpy(&n, &alpha_, x.data(), &one, y.data(), &one, res);
+  lib_dispatch::axpy(&n, &alpha_, x.data(), &one, y.data(), &one, resrc);
   return y;
 }
 
 // copy(x,y) - copy vector x into y
-template<typename P, mem_type mem, mem_type omem, resource res>
-fk::vector<P, mem, res> &
-copy(fk::vector<P, omem, res> const &x, fk::vector<P, mem, res> &y)
+template<typename P, mem_type mem, mem_type omem, resource resrc>
+fk::vector<P, mem, resrc> &
+copy(fk::vector<P, omem, resrc> const &x, fk::vector<P, mem, resrc> &y)
 {
   assert(y.size() >= x.size());
   int n   = x.size();
   int one = 1;
-  lib_dispatch::copy(&n, x.data(), &one, y.data(), &one, res);
+  lib_dispatch::copy(&n, x.data(), &one, y.data(), &one, resrc);
   return y;
 }
 
 // scal - scale a vector
-template<typename P, mem_type mem, resource res>
-fk::vector<P, mem, res> &scal(P const alpha, fk::vector<P, mem, res> &x)
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc> &scal(P const alpha, fk::vector<P, mem, resrc> &x)
 {
   int one  = 1;
   int n    = x.size();
   P alpha_ = alpha;
-  lib_dispatch::scal(&n, &alpha_, x.data(), &one, res);
+  lib_dispatch::scal(&n, &alpha_, x.data(), &one, resrc);
   return x;
 }
 
 // gemv - matrix vector multiplication
-template<typename P, mem_type amem, mem_type xmem, mem_type ymem, resource res>
-fk::vector<P, ymem, res> &
-gemv(fk::matrix<P, amem, res> const &A, fk::vector<P, xmem, res> const &x,
-     fk::vector<P, ymem, res> &y, bool const trans_A = false,
+template<typename P, mem_type amem, mem_type xmem, mem_type ymem,
+         resource resrc>
+fk::vector<P, ymem, resrc> &
+gemv(fk::matrix<P, amem, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
+     fk::vector<P, ymem, resrc> &y, bool const trans_A = false,
      P const alpha = 1.0, P const beta = 0.0)
 {
   int const rows_A = trans_A ? A.ncols() : A.nrows();
@@ -69,16 +71,17 @@ gemv(fk::matrix<P, amem, res> const &A, fk::vector<P, xmem, res> const &x,
   int n             = A.ncols();
 
   lib_dispatch::gemv(&transa, &m, &n, &alpha_, A.data(), &lda, x.data(), &one,
-                     &beta_, y.data(), &one, res);
+                     &beta_, y.data(), &one, resrc);
 
   return y;
 }
 
 // gemm - matrix matrix multiplication
-template<typename P, mem_type amem, mem_type bmem, mem_type cmem, resource res>
-fk::matrix<P, cmem, res> &
-gemm(fk::matrix<P, amem, res> const &A, fk::matrix<P, bmem, res> const &B,
-     fk::matrix<P, cmem, res> &C, bool const trans_A = false,
+template<typename P, mem_type amem, mem_type bmem, mem_type cmem,
+         resource resrc>
+fk::matrix<P, cmem, resrc> &
+gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
+     fk::matrix<P, cmem, resrc> &C, bool const trans_A = false,
      bool const trans_B = false, P const alpha = 1.0, P const beta = 0.0)
 {
   int const rows_A = trans_A ? A.ncols() : A.nrows();
@@ -103,7 +106,7 @@ gemm(fk::matrix<P, amem, res> const &A, fk::matrix<P, bmem, res> const &B,
   int k             = rows_B;
 
   lib_dispatch::gemm(&transa, &transb, &m, &n, &k, &alpha_, A.data(), &lda,
-                     B.data(), &ldb, &beta_, C.data(), &ldc, res);
+                     B.data(), &ldb, &beta_, C.data(), &ldc, resrc);
 
   return C;
 }
