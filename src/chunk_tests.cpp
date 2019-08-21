@@ -550,11 +550,11 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
-    fk::vector<double> builder(rank_space.batch_output);
+    fk::vector<double> batch_out_h(rank_space.batch_output);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
-    std::generate(builder.begin(), builder.end(), gen);
-    rank_space.batch_output = builder;
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output = batch_out_h;
 
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
@@ -591,11 +591,11 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
 
-    fk::vector<double> builder(rank_space.batch_output);
+    fk::vector<double> batch_out_h(rank_space.batch_output);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
-    std::generate(builder.begin(), builder.end(), gen);
-    rank_space.batch_output = builder;
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output = batch_out_h;
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -631,11 +631,11 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
 
-    fk::vector<double> builder(rank_space.batch_output);
+    fk::vector<double> batch_out_h(rank_space.batch_output);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
-    std::generate(builder.begin(), builder.end(), gen);
-    rank_space.batch_output = builder;
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output = batch_out_h;
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -727,11 +727,11 @@ TEST_CASE("chunk reduction function", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-3.0, 3.0);
-    fk::vector<double> builder(rank_space.reduction_space);
+    fk::vector<double> reduction_h(rank_space.reduction_space);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
-    std::generate(builder.begin(), builder.end(), gen);
-    rank_space.reduction_space = builder;
+    std::generate(reduction_h.begin(), reduction_h.end(), gen);
+    rank_space.reduction_space = reduction_h;
 
     for (auto const &chunk : chunks)
     {
@@ -764,11 +764,11 @@ TEST_CASE("chunk reduction function", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-3.0, 3.0);
-    fk::vector<double> builder(rank_space.reduction_space);
+    fk::vector<double> reduction_h(rank_space.reduction_space);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
-    std::generate(builder.begin(), builder.end(), gen);
-    rank_space.reduction_space = builder;
+    std::generate(reduction_h.begin(), reduction_h.end(), gen);
+    rank_space.reduction_space = reduction_h;
 
     for (auto const &chunk : chunks)
     {
@@ -801,11 +801,11 @@ TEST_CASE("chunk reduction function", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-3.0, 3.0);
-    fk::vector<double> builder(rank_space.reduction_space);
+    fk::vector<double> reduction_h(rank_space.reduction_space);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
 
-    std::generate(builder.begin(), builder.end(), gen);
-    rank_space.reduction_space = builder;
+    std::generate(reduction_h.begin(), reduction_h.end(), gen);
+    rank_space.reduction_space = reduction_h;
 
     for (auto const &chunk : chunks)
     {
