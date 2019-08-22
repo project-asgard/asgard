@@ -16,7 +16,8 @@
 
 template<typename P>
 std::enable_if_t<std::is_floating_point<P>::value, std::array<fk::matrix<P>, 2>>
-legendre(fk::vector<P> const domain, int const degree)
+legendre(fk::vector<P> const domain, int const degree,
+         legendre_normalization const normalization)
 {
   assert(degree >= 0);
   assert(domain.size() > 0);
@@ -86,8 +87,22 @@ legendre(fk::vector<P> const domain, int const degree)
   // "normalizing"
   for (int i = 0; i < degree; ++i)
   {
-    P const norm_2 = static_cast<P>(2.0) / (2.0 * i + 1.0);
-    P const dscale = static_cast<P>(1.0) / std::sqrt(norm_2);
+    P dscale = -1;
+    if (normalization == legendre_normalization::unnormalized)
+    {
+      dscale = static_cast<P>(1.0);
+    }
+    else if (normalization == legendre_normalization::lin)
+    {
+      P norm_2 = static_cast<P>(2.0) / (2.0 * i + 1.0);
+      dscale   = static_cast<P>(1.0) / std::sqrt(norm_2);
+    }
+    else if (normalization == legendre_normalization::matlab)
+    {
+      dscale = static_cast<P>(1.0) / std::sqrt(2.0);
+    }
+
+    assert(dscale > 0);
 
     fk::vector<P> const legendre_sub =
         legendre.extract_submatrix(0, i, domain.size(), 1);
@@ -335,9 +350,11 @@ legendre_weights(const int polynomial_degree, const int interval_start,
 
 // explicit instatiations
 template std::array<fk::matrix<float>, 2>
-legendre(fk::vector<float> const domain, int const degree);
+legendre(fk::vector<float> const domain, int const degree,
+         legendre_normalization const norm);
 template std::array<fk::matrix<double>, 2>
-legendre(fk::vector<double> const domain, int const degree);
+legendre(fk::vector<double> const domain, int const degree,
+         legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
 legendre_weights(const int n, const int a, const int b);
