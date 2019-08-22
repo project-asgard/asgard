@@ -68,6 +68,7 @@ set (components
   chunk
   lib_dispatch
   matlab_utilities
+  mpi_endpoints
   pde
   permutations
   program_options
