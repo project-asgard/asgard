@@ -68,15 +68,40 @@ struct element_subgrid
   int const col_stop;
 };
 
-// helper function
-inline int get_local_rank()
+struct node_out
 {
-  MPI_Comm local_comm;
-  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                      &local_comm);
-  int local_rank;
-  MPI_Comm_rank(local_comm, &local_rank);
-  return local_rank;
+  template<class T>
+  node_out &operator<<(T val)
+  {
+    if (!get_local_rank())
+      std::cout << val;
+    return *this;
+  }
+  // helper function
+  int get_local_rank()
+  {
+    static int const rank = []() {
+#ifdef ASGARD_USE_MPI
+      MPI_Comm local_comm;
+      MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+                          MPI_INFO_NULL, &local_comm);
+      int local_rank;
+      MPI_Comm_rank(local_comm, &local_rank);
+      return local_rank;
+#endif
+      return 0;
+    }();
+    return rank;
+  }
+};
+
+inline void print(std::string const &to_print, int const my_rank,
+                  bool const master_only = true)
+{
+  if (my_rank == 0 || !master_only)
+  {
+    std::cout << to_print;
+  }
 }
 
 // given a rank, determine element subgrid
