@@ -1,5 +1,6 @@
 #pragma once
 #include "element_table.hpp"
+#include "mpi.h"
 #include <map>
 
 struct element_subgrid
@@ -66,6 +67,17 @@ struct element_subgrid
   int const col_start;
   int const col_stop;
 };
+
+// helper function
+inline int get_local_rank()
+{
+  MPI_Comm local_comm;
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &local_comm);
+  int local_rank;
+  MPI_Comm_rank(local_comm, &local_rank);
+  return local_rank;
+}
 
 // given a rank, determine element subgrid
 element_subgrid
