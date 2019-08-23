@@ -310,7 +310,7 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
     // --------------------------------------------------------------- //
     auto const insert = [&chunk_map, &grid](int const key, int const col) {
       chunk_map.try_emplace(grid.to_global_row(key), std::vector<int>());
-      chunk_map[key].push_back(grid.to_global_col(col));
+      chunk_map[grid.to_global_row(key)].push_back(grid.to_global_col(col));
     };
     int64_t const elems_this_chunk =
         i < still_left_over ? elems_per_chunk + 1 : elems_per_chunk;
