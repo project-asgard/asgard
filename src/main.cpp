@@ -3,6 +3,7 @@
 #include "chunk.hpp"
 #include "coefficients.hpp"
 #include "connectivity.hpp"
+#include "distribution.hpp"
 #include "element_table.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
@@ -25,8 +26,9 @@ using prec = double;
 int main(int argc, char **argv)
 {
 #ifdef ASGARD_USE_MPI
-  auto const status = MPI_Init(&argc, &argv);
-  assert(status == 0);
+  auto const init_status = MPI_Init(&argc, &argv);
+  assert(init_status == 0);
+
 #endif
 
   std::cout << "Branch: " << GIT_BRANCH << '\n';
@@ -265,7 +267,8 @@ int main(int argc, char **argv)
   std::cout << "--- simulation complete ---" << '\n';
 
 #ifdef ASGARD_USE_MPI
-  MPI_Finalize();
+  auto const final_status = MPI_Finalize();
+  assert(final_status == 0);
 #endif
 
   return 0;
