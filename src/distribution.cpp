@@ -1,5 +1,6 @@
 #include "distribution.hpp"
 #include <cmath>
+#include <mpi.h>
 #include <numeric>
 
 // determine the side lengths that will give us the "squarest" rectangles

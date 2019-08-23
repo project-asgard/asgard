@@ -1,5 +1,6 @@
 #include "batch.hpp"
 #include "build_info.hpp"
+#include "chunk.hpp"
 #include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "element_table.hpp"
@@ -8,7 +9,10 @@
 #include "io.hpp"
 #endif
 
-#include "chunk.hpp"
+#ifdef ASGARD_USE_MPI
+#include <mpi.h>
+#endif
+
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -20,6 +24,11 @@
 using prec = double;
 int main(int argc, char **argv)
 {
+#ifdef ASGARD_USE_MPI
+  auto const status = MPI_Init(&argc, &argv);
+  assert(status == 0);
+#endif
+
   std::cout << "Branch: " << GIT_BRANCH << '\n';
   std::cout << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
             << '\n';
@@ -227,5 +236,10 @@ int main(int argc, char **argv)
   }
 
   std::cout << "--- simulation complete ---" << '\n';
+
+#ifdef ASGARD_USE_MPI
+  MPI_Finalize();
+#endif
+
   return 0;
 }
