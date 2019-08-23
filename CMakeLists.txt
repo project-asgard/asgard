@@ -30,6 +30,7 @@ option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executabl
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
+option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -66,6 +67,13 @@ if(ASGARD_USE_CUDA)
   add_compile_definitions(ASGARD_USE_CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
+
+if(ASGARD_USE_MPI)
+  find_package(MPI REQUIRED)
+  add_compile_definitions(ASGARD_USE_MPI)
+  include_directories(${MPI_INCLUDE_PATH})
+endif()
+
 ###############################################################################
 ## Building asgard
 #
@@ -129,7 +137,7 @@ target_link_libraries (connectivity
 
 target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
 
-target_link_libraries(distribution PRIVATE element_table)
+target_link_libraries(distribution PRIVATE element_table ${MPI_LIBRARIES})
 
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
