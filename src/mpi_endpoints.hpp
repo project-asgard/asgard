@@ -1,3 +1,14 @@
+/*
+
+Proposed changes to go here:
+
+1. Rename circular_selector to row_round_robin_wheel
+2. Turn clang-format "on" in all instances
+3. Comment the gen_row_space() function
+4. Get rid of move semantics 
+5. Flatten out any classes you can
+
+*/
 #include <vector>
 
 /* a communication is characterized by two endpoints */
