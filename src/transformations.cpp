@@ -216,22 +216,27 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
 // same as above, but only create the portion of the vector associated
 // with the provided subgrid
 template<typename P>
-fk::vector<P> combine_dimensions(int const degree, element_table const &table,
-                                 element_subgrid const &grid,
-                                 std::vector<fk::vector<P>> const &vectors,
-                                 P const time_scale)
+fk::vector<P>
+combine_dimensions(int const degree, element_table const &table,
+                   int const start_element, int const stop_element,
+                   std::vector<fk::vector<P>> const &vectors,
+                   P const time_scale)
 {
   int const num_dims = vectors.size();
   assert(num_dims > 0);
+  assert(start_element >= 0);
+  assert(stop_element >= start_element);
+  assert(stop_element < table.size());
 
-  int64_t const vector_size = grid.nrows() * std::pow(degree, num_dims);
+  int64_t const vector_size =
+      (stop_element - start_element + 1) * std::pow(degree, num_dims);
 
   // FIXME here we want to catch the 64-bit solution vector problem
   // and halt execution if we spill over. there is an open issue for this
   assert(vector_size < INT_MAX);
   fk::vector<P> combined(vector_size);
 
-  for (int i = grid.row_start; i <= grid.row_stop; ++i)
+  for (int i = start_element; i <= stop_element; ++i)
   {
     std::vector<fk::vector<P>> kron_list;
     fk::vector<int> coords = table.get_coords(i);
@@ -246,7 +251,7 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
     }
     fk::vector<P> const partial_result =
         kron_d(kron_list, kron_list.size()) * time_scale;
-    combined.set_subvector(grid.to_local_row(i) * std::pow(degree, num_dims),
+    combined.set_subvector((i - start_element) * std::pow(degree, num_dims),
                            partial_result);
   }
   return combined;
@@ -283,8 +288,8 @@ combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 
 template fk::vector<double>
-combine_dimensions(int const, element_table const &, element_subgrid const &,
+combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
 template fk::vector<float>
-combine_dimensions(int const, element_table const &, element_subgrid const &,
+combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
