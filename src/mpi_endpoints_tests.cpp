@@ -54,7 +54,7 @@ std::vector<int> reverse_offset(std::vector<int> &c_stop)
    in r_stop. Ensures that the r_stop continuously represents the entire range
  */
 // clang-format off
-bool check_row_space_intervals( const std::vector< std::vector< class node_and_range > >
+bool check_row_space_intervals( const std::vector< std::vector< class mpi_node_and_range > >
                                 &row_space_intervals,
                                 const std::vector< int > &c_stop,
                                 const std::vector< int > &r_stop )
@@ -71,7 +71,7 @@ bool check_row_space_intervals( const std::vector< std::vector< class node_and_r
     c_end = c_stop[i];
 
     /* first iteration unrolled */
-    const class node_and_range &nar = row_space_intervals[i][0];
+    const class mpi_node_and_range &nar = row_space_intervals[i][0];
 
     int prev_start = nar.start + r_start;
 
@@ -85,7 +85,7 @@ bool check_row_space_intervals( const std::vector< std::vector< class node_and_r
     /* remaining iterations */
     for (int j = 1; j < (int)row_space_intervals[i].size(); j++)
     {
-      const class node_and_range &nar = row_space_intervals[i][j];
+      const class mpi_node_and_range &nar = row_space_intervals[i][j];
 
       r_start = r_stop[nar.linear_index - 1] + 1;
 
@@ -109,7 +109,7 @@ bool check_row_space_intervals( const std::vector< std::vector< class node_and_r
 
 /* return a slice that corresponds to the range specified in nar */
 // clang-format off
-std::vector< int > cut_a_slice( const class node_and_range &nar,
+std::vector< int > cut_a_slice( const class mpi_node_and_range &nar,
                                 const std::vector< int > &c_stop,
                                 const std::vector< int > &r_stop,
                                 const std::vector< int > &x )
@@ -209,11 +209,11 @@ bool check_slices(const class mpi_node_endpoints &mpi_node_endpoints)
   {
     for (int c = 0; c < (int)c_stop.size(); c++)
     {
-      const class process_node &process_node =
-          mpi_node_endpoints.get_process_node(r, c);
+      const class mpi_node_endpoint &mpi_node_endpoint =
+          mpi_node_endpoints.get_mpi_node_endpoint(r, c);
 
-      const std::vector<class comm_packet_endpoint> &endpoint =
-          process_node.endpoints_in_order();
+      const std::vector<class mpi_packet_endpoint> &endpoint =
+          mpi_node_endpoint.endpoints_in_order();
 
       std::vector<int> derived_slice;
 
@@ -253,15 +253,15 @@ bool check_packet_endpoints(const class mpi_node_endpoints &mpi_node_endpoints)
   {
     for (int c = 0; c < mpi_node_endpoints.n_tile_cols(); c++)
     {
-      const class process_node &process_node =
-          mpi_node_endpoints.get_process_node(r, c);
+      const class mpi_node_endpoint &mpi_node_endpoint =
+          mpi_node_endpoints.get_mpi_node_endpoint(r, c);
 
-      const std::vector<class comm_packet_endpoint> &endpoint =
-          process_node.endpoints_in_order();
+      const std::vector<class mpi_packet_endpoint> &endpoint =
+          mpi_node_endpoint.endpoints_in_order();
 
       for (int i = 0; i < (int)endpoint.size(); i++)
       {
-        const class node_and_range &nar = endpoint[i].nar;
+        const class mpi_node_and_range &nar = endpoint[i].nar;
 
         if (endpoint[i].endpoint_type == endpoint_enum::send)
         {
@@ -322,7 +322,7 @@ TEST_CASE("mpi_endpoints", "[mpi]")
 
   SECTION("rowspace_intervals")
   {
-    const std::vector<std::vector<class node_and_range>> row_space_intervals =
+    const std::vector<std::vector<class mpi_node_and_range>> row_space_intervals =
         mpi_node_endpoints.gen_row_space_intervals();
 
     // clang-format off

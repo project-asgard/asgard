@@ -8,10 +8,10 @@ enum class endpoint_enum
 };
 
 /* utility class for round robin selection */
-class wheel
+class circular_selector
 {
 public:
-  wheel(int size);
+  circular_selector(int size);
 
   int spin();
 
@@ -23,10 +23,10 @@ private:
 
 /* used to describe a range of elements and a node from which to obtain the
  * range */
-class node_and_range
+class mpi_node_and_range
 {
 public:
-  node_and_range(int linear_index, int start, int stop);
+  mpi_node_and_range(int linear_index, int start, int stop);
 
   const int linear_index;
 
@@ -36,38 +36,38 @@ public:
 };
 
 /* an mpi communication endpoint can either be a send or a receive. */
-class comm_packet_endpoint
+class mpi_packet_endpoint
 {
 public:
   // clang-format off
-    comm_packet_endpoint( endpoint_enum endpoint_type,
-                          class node_and_range &&nar );
+    mpi_packet_endpoint( endpoint_enum endpoint_type,
+                          class mpi_node_and_range &&nar );
   // clang-format on
 
   const endpoint_enum endpoint_type;
 
-  const class node_and_range nar;
+  const class mpi_node_and_range nar;
 };
 
 /* contains all communication endpoints for a process in an ordered list. If
    sends and receives are called in the order they appear, the communication is
    guaranteed not to deadlock */
-class process_node
+class mpi_node_endpoint
 {
   /* functions */
 public:
-  process_node() { return; };
+  mpi_node_endpoint() { return; };
 
-  void add_endpoint(class comm_packet_endpoint &&item);
+  void add_endpoint(class mpi_packet_endpoint &&item);
 
-  const std::vector<class comm_packet_endpoint> &endpoints_in_order() const
+  const std::vector<class mpi_packet_endpoint> &endpoints_in_order() const
   {
     return endpoint;
   };
 
   /* variables */
 private:
-  std::vector<class comm_packet_endpoint> endpoint;
+  std::vector<class mpi_packet_endpoint> endpoint;
 };
 
 /* partitions a matrix and assigns a process to each tile */
@@ -88,14 +88,14 @@ public:
   mpi_node_endpoints(const std::vector<int> &&r_stop,
                      const std::vector<int> &&c_stop);
 
-  const class process_node &get_process_node(int linear_index) const
+  const class mpi_node_endpoint &get_mpi_node_endpoint(int linear_index) const
   {
-    return process_node[linear_index];
+    return mpi_node_endpoint[linear_index];
   };
 
-  const class process_node &get_process_node(int row, int col) const
+  const class mpi_node_endpoint &get_mpi_node_endpoint(int row, int col) const
   {
-    return process_node[row * c_stop.size() + col];
+    return mpi_node_endpoint[row * c_stop.size() + col];
   };
 
   const std::vector<int> &get_c_stop() const { return c_stop; };
@@ -106,20 +106,20 @@ public:
 
   int n_tile_cols() const { return c_stop.size(); };
 
-  const std::vector<std::vector<class node_and_range>>
+  const std::vector<std::vector<class mpi_node_and_range>>
   gen_row_space_intervals();
 
   /* functions */
 private:
-  void gen_endpoints(const std::vector<std::vector<class node_and_range>>
+  void gen_endpoints(const std::vector<std::vector<class mpi_node_and_range>>
                          &row_space_intervals);
 
   /* variables */
 private:
   /* each ( process, tile ) pair has a corresponding node */
-  std::vector<class process_node> process_node;
+  std::vector<class mpi_node_endpoint> mpi_node_endpoint;
 
-  std::vector<class wheel> row_wheel;
+  std::vector<class circular_selector> row_circular_selector;
 
   const std::vector<int> r_stop;
 

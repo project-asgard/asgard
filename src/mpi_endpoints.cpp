@@ -1,6 +1,6 @@
 #include "mpi_endpoints.hpp"
 
-wheel::wheel(int size)
+circular_selector::circular_selector(int size)
     // clang-format off
   :
   size( size ),
@@ -10,7 +10,7 @@ wheel::wheel(int size)
   return;
 }
 
-int wheel::spin()
+int circular_selector::spin()
 {
   int n = current_index++;
 
@@ -20,7 +20,7 @@ int wheel::spin()
   return n;
 }
 
-node_and_range::node_and_range(int linear_index, int start, int stop)
+mpi_node_and_range::mpi_node_and_range(int linear_index, int start, int stop)
     // clang-format off
   :
   linear_index( linear_index ),
@@ -32,8 +32,8 @@ node_and_range::node_and_range(int linear_index, int start, int stop)
 }
 
 // clang-format off
-comm_packet_endpoint::comm_packet_endpoint( endpoint_enum endpoint_type,
-                                            class node_and_range &&nar )
+mpi_packet_endpoint::mpi_packet_endpoint( endpoint_enum endpoint_type,
+                                          class mpi_node_and_range &&nar )
   :
   endpoint_type( endpoint_type ),
   nar( nar )
@@ -42,17 +42,17 @@ comm_packet_endpoint::comm_packet_endpoint( endpoint_enum endpoint_type,
   return;
 }
 
-void process_node::add_endpoint(class comm_packet_endpoint &&item)
+void mpi_node_endpoint::add_endpoint(class mpi_packet_endpoint &&item)
 {
   endpoint.push_back(item);
 
   return;
 }
 
-const std::vector<std::vector<class node_and_range>>
+const std::vector<std::vector<class mpi_node_and_range>>
 mpi_node_endpoints::gen_row_space_intervals()
 {
-  std::vector<std::vector<class node_and_range>> v(c_stop.size());
+  std::vector<std::vector<class mpi_node_and_range>> v(c_stop.size());
 
   int r_node = 0;
 
@@ -91,25 +91,25 @@ mpi_node_endpoints::gen_row_space_intervals()
 }
 
 // clang-format off
-void mpi_node_endpoints::gen_endpoints( const std::vector< std::vector< class node_and_range > >
+void mpi_node_endpoints::gen_endpoints( const std::vector< std::vector< class mpi_node_and_range > >
                                         &row_space_intervals )
 // clang-format on
 {
   for (int c = 0; c < (int)row_space_intervals.size(); c++)
   {
-    std::vector<class node_and_range> nar_vec = row_space_intervals[c];
+    std::vector<class mpi_node_and_range> nar_vec = row_space_intervals[c];
 
     /* everything in this vector is needed by nodes: ( row, i )*/
     for (int j = 0; j < (int)nar_vec.size(); j++)
     {
-      class node_and_range &nar = nar_vec[j];
+      class mpi_node_and_range &nar = nar_vec[j];
 
       for (int r = 0; r < (int)r_stop.size(); r++)
       {
         /* construct the receive item */
         int receiving_linear_index = r * c_stop.size() + c;
 
-        class process_node &node = process_node[receiving_linear_index];
+        class mpi_node_endpoint &node = mpi_node_endpoint[receiving_linear_index];
 
         int from_linear_index = receiving_linear_index;
 
@@ -117,24 +117,24 @@ void mpi_node_endpoints::gen_endpoints( const std::vector< std::vector< class no
         {
           /* remember, in this context, nar.linear index refers to a row */
           from_linear_index =
-              nar.linear_index * c_stop.size() + row_wheel[r].spin();
+              nar.linear_index * c_stop.size() + row_circular_selector[r].spin();
         }
 
         /* construct the receive item */
-        class node_and_range n_move_2(from_linear_index, nar.start, nar.stop);
+        class mpi_node_and_range n_move_2(from_linear_index, nar.start, nar.stop);
 
-        class comm_packet_endpoint cpe(endpoint_enum::receive,
+        class mpi_packet_endpoint cpe(endpoint_enum::receive,
                                        std::move(n_move_2));
 
         node.add_endpoint(std::move(cpe));
 
         /* construct the corresponding send item */
-        class process_node &node_0 = process_node[from_linear_index];
+        class mpi_node_endpoint &node_0 = mpi_node_endpoint[from_linear_index];
 
-        class node_and_range n_move_3(receiving_linear_index, nar.start,
+        class mpi_node_and_range n_move_3(receiving_linear_index, nar.start,
                                       nar.stop);
 
-        class comm_packet_endpoint cpe_0(endpoint_enum::send,
+        class mpi_packet_endpoint cpe_0(endpoint_enum::send,
                                          std::move(n_move_3));
 
         node_0.add_endpoint(std::move(cpe_0));
@@ -154,17 +154,17 @@ mpi_node_endpoints::mpi_node_endpoints( const std::vector< int > &&r_stop,
 // clang-format on
 {
   /* total number of subgrids, each owned by a process node */
-  process_node.resize(r_stop.size() * c_stop.size());
+  mpi_node_endpoint.resize(r_stop.size() * c_stop.size());
 
-  /* create row wheel */
-  row_wheel.reserve(r_stop.size());
+  /* create row circular_selector */
+  row_circular_selector.reserve(r_stop.size());
 
   for (int i = 0; i < (int)r_stop.size(); i++)
   {
-    row_wheel.push_back(c_stop.size());
+    row_circular_selector.push_back(c_stop.size());
   }
 
-  const std::vector<std::vector<class node_and_range>> row_space_intervals =
+  const std::vector<std::vector<class mpi_node_and_range>> row_space_intervals =
       gen_row_space_intervals();
 
   /* Captain! */
