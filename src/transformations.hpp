@@ -16,11 +16,11 @@ fk::vector<P>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
-// get only the elements of the combined vector that fall within
-// subgrid range
+// get only the elements of the combined vector that fall within a specified
+// range
 template<typename P>
 fk::vector<P>
-combine_dimensions(int const, element_table const &, element_subgrid const &,
+combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
@@ -124,8 +124,8 @@ extern template fk::vector<float>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<float>> const &, float const);
 extern template fk::vector<double>
-combine_dimensions(int const, element_table const &, element_subgrid const &,
+combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
 extern template fk::vector<float>
-combine_dimensions(int const, element_table const &, element_subgrid const &,
+combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);

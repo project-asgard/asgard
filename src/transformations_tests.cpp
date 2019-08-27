@@ -90,8 +90,9 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
           (grid.row_stop + 1) * static_cast<int>(std::pow(deg, dims)) - 1;
       fk::vector<TestType, mem_type::view> const gold_partial(gold, rank_start,
                                                               rank_stop);
-      REQUIRE(combine_dimensions(deg, t, plan.at(rank), vectors, time) ==
-              gold_partial);
+      REQUIRE(combine_dimensions(deg, t, plan.at(rank).row_start,
+                                 plan.at(rank).row_stop, vectors,
+                                 time) == gold_partial);
     }
   }
 
@@ -142,7 +143,8 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
       fk::vector<TestType, mem_type::view> const gold_partial(gold, rank_start,
                                                               rank_stop);
       fk::vector<TestType> const test_partial =
-          combine_dimensions(deg, t, plan.at(rank), vectors, time);
+          combine_dimensions(deg, t, plan.at(rank).row_start,
+                             plan.at(rank).row_stop, vectors, time);
       REQUIRE(test_partial == gold_partial);
       test.set_subvector(rank_start, test_partial);
     }
@@ -247,7 +249,8 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
       fk::vector<TestType, mem_type::view> const gold_partial(gold, rank_start,
                                                               rank_stop);
       fk::vector<TestType> const test_partial =
-          combine_dimensions(deg, t, plan.at(rank), vectors, time);
+          combine_dimensions(deg, t, plan.at(rank).row_start,
+                             plan.at(rank).row_stop, vectors, time);
       REQUIRE(test_partial == gold_partial);
       test.set_subvector(rank_start, test_partial);
     }
