@@ -209,7 +209,7 @@ private:
   // term R
   //
   // - R d/dz(z(1-z^2) f)
- 
+
   static P g_func_t3_z(P const x, P const time)
   {
     ignore(time);
