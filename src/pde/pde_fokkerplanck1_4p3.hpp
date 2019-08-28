@@ -58,36 +58,6 @@ private:
 
   // analytic solution
 
-  //  sig = 0.1;
-  //
-  //  function ret = phi(z,t)
-  //      ret = z.*exp(-t) ./ sqrt(1-(exp(-2*t)-1).*(z.^2));
-  //  end
-  //  function ret = f0(z)
-  //
-  //      caseNumber = 4;
-  //      shift = 0.36;
-  //
-  //      switch caseNumber
-  //          case 1
-  //              f = exp(-z.^2/sig^2);
-  //          case 2
-  //              f = exp(-(z-shift).^2/sig^2);
-  //          case 3
-  //              f = exp(-(z+shift).^2/sig^2);
-  //          case 4
-  //              f = exp(-(z-shift).^2/sig^2) + exp(-(z+shift).^2/sig^2);
-  //      end
-  //      ret = f;
-  //  end
-  //  function ret = soln(z,t)
-  //      p = phi(z,t);
-  //      t1 = p.*(1-p.^2);
-  //      t2 = z.*(1-z.^2);
-  //      t3 = f0(p);
-  //      ret = t1./t2.*t3;
-  //  end
-
   static P phi(P const z, P const t)
   {
     return z * std::exp(-t) /
@@ -151,20 +121,17 @@ private:
   // g-funcs
   static P g_func_0(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return -1.0;
   }
   static P g_func_1(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(time);
     return -x * (1 - std::pow(x, 2));
   }
   static P g_func_2(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return 1.0;
@@ -186,10 +153,6 @@ private:
   // define terms (1 in this case)
   //
   //  -d/dz ( (1-z^2)*f )
-  //
-  // term2_z.type = 'grad'; % grad (see coeff_matrix.m for available types)
-  // term2_z.G = @(z,p,t,dat) -1.*(1-z.^2); % G function for use in coeff_matrix
-  // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
 
   inline static term<P> const term0_dim0_ =
       term<P>(coefficient_type::grad, // operator type
@@ -206,7 +169,6 @@ private:
   inline static term_set<P> const terms_ = {terms0_};
 
   // define sources
-
   inline static std::vector<source<P>> const sources_ = {};
 
   // define exact soln functions

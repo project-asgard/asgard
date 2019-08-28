@@ -91,13 +91,6 @@ private:
     return f;
   }
 
-  //  function ret = soln(z,t)
-  //      A = E/C;
-  //      B = R/C;
-  //      Q = .03;
-  //      ret = Q * exp(A*z + (B/2)*z.^2);
-  //  end
-
   static fk::vector<P>
   analytic_solution_dim0(fk::vector<P> const z, P const t = 0)
   {
@@ -135,41 +128,6 @@ private:
     return dt;
   }
 
-  // g-funcs
-  static P g_func_0(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
-  static P g_func_t1_z(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(time);
-    return -E * (1 - std::pow(x, 2));
-  }
-  static P g_func_t2_z1(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(time);
-    return 1 - std::pow(x, 2);
-  }
-  static P g_func_t2_z2(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-  static P g_func_t3_z(P const x, P const time)
-  {
-    // suppress compiler warnings
-    // -R * z.*(1-z.^2);
-    ignore(time);
-    return -R * x * (1 - std::pow(x, 2));
-  }
-
   // define dimensions
   inline static dimension<P> const dim0_ =
       dimension<P>(boundary_condition::dirichlet, // left boundary condition
@@ -189,6 +147,12 @@ private:
   //
   // -E d/dz((1-z^2) f)
 
+  static P g_func_t1_z(P const x, P const time)
+  {
+    ignore(time);
+    return -E * (1 - std::pow(x, 2));
+  }
+
   inline static term<P> const termE_z =
       term<P>(coefficient_type::grad, // operator type
               g_func_t1_z,            //
@@ -204,18 +168,24 @@ private:
   // term C
   //
   // +C * d/dz( (1-z^2) df/dz )
-  //
-  // termC_z.type = 'diff';
-  // % eq1 : 1 * d/dx (1-z^2) q
-  // termC_z.G1 = @(z,p,t,dat) 1-z.^2;
-  // termC_z.LF1 = -1; % upwind left
-  // termC_z.BCL1 = 'D';
-  // termC_z.BCR1 = 'D';
-  // % eq2 : q = df/dx
-  // termC_z.G2 = @(z,p,t,dat) z*0+1;
-  // termC_z.LF2 = +1; % upwind right
-  // termC_z.BCL2 = 'N';
-  // termC_z.BCR2 = 'N';
+
+  static P g_func_0(P const x, P const time)
+  {
+    ignore(x);
+    ignore(time);
+    return -1.0;
+  }
+  static P g_func_t2_z1(P const x, P const time)
+  {
+    ignore(time);
+    return 1 - std::pow(x, 2);
+  }
+  static P g_func_t2_z2(P const x, P const time)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
 
   inline static term<P> const termC_z =
       term<P>(coefficient_type::diff, // operator type
@@ -239,10 +209,12 @@ private:
   // term R
   //
   // - R d/dz(z(1-z^2) f)
-  //
-  // termR_z.type = 'grad'; % grad (see coeff_matrix.m for available types)
-  // termR_z.G = @(z,p,t,dat) -R * z.*(1-z.^2); % G function for use in
-  // coeff_matrix construction. termR_z.LF = -1; % Upwind
+ 
+  static P g_func_t3_z(P const x, P const time)
+  {
+    ignore(time);
+    return -R * x * (1 - std::pow(x, 2));
+  }
 
   inline static term<P> const termR_z =
       term<P>(coefficient_type::grad, // operator type
@@ -259,7 +231,6 @@ private:
   inline static term_set<P> const terms_ = {termE, termC, termR};
 
   // define sources
-
   inline static std::vector<source<P>> const sources_ = {};
 
   // define exact soln functions

@@ -86,11 +86,6 @@ private:
     }
   }
 
-  //    function ret = soln(z,t)
-  //        A = E/C;
-  //        ret = A / (2*sinh(A)) * exp(A*z);
-  //    end
-
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
   {
     ignore(t);
@@ -140,26 +135,22 @@ private:
   // g-funcs
   static P g_func_0(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return -1.0;
   }
   static P g_func_t1_z(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(time);
     return -E * (1 - std::pow(x, 2));
   }
   static P g_func_t2_z1(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(time);
     return 1 - std::pow(x, 2);
   }
   static P g_func_t2_z2(P const x, P const time)
   {
-    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return 1.0;
@@ -199,18 +190,6 @@ private:
   // term 2
   //
   // +C * d/dz( (1-z^2) df/dz )
-  //
-  // termC_z.type = 'diff';
-  // % eq1 : 1 * d/dx (1-z^2) q
-  // termC_z.G1 = @(z,p,t,dat) 1-z.^2;
-  // termC_z.LF1 = -1; % upwind left
-  // termC_z.BCL1 = 'D';
-  // termC_z.BCR1 = 'D';
-  // % eq2 : q = df/dx
-  // termC_z.G2 = @(z,p,t,dat) z*0+1;
-  // termC_z.LF2 = +1; % upwind right
-  // termC_z.BCL2 = 'N';
-  // termC_z.BCR2 = 'N';
 
   inline static term<P> const termC_z =
       term<P>(coefficient_type::diff, // operator type
@@ -234,7 +213,6 @@ private:
   inline static term_set<P> const terms_ = {termE, termC};
 
   // define sources
-
   inline static std::vector<source<P>> const sources_ = {};
 
   // define exact soln functions
