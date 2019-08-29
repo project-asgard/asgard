@@ -93,7 +93,19 @@ distribution_plan get_plan(int const num_ranks, element_table const &table);
 fk::vector<int>
 get_reduction_partners(distribution_plan const &plan, int const my_rank);
 
+template<typename P>
+void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
+                    distribution_plan const &plan, int const my_rank);
+
 // FIXME matching bi-directional
 //
 //  -- who is/are my match(es), how much do I need
 //  -- inverse
+//
+
+extern template void
+reduce_results(fk::vector<float> const &source, fk::vector<float> &dest,
+               distribution_plan const &plan, int const my_rank);
+extern template void
+reduce_results(fk::vector<double> const &source, fk::vector<double> &dest,
+               distribution_plan const &plan, int const my_rank);
