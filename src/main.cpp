@@ -237,10 +237,7 @@ int main(int argc, char **argv)
 
   node_out() << "--- simulation complete ---" << '\n';
 
-#ifdef ASGARD_USE_MPI
-  auto const final_status = MPI_Finalize();
-  assert(final_status == 0);
-#endif
+  finalize_distribution();
 
   return 0;
 }

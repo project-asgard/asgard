@@ -18,9 +18,31 @@ struct device_handler
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
     assert(success == 0);
   }
+
+  void set_device(int const local_rank)
+  {
+    int num_devices;
+    auto success = cudaGetDeviceCount(&num_devices);
+    assert(success == 0);
+    assert(local_rank >= 0);
+    assert(local_rank < num_devices);
+
+    auto cublas_success = cublasDestroy(handle);
+    assert(cublas_success == 0);
+    success = cudaSetDevice(local_rank);
+    assert(success == 0);
+    cublas_success = cublasCreate(&handle);
+    assert(cublas_success == 0);
+  }
   ~device_handler() { cublasDestroy(handle); }
 };
 static device_handler device;
+
+void initialize_libraries(int const local_rank)
+{
+  assert(local_rank >= 0);
+  device.set_device(local_rank);
+}
 
 inline cublasOperation_t cublas_trans(char trans)
 {

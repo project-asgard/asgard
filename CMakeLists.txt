@@ -136,7 +136,7 @@ target_link_libraries (connectivity
 
 target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
 
-target_link_libraries(distribution PRIVATE element_table)
+target_link_libraries(distribution PRIVATE element_table lib_dispatch)
 if (ASGARD_USE_MPI)	
   target_link_libraries(distribution PRIVATE MPI::MPI_CXX)
 endif ()
