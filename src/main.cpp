@@ -25,10 +25,8 @@
 using prec = double;
 int main(int argc, char **argv)
 {
-#ifdef ASGARD_USE_MPI
-  auto const init_status = MPI_Init(&argc, &argv);
-  assert(init_status == 0);
-#endif
+  // -- set up distribution
+  auto const [my_rank, num_ranks] = initialize_distribution();
 
   node_out() << "Branch: " << GIT_BRANCH << '\n';
   node_out() << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
@@ -126,7 +124,7 @@ int main(int argc, char **argv)
   node_out() << "  generating: analytic solution at t=0 ..." << '\n';
   fk::vector<prec> const analytic_solution = [&pde, &table, degree]() {
     std::vector<fk::vector<prec>> analytic_solutions_D;
-    for (int d = 0; d < pde->num_dims; d++)
+    for (int d = 0; d < pde->num_dims; ++d)
     {
       analytic_solutions_D.push_back(forward_transform<prec>(
           pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
@@ -146,12 +144,7 @@ int main(int argc, char **argv)
 
   node_out() << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
-  auto const get_MB = [&](int num_elems) {
-    uint64_t const bytes   = num_elems * sizeof(prec);
-    double const megabytes = bytes * 1e-6;
-    return megabytes;
-  };
-
+  // FIXME these comments need update
   // Our default workspace size is ~1GB.
 
   // This 1GB doesn't include coefficient matrices, element table,
@@ -161,13 +154,17 @@ int main(int argc, char **argv)
   // FIXME eventually going to be settable from the cmake
   static int const default_workspace_MB = 7000;
 
-  // FIXME stand-in
-  static int const ranks = 1;
-
+  auto const plan = get_plan(num_ranks, table);
   host_workspace<prec> host_space(*pde, table);
   std::vector<element_chunk> const chunks = assign_elements(
-      table, get_num_chunks(table, *pde, ranks, default_workspace_MB));
+      table, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
   rank_workspace<prec> rank_space(*pde, chunks);
+
+  auto const get_MB = [&](int num_elems) {
+    uint64_t const bytes   = num_elems * sizeof(prec);
+    double const megabytes = bytes * 1e-6;
+    return megabytes;
+  };
 
   node_out() << "allocating workspace..." << '\n';
 

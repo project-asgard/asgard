@@ -104,6 +104,9 @@ inline void print(std::string const &to_print, int const my_rank,
   }
 }
 
+std::array<int, 2> initialize_distribution();
+void finalize_distribution();
+
 // given a rank, determine element subgrid
 element_subgrid
 get_subgrid(int const num_ranks, int const my_rank, element_table const &table);
