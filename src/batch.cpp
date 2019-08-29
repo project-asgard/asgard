@@ -703,7 +703,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         {
           operator_views.push_back(
               fk::matrix<P, mem_type::view, resource::device>(
-                  pde.get_coefficients(k, d), operator_row(d),
+                  workspace.get_coefficients(k, d), operator_row(d),
                   operator_row(d) + degree - 1, operator_col(d),
                   operator_col(d) + degree - 1));
         }
