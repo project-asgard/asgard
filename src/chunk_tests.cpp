@@ -3,40 +3,6 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
-// check for complete, non-overlapping element assignment (whole table)
-auto const validity_check = [](std::vector<element_chunk> const &chunks,
-                               element_table const &table) {
-  enum element_status
-  {
-    unassigned,
-    assigned
-  };
-
-  fk::matrix<element_status> coverage(table.size(), table.size());
-
-  // non-overlapping check
-  for (element_chunk const &chunk : chunks)
-  {
-    for (const auto &[row, cols] : chunk)
-    {
-      for (int col = cols.start; col <= cols.stop; ++col)
-      {
-        REQUIRE(coverage(row, col) == element_status::unassigned);
-        coverage(row, col) = element_status::assigned;
-      }
-    }
-  }
-
-  // complete check
-  for (int i = 0; i < coverage.nrows(); ++i)
-  {
-    for (int j = 0; j < coverage.ncols(); ++j)
-    {
-      REQUIRE(coverage(i, j) == element_status::assigned);
-    }
-  }
-};
-
 // check for complete, non-overlapping element assignment (subgrid)
 auto const validity_check_sub = [](std::vector<element_chunk> const &chunks,
                                    element_subgrid const &grid) {
@@ -161,30 +127,7 @@ TEST_CASE("chunk convenience functions", "[chunk]")
 
 TEST_CASE("element chunk, continuity 2", "[chunk]")
 {
-  SECTION("1 rank, deg 5, level 6, 1-1000 MB")
-  {
-    int const degree = 5;
-    int const level  = 6;
-    int const ranks  = 1;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    bool const large_problem = false;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("1 rank, deg 5, level 6, 1-1000 MB (subgrid)")
+  SECTION("1 rank, deg 5, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 5;
     int const level  = 6;
@@ -197,7 +140,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(plan.at(0), *pde, limit_MB);
       auto const chunks    = assign_elements(table, num_chunks);
@@ -207,30 +150,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
     }
   }
 
-  SECTION("2 ranks, deg 5, level 6, 1-1000 MB")
-  {
-    int const degree = 5;
-    int const level  = 6;
-    int const ranks  = 2;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    bool const large_problem = false;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("2 ranks, deg 5, level 6, 1-1000 MB (subgrid)")
+  SECTION("2 ranks, deg 5, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 5;
     int const level  = 6;
@@ -243,7 +163,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -260,31 +180,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
 
 TEST_CASE("element chunk, continuity 3", "[chunk]")
 {
-  SECTION("1 rank, deg 5, level 6, 1-1000 MB")
-  {
-    int const degree = 5;
-    int const level  = 6;
-    int const ranks  = 1;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("1 rank, deg 5, level 6, 1-1000 MB (subgrid)")
+  SECTION("1 rank, deg 5, level 6, 100-10000 MB (subgrid)")
   {
     int const degree = 5;
     int const level  = 6;
@@ -298,7 +194,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -312,30 +208,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     }
   }
 
-  SECTION("2 ranks, deg 5, level 6, 1-1000 MB")
-  {
-    int const degree = 5;
-    int const level  = 6;
-    int const ranks  = 2;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("2 ranks, deg 5, level 6, 1-1000 MB (subgrid)")
+  SECTION("2 ranks, deg 5, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 5;
     int const level  = 6;
@@ -348,7 +221,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -362,30 +235,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     }
   }
 
-  SECTION("3 ranks, deg 5, level 6, 1-1000 MB")
-  {
-    int const degree = 5;
-    int const level  = 6;
-    int const ranks  = 3;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("3 ranks, deg 5, level 6, 1-1000 MB (subgrid)")
+  SECTION("3 ranks, deg 5, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 5;
     int const level  = 6;
@@ -398,7 +248,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -412,32 +262,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     }
   }
 
-  SECTION("1 rank, deg 4, level 6, 1-1000 MB")
-  {
-    int const degree = 4;
-    int const level  = 6;
-    int const ranks  = 1;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("1 rank, deg 4, level 6, 1-1000 MB (subgrid)")
+  SECTION("1 rank, deg 4, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 4;
     int const level  = 6;
@@ -451,7 +276,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -465,30 +290,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     }
   }
 
-  SECTION("2 ranks, deg 4, level 6, 1-1000 MB")
-  {
-    int const degree = 4;
-    int const level  = 6;
-    int const ranks  = 2;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("2 ranks, deg 4, level 6, 1-1000 MB (subgrid)")
+  SECTION("2 ranks, deg 4, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 4;
     int const level  = 6;
@@ -501,7 +303,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -515,30 +317,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     }
   }
 
-  SECTION("3 ranks, deg 4, level 6, 1-1000 MB")
-  {
-    int const degree = 4;
-    int const level  = 6;
-    int const ranks  = 3;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("3 ranks, deg 4, level 6, 1-1000 MB (subgrid)")
+  SECTION("3 ranks, deg 4, level 6, 10-1000 MB (subgrid)")
   {
     int const degree = 4;
     int const level  = 6;
@@ -551,7 +330,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -568,31 +347,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
 
 TEST_CASE("element chunk, continuity 6", "[chunk]")
 {
-  SECTION("1 rank, deg 3, level 4, 10-10000 MB")
-  {
-    int const degree = 3;
-    int const level  = 4;
-    int const ranks  = 1;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-
-    for (int limit_MB = 1; limit_MB <= 10000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("1 rank, deg 3, level 4, 10-10000 MB (subgrid)")
+  SECTION("1 rank, deg 3, level 4, 100-10000 MB (subgrid)")
   {
     int const degree = 3;
     int const level  = 4;
@@ -606,7 +361,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
+    for (int limit_MB = 100; limit_MB <= 10000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -620,31 +375,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     }
   }
 
-  SECTION("2 ranks, deg 3, level 4, 10-10000 MB")
-  {
-    int const degree = 3;
-    int const level  = 4;
-    int const ranks  = 2;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-
-    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("2 ranks, deg 3, level 4, 10-10000 MB (subgrid)")
+  SECTION("2 ranks, deg 3, level 4, 100-10000 MB (subgrid)")
   {
     int const degree = 3;
     int const level  = 4;
@@ -658,7 +389,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
+    for (int limit_MB = 100; limit_MB <= 10000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {
@@ -672,31 +403,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     }
   }
 
-  SECTION("11 ranks, deg 4, level 4, 10-10000 MB")
-  {
-    int const degree = 4;
-    int const level  = 4;
-    int const ranks  = 11;
-
-    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-
-    bool const large_problem = true;
-    options const o          = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
-
-    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
-    {
-      int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
-      assert(chunks.size() % ranks == 0);
-      assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
-      size_check(chunks, *pde, limit_MB, large_problem);
-    }
-  }
-
-  SECTION("11 ranks, deg 4, level 4, 10-10000 MB (subgrid)")
+  SECTION("11 ranks, deg 4, level 4, 100-10000 MB (subgrid)")
   {
     int const degree = 4;
     int const level  = 4;
@@ -710,7 +417,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     element_table const table(o, pde->num_dims);
     auto const plan = get_plan(ranks, table);
 
-    for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
+    for (int limit_MB = 100; limit_MB <= 10000; limit_MB *= 10)
     {
       for (auto const &[rank, grid] : plan)
       {

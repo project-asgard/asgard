@@ -207,6 +207,7 @@ int main(int argc, char **argv)
                             rank_space, chunks, time, dt);
     }
 
+    // FIXME this needs to be wrapped and serialized
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {

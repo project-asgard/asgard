@@ -79,6 +79,19 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   batch_intermediate.resize(reduction_space.size() * num_workspaces);
 
+  // transfer coefficient matrices to device
+  for (int i = 0; i < pde.num_terms; ++i)
+  {
+    std::vector<fk::matrix<P, mem_type::owner, resource::device>>
+        term_coefficients;
+    for (int j = 0; j < pde.num_dims; ++j)
+    {
+      term_coefficients.emplace_back(pde.get_coefficients(i, j));
+    }
+    coefficients_.push_back(term_coefficients);
+  }
+
+  // unit vector for reduction
   unit_vector_.resize(pde.num_terms * max_conn);
   fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
   std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
@@ -90,6 +103,13 @@ fk::vector<P, mem_type::owner, resource::device> const &
 rank_workspace<P>::get_unit_vector() const
 {
   return unit_vector_;
+}
+
+template<typename P>
+fk::matrix<P, mem_type::owner, resource::device> const &
+rank_workspace<P>::get_coefficients(int const term, int const dim) const
+{
+  return coefficients_[term][dim];
 }
 
 template<typename P>
@@ -113,36 +133,39 @@ host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
 // all be resident*
 
 template<typename P>
+static double get_MB(uint64_t const num_elems)
+{
+  assert(num_elems > 0);
+  double const bytes = num_elems * sizeof(P);
+  double const MB    = bytes * 1e-6;
+  return MB;
+}
+
+template<typename P>
 static double get_element_size_MB(PDE<P> const &pde)
 {
-  auto const get_MB = [](auto const num_elems) -> double {
-    assert(num_elems > 0);
-    double const bytes     = num_elems * sizeof(P);
-    double const megabytes = bytes * 1e-6;
-    return megabytes;
-  };
-
   int const elem_size = element_segment_size(pde);
   // number of intermediate workspaces for kron product.
   // FIXME this only applies to explicit
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
 
   // calc size of reduction space for a single work item
-  double const elem_reduction_space_MB = get_MB(pde.num_terms * elem_size);
+  double const elem_reduction_space_MB = get_MB<P>(pde.num_terms * elem_size);
   // calc size of intermediate space for a single work item
   double const elem_intermediate_space_MB =
       num_workspaces == 0 ? 0.0
-                          : get_MB(static_cast<double>(num_workspaces) *
-                                   pde.num_terms * elem_size);
+                          : get_MB<P>(static_cast<double>(num_workspaces) *
+                                      pde.num_terms * elem_size);
 
   // calc in and out vector sizes for each elem
   // since we will scheme to have most elems require overlapping pieces of
   // x and y, we will never need 2 addtl xy space per elem
-  double const elem_xy_space_MB = get_MB(elem_size * 1.2);
+  double const elem_xy_space_MB = get_MB<P>(elem_size * 1.2);
   return (elem_reduction_space_MB + elem_intermediate_space_MB +
           elem_xy_space_MB);
 }
 
+// FIXME remove
 // determine how many chunks will be required to solve the problem
 // a chunk is a subset of all elements whose total workspace requirement
 // is less than the limit passed in rank_size_MB
@@ -163,6 +186,7 @@ int get_num_chunks(element_table const &table, PDE<P> const &pde,
   //
   // also not feasible to solve problem with a tiny workspace limit
   assert(space_per_elem < (0.5 * rank_size_MB));
+
   double const problem_size_MB = space_per_elem * num_elems;
 
   // determine number of chunks
@@ -184,7 +208,6 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
                    int const rank_size_MB)
 {
   assert(grid.size() > 0);
-  assert(rank_size_MB > 0);
 
   // determine total problem size
   auto const num_elems        = grid.size();
@@ -194,15 +217,24 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
   // a single element is the finest we can split the problem
   // if that requires a lot of space relative to rank size,
   // roundoff of elements over chunks will cause us to exceed the limit
-  //
-  // also not feasible to solve problem with a tiny workspace limit
-  // FIXME cannot remember why this assert makes sense, even with
-  // what I wrote above...
   assert(space_per_elem < (0.5 * rank_size_MB));
+
   double const problem_size_MB = space_per_elem * num_elems;
 
+  // FIXME here we assume all coefficients are of equal size; if we shortcut
+  // computation for identity coefficients later, we will need to do this more
+  // carefully
+  int const coefficients_size_MB = static_cast<int>(std::ceil(
+      get_MB<P>(static_cast<uint64_t>(pde.get_coefficients(0, 0).size()) *
+                pde.num_terms * pde.num_dims)));
+
+  // make sure the coefficient matrices aren't leaving us without room
+  // for anything else in rank workspace
+  int const remaining_rank_MB = rank_size_MB - coefficients_size_MB;
+  assert(remaining_rank_MB > space_per_elem * 2);
+
   // determine number of chunks
-  return static_cast<int>(std::ceil(problem_size_MB / rank_size_MB));
+  return static_cast<int>(std::ceil(problem_size_MB / remaining_rank_MB));
 }
 
 // divide the problem given the previously computed number of chunks
