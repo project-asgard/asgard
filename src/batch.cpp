@@ -619,7 +619,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 // loop over elements
 #ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
+//#pragma omp parallel for
 #endif
   for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
        ++chunk_num)
@@ -708,8 +708,12 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                   operator_col(d) + degree - 1));
         }
 
-        int const x_index = (total_prev_elems % elem_table.size()) * elem_size;
-
+	
+        int const x_index = (total_prev_elems * elem_size) % workspace.batch_input.size();
+        std::cout << x_index << '\n';
+	std::cout << workspace.batch_input.size() << '\n';
+        std::cout << j << '\n';
+	std::cout << connected.stop << "\n";
         // x vector input to kronmult
         fk::vector<P, mem_type::view, resource::device> const x_view(
             workspace.batch_input, x_index, x_index + elem_size - 1);
