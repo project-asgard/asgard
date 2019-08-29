@@ -35,9 +35,10 @@ int main(int argc, char **argv)
 
   options opts(argc, argv);
 
-  if(opts.using_implicit()) {
-	// distribution of implicit time advance not yet implemented
-	assert(num_ranks == 1);
+  if (opts.using_implicit())
+  {
+    // distribution of implicit time advance not yet implemented
+    assert(num_ranks == 1);
   }
 
   // -- parse user input and generate pde
@@ -140,7 +141,7 @@ int main(int argc, char **argv)
   // -- generate and store coefficient matrices.
 
   std::cout << "  generating: coefficient matrices..." << '\n';
-  
+
   generate_all_coefficients<prec>(*pde);
 
   // this is to bail out for further profiling/development on the setup routines
@@ -197,7 +198,6 @@ int main(int argc, char **argv)
   {
     prec const time = i * dt;
 
-
     if (opts.using_implicit())
     {
       bool update_system = i == 0;
@@ -206,8 +206,9 @@ int main(int argc, char **argv)
     }
     else
     {
+      // FIXME fold initial sources into host space
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, chunks, time, dt);
+                            rank_space, chunks, plan, my_rank, time, dt);
     }
 
     // FIXME this needs to be wrapped and serialized
