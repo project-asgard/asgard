@@ -126,6 +126,22 @@ host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
   result_3.resize(vector_size);
 }
 
+template<typename P>
+host_workspace<P>::host_workspace(PDE<P> const &pde,
+                                  element_subgrid const &grid)
+{
+  int elem_size          = element_segment_size(pde);
+  int64_t const col_size = elem_size * static_cast<int64_t>(grid.ncols());
+  int64_t const row_size = elem_size * static_cast<int64_t>(grid.nrows());
+  x_orig.resize(col_size);
+  x.resize(col_size);
+  fx.resize(row_size);
+  scaled_source.resize(row_size);
+  result_1.resize(row_size);
+  result_2.resize(row_size);
+  result_3.resize(row_size);
+}
+
 // calculate how much workspace we need on device to compute a single connected
 // element
 //
@@ -405,6 +421,20 @@ void copy_chunk_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
 }
 
 template<typename P>
+void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
+                       rank_workspace<P> &rank_space,
+                       host_workspace<P> const &host_space,
+                       element_chunk const &chunk)
+{
+  int const elem_size = element_segment_size(pde);
+  auto const x_range  = columns_in_chunk(chunk);
+  fk::vector<P, mem_type::view> const x_view(
+      host_space.x, grid.to_local_col(x_range.start) * elem_size,
+      (grid.to_local_col(x_range.stop) + 1) * elem_size - 1);
+  rank_space.batch_input.transfer_from(x_view);
+}
+
+template<typename P>
 void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
                         host_workspace<P> const &host_space,
                         element_chunk const &chunk)
@@ -420,6 +450,26 @@ void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
       (y_range.stop - y_range.start + 1) * elem_size - 1);
 
   fk::vector<P, mem_type::owner> const out_view_h(out_view.clone_onto_host());
+  y_view = fm::axpy(out_view_h, y_view);
+}
+
+template<typename P>
+void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
+                        rank_workspace<P> &rank_space,
+                        host_workspace<P> const &host_space,
+                        element_chunk const &chunk)
+{
+  int const elem_size = element_segment_size(pde);
+  auto const y_range  = rows_in_chunk(chunk);
+  fk::vector<P, mem_type::view> y_view(
+      host_space.fx, grid.to_local_row(y_range.start) * elem_size,
+      (grid.to_local_row(y_range.stop) + 1) * elem_size - 1);
+
+  fk::vector<P, mem_type::view, resource::device> const out_view(
+      rank_space.batch_output, 0,
+      (y_range.stop - y_range.start + 1) * elem_size - 1);
+
+  fk::vector<P, mem_type::owner> const out_view_h(out_view);
   y_view = fm::axpy(out_view_h, y_view);
 }
 
@@ -497,6 +547,30 @@ template void copy_chunk_outputs(PDE<float> const &pde,
                                  element_chunk const &chunk);
 
 template void copy_chunk_outputs(PDE<double> const &pde,
+                                 rank_workspace<double> &rank_space,
+                                 host_workspace<double> const &host_space,
+                                 element_chunk const &chunk);
+
+template void copy_chunk_inputs(PDE<float> const &pde,
+                                element_subgrid const &grid,
+                                rank_workspace<float> &rank_space,
+                                host_workspace<float> const &host_space,
+                                element_chunk const &chunk);
+
+template void copy_chunk_inputs(PDE<double> const &pde,
+                                element_subgrid const &grid,
+                                rank_workspace<double> &rank_space,
+                                host_workspace<double> const &host_space,
+                                element_chunk const &chunk);
+
+template void copy_chunk_outputs(PDE<float> const &pde,
+                                 element_subgrid const &grid,
+                                 rank_workspace<float> &rank_space,
+                                 host_workspace<float> const &host_space,
+                                 element_chunk const &chunk);
+
+template void copy_chunk_outputs(PDE<double> const &pde,
+                                 element_subgrid const &grid,
                                  rank_workspace<double> &rank_space,
                                  host_workspace<double> const &host_space,
                                  element_chunk const &chunk);
