@@ -244,6 +244,7 @@ int main(int argc, char **argv)
                           squared.size();
         return std::sqrt(mean);
       }();
+
       auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
       node_out() << "RMSE (numeric-analytic) [wavelet]: " << RMSE << '\n';
       node_out() << "Relative difference (numeric-analytic) [wavelet]: "
