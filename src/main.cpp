@@ -85,24 +85,31 @@ int main(int argc, char **argv)
   // -- create forward/reverse mapping between elements and indices
   node_out() << "  generating: element table..." << '\n';
   element_table const table = element_table(opts, pde->num_dims);
+  // -- get distribution plan - dividing element grid into subgrids
+  auto const plan    = get_plan(num_ranks, table);
+  auto const subgrid = plan.at(my_rank);
 
+  node_out() << "my area  " << subgrid.nrows() << " : " << subgrid.ncols()
+             << '\n';
   // -- generate initial condition vector.
   node_out() << "  generating: initial conditions..." << '\n';
-  fk::vector<prec> const initial_condition = [&pde, &table, degree]() {
+  fk::vector<prec> const initial_condition = [&pde, &table, &subgrid,
+                                              degree]() {
     std::vector<fk::vector<prec>> initial_conditions;
     for (dimension<prec> const &dim : pde->get_dimensions())
     {
       initial_conditions.push_back(
           forward_transform<prec>(dim, dim.initial_condition));
     }
-    return combine_dimensions(degree, table, initial_conditions);
+    return combine_dimensions(degree, table, subgrid.col_start,
+                              subgrid.col_stop, initial_conditions);
   }();
 
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
   node_out() << "  generating: source vectors..." << '\n';
-  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table,
+  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table, &subgrid,
                                                          degree]() {
     std::vector<fk::vector<prec>> initial_sources;
     for (source<prec> const &source : pde->sources)
@@ -116,14 +123,17 @@ int main(int argc, char **argv)
       }
       // combine those contributions to form the unscaled source vector
       initial_sources.push_back(
-          combine_dimensions(degree, table, initial_sources_dim));
+          combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
+                             initial_sources_dim));
     }
     return initial_sources;
   }();
 
   // -- generate analytic solution vector.
   node_out() << "  generating: analytic solution at t=0 ..." << '\n';
-  fk::vector<prec> const analytic_solution = [&pde, &table, degree]() {
+
+  fk::vector<prec> const analytic_solution = [&pde, &table, &subgrid,
+                                              degree]() {
     if (pde->has_analytic_soln)
     {
       std::vector<fk::vector<prec>> analytic_solutions_D;
@@ -132,11 +142,13 @@ int main(int argc, char **argv)
         analytic_solutions_D.push_back(forward_transform<prec>(
             pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
       }
-      return combine_dimensions(degree, table, analytic_solutions_D);
+
+      return combine_dimensions(degree, table, subgrid.row_start,
+                                subgrid.row_stop, analytic_solutions_D);
     }
     else
     {
-      return fk::vector<prec>{};
+      return fk::vector<prec>();
     }
   }();
 
@@ -160,15 +172,14 @@ int main(int argc, char **argv)
   // intermediate, coefficients, result workspaces) allocated as device tensors.
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB     = 7000;
-  
+  static int const default_workspace_MB = 7000;
+
   // FIXME currently used to check realspace transform only
   static int const default_workspace_cpu_MB = 4000;
 
-  auto const plan = get_plan(num_ranks, table);
-  host_workspace<prec> host_space(*pde, table);
+  host_workspace<prec> host_space(*pde, subgrid);
   std::vector<element_chunk> const chunks = assign_elements(
-      table, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
+      subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
   rank_workspace<prec> rank_space(*pde, chunks);
 
   auto const get_MB = [&](int num_elems) {

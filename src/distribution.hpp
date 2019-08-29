@@ -48,7 +48,7 @@ struct element_subgrid
   int to_local_row(int const global_row) const
   {
     assert(global_row >= 0);
-    int local = global_row - row_start;
+    int const local = global_row - row_start;
     assert(local >= 0);
     assert(local < nrows());
     return local;
@@ -56,7 +56,7 @@ struct element_subgrid
   int to_local_col(int const global_col) const
   {
     assert(global_col >= 0);
-    int local = global_col - col_start;
+    int const local = global_col - col_start;
     assert(local >= 0);
     assert(local < ncols());
     return local;
