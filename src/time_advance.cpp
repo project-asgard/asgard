@@ -103,6 +103,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const fx_scale_1 = a21 * dt;
 
   return;
+  // FIXME this axpy will be replaced with prepare_inputs...
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
