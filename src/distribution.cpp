@@ -177,9 +177,36 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(success == 0);
 }
 
+template<typename P>
+void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
+                    distribution_plan const &plan, int const my_rank)
+{
+  assert(dest.size() <= source.size());
+  assert(my_rank >= 0);
+  assert(my_rank < static_cast<int>(plan.size()));
+#ifndef ASGARD_USE_MPI
+  fm::copy(source, dest);
+  return;
+#endif
+  if (plan.size() == 1)
+  {
+    fm::copy(source, dest);
+    return;
+  }
+
+  // FIXME harry's code and send/recv calls invoked here
+}
+
 template void reduce_results(fk::vector<float> const &source,
                              fk::vector<float> &dest,
                              distribution_plan const &plan, int const my_rank);
 template void reduce_results(fk::vector<double> const &source,
+                             fk::vector<double> &dest,
+                             distribution_plan const &plan, int const my_rank);
+
+template void prepare_inputs(fk::vector<float> const &source,
+                             fk::vector<float> &dest,
+                             distribution_plan const &plan, int const my_rank);
+template void prepare_inputs(fk::vector<double> const &source,
                              fk::vector<double> &dest,
                              distribution_plan const &plan, int const my_rank);

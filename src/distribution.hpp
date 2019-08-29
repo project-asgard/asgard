@@ -103,9 +103,20 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 //  -- inverse
 //
 
+template<typename P>
+void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
+                    distribution_plan const &plan, int const my_rank);
+
 extern template void
 reduce_results(fk::vector<float> const &source, fk::vector<float> &dest,
                distribution_plan const &plan, int const my_rank);
 extern template void
 reduce_results(fk::vector<double> const &source, fk::vector<double> &dest,
+               distribution_plan const &plan, int const my_rank);
+
+extern template void
+prepare_inputs(fk::vector<float> const &source, fk::vector<float> &dest,
+               distribution_plan const &plan, int const my_rank);
+extern template void
+prepare_inputs(fk::vector<double> const &source, fk::vector<double> &dest,
                distribution_plan const &plan, int const my_rank);
