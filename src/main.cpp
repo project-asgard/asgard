@@ -35,6 +35,11 @@ int main(int argc, char **argv)
 
   options opts(argc, argv);
 
+  if(opts.using_implicit()) {
+	// distribution of implicit time advance not yet implemented
+	assert(num_ranks == 1);
+  }
+
   // -- parse user input and generate pde
   node_out() << "generating: pde..." << '\n';
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
@@ -191,6 +196,7 @@ int main(int argc, char **argv)
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
+
 
     if (opts.using_implicit())
     {

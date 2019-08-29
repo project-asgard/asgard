@@ -136,8 +136,44 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
 fk::vector<int>
 get_reduction_partners(distribution_plan const &plan, int const my_rank)
 {
+  assert(my_rank >= 0);
+  assert(my_rank < plan.size());
   int const num_partners = get_num_subgrid_cols(plan.size());
   fk::vector<int> partners(num_partners);
   std::iota(partners.begin(), partners.end(), my_rank - my_rank % num_partners);
   return partners;
 }
+
+template<typename P>
+void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
+                    distribution_plan const &plan, int const my_rank)
+{
+  assert(source.size() == dest.size());
+  assert(my_rank >= 0);
+  assert(my_rank < static_cast<int>(plan.size()));
+#ifndef ASGARD_USE_MPI
+  fm::copy(source, dest);
+  return;
+#endif
+
+  int const num_cols = get_num_subgrid_cols(plan.size());
+  int const my_row   = my_rank / num_cols;
+  int const my_col   = my_rank % num_cols;
+  MPI_Comm row_communicator;
+  auto success =
+      MPI_Comm_split(MPI_COMM_WORLD, my_row, my_col, &row_communicator);
+  assert(success == 0);
+
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+  success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
+                          source.size(), mpi_type, MPI_SUM, row_communicator);
+  assert(success == 0);
+}
+
+template void reduce_results(fk::vector<float> const &source,
+                             fk::vector<float> &dest,
+                             distribution_plan const &plan, int const my_rank);
+template void reduce_results(fk::vector<double> const &source,
+                             fk::vector<double> &dest,
+                             distribution_plan const &plan, int const my_rank);
