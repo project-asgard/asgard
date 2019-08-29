@@ -25,10 +25,8 @@
 using prec = double;
 int main(int argc, char **argv)
 {
-#ifdef ASGARD_USE_MPI
-  auto const init_status = MPI_Init(&argc, &argv);
-  assert(init_status == 0);
-#endif
+  // -- set up distribution
+  auto const [my_rank, num_ranks] = initialize_distribution();
 
   node_out() << "Branch: " << GIT_BRANCH << '\n';
   node_out() << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
@@ -148,29 +146,30 @@ int main(int argc, char **argv)
 
   node_out() << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
+
+  // Our default device workspace size is ~7GB.
+
+  // This 7GB doesn't include element table,
+  // or time advance workspace - only the primary memory consumers (kronmult
+  // intermediate, coefficients, result workspaces) allocated as device tensors.
+  //
+  // FIXME eventually going to be settable from the cmake
+  static int const default_workspace_MB     = 7000;
+  
+  // FIXME currently used to check realspace transform only
+  static int const default_workspace_cpu_MB = 4000;
+
+  auto const plan = get_plan(num_ranks, table);
+  host_workspace<prec> host_space(*pde, table);
+  std::vector<element_chunk> const chunks = assign_elements(
+      table, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
+  rank_workspace<prec> rank_space(*pde, chunks);
+
   auto const get_MB = [&](int num_elems) {
     uint64_t const bytes   = num_elems * sizeof(prec);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };
-
-  // Our default workspace size is ~7GB.
-
-  // This 7GB doesn't include coefficient matrices, element table,
-  // or time advance workspace - only the primary memory consumers (kronmult
-  // intermediate and result workspaces).
-  //
-  // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB     = 7000;
-  static int const default_workspace_cpu_MB = 4000;
-
-  // FIXME stand-in
-  static int const ranks = 1;
-
-  host_workspace<prec> host_space(*pde, table);
-  std::vector<element_chunk> const chunks = assign_elements(
-      table, get_num_chunks(table, *pde, ranks, default_workspace_MB));
-  rank_workspace<prec> rank_space(*pde, chunks);
 
   node_out() << "allocating workspace..." << '\n';
 

@@ -3,6 +3,31 @@
 #include <mpi.h>
 #include <numeric>
 
+
+
+std::array<int, 2> initialize_distribution() {
+#ifdef ASGARD_USE_MPI
+    auto status = MPI_Init(NULL, NULL);
+    assert(status == 0);
+    int num_ranks;
+    status = MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+    assert(status == 0);
+    int my_rank;
+    status = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    assert(status == 0);
+    return {my_rank, num_ranks};
+#endif
+    return {0, 1};
+}
+
+void finalize_distribution() {
+#ifdef ASGARD_USE_MPI
+	auto const status = MPI_Finalize();
+	assert(status==0);
+#endif
+}
+
+
 // determine the side lengths that will give us the "squarest" rectangles
 // possible
 auto const get_num_subgrid_cols = [](int const num_ranks) {
