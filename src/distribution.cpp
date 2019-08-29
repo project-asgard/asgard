@@ -155,7 +155,13 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   fm::copy(source, dest);
   return;
 #endif
+  if (plan.size() == 1)
+  {
+    fm::copy(source, dest);
+    return;
+  }
 
+  fm::scal(static_cast<P>(0.0), dest);
   int const num_cols = get_num_subgrid_cols(plan.size());
   int const my_row   = my_rank / num_cols;
   int const my_col   = my_rank % num_cols;

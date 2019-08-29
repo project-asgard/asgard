@@ -98,16 +98,14 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.fx);
   reduce_results(host_space.fx, host_space.result_1, plan, my_rank);
-  fm::copy(host_space.result_1, host_space.fx);
   P const fx_scale_1 = a21 * dt;
-  fm::axpy(host_space.fx, host_space.x, fx_scale_1);
+  fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
   apply_explicit(pde, table, chunks, host_space, rank_space);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
   fm::axpy(host_space.scaled_source, host_space.fx);
   reduce_results(host_space.fx, host_space.result_2, plan, my_rank);
-  fm::copy(host_space.result_2, host_space.fx);
   fm::copy(host_space.x_orig, host_space.x);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
