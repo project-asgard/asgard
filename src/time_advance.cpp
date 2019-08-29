@@ -95,11 +95,14 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c3  = 1.0;
 
   element_subgrid const &grid = plan.at(my_rank);
+
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.fx);
   reduce_results(host_space.fx, host_space.result_1, plan, my_rank);
   P const fx_scale_1 = a21 * dt;
+
+  return;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
