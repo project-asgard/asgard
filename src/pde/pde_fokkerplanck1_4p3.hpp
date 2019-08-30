@@ -52,8 +52,7 @@ private:
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    auto f = analytic_solution_dim0(x, 0);
-    return f;
+    return analytic_solution_dim0(x, 0);
   }
 
   // analytic solution
@@ -67,18 +66,9 @@ private:
   {
     static P const sig   = 0.1;
     static P const shift = 0.36;
-    switch (4)
-    {
-    case 1:
-      return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
-    case 2:
-      return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2));
-    case 3:
-      return std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
-    case 4:
-      return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
-             std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
-    }
+
+    return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
+           std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
   }
 
   static fk::vector<P>
@@ -87,11 +77,11 @@ private:
     fk::vector<P> f(z.size());
     for (int i = 0; i < z.size(); ++i)
     {
-      auto p  = phi(z(i), t);
-      auto t1 = 1 - std::pow(p, 2);
-      auto t2 = 1 - std::pow(z(i), 2);
-      auto t3 = f0(p);
-      f(i)    = t1 / t2 * t3;
+      auto const p  = phi(z(i), t);
+      auto const t1 = 1 - std::pow(p, 2);
+      auto const t2 = 1 - std::pow(z(i), 2);
+      auto const t3 = f0(p);
+      f(i)          = t1 / t2 * t3;
     }
     return f;
   }
