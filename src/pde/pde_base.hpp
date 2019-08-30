@@ -60,20 +60,20 @@ template<typename P>
 class dimension
 {
 public:
+  /*
   boundary_condition const left;
   boundary_condition const right;
+  */
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
   std::string const name;
-  dimension(boundary_condition const left, boundary_condition const right,
-            P const domain_min, P const domain_max, int const level,
+  dimension(P const domain_min, P const domain_max, int const level,
             int const degree, vector_func<P> const initial_condition,
             std::string const name)
 
-      : left(left), right(right), domain_min(domain_min),
-        domain_max(domain_max), initial_condition(initial_condition),
-        name(name), degree_(degree)
+      : domain_min(domain_min), domain_max(domain_max),
+        initial_condition(initial_condition), name(name), degree_(degree)
   {
     set_level(level);
   }
@@ -150,6 +150,57 @@ template<typename P>
 using g_func_type = std::function<P(P const, P const)>;
 
 template<typename P>
+class partial_term
+{
+public:
+  partial_term(coefficient_type const coeff_type, g_func_type<P> const g_func,
+               flux_type const flux, boundary_condition const left,
+               boundary_condition const right)
+      : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
+        right(right)
+  {
+    if (flux == flux_type::central)
+    {
+      flux_scale = 0.0;
+    }
+    else if (flux == flux_type::upwind)
+    {
+      flux_scale = +1.0;
+    }
+    else if (flux == flux_type::downwind)
+    {
+      flux_scale = -1.0;
+    }
+    else
+    {
+      flux_scale = 0.0;
+    }
+
+    return;
+  }
+
+  void set_flux_scale(P const dfdu)
+  {
+    assert(flux == flux_type::lax_friedrich);
+    flux_scale = dfdu;
+  };
+
+  P get_flux_scale() const { return flux_scale; };
+
+  coefficient_type const coeff_type;
+
+  g_func_type<P> const g_func;
+
+  flux_type const flux;
+
+  boundary_condition const left;
+
+  boundary_condition const right;
+
+  P flux_scale;
+};
+
+template<typename P>
 class term
 {
   static P g_func_default(P const x, P const time)
@@ -161,30 +212,11 @@ class term
   }
 
 public:
-  term(coefficient_type const coeff_type, g_func_type<P> const g_func,
-       bool const time_dependent, flux_type const flux,
-       fk::vector<P> const data, std::string const name,
-       dimension<P> const owning_dim,
-       // optional parts for diff type operators
-
-       // FIXME there are likely better ways to do this; and that
-       // this could all likely be avoided with a DSL for the
-       // PDE spec which could handle diff terms internally.
-       // Also, building terms by chaining like this may be getting
-       // generalized in the very near future.
-       g_func_type<P> const g_func_1       = g_func_default,
-       g_func_type<P> const g_func_2       = g_func_default,
-       flux_type const flux_1              = flux_type::upwind,
-       flux_type const flux_2              = flux_type::downwind,
-       boundary_condition const BC_left_1  = boundary_condition::neumann,
-       boundary_condition const BC_right_1 = boundary_condition::neumann,
-       boundary_condition const BC_left_2  = boundary_condition::neumann,
-       boundary_condition const BC_right_2 = boundary_condition::neumann)
-      : coeff_type(coeff_type), g_func(g_func), time_dependent(time_dependent),
-        flux(flux), name(name), owning_dim(owning_dim), g_func_1(g_func_1),
-        g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2),
-        BC_left_1(BC_left_1), BC_right_1(BC_right_1), BC_left_2(BC_left_2),
-        BC_right_2(BC_right_2), data_(data)
+  term(bool const time_dependent, fk::vector<P> const data,
+       std::string const name, dimension<P> const owning_dim,
+       std::initializer_list<class partial_term<P>> const partial_terms = {})
+      : time_dependent(time_dependent), name(name), owning_dim(owning_dim),
+        partial_terms(partial_terms), data_(data)
 
   {
     set_data(owning_dim, data);
@@ -204,32 +236,9 @@ public:
       this->data_.resize(degrees_freedom_1d);
       this->data_ = fk::vector<P>(std::vector<P>(degrees_freedom_1d, 1.0));
     }
-    if (flux == flux_type::central)
-    {
-      flux_scale_ = 0.0;
-    }
-    else if (flux == flux_type::upwind)
-    {
-      flux_scale_ = +1.0;
-    }
-    else if (flux == flux_type::downwind)
-    {
-      flux_scale_ = -1.0;
-    }
-    else
-    {
-      flux_scale_ = 0.0;
-    }
   }
 
   fk::vector<P> get_data() const { return data_; };
-
-  void set_flux_scale(P const dfdu)
-  {
-    assert(flux == flux_type::lax_friedrich);
-    flux_scale_ = dfdu;
-  };
-  P get_flux_scale() const { return flux_scale_; };
 
   void set_coefficients(dimension<P> const owning_dim,
                         fk::matrix<P> const new_coefficients)
@@ -253,26 +262,21 @@ public:
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   };
 
+  class partial_term<P> const &get_partial_term(int i) const
+  {
+    return partial_terms[i];
+  };
+
+  int n_partial_terms() const { return partial_terms.size(); };
+
   // public but const data. no getters
-  coefficient_type const coeff_type;
-  g_func_type<P> const g_func;
   bool const time_dependent;
-  flux_type const flux;
   std::string const name;
   dimension<P> const owning_dim;
 
-  // fields required for the diff operator type
-  g_func_type<P> const g_func_1;
-  g_func_type<P> const g_func_2;
-  flux_type const flux_1;
-  flux_type const flux_2;
-
-  boundary_condition const BC_left_1;
-  boundary_condition const BC_right_1;
-  boundary_condition const BC_left_2;
-  boundary_condition const BC_right_2;
-
 private:
+  std::vector<class partial_term<P>> const partial_terms;
+
   // this is to hold data that may change over the course of the simulation,
   // from any source, that is used in operator construction.
   //
@@ -284,7 +288,6 @@ private:
   // determined by flux type. 0 or 1 for central or upwind, respectively,
   // and df/du for lax freidrich. should not be set after construction for
   // central or upwind.
-  P flux_scale_;
 
   // operator matrix for this term at a single dimension
   fk::matrix<P, mem_type::owner, resource::device> coefficients_;
@@ -366,6 +369,12 @@ public:
       assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
     }
 
+    // check all terms
+    for (std::vector<term<P>> const term_list : terms_)
+    {
+      assert(term_list.size() == static_cast<unsigned>(num_dims));
+    }
+
     // modify for appropriate level/degree
     // if default lev/degree not used
     if (num_levels > 0 || degree > 0)
@@ -406,12 +415,6 @@ public:
       assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
     }
 
-    // check all terms
-    for (std::vector<term<P>> const term_list : terms_)
-    {
-      assert(term_list.size() == static_cast<unsigned>(num_dims));
-    }
-
     // set the dt
     dt_ = get_dt(dimensions_[0]);
   }
@@ -440,6 +443,8 @@ public:
   {
     return terms_[term][dim].get_coefficients();
   }
+
+  /* Is this function used anywhere? It doesn't really look like it */
   void
   set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
   {

@@ -663,65 +663,47 @@ private:
   }
 
   // define dimensions
-  inline static dimension<P> const x_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -1.0,                         // domain min
-                   1.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   f0,                           // initial condition
-                   "x");                         // name
+  inline static dimension<P> const x_ = dimension<P>(-1.0, // domain min
+                                                     1.0,  // domain max
+                                                     2,    // levels
+                                                     2,    // degree
+                                                     f0,   // initial condition
+                                                     "x"); // name
 
-  inline static dimension<P> const y_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -2.0,                         // domain min
-                   2.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   f0,                           // initial condition
-                   "y");                         // name
+  inline static dimension<P> const y_ = dimension<P>(-2.0, // domain min
+                                                     2.0,  // domain max
+                                                     2,    // levels
+                                                     2,    // degree
+                                                     f0,   // initial condition
+                                                     "y"); // name
 
-  inline static dimension<P> const z_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -3.0,                         // domain min
-                   3.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   f0,                           // initial condition
-                   "z");                         // name
+  inline static dimension<P> const z_ = dimension<P>(-3.0, // domain min
+                                                     3.0,  // domain max
+                                                     2,    // levels
+                                                     2,    // degree
+                                                     f0,   // initial condition
+                                                     "z"); // name
 
-  inline static dimension<P> const vx_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -10.0,                        // domain min
-                   10.0,                         // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   f0,                           // initial condition
-                   "vx");                        // name
+  inline static dimension<P> const vx_ = dimension<P>(-10.0, // domain min
+                                                      10.0,  // domain max
+                                                      2,     // levels
+                                                      2,     // degree
+                                                      f0, // initial condition
+                                                      "vx"); // name
 
-  inline static dimension<P> const vy_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -20.0,                        // domain min
-                   20.0,                         // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   f0,                           // initial condition
-                   "vy");                        // name
+  inline static dimension<P> const vy_ = dimension<P>(-20.0, // domain min
+                                                      20.0,  // domain max
+                                                      2,     // levels
+                                                      2,     // degree
+                                                      f0, // initial condition
+                                                      "vy"); // name
 
-  inline static dimension<P> const vz_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -30.0,                        // domain min
-                   30.0,                         // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   f0,                           // initial condition
-                   "z");                         // name
+  inline static dimension<P> const vz_ = dimension<P>(-30.0, // domain min
+                                                      30.0,  // domain max
+                                                      2,     // levels
+                                                      2,     // degree
+                                                      f0,   // initial condition
+                                                      "z"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {x_,  y_,  z_,
                                                                vx_, vy_, vz_};
@@ -735,82 +717,100 @@ private:
   static P constexpr az = 2;
 
   // default mass matrix (only for lev_x=lev_y=etc)
+  inline static class partial_term<P> partial_term_I_ = partial_term<P>(
+      coefficient_type::mass, g_func_identity, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
   inline static term<P> const I_ =
-      term<P>(coefficient_type::mass, // operator type
-              g_func_identity,        // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "massY",                // name
-              y_);                    // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "massY",         // name
+              y_,              // owning dim
+              {partial_term_I_});
 
   // term 0
+  inline static class partial_term<P> partial_term_0_x_ = partial_term<P>(
+      coefficient_type::grad, gx, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term0_x_ =
-      term<P>(coefficient_type::grad, // operator type
-              gx,                     // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "v_x.d_dx",             // name
-              x_);                    // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "v_x.d_dx",      // name
+              x_,              // owning dim
+              {partial_term_0_x_});
   inline static const std::vector<term<P>> terms0_ = {term0_x_, I_, I_,
                                                       I_,       I_, I_};
   // term 1
+  inline static class partial_term<P> partial_term_1_y_ = partial_term<P>(
+      coefficient_type::grad, gy, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term1_y_ =
-      term<P>(coefficient_type::grad, // operator type
-              gy,                     // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "v_y.d_dy",             // name
-              y_);                    // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "v_y.d_dy",      // name
+              y_,              // owning dim
+              {partial_term_1_y_});
   inline static const std::vector<term<P>> terms1_ = {I_, term1_y_, I_,
                                                       I_, I_,       I_};
   // term 2
+  inline static class partial_term<P> partial_term_2_z_ = partial_term<P>(
+      coefficient_type::grad, gz, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term2_z_ =
-      term<P>(coefficient_type::grad, // operator type
-              gz,                     // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "v_z.d_dz",             // name
-              z_);                    // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "v_z.d_dz",      // name
+              z_,              // owning dim
+              {partial_term_2_z_});
+
   inline static const std::vector<term<P>> terms2_ = {I_, I_, term2_z_,
                                                       I_, I_, I_};
   // term 3
+  inline static class partial_term<P> partial_term_3_vx_ = partial_term<P>(
+      coefficient_type::grad, gvx, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term3_vx_ =
-      term<P>(coefficient_type::grad, // operator type
-              gvx,                    // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "a_x.d_dvx",            // name
-              vx_);                   // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "a_x.d_dvx",     // name
+              vx_,             // owning dim
+              {partial_term_3_vx_});
+
   inline static const std::vector<term<P>> terms3_ = {I_,        I_, I_,
                                                       term3_vx_, I_, I_};
   // term 4
+  inline static class partial_term<P> partial_term_4_vy_ = partial_term<P>(
+      coefficient_type::grad, gvy, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term4_vy_ =
-      term<P>(coefficient_type::grad, // operator type
-              gvy,                    // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "a_y.d_dvy",            // name
-              vy_);                   // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "a_y.d_dvy",     // name
+              vy_,             // owning dim
+              {partial_term_4_vy_});
+
   inline static const std::vector<term<P>> terms4_ = {I_, I_,        I_,
                                                       I_, term4_vy_, I_};
   // term 5
+  inline static class partial_term<P> partial_term_5_vz_ = partial_term<P>(
+      coefficient_type::grad, gvz, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term5_vz_ =
-      term<P>(coefficient_type::grad, // operator type
-              gvz,                    // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "a_z.d_dvz",            // name
-              vz_);                   // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "a_z.d_dvz",     // name
+              vz_,             // owning dim
+              {partial_term_5_vz_});
+
   inline static const std::vector<term<P>> terms5_ = {I_, I_, I_,
                                                       I_, I_, term5_vz_};
 
+  /* this corresponds to the aggregation of TERM_ND objects in matlab */
   inline static term_set<P> const terms_ = {terms0_, terms1_, terms2_,
                                             terms3_, terms4_, terms5_};
 
