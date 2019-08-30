@@ -131,13 +131,13 @@ public:
   // device transfer
   // host to device, new vector
   template<resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P, mem_type::owner, resource::device> to_device() const;
+  vector<P, mem_type::owner, resource::device> clone_onto_device() const;
   // host to device copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
   vector<P, mem, resrc> &transfer_from(vector<P, omem, resource::host> const &);
   // device to host, new vector
   template<resource r_ = resrc, typename = enable_for_device<r_>>
-  vector<P, mem_type::owner, resource::host> to_host() const;
+  vector<P, mem_type::owner, resource::host> clone_onto_host() const;
   // device to host copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem, resrc> &
@@ -318,13 +318,13 @@ public:
 
   // host to device, new matrix
   template<resource r_ = resrc, typename = enable_for_host<r_>>
-  fk::matrix<P, mem_type::owner, resource::device> to_device() const;
+  fk::matrix<P, mem_type::owner, resource::device> clone_onto_device() const;
   // host to device copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
   matrix<P, mem, resrc> &transfer_from(matrix<P, omem, resource::host> const &);
   // device to host, new matrix
   template<resource r_ = resrc, typename = enable_for_device<r_>>
-  fk::matrix<P, mem_type::owner, resource::host> to_host() const;
+  fk::matrix<P, mem_type::owner, resource::host> clone_onto_host() const;
   // device to host copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem, resrc> &
@@ -916,7 +916,7 @@ operator=(vector<P, omem, resrc> const &a)
 template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 fk::vector<P, mem_type::owner, resource::device>
-fk::vector<P, mem, resrc>::to_device() const
+fk::vector<P, mem, resrc>::clone_onto_device() const
 
 {
   fk::vector<P, mem_type::owner, resource::device> a(size());
@@ -939,7 +939,7 @@ fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
 template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 fk::vector<P, mem_type::owner, resource::host>
-fk::vector<P, mem, resrc>::to_host() const
+fk::vector<P, mem, resrc>::clone_onto_host() const
 
 {
   fk::vector<P> a(size());
@@ -1620,7 +1620,7 @@ operator=(matrix<PP, omem> const &a)
 template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 fk::matrix<P, mem_type::owner, resource::device>
-fk::matrix<P, mem, resrc>::to_device() const
+fk::matrix<P, mem, resrc>::clone_onto_device() const
 
 {
   fk::matrix<P, mem_type::owner, resource::device> a(nrows(), ncols());
@@ -1646,7 +1646,7 @@ fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
 template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 fk::matrix<P, mem_type::owner, resource::host>
-fk::matrix<P, mem, resrc>::to_host() const
+fk::matrix<P, mem, resrc>::clone_onto_host() const
 
 {
   fk::matrix<P> a(nrows(), ncols());

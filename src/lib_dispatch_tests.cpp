@@ -33,9 +33,9 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
   // clang-format on
 
   fk::matrix<TestType, mem_type::owner, resource::device> const in1_d(
-      in1.to_device());
+      in1.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const in2_d(
-      in2.to_device());
+      in2.clone_onto_device());
 
   SECTION("no transpose")
   {
@@ -76,7 +76,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_d.data(),
                          &lda, in2_d.data(), &ldb, &beta, result_d.data(), &ldc,
                          resource::device);
-      fk::matrix<TestType> const result(result_d.to_host());
+      fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -147,9 +147,9 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
       fk::matrix<TestType> const in2_t = fk::matrix<TestType>(in2).transpose();
       fk::matrix<TestType, mem_type::owner, resource::device> const in1_t_d(
-          in1_t.to_device());
+          in1_t.clone_onto_device());
       fk::matrix<TestType, mem_type::owner, resource::device> const in2_t_d(
-          in2_t.to_device());
+          in2_t.clone_onto_device());
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
           in1.nrows(), in2.ncols());
 
@@ -166,7 +166,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t_d.data(),
                          &lda, in2_t_d.data(), &ldb, &beta, result_d.data(),
                          &ldc, resource::device);
-      fk::matrix<TestType> const result(result_d.to_host());
+      fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -206,7 +206,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       fk::matrix<TestType> result(in1.nrows(), in2.ncols());
       std::fill(result.begin(), result.end(), 1.0);
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
-          result.to_device());
+          result.clone_onto_device());
 
       fk::matrix<TestType> const gold = [&] {
         fk::matrix<TestType> ans = (in1 * in2) * 2.0;
@@ -303,7 +303,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha,
                          in1_extended_d.data(), &lda, in2_extended_d.data(),
                          &ldb, &beta, result_d.data(), &ldc, resource::device);
-      fk::matrix<TestType> const result(result_view_d.to_host());
+      fk::matrix<TestType> const result(result_view_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -323,10 +323,10 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
      {  8, -1, -8},
      { -9,  9,  8},
     };
-    fk::matrix<TestType, mem_type::owner, resource::device> const A_d(A.to_device());
+    fk::matrix<TestType, mem_type::owner, resource::device> const A_d(A.clone_onto_device());
     fk::vector<TestType> const x
      {2, 1, -7};
-    fk::vector<TestType, mem_type::owner, resource::device> const x_d(x.to_device());
+    fk::vector<TestType, mem_type::owner, resource::device> const x_d(x.clone_onto_device());
   // clang-format on
 
   SECTION("no transpose")
@@ -363,7 +363,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda, x_d.data(),
                          &inc, &beta, result_d.data(), &inc, resource::device);
 
-      fk::vector<TestType> const result(result_d.to_host());
+      fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -392,7 +392,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     {
       fk::matrix<TestType> const A_trans = fk::matrix<TestType>(A).transpose();
       fk::matrix<TestType, mem_type::owner, resource::device> const A_trans_d(
-          A_trans.to_device());
+          A_trans.clone_onto_device());
       fk::vector<TestType, mem_type::owner, resource::device> result_d(
           ans.size());
 
@@ -407,7 +407,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_trans_d.data(), &lda,
                          x_d.data(), &inc, &beta, result_d.data(), &inc,
                          resource::device);
-      fk::vector<TestType> const result(result_d.to_host());
+      fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -445,7 +445,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       fk::vector<TestType> result(ans.size());
       std::fill(result.begin(), result.end(), 1.0);
       fk::vector<TestType, mem_type::owner, resource::device> result_d(
-          result.to_device());
+          result.clone_onto_device());
 
       fk::vector<TestType> const gold = [&] {
         fk::vector<TestType> ans = (A * x) * 2.0;
@@ -502,7 +502,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       fk::vector<TestType> const gold     = {27, 0, 42, 0, 69, 0, 71, 0, -65};
       fk::vector<TestType> const x_padded = {2, 0, 0, 1, 0, 0, -7};
       fk::vector<TestType, mem_type::owner, resource::device> const x_padded_d(
-          x_padded.to_device());
+          x_padded.clone_onto_device());
 
       TestType alpha     = 1.0;
       TestType beta      = 0.0;
@@ -516,7 +516,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda,
                          x_padded_d.data(), &incx, &beta, result_d.data(),
                          &incy, resource::device);
-      fk::vector<TestType> const result(result_d.to_host());
+      fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == gold);
     }
   }
@@ -544,7 +544,7 @@ TEMPLATE_TEST_CASE(
     if constexpr (std::is_floating_point_v<TestType>)
     {
       fk::vector<TestType, mem_type::owner, resource::device> test(
-          x.to_device());
+          x.clone_onto_device());
       int n          = x.size();
       TestType alpha = scale;
       int incx       = 1;
@@ -552,7 +552,7 @@ TEMPLATE_TEST_CASE(
       lib_dispatch::scal(&n, &alpha, test.data(), &incx, resource::device);
 
       fk::vector<TestType, mem_type::owner, resource::host> const test_h(
-          test.to_host());
+          test.clone_onto_host());
       REQUIRE(test_h == x_tripled);
     }
   }
@@ -583,7 +583,7 @@ TEMPLATE_TEST_CASE(
       lib_dispatch::scal(&n, &alpha, test.data(), &incx, resource::device);
 
       fk::vector<TestType, mem_type::owner, resource::host> const test_h(
-          test.to_host());
+          test.clone_onto_host());
       REQUIRE(test_h == gold);
     }
   }
@@ -601,7 +601,7 @@ TEMPLATE_TEST_CASE(
     if constexpr (std::is_floating_point_v<TestType>)
     {
       fk::vector<TestType, mem_type::owner, resource::device> const x_test(
-          x.to_device());
+          x.clone_onto_device());
       fk::vector<TestType, mem_type::owner, resource::device> y_test(x.size());
       int n   = x.size();
       int inc = 1;
@@ -610,7 +610,7 @@ TEMPLATE_TEST_CASE(
                          resource::device);
 
       fk::vector<TestType, mem_type::owner, resource::host> const y(
-          y_test.to_host());
+          y_test.clone_onto_host());
       REQUIRE(y == x);
     }
   }
@@ -633,7 +633,7 @@ TEMPLATE_TEST_CASE(
     {
       fk::vector<TestType> x_test{1, 0, 2, 0, 3, 0, 4, 0, 5};
       fk::vector<TestType, mem_type::owner, resource::device> const x_d(
-          x_test.to_device());
+          x_test.clone_onto_device());
       fk::vector<TestType> const gold{1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5};
       fk::vector<TestType, mem_type::owner, resource::device> y_d(gold.size());
 
@@ -642,7 +642,7 @@ TEMPLATE_TEST_CASE(
       int incy = 3;
       lib_dispatch::copy(&n, x_d.data(), &incx, y_d.data(), &incy,
                          resource::device);
-      fk::vector<TestType> const y_h(y_d.to_host());
+      fk::vector<TestType> const y_h(y_d.clone_onto_host());
       REQUIRE(y_h == gold);
     }
   }
@@ -653,7 +653,7 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
-      x.to_device());
+      x.clone_onto_device());
 
   TestType const scale            = 3;
   fk::vector<TestType> const gold = {4, 7, 10, 13, 16};
@@ -681,7 +681,7 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
       TestType alpha = scale;
       int inc        = 1;
       fk::vector<TestType, mem_type::owner, resource::device> y_d(
-          y.to_device());
+          y.clone_onto_device());
       lib_dispatch::axpy(&n, &alpha, x_d.data(), &inc, y_d.data(), &inc,
                          resource::device);
       y.transfer_from(y_d);
@@ -719,7 +719,7 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
       int incy       = 3;
       lib_dispatch::axpy(&n, &alpha, x_extended.data(), &incx, y_d.data(),
                          &incy, resource::device);
-      fk::vector<TestType> const y(y_d.to_host());
+      fk::vector<TestType> const y(y_d.clone_onto_host());
       REQUIRE(y == ans);
     }
   }
@@ -730,10 +730,10 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
-      x.to_device());
+      x.clone_onto_device());
   fk::vector<TestType> const y = {2, 4, 6, 8, 10};
   fk::vector<TestType, mem_type::owner, resource::device> const y_d(
-      y.to_device());
+      y.clone_onto_device());
   TestType const gold = 110;
 
   SECTION("lib_dispatch::dot - inc = 1")
@@ -798,7 +798,7 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
                                   {0.641484652834663, 0.767135868133926}};
 
   fk::matrix<TestType, mem_type::owner, resource::device> test_d(
-      test.to_device());
+      test.clone_onto_device());
   fk::vector<int, mem_type::owner, resource::device> ipiv_d(test_d.nrows());
   fk::vector<int, mem_type::owner, resource::device> info_d(10);
 
@@ -811,7 +811,7 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
 
   auto stat = cudaDeviceSynchronize();
   REQUIRE(stat == 0);
-  fk::vector<int> const info_check(info_d.to_host());
+  fk::vector<int> const info_check(info_d.clone_onto_host());
   REQUIRE(info_check(0) == 0);
 
   m = test.nrows();
@@ -823,10 +823,10 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
 
   stat = cudaDeviceSynchronize();
   REQUIRE(stat == 0);
-  fk::vector<int> const info_check_2(info_d.to_host());
+  fk::vector<int> const info_check_2(info_d.clone_onto_host());
   REQUIRE(info_check_2(0) == 0);
 
-  fk::matrix<TestType> const test_copy(work.to_host());
+  fk::matrix<TestType> const test_copy(work.clone_onto_host());
 
   // A * inv(A) == I
   REQUIRE((test * test_copy) == eye<TestType>(2));
@@ -880,18 +880,18 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
   };
   // clang-format on
   fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(
-      a1.to_device());
+      a1.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(
-      a2.to_device());
+      a2.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(
-      a3.to_device());
+      a3.clone_onto_device());
 
   fk::matrix<TestType, mem_type::owner, resource::device> const b1_d(
-      b1.to_device());
+      b1.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const b2_d(
-      b2.to_device());
+      b2.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const b3_d(
-      b3.to_device());
+      b3.clone_onto_device());
 
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
@@ -1090,7 +1090,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
         &num_batch, resource::device);
 
     // compare
-    fk::matrix<TestType> const c(c_d.to_host());
+    fk::matrix<TestType> const c(c_d.clone_onto_host());
     REQUIRE(c == gold);
   }
 
@@ -1309,7 +1309,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
         c_vect.data(), &c_stride, &a_ncols, &b_ncols, &a_nrows, &alpha, &beta,
         &num_batch, resource::device);
 
-    fk::matrix<TestType> const c(c_d.to_host());
+    fk::matrix<TestType> const c(c_d.clone_onto_host());
     // compare
     REQUIRE(c == gold);
   }
@@ -1524,7 +1524,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
         &num_batch, resource::device);
 
     // compare
-    fk::matrix<TestType> const c(c_d.to_host());
+    fk::matrix<TestType> const c(c_d.clone_onto_host());
     REQUIRE(c == gold);
   }
 
@@ -1746,7 +1746,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
         &num_batch, resource::device);
 
     // compare
-    fk::matrix<TestType> const c(c_d.to_host());
+    fk::matrix<TestType> const c(c_d.clone_onto_host());
     REQUIRE(c == gold);
   }
 
@@ -1929,7 +1929,8 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
   	    {6005},
     }; // clang-format on
 
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(c.to_device());
+    fk::matrix<TestType, mem_type::owner, resource::device> c_d(
+        c.clone_onto_device());
     fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
                                                                   0);
     fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
@@ -2164,7 +2165,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
         &num_batch, resource::device);
 
     // compare
-    fk::matrix<TestType> const c(c_d.to_host());
+    fk::matrix<TestType> const c(c_d.clone_onto_host());
     REQUIRE(c == gold);
   }
 }
@@ -2205,14 +2206,14 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
   // clang-format on
 
   fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(
-      a1.to_device());
+      a1.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(
-      a2.to_device());
+      a2.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(
-      a3.to_device());
+      a3.clone_onto_device());
 
   fk::vector<TestType, mem_type::owner, resource::device> const b1_d(
-      b1.to_device());
+      b1.clone_onto_device());
 
   auto const get_trans =
       [](fk::matrix<TestType, mem_type::view> orig) -> fk::matrix<TestType> {
@@ -2389,7 +2390,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
                                &alpha, &beta, &num_batch, resource::device);
 
     // compare
-    fk::vector<TestType> const c(c_d.to_host());
+    fk::vector<TestType> const c(c_d.clone_onto_host());
     REQUIRE(c == gold);
   }
 
@@ -2570,7 +2571,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
                                &alpha, &beta, &num_batch, resource::device);
 
     // compare
-    fk::vector<TestType> const c(c_d.to_host());
+    fk::vector<TestType> const c(c_d.clone_onto_host());
     REQUIRE(c == gold);
   }
 
@@ -2718,7 +2719,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     fk::vector<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3);
     fk::vector<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5);
 
-    fk::vector<TestType> c(c_d.to_host());
+    fk::vector<TestType> c(c_d.clone_onto_host());
     fk::vector<TestType, mem_type::view> c1_v(c, 0, 1);
     fk::vector<TestType, mem_type::view> c2_v(c, 2, 3);
     fk::vector<TestType, mem_type::view> c3_v(c, 4, 5);

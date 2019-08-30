@@ -36,9 +36,9 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
   // clang-format on
 
   fk::matrix<TestType, mem_type::owner, resource::device> const in1_d(
-      in1.to_device());
+      in1.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const in2_d(
-      in2.to_device());
+      in2.clone_onto_device());
 
   SECTION("no transpose")
   {
@@ -53,7 +53,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
           in1.nrows(), in2.ncols());
       fm::gemm(in1_d, in2_d, result_d);
-      fk::matrix<TestType> const result(result_d.to_host());
+      fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -73,12 +73,12 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     {
       fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
       fk::matrix<TestType, mem_type::owner, resource::device> const in1_t_d(
-          in1_t.to_device());
+          in1_t.clone_onto_device());
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
           in1.nrows(), in2.ncols());
       bool const trans_A = true;
       fm::gemm(in1_t_d, in2_d, result_d, trans_A);
-      fk::matrix<TestType> const result(result_d.to_host());
+      fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -99,13 +99,13 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     {
       fk::matrix<TestType> const in2_t = fk::matrix<TestType>(in2).transpose();
       fk::matrix<TestType, mem_type::owner, resource::device> const in2_t_d(
-          in2_t.to_device());
+          in2_t.clone_onto_device());
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
           in1.nrows(), in2.ncols());
       bool const trans_A = false;
       bool const trans_B = true;
       fm::gemm(in1_d, in2_t_d, result_d, trans_A, trans_B);
-      fk::matrix<TestType> const result(result_d.to_host());
+      fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -128,15 +128,15 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
       fk::matrix<TestType> const in2_t = fk::matrix<TestType>(in2).transpose();
       fk::matrix<TestType, mem_type::owner, resource::device> const in1_t_d(
-          in1_t.to_device());
+          in1_t.clone_onto_device());
       fk::matrix<TestType, mem_type::owner, resource::device> const in2_t_d(
-          in2_t.to_device());
+          in2_t.clone_onto_device());
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
           in1.nrows(), in2.ncols());
       bool const trans_A = true;
       bool const trans_B = true;
       fm::gemm(in1_t_d, in2_t_d, result_d, trans_A, trans_B);
-      fk::matrix<TestType> const result(result_d.to_host());
+      fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -171,7 +171,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       fk::matrix<TestType> result(in1.nrows(), in2.ncols());
       std::fill(result.begin(), result.end(), 1.0);
       fk::matrix<TestType, mem_type::owner, resource::device> result_d(
-          result.to_device());
+          result.clone_onto_device());
 
       fk::matrix<TestType> const gold = [&] {
         fk::matrix<TestType> ans = (in1 * in2) * 2.0;
@@ -241,7 +241,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
           result_d, 0, in1.nrows() - 1, 0, in2.ncols() - 1);
 
       fm::gemm(in1_view_d, in2_view_d, result_view_d);
-      fk::matrix<TestType> const result(result_view_d.to_host());
+      fk::matrix<TestType> const result(result_view_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -266,9 +266,9 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
   // clang-format on
 
   fk::matrix<TestType, mem_type::owner, resource::device> const A_d(
-      A.to_device());
+      A.clone_onto_device());
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
-      x.to_device());
+      x.clone_onto_device());
 
   SECTION("no transpose")
   {
@@ -284,7 +284,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
       fk::vector<TestType, mem_type::owner, resource::device> result_d(
           ans.size());
       fm::gemv(A_d, x_d, result_d);
-      fk::vector<TestType> const result(result_d.to_host());
+      fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
@@ -303,12 +303,12 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
     {
       fk::matrix<TestType> const A_trans = fk::matrix<TestType>(A).transpose();
       fk::matrix<TestType, mem_type::owner, resource::device> const A_trans_d(
-          A_trans.to_device());
+          A_trans.clone_onto_device());
       fk::vector<TestType, mem_type::owner, resource::device> result_d(
           ans.size());
       bool const trans_A = true;
       fm::gemv(A_trans_d, x_d, result_d, trans_A);
-      fk::vector<TestType> const result(result_d.to_host());
+      fk::vector<TestType> const result(result_d.clone_onto_host());
 
       REQUIRE(result == ans);
     }
@@ -343,7 +343,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
       fk::vector<TestType> result(ans.size());
       std::fill(result.begin(), result.end(), 1.0);
       fk::vector<TestType, mem_type::owner, resource::device> result_d(
-          result.to_device());
+          result.clone_onto_device());
 
       fk::vector<TestType> const gold = [&] {
         fk::vector<TestType> ans = (A * x) * 2.0;
@@ -400,9 +400,9 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       TestType const scale = 2.0;
 
       fk::vector<TestType, mem_type::owner, resource::device> test_d(
-          gold.to_device());
+          gold.clone_onto_device());
       fk::vector<TestType, mem_type::owner, resource::device> test_own_d(
-          gold.to_device());
+          gold.clone_onto_device());
       fk::vector<TestType, mem_type::view, resource::device> test_view_d(
           test_own_d);
 
@@ -466,7 +466,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
           test_own_d);
 
       fk::vector<TestType, mem_type::owner, resource::device> const gold_d(
-          gold.to_device());
+          gold.clone_onto_device());
       fk::vector<TestType, mem_type::view, resource::device> const gold_view_d(
           gold_d);
 
@@ -521,9 +521,9 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     {
       TestType const x = 2.0;
       fk::vector<TestType, mem_type::owner, resource::device> test_d(
-          gold.to_device());
+          gold.clone_onto_device());
       fk::vector<TestType, mem_type::owner, resource::device> test_own_d(
-          gold.to_device());
+          gold.clone_onto_device());
       fk::vector<TestType, mem_type::view, resource::device> test_view_d(
           test_own_d);
 
