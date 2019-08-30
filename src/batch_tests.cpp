@@ -272,13 +272,19 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
          {38, 48, 58},
   };
   // clang-format on
-  fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(a1);
-  fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(a2);
-  fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(a3);
+  fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(
+      a1.to_device());
+  fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(
+      a2.to_device());
+  fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(
+      a3.to_device());
 
-  fk::matrix<TestType, mem_type::owner, resource::device> const b1_d(b1);
-  fk::matrix<TestType, mem_type::owner, resource::device> const b2_d(b2);
-  fk::matrix<TestType, mem_type::owner, resource::device> const b3_d(b3);
+  fk::matrix<TestType, mem_type::owner, resource::device> const b1_d(
+      b1.to_device());
+  fk::matrix<TestType, mem_type::owner, resource::device> const b2_d(
+      b2.to_device());
+  fk::matrix<TestType, mem_type::owner, resource::device> const b3_d(
+      b3.to_device());
 
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
@@ -473,7 +479,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
-    fk::matrix<TestType> const c(c_d);
+    fk::matrix<TestType> const c(c_d.to_host());
     REQUIRE(c == gold);
   }
 
@@ -687,7 +693,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     TestType const beta  = 0.0;
     batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
-    fk::matrix<TestType> const c(c_d);
+    fk::matrix<TestType> const c(c_d.to_host());
     // compare
     REQUIRE(c == gold);
   }
@@ -897,7 +903,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
-    fk::matrix<TestType> const c(c_d);
+    fk::matrix<TestType> const c(c_d.to_host());
     REQUIRE(c == gold);
   }
 
@@ -1114,7 +1120,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
-    fk::matrix<TestType> const c(c_d);
+    fk::matrix<TestType> const c(c_d.to_host());
     REQUIRE(c == gold);
   }
 
@@ -1298,7 +1304,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
   	    {6005},
     }; // clang-format on
 
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(c);
+    fk::matrix<TestType, mem_type::owner, resource::device> c_d(c.to_device());
     fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
                                                                   0);
     fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
@@ -1526,7 +1532,7 @@ TEMPLATE_TEST_CASE("batched gemm", "[batch]", float, double)
     batched_gemm(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
-    fk::matrix<TestType> const c(c_d);
+    fk::matrix<TestType> const c(c_d.to_host());
     REQUIRE(c == gold);
   }
 }
@@ -1565,11 +1571,15 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
   };
   // clang-format on
 
-  fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(a1);
-  fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(a2);
-  fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(a3);
+  fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(
+      a1.to_device());
+  fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(
+      a2.to_device());
+  fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(
+      a3.to_device());
 
-  fk::vector<TestType, mem_type::owner, resource::device> const b1_d(b1);
+  fk::vector<TestType, mem_type::owner, resource::device> const b1_d(
+      b1.to_device());
 
   // test batched gemv as reduction tool w/ unit vector
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
@@ -1747,7 +1757,7 @@ TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
     batched_gemv(a_batch, b_batch, c_batch, alpha, beta);
 
     // compare
-    fk::matrix<TestType> const c(c_d);
+    fk::matrix<TestType> const c(c_d.to_host());
     REQUIRE(c == gold);
   }
 }
@@ -2020,12 +2030,13 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 	{14, 15, 16, 17}};
     // clang-format on
 
-    fk::matrix<TestType> coeff_h(coefficient_matrix);
+    fk::matrix<TestType> coeff_h(coefficient_matrix.to_host());
     coeff_h.set_submatrix(0, 0, A);
     coefficient_matrix.transfer_from(coeff_h);
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
-    fk::vector<TestType, mem_type::owner, resource::device> const x(x_h);
+    fk::vector<TestType, mem_type::owner, resource::device> const x(
+        x_h.to_device());
     fk::vector<TestType> const gold = A * x_h;
 
     std::vector<batch_operands_set<TestType>> batches =
@@ -2053,7 +2064,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    fk::vector<TestType, mem_type::owner> const y_h(y);
+    fk::vector<TestType, mem_type::owner> const y_h(y.to_host());
     REQUIRE(gold == y_h);
   }
 
@@ -2076,12 +2087,13 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 	{26, 27, 28, 29, 30, 31}, 
 	{32, 33, 34, 35, 36, 37}};
     // clang-format on
-    fk::matrix<TestType> coeff_h(coefficient_matrix);
+    fk::matrix<TestType> coeff_h(coefficient_matrix.to_host());
     coeff_h.set_submatrix(0, 0, A);
     coefficient_matrix.transfer_from(coeff_h);
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
-    fk::vector<TestType, mem_type::owner, resource::device> const x(x_h);
+    fk::vector<TestType, mem_type::owner, resource::device> const x(
+        x_h.to_device());
     std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
 
@@ -2135,8 +2147,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     TestType const beta  = 0.0;
     batched_gemm(a, b, c, alpha, beta);
 
-    fk::vector<TestType> const y_e0_h(y_e0);
-    fk::vector<TestType> const y_e1_h(y_e1);
+    fk::vector<TestType> const y_e0_h(y_e0.to_host());
+    fk::vector<TestType> const y_e1_h(y_e1.to_host());
 
     REQUIRE(gold_e0 == y_e0_h);
     REQUIRE(gold_e1 == y_e1_h);
@@ -2166,15 +2178,16 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     {
       std::iota(mat.begin(), mat.end(), start);
       start += dof;
-      A_mats.push_back(
-          fk::matrix<TestType, mem_type::owner, resource::device>(mat));
+      A_mats.push_back(fk::matrix<TestType, mem_type::owner, resource::device>(
+          mat.to_device()));
     }
 
     // create input vector
     int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
     fk::vector<TestType> x_h(x_size);
     std::iota(x_h.begin(), x_h.end(), 1);
-    fk::vector<TestType, mem_type::owner, resource::device> const x(x_h);
+    fk::vector<TestType, mem_type::owner, resource::device> const x(
+        x_h.to_device());
 
     std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
@@ -2247,7 +2260,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
       batched_gemm(a, b, c, alpha, beta);
     }
 
-    fk::vector<TestType> const y_h(y_own);
+    fk::vector<TestType> const y_h(y_own.to_host());
     REQUIRE(y_h == gold);
   }
 
@@ -2278,8 +2291,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     for (fk::matrix<TestType> &mat : A_mats_h)
     {
       std::generate(mat.begin(), mat.end(), gen);
-      A_mats.push_back(
-          fk::matrix<TestType, mem_type::owner, resource::device>(mat));
+      A_mats.push_back(fk::matrix<TestType, mem_type::owner, resource::device>(
+          mat.to_device()));
     }
 
     // create input vector
@@ -2287,7 +2300,8 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::vector<TestType> x_h(x_size);
     std::generate(x_h.begin(), x_h.end(), gen);
 
-    fk::vector<TestType, mem_type::owner, resource::device> const x(x_h);
+    fk::vector<TestType, mem_type::owner, resource::device> const x(
+        x_h.to_device());
 
     std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
@@ -2367,7 +2381,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     // this method of computing "correctness" borrowed from ed's tests:
     //
     // https://code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
-    fk::vector<TestType> const y_h(y_own);
+    fk::vector<TestType> const y_h(y_own.to_host());
     fk::vector<TestType> const diff = gold - y_h;
     auto abs_compare                = [](TestType const a, TestType const b) {
       return (std::abs(a) < std::abs(b));
@@ -2405,15 +2419,16 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     for (fk::matrix<TestType> &mat : A_mats_h)
     {
       std::generate(mat.begin(), mat.end(), gen);
-      A_mats.push_back(
-          fk::matrix<TestType, mem_type::owner, resource::device>(mat));
+      A_mats.push_back(fk::matrix<TestType, mem_type::owner, resource::device>(
+          mat.to_device()));
     }
 
     // create input vector
     int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
     fk::vector<TestType> x_h(x_size);
     std::generate(x_h.begin(), x_h.end(), gen);
-    fk::vector<TestType, mem_type::owner, resource::device> x(x_h);
+    fk::vector<TestType, mem_type::owner, resource::device> const x(
+        x_h.to_device());
 
     std::vector<batch_operands_set<TestType>> batches =
         allocate_batches(*pde, num_elems);
@@ -2496,7 +2511,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     //
     // https://
     // code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
-    fk::vector<TestType> const y_h(y_own);
+    fk::vector<TestType> const y_h(y_own.to_host());
     fk::vector<TestType> const diff = gold - y_h;
     auto abs_compare                = [](TestType const a, TestType const b) {
       return (std::abs(a) < std::abs(b));
@@ -2542,8 +2557,8 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
-    fk::matrix<TestType> coefficient_matrix =
-        fk::matrix<TestType>(pde->get_coefficients(0, 0));
+    fk::matrix<TestType> coefficient_matrix(
+        pde->get_coefficients(0, 0).to_host());
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
@@ -2600,8 +2615,8 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
-    fk::matrix<TestType> coefficient_matrix =
-        fk::matrix<TestType>(pde->get_coefficients(0, 0));
+    fk::matrix<TestType> coefficient_matrix(
+        pde->get_coefficients(0, 0).to_host());
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);

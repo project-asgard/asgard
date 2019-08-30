@@ -733,50 +733,56 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           {1, 3, 5, 7, 9});
-      fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect.to_host());
       REQUIRE(copy == gold);
     }
     // from size w/ copy to device
     {
       fk::vector<TestType, mem_type::owner, resource::device> vect(5);
       vect.transfer_from(gold);
-      fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect.to_host());
       REQUIRE(copy == gold);
     }
 
-    // transfer construction - owner device to host
+    // transfer - new vector - owner device to host
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
-      fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect.to_host());
       REQUIRE(copy == gold);
     }
 
-    // transfer construction - owner host to device
+    // transfer - new vector - owner host to device
     {
-      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
-      fk::vector<TestType, mem_type::owner, resource::device> const copy(vect);
-      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(copy);
+      fk::vector<TestType, mem_type::owner, resource::device> const copy(
+          gold.to_device());
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          copy.to_host());
       REQUIRE(vect_h == gold);
     }
 
-    // transfer construction - view device to host
+    // transfer - new vector - view device to host
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> const vect_view(
           vect);
       fk::vector<TestType, mem_type::owner, resource::host> const copy(
-          vect_view);
+          vect_view.to_host());
       REQUIRE(copy == gold);
     }
 
-    // transfer construction - view host to device
+    // transfer - new vector - view host to device
     {
-      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
       fk::vector<TestType, mem_type::view, resource::host> const vect_view(
-          vect);
+          gold);
       fk::vector<TestType, mem_type::owner, resource::device> const copy(
-          vect_view);
-      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(copy);
+          vect_view.to_device());
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          copy.to_host());
       REQUIRE(vect_h == gold);
     }
   }
@@ -785,42 +791,46 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
   {
     // copy owner
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::owner, resource::device> const copy_d(
           vect);
       fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
-          copy_d);
+          copy_d.to_host());
       REQUIRE(copy_h == gold);
     }
 
     // move owner
     {
-      fk::vector<TestType, mem_type::owner, resource::device> vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::owner, resource::device> const moved_d(
           std::move(vect));
       REQUIRE(vect.data() == nullptr);
       REQUIRE(vect.size() == 0);
       fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
-          moved_d);
+          moved_d.to_host());
       REQUIRE(moved_h == gold);
     }
 
     // copy view
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> const view_d(vect);
       REQUIRE(vect.get_num_views() == 1);
       fk::vector<TestType, mem_type::view, resource::device> const view_copy_d(
           view_d);
       REQUIRE(vect.get_num_views() == 2);
       fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
-          view_copy_d);
+          view_copy_d.to_host());
       REQUIRE(copy_h == gold);
     }
 
     // move view
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
 
       fk::vector<TestType, mem_type::view, resource::device> view_d(vect);
       REQUIRE(vect.get_num_views() == 1);
@@ -832,7 +842,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       REQUIRE(vect.get_num_views() == 1);
 
       fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
-          view_moved_d);
+          view_moved_d.to_host());
       REQUIRE(moved_h == gold);
     }
   }
@@ -841,7 +851,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
   {
     // owner device to owner host
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType> vect_h(5);
       vect_h.transfer_from(vect);
       REQUIRE(vect_h == gold);
@@ -849,7 +860,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // owner device to view host
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType> vect_h(5);
       fk::vector<TestType, mem_type::view> vect_view(vect_h);
       vect_view.transfer_from(vect);
@@ -858,26 +870,29 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // owner device to owner device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       vect_d = vect;
-      fk::vector<TestType> const vect_h(vect_d);
+      fk::vector<TestType> const vect_h(vect_d.to_host());
       REQUIRE(vect_h == gold);
     }
 
     // owner device to view device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       fk::vector<TestType, mem_type::view, resource::device> vect_view(vect_d);
       vect_view = vect;
-      fk::vector<TestType, mem_type::owner> const vect_h(vect_view);
+      fk::vector<TestType, mem_type::owner> const vect_h(vect_view.to_host());
       REQUIRE(vect_h == gold);
     }
 
     // view device to owner host
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> const vect_view(
           vect);
       fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
@@ -887,19 +902,21 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // view device to owner device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> const vect_view(
           vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       vect_d = vect_view;
       fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
-          vect_d);
+          vect_d.to_host());
       REQUIRE(vect_h == gold);
     }
 
     // view device to view host
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> const vect_view(
           vect);
       fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
@@ -910,7 +927,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // view device to view device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> const vect_view(
           vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
@@ -918,7 +936,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           vect_d);
       vect_view_2 = vect_view;
       fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
-          vect_view_2);
+          vect_view_2.to_host());
       REQUIRE(vect_h == gold);
     }
 
@@ -927,7 +945,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       vect_d.transfer_from(vect);
-      fk::vector<TestType> const vect_h(vect_d);
+      fk::vector<TestType> const vect_h(vect_d.to_host());
       REQUIRE(vect_h == gold);
     }
 
@@ -937,7 +955,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       fk::vector<TestType, mem_type::view, resource::device> vect_view(vect_d);
       vect_view.transfer_from(vect);
-      fk::vector<TestType> const vect_h(vect_view);
+      fk::vector<TestType> const vect_h(vect_view.to_host());
       REQUIRE(vect_h == gold);
     }
 
@@ -948,7 +966,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       vect_d.transfer_from(vect_view);
-      fk::vector<TestType> const vect_h(vect_d);
+      fk::vector<TestType> const vect_h(vect_d.to_host());
       REQUIRE(vect_h == gold);
     }
 
@@ -961,7 +979,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::view, resource::device> vect_view_d(
           vect_d);
       vect_view_d.transfer_from(vect_view);
-      fk::vector<TestType> const vect_h(vect_view_d);
+      fk::vector<TestType> const vect_h(vect_view_d.to_host());
       REQUIRE(vect_h == gold);
     }
   }
@@ -977,8 +995,10 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     test_reduced_d.resize(gold.size());
     test_enlarged_d.resize(gold.size());
 
-    fk::vector<TestType, mem_type::owner> const test_enlarged(test_enlarged_d);
-    fk::vector<TestType, mem_type::owner> const test_reduced(test_reduced_d);
+    fk::vector<TestType, mem_type::owner> const test_enlarged(
+        test_enlarged_d.to_host());
+    fk::vector<TestType, mem_type::owner> const test_reduced(
+        test_reduced_d.to_host());
 
     REQUIRE(test_reduced == gold);
     REQUIRE(test_enlarged == gold_enlarged);
@@ -988,7 +1008,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
   {
     // ref counting on device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       REQUIRE(vect.get_num_views() == 0);
       fk::vector<TestType, mem_type::view, resource::device> const vect_view(
           vect);
@@ -1006,18 +1027,20 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // view semantics on device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.to_device());
       fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
       {
         fk::vector<TestType, mem_type::owner, resource::host> const copy(
-            vect_view);
+            vect_view.to_host());
         REQUIRE(copy == gold);
       }
       fk::vector<TestType, mem_type::owner, resource::host> const gold_2(
           {1, 2, 3, 4, 5});
       vect_view.transfer_from(gold_2);
       {
-        fk::vector<TestType, mem_type::owner, resource::host> const copy(vect);
+        fk::vector<TestType, mem_type::owner, resource::host> const copy(
+            vect.to_host());
         REQUIRE(copy == gold_2);
       }
     }
@@ -2359,49 +2382,57 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
     {
       fk::matrix<TestType, mem_type::owner, resource::device> const mat(
           {{1, 3, 5, 7, 9}, {11, 13, 15, 17, 19}});
-      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.to_host());
       REQUIRE(copy == gold);
     }
     SECTION("from size w/ copy to device")
     {
       fk::matrix<TestType, mem_type::owner, resource::device> mat(2, 5);
       mat.transfer_from(gold);
-      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.to_host());
       REQUIRE(copy == gold);
     }
 
-    SECTION("transfer construction - owner device to host")
+    SECTION("transfer - new matrix - owner device to host")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
-      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.to_host());
       REQUIRE(copy == gold);
     }
 
-    SECTION("transfer construction - owner host to device")
+    SECTION("transfer - new matrix - owner host to device")
     {
       fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
-      fk::matrix<TestType, mem_type::owner, resource::device> const copy(mat);
-      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(copy);
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy(
+          mat.to_device());
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          copy.to_host());
       REQUIRE(mat_h == gold);
     }
 
-    SECTION("transfer construction - view device to host")
+    SECTION("transfer - new matrix - view device to host")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
           mat);
       fk::matrix<TestType, mem_type::owner, resource::host> const copy(
-          mat_view);
+          mat_view.to_host());
       REQUIRE(copy == gold);
     }
 
-    SECTION("transfer construction - view host to device")
+    SECTION("transfer - new matrix - view host to device")
     {
       fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
       fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
       fk::matrix<TestType, mem_type::owner, resource::device> const copy(
-          mat_view);
-      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(copy);
+          mat_view.to_device());
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          copy.to_host());
       REQUIRE(mat_h == gold);
     }
   }
@@ -2410,41 +2441,45 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
   {
     SECTION("copy owner")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::owner, resource::device> const copy_d(mat);
       fk::matrix<TestType, mem_type::owner, resource::host> const copy_h(
-          copy_d);
+          copy_d.to_host());
       REQUIRE(copy_h == gold);
     }
 
     SECTION("move owner")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::owner, resource::device> const moved_d(
           std::move(mat));
       REQUIRE(mat.data() == nullptr);
       REQUIRE(mat.size() == 0);
       fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
-          moved_d);
+          moved_d.to_host());
       REQUIRE(moved_h == gold);
     }
 
     SECTION("copy view")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::view, resource::device> const view_d(mat);
       REQUIRE(mat.get_num_views() == 1);
       fk::matrix<TestType, mem_type::view, resource::device> const view_copy_d(
           view_d);
       REQUIRE(mat.get_num_views() == 2);
       fk::matrix<TestType, mem_type::owner, resource::host> const copy_h(
-          view_copy_d);
+          view_copy_d.to_host());
       REQUIRE(copy_h == gold);
     }
 
     SECTION("move view")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
 
       fk::matrix<TestType, mem_type::view, resource::device> view_d(mat);
       REQUIRE(mat.get_num_views() == 1);
@@ -2456,7 +2491,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
       REQUIRE(mat.get_num_views() == 1);
 
       fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
-          view_moved_d);
+          view_moved_d.to_host());
       REQUIRE(moved_h == gold);
     }
   }
@@ -2465,7 +2500,8 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
   {
     SECTION("owner device to owner host")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType> mat_h(2, 5);
       mat_h.transfer_from(mat);
       REQUIRE(mat_h == gold);
@@ -2473,7 +2509,8 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
 
     SECTION("owner device to view host")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType> mat_h(2, 5);
       fk::matrix<TestType, mem_type::view> mat_view(mat_h);
       mat_view.transfer_from(mat);
@@ -2482,26 +2519,29 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
 
     SECTION("owner device to owner device")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       mat_d = mat;
-      fk::matrix<TestType> const mat_h(mat_d);
+      fk::matrix<TestType> const mat_h(mat_d.to_host());
       REQUIRE(mat_h == gold);
     }
 
     SECTION("owner device to view device")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat_d);
       mat_view = mat;
-      fk::matrix<TestType, mem_type::owner> const mat_h(mat_view);
+      fk::matrix<TestType, mem_type::owner> const mat_h(mat_view.to_host());
       REQUIRE(mat_h == gold);
     }
 
     SECTION("view device to owner host")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
           mat);
       fk::matrix<TestType, mem_type::owner, resource::host> mat_h(2, 5);
@@ -2511,18 +2551,21 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
 
     SECTION("view device to owner device")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
           mat);
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       mat_d = mat_view;
-      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_d);
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          mat_d.to_host());
       REQUIRE(mat_h == gold);
     }
 
     SECTION("view device to view host")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
           mat);
       fk::matrix<TestType, mem_type::owner, resource::host> mat_h(2, 5);
@@ -2533,14 +2576,15 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
 
     SECTION("view device to view device")
     {
-      fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.to_device());
       fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
           mat);
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       fk::matrix<TestType, mem_type::view, resource::device> mat_view_2(mat_d);
       mat_view_2 = mat_view;
       fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
-          mat_view_2);
+          mat_view_2.to_host());
       REQUIRE(mat_h == gold);
     }
 
@@ -2549,7 +2593,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
       fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       mat_d.transfer_from(mat);
-      fk::matrix<TestType> const mat_h(mat_d);
+      fk::matrix<TestType> const mat_h(mat_d.to_host());
       REQUIRE(mat_h == gold);
     }
 
@@ -2559,7 +2603,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat_d);
       mat_view.transfer_from(mat);
-      fk::matrix<TestType> const mat_h(mat_view);
+      fk::matrix<TestType> const mat_h(mat_view.to_host());
       REQUIRE(mat_h == gold);
     }
 
@@ -2569,7 +2613,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
       fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       mat_d.transfer_from(mat_view);
-      fk::matrix<TestType> const mat_h(mat_d);
+      fk::matrix<TestType> const mat_h(mat_d.to_host());
       REQUIRE(mat_h == gold);
     }
 
@@ -2580,13 +2624,14 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
       fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
       fk::matrix<TestType, mem_type::view, resource::device> mat_view_d(mat_d);
       mat_view_d.transfer_from(mat_view);
-      fk::matrix<TestType> const mat_h(mat_view_d);
+      fk::matrix<TestType> const mat_h(mat_view_d.to_host());
       REQUIRE(mat_h == gold);
     }
   }
   SECTION("clear and resize")
   {
-    fk::matrix<TestType, mem_type::owner, resource::device> gold_copy(gold);
+    fk::matrix<TestType, mem_type::owner, resource::device> gold_copy(
+        gold.to_device());
     gold_copy.clear_and_resize(2, 1);
     // clang-format off
     fk::matrix<TestType> const test {
@@ -2594,13 +2639,14 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
       {0},
       };
     // clang-format on
-    fk::matrix<TestType> const gold_copy_h(gold_copy);
+    fk::matrix<TestType> const gold_copy_h(gold_copy.to_host());
     REQUIRE(gold_copy_h == test);
   }
   SECTION("views - ref counting on device")
 
   {
-    fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+        gold.to_device());
     REQUIRE(mat.get_num_views() == 0);
     fk::matrix<TestType, mem_type::view, resource::device> const mat_view(mat);
     REQUIRE(mat.get_num_views() == 1);
@@ -2617,18 +2663,20 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
 
   SECTION("views - semantics on device")
   {
-    fk::matrix<TestType, mem_type::owner, resource::device> const mat(gold);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+        gold.to_device());
     fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat);
     {
       fk::matrix<TestType, mem_type::owner, resource::host> const copy(
-          mat_view);
+          mat_view.to_host());
       REQUIRE(copy == gold);
     }
     fk::matrix<TestType, mem_type::owner, resource::host> const gold_2(
         {{1, 2, 3, 4, 5}, {11, 12, 13, 14, 15}});
     mat_view.transfer_from(gold_2);
     {
-      fk::matrix<TestType, mem_type::owner, resource::host> const copy(mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.to_host());
       REQUIRE(copy == gold_2);
     }
   }
@@ -2641,8 +2689,9 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
     fk::matrix<TestType, mem_type::view, resource::host> const mat_view(
         mat, 0, 0, 0, 4);
     fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
-        mat_view);
-    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_d);
+        mat_view.to_device());
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+        mat_d.to_host());
     REQUIRE(mat_h == gold_view);
   }
 
@@ -2651,12 +2700,14 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
     fk::matrix<TestType, mem_type::view, resource::host> const gold_view(
         gold, 0, 0, 0, 4);
     fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
-    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(mat);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+        mat.to_device());
     fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
         mat_d, 0, 0, 0, 4);
     fk::matrix<TestType, mem_type::owner, resource::device> const mat_d2(
         mat_view);
-    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_d2);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+        mat_d2.to_host());
     REQUIRE(mat_h == gold_view);
   }
 
@@ -2665,10 +2716,12 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
     fk::matrix<TestType, mem_type::view, resource::host> const gold_view(
         gold, 0, 0, 0, 4);
     fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
-    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(mat);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+        mat.to_device());
     fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
         mat_d, 0, 0, 0, 4);
-    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(mat_view);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+        mat_view.to_host());
     REQUIRE(mat_h == gold_view);
   }
 }

@@ -281,7 +281,7 @@ void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
       rank_space.batch_output, 0,
       (y_range.stop - y_range.start + 1) * elem_size - 1);
 
-  fk::vector<P, mem_type::owner> const out_view_h(out_view);
+  fk::vector<P, mem_type::owner> const out_view_h(out_view.to_host());
   y_view = fm::axpy(out_view_h, y_view);
 }
 

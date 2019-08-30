@@ -111,6 +111,10 @@ public:
   vector(vector<P, mem, resrc> &&);
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> &&);
 
+  // copy construct owner from view values
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  explicit vector(vector<P, mem_type::view, resrc> const &);
+
   // assignment owner <-> view
   template<mem_type omem>
   vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
@@ -124,19 +128,16 @@ public:
            typename = enable_for_host<r_>>
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
-  // device transfer construction/copy
-  // host to device / device to device contstruction
-  template<mem_type omem, resource oresrc, mem_type m_ = mem,
-           typename = enable_for_owner<m_>, resource r_ = resrc,
-           typename = enable_for_device<r_>>
-  explicit vector(vector<P, omem, oresrc> const &);
+  // device transfer
+  // host to device, new vector
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  vector<P, mem_type::owner, resource::device> to_device() const;
   // host to device copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
   vector<P, mem, resrc> &transfer_from(vector<P, omem, resource::host> const &);
-  // device to host construction
-  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
-  explicit vector(vector<P, omem, resource::device> const &);
+  // device to host, new vector
+  template<resource r_ = resrc, typename = enable_for_device<r_>>
+  vector<P, mem_type::owner, resource::host> to_host() const;
   // device to host copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem, resrc> &
@@ -298,6 +299,10 @@ public:
   matrix(matrix<P, mem, resrc> const &);
   matrix<P, mem, resrc> &operator=(matrix<P, mem, resrc> const &);
 
+  // copy construct owner from view values
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  explicit matrix(matrix<P, mem_type::view, resrc> const &);
+
   // assignment owner <-> view
   template<mem_type omem>
   matrix<P, mem, resrc> &operator=(matrix<P, omem, resrc> const &);
@@ -311,19 +316,15 @@ public:
            typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
 
-  // transfer constructor / copy
-  // host to device / device to device constructor
-  template<mem_type omem, resource oresrc, mem_type m_ = mem,
-           typename = enable_for_owner<m_>, resource r_ = resrc,
-           typename = enable_for_device<r_>>
-  explicit matrix(matrix<P, omem, oresrc> const &);
+  // host to device, new matrix
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  fk::matrix<P, mem_type::owner, resource::device> to_device() const;
   // host to device copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
   matrix<P, mem, resrc> &transfer_from(matrix<P, omem, resource::host> const &);
-  // device to host / dev to dev constructor
-  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
-  explicit matrix(matrix<P, omem, resource::device> const &);
+  // device to host, new matrix
+  template<resource r_ = resrc, typename = enable_for_device<r_>>
+  fk::matrix<P, mem_type::owner, resource::host> to_host() const;
   // device to host copy
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem, resrc> &
@@ -874,6 +875,24 @@ operator=(vector<PP, omem> const &a)
   return *this;
 }
 
+// copy construct owner from view values
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(vector<P, mem_type::view, resrc> const &a)
+    : size_(a.size()), ref_count_(std::make_shared<int>(0))
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[a.size()];
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  }
+  else
+  {
+    allocate_device(data_, a.size());
+    copy_on_device(data_, a.data(), a.size());
+  }
+}
+
 // assignment owner <-> view
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem>
@@ -893,21 +912,16 @@ operator=(vector<P, omem, resrc> const &a)
 }
 
 // transfer functions
-// dev->dev and host->dev, constructor
+// host->dev, new vector
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource oresrc, mem_type, typename, resource, typename>
-fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, oresrc> const &a)
-    : size_{a.size()}, ref_count_{std::make_shared<int>(0)}
+template<resource, typename>
+fk::vector<P, mem_type::owner, resource::device>
+fk::vector<P, mem, resrc>::to_device() const
+
 {
-  allocate_device(data_, a.size());
-  if constexpr (oresrc == resource::device)
-  {
-    copy_on_device(data_, a.data(), a.size());
-  }
-  else
-  {
-    copy_to_device(data_, a.data(), a.size());
-  }
+  fk::vector<P, mem_type::owner, resource::device> a(size());
+  copy_to_device(a.data(), data(), size());
+  return a;
 }
 
 // host->dev copy
@@ -921,16 +935,16 @@ fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
   return *this;
 }
 
-// dev -> host constructor
+// dev -> host, new vector
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem, resrc>::vector(
-    fk::vector<P, omem, resource::device> const &a)
-    : data_{new P[a.size()]()}, size_{a.size()}, ref_count_{
-                                                     std::make_shared<int>(0)}
+template<resource, typename>
+fk::vector<P, mem_type::owner, resource::host>
+fk::vector<P, mem, resrc>::to_host() const
 
 {
-  copy_to_host(data_, a.data(), a.size());
+  fk::vector<P> a(size());
+  copy_to_host(a.data(), data(), size());
+  return a;
 }
 
 // dev -> host copy
@@ -1522,6 +1536,27 @@ operator=(matrix<P, mem, resrc> const &a)
   return *this;
 }
 
+// copy construct owner from view values
+//
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(matrix<P, mem_type::view, resrc> const &a)
+    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
+      ref_count_{std::make_shared<int>(0)}
+
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[size()]();
+    std::copy(a.begin(), a.end(), begin());
+  }
+  else
+  {
+    allocate_device(data_, size());
+    copy_matrix_on_device(*this, a);
+  }
+}
+
 // assignment owner <-> view
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem>
@@ -1581,22 +1616,16 @@ operator=(matrix<PP, omem> const &a)
 }
 
 // transfer functions
-// dev->dev and host->dev, constructor
+// host->dev, new matrix
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource oresrc, mem_type, typename, resource, typename>
-fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, oresrc> const &a)
-    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
-      ref_count_{std::make_shared<int>(0)}
+template<resource, typename>
+fk::matrix<P, mem_type::owner, resource::device>
+fk::matrix<P, mem, resrc>::to_device() const
+
 {
-  allocate_device(data_, a.size());
-  if constexpr (oresrc == resource::host)
-  {
-    copy_matrix_to_device(*this, a);
-  }
-  else
-  {
-    copy_matrix_on_device(*this, a);
-  }
+  fk::matrix<P, mem_type::owner, resource::device> a(nrows(), ncols());
+  copy_matrix_to_device(a, *this);
+  return a;
 }
 
 // host->dev copy
@@ -1613,16 +1642,16 @@ fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
   return *this;
 }
 
-// dev->host, constructor
+// dev->host, new matrix
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, mem_type, typename, resource, typename>
-fk::matrix<P, mem, resrc>::matrix(
-    fk::matrix<P, omem, resource::device> const &a)
+template<resource, typename>
+fk::matrix<P, mem_type::owner, resource::host>
+fk::matrix<P, mem, resrc>::to_host() const
 
-    : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
-      stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
 {
-  copy_matrix_to_host(*this, a);
+  fk::matrix<P> a(nrows(), ncols());
+  copy_matrix_to_host(a, *this);
+  return a;
 }
 
 // dev->host copy
