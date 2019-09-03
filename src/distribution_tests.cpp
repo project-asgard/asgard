@@ -1,6 +1,28 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
+struct distribution_test_init
+{
+  distribution_test_init()
+  {
+    auto const [rank, total_ranks] = initialize_distribution();
+    my_rank                        = rank;
+    num_ranks                      = total_ranks;
+  }
+
+  ~distribution_test_init() { finalize_distribution(); }
+  int get_my_rank() const { return my_rank; }
+  int get_num_ranks() const { return num_ranks; }
+
+private:
+  int my_rank;
+  int num_ranks;
+};
+
+#ifdef ASGARD_USE_MPI
+const distribution_test_init distrib_test_info;
+#endif
+
 TEST_CASE("subgrid struct", "[distribution]")
 {
   int const row_start = 0;
@@ -423,5 +445,78 @@ TEST_CASE("reduction mapping function", "[distribution]")
       auto const reduction_partners = get_reduction_partners(plan, i);
       REQUIRE(reduction_partners == fk::vector<int>{15, 16, 17, 18, 19});
     }
+  }
+}
+
+TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
+                   double)
+{
+  SECTION("1 rank")
+  {
+    auto const num_ranks = 1;
+    auto const my_rank   = 0;
+    int const degree     = 4;
+    int const level      = 2;
+    int const num_dims   = 2;
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const table(o, num_dims);
+    auto const plan = get_plan(num_ranks, table);
+
+    fk::vector<TestType> const gold{0, 1, 2, 3, 4, 5};
+    fk::vector<TestType> const x(gold);
+    fk::vector<TestType> fx(gold.size());
+    reduce_results(x, fx, plan, my_rank);
+    REQUIRE(fx == gold);
+  }
+
+  SECTION("multiple ranks")
+  {
+#ifdef ASGARD_USE_MPI
+
+    int const my_rank   = distrib_test_info.get_my_rank();
+    int const num_ranks = distrib_test_info.get_num_ranks();
+
+    int const degree   = 5;
+    int const level    = 4;
+    int const num_dims = 3;
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    element_table const table(o, num_dims);
+    auto const plan          = get_plan(num_ranks, table);
+    int const vector_size    = 10;
+    bool const participating = my_rank < static_cast<int>(plan.size());
+
+    std::vector<fk::vector<TestType>> rank_outputs;
+    for (int i = 0; i < static_cast<int>(plan.size()); ++i)
+    {
+      fk::vector<TestType> rank_output(vector_size);
+      std::iota(rank_output.begin(), rank_output.end(), i * vector_size);
+      rank_outputs.push_back(rank_output);
+    }
+
+    fk::vector<TestType> gold(vector_size);
+    for (auto const &vect : rank_outputs)
+    {
+      gold = gold + vect;
+    }
+
+    auto const &x =
+        rank_outputs[std::min(my_rank, static_cast<int>(plan.size()) - 1)];
+    fk::vector<TestType> fx(gold.size());
+    reduce_results(x, fx, plan, my_rank);
+
+    if (participating)
+    {
+      REQUIRE(fx == gold);
+    }
+
+#else
+    REQUIRE(true);
+#endif
   }
 }

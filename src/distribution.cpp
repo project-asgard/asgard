@@ -50,6 +50,7 @@ int get_local_rank()
 // determine the side lengths that will give us the "squarest" rectangles
 // possible
 auto const get_num_subgrid_cols = [](int const num_ranks) {
+  assert(num_ranks > 0);
   int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
   while (trial_factor > 0)
   {
@@ -137,7 +138,7 @@ fk::vector<int>
 get_reduction_partners(distribution_plan const &plan, int const my_rank)
 {
   assert(my_rank >= 0);
-  assert(my_rank < plan.size());
+  assert(my_rank < static_cast<int>(plan.size()));
   int const num_partners = get_num_subgrid_cols(plan.size());
   fk::vector<int> partners(num_partners);
   std::iota(partners.begin(), partners.end(), my_rank - my_rank % num_partners);
@@ -150,7 +151,7 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 {
   assert(source.size() == dest.size());
   assert(my_rank >= 0);
-  assert(my_rank < static_cast<int>(plan.size()));
+
 #ifndef ASGARD_USE_MPI
   fm::copy(source, dest);
   return;
@@ -163,17 +164,28 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 
   fm::scal(static_cast<P>(0.0), dest);
   int const num_cols = get_num_subgrid_cols(plan.size());
-  int const my_row   = my_rank / num_cols;
-  int const my_col   = my_rank % num_cols;
+
+  bool const participating = my_rank < static_cast<int>(plan.size());
+  int const my_row         = participating ? my_rank / num_cols : MPI_UNDEFINED;
+  int const my_col         = participating ? my_rank % num_cols : my_rank;
+
   MPI_Comm row_communicator;
   auto success =
       MPI_Comm_split(MPI_COMM_WORLD, my_row, my_col, &row_communicator);
   assert(success == 0);
 
+  if (!participating)
+  {
+    return;
+  }
+
   MPI_Datatype const mpi_type =
       std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
   success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
                           source.size(), mpi_type, MPI_SUM, row_communicator);
+  assert(success == 0);
+
+  success = MPI_Comm_free(&row_communicator);
   assert(success == 0);
 }
 
