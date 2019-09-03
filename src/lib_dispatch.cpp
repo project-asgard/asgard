@@ -27,11 +27,14 @@ struct device_handler
     assert(local_rank >= 0);
     assert(local_rank < num_devices);
 
-    auto cublas_success = cublasDestroy(handle);
-    assert(cublas_success == 0);
+    if (handle)
+    {
+      auto const cublas_success = cublasDestroy(handle);
+      assert(cublas_success == 0);
+    }
     success = cudaSetDevice(local_rank);
     assert(success == 0);
-    cublas_success = cublasCreate(&handle);
+    auto const cublas_success = cublasCreate(&handle);
     assert(cublas_success == 0);
   }
   ~device_handler() { cublasDestroy(handle); }
