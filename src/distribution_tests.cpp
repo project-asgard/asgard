@@ -497,11 +497,14 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
         std::iota(rank_output.begin(), rank_output.end(), i * vector_size);
         rank_outputs.push_back(rank_output);
       }
-
+      int const my_row = my_rank / get_num_subgrid_cols(num_ranks);
       fk::vector<TestType> gold(vector_size);
-      for (auto const &vect : rank_outputs)
+      for (int i = 0; i < static_cast<int>(rank_outputs.size()); ++i)
       {
-        gold = gold + vect;
+        if (i / get_num_subgrid_cols(num_ranks) == my_row)
+        {
+          gold = gold + rank_outputs[i];
+        }
       }
 
       auto const &x =

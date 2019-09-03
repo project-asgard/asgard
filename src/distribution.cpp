@@ -98,24 +98,6 @@ void finalize_distribution()
 #endif
 }
 
-// determine the side lengths that will give us the "squarest" rectangles
-// possible
-auto const get_num_subgrid_cols = [](int const num_ranks) {
-  assert(num_ranks > 0);
-  int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
-  while (trial_factor > 0)
-  {
-    int const other_factor = num_ranks / trial_factor;
-    if (trial_factor * other_factor == num_ranks)
-    {
-      return std::max(trial_factor, other_factor);
-    }
-    trial_factor++;
-  }
-  // I believe this is mathematically impossible...
-  assert(false);
-};
-
 // divide element grid into rectangular sub-areas, which will be assigned to
 // each rank require number of ranks to be a perfect square or an even number;
 // otherwise, we will ignore (leave unused) the highest rank.

@@ -68,13 +68,30 @@ struct element_subgrid
   int const col_stop;
 };
 
+// determine the side lengths that will give us the "squarest" rectangles
+// possible
+auto const get_num_subgrid_cols = [](int const num_ranks) {
+  assert(num_ranks > 0);
+  int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
+  while (trial_factor > 0)
+  {
+    int const other_factor = num_ranks / trial_factor;
+    if (trial_factor * other_factor == num_ranks)
+    {
+      return std::max(trial_factor, other_factor);
+    }
+    trial_factor++;
+  }
+  // I believe this is mathematically impossible...
+  assert(false);
+};
 std::array<int, 2> initialize_distribution();
 void finalize_distribution();
 int get_local_rank();
 
 struct node_out
 {
-  template<class T>
+  template<typename T>
   node_out &operator<<(T val)
   {
 #ifdef ASGARD_USE_MPI

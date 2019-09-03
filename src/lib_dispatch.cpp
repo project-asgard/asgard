@@ -5,22 +5,28 @@
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+#endif
 
+auto const ignore = [](auto ignored) { (void)ignored; };
 struct device_handler
 {
+#ifdef ASGARD_USE_CUDA
   cublasHandle_t handle;
-
+#endif
   device_handler()
   {
+#ifdef ASGARD_USE_CUDA
     auto success = cublasCreate(&handle);
     assert(success == 0);
 
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
     assert(success == 0);
+#endif
   }
 
   void set_device(int const local_rank)
   {
+#ifdef ASGARD_USE_CUDA
     int num_devices;
     auto success = cudaGetDeviceCount(&num_devices);
     assert(success == 0);
@@ -36,17 +42,30 @@ struct device_handler
     assert(success == 0);
     auto const cublas_success = cublasCreate(&handle);
     assert(cublas_success == 0);
+#else
+    ignore(local_rank);
+#endif
   }
-  ~device_handler() { cublasDestroy(handle); }
+  ~device_handler()
+  {
+#ifdef ASGARD_USE_CUDA
+    cublasDestroy(handle);
+#endif
+  }
 };
 static device_handler device;
 
 void initialize_libraries(int const local_rank)
 {
+#ifdef ASGARD_USE_CUDA
   assert(local_rank >= 0);
   device.set_device(local_rank);
+#else
+  ignore(local_rank);
+#endif
 }
 
+#ifdef ASGARD_USE_CUDA
 inline cublasOperation_t cublas_trans(char trans)
 {
   if (trans == 'N' || trans == 'n')
@@ -58,7 +77,6 @@ inline cublasOperation_t cublas_trans(char trans)
     return CUBLAS_OP_T;
   }
 }
-auto const ignore = [](auto ignored) { (void)ignored; };
 #endif
 
 namespace lib_dispatch
