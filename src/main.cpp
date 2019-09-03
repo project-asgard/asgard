@@ -28,6 +28,13 @@ int main(int argc, char **argv)
   // -- set up distribution
   auto const [my_rank, num_ranks] = initialize_distribution();
 
+  // kill off unused processes
+  if (my_rank >= num_ranks)
+  {
+    finalize_distribution();
+    return 0;
+  }
+
   node_out() << "Branch: " << GIT_BRANCH << '\n';
   node_out() << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
              << '\n';

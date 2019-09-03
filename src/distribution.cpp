@@ -4,6 +4,57 @@
 #include <mpi.h>
 #include <numeric>
 
+#ifdef ASGARD_USE_MPI
+struct distribution_handler
+{
+  distribution_handler() {}
+
+  void set_global_comm(MPI_Comm const &comm)
+  {
+    auto const status = MPI_Comm_dup(comm, &global_comm);
+    assert(status == 0);
+  }
+  MPI_Comm get_global_comm()
+  {
+    if (global_comm)
+    {
+      return global_comm;
+    }
+    return MPI_COMM_WORLD;
+  }
+
+private:
+  MPI_Comm global_comm;
+};
+static distribution_handler distro_handle;
+#endif
+
+int get_local_rank()
+{
+#ifdef ASGARD_USE_MPI
+  static int const rank = []() {
+    MPI_Comm local_comm;
+    auto success = MPI_Comm_split_type(distro_handle.get_global_comm(),
+                                       MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                                       &local_comm);
+    assert(success == 0);
+    int local_rank;
+    success = MPI_Comm_rank(local_comm, &local_rank);
+    assert(success == 0);
+    return local_rank;
+  }();
+  return rank;
+#endif
+  return 0;
+}
+
+auto const num_effective_ranks = [](int const num_ranks) {
+  if (std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)) ||
+      num_ranks % 2 == 0)
+    return num_ranks;
+  return num_ranks - 1;
+};
+
 std::array<int, 2> initialize_distribution()
 {
 #ifdef ASGARD_USE_MPI
@@ -15,9 +66,27 @@ std::array<int, 2> initialize_distribution()
   int my_rank;
   status = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   assert(status == 0);
-  initialize_libraries(get_local_rank());
-  return {my_rank, num_ranks};
+
+  auto const num_participating = num_effective_ranks(num_ranks);
+  bool const participating     = my_rank < num_participating;
+  int const comm_color         = participating ? 1 : MPI_UNDEFINED;
+  MPI_Comm effective_communicator;
+  auto success = MPI_Comm_split(MPI_COMM_WORLD, comm_color, my_rank,
+                                &effective_communicator);
+  assert(success == 0);
+
+  status = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+  assert(status == 0);
+
+  if (effective_communicator != MPI_COMM_NULL)
+  {
+    distro_handle.set_global_comm(effective_communicator);
+    initialize_libraries(get_local_rank());
+  }
+  return {my_rank, num_participating};
+
 #endif
+
   return {0, 1};
 }
 
@@ -27,24 +96,6 @@ void finalize_distribution()
   auto const status = MPI_Finalize();
   assert(status == 0);
 #endif
-}
-
-int get_local_rank()
-{
-  static int const rank = []() {
-#ifdef ASGARD_USE_MPI
-    MPI_Comm local_comm;
-    auto success = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
-                                       MPI_INFO_NULL, &local_comm);
-    assert(success == 0);
-    int local_rank;
-    success = MPI_Comm_rank(local_comm, &local_rank);
-    assert(success == 0);
-    return local_rank;
-#endif
-    return 0;
-  }();
-  return rank;
 }
 
 // determine the side lengths that will give us the "squarest" rectangles
@@ -115,12 +166,7 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
 {
   assert(num_ranks > 0);
 
-  int const num_splits = [num_ranks] {
-    if (std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)) ||
-        num_ranks % 2 == 0)
-      return num_ranks;
-    return num_ranks - 1;
-  }();
+  int const num_splits = num_effective_ranks(num_ranks);
 
   distribution_plan plan;
   for (int i = 0; i < num_splits; ++i)
@@ -151,11 +197,13 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 {
   assert(source.size() == dest.size());
   assert(my_rank >= 0);
+  assert(my_rank < static_cast<int>(plan.size()));
 
 #ifndef ASGARD_USE_MPI
   fm::copy(source, dest);
   return;
 #endif
+
   if (plan.size() == 1)
   {
     fm::copy(source, dest);
@@ -165,19 +213,15 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   fm::scal(static_cast<P>(0.0), dest);
   int const num_cols = get_num_subgrid_cols(plan.size());
 
-  bool const participating = my_rank < static_cast<int>(plan.size());
-  int const my_row         = participating ? my_rank / num_cols : MPI_UNDEFINED;
-  int const my_col         = participating ? my_rank % num_cols : my_rank;
+  int const my_row = my_rank / num_cols;
+  int const my_col = my_rank % num_cols;
 
   MPI_Comm row_communicator;
-  auto success =
-      MPI_Comm_split(MPI_COMM_WORLD, my_row, my_col, &row_communicator);
-  assert(success == 0);
+  MPI_Comm const global_communicator = distro_handle.get_global_comm();
 
-  if (!participating)
-  {
-    return;
-  }
+  auto success =
+      MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
+  assert(success == 0);
 
   MPI_Datatype const mpi_type =
       std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
