@@ -69,16 +69,19 @@ struct element_subgrid
 };
 
 std::array<int, 2> initialize_distribution();
-int get_local_rank();
 void finalize_distribution();
+int get_local_rank();
 
 struct node_out
 {
   template<class T>
   node_out &operator<<(T val)
   {
+#ifdef ASGARD_USE_MPI
     if (!get_local_rank())
       std::cout << val;
+#endif
+    std::cout << val;
     return *this;
   }
 };
