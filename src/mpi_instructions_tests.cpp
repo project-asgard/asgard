@@ -1,4 +1,4 @@
-#include "mpi_endpoints.hpp"
+#include "mpi_instructions.hpp"
 #include "tests_general.hpp"
 
 #include <set>
@@ -53,12 +53,10 @@ std::vector<int> reverse_offset(std::vector<int> &c_stop)
    multiple intervals
    in r_stop. Ensures that the r_stop continuously represents the entire range
  */
-// clang-format off
-bool check_row_space_intervals( const std::vector< std::vector< class mpi_node_and_range > >
-                                &row_space_intervals,
-                                const std::vector< int > &c_stop,
-                                const std::vector< int > &r_stop )
-// clang-format on
+bool check_row_space_intervals(
+    const std::vector<std::vector<class mpi_node_and_range>>
+        &row_space_intervals,
+    const std::vector<int> &c_stop, const std::vector<int> &r_stop)
 {
   int r_start = 0;
 
@@ -108,12 +106,9 @@ bool check_row_space_intervals( const std::vector< std::vector< class mpi_node_a
 }
 
 /* return a slice that corresponds to the range specified in nar */
-// clang-format off
-std::vector< int > cut_a_slice( const class mpi_node_and_range &nar,
-                                const std::vector< int > &c_stop,
-                                const std::vector< int > &r_stop,
-                                const std::vector< int > &x )
-// clang-format on
+std::vector<int>
+cut_a_slice(const class mpi_node_and_range &nar, const std::vector<int> &c_stop,
+            const std::vector<int> &r_stop, const std::vector<int> &x)
 {
   std::vector<int> slice;
 
@@ -152,11 +147,8 @@ std::vector< int > cut_a_slice( const class mpi_node_and_range &nar,
 }
 
 /* returns correct vector slice for column */
-// clang-format off
-std::vector< int > correct_slice( int c,
-                                  const std::vector< int > &c_stop,
-                                  const std::vector< int > &x )
-// clang-format on
+std::vector<int>
+correct_slice(int c, const std::vector<int> &c_stop, const std::vector<int> &x)
 {
   /* Captain! Refactor to move code out of the if-else blocks */
   std::vector<int> slice;
@@ -191,16 +183,16 @@ std::vector< int > correct_slice( int c,
 
 /* ensure that each process node can construct its slice of the vector based
    only on what it receives */
-bool check_slices(const class mpi_node_endpoints &mpi_node_endpoints)
+bool check_slices(const class mpi_instructions &mpi_instructions)
 {
   /* create fake data */
   std::vector<int> x;
 
   std::random_device rdev;
 
-  const std::vector<int> &r_stop = mpi_node_endpoints.get_r_stop();
+  const std::vector<int> &r_stop = mpi_instructions.get_r_stop();
 
-  const std::vector<int> &c_stop = mpi_node_endpoints.get_c_stop();
+  const std::vector<int> &c_stop = mpi_instructions.get_c_stop();
 
   for (int i = 0; i < c_stop.back(); i++)
     x.push_back(i);
@@ -209,21 +201,21 @@ bool check_slices(const class mpi_node_endpoints &mpi_node_endpoints)
   {
     for (int c = 0; c < (int)c_stop.size(); c++)
     {
-      const class mpi_node_endpoint &mpi_node_endpoint =
-          mpi_node_endpoints.get_mpi_node_endpoint(r, c);
+      const class mpi_instruction &mpi_instruction =
+          mpi_instructions.get_mpi_instructions(r, c);
 
-      const std::vector<class mpi_packet_endpoint> &endpoint =
-          mpi_node_endpoint.endpoints_in_order();
+      const std::vector<class mpi_message> &mpi_message =
+          mpi_instruction.mpi_messages_in_order();
 
       std::vector<int> derived_slice;
 
-      /* only the receive-type endpoints are of interest here */
-      for (int i = 0; i < (int)endpoint.size(); i++)
+      /* only the receive-type mpi_messages are of interest here */
+      for (int i = 0; i < (int)mpi_message.size(); i++)
       {
-        if (endpoint[i].endpoint_type == endpoint_enum::receive)
+        if (mpi_message[i].mpi_message_type == mpi_message_enum::receive)
         {
           std::vector<int> sub_slice =
-              cut_a_slice(endpoint[i].nar, c_stop, r_stop, x);
+              cut_a_slice(mpi_message[i].nar, c_stop, r_stop, x);
 
           std::copy(sub_slice.begin(), sub_slice.end(),
                     std::back_inserter(derived_slice));
@@ -241,68 +233,63 @@ bool check_slices(const class mpi_node_endpoints &mpi_node_endpoints)
 }
 
 /* ensure that every send has a matching receive with the same info */
-bool check_packet_endpoints(const class mpi_node_endpoints &mpi_node_endpoints)
+bool check_packet_mpi_messages(const class mpi_instructions &mpi_instructions)
 {
   /* these arrays will have the format:
      { sending linear index, receiving linear index, start, stop } */
-  std::set<std::array<const int, 4>> receive_endpoint;
+  std::set<std::array<const int, 4>> receive_mpi_message;
 
-  std::vector<std::array<const int, 4>> send_endpoint;
+  std::vector<std::array<const int, 4>> send_mpi_message;
 
-  for (int r = 0; r < mpi_node_endpoints.n_tile_rows(); r++)
+  for (int r = 0; r < mpi_instructions.n_tile_rows(); r++)
   {
-    for (int c = 0; c < mpi_node_endpoints.n_tile_cols(); c++)
+    for (int c = 0; c < mpi_instructions.n_tile_cols(); c++)
     {
-      const class mpi_node_endpoint &mpi_node_endpoint =
-          mpi_node_endpoints.get_mpi_node_endpoint(r, c);
+      const class mpi_instruction &mpi_instruction =
+          mpi_instructions.get_mpi_instructions(r, c);
 
-      const std::vector<class mpi_packet_endpoint> &endpoint =
-          mpi_node_endpoint.endpoints_in_order();
+      const std::vector<class mpi_message> &mpi_message =
+          mpi_instruction.mpi_messages_in_order();
 
-      for (int i = 0; i < (int)endpoint.size(); i++)
+      for (int i = 0; i < (int)mpi_message.size(); i++)
       {
-        const class mpi_node_and_range &nar = endpoint[i].nar;
+        const class mpi_node_and_range &nar = mpi_message[i].nar;
 
-        if (endpoint[i].endpoint_type == endpoint_enum::send)
+        if (mpi_message[i].mpi_message_type == mpi_message_enum::send)
         {
-          // clang-format off
-          const std::array< const int, 4 > array{ r * mpi_node_endpoints.n_tile_cols() + c,
-                                                  nar.linear_index,
-                                                  nar.start,
-                                                  nar.stop };
-          // clang-format on
+          const std::array<const int, 4> array{
+              r * mpi_instructions.n_tile_cols() + c, nar.linear_index,
+              nar.start, nar.stop};
 
-          send_endpoint.emplace_back(std::move(array));
+          send_mpi_message.emplace_back(std::move(array));
         }
 
-        else if (endpoint[i].endpoint_type == endpoint_enum::receive)
+        else if (mpi_message[i].mpi_message_type == mpi_message_enum::receive)
         {
-          // clang-format off
-          std::array< const int, 4 > array{ nar.linear_index,
-                                            r * mpi_node_endpoints.n_tile_cols() + c,
-                                            nar.start,
-                                            nar.stop };
-          // clang-format on
+          std::array<const int, 4> array{nar.linear_index,
+                                         r * mpi_instructions.n_tile_cols() + c,
+                                         nar.start, nar.stop};
 
-          receive_endpoint.emplace(std::move(array));
+          receive_mpi_message.emplace(std::move(array));
         }
       }
     }
   }
 
-  if (send_endpoint.size() != receive_endpoint.size())
+  if (send_mpi_message.size() != receive_mpi_message.size())
     return false;
 
-  for (int i = 0; i < (int)send_endpoint.size(); i++)
+  for (int i = 0; i < (int)send_mpi_message.size(); i++)
   {
-    if (receive_endpoint.find(send_endpoint[i]) == receive_endpoint.end())
+    if (receive_mpi_message.find(send_mpi_message[i]) ==
+        receive_mpi_message.end())
       return false;
   }
 
   return true;
 }
 
-TEST_CASE("mpi_endpoints", "[mpi]")
+TEST_CASE("mpi_mpi_messages", "[mpi]")
 {
   /* testing parameters */
   int c_segments = 100;
@@ -317,33 +304,30 @@ TEST_CASE("mpi_endpoints", "[mpi]")
   std::vector<int> r_stop = reverse_offset(c_stop);
 
   /* create object */
-  class mpi_node_endpoints mpi_node_endpoints(std::move(r_stop),
-                                              std::move(c_stop));
+  class mpi_instructions mpi_instructions(std::move(r_stop), std::move(c_stop));
 
   SECTION("rowspace_intervals")
   {
-    const std::vector<std::vector<class mpi_node_and_range>> row_space_intervals =
-        mpi_node_endpoints.gen_row_space_intervals();
+    const std::vector<std::vector<class mpi_node_and_range>>
+        row_space_intervals = mpi_instructions.gen_row_space_intervals();
 
-    // clang-format off
-    bool pass = check_row_space_intervals( row_space_intervals,
-                                           mpi_node_endpoints.get_c_stop(),
-                                           mpi_node_endpoints.get_r_stop() );
-    // clang-format on
+    bool pass = check_row_space_intervals(row_space_intervals,
+                                          mpi_instructions.get_c_stop(),
+                                          mpi_instructions.get_r_stop());
 
     REQUIRE(pass == true);
   }
 
   SECTION("build_slices")
   {
-    bool pass = check_slices(mpi_node_endpoints);
+    bool pass = check_slices(mpi_instructions);
 
     REQUIRE(pass == true);
   }
 
-  SECTION("check_endpoints")
+  SECTION("check_mpi_messages")
   {
-    bool pass = check_packet_endpoints(mpi_node_endpoints);
+    bool pass = check_packet_mpi_messages(mpi_instructions);
 
     REQUIRE(pass == true);
   }
