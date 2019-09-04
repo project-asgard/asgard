@@ -291,7 +291,7 @@ private:
   // define terms
 
   // default mass matrix (only for lev_x=lev_y=etc)
-  inline static class partial_term<P> partial_term_I_ = partial_term<P>(
+  inline static partial_term<P> partial_term_I_ = partial_term<P>(
       coefficient_type::mass, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -303,7 +303,7 @@ private:
               {partial_term_I_});
 
   // term 0
-  inline static class partial_term<P> partial_term_t0_d0 = partial_term<P>(
+  inline static partial_term<P> partial_term_t0_d0 = partial_term<P>(
       coefficient_type::grad, g_func_t0_d0, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -317,7 +317,7 @@ private:
   inline static const std::vector<term<P>> terms0_ = {term0_dim0_, I_, I_};
 
   // term 1
-  inline static class partial_term<P> partial_term_t1_d1 = partial_term<P>(
+  inline static partial_term<P> partial_term_t1_d1 = partial_term<P>(
       coefficient_type::grad, g_func_t1_d1, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -331,7 +331,7 @@ private:
   inline static const std::vector<term<P>> terms1_ = {I_, term1_dim1_, I_};
 
   // term 2
-  inline static class partial_term<P> partial_term_t2_d2 = partial_term<P>(
+  inline static partial_term<P> partial_term_t2_d2 = partial_term<P>(
       coefficient_type::grad, g_func_t2_d2, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 

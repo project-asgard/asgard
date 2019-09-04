@@ -60,10 +60,6 @@ template<typename P>
 class dimension
 {
 public:
-  /*
-  boundary_condition const left;
-  boundary_condition const right;
-  */
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
@@ -179,11 +175,7 @@ public:
     return;
   }
 
-  void set_flux_scale(P const dfdu)
-  {
-    assert(flux == flux_type::lax_friedrich);
-    flux_scale = dfdu;
-  };
+  void set_flux_scale(P const dfdu) { flux_scale = dfdu; };
 
   P get_flux_scale() const { return flux_scale; };
 
@@ -198,6 +190,19 @@ public:
   boundary_condition const right;
 
   P flux_scale;
+
+  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
+
+  void set_coefficients(fk::matrix<P> const &new_coefficients)
+  {
+    this->coefficients_.clear_and_resize(
+        new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
+
+    return;
+  }
+
+private:
+  fk::matrix<P> coefficients_;
 };
 
 template<typename P>
@@ -214,7 +219,7 @@ class term
 public:
   term(bool const time_dependent, fk::vector<P> const data,
        std::string const name, dimension<P> const owning_dim,
-       std::initializer_list<class partial_term<P>> const partial_terms = {})
+       std::initializer_list<partial_term<P>> const partial_terms = {})
       : time_dependent(time_dependent), name(name), owning_dim(owning_dim),
         partial_terms(partial_terms), data_(data)
 
@@ -262,12 +267,9 @@ public:
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   };
 
-  class partial_term<P> const &get_partial_term(int i) const
-  {
-    return partial_terms[i];
-  };
+  partial_term<P> &get_partial_term(int i) { return partial_terms[i]; };
 
-  int n_partial_terms() const { return partial_terms.size(); };
+  int num_partial_terms() const { return partial_terms.size(); };
 
   // public but const data. no getters
   bool const time_dependent;
@@ -275,7 +277,7 @@ public:
   dimension<P> const owning_dim;
 
 private:
-  std::vector<class partial_term<P>> const partial_terms;
+  std::vector<partial_term<P>> partial_terms;
 
   // this is to hold data that may change over the course of the simulation,
   // from any source, that is used in operator construction.
@@ -370,7 +372,7 @@ public:
     }
 
     // check all terms
-    for (std::vector<term<P>> const term_list : terms_)
+    for (std::vector<term<P>> const &term_list : terms_)
     {
       assert(term_list.size() == static_cast<unsigned>(num_dims));
     }
@@ -436,7 +438,7 @@ public:
   {
     return dimensions_;
   }
-  term_set<P> const &get_terms() const { return terms_; }
+  term_set<P> &get_terms() { return terms_; }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const
@@ -444,7 +446,6 @@ public:
     return terms_[term][dim].get_coefficients();
   }
 
-  /* Is this function used anywhere? It doesn't really look like it */
   void
   set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
   {

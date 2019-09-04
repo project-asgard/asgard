@@ -150,7 +150,7 @@ private:
   // term2_z.G = @(z,p,t,dat) -1.*(1-z.^2); % G function for use in coeff_matrix
   // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
 
-  inline static class partial_term<P> partial_term_0 =
+  inline static partial_term<P> partial_term_0 =
       partial_term<P>(coefficient_type::grad, g_func_1, flux_type::downwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 

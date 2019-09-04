@@ -717,7 +717,7 @@ private:
   static P constexpr az = 2;
 
   // default mass matrix (only for lev_x=lev_y=etc)
-  inline static class partial_term<P> partial_term_I_ = partial_term<P>(
+  inline static partial_term<P> partial_term_I_ = partial_term<P>(
       coefficient_type::mass, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
   inline static term<P> const I_ =
@@ -728,7 +728,7 @@ private:
               {partial_term_I_});
 
   // term 0
-  inline static class partial_term<P> partial_term_0_x_ = partial_term<P>(
+  inline static partial_term<P> partial_term_0_x_ = partial_term<P>(
       coefficient_type::grad, gx, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -741,7 +741,7 @@ private:
   inline static const std::vector<term<P>> terms0_ = {term0_x_, I_, I_,
                                                       I_,       I_, I_};
   // term 1
-  inline static class partial_term<P> partial_term_1_y_ = partial_term<P>(
+  inline static partial_term<P> partial_term_1_y_ = partial_term<P>(
       coefficient_type::grad, gy, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -754,7 +754,7 @@ private:
   inline static const std::vector<term<P>> terms1_ = {I_, term1_y_, I_,
                                                       I_, I_,       I_};
   // term 2
-  inline static class partial_term<P> partial_term_2_z_ = partial_term<P>(
+  inline static partial_term<P> partial_term_2_z_ = partial_term<P>(
       coefficient_type::grad, gz, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -768,7 +768,7 @@ private:
   inline static const std::vector<term<P>> terms2_ = {I_, I_, term2_z_,
                                                       I_, I_, I_};
   // term 3
-  inline static class partial_term<P> partial_term_3_vx_ = partial_term<P>(
+  inline static partial_term<P> partial_term_3_vx_ = partial_term<P>(
       coefficient_type::grad, gvx, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -782,7 +782,7 @@ private:
   inline static const std::vector<term<P>> terms3_ = {I_,        I_, I_,
                                                       term3_vx_, I_, I_};
   // term 4
-  inline static class partial_term<P> partial_term_4_vy_ = partial_term<P>(
+  inline static partial_term<P> partial_term_4_vy_ = partial_term<P>(
       coefficient_type::grad, gvy, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -796,7 +796,7 @@ private:
   inline static const std::vector<term<P>> terms4_ = {I_, I_,        I_,
                                                       I_, term4_vy_, I_};
   // term 5
-  inline static class partial_term<P> partial_term_5_vz_ = partial_term<P>(
+  inline static partial_term<P> partial_term_5_vz_ = partial_term<P>(
       coefficient_type::grad, gvz, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 

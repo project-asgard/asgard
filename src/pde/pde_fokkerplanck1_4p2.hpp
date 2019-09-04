@@ -159,11 +159,11 @@ private:
   //    termC_z.BCL2 = 'N';
   //    termC_z.BCR2 = 'N';
 
-  inline static class partial_term<P> partial_term_0 = partial_term<P>(
+  inline static partial_term<P> partial_term_0 = partial_term<P>(
       coefficient_type::grad, g_func_1, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  inline static class partial_term<P> partial_term_1 =
+  inline static partial_term<P> partial_term_1 =
       partial_term<P>(coefficient_type::grad, g_func_2, flux_type::upwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 
