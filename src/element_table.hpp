@@ -30,6 +30,7 @@
 //   than the number of levels selected for the simulation.
 // -----------------------------------------------------------------------------
 
+template<class T>
 class element_table
 {
 public:
@@ -40,7 +41,7 @@ public:
 
   // reverse lookup
   fk::vector<int> get_coords(int const index) const;
-  fk::vector<int> get_coords_sparse(long int const index) const;
+  // fk::vector<int> get_coords_sparse(long int const index) const;
 
   // returns the number of elements in table
   int size() const
@@ -48,26 +49,29 @@ public:
     assert(forward_table.size() == reverse_table.size());
     return forward_table.size();
   }
-  
+
   // returns the number of elements in table
-  int size_sparse() const
-  {
-    assert(forward_table_sparse.size() > 0);
-    return forward_table_sparse.size();
-  }
+  // int size_sparse() const
+  //{
+  //  assert(forward_table_sparse.size() > 0);
+  //  return forward_table_sparse.size();
+  //}
 
   // Static construction helper
   // Return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
 
   long int lev_cell_to_1D_index(int const level, int const cell);
-  
-  long int lev_cell_to_element_index(fk::vector<int> const levels, fk::vector<int> const cells, int const max_levels);
+
+  long int lev_cell_to_element_index(fk::vector<int> const levels,
+                                     fk::vector<int> const cells,
+                                     int const max_levels);
+
 private:
   // a map keyed on the element coordinates
-  std::map<fk::vector<int>, int> forward_table;
+  std::map<fk::vector<int>, T> forward_table;
   // a map keyed on the element index
-  std::map<fk::vector<int>,long int> forward_table_sparse;
+  // std::map<fk::vector<int>,long int> forward_table_sparse;
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
 };

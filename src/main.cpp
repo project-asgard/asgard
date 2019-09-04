@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 
   // -- create forward/reverse mapping between elements and indices
   std::cout << "  generating: element table..." << '\n';
-  element_table const table = element_table(opts, pde->num_dims);
+  element_table<int> const table = element_table<int>(opts, pde->num_dims);
 
   // -- generate initial condition vector.
   std::cout << "  generating: initial conditions..." << '\n';
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
   // FIXME stand-in
   static int const ranks = 1;
 
-  host_workspace<prec> host_space(*pde, table);
+  host_workspace<prec, int> host_space(*pde, table);
   std::vector<element_chunk> const chunks = assign_elements(
       table, get_num_chunks(table, *pde, ranks, default_workspace_MB));
   rank_workspace<prec> rank_space(*pde, chunks);

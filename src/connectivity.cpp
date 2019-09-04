@@ -113,7 +113,8 @@ fk::matrix<int> make_1d_connectivity(int const num_levels)
 // This code is to generate the ndimensional connectivity...
 // Here, we consider the maximum connectivity, which includes all overlapping
 // cells, neighbor cells, and the periodic boundary cells
-list_set make_connectivity(element_table table, int const num_dims,
+template<typename T>
+list_set make_connectivity(element_table<T> table, int const num_dims,
                            int const max_level_sum, int const max_level_val,
                            bool const sort_connected)
 {
@@ -194,3 +195,11 @@ list_set make_connectivity(element_table table, int const num_dims,
 
   return connectivity;
 }
+template list_set make_connectivity(element_table<int> table,
+                                    int const num_dims, int const max_level_sum,
+                                    int const max_level_val,
+                                    bool const sort_connected = true);
+template list_set make_connectivity(element_table<long int> table,
+                                    int const num_dims, int const max_level_sum,
+                                    int const max_level_val,
+                                    bool const sort_connected = true);

@@ -1665,7 +1665,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
     fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(0, 0);
     std::random_device rd;
@@ -1675,7 +1675,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
     pde->set_coefficients(coefficient_matrix, 0, 0);
 
-    host_workspace<TestType> host_space(*pde, elem_table);
+    host_workspace<TestType, int> host_space(*pde, elem_table);
     auto const chunks =
         assign_elements(elem_table, get_num_chunks(elem_table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1722,7 +1722,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
     fk::matrix<TestType> coefficient_matrix = pde->get_coefficients(0, 0);
     std::random_device rd;
@@ -1732,7 +1732,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
     pde->set_coefficients(coefficient_matrix, 0, 0);
 
-    host_workspace<TestType> host_space(*pde, elem_table);
+    host_workspace<TestType, int> host_space(*pde, elem_table);
     auto const chunks =
         assign_elements(elem_table, get_num_chunks(elem_table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1781,7 +1781,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
@@ -1796,7 +1796,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
     }
 
-    host_workspace<TestType> host_space(*pde, elem_table);
+    host_workspace<TestType, int> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
     auto const chunks =
         assign_elements(elem_table, get_num_chunks(elem_table, *pde));
@@ -1849,7 +1849,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
@@ -1864,7 +1864,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
     }
 
-    host_workspace<TestType> host_space(*pde, elem_table);
+    host_workspace<TestType, int> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
     auto const chunks =
         assign_elements(elem_table, get_num_chunks(elem_table, *pde));
@@ -1917,7 +1917,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
@@ -1932,7 +1932,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
     }
 
-    host_workspace<TestType> host_space(*pde, elem_table);
+    host_workspace<TestType, int> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
     auto const chunks =
         assign_elements(elem_table, get_num_chunks(elem_table, *pde));
@@ -1985,7 +1985,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
@@ -2000,7 +2000,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
       }
     }
 
-    host_workspace<TestType> host_space(*pde, elem_table);
+    host_workspace<TestType, int> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
     int const ranks    = 2;
     int const limit_MB = 100;

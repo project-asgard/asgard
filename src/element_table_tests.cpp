@@ -14,7 +14,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
     int const levels = 1;
     int const dims   = 1;
     options o        = make_options({"-l", std::to_string(levels)});
-    element_table t(o, dims);
+    element_table<int> t(o, dims);
     std::string test_base = out_base + "_1_1_SG";
     std::string file_path = test_base + ".dat";
     auto gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
@@ -34,7 +34,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
     int const levels_2 = 3;
     int const dims_2   = 2;
     options o_2        = make_options({"-l", std::to_string(levels_2)});
-    element_table t_2(o_2, dims_2);
+    element_table<int> t_2(o_2, dims_2);
     std::string test_base = out_base + "_2_3_SG";
     std::string file_path = test_base + ".dat";
     auto gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
@@ -55,7 +55,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
     int const dims_3   = 3;
     // test full grid
     options o_3 = make_options({"-l", std::to_string(levels_3), "-f"});
-    element_table t_3(o_3, dims_3);
+    element_table<int> t_3(o_3, dims_3);
     std::string test_base = out_base + "_3_4_FG";
     std::string file_path = test_base + ".dat";
     auto gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
@@ -73,7 +73,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
 
 TEST_CASE("Static helper - cell builder", "[element_table]")
 {
-  element_table t(
+  element_table<int> t(
       make_options({"-l", std::to_string(3), "-d", std::to_string(2)}), 1);
 
   SECTION("cell index set builder")

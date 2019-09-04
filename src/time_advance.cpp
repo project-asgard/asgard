@@ -4,10 +4,10 @@
 
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
-template<typename P>
-void explicit_time_advance(PDE<P> const &pde, element_table const &table,
+template<typename P, typename T>
+void explicit_time_advance(PDE<P> const &pde, element_table<T> const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           host_workspace<P> &host_space,
+                           host_workspace<P, T> &host_space,
                            rank_workspace<P> &rank_space,
                            std::vector<element_chunk> chunks, P const time,
                            P const dt)
@@ -83,11 +83,11 @@ scale_sources(PDE<P> const &pde,
 
 // apply the system matrix to the current solution vector using batched
 // gemm (explicit time advance).
-template<typename P>
+template<typename P, typename T>
 static void
-apply_explicit(PDE<P> const &pde, element_table const &elem_table,
+apply_explicit(PDE<P> const &pde, element_table<T> const &elem_table,
                std::vector<element_chunk> const &chunks,
-               host_workspace<P> &host_space, rank_workspace<P> &rank_space)
+               host_workspace<P, T> &host_space, rank_workspace<P> &rank_space)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
   for (auto const &chunk : chunks)
@@ -120,17 +120,33 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
 }
 
 template void
-explicit_time_advance(PDE<float> const &pde, element_table const &table,
+explicit_time_advance(PDE<float> const &pde, element_table<int> const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
-                      host_workspace<float> &host_space,
+                      host_workspace<float, int> &host_space,
+                      rank_workspace<float> &rank_space,
+                      std::vector<element_chunk> chunks, float const time,
+                      float const dt);
+template void
+explicit_time_advance(PDE<float> const &pde,
+                      element_table<long int> const &table,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      host_workspace<float, long int> &host_space,
                       rank_workspace<float> &rank_space,
                       std::vector<element_chunk> chunks, float const time,
                       float const dt);
 
 template void
-explicit_time_advance(PDE<double> const &pde, element_table const &table,
+explicit_time_advance(PDE<double> const &pde, element_table<int> const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
-                      host_workspace<double> &host_space,
+                      host_workspace<double, int> &host_space,
+                      rank_workspace<double> &rank_space,
+                      std::vector<element_chunk> chunks, double const time,
+                      double const dt);
+template void
+explicit_time_advance(PDE<double> const &pde,
+                      element_table<long int> const &table,
+                      std::vector<fk::vector<double>> const &unscaled_sources,
+                      host_workspace<double, long int> &host_space,
                       rank_workspace<double> &rank_space,
                       std::vector<element_chunk> chunks, double const time,
                       double const dt);

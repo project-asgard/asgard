@@ -47,7 +47,7 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     int const levels = 4;
     int const dims   = 3;
     options const o  = make_options({"-l", std::to_string(levels)});
-    element_table const t(o, dims);
+    element_table<int> const t(o, dims);
     list_set connectivity = make_connectivity(t, dims, levels, levels);
 
     list_set gold;
@@ -74,7 +74,7 @@ TEST_CASE("n-dimensional connectivity", "[connectivity]")
     int const levels = 3;
     int const dims   = 2;
     options const o  = make_options({"-l", std::to_string(levels), "-f"});
-    element_table const t(o, dims);
+    element_table<int> const t(o, dims);
     list_set connectivity = make_connectivity(t, dims, levels * dims, levels);
 
     list_set gold;
