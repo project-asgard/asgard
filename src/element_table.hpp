@@ -66,8 +66,11 @@ public:
 private:
   // a map keyed on the element coordinates
   std::map<fk::vector<int>, int> forward_table;
+<<<<<<< HEAD
   // a map keyed on the element index
   std::map<fk::vector<int>,long int> forward_table_sparse;
+=======
+>>>>>>> parent of df3fe7b7... WIP: adding sparse element table map
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
 };
