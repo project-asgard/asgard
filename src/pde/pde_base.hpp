@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "../basis.hpp"
+#include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
 #include "../tensors.hpp"
 //
@@ -27,7 +28,7 @@ auto const ignore = [](auto ignored) { (void)ignored; };
 
 // for passing around vector/scalar-valued functions used by the PDE
 template<typename P>
-using vector_func = std::function<fk::vector<P>(fk::vector<P> const)>;
+using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
@@ -72,13 +73,9 @@ public:
 
       : left(left), right(right), domain_min(domain_min),
         domain_max(domain_max), initial_condition(initial_condition),
-        name(name), level_(level), degree_(degree)
+        name(name), degree_(degree)
   {
-    int const dofs = degree_ * two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dofs, dofs) =
-        operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dofs, dofs) =
-        fk::matrix<double>(to_basis_operator_).transpose();
+    set_level(level);
   }
 
   int get_level() const { return level_; }
@@ -97,7 +94,7 @@ private:
   {
     assert(level > 0);
     level_         = level;
-    int const dofs = degree_ * two_raised_to(level_);
+    int const dofs = degree_ * fm::two_raised_to(level_);
     to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
     from_basis_operator_.clear_and_resize(dofs, dofs) =
@@ -108,7 +105,7 @@ private:
   {
     assert(degree > 0);
     degree_        = degree;
-    int const dofs = degree_ * two_raised_to(level_);
+    int const dofs = degree_ * fm::two_raised_to(level_);
     to_basis_operator_.clear_and_resize(dofs, dofs) =
         operator_two_scale<double>(degree_, level_);
     from_basis_operator_.clear_and_resize(dofs, dofs) =
@@ -127,13 +124,14 @@ enum class coefficient_type
 {
   grad,
   mass,
-  stiffness
+  diff
 };
 
 enum class flux_type
 {
   central,
   upwind,
+  downwind,
   lax_friedrich
 };
 
@@ -154,13 +152,40 @@ using g_func_type = std::function<P(P const, P const)>;
 template<typename P>
 class term
 {
+  static P g_func_default(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
 public:
-  term(coefficient_type const coeff, g_func_type<P> const g_func,
+  term(coefficient_type const coeff_type, g_func_type<P> const g_func,
        bool const time_dependent, flux_type const flux,
        fk::vector<P> const data, std::string const name,
-       dimension<P> const owning_dim)
-      : coeff(coeff), g_func(g_func), time_dependent(time_dependent),
-        flux(flux), name(name), data_(data)
+       dimension<P> const owning_dim,
+       // optional parts for diff type operators
+
+       // FIXME there are likely better ways to do this; and that
+       // this could all likely be avoided with a DSL for the
+       // PDE spec which could handle diff terms internally.
+       // Also, building terms by chaining like this may be getting
+       // generalized in the very near future.
+       g_func_type<P> const g_func_1       = g_func_default,
+       g_func_type<P> const g_func_2       = g_func_default,
+       flux_type const flux_1              = flux_type::upwind,
+       flux_type const flux_2              = flux_type::downwind,
+       boundary_condition const BC_left_1  = boundary_condition::neumann,
+       boundary_condition const BC_right_1 = boundary_condition::neumann,
+       boundary_condition const BC_left_2  = boundary_condition::neumann,
+       boundary_condition const BC_right_2 = boundary_condition::neumann)
+      : coeff_type(coeff_type), g_func(g_func), time_dependent(time_dependent),
+        flux(flux), name(name), owning_dim(owning_dim), g_func_1(g_func_1),
+        g_func_2(g_func_2), flux_1(flux_1), flux_2(flux_2),
+        BC_left_1(BC_left_1), BC_right_1(BC_right_1), BC_left_2(BC_left_2),
+        BC_right_2(BC_right_2), data_(data)
+
   {
     set_data(owning_dim, data);
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
@@ -185,7 +210,11 @@ public:
     }
     else if (flux == flux_type::upwind)
     {
-      flux_scale_ = 1.0;
+      flux_scale_ = +1.0;
+    }
+    else if (flux == flux_type::downwind)
+    {
+      flux_scale_ = -1.0;
     }
     else
     {
@@ -220,11 +249,23 @@ public:
   };
 
   // public but const data. no getters
-  coefficient_type const coeff;
+  coefficient_type const coeff_type;
   g_func_type<P> const g_func;
   bool const time_dependent;
   flux_type const flux;
   std::string const name;
+  dimension<P> const owning_dim;
+
+  // fields required for the diff operator type
+  g_func_type<P> const g_func_1;
+  g_func_type<P> const g_func_2;
+  flux_type const flux_1;
+  flux_type const flux_2;
+
+  boundary_condition const BC_left_1;
+  boundary_condition const BC_right_1;
+  boundary_condition const BC_left_2;
+  boundary_condition const BC_right_2;
 
 private:
   // this is to hold data that may change over the course of the simulation,

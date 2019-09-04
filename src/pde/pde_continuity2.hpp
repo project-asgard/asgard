@@ -46,25 +46,31 @@ private:
   //
 
   // specify initial condition vector functions...
-  static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
-  static fk::vector<P> initial_condition_dim1(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
 
   // specify exact solution vectors/time function...
-  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
-  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -76,16 +82,18 @@ private:
   // specify source functions...
 
   // source 0
-  static fk::vector<P> source_0_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_0_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -95,16 +103,18 @@ private:
   static P source_0_time(P const time) { return 2.0 * std::cos(2.0 * time); }
 
   // source 1
-  static fk::vector<P> source_1_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_1_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(2.0 * PI * x); });
@@ -117,16 +127,18 @@ private:
   }
 
   // source 2
-  static fk::vector<P> source_2_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_2_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_2_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_2_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -151,6 +163,22 @@ private:
     ignore(x);
     ignore(time);
     return 1.0;
+  }
+
+  static P g_func_t0_d0(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return -1.0;
+  }
+
+  static P g_func_t1_d1(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return -1.0;
   }
 
   // define dimensions
@@ -180,7 +208,7 @@ private:
   // term 0
   inline static term<P> const term0_dim0_ =
       term<P>(coefficient_type::grad, // operator type
-              g_func_identity,        // construction function
+              g_func_t0_d0,           // construction function
               false,                  // time-dependent
               flux_type::central,     // flux type
               fk::vector<P>(),        // additional data vector
@@ -210,11 +238,11 @@ private:
 
   inline static term<P> const term1_dim1_ =
       term<P>(coefficient_type::grad, // operator type
-              g_func_identity,        // construction function
+              g_func_t1_d1,           // construction function
               false,                  // time-dependent
               flux_type::central,     // flux type
               fk::vector<P>(),        // additional data vector
-              "massY",                // name
+              "v_y.d_dy",             // name
               dim1_);                 // owning dim
 
   inline static const std::vector<term<P>> terms1_ = {term1_dim0_, term1_dim1_};
