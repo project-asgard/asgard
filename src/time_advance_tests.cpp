@@ -44,7 +44,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -77,7 +77,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
           degree, table, initial_sources_dim, initial_scale));
     }
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -112,7 +112,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -146,7 +146,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -180,7 +180,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -214,7 +214,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -275,7 +275,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -309,7 +309,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -344,7 +344,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -378,7 +378,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -412,7 +412,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -446,7 +446,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -506,7 +506,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -540,7 +540,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -575,7 +575,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -609,7 +609,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -668,7 +668,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -702,7 +702,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -737,7 +737,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -771,7 +771,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -832,7 +832,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -865,7 +865,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
           degree, table, initial_sources_dim, initial_scale));
     }
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -900,7 +900,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -934,7 +934,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -997,7 +997,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
         make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
                       "-c", std::to_string(0.01)});
 
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     // set coeffs
     generate_all_coefficients(*pde);
@@ -1128,7 +1128,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType, int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);

@@ -24,7 +24,7 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
 
     options const o =
         make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
-    element_table const t(o, dims);
+    element_table<int> const t(o, dims);
     TestType const time = 2.0;
 
     int const vect_size = dims * static_cast<int>(std::pow(2, lev));
@@ -61,7 +61,7 @@ TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
                               ->get_dimensions()[0];
     options const o = make_options(
         {"-d", std::to_string(deg), "-l", std::to_string(lev), "-f"});
-    element_table const t(o, dims);
+    element_table<int> const t(o, dims);
     TestType const time = 2.5;
 
     int const vect_size = dims * static_cast<int>(std::pow(2, lev));

@@ -578,9 +578,9 @@ get_operator_col(PDE<P> const &pde, int const degree,
 // given a problem instance (pde/elem table) and
 // memory allocations (x, y, work), enqueue the
 // batch gemms/reduction gemv to perform A*x
-template<typename P>
+template<typename P, typename T>
 std::vector<batch_operands_set<P>>
-build_batches(PDE<P> const &pde, element_table const &elem_table,
+build_batches(PDE<P> const &pde, element_table<T> const &elem_table,
               rank_workspace<P> const &workspace, element_chunk const &chunk)
 {
   // assume uniform degree for now
@@ -872,11 +872,19 @@ template void kronmult_to_batch_sets(
     PDE<double> const &pde);
 
 template std::vector<batch_operands_set<float>>
-build_batches(PDE<float> const &pde, element_table const &elem_table,
+build_batches(PDE<float> const &pde, element_table<int> const &elem_table,
+              rank_workspace<float> const &workspace,
+              element_chunk const &chunk);
+template std::vector<batch_operands_set<float>>
+build_batches(PDE<float> const &pde, element_table<long int> const &elem_table,
               rank_workspace<float> const &workspace,
               element_chunk const &chunk);
 template std::vector<batch_operands_set<double>>
-build_batches(PDE<double> const &pde, element_table const &elem_table,
+build_batches(PDE<double> const &pde, element_table<int> const &elem_table,
+              rank_workspace<double> const &workspace,
+              element_chunk const &chunk);
+template std::vector<batch_operands_set<double>>
+build_batches(PDE<double> const &pde, element_table<long int> const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);
 

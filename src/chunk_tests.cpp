@@ -3,8 +3,9 @@
 #include "tests_general.hpp"
 
 // check for complete, non-overlapping element assignment
+template<typename T>
 auto const validity_check = [](std::vector<element_chunk> const &chunks,
-                               element_table const &table) {
+                               element_table<T> const &table) {
   enum element_status
   {
     unassigned,
@@ -134,7 +135,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
     bool const large_problem = false;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
@@ -142,7 +143,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -157,7 +158,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
     bool const large_problem = false;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
@@ -165,7 +166,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -184,7 +185,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
@@ -192,7 +193,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
       auto const chunks    = assign_elements(table, num_chunks);
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -207,7 +208,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
@@ -215,7 +216,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -230,7 +231,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
@@ -238,7 +239,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -254,7 +255,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
@@ -263,7 +264,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -278,7 +279,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
@@ -286,7 +287,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -301,7 +302,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
     for (int limit_MB = 1; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(table, *pde, ranks, limit_MB);
@@ -309,7 +310,7 @@ TEST_CASE("element chunk, continuity 3", "[chunk]")
 
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -328,7 +329,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     for (int limit_MB = 1; limit_MB <= 10000; limit_MB *= 10)
     {
@@ -336,7 +337,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
       auto const chunks    = assign_elements(table, num_chunks);
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -352,7 +353,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
@@ -360,7 +361,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
       auto const chunks    = assign_elements(table, num_chunks);
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -376,7 +377,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
     bool const large_problem = true;
     options const o          = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    element_table const table(o, pde->num_dims);
+    element_table<int> const table(o, pde->num_dims);
 
     for (int limit_MB = 10; limit_MB <= 10000; limit_MB *= 10)
     {
@@ -384,7 +385,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
       auto const chunks    = assign_elements(table, num_chunks);
       assert(chunks.size() % ranks == 0);
       assert(static_cast<int>(chunks.size()) == num_chunks);
-      validity_check(chunks, table);
+      validity_check<int>(chunks, table);
       size_check(chunks, *pde, limit_MB, large_problem);
     }
   }
@@ -392,7 +393,7 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
 
 auto const test_copy_in = [](PDE<double> const &pde, element_chunk const &chunk,
                              rank_workspace<double> const &rank_space,
-                             host_workspace<double> const &host_space) {
+                             host_workspace<double, int> const &host_space) {
   int const elem_size  = element_segment_size(pde);
   auto const x_range   = columns_in_chunk(chunk);
   auto const num_elems = (x_range.stop - x_range.start + 1) * elem_size;
@@ -407,7 +408,7 @@ auto const test_copy_in = [](PDE<double> const &pde, element_chunk const &chunk,
 auto const test_copy_out = [](PDE<double> const &pde,
                               element_chunk const &chunk,
                               rank_workspace<double> const &rank_space,
-                              host_workspace<double> const &host_space,
+                              host_workspace<double, int> const &host_space,
                               fk::vector<double> const &fx_prior) {
   int const elem_size  = element_segment_size(pde);
   auto const y_range   = rows_in_chunk(chunk);
@@ -436,9 +437,9 @@ TEST_CASE("chunk data management functions", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -470,9 +471,9 @@ TEST_CASE("chunk data management functions", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -504,9 +505,9 @@ TEST_CASE("chunk data management functions", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
@@ -538,9 +539,9 @@ TEST_CASE("chunk data management functions", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     int const ranks    = 2;
     int const limit_MB = 1;
@@ -578,9 +579,9 @@ TEST_CASE("chunk data management functions", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     int const ranks    = 3;
     int const limit_MB = 10;
@@ -618,9 +619,9 @@ TEST_CASE("chunk data management functions", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     int const ranks    = 7;
     int const limit_MB = 100;
@@ -716,9 +717,9 @@ TEST_CASE("chunk reduction function", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     int const ranks    = 2;
     int const limit_MB = 1;
@@ -754,9 +755,9 @@ TEST_CASE("chunk reduction function", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     int const ranks    = 4;
     int const limit_MB = 11;
@@ -792,9 +793,9 @@ TEST_CASE("chunk reduction function", "[chunk]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const elem_table(o, pde->num_dims);
+    element_table<int> const elem_table(o, pde->num_dims);
 
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<double, int> host_space(*pde, elem_table);
 
     int const ranks    = 7;
     int const limit_MB = 100;
