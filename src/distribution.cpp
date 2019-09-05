@@ -1,6 +1,8 @@
 #include "distribution.hpp"
+// FIXME
 #include "chunk.hpp"
 #include "lib_dispatch.hpp"
+#include "mpi_instructions.hpp"
 #include <cmath>
 #include <mpi.h>
 #include <numeric>
@@ -210,7 +212,7 @@ struct rank_to_range
       : rank(rank), range(range)
   {}
 };
-
+/*
 static std::vector<rank_to_range> find_partners(int const my_rank,
                                                 distribution_plan const &plan,
                                                 fk::vector<int> &ranks_used)
@@ -263,11 +265,13 @@ static std::vector<rank_to_range> find_partners(int const my_rank,
     return partners;
   }
 }
-
+*/
 using partner_map = std::map<int, std::vector<rank_to_range>>;
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
-                    distribution_plan const &plan, int const my_rank)
+
+                    int const segment_size, distribution_plan const &plan,
+                    int const my_rank)
 {
   assert(dest.size() <= source.size());
   assert(my_rank >= 0);
@@ -282,16 +286,89 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
     return;
   }
 
-  fk::vector<int> ranks_used(plan.size());
+  /*fk::vector<int> ranks_used(plan.size());
   partner_map rank_to_partners;
 
   // ranks used is loop carried dependency
   for (auto const &[rank, subgrid] : plan)
   {
     rank_to_partners.emplace(rank, find_partners(rank, plan, ranks_used));
+  }*/
+
+  // build communication plan
+
+  std::vector<int> row_boundaries;
+  std::vector<int> col_boundaries;
+
+  auto const num_cols = get_num_subgrid_cols(plan.size());
+  assert(plan.size() % num_cols == 0);
+  auto const num_rows = static_cast<int>(plan.size()) / num_cols;
+
+  for (int i = 0; i < num_rows; ++i)
+  {
+    element_subgrid const &grid = plan.at(i * num_cols);
+    row_boundaries.push_back(grid.row_stop);
   }
 
+  for (int i = 0; i < num_cols; ++i)
+  {
+    element_subgrid const &grid = plan.at(i);
+    col_boundaries.push_back(grid.col_stop);
+  }
+
+  mpi_instructions const message_list(std::move(row_boundaries),
+                                      std::move(col_boundaries));
+
   // call send/recv
+  auto const &my_subgrid = plan.at(my_rank);
+  auto const messages    = message_list.get_mpi_instructions(my_rank);
+
+  if (my_rank == 2)
+  {
+    for (auto const &message : messages.mpi_messages_in_order())
+    {
+      std::cout << (message.mpi_message_type == mpi_message_enum::send ? "send"
+                                                                       : "recv")
+                << " " << message.nar.linear_index << '\n';
+      std::cout << message.nar.start << " : " << message.nar.stop << '\n';
+    }
+  }
+  for (auto const &message : messages.mpi_messages_in_order())
+  {
+    if (message.mpi_message_type == mpi_message_enum::send)
+    {
+      if (message.nar.linear_index == my_rank)
+      {
+        /* if(my_rank == 3) {
+
+            std::cout << message.nar.start << std::endl;
+            std::cout << message.nar.stop << std::endl;
+            std::cout << my_subgrid.col_start << std::endl;
+            std::cout << my_subgrid.col_stop << std::endl;
+
+         }*/
+        fk::vector<P, mem_type::view> output_window(
+            source, my_subgrid.to_local_row(message.nar.start) * segment_size,
+            (my_subgrid.to_local_row(message.nar.stop) + 1) * segment_size - 1);
+        fk::vector<P, mem_type::view> input_window(
+            dest, my_subgrid.to_local_col(message.nar.start) * segment_size,
+            (my_subgrid.to_local_col(message.nar.stop) + 1) * segment_size - 1);
+
+        fm::copy(output_window, input_window);
+      }
+      else
+      {}
+    }
+    else
+    {
+      if (message.nar.linear_index == my_rank)
+      {
+        continue;
+      }
+      else
+      {}
+    }
+  }
 }
 
 template void reduce_results(fk::vector<float> const &source,
@@ -302,8 +379,8 @@ template void reduce_results(fk::vector<double> const &source,
                              distribution_plan const &plan, int const my_rank);
 
 template void prepare_inputs(fk::vector<float> const &source,
-                             fk::vector<float> &dest,
+                             fk::vector<float> &dest, int const segment_size,
                              distribution_plan const &plan, int const my_rank);
 template void prepare_inputs(fk::vector<double> const &source,
-                             fk::vector<double> &dest,
+                             fk::vector<double> &dest, int const segment_size,
                              distribution_plan const &plan, int const my_rank);

@@ -97,6 +97,7 @@ struct node_out
 #ifdef ASGARD_USE_MPI
     if (!get_local_rank())
       std::cout << val;
+    return *this;
 #endif
     std::cout << val;
     return *this;
@@ -116,7 +117,8 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
-                    distribution_plan const &plan, int const my_rank);
+                    int const segment_size, distribution_plan const &plan,
+                    int const my_rank);
 
 extern template void
 reduce_results(fk::vector<float> const &source, fk::vector<float> &dest,
@@ -127,7 +129,11 @@ reduce_results(fk::vector<double> const &source, fk::vector<double> &dest,
 
 extern template void
 prepare_inputs(fk::vector<float> const &source, fk::vector<float> &dest,
-               distribution_plan const &plan, int const my_rank);
+
+               int const segment_size, distribution_plan const &plan,
+               int const my_rank);
 extern template void
 prepare_inputs(fk::vector<double> const &source, fk::vector<double> &dest,
-               distribution_plan const &plan, int const my_rank);
+
+               int const segment_size, distribution_plan const &plan,
+               int const my_rank);
