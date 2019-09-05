@@ -1,4 +1,5 @@
 #include "distribution.hpp"
+#include "chunk.hpp"
 #include "lib_dispatch.hpp"
 #include <cmath>
 #include <mpi.h>
@@ -201,6 +202,69 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(success == 0);
 }
 
+struct rank_to_range
+{
+  int const rank;
+  limits<int64_t> const range;
+  rank_to_range(int const rank, limits<int64_t> const range)
+      : rank(rank), range(range)
+  {}
+};
+
+static std::vector<rank_to_range> find_partners(int const my_rank,
+                                                distribution_plan const &plan,
+                                                fk::vector<int> &ranks_used)
+{
+  assert(my_rank > 0);
+  assert(my_rank < static_cast<int>(plan.size()));
+
+  auto const num_cols = get_num_subgrid_cols(plan.size());
+  assert(plan.size() % num_cols == 0);
+  auto const num_rows = static_cast<int64_t>(plan.size()) / num_cols;
+
+  auto const is_partner = [](element_subgrid const &me,
+                             element_subgrid const &them) {
+    return them.row_start >= me.col_start && them.row_start <= me.col_stop;
+  };
+
+  auto const partner_range = [is_partner](element_subgrid const &me,
+                                          element_subgrid const &them) {
+    assert(is_partner(me, them));
+    return limits<int64_t>{them.row_start,
+                           std::min(me.col_stop, them.row_stop)};
+  };
+
+  auto const my_row      = my_rank / num_cols;
+  auto const &my_subgrid = plan.at(my_rank);
+  std::vector<rank_to_range> partners;
+  for (int i = 0; i < num_rows; ++i)
+  {
+    element_subgrid const &start_of_row = plan.at(i * num_cols);
+    // if I need something from this subgrid row, find a partner
+    if (is_partner(my_subgrid, start_of_row))
+    {
+      if (i == my_row)
+      {
+        partners.push_back(
+            rank_to_range(my_rank, partner_range(my_subgrid, my_subgrid)));
+        continue;
+      }
+      // pick least used on this row
+      auto const row_start     = ranks_used.begin() + i * num_cols;
+      auto const row_end       = row_start + num_cols;
+      auto const partner_index = std::distance(
+          ranks_used.begin(), std::min_element(row_start, row_end));
+      ranks_used(partner_index)++; // TODO
+      auto const &partner_subgrid = plan.at(partner_index);
+      partners.push_back(rank_to_range(
+          partner_index, partner_range(my_subgrid, partner_subgrid)));
+    }
+
+    return partners;
+  }
+}
+
+using partner_map = std::map<int, std::vector<rank_to_range>>;
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank)
@@ -218,7 +282,16 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
     return;
   }
 
-  // FIXME harry's code and send/recv calls invoked here
+  fk::vector<int> ranks_used(plan.size());
+  partner_map rank_to_partners;
+
+  // ranks used is loop carried dependency
+  for (auto const &[rank, subgrid] : plan)
+  {
+    rank_to_partners.emplace(rank, find_partners(rank, plan, ranks_used));
+  }
+
+  // call send/recv
 }
 
 template void reduce_results(fk::vector<float> const &source,
