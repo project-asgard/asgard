@@ -181,9 +181,9 @@ explicit_time_advance(PDE<float> const &pde, element_table<int> const &table,
                       float const dt);
 template void
 explicit_time_advance(PDE<float> const &pde,
-                      element_table<long int> const &table,
+                      element_table<int64_t> const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
-                      host_workspace<float, long int> &host_space,
+                      host_workspace<float, int64_t> &host_space,
                       rank_workspace<float> &rank_space,
                       std::vector<element_chunk> chunks, float const time,
                       float const dt);
@@ -197,9 +197,9 @@ explicit_time_advance(PDE<double> const &pde, element_table<int> const &table,
                       double const dt);
 template void
 explicit_time_advance(PDE<double> const &pde,
-                      element_table<long int> const &table,
+                      element_table<int64_t> const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
-                      host_workspace<double, long int> &host_space,
+                      host_workspace<double, int64_t> &host_space,
                       rank_workspace<double> &rank_space,
                       std::vector<element_chunk> chunks, double const time,
                       double const dt);

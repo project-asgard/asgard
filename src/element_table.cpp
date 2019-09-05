@@ -50,8 +50,9 @@ element_table<T>::element_table(options const program_opts, int const num_dims)
       fk::vector<int> cell_indices =
           index_set.extract_submatrix(cell_set, 0, 1, num_dims);
 
-      long int element_idx =
+      int64_t element_idx =
           lev_cell_to_element_index(level_tuple, cell_indices, max_levels);
+      std::cout << "element_idx " << element_idx << std::endl;
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       fk::vector<int> key = level_tuple;
@@ -80,7 +81,7 @@ int element_table<T>::get_index(fk::vector<int> const coords) const
 
 // reverse lookup - returns coordinates at a certain index
 template<typename T>
-fk::vector<int> element_table<T>::get_coords(int const index) const
+fk::vector<int> element_table<T>::get_coords(T const index) const
 {
   assert(index >= 0);
   assert(static_cast<size_t>(index) < reverse_table.size());
@@ -159,11 +160,11 @@ element_table<T>::get_cell_index_set(fk::vector<int> const level_tuple)
 }
 
 template<typename T>
-long int element_table<T>::lev_cell_to_1D_index(int const level, int const cell)
+int element_table<T>::lev_cell_to_1D_index(int const level, int const cell)
 {
   std::cout << " here3 " << level << "level and cell " << cell << std::endl;
 
-  long int index = 0;
+  int64_t index = 0;
   std::cout << " here3.5 " << std::endl;
 
   if (level > 0)
@@ -176,8 +177,7 @@ long int element_table<T>::lev_cell_to_1D_index(int const level, int const cell)
 }
 
 template<typename T>
-long int
-element_table<T>::lev_cell_to_element_index(fk::vector<int> const levels,
+int element_table<T>::lev_cell_to_element_index(fk::vector<int> const levels,
                                             fk::vector<int> const cells,
                                             int const max_levels)
 {
@@ -185,14 +185,14 @@ element_table<T>::lev_cell_to_element_index(fk::vector<int> const levels,
   int const num_dimensions = levels.size();
   assert(cells.size() == num_dimensions);
 
-  long int eIdx   = 0;
-  long int stride = 1;
+  int64_t eIdx   = 0;
+  int64_t stride = 1;
   std::cout << " here2 " << std::endl;
 
   for (int d = 0; d < num_dimensions; d++)
   {
     assert(levels(d) <= max_levels);
-    long int idx_1D = lev_cell_to_1D_index(levels(d), cells(d));
+    int64_t idx_1D = lev_cell_to_1D_index(levels(d), cells(d));
     eIdx            = eIdx + (idx_1D)*stride;
     stride          = stride * fm::two_raised_to(max_levels);
   }
@@ -205,4 +205,9 @@ element_table<T>::lev_cell_to_element_index(fk::vector<int> const levels,
   return eIdx;
 }
 template class element_table<int>;
-template class element_table<long int>;
+template class element_table<int64_t>;
+
+//template fk::vector<int> element_table<int>::get_coords(int const index) const;
+//template fk::vector<int> element_table<int64_t>::get_coords(int64_t const index) const;
+//template int element_table<int>::get_index(fk::vector<int> const coords);
+//template int element_table<int64_t>::get_index(fk::vector<int> const coords);
