@@ -114,12 +114,6 @@ template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
 
-// FIXME matching bi-directional
-//
-//  -- who is/are my match(es), how much do I need
-//  -- inverse
-//
-
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
