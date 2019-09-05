@@ -32,7 +32,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.fx);
 
-  // TODO reduce here
   fm::copy(host_space.fx, host_space.result_1);
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.fx, host_space.x, fx_scale_1);
@@ -95,44 +94,56 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c3  = 1.0;
 
   element_subgrid const &grid = plan.at(my_rank);
+  int const elem_size         = element_segment_size(pde);
 
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
-  scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
-  fm::axpy(host_space.scaled_source, host_space.fx);
-  reduce_results(host_space.fx, host_space.result_1, plan, my_rank);
-  P const fx_scale_1 = a21 * dt;
+  reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
 
-  return;
-  // FIXME this axpy will be replaced with prepare_inputs...
+  scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
+  fm::axpy(host_space.scaled_source, host_space.reduced_fx);
+
+  prepare_inputs(host_space.reduced_fx, host_space.result_1, elem_size, plan,
+                 my_rank);
+
+  P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
+
+  reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
-  fm::axpy(host_space.scaled_source, host_space.fx);
-  reduce_results(host_space.fx, host_space.result_2, plan, my_rank);
+  fm::axpy(host_space.scaled_source, host_space.reduced_fx);
+
+  prepare_inputs(host_space.reduced_fx, host_space.result_2, elem_size, plan,
+                 my_rank);
+
   fm::copy(host_space.x_orig, host_space.x);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
+
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
+  reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c3 * dt);
-  fm::axpy(host_space.scaled_source, host_space.fx);
-  reduce_results(host_space.fx, host_space.result_2, plan, my_rank);
+  fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
+  prepare_inputs(host_space.reduced_fx, host_space.result_3, elem_size, plan,
+                 my_rank);
+
+  fm::copy(host_space.x_orig, host_space.x);
   P const scale_1 = dt * b1;
   P const scale_2 = dt * b2;
   P const scale_3 = dt * b3;
 
-  fm::copy(host_space.x_orig, host_space.x);
   fm::axpy(host_space.result_1, host_space.x, scale_1);
   fm::axpy(host_space.result_2, host_space.x, scale_2);
   fm::axpy(host_space.result_3, host_space.x, scale_3);
 
-  fm::copy(host_space.x, host_space.fx);
+  // fm::copy(host_space.x, host_space.fx);
 }
 
 // scale source vectors for time

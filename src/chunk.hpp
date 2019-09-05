@@ -92,6 +92,7 @@ public:
   fk::vector<P> x_orig;
   fk::vector<P> x;
   fk::vector<P> fx;
+  fk::vector<P> reduced_fx;
   fk::vector<P> result_1;
   fk::vector<P> result_2;
   fk::vector<P> result_3;
@@ -99,8 +100,8 @@ public:
   double size_MB() const
   {
     int64_t num_elems = scaled_source.size() + x_orig.size() + fx.size() +
-                        x.size() + result_1.size() + result_2.size() +
-                        result_3.size();
+                        reduced_fx.size() + x.size() + result_1.size() +
+                        result_2.size() + result_3.size();
     double const bytes     = static_cast<double>(num_elems) * sizeof(P);
     double const megabytes = bytes * 1e-6;
     return megabytes;

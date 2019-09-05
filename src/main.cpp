@@ -150,8 +150,8 @@ int main(int argc, char **argv)
             pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
       }
 
-      return combine_dimensions(degree, table, subgrid.row_start,
-                                subgrid.row_stop, analytic_solutions_D);
+      return combine_dimensions(degree, table, subgrid.col_start,
+                                subgrid.col_stop, analytic_solutions_D);
     }
     else
     {
@@ -251,9 +251,13 @@ int main(int argc, char **argv)
     {
       prec const time_multiplier = pde->exact_time((i + 1) * dt);
 
+      if (my_rank == 0)
+      {
+        host_space.x.print();
+      }
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = host_space.fx - analytic_solution_t;
+      fk::vector<prec> const diff = host_space.x - analytic_solution_t;
       prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),

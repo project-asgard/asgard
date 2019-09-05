@@ -136,10 +136,11 @@ host_workspace<P>::host_workspace(PDE<P> const &pde,
   x_orig.resize(col_size);
   x.resize(col_size);
   fx.resize(row_size);
+  reduced_fx.resize(row_size);
   scaled_source.resize(row_size);
-  result_1.resize(row_size);
-  result_2.resize(row_size);
-  result_3.resize(row_size);
+  result_1.resize(col_size);
+  result_2.resize(col_size);
+  result_3.resize(col_size);
 }
 
 // calculate how much workspace we need on device to compute a single connected

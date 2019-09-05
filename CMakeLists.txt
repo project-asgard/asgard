@@ -95,6 +95,9 @@ set (components
   chunk
   lib_dispatch
   matlab_utilities
+  #TEMP
+  mpi_instructions
+  #
   pde
   permutations
   program_options
@@ -136,11 +139,10 @@ target_link_libraries (connectivity
 
 target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
 
-target_link_libraries(distribution PRIVATE element_table lib_dispatch)
+target_link_libraries(distribution PRIVATE element_table lib_dispatch mpi_instructions)
 if (ASGARD_USE_MPI)	
   target_link_libraries(distribution PRIVATE MPI::MPI_CXX)
 endif ()
-
 
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
