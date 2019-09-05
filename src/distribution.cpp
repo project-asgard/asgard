@@ -159,20 +159,6 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
   return plan;
 }
 
-// get the rank number of everyone on my row
-// assumes row major ordering - the get_plan function
-// is tested for this layout
-fk::vector<int>
-get_reduction_partners(distribution_plan const &plan, int const my_rank)
-{
-  assert(my_rank >= 0);
-  assert(my_rank < static_cast<int>(plan.size()));
-  int const num_partners = get_num_subgrid_cols(plan.size());
-  fk::vector<int> partners(num_partners);
-  std::iota(partners.begin(), partners.end(), my_rank - my_rank % num_partners);
-  return partners;
-}
-
 template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank)

@@ -110,9 +110,6 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table);
 using distribution_plan = std::map<int, element_subgrid>;
 distribution_plan get_plan(int const num_ranks, element_table const &table);
 
-fk::vector<int>
-get_reduction_partners(distribution_plan const &plan, int const my_rank);
-
 template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
