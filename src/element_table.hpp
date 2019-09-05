@@ -30,7 +30,7 @@
 //   than the number of levels selected for the simulation.
 // -----------------------------------------------------------------------------
 
-template<class T>
+template<typename T = int64_t>
 class element_table
 {
 public:
@@ -40,7 +40,7 @@ public:
   int get_index(fk::vector<int> const coords) const;
 
   // reverse lookup
-  fk::vector<int> get_coords(int const index) const;
+  fk::vector<int> get_coords(T const index) const;
   // fk::vector<int> get_coords_sparse(long int const index) const;
 
   // returns the number of elements in table
@@ -61,9 +61,9 @@ public:
   // Return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
 
-  long int lev_cell_to_1D_index(int const level, int const cell);
+  int lev_cell_to_1D_index(int const level, int const cell);
 
-  long int lev_cell_to_element_index(fk::vector<int> const levels,
+  int lev_cell_to_element_index(fk::vector<int> const levels,
                                      fk::vector<int> const cells,
                                      int const max_levels);
 
@@ -75,3 +75,9 @@ private:
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
 };
+//template class element_table<int>;
+//template class element_table<int64_t>;
+//extern template fk::vector<int> element_table<int>::get_coords(int const index) const;
+//extern template fk::vector<int> element_table<int64_t>::get_coords(int64_t const index) const;
+//template int element_table<int>::get_index(fk::vector<int> const coords);
+//template int element_table<int64_t>::get_index(fk::vector<int> const coords);

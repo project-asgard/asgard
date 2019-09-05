@@ -169,7 +169,7 @@ build_batches(PDE<float> const &pde, element_table<int> const &elem_table,
               rank_workspace<float> const &workspace,
               element_chunk const &chunk);
 extern template std::vector<batch_operands_set<float>>
-build_batches(PDE<float> const &pde, element_table<long int> const &elem_table,
+build_batches(PDE<float> const &pde, element_table<int64_t> const &elem_table,
               rank_workspace<float> const &workspace,
               element_chunk const &chunk);
 extern template std::vector<batch_operands_set<double>>
@@ -177,6 +177,6 @@ build_batches(PDE<double> const &pde, element_table<int> const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);
 extern template std::vector<batch_operands_set<double>>
-build_batches(PDE<double> const &pde, element_table<long int> const &elem_table,
+build_batches(PDE<double> const &pde, element_table<int64_t> const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);

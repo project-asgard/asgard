@@ -117,13 +117,13 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
 extern template int get_num_chunks(element_table<int> const &table,
                                    PDE<float> const &pde, int const num_ranks,
                                    int const rank_size_MB);
-extern template int get_num_chunks(element_table<long int> const &table,
+extern template int get_num_chunks(element_table<int64_t> const &table,
                                    PDE<float> const &pde, int const num_ranks,
                                    int const rank_size_MB);
 extern template int get_num_chunks(element_table<int> const &table,
                                    PDE<double> const &pde, int const num_ranks,
                                    int const rank_size_MB);
-extern template int get_num_chunks(element_table<long int> const &table,
+extern template int get_num_chunks(element_table<int64_t> const &table,
                                    PDE<double> const &pde, int const num_ranks,
                                    int const rank_size_MB);
 
@@ -133,7 +133,7 @@ copy_chunk_inputs(PDE<float> const &pde, rank_workspace<float> &rank_space,
                   element_chunk const &chunk);
 extern template void
 copy_chunk_inputs(PDE<float> const &pde, rank_workspace<float> &rank_space,
-                  host_workspace<float, long int> const &host_space,
+                  host_workspace<float, int64_t> const &host_space,
                   element_chunk const &chunk);
 
 extern template void
@@ -142,7 +142,7 @@ copy_chunk_inputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
                   element_chunk const &chunk);
 extern template void
 copy_chunk_inputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
-                  host_workspace<double, long int> const &host_space,
+                  host_workspace<double, int64_t> const &host_space,
                   element_chunk const &chunk);
 
 extern template void
@@ -151,7 +151,7 @@ copy_chunk_outputs(PDE<float> const &pde, rank_workspace<float> &rank_space,
                    element_chunk const &chunk);
 extern template void
 copy_chunk_outputs(PDE<float> const &pde, rank_workspace<float> &rank_space,
-                   host_workspace<float, long int> const &host_space,
+                   host_workspace<float, int64_t> const &host_space,
                    element_chunk const &chunk);
 
 extern template void
@@ -160,7 +160,7 @@ copy_chunk_outputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
                    element_chunk const &chunk);
 extern template void
 copy_chunk_outputs(PDE<double> const &pde, rank_workspace<double> &rank_space,
-                   host_workspace<double, long int> const &host_space,
+                   host_workspace<double, int64_t> const &host_space,
                    element_chunk const &chunk);
 
 extern template void reduce_chunk(PDE<float> const &pde,
@@ -174,4 +174,4 @@ extern template void reduce_chunk(PDE<double> const &pde,
 extern template std::vector<element_chunk>
 assign_elements(element_table<int> const &table, int const num_chunks);
 extern template std::vector<element_chunk>
-assign_elements(element_table<long int> const &table, int const num_chunks);
+assign_elements(element_table<int64_t> const &table, int const num_chunks);

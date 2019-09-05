@@ -113,11 +113,11 @@ extern template fk::vector<double>
 combine_dimensions(int const, element_table<int> const &,
                    std::vector<fk::vector<double>> const &, double const);
 extern template fk::vector<double>
-combine_dimensions(int const, element_table<long int> const &,
+combine_dimensions(int const, element_table<int64_t> const &,
                    std::vector<fk::vector<double>> const &, double const);
 extern template fk::vector<float>
 combine_dimensions(int const, element_table<int> const &,
                    std::vector<fk::vector<float>> const &, float const);
 extern template fk::vector<float>
-combine_dimensions(int const, element_table<long int> const &,
+combine_dimensions(int const, element_table<int64_t> const &,
                    std::vector<fk::vector<float>> const &, float const);

@@ -24,6 +24,6 @@ make_connectivity(element_table<int> table, int const num_dims,
                   int const max_level_sum, int const max_level_val,
                   bool const sort_connected = true);
 extern template list_set
-make_connectivity(element_table<long int> table, int const num_dims,
+make_connectivity(element_table<int64_t> table, int const num_dims,
                   int const max_level_sum, int const max_level_val,
                   bool const sort_connected = true);
