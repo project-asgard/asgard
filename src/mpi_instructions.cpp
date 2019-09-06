@@ -94,6 +94,40 @@ mpi_instructions::gen_row_space_intervals()
       c_start = r_start;
     }
   }
+  /* test code */
+  std::cout << "r_stop: " << std::endl;
+  for( int i = 0; i < r_stop.size(); i++ )
+  {
+    std::cout << " linear_index " << i << ": stop: " << r_stop[ i ] << std::endl;
+  }
+  std::cout << "c_stop: " << std::endl;
+  for( int i = 0; i < c_stop.size(); i++ )
+  {
+    std::cout << " interval " << i << ": stop: " << c_stop[ i ] << std::endl;
+  }
+
+  std::cout << "row_space_intervals:" << std::endl;
+
+  for( int i = 0; i < row_space_intervals.size(); i++ )
+  {
+    std::cout << "interval: " << i << std::endl;
+
+    for( int j = 0; j < row_space_intervals[ i ].size(); j++ )
+    {
+      class mpi_node_and_range &nar = row_space_intervals[ i ][ j ];
+
+      std::cout << "linear_index: " << nar.linear_index 
+                << " start: " << nar.start
+                << " stop: " << nar.stop
+      << " global start: " 
+      << nar.start + ( nar.linear_index == 0 ? 0 : r_stop[ nar.linear_index - 1 ] + 1)
+      << " global stop: " 
+      << nar.stop + ( nar.linear_index == 0 ? 0 : r_stop[ nar.linear_index - 1 ] + 1)
+      << std::endl;
+    }
+    std::cout << std::endl;
+  }
+  /* end test code */
 
   return row_space_intervals;
 }
