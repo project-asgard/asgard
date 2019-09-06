@@ -310,39 +310,23 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
 {
   assert(segment_size > 0);
 
-  auto const [start, end] = [&my_grid, &message, segment_size]() {
-    if (message.mpi_message_type == mpi_message_enum::send)
-    {
-      auto const output_start =
-          static_cast<int64_t>(my_grid.to_local_row(message.nar.start)) *
-          segment_size;
-      auto const output_end =
-          static_cast<int64_t>(my_grid.to_local_row(message.nar.stop) + 1) *
-              segment_size -
-          1;
-      return std::pair<int64_t, int64_t>{output_start, output_end};
-    }
-    else
-    {
-      auto const input_start =
-          static_cast<int64_t>(my_grid.to_local_col(message.nar.start)) *
-          segment_size;
-      auto const input_end =
-          static_cast<int64_t>(my_grid.to_local_col(message.nar.stop) + 1) *
-              segment_size -
-          1;
-
-      return std::pair<int64_t, int64_t>{input_start, input_end};
-    }
-  }();
-
-  fk::vector<P, mem_type::view> window(source, start, end);
   MPI_Datatype const mpi_type =
       std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
   MPI_Comm const communicator = distro_handle.get_global_comm();
 
   if (message.mpi_message_type == mpi_message_enum::send)
   {
+    auto const output_start =
+        static_cast<int64_t>(my_grid.to_local_row(message.nar.start)) *
+        segment_size;
+    auto const output_end =
+        static_cast<int64_t>(my_grid.to_local_row(message.nar.stop) + 1) *
+            segment_size -
+        1;
+
+    fk::vector<P, mem_type::view> const window(source, output_start,
+                                               output_end);
+
     auto const success =
         MPI_Send((void *)window.data(), window.size(), mpi_type,
                  message.nar.linear_index, MPI_ANY_TAG, communicator);
@@ -350,6 +334,16 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   }
   else
   {
+    auto const input_start =
+        static_cast<int64_t>(my_grid.to_local_col(message.nar.start)) *
+        segment_size;
+    auto const input_end =
+        static_cast<int64_t>(my_grid.to_local_col(message.nar.stop) + 1) *
+            segment_size -
+        1;
+
+    fk::vector<P, mem_type::view> window(dest, input_start, input_end);
+
     auto const success = MPI_Recv((void *)window.data(), window.size(),
                                   mpi_type, message.nar.linear_index,
                                   MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
