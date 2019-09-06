@@ -303,6 +303,23 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
 
   std::vector<int> r_stop = reverse_offset(c_stop);
 
+  /* test code */
+  /*
+  c_stop = { 10, 23, 47, 100 };
+  r_stop = { 25, 50, 90, 100 };
+
+  c_stop = { 5, 10, 15 };
+  r_stop = { 7, 15 };
+
+  c_stop = { 5, 10 };
+  r_stop = { 5, 10 };
+  c_stop = { 1, 2, 3, 4, 5 };
+  r_stop = { 2, 3, 5 };
+  */
+  r_stop = { 1, 2, 3, 4, 5 };
+  c_stop = { 2, 3, 5 };
+  /* end test code */
+
   /* create object */
   class mpi_instructions mpi_instructions(std::move(r_stop), std::move(c_stop));
 
