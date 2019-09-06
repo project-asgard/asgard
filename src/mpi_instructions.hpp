@@ -1,3 +1,11 @@
+/*
+
+east const, more const, more east const
+flatten the class structure to functional
+remove nondeterminism
+remove class keyword
+
+*/
 #include <vector>
 
 enum class mpi_message_enum
@@ -15,7 +23,7 @@ public:
   int spin();
 
 private:
-  int size;
+  int const size;
 
   int current_index;
 };
@@ -27,11 +35,11 @@ class mpi_node_and_range
 public:
   mpi_node_and_range(int linear_index, int start, int stop);
 
-  const int linear_index;
+  int const linear_index;
 
-  const int start;
+  int const start;
 
-  const int stop;
+  int const stop;
 };
 
 /* an mpi communication mpi_message can either be a send or a receive. */
@@ -40,9 +48,9 @@ class mpi_message
 public:
   mpi_message(mpi_message_enum mpi_message_type, class mpi_node_and_range &nar);
 
-  const mpi_message_enum mpi_message_type;
+  mpi_message_enum const mpi_message_type;
 
-  const class mpi_node_and_range nar;
+  mpi_node_and_range const nar;
 };
 
 /* contains a list of instructions to execute an ordered, mixed sequence of send
@@ -54,16 +62,16 @@ class mpi_instruction
 public:
   mpi_instruction() { return; };
 
-  void queue_mpi_message(class mpi_message &item);
+  void queue_mpi_message(mpi_message &item);
 
-  const std::vector<class mpi_message> &mpi_messages_in_order() const
+  std::vector<mpi_message> const &mpi_messages_in_order() const
   {
-    return mpi_message;
+    return mpi_messages;
   };
 
   /* variables */
 private:
-  std::vector<class mpi_message> mpi_message;
+  std::vector<mpi_message> mpi_messages;
 };
 
 /* partitions a matrix and assigns a process to each tile */
@@ -83,43 +91,42 @@ class mpi_instructions
 {
   /* functions */
 public:
-  mpi_instructions(const std::vector<int> &&r_stop,
-                   const std::vector<int> &&c_stop);
+  mpi_instructions(std::vector<int> const &&r_stop,
+                   std::vector<int> const &&c_stop);
 
-  const class mpi_instruction &get_mpi_instructions(int linear_index) const
+  mpi_instruction const &get_mpi_instructions(int linear_index) const
   {
-    return mpi_instruction[linear_index];
+    return mpi_instructions_vector[linear_index];
   };
 
-  const class mpi_instruction &get_mpi_instructions(int row, int col) const
+  mpi_instruction const &get_mpi_instructions(int row, int col) const
   {
-    return mpi_instruction[row * c_stop.size() + col];
+    return mpi_instructions_vector[row * c_stop.size() + col];
   };
 
-  const std::vector<int> &get_c_stop() const { return c_stop; };
+  std::vector<int> const &get_c_stop() const { return c_stop; };
 
-  const std::vector<int> &get_r_stop() const { return r_stop; };
+  std::vector<int> const &get_r_stop() const { return r_stop; };
 
   int n_tile_rows() const { return r_stop.size(); };
 
   int n_tile_cols() const { return c_stop.size(); };
 
-  const std::vector<std::vector<class mpi_node_and_range>>
+  std::vector<std::vector<mpi_node_and_range>> const
   gen_row_space_intervals();
 
   /* functions */
 private:
-  void gen_mpi_messages(const std::vector<std::vector<class mpi_node_and_range>>
-                            &row_space_intervals);
+  void gen_mpi_messages(std::vector<std::vector<mpi_node_and_range>> const &row_space_intervals);
 
   /* variables */
 private:
   /* each rank has an mpi_instruction object in this vector */
-  std::vector<class mpi_instruction> mpi_instruction;
+  std::vector<mpi_instruction> mpi_instructions_vector;
 
-  std::vector<class row_round_robin_wheel> row_row_round_robin_wheel;
+  std::vector<row_round_robin_wheel> row_row_round_robin_wheel;
 
-  const std::vector<int> r_stop;
+  std::vector<int> const r_stop;
 
-  const std::vector<int> c_stop;
+  std::vector<int> const c_stop;
 };
