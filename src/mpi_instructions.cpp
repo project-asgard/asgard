@@ -50,14 +50,13 @@ mpi_instructions::gen_row_space_intervals()
   // start at the first row and column interval
   int c_start = 0;
   int r_start = 0;
-
   for (int c = 0; c < static_cast<int>(c_stop.size()); ++c)
   {
     // the stop vectors represent the end of a range
-    int c_end = c_stop[c];
+    int const c_end = c_stop[c];
     for (int r = 0; r < static_cast<int>(r_stop.size()); ++r)
     {
-      int r_end = r_stop[r];
+      int const r_end = r_stop[r];
 
       // if the row interval falls within the column interval
       if (r_start >= c_start && r_start <= c_end)
