@@ -17,17 +17,10 @@ struct distribution_handler
     auto const status = MPI_Comm_dup(comm, &global_comm);
     assert(status == 0);
   }
-  MPI_Comm get_global_comm()
-  {
-    if (global_comm)
-    {
-      return global_comm;
-    }
-    return MPI_COMM_WORLD;
-  }
+  MPI_Comm get_global_comm() { return global_comm; }
 
 private:
-  MPI_Comm global_comm;
+  MPI_Comm global_comm = MPI_COMM_WORLD;
 };
 static distribution_handler distro_handle;
 #endif
@@ -43,6 +36,8 @@ int get_local_rank()
     assert(success == 0);
     int local_rank;
     success = MPI_Comm_rank(local_comm, &local_rank);
+    assert(success == 0);
+    success = MPI_Comm_free(&local_comm);
     assert(success == 0);
     return local_rank;
   }();
@@ -314,6 +309,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
       std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
   MPI_Comm const communicator = distro_handle.get_global_comm();
 
+  int const mpi_tag = 0;
   if (message.mpi_message_type == mpi_message_enum::send)
   {
     auto const output_start =
@@ -329,7 +325,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
 
     auto const success =
         MPI_Send((void *)window.data(), window.size(), mpi_type,
-                 message.nar.linear_index, MPI_ANY_TAG, communicator);
+                 message.nar.linear_index, mpi_tag, communicator);
     assert(success == 0);
   }
   else
@@ -369,17 +365,7 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
     return;
   }
 
-  /*fk::vector<int> ranks_used(plan.size());
-  partner_map rank_to_partners;
-
-  // ranks used is loop carried dependency
-  for (auto const &[rank, subgrid] : plan)
-  {
-    rank_to_partners.emplace(rank, find_partners(rank, plan, ranks_used));
-  }*/
-
   // build communication plan
-
   std::vector<int> row_boundaries;
   std::vector<int> col_boundaries;
 
@@ -406,17 +392,6 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
   auto const &my_subgrid = plan.at(my_rank);
   auto const messages    = message_list.get_mpi_instructions(my_rank);
 
-  /* if (my_rank == 1)
-   {
-     for (auto const &message : messages.mpi_messages_in_order())
-     {
-       std::cout << (message.mpi_message_type == mpi_message_enum::send ? "send"
-                                                                        :
-   "recv")
-                 << " " << message.nar.linear_index << '\n';
-       std::cout << message.nar.start << " : " << message.nar.stop << '\n';
-     }
-   }*/
   for (auto const &message : messages.mpi_messages_in_order())
   {
     if (message.nar.linear_index == my_rank)
@@ -427,6 +402,57 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
 
     dispatch_message(source, dest, my_subgrid, message, segment_size);
   }
+}
+
+// gather errors from other local ranks
+// returns {rmse errors, relative errors}
+template<typename P>
+std::array<fk::vector<P>, 2>
+gather_errors(P const root_mean_squared, P const relative)
+{
+  std::array<P, 2> const error{root_mean_squared, relative};
+
+#ifdef ASGARD_USE_MPI
+  MPI_Comm local_comm;
+  auto success =
+      MPI_Comm_split_type(distro_handle.get_global_comm(), MPI_COMM_TYPE_SHARED,
+                          0, MPI_INFO_NULL, &local_comm);
+  assert(success == 0);
+
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+
+  int local_rank;
+  success = MPI_Comm_rank(local_comm, &local_rank);
+
+  int local_size;
+  success = MPI_Comm_size(local_comm, &local_size);
+  assert(success == 0);
+
+  fk::vector<P> error_vect(local_size * 2);
+
+  MPI_Gather((void *)&error[0], 2, mpi_type, (void *)error_vect.data(), 2,
+             mpi_type, 0, local_comm);
+
+  success = MPI_Comm_free(&local_comm);
+
+  if (local_rank == 0)
+  {
+    bool odd = false;
+    std::vector<P> rmse;
+    std::vector<P> relative;
+    // split the even and odd elements into seperate vectors -
+    // unpackage from MPI call
+    std::partition_copy(error_vect.begin(), error_vect.end(),
+                        std::back_inserter(rmse), std::back_inserter(relative),
+                        [&odd](P) { return odd = !odd; });
+    return {fk::vector<P>(rmse), fk::vector<P>(relative)};
+  }
+
+  return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
+#else
+  return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
+#endif
 }
 
 template void reduce_results(fk::vector<float> const &source,
@@ -442,3 +468,9 @@ template void prepare_inputs(fk::vector<float> const &source,
 template void prepare_inputs(fk::vector<double> const &source,
                              fk::vector<double> &dest, int const segment_size,
                              distribution_plan const &plan, int const my_rank);
+
+template std::array<fk::vector<float>, 2>
+gather_errors(float const root_mean_squared, float const relative);
+
+template std::array<fk::vector<double>, 2>
+gather_errors(double const root_mean_squared, double const relative);

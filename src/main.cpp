@@ -92,12 +92,11 @@ int main(int argc, char **argv)
   // -- create forward/reverse mapping between elements and indices
   node_out() << "  generating: element table..." << '\n';
   element_table const table = element_table(opts, pde->num_dims);
+
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
 
-  node_out() << "my area  " << subgrid.nrows() << " : " << subgrid.ncols()
-             << '\n';
   // -- generate initial condition vector.
   node_out() << "  generating: initial conditions..." << '\n';
   fk::vector<prec> const initial_condition = [&pde, &table, &subgrid,
@@ -149,7 +148,6 @@ int main(int argc, char **argv)
         analytic_solutions_D.push_back(forward_transform<prec>(
             pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
       }
-
       return combine_dimensions(degree, table, subgrid.col_start,
                                 subgrid.col_stop, analytic_solutions_D);
     }
@@ -172,11 +170,14 @@ int main(int argc, char **argv)
   node_out() << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
 
-  // Our default device workspace size is ~7GB.
 
-  // This 7GB doesn't include element table,
-  // or time advance workspace - only the primary memory consumers (kronmult
-  // intermediate, coefficients, result workspaces) allocated as device tensors.
+  // Our default device workspace size is 10GB - 12 GB DRAM on TitanV
+  // - a couple GB for allocations not currently covered by the
+  // workspace limit (including working batch).
+
+  // This limit is only for the rank workspace - the portion
+  // of our allocation that will be resident on an accelerator
+  // if the code is built for that.
   //
   // FIXME eventually going to be settable from the cmake
   static int const default_workspace_MB = 7000;
@@ -251,10 +252,6 @@ int main(int argc, char **argv)
     {
       prec const time_multiplier = pde->exact_time((i + 1) * dt);
 
-      if (my_rank == 0)
-      {
-        host_space.x.print();
-      }
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
       fk::vector<prec> const diff = host_space.x - analytic_solution_t;
@@ -266,11 +263,18 @@ int main(int argc, char **argv)
                           squared.size();
         return std::sqrt(mean);
       }();
-
       auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
-      node_out() << "RMSE (numeric-analytic) [wavelet]: " << RMSE << '\n';
-      node_out() << "Relative difference (numeric-analytic) [wavelet]: "
-                 << relative_error << " %" << '\n';
+      auto const [rmse_errors, relative_errors] =
+          gather_errors(RMSE, relative_error);
+      assert(rmse_errors.size() == relative_errors.size());
+      for (int i = 0; i < rmse_errors.size(); ++i)
+      {
+        node_out() << "Errors for local rank: " << i << '\n';
+        node_out() << "RMSE (numeric-analytic) [wavelet]: " << rmse_errors(i)
+                   << '\n';
+        node_out() << "Relative difference (numeric-analytic) [wavelet]: "
+                   << relative_errors(i) << " %" << '\n';
+      }
     }
 
     // write output to file

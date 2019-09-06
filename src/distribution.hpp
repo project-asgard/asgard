@@ -111,14 +111,21 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table);
 using distribution_plan = std::map<int, element_subgrid>;
 distribution_plan get_plan(int const num_ranks, element_table const &table);
 
+// reduce the results of a subgrid row
 template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
 
+// exchange results between rows
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
                     int const segment_size, distribution_plan const &plan,
                     int const my_rank);
+
+// gather errors from all local ranks for printing
+template<typename P>
+std::array<fk::vector<P>, 2>
+gather_errors(P const root_mean_squared, P const relative);
 
 extern template void
 reduce_results(fk::vector<float> const &source, fk::vector<float> &dest,
@@ -129,11 +136,15 @@ reduce_results(fk::vector<double> const &source, fk::vector<double> &dest,
 
 extern template void
 prepare_inputs(fk::vector<float> const &source, fk::vector<float> &dest,
-
                int const segment_size, distribution_plan const &plan,
                int const my_rank);
 extern template void
 prepare_inputs(fk::vector<double> const &source, fk::vector<double> &dest,
-
                int const segment_size, distribution_plan const &plan,
                int const my_rank);
+
+extern template std::array<fk::vector<float>, 2>
+gather_errors(float const root_mean_squared, float const relative);
+
+extern template std::array<fk::vector<double>, 2>
+gather_errors(double const root_mean_squared, double const relative);
