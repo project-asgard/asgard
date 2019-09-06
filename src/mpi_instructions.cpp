@@ -1,6 +1,7 @@
 #include "mpi_instructions.hpp"
+#include <iostream>
 
-row_round_robin_wheel::row_round_robin_wheel(int const size)
+row_round_robin_wheel::row_round_robin_wheel(int size)
     : size(size), current_index(0)
 {
   return;
@@ -8,7 +9,7 @@ row_round_robin_wheel::row_round_robin_wheel(int const size)
 
 int row_round_robin_wheel::spin()
 {
-  int const n = current_index++;
+  int n = current_index++;
 
   if (current_index == size)
     current_index = 0;
@@ -36,58 +37,44 @@ void mpi_instruction::queue_mpi_message(class mpi_message &item)
   return;
 }
 
-/* this function describes each column interval as a combination of row
- * intervals */
-const std::vector<std::vector<class mpi_node_and_range>>
+// this function describes each column interval as a combination of row
+// intervals
+std::vector<std::vector<mpi_node_and_range>> const
 mpi_instructions::gen_row_space_intervals()
 {
-  /* v is the row_space_intervals vector. It contains an element for each column
-   * section */
-  std::vector<std::vector<class mpi_node_and_range>> v(c_stop.size());
+  // v is the row_space_intervals vector.
+  // it contains an element for each column
+  std::vector<std::vector<mpi_node_and_range>> row_space_intervals(
+      c_stop.size());
 
-  /* start at the first column interval */
+  // start at the first row and column interval
   int c_start = 0;
-
-  int c_end = c_stop[0];
-
-  /* begin describing its range with the first row interval */
-  int r_node = 0;
-
   int r_start = 0;
 
-  int r_end = r_stop[0];
-
-  /* iterate over every column interval */
-  for (int c = 0; c < (int)c_stop.size();)
+  for (int c = 0; c < static_cast<int>(c_stop.size()); ++c)
   {
-    /* if you have described the entire column interval and not exhausted the
-       range of the current row interval, increment the pointer to the next
-       column interval to be described */
-    if (c_end <= r_end)
+    // the stop vectors represent the end of a range
+    int c_end = c_stop[c];
+    for (int r = 0; r < static_cast<int>(r_stop.size()); ++r)
     {
-      v[c].emplace_back(r_node, c_start - r_start, c_end - r_start);
+      int r_end = r_stop[r];
 
-      c_start = c_end + 1;
+      // if the row interval falls within the column interval
+      if (r_start >= c_start && r_start <= c_end)
+      {
+        // emplace the section of the row interval that falls within the column
+        // interval
+        row_space_intervals[c].emplace_back(r, r_start, std::min(r_end, c_end));
+      }
 
-      c_end = c_stop[++c];
-    }
-
-    /* if you exhaust the range of the current row interval before describing
-       the range of the current column interval, move on to the next row
-       interval */
-    else
-    {
-      v[c].emplace_back(r_node, c_start - r_start, r_end - r_start);
-
+      // the beginning of the next interval is one more than the end of the
+      // previous
       r_start = r_end + 1;
-
-      r_end = r_stop[++r_node];
-
-      c_start = r_start;
     }
+    c_start = c_end + 1;
   }
 
-  return v;
+  return row_space_intervals;
 }
 
 /* take the output of gen_row_space_intervals() and construct mpi messages to
@@ -187,7 +174,6 @@ mpi_instructions::mpi_instructions(const std::vector<int> &&r_stop,
   const std::vector<std::vector<class mpi_node_and_range>> row_space_intervals =
       gen_row_space_intervals();
 
-  /* Captain! */
   /* generate mpi_message lists for each process node */
   gen_mpi_messages(row_space_intervals);
 

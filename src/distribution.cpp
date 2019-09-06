@@ -203,7 +203,7 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   success = MPI_Comm_free(&row_communicator);
   assert(success == 0);
 }
-
+/*
 struct rank_to_range
 {
   int const rank;
@@ -211,7 +211,7 @@ struct rank_to_range
   rank_to_range(int const rank, limits<int64_t> const range)
       : rank(rank), range(range)
   {}
-};
+};*/
 /*
 static std::vector<rank_to_range> find_partners(int const my_rank,
                                                 distribution_plan const &plan,
@@ -266,10 +266,9 @@ static std::vector<rank_to_range> find_partners(int const my_rank,
   }
 }
 */
-using partner_map = std::map<int, std::vector<rank_to_range>>;
+// using partner_map = std::map<int, std::vector<rank_to_range>>;
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
-
                     int const segment_size, distribution_plan const &plan,
                     int const my_rank)
 {
@@ -323,30 +322,30 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
   auto const &my_subgrid = plan.at(my_rank);
   auto const messages    = message_list.get_mpi_instructions(my_rank);
 
-  if (my_rank == 2)
-  {
-    for (auto const &message : messages.mpi_messages_in_order())
-    {
-      std::cout << (message.mpi_message_type == mpi_message_enum::send ? "send"
-                                                                       : "recv")
-                << " " << message.nar.linear_index << '\n';
-      std::cout << message.nar.start << " : " << message.nar.stop << '\n';
-    }
-  }
+  /* if (my_rank == 1)
+   {
+     for (auto const &message : messages.mpi_messages_in_order())
+     {
+       std::cout << (message.mpi_message_type == mpi_message_enum::send ? "send"
+                                                                        :
+   "recv")
+                 << " " << message.nar.linear_index << '\n';
+       std::cout << message.nar.start << " : " << message.nar.stop << '\n';
+     }
+   }*/
   for (auto const &message : messages.mpi_messages_in_order())
   {
     if (message.mpi_message_type == mpi_message_enum::send)
     {
       if (message.nar.linear_index == my_rank)
       {
-        /* if(my_rank == 3) {
-
-            std::cout << message.nar.start << std::endl;
-            std::cout << message.nar.stop << std::endl;
-            std::cout << my_subgrid.col_start << std::endl;
-            std::cout << my_subgrid.col_stop << std::endl;
-
-         }*/
+        /*if (my_rank == 3)
+        {
+          std::cout << message.nar.start << std::endl;
+          std::cout << message.nar.stop << std::endl;
+          std::cout << my_subgrid.col_start << std::endl;
+          std::cout << my_subgrid.col_stop << std::endl;
+        }*/
         fk::vector<P, mem_type::view> output_window(
             source, my_subgrid.to_local_row(message.nar.start) * segment_size,
             (my_subgrid.to_local_row(message.nar.stop) + 1) * segment_size - 1);
