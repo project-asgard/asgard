@@ -63,7 +63,8 @@ mpi_instructions::gen_row_space_intervals()
       {
         // emplace the section of the row interval that falls within the column
         // interval
-        row_space_intervals[c].emplace_back(r, r_start, std::min(r_end, c_end));
+        row_space_intervals[c].emplace_back(r, std::max(r_start, c_start),
+                                            std::min(r_end, c_end));
       }
 
       // the beginning of the next interval is one more than the end of the
