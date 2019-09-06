@@ -479,15 +479,11 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
   int const num_subgrid_cols = get_num_subgrid_cols(plan.size());
 
   // get the length and displacement of non-root, first row ranks
-
-  // TODO fix to int64 w/ MPI3
   fk::vector<int> rank_lengths(num_subgrid_cols);
   for (int i = 1; i < static_cast<int>(rank_lengths.size()); ++i)
   {
     rank_lengths(i) = plan.at(i).ncols() * element_segment_size;
   }
-
-  // TODO need MPI 3 to make these longer...
   fk::vector<int> rank_displacements(rank_lengths);
   // I guess I'll do the exclusive scan myself...compiler can't find it in std
   int64_t running_total = 0;
@@ -514,20 +510,38 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                 : std::accumulate(rank_lengths.begin(), rank_lengths.end(),
                                   my_results.size());
     std::vector<P> results(vect_size);
-    int const send_size = my_rank ? my_results.size() : 0;
+    // int const send_size = my_rank ? my_results.size() : 0;
 
     MPI_Datatype const mpi_type =
         std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
-    success = MPI_Gatherv((void *)my_results.data(), send_size, mpi_type,
+
+    /*success = MPI_Gatherv((void *)my_results.data(), send_size, mpi_type,
                           (void *)(results.data() + my_results.size()),
                           rank_lengths.data(), rank_displacements.data(),
-                          mpi_type, 0, first_row_communicator);
-    assert(success == 0);
+                          mpi_type, 0, first_row_communicator);*/
 
     if (my_rank == 0)
     {
       std::copy(my_results.begin(), my_results.end(), results.begin());
+
+      for (int i = 1; i < num_subgrid_cols; ++i)
+      {
+        success = MPI_Recv((void *)(results.data() + my_results.size() +
+                                    rank_displacements(i)),
+                           rank_lengths(i), mpi_type, i, MPI_ANY_TAG,
+                           first_row_communicator, MPI_STATUS_IGNORE);
+        assert(success == 0);
+      }
     }
+    else
+    {
+      int const mpi_tag = 0;
+      success = MPI_Send((void *)my_results.data(), my_results.size(), mpi_type,
+                         0, mpi_tag, first_row_communicator);
+
+      assert(success == 0);
+    }
+
     return results;
   }
 
