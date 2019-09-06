@@ -230,7 +230,6 @@ int main(int argc, char **argv)
                             rank_space, chunks, plan, my_rank, time, dt);
     }
 
-    // FIXME this needs to be wrapped and serialized
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
@@ -265,11 +264,19 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     update_output_file(output_dataset, host_space.fx);
 #endif
-
     node_out() << "timestep: " << i << " complete" << '\n';
   }
 
   node_out() << "--- simulation complete ---" << '\n';
+
+  int const segment_size = element_segment_size(*pde);
+  auto const final_result =
+      gather_results(host_space.x, plan, my_rank, segment_size);
+
+  // temp
+  fk::vector<prec> ans(final_result);
+  if (!my_rank)
+    ans.print();
 
   finalize_distribution();
 
