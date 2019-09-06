@@ -1,5 +1,5 @@
 #include "distribution.hpp"
-// FIXME
+
 #include "chunk.hpp"
 #include "lib_dispatch.hpp"
 #include "mpi_instructions.hpp"
@@ -435,6 +435,7 @@ gather_errors(P const root_mean_squared, P const relative)
              mpi_type, 0, local_comm);
 
   success = MPI_Comm_free(&local_comm);
+  assert(success == 0);
 
   if (local_rank == 0)
   {
@@ -452,6 +453,88 @@ gather_errors(P const root_mean_squared, P const relative)
   return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
 #else
   return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
+#endif
+}
+
+template<typename P>
+std::vector<P>
+gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
+               int const my_rank, int const element_segment_size)
+{
+  assert(my_rank >= 0);
+  assert(my_rank < static_cast<int>(plan.size()));
+
+  auto const own_results = [&my_results]() {
+    std::vector<P> own_results(my_results.size());
+    std::copy(my_results.begin(), my_results.end(), own_results.begin());
+    return own_results;
+  };
+#ifdef ASGARD_USE_MPI
+
+  if (plan.size() == 1)
+  {
+    return own_results();
+  }
+
+  int const num_subgrid_cols = get_num_subgrid_cols(plan.size());
+
+  // get the length and displacement of non-root, first row ranks
+
+  // TODO fix to int64 w/ MPI3
+  fk::vector<int> rank_lengths(num_subgrid_cols);
+  for (int i = 1; i < static_cast<int>(rank_lengths.size()); ++i)
+  {
+    rank_lengths(i) = plan.at(i).ncols() * element_segment_size;
+  }
+
+  // TODO need MPI 3 to make these longer...
+  fk::vector<int> rank_displacements(rank_lengths);
+  // I guess I'll do the exclusive scan myself...compiler can't find it in std
+  int64_t running_total = 0;
+  for (int i = 0; i < rank_lengths.size(); ++i)
+  {
+    rank_displacements(i) = running_total;
+    running_total += rank_lengths(i);
+  }
+
+  // split the communicator - only need the first row
+  bool const participating            = my_rank < num_subgrid_cols;
+  int const comm_color                = participating ? 1 : MPI_UNDEFINED;
+  MPI_Comm const &global_communicator = distro_handle.get_global_comm();
+  MPI_Comm first_row_communicator;
+  auto success = MPI_Comm_split(global_communicator, comm_color, my_rank,
+                                &first_row_communicator);
+  assert(success == 0);
+
+  // gather values
+  if (first_row_communicator != MPI_COMM_NULL)
+  {
+    int64_t const vect_size =
+        my_rank ? 0
+                : std::accumulate(rank_lengths.begin(), rank_lengths.end(),
+                                  my_results.size());
+    std::vector<P> results(vect_size);
+    int const send_size = my_rank ? my_results.size() : 0;
+
+    MPI_Datatype const mpi_type =
+        std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+    success = MPI_Gatherv((void *)my_results.data(), send_size, mpi_type,
+                          (void *)(results.data() + my_results.size()),
+                          rank_lengths.data(), rank_displacements.data(),
+                          mpi_type, 0, first_row_communicator);
+    assert(success == 0);
+
+    if (my_rank == 0)
+    {
+      std::copy(my_results.begin(), my_results.end(), results.begin());
+    }
+    return results;
+  }
+
+  return own_results();
+
+#else
+  return own_results();
 #endif
 }
 
@@ -474,3 +557,12 @@ gather_errors(float const root_mean_squared, float const relative);
 
 template std::array<fk::vector<double>, 2>
 gather_errors(double const root_mean_squared, double const relative);
+
+template std::vector<float> gather_results(fk::vector<float> const &my_results,
+                                           distribution_plan const &plan,
+                                           int const my_rank,
+                                           int const element_segment_size);
+template std::vector<double>
+gather_results(fk::vector<double> const &my_results,
+               distribution_plan const &plan, int const my_rank,
+               int const element_segment_size);
