@@ -266,7 +266,97 @@ static std::vector<rank_to_range> find_partners(int const my_rank,
   }
 }
 */
+
 // using partner_map = std::map<int, std::vector<rank_to_range>>;
+
+// static helper for copying my own output to input
+template<typename P>
+static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
+                          element_subgrid const &my_grid,
+                          mpi_message const &message, int const segment_size)
+{
+  assert(segment_size > 0);
+  if (message.mpi_message_type == mpi_message_enum::send)
+  {
+    int64_t const output_start =
+        static_cast<int64_t>(my_grid.to_local_row(message.nar.start)) *
+        segment_size;
+    int64_t const output_end =
+        static_cast<int64_t>(my_grid.to_local_row(message.nar.stop) + 1) *
+            segment_size -
+        1;
+    int64_t const input_start =
+        static_cast<int64_t>(my_grid.to_local_col(message.nar.start)) *
+        segment_size;
+    int64_t const input_end =
+        static_cast<int64_t>(my_grid.to_local_col(message.nar.stop) + 1) *
+            segment_size -
+        1;
+
+    fk::vector<P, mem_type::view> output_window(source, output_start,
+                                                output_end);
+    fk::vector<P, mem_type::view> input_window(dest, input_start, input_end);
+
+    fm::copy(output_window, input_window);
+  }
+  // else ignore the matching receive; I am copying locally
+}
+
+// static helper for sending/receiving output/input data using mpi
+template<typename P>
+static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
+                             element_subgrid const &my_grid,
+                             mpi_message const &message, int const segment_size)
+{
+  assert(segment_size > 0);
+
+  auto const [start, end] = [&my_grid, &message, segment_size]() {
+    if (message.mpi_message_type == mpi_message_enum::send)
+    {
+      auto const output_start =
+          static_cast<int64_t>(my_grid.to_local_row(message.nar.start)) *
+          segment_size;
+      auto const output_end =
+          static_cast<int64_t>(my_grid.to_local_row(message.nar.stop) + 1) *
+              segment_size -
+          1;
+      return std::pair<int64_t, int64_t>{output_start, output_end};
+    }
+    else
+    {
+      auto const input_start =
+          static_cast<int64_t>(my_grid.to_local_col(message.nar.start)) *
+          segment_size;
+      auto const input_end =
+          static_cast<int64_t>(my_grid.to_local_col(message.nar.stop) + 1) *
+              segment_size -
+          1;
+
+      return std::pair<int64_t, int64_t>{input_start, input_end};
+    }
+  }();
+
+  fk::vector<P, mem_type::view> window(source, start, end);
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+  MPI_Comm const communicator = distro_handle.get_global_comm();
+
+  if (message.mpi_message_type == mpi_message_enum::send)
+  {
+    auto const success =
+        MPI_Send((void *)window.data(), window.size(), mpi_type,
+                 message.nar.linear_index, MPI_ANY_TAG, communicator);
+    assert(success == 0);
+  }
+  else
+  {
+    auto const success = MPI_Recv((void *)window.data(), window.size(),
+                                  mpi_type, message.nar.linear_index,
+                                  MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+    assert(success == 0);
+  }
+}
+
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
                     int const segment_size, distribution_plan const &plan,
@@ -335,38 +425,13 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
    }*/
   for (auto const &message : messages.mpi_messages_in_order())
   {
-    if (message.mpi_message_type == mpi_message_enum::send)
+    if (message.nar.linear_index == my_rank)
     {
-      if (message.nar.linear_index == my_rank)
-      {
-        /*if (my_rank == 3)
-        {
-          std::cout << message.nar.start << std::endl;
-          std::cout << message.nar.stop << std::endl;
-          std::cout << my_subgrid.col_start << std::endl;
-          std::cout << my_subgrid.col_stop << std::endl;
-        }*/
-        fk::vector<P, mem_type::view> output_window(
-            source, my_subgrid.to_local_row(message.nar.start) * segment_size,
-            (my_subgrid.to_local_row(message.nar.stop) + 1) * segment_size - 1);
-        fk::vector<P, mem_type::view> input_window(
-            dest, my_subgrid.to_local_col(message.nar.start) * segment_size,
-            (my_subgrid.to_local_col(message.nar.stop) + 1) * segment_size - 1);
+      copy_to_input(source, dest, my_subgrid, message, segment_size);
+      continue;
+    }
 
-        fm::copy(output_window, input_window);
-      }
-      else
-      {}
-    }
-    else
-    {
-      if (message.nar.linear_index == my_rank)
-      {
-        continue;
-      }
-      else
-      {}
-    }
+    dispatch_message(source, dest, my_subgrid, message, segment_size);
   }
 }
 
