@@ -119,6 +119,53 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
   }
 }
 
+// this function executes an explicit time step using the current solution
+// vector x. on exit, the next solution vector is stored in fx.
+template<typename P>
+void implicit_time_advance(PDE<P> const &pde, element_table const &table,
+                           std::vector<fk::vector<P>> const &unscaled_sources,
+                           host_workspace<P> &host_space,
+                           std::vector<element_chunk> chunks, P const time,
+                           P const dt)
+{
+  assert(time >= 0);
+  assert(dt > 0);
+  assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
+
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const A_size = elem_size * table.size();
+  fk::matrix<P> A(A_size, A_size);
+
+  for (auto const &chunk : chunks){
+    build_implicit_system(pde, table, chunk, A);
+  }
+  fm::copy(host_space.x, host_space.x_orig);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+  // AA = I - dt*A;
+  for (int i = 0; i < A.nrows(); ++i)
+  {
+    for (int j = 0; j < A.ncols(); ++j)
+    {
+      A(i, j) *= -dt ;
+    }
+    A(i, i) += 1.0;
+  }
+  printf(" t = %.3f   dt = %.3f\n", time, dt);
+  host_space.scaled_source.print("Scaled Sources");
+  printf("===================================\n");
+  A.print("AA");
+  printf("===================================\n");
+  host_space.x = host_space.x + host_space.scaled_source * dt;
+  host_space.x.print("b");
+  printf("===================================\n");
+  fm::gesv(A, host_space.x);
+  host_space.x.print("solution");
+  printf("===================================\n");
+  fm::copy(host_space.x, host_space.fx);
+
+}
+
 template void
 explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
