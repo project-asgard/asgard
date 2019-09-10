@@ -455,7 +455,7 @@ public:
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
-  P get_dt() { return dt_; };
+  P get_dt() const { return dt_; };
 
 private:
   std::vector<dimension<P>> dimensions_;
