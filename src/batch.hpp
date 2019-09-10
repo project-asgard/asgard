@@ -195,7 +195,7 @@ build_implicit_system(PDE<float> const &pde, element_table const &elem_table,
 
 extern template void
 build_implicit_system(PDE<double> const &pde, element_table const &elem_table,
-                           element_chunk const &chunk, fk::matrix<double> &A);
+                      element_chunk const &chunk, fk::matrix<double> &A);
 extern template void
 build_implicit_system(PDE<float> const &pde, element_table const &elem_table,
                       element_chunk const &chunk, fk::matrix<float> &A);
