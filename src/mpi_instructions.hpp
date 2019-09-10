@@ -1,3 +1,4 @@
+/* have the function take in a distrubution plan */
 #include <vector>
 
 enum class mpi_message_enum
@@ -123,3 +124,10 @@ private:
 
   std::vector<int> const c_stop;
 };
+
+std::vector<std::vector<mpi_node_and_range>>
+generate_row_space_intervals( std::vector<int> const &r_stop, std::vector< int > const &c_stop );
+
+std::vector< std::vector< mpi_message > > const
+generate_mpi_messages( const std::vector<int> &r_stop,
+                       const std::vector<int> &c_stop );

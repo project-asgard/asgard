@@ -106,7 +106,6 @@ cut_a_slice(const class mpi_node_and_range &nar, const std::vector<int> &c_stop,
 std::vector<int>
 correct_slice(int c, const std::vector<int> &c_stop, const std::vector<int> &x)
 {
-  /* Captain! Refactor to move code out of the if-else blocks */
   std::vector<int> slice;
 
   /* the first slice from x has been requested */
@@ -139,14 +138,12 @@ correct_slice(int c, const std::vector<int> &c_stop, const std::vector<int> &x)
 
 /* ensure that each process node can construct its slice of the vector based
    only on what it receives */
-bool check_slices(const class mpi_instructions &mpi_instructions)
+bool check_slices(const std::vector< std::vector< mpi_message > > &mpi_instructions,
+                  std::vector< int > const &r_stop,
+                  std::vector< int > const &c_stop )
 {
   /* create fake data */
   std::vector<int> x;
-
-  const std::vector<int> &r_stop = mpi_instructions.get_r_stop();
-
-  const std::vector<int> &c_stop = mpi_instructions.get_c_stop();
 
   std::cout << "x:" << std::endl;
 
@@ -162,21 +159,18 @@ bool check_slices(const class mpi_instructions &mpi_instructions)
   {
     for (int c = 0; c < (int)c_stop.size(); c++)
     {
-      const class mpi_instruction &mpi_instruction =
-          mpi_instructions.get_mpi_instructions(r, c);
-
-      const std::vector<class mpi_message> &mpi_message =
-          mpi_instruction.mpi_messages_in_order();
+      std::vector< mpi_message > const &mpi_messages =
+      mpi_instructions[ r * c_stop.size() + c ];
 
       std::vector<int> derived_slice;
 
       /* only the receive-type mpi_messages are of interest here */
-      for (int i = 0; i < (int)mpi_message.size(); i++)
+      for (int i = 0; i < (int)mpi_messages.size(); i++)
       {
-        if (mpi_message[i].mpi_message_type == mpi_message_enum::receive)
+        if (mpi_messages[i].mpi_message_type == mpi_message_enum::receive)
         {
           std::vector<int> sub_slice =
-              cut_a_slice(mpi_message[i].nar, c_stop, r_stop, x);
+              cut_a_slice(mpi_messages[i].nar, c_stop, r_stop, x);
 
           std::copy(sub_slice.begin(), sub_slice.end(),
                     std::back_inserter(derived_slice));
@@ -217,7 +211,9 @@ bool check_slices(const class mpi_instructions &mpi_instructions)
 }
 
 /* ensure that every send has a matching receive with the same info */
-bool check_packet_mpi_messages(const class mpi_instructions &mpi_instructions)
+bool check_mpi_messages(const std::vector< std::vector< mpi_message > > &mpi_messages,
+                  std::vector< int > const &r_stop,
+                  std::vector< int > const &c_stop )
 {
   /* these arrays will have the format:
      { sending linear index, receiving linear index, start, stop } */
@@ -225,15 +221,12 @@ bool check_packet_mpi_messages(const class mpi_instructions &mpi_instructions)
 
   std::vector<std::array<const int, 4>> send_mpi_message;
 
-  for (int r = 0; r < mpi_instructions.n_tile_rows(); r++)
+  for (int r = 0; r < r_stop.size(); r++)
   {
-    for (int c = 0; c < mpi_instructions.n_tile_cols(); c++)
+    for (int c = 0; c < c_stop.size(); c++)
     {
-      const class mpi_instruction &mpi_instruction =
-          mpi_instructions.get_mpi_instructions(r, c);
-
       const std::vector<class mpi_message> &mpi_message =
-          mpi_instruction.mpi_messages_in_order();
+      mpi_messages[ r * c_stop.size() + c ];
 
       for (int i = 0; i < (int)mpi_message.size(); i++)
       {
@@ -242,7 +235,7 @@ bool check_packet_mpi_messages(const class mpi_instructions &mpi_instructions)
         if (mpi_message[i].mpi_message_type == mpi_message_enum::send)
         {
           const std::array<const int, 4> array{
-              r * mpi_instructions.n_tile_cols() + c, nar.linear_index,
+              r * c_stop.size() + c, nar.linear_index,
               nar.start, nar.stop};
 
           send_mpi_message.emplace_back(std::move(array));
@@ -251,7 +244,7 @@ bool check_packet_mpi_messages(const class mpi_instructions &mpi_instructions)
         else if (mpi_message[i].mpi_message_type == mpi_message_enum::receive)
         {
           std::array<const int, 4> array{nar.linear_index,
-                                         r * mpi_instructions.n_tile_cols() + c,
+                                         r * c_stop.size() + c,
                                          nar.start, nar.stop};
 
           receive_mpi_message.emplace(std::move(array));
@@ -299,6 +292,7 @@ bool check_correct_intervals( std::vector< std::vector< mpi_node_and_range > > c
 
 TEST_CASE("mpi_mpi_messages", "[mpi]")
 {
+  /* test data - 3 sets of r_stop, c_stop, and correct_intervals */
   std::vector< std::vector< int > > c_stops =
   {{ 12, 18, 20, 36 }, { 5, 10, 15 }, { 10, 23, 47, 100 }};
 
@@ -340,11 +334,8 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
 
     for( int i = 0; i < r_stops.size(); i++ )
     {
-      class mpi_instructions mpi_instructions( std::move( std::vector< int >( r_stops[ i ] ) ), 
-                                               std::move( std::vector< int >( c_stops[ i ] ) ) );
-
       const std::vector<std::vector<class mpi_node_and_range>>
-          row_space_intervals = mpi_instructions.gen_row_space_intervals();
+      row_space_intervals = generate_row_space_intervals( r_stops[ i ], c_stops[ i ] );
 
       pass = pass && check_correct_intervals( row_space_intervals, correct_intervals_v[ i ] );
     }
@@ -358,10 +349,10 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
 
     for( int i = 0; i < r_stops.size(); i++ )
     {
-      class mpi_instructions mpi_instructions( std::move( std::vector< int >( r_stops[ i ] ) ), 
-                                               std::move( std::vector< int >( c_stops[ i ] ) ) );
+      std::vector< std::vector< mpi_message > > const mpi_messages =
+      generate_mpi_messages( r_stops[ i ], c_stops[ i ] );
 
-      pass = pass && check_slices(mpi_instructions);
+      pass = pass && check_slices( mpi_messages, r_stops[ i ], c_stops[ i ] );
     }
 
     REQUIRE(pass == true);
@@ -373,10 +364,10 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
 
     for( int i = 0; i < r_stops.size(); i++ )
     {
-      class mpi_instructions mpi_instructions( std::move( std::vector< int >( r_stops[ i ] ) ), 
-                                               std::move( std::vector< int >( c_stops[ i ] ) ) );
+      std::vector< std::vector< mpi_message > > const mpi_messages =
+      generate_mpi_messages( r_stops[ i ], c_stops[ i ] );
 
-      pass = pass && check_packet_mpi_messages(mpi_instructions);
+      pass = pass && check_mpi_messages( mpi_messages, r_stops[ i ], c_stops[ i ] );
     }
 
     REQUIRE(pass == true);
