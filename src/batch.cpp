@@ -747,21 +747,21 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
         kron_vals.push_back(kron0);
         for (int d = 0 ; d < pde.num_dims ; d++)
         {
-          printf("pde.get_coefficients(%d, %d) :\n", k, d);
-          pde.get_coefficients(k, d).print("COEFF");
-          printf("View: (%d, %d) -> (%d, %d) \n", operator_row(d),
-                 operator_col(d),
-                 operator_row(d) + degree - 1,
-                 operator_col(d) + degree - 1);
-          printf("=====================================\n");
+          //printf("pde.get_coefficients(%d, %d) :\n", k, d);
+          //pde.get_coefficients(k, d).print("COEFF");
+          //printf("View: (%d, %d) -> (%d, %d) \n", operator_row(d),
+          //     operator_col(d),
+          //       operator_row(d) + degree - 1,
+          //       operator_col(d) + degree - 1);
+          //printf("=====================================\n");
           fk::matrix<P, mem_type::view> op_view =
               fk::matrix<P, mem_type::view>(pde.get_coefficients(k, d),
                                             operator_row(d),
                                             operator_row(d) + degree - 1,
                                             operator_col(d),
                                             operator_col(d) + degree - 1);
-          op_view.print("OP_VIEW");
-          printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+          //op_view.print("OP_VIEW");
+          //printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
 
           fk::matrix<P>  k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(k_new);
@@ -773,8 +773,8 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
         // global system matrix
         int const global_col = j * elem_size;
         auto & k_tmp = kron_vals.back();
-        k_tmp.print("K_TMP");
-        printf("Writing into A(%d, %d) of size %d\n\n", global_row, global_col, k_tmp.nrows());
+        //k_tmp.print("K_TMP");
+        //printf("Writing into A(%d, %d) of size %d\n\n", global_row, global_col, k_tmp.nrows());
 
         fk::matrix<P, mem_type::view>  A_view(A, global_row,
                                               global_row + k_tmp.nrows() - 1,
@@ -784,7 +784,7 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
         //A_view.print("A_view 1");
         A_view = A_view + k_tmp;
         A_view.print("A_view 2");
-        A.print("ALL A");
+        //A.print("ALL A");
       }
     }
   }

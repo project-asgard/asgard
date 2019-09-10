@@ -151,17 +151,17 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
     }
     A(i, i) += 1.0;
   }
-  printf(" t = %.3f   dt = %.3f\n", time, dt);
-  host_space.scaled_source.print("Scaled Sources");
-  printf("===================================\n");
-  A.print("AA");
-  printf("===================================\n");
+  //printf(" t = %.3f   dt = %.3f\n", time, dt);
+  //host_space.scaled_source.print("Scaled Sources");
+  //printf("===================================\n");
+  //A.print("AA");
+  //printf("===================================\n");
   host_space.x = host_space.x + host_space.scaled_source * dt;
-  host_space.x.print("b");
-  printf("===================================\n");
+  //host_space.x.print("b");
+  //printf("===================================\n");
   fm::gesv(A, host_space.x);
-  host_space.x.print("solution");
-  printf("===================================\n");
+  //host_space.x.print("solution");
+  //printf("===================================\n");
   fm::copy(host_space.x, host_space.fx);
 }
 
