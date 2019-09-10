@@ -2090,7 +2090,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     auto coeff = pde->get_coefficients(0, 0);
     coeff.set_submatrix(0, 0, A);
     fk::matrix<TestType, mem_type::owner, resource::device> const
-        coefficient_matrix(coeff);
+        coefficient_matrix(coeff.to_device());
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
     fk::vector<TestType, mem_type::owner, resource::device> const x(

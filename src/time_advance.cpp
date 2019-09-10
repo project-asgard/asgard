@@ -142,7 +142,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.result_1, host_space.x, scale_1);
   fm::axpy(host_space.result_2, host_space.x, scale_2);
   fm::axpy(host_space.result_3, host_space.x, scale_3);
-
 }
 
 // scale source vectors for time

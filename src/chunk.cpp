@@ -86,7 +86,8 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
         term_coefficients;
     for (int j = 0; j < pde.num_dims; ++j)
     {
-      term_coefficients.emplace_back(pde.get_coefficients(i, j));
+      term_coefficients.emplace_back(
+          pde.get_coefficients(i, j).clone_onto_device());
     }
     coefficients_.push_back(term_coefficients);
   }
@@ -110,20 +111,6 @@ fk::matrix<P, mem_type::owner, resource::device> const &
 rank_workspace<P>::get_coefficients(int const term, int const dim) const
 {
   return coefficients_[term][dim];
-}
-
-template<typename P>
-host_workspace<P>::host_workspace(PDE<P> const &pde, element_table const &table)
-{
-  int elem_size             = element_segment_size(pde);
-  int64_t const vector_size = elem_size * static_cast<int64_t>(table.size());
-  x_orig.resize(vector_size);
-  x.resize(vector_size);
-  fx.resize(vector_size);
-  scaled_source.resize(vector_size);
-  result_1.resize(vector_size);
-  result_2.resize(vector_size);
-  result_3.resize(vector_size);
 }
 
 template<typename P>
@@ -182,41 +169,6 @@ static double get_element_size_MB(PDE<P> const &pde)
           elem_xy_space_MB);
 }
 
-// FIXME remove
-// determine how many chunks will be required to solve the problem
-// a chunk is a subset of all elements whose total workspace requirement
-// is less than the limit passed in rank_size_MB
-template<typename P>
-int get_num_chunks(element_table const &table, PDE<P> const &pde,
-                   int const num_ranks, int const rank_size_MB)
-{
-  assert(num_ranks > 0);
-  assert(rank_size_MB > 0);
-  // determine total problem size
-  double const num_elems = static_cast<double>(table.size()) * table.size();
-  double const space_per_elem = get_element_size_MB(pde);
-
-  // make sure rank size is something reasonable
-  // a single element is the finest we can split the problem
-  // if that requires a lot of space relative to rank size,
-  // roundoff of elements over chunks will cause us to exceed the limit
-  //
-  // also not feasible to solve problem with a tiny workspace limit
-  assert(space_per_elem < (0.5 * rank_size_MB));
-
-  double const problem_size_MB = space_per_elem * num_elems;
-
-  // determine number of chunks
-  double const problem_size_per_rank = problem_size_MB / rank_size_MB;
-  int const num_chunks               = [problem_size_per_rank, num_ranks] {
-    int const chunks_per_rank =
-        static_cast<int>(problem_size_per_rank / num_ranks + 1);
-    return chunks_per_rank * num_ranks;
-  }();
-
-  return num_chunks;
-}
-
 // determine how many chunks will be required to solve the problem
 // a chunk is a subset of the element subgrid whose total workspace requirement
 // is less than the limit passed in rank_size_MB
@@ -262,83 +214,6 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
 // portion of the y-vector written to by each task, and ultimately the size of
 // communication between ranks.
 std::vector<element_chunk>
-assign_elements(element_table const &table, int const num_chunks)
-{
-  assert(num_chunks > 0);
-
-  int64_t const num_elems = static_cast<int64_t>(table.size()) * table.size();
-
-  int64_t const elems_left_over = num_elems % num_chunks;
-  int64_t const elems_per_task =
-      num_elems / num_chunks + elems_left_over / num_chunks;
-  int64_t const still_left_over = elems_left_over % num_chunks;
-
-  std::vector<element_chunk> chunks;
-  int64_t assigned = 0;
-
-  for (int i = 0; i < num_chunks; ++i)
-  {
-    std::map<int, std::vector<int>> chunk_map;
-
-    auto const insert = [&chunk_map](int const key, int col) {
-      chunk_map.try_emplace(key, std::vector<int>());
-      chunk_map[key].push_back(col);
-    };
-    int64_t const elems_this_task =
-        i < still_left_over ? elems_per_task + 1 : elems_per_task;
-    int64_t const task_end = assigned + elems_this_task - 1;
-
-    int64_t const chunk_start_row = assigned / table.size();
-    int64_t const chunk_start_col = assigned % table.size();
-    int64_t const chunk_end_row   = task_end / table.size();
-    int64_t const chunk_end_col   = task_end % table.size();
-
-    assigned += elems_this_task;
-
-    if (chunk_end_row > chunk_start_row)
-    {
-      for (int i = chunk_start_row + 1; i < chunk_end_row; ++i)
-      {
-        for (int j = 0; j < table.size(); ++j)
-        {
-          insert(i, j);
-        }
-      }
-      for (int j = chunk_start_col; j < table.size(); ++j)
-      {
-        insert(chunk_start_row, j);
-      }
-      for (int j = 0; j <= chunk_end_col; ++j)
-      {
-        insert(chunk_end_row, j);
-      }
-    }
-    else
-    {
-      for (int j = chunk_start_col; j <= chunk_end_col; ++j)
-      {
-        insert(chunk_start_row, j);
-      }
-    }
-
-    element_chunk chunk;
-    for (auto const &[row, cols] : chunk_map)
-    {
-      chunk.insert({row, limits(cols[0], cols.back())});
-    }
-    chunks.push_back(chunk);
-  }
-  return chunks;
-}
-
-// divide the problem given the previously computed number of chunks
-// this function divides via a greedy, row-major split.
-// i.e., consecutive elements are taken row-wise until the end of a
-// row, and continuing as needed to the next row, beginning with the first
-// element of the new row (typewriter style). this is done to minimize the
-// portion of the y-vector written to by each task, and ultimately the size of
-// communication between ranks.
-std::vector<element_chunk>
 assign_elements(element_subgrid const &grid, int const num_chunks)
 {
   assert(num_chunks > 0);
@@ -356,7 +231,6 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   for (int i = 0; i < num_chunks; ++i)
   {
     std::map<int, std::vector<int>> chunk_map;
-    // --------------------------------------------------------------- //
     auto const insert = [&chunk_map, &grid](int const key, int const col) {
       chunk_map.try_emplace(grid.to_global_row(key), std::vector<int>());
       chunk_map[grid.to_global_row(key)].push_back(grid.to_global_col(col));
@@ -409,19 +283,6 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
 }
 
 template<typename P>
-void copy_chunk_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
-                       host_workspace<P> const &host_space,
-                       element_chunk const &chunk)
-{
-  int const elem_size = element_segment_size(pde);
-  auto const x_range  = columns_in_chunk(chunk);
-  fk::vector<P, mem_type::view> const x_view(
-      host_space.x, x_range.start * elem_size,
-      (x_range.stop + 1) * elem_size - 1);
-  rank_space.batch_input.transfer_from(x_view);
-}
-
-template<typename P>
 void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
                        rank_workspace<P> &rank_space,
                        host_workspace<P> const &host_space,
@@ -433,25 +294,6 @@ void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
       host_space.x, grid.to_local_col(x_range.start) * elem_size,
       (grid.to_local_col(x_range.stop) + 1) * elem_size - 1);
   rank_space.batch_input.transfer_from(x_view);
-}
-
-template<typename P>
-void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
-                        host_workspace<P> const &host_space,
-                        element_chunk const &chunk)
-{
-  int const elem_size = element_segment_size(pde);
-  auto const y_range  = rows_in_chunk(chunk);
-
-  fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.start * elem_size,
-                                       (y_range.stop + 1) * elem_size - 1);
-
-  fk::vector<P, mem_type::view, resource::device> const out_view(
-      rank_space.batch_output, 0,
-      (y_range.stop - y_range.start + 1) * elem_size - 1);
-
-  fk::vector<P, mem_type::owner> const out_view_h(out_view.clone_onto_host());
-  y_view = fm::axpy(out_view_h, y_view);
 }
 
 template<typename P>
@@ -470,7 +312,7 @@ void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
       rank_space.batch_output, 0,
       (y_range.stop - y_range.start + 1) * elem_size - 1);
 
-  fk::vector<P, mem_type::owner> const out_view_h(out_view);
+  fk::vector<P, mem_type::owner> const out_view_h(out_view.clone_onto_host());
   y_view = fm::axpy(out_view_h, y_view);
 }
 
@@ -516,41 +358,17 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
     fm::gemv(reduction_matrix, unit_view, output_view, transA, alpha, beta);
   }
 }
+
 template class rank_workspace<float>;
 template class rank_workspace<double>;
 
 template class host_workspace<float>;
 template class host_workspace<double>;
 
-template int get_num_chunks(element_table const &table, PDE<float> const &pde,
-                            int const num_ranks, int const rank_size_MB);
-template int get_num_chunks(element_table const &table, PDE<double> const &pde,
-                            int const num_ranks, int const rank_size_MB);
-
 template int get_num_chunks(element_subgrid const &grid, PDE<float> const &pde,
                             int const rank_size_MB);
 template int get_num_chunks(element_subgrid const &grid, PDE<double> const &pde,
                             int const rank_size_MB);
-
-template void copy_chunk_inputs(PDE<float> const &pde,
-                                rank_workspace<float> &rank_space,
-                                host_workspace<float> const &host_space,
-                                element_chunk const &chunk);
-
-template void copy_chunk_inputs(PDE<double> const &pde,
-                                rank_workspace<double> &rank_space,
-                                host_workspace<double> const &host_space,
-                                element_chunk const &chunk);
-
-template void copy_chunk_outputs(PDE<float> const &pde,
-                                 rank_workspace<float> &rank_space,
-                                 host_workspace<float> const &host_space,
-                                 element_chunk const &chunk);
-
-template void copy_chunk_outputs(PDE<double> const &pde,
-                                 rank_workspace<double> &rank_space,
-                                 host_workspace<double> const &host_space,
-                                 element_chunk const &chunk);
 
 template void copy_chunk_inputs(PDE<float> const &pde,
                                 element_subgrid const &grid,
