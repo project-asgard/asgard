@@ -163,7 +163,6 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   host_space.x.print("solution");
   printf("===================================\n");
   fm::copy(host_space.x, host_space.fx);
-
 }
 
 template void
@@ -181,3 +180,17 @@ explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       rank_workspace<double> &rank_space,
                       std::vector<element_chunk> chunks, double const time,
                       double const dt);
+
+template void
+implicit_time_advance(PDE<double> const &pde, element_table const &table,
+                      std::vector<fk::vector<double>> const &unscaled_sources,
+                      host_workspace<double> &host_space,
+                      std::vector<element_chunk> chunks, double const time,
+                      double const dt);
+
+template void
+implicit_time_advance(PDE<float> const &pde, element_table const &table,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      host_workspace<float> &host_space,
+                      std::vector<element_chunk> chunks, float const time,
+                      float const dt);

@@ -743,8 +743,9 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
       {
         std::vector<fk::matrix<P>> kron_vals;
         fk::matrix<P> kron0(1,1);
+        kron0(0,0) = 1.0;
         kron_vals.push_back(kron0);
-        for (int d = pde.num_dims - 1; d >= 0; --d)
+        for (int d = 0 ; d < pde.num_dims ; d++)
         {
           printf("pde.get_coefficients(%d, %d) :\n", k, d);
           pde.get_coefficients(k, d).print("COEFF");
@@ -764,6 +765,7 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
 
           fk::matrix<P>  k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(k_new);
+
           //k_new.print("K_NEW");
         }
 

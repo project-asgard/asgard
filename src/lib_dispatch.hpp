@@ -76,6 +76,12 @@ extern "C"
 
   void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
                int *info);
+
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+               int *ldb, int *info);
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+               int *ldb, int *info);
+
 }
 
 // -- precision/execution resource wrapper for blas --
