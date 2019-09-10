@@ -143,7 +143,7 @@ TEST_CASE("element chunk, continuity 2", "[chunk]")
     for (int limit_MB = 10; limit_MB <= 1000; limit_MB *= 10)
     {
       int const num_chunks = get_num_chunks(plan.at(0), *pde, limit_MB);
-      auto const chunks    = assign_elements(table, num_chunks);
+      auto const chunks    = assign_elements(plan.at(0), num_chunks);
       assert(static_cast<int>(chunks.size()) == num_chunks);
       validity_check_sub(chunks, plan.at(0));
       size_check(chunks, *pde, limit_MB, large_problem);
@@ -432,272 +432,240 @@ TEST_CASE("element chunk, continuity 6", "[chunk]")
   }
 }
 
-auto const test_copy_in = [](PDE<double> const &pde, element_chunk const &chunk,
-                             rank_workspace<double> const &rank_space,
-                             host_workspace<double> const &host_space) {
+template<typename P>
+void validate_copy_in(PDE<P> const &pde, element_subgrid const &grid,
+                      element_chunk const &chunk,
+                      rank_workspace<P> const &rank_space,
+                      host_workspace<P> const &host_space)
+{
   int const elem_size  = element_segment_size(pde);
   auto const x_range   = columns_in_chunk(chunk);
   auto const num_elems = (x_range.stop - x_range.start + 1) * elem_size;
 
-  fk::vector<double> const input_copy(rank_space.batch_input.clone_onto_host());
+  fk::vector<P> const input_copy(rank_space.batch_input.clone_onto_host());
+
   for (int i = 0; i < num_elems; ++i)
   {
-    REQUIRE(input_copy(i) == host_space.x(i + x_range.start * elem_size));
+    REQUIRE(input_copy(i) ==
+            host_space.x(i + grid.to_local_col(x_range.start) * elem_size));
   }
-};
+}
 
-auto const test_copy_out = [](PDE<double> const &pde,
-                              element_chunk const &chunk,
-                              rank_workspace<double> const &rank_space,
-                              host_workspace<double> const &host_space,
-                              fk::vector<double> const &fx_prior) {
-  int const elem_size  = element_segment_size(pde);
-  auto const y_range   = rows_in_chunk(chunk);
-  auto const num_elems = (y_range.stop - y_range.start + 1) * elem_size;
-
-  fk::vector<double> const output_copy(
-      rank_space.batch_output.clone_onto_host());
-  for (int i = 0; i < num_elems; ++i)
-  {
-    int const fx_index = i + y_range.start * elem_size;
-    REQUIRE(std::abs(host_space.fx(fx_index) - fx_prior(fx_index) -
-                     output_copy(i)) <
-            std::numeric_limits<double>::epsilon() * num_elems);
-  }
-};
-
-TEST_CASE("chunk data management functions", "[chunk]")
+template<typename P>
+void copy_in_test(int const degree, int const level, PDE<P> const &pde,
+                  int const num_ranks)
 {
-  SECTION("copy in deg 2/lev 4, continuity 1")
+  options const o =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+  element_table const elem_table(o, pde.num_dims);
+
+  auto const plan = get_plan(num_ranks, elem_table);
+
+  for (auto const &[rank, subgrid] : plan)
   {
-    int const degree = 2;
-    int const level  = 4;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
+    host_workspace<P> host_space(pde, subgrid);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    std::uniform_real_distribution<P> dist(-2.0, 2.0);
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
     std::generate(host_space.x.begin(), host_space.x.end(), gen);
 
-    int const ranks    = 2;
-    int const limit_MB = 1;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
+    int const limit_MB = 1000;
+    auto const chunks =
+        assign_elements(subgrid, get_num_chunks(subgrid, pde, limit_MB));
+    rank_workspace<P> rank_space(pde, chunks);
 
     for (auto const &chunk : chunks)
     {
       // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-      test_copy_in(*pde, chunk, rank_space, host_space);
-    }
-  }
-
-  SECTION("copy in deg 4/lev 5, continuity 3")
-  {
-    int const degree = 4;
-    int const level  = 5;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(host_space.x.begin(), host_space.x.end(), gen);
-
-    int const ranks    = 3;
-    int const limit_MB = 10;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-      test_copy_in(*pde, chunk, rank_space, host_space);
-    }
-  }
-
-  SECTION("copy in deg 4/lev 2, continuity 6")
-  {
-    int const degree = 4;
-    int const level  = 2;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(host_space.x.begin(), host_space.x.end(), gen);
-
-    int const ranks    = 7;
-    int const limit_MB = 100;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-      test_copy_in(*pde, chunk, rank_space, host_space);
-    }
-  }
-
-  SECTION("copy out deg 2/lev 4, continuity 1")
-  {
-    int const degree = 2;
-    int const level  = 4;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    int const ranks    = 2;
-    int const limit_MB = 1;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-2.0, 2.0);
-    fk::vector<double> batch_out_h(rank_space.batch_output.clone_onto_host());
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-
-    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
-    rank_space.batch_output.transfer_from(batch_out_h);
-
-    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
-
-    for (auto const &chunk : chunks)
-    {
-      fk::vector<double> fx_orig(host_space.fx);
-      // copy out inputs
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-      test_copy_out(*pde, chunk, rank_space, host_space, fx_orig);
-    }
-  }
-
-  SECTION("copy out deg 4/lev 5, continuity 3")
-  {
-    int const degree = 4;
-    int const level  = 5;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    int const ranks    = 3;
-    int const limit_MB = 10;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-2.0, 2.0);
-
-    fk::vector<double> batch_out_h(rank_space.batch_output.clone_onto_host());
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-
-    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
-    rank_space.batch_output.transfer_from(batch_out_h);
-    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
-
-    for (auto const &chunk : chunks)
-    {
-      fk::vector<double> fx_orig(host_space.fx);
-      // copy out inputs
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-      test_copy_out(*pde, chunk, rank_space, host_space, fx_orig);
-    }
-  }
-
-  SECTION("copy out deg 4/lev 2, continuity 6")
-  {
-    int const degree = 4;
-    int const level  = 2;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    int const ranks    = 7;
-    int const limit_MB = 100;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-2.0, 2.0);
-
-    fk::vector<double> batch_out_h(rank_space.batch_output.clone_onto_host());
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-
-    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
-    rank_space.batch_output.transfer_from(batch_out_h);
-    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
-
-    for (auto const &chunk : chunks)
-    {
-      fk::vector<double> fx_orig(host_space.fx);
-      // copy out inputs
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-      test_copy_out(*pde, chunk, rank_space, host_space, fx_orig);
+      copy_chunk_inputs(pde, subgrid, rank_space, host_space, chunk);
+      validate_copy_in(pde, subgrid, chunk, rank_space, host_space);
     }
   }
 }
 
-auto const test_reduction = [](PDE<double> const &pde,
-                               element_chunk const &chunk,
-                               rank_workspace<double> const &rank_space) {
+template<typename P>
+void validate_copy_out(PDE<P> const &pde, element_subgrid const &grid,
+                       element_chunk const &chunk,
+                       rank_workspace<P> const &rank_space,
+                       host_workspace<P> const &host_space,
+                       fk::vector<P> const &fx_prior)
+{
+  int const elem_size  = element_segment_size(pde);
+  auto const y_range   = rows_in_chunk(chunk);
+  auto const num_elems = (y_range.stop - y_range.start + 1) * elem_size;
+
+  fk::vector<P> const output_copy(rank_space.batch_output);
+  for (int i = 0; i < num_elems; ++i)
+  {
+    int const fx_index = i + grid.to_local_row(y_range.start) * elem_size;
+    REQUIRE(std::abs(host_space.fx(fx_index) - fx_prior(fx_index) -
+                     output_copy(i)) <
+            std::numeric_limits<P>::epsilon() * num_elems);
+  }
+}
+
+template<typename P>
+void copy_out_test(int const level, int const degree, PDE<P> const &pde,
+                   int const num_ranks)
+{
+  options const o =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+  element_table const elem_table(o, pde.num_dims);
+  auto const plan = get_plan(num_ranks, elem_table);
+
+  for (auto const &[rank, grid] : plan)
+  {
+    host_workspace<P> host_space(pde, grid);
+    int const limit_MB = 1000;
+    auto const chunks =
+        assign_elements(grid, get_num_chunks(grid, pde, limit_MB));
+    rank_workspace<P> rank_space(pde, chunks);
+
+    std::random_device rd;
+    std::mt19937 mersenne_engine(rd());
+
+    std::uniform_real_distribution<P> dist(-2.0, 2.0);
+    fk::vector<P> batch_out_h(rank_space.batch_output.clone_onto_host());
+
+    auto const gen = [&dist, &mersenne_engine]() {
+      return dist(mersenne_engine);
+    };
+
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output.transfer_from(batch_out_h);
+
+    std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
+
+    for (auto const &chunk : chunks)
+    {
+      fk::vector<P> fx_orig(host_space.fx);
+      // copy out inputs
+      copy_chunk_outputs(pde, grid, rank_space, host_space, chunk);
+      validate_copy_out(pde, grid, chunk, rank_space, host_space, fx_orig);
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE("chunk data management functions", "[chunk]", float, double)
+{
+  SECTION("copy in deg 2/lev 4, continuity 1, 1 rank")
+  {
+    int const degree    = 2;
+    int const level     = 4;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    copy_in_test(degree, level, *pde, num_ranks);
+  }
+  SECTION("copy in deg 2/lev 4, continuity 1, 4 ranks")
+  {
+    int const degree    = 2;
+    int const level     = 4;
+    int const num_ranks = 4;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    copy_in_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy in deg 4/lev 5, continuity 3, 1 rank")
+  {
+    int const degree    = 4;
+    int const level     = 5;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    copy_in_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy in deg 4/lev 5, continuity 3, 6 ranks")
+  {
+    int const degree    = 4;
+    int const level     = 5;
+    int const num_ranks = 6;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    copy_in_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy in deg 4/lev 2, continuity 6, 1 rank")
+  {
+    int const degree    = 4;
+    int const level     = 2;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    copy_in_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy in deg 4/lev 2, continuity 6, 9 ranks")
+  {
+    int const degree    = 4;
+    int const level     = 2;
+    int const num_ranks = 9;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    copy_in_test(degree, level, *pde, num_ranks);
+  }
+  SECTION("copy out deg 2/lev 4, continuity 1, 1 rank")
+  {
+    int const degree    = 2;
+    int const level     = 4;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    copy_out_test(degree, level, *pde, num_ranks);
+  }
+  SECTION("copy out deg 2/lev 4, continuity 1, 4 ranks")
+  {
+    int const degree    = 2;
+    int const level     = 4;
+    int const num_ranks = 4;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    copy_out_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy out deg 4/lev 5, continuity 3, 1 rank")
+  {
+    int const degree    = 4;
+    int const level     = 5;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    copy_out_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy out deg 4/lev 5, continuity 3, 6 ranks")
+  {
+    int const degree    = 4;
+    int const level     = 5;
+    int const num_ranks = 6;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    copy_out_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy out deg 4/lev 2, continuity 6, 1 rank")
+  {
+    int const degree    = 4;
+    int const level     = 2;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    copy_out_test(degree, level, *pde, num_ranks);
+  }
+
+  SECTION("copy out deg 4/lev 2, continuity 6, 9 ranks")
+  {
+    int const degree    = 4;
+    int const level     = 2;
+    int const num_ranks = 9;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    copy_out_test(degree, level, *pde, num_ranks);
+  }
+}
+
+template<typename P>
+void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
+                      rank_workspace<P> const &rank_space)
+{
   int const elem_size = element_segment_size(pde);
   auto const x_range  = columns_in_chunk(chunk);
 
-  fk::vector<double> total_sum(rank_space.batch_output.size());
+  fk::vector<P> total_sum(rank_space.batch_output.size());
   for (auto const &[row, cols] : chunk)
   {
     int const prev_row_elems = [i = row, &chunk] {
@@ -713,152 +681,113 @@ auto const test_reduction = [](PDE<double> const &pde,
       return prev_elems;
     }();
     int const reduction_offset = prev_row_elems * pde.num_terms * elem_size;
-    fk::matrix<double, mem_type::view, resource::device> const reduction_matrix(
+    fk::matrix<P, mem_type::view, resource::device> const reduction_matrix(
         rank_space.reduction_space, elem_size,
         (cols.stop - cols.start + 1) * pde.num_terms, reduction_offset);
 
-    fk::matrix<double> reduction_copy(reduction_matrix.clone_onto_host());
-    fk::vector<double> sum(reduction_matrix.nrows());
+    fk::matrix<P> reduction_copy(reduction_matrix.clone_onto_host());
+    fk::vector<P> sum(reduction_matrix.nrows());
+
     for (int i = 0; i < reduction_matrix.nrows(); ++i)
     {
       for (int j = 0; j < reduction_matrix.ncols(); ++j)
         sum(i) += reduction_copy(i, j);
     }
     int const row_this_task = row - chunk.begin()->first;
-    fk::vector<double, mem_type::view> partial_sum(
+    fk::vector<P, mem_type::view> partial_sum(
         total_sum, row_this_task * elem_size,
         (row_this_task + 1) * elem_size - 1);
 
     partial_sum = partial_sum + sum;
   }
 
-  fk::vector<double> const output_copy(
-      rank_space.batch_output.clone_onto_host());
-  fk::vector<double> const diff = output_copy - total_sum;
-  auto abs_compare              = [](double const a, double const b) {
+  fk::vector<P> const output_copy(rank_space.batch_output.clone_onto_host());
+  fk::vector<P> const diff = output_copy - total_sum;
+  auto const abs_compare   = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  double const result =
+  auto const result =
       std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
   int const num_cols = (x_range.stop - x_range.start + 1) * pde.num_terms;
   // tol = epsilon * possible number of additions for an element * 10
-  double const tol = std::numeric_limits<double>::epsilon() * num_cols * 10;
+  auto const tol = std::numeric_limits<P>::epsilon() * num_cols * 10;
   REQUIRE(result <= tol);
 };
 
-TEST_CASE("chunk reduction function", "[chunk]")
+template<typename P>
+void reduction_test(int const degree, int const level, PDE<P> const &pde,
+                    int const num_ranks)
 {
-  SECTION("reduction deg 2/lev 4, continuity 1")
+  options const o =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+  element_table const elem_table(o, pde.num_dims);
+
+  auto const plan = get_plan(num_ranks, elem_table);
+
+  for (auto const &[rank, grid] : plan)
   {
-    int const degree = 2;
-    int const level  = 4;
+    host_workspace<P> host_space(pde, grid);
 
-    auto pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    int const ranks    = 2;
-    int const limit_MB = 1;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
+    int const limit_MB = 1000;
+    auto const chunks =
+        assign_elements(grid, get_num_chunks(grid, pde, limit_MB));
+    rank_workspace<P> rank_space(pde, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-3.0, 3.0);
-    fk::vector<double> reduction_h(
-        rank_space.reduction_space.clone_onto_host());
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-
+    std::uniform_real_distribution<P> dist(-3.0, 3.0);
+    fk::vector<P> reduction_h(rank_space.reduction_space.clone_onto_host());
+    auto const gen = [&dist, &mersenne_engine]() {
+      return dist(mersenne_engine);
+    };
     std::generate(reduction_h.begin(), reduction_h.end(), gen);
     rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {
       // reduce and test
-      reduce_chunk(*pde, rank_space, chunk);
-      test_reduction(*pde, chunk, rank_space);
+      reduce_chunk(pde, rank_space, chunk);
+      verify_reduction(pde, chunk, rank_space);
     }
   }
+}
 
-  SECTION("reduction deg 5/lev 6, continuity 3")
+TEMPLATE_TEST_CASE("chunk reduction function", "[chunk]", float, double)
+{
+  SECTION("reduction deg 2/lev 4, continuity 1, 1 rank")
   {
-    int const degree = 5;
-    int const level  = 6;
-
-    auto pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    int const ranks    = 4;
-    int const limit_MB = 11;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-3.0, 3.0);
-    fk::vector<double> reduction_h(
-        rank_space.reduction_space.clone_onto_host());
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-
-    std::generate(reduction_h.begin(), reduction_h.end(), gen);
-    rank_space.reduction_space.transfer_from(reduction_h);
-
-    for (auto const &chunk : chunks)
-    {
-      // reduce and test
-      reduce_chunk(*pde, rank_space, chunk);
-      test_reduction(*pde, chunk, rank_space);
-    }
+    int const degree    = 2;
+    int const level     = 4;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    reduction_test(degree, level, *pde, num_ranks);
   }
 
-  SECTION("reduction deg 3/lev 2, continuity 6")
+  SECTION("reduction deg 2/lev 4, continuity 1, 4 ranks")
   {
-    int const degree = 3;
-    int const level  = 2;
+    int const degree    = 2;
+    int const level     = 4;
+    int const num_ranks = 4;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    reduction_test(degree, level, *pde, num_ranks);
+  }
 
-    auto pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+  SECTION("reduction deg 4/lev 5, continuity 3, 1 rank")
+  {
+    int const degree    = 4;
+    int const level     = 5;
+    int const num_ranks = 1;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    reduction_test(degree, level, *pde, num_ranks);
+  }
 
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    host_workspace<double> host_space(*pde, elem_table);
-
-    int const ranks    = 7;
-    int const limit_MB = 100;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<double> rank_space(*pde, chunks);
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<double> dist(-3.0, 3.0);
-    fk::vector<double> reduction_h(
-        rank_space.reduction_space.clone_onto_host());
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-
-    std::generate(reduction_h.begin(), reduction_h.end(), gen);
-    rank_space.reduction_space.transfer_from(reduction_h);
-
-    for (auto const &chunk : chunks)
-    {
-      // reduce and test
-      reduce_chunk(*pde, rank_space, chunk);
-      test_reduction(*pde, chunk, rank_space);
-    }
+  SECTION("reduction deg 4/lev 5, continuity 3, 6 ranks")
+  {
+    int const degree    = 4;
+    int const level     = 5;
+    int const num_ranks = 6;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    reduction_test(degree, level, *pde, num_ranks);
   }
 }
