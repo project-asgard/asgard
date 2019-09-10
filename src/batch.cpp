@@ -534,34 +534,35 @@ static fk::vector<int> linearize(fk::vector<int> const &coords)
   return elem_indices;
 }
 
-template  <typename P> inline
-fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
-                                 const fk::vector<int> &elem_indices)
+template<typename P>
+inline fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
+                                        const fk::vector<int> &elem_indices)
 {
-    fk::vector<int> op_row(pde.num_dims);
-    for (int d = 0; d < pde.num_dims; ++d)
-    {
-      // FIXME here we would have to use each dimension's
-      // degree when calculating the index if we want different
-      // degree in each dim
-      op_row(d) = elem_indices(d) * degree;
-    }
-    return op_row;
+  fk::vector<int> op_row(pde.num_dims);
+  for (int d = 0; d < pde.num_dims; ++d)
+  {
+    // FIXME here we would have to use each dimension's
+    // degree when calculating the index if we want different
+    // degree in each dim
+    op_row(d) = elem_indices(d) * degree;
+  }
+  return op_row;
 }
 
-template  <typename P> inline
-fk::vector<int> get_operator_col(const PDE<P> &pde, const int degree,
-                                 const fk::vector<int> &connected_indices)
+template<typename P>
+inline fk::vector<int>
+get_operator_col(const PDE<P> &pde, const int degree,
+                 const fk::vector<int> &connected_indices)
 {
-    fk::vector<int> op_col(pde.num_dims);
-    for (int d = 0; d < pde.num_dims; ++d)
-    {
-      // FIXME here we would have to use each dimension's
-      // degree when calculating the index if we want different
-      // degree in each dim
-      op_col(d) = connected_indices(d) * degree;
-    }
-    return op_col;
+  fk::vector<int> op_col(pde.num_dims);
+  for (int d = 0; d < pde.num_dims; ++d)
+  {
+    // FIXME here we would have to use each dimension's
+    // degree when calculating the index if we want different
+    // degree in each dim
+    op_col(d) = connected_indices(d) * degree;
+  }
+  return op_col;
 }
 
 // function to allocate and build batch lists.
@@ -696,14 +697,14 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 // given a problem instance (pde/elem table)
 template<typename P>
 void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
-                      element_chunk const &chunk, fk::matrix<P> &A)
+                           element_chunk const &chunk, fk::matrix<P> &A)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const A_size = elem_size * elem_table.size();
+  int const A_size    = elem_size * elem_table.size();
 
-  assert (A.ncols() == A_size && A.nrows() == A_size );
+  assert(A.ncols() == A_size && A.nrows() == A_size);
 
   // loop over elements
   // FIXME eventually want to do this in parallel
@@ -742,54 +743,51 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
       for (int k = 0; k < pde.num_terms; ++k)
       {
         std::vector<fk::matrix<P>> kron_vals;
-        fk::matrix<P> kron0(1,1);
-        kron0(0,0) = 1.0;
+        fk::matrix<P> kron0(1, 1);
+        kron0(0, 0) = 1.0;
         kron_vals.push_back(kron0);
-        for (int d = 0 ; d < pde.num_dims ; d++)
+        for (int d = 0; d < pde.num_dims; d++)
         {
-          //printf("pde.get_coefficients(%d, %d) :\n", k, d);
-          //pde.get_coefficients(k, d).print("COEFF");
-          //printf("View: (%d, %d) -> (%d, %d) \n", operator_row(d),
+          // printf("pde.get_coefficients(%d, %d) :\n", k, d);
+          // pde.get_coefficients(k, d).print("COEFF");
+          // printf("View: (%d, %d) -> (%d, %d) \n", operator_row(d),
           //     operator_col(d),
           //       operator_row(d) + degree - 1,
           //       operator_col(d) + degree - 1);
-          //printf("=====================================\n");
-          fk::matrix<P, mem_type::view> op_view =
-              fk::matrix<P, mem_type::view>(pde.get_coefficients(k, d),
-                                            operator_row(d),
-                                            operator_row(d) + degree - 1,
-                                            operator_col(d),
-                                            operator_col(d) + degree - 1);
-          //op_view.print("OP_VIEW");
-          //printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+          // printf("=====================================\n");
+          fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
+              pde.get_coefficients(k, d), operator_row(d),
+              operator_row(d) + degree - 1, operator_col(d),
+              operator_col(d) + degree - 1);
+          // op_view.print("OP_VIEW");
+          // printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
 
-          fk::matrix<P>  k_new = kron_vals[d].kron(op_view);
+          fk::matrix<P> k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(k_new);
 
-          //k_new.print("K_NEW");
+          // k_new.print("K_NEW");
         }
 
         // calculate the position of this element in the
         // global system matrix
         int const global_col = j * elem_size;
-        auto & k_tmp = kron_vals.back();
-        //k_tmp.print("K_TMP");
-        //printf("Writing into A(%d, %d) of size %d\n\n", global_row, global_col, k_tmp.nrows());
+        auto &k_tmp          = kron_vals.back();
+        // k_tmp.print("K_TMP");
+        // printf("Writing into A(%d, %d) of size %d\n\n", global_row,
+        // global_col, k_tmp.nrows());
 
-        fk::matrix<P, mem_type::view>  A_view(A, global_row,
-                                              global_row + k_tmp.nrows() - 1,
-                                              global_col,
-                                              global_col + k_tmp.ncols() - 1);
+        fk::matrix<P, mem_type::view> A_view(
+            A, global_row, global_row + k_tmp.nrows() - 1, global_col,
+            global_col + k_tmp.ncols() - 1);
 
-        //A_view.print("A_view 1");
+        // A_view.print("A_view 1");
         A_view = A_view + k_tmp;
         A_view.print("A_view 2");
-        //A.print("ALL A");
+        // A.print("ALL A");
       }
     }
   }
 }
-
 
 template class batch<float>;
 template class batch<double>;
@@ -839,7 +837,7 @@ build_batches(PDE<double> const &pde, element_table const &elem_table,
 
 template void
 build_implicit_system(PDE<double> const &pde, element_table const &elem_table,
-                           element_chunk const &chunk, fk::matrix<double> &A);
+                      element_chunk const &chunk, fk::matrix<double> &A);
 template void
 build_implicit_system(PDE<float> const &pde, element_table const &elem_table,
                       element_chunk const &chunk, fk::matrix<float> &A);

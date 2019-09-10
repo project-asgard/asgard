@@ -125,8 +125,8 @@ template<typename P>
 void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
-                           std::vector<element_chunk> chunks, P const time,
-                           P const dt)
+                           std::vector<element_chunk> const &chunks,
+                           P const time, P const dt)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -134,10 +134,11 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const A_size = elem_size * table.size();
+  int const A_size    = elem_size * table.size();
   fk::matrix<P> A(A_size, A_size);
 
-  for (auto const &chunk : chunks){
+  for (auto const &chunk : chunks)
+  {
     build_implicit_system(pde, table, chunk, A);
   }
   fm::copy(host_space.x, host_space.x_orig);
@@ -147,21 +148,21 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   {
     for (int j = 0; j < A.ncols(); ++j)
     {
-      A(i, j) *= -dt ;
+      A(i, j) *= -dt;
     }
     A(i, i) += 1.0;
   }
-  //printf(" t = %.3f   dt = %.3f\n", time, dt);
-  //host_space.scaled_source.print("Scaled Sources");
-  //printf("===================================\n");
-  //A.print("AA");
-  //printf("===================================\n");
+  // printf(" t = %.3f   dt = %.3f\n", time, dt);
+  // host_space.scaled_source.print("Scaled Sources");
+  // printf("===================================\n");
+  // A.print("AA");
+  // printf("===================================\n");
   host_space.x = host_space.x + host_space.scaled_source * dt;
-  //host_space.x.print("b");
-  //printf("===================================\n");
+  // host_space.x.print("b");
+  // printf("===================================\n");
   fm::gesv(A, host_space.x);
-  //host_space.x.print("solution");
-  //printf("===================================\n");
+  // host_space.x.print("solution");
+  // printf("===================================\n");
   fm::copy(host_space.x, host_space.fx);
 }
 
@@ -185,12 +186,12 @@ template void
 implicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       host_workspace<double> &host_space,
-                      std::vector<element_chunk> chunks, double const time,
-                      double const dt);
+                      std::vector<element_chunk> const &chunks,
+                      double const time, double const dt);
 
 template void
 implicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
-                      std::vector<element_chunk> chunks, float const time,
-                      float const dt);
+                      std::vector<element_chunk> const &chunks,
+                      float const time, float const dt);
