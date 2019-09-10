@@ -70,8 +70,6 @@ private:
   }
   static P f0(P const z)
   {
-    static P const shift = 0.36;
-
     return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
   }
 

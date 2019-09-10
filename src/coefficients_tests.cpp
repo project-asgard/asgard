@@ -176,3 +176,157 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
     }
   }
 }
+/*
+TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms - norotate", "[coefficients]",
+                   double, float)
+{
+  int const level     = 4;
+  int const degree    = 3;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
+  std::string const filename_base =
+      "../testing/generated-inputs/coefficients/"
+      "fokkerplanck1_4p3_coefficients_norotate_l" +
+      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test, 1e2);
+    }
+  }
+}
+*/
+TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
+{
+  int const level     = 4;
+  int const degree    = 3;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
+  std::string const filename_base = "../testing/generated-inputs/coefficients/"
+                                    "fokkerplanck1_4p3_coefficients_l" +
+                                    std::to_string(level) + "_d" +
+                                    std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test, 1e2);
+    }
+  }
+}
+/*
+TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms - norotate", "[coefficients]",
+                   double, float)
+{
+  int const level     = 3;
+  int const degree    = 4;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p4, level, degree);
+  std::string const filename_base =
+      "../testing/generated-inputs/coefficients/"
+      "fokkerplanck1_4p4_coefficients_norotate_l" +
+      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      test.print();
+      relaxed_comparison<TestType>(gold, test, 1e2);
+    }
+  }
+}
+*/
+TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
+{
+  int const level     = 3;
+  int const degree    = 4;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p4, level, degree);
+  std::string const filename_base = "../testing/generated-inputs/coefficients/"
+                                    "fokkerplanck1_4p4_coefficients_l" +
+                                    std::to_string(level) + "_d" +
+                                    std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test, 1e2);
+    }
+  }
+}
+/*
+TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms - norotate", "[coefficients]",
+                   double, float)
+{
+  int const level     = 5;
+  int const degree    = 2;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p5, level, degree);
+  std::string const filename_base =
+      "../testing/generated-inputs/coefficients/"
+      "fokkerplanck1_4p5_coefficients_norotate_l" +
+      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test, 1e2);
+    }
+  }
+}
+*/
+TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
+{
+  int const level     = 5;
+  int const degree    = 2;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p5, level, degree);
+  std::string const filename_base = "../testing/generated-inputs/coefficients/"
+                                    "fokkerplanck1_4p5_coefficients_l" +
+                                    std::to_string(level) + "_d" +
+                                    std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test, 1e2);
+    }
+  }
+}
