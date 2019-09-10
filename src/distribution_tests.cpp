@@ -10,6 +10,7 @@ struct distribution_test_init
     num_ranks                      = total_ranks;
   }
   ~distribution_test_init() { finalize_distribution(); }
+
   int get_my_rank() const { return my_rank; }
   int get_num_ranks() const { return num_ranks; }
 
