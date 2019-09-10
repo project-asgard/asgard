@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
-    update_output_file(output_dataset, host_space.fx);
+    update_output_file(output_dataset, host_space.x);
 #endif
     node_out() << "timestep: " << i << " complete" << '\n';
   }
