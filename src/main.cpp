@@ -280,19 +280,20 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.write_at_step(i))
     {
-      update_output_file(output_dataset, host_space.fx);
+      update_output_file(output_dataset, host_space.x);
     }
     /* write realspace output to file */
     if (opts.transform_at_step(i))
     {
       fk::vector<prec> const realspace_at_t = wavelet_to_realspace<prec>(
-          *pde, host_space.fx, table, default_workspace_cpu_MB);
+          *pde, host_space.x, table, default_workspace_cpu_MB);
       update_output_file(output_dataset_real, realspace_at_t,
                          realspace_output_name);
     }
 #else
     ignore(default_workspace_cpu_MB);
 #endif
+
     node_out() << "timestep: " << i << " complete" << '\n';
   }
 
@@ -302,10 +303,6 @@ int main(int argc, char **argv)
   auto const final_result =
       gather_results(host_space.x, plan, my_rank, segment_size);
 
-  // temp
-  fk::vector<prec> ans(final_result);
-  if (!my_rank)
-    ans.print();
 
   finalize_distribution();
 

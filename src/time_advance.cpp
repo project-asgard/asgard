@@ -143,7 +143,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.result_2, host_space.x, scale_2);
   fm::axpy(host_space.result_3, host_space.x, scale_3);
 
-  // fm::copy(host_space.x, host_space.fx);
 }
 
 // scale source vectors for time
@@ -164,45 +163,6 @@ scale_sources(PDE<P> const &pde,
   return scaled_source;
 }
 
-// FIXME remove
-// apply the system matrix to the current solution vector using batched
-// gemm (explicit time advance).
-template<typename P>
-static void
-apply_explicit(PDE<P> const &pde, element_table const &elem_table,
-               std::vector<element_chunk> const &chunks,
-               host_workspace<P> &host_space, rank_workspace<P> &rank_space)
-{
-  fm::scal(static_cast<P>(0.0), host_space.fx);
-
-  for (auto const &chunk : chunks)
-  {
-    // copy in inputs
-    copy_chunk_inputs(pde, rank_space, host_space, chunk);
-
-    // build batches for this chunk
-    std::vector<batch_operands_set<P>> batches =
-        build_batches(pde, elem_table, rank_space, chunk);
-
-    // do the gemms
-    P const alpha = 1.0;
-    P const beta  = 0.0;
-    for (int i = 0; i < pde.num_dims; ++i)
-    {
-      batch<P> const a = batches[i][0];
-      batch<P> const b = batches[i][1];
-      batch<P> const c = batches[i][2];
-
-      batched_gemm(a, b, c, alpha, beta);
-    }
-
-    // do the reduction
-    reduce_chunk(pde, rank_space, chunk);
-
-    // copy outputs back
-    copy_chunk_outputs(pde, rank_space, host_space, chunk);
-  }
-}
 
 // this function executes an implicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
