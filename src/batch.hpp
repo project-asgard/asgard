@@ -9,25 +9,29 @@
 // wrapper around an array of pointers to matrices or
 // vectors for a call to batch gemm/gemv; i.e., the class
 // represents the information for a batch operand
-template<typename P>
+template<typename P,
+         resource resrc =
+             resource::device> // default to device - batch building functions
+                               // only support this type for now
 class batch
 {
 public:
   batch(int const num_entries, int const nrows, int const ncols,
         int const stride, bool const do_trans);
-  batch(batch<P> const &other);
-  batch &operator=(batch<P> const &other);
-  batch(batch<P> &&other);
-  batch &operator=(batch<P> &&other);
+  batch(batch<P, resrc> const &other);
+  batch &operator=(batch<P, resrc> const &other);
+  batch(batch<P, resrc> &&other);
+  batch &operator=(batch<P, resrc> &&other);
   ~batch();
 
-  bool operator==(batch<P>) const;
+  bool operator==(batch<P, resrc>) const;
   P *operator()(int const) const;
 
-  void assign_entry(fk::matrix<P, mem_type::view> const a, int const position);
+  void assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
+                    int const position);
   bool clear_entry(int const position);
 
-  P *const *get_list() const;
+  P **get_list() const;
 
   bool is_filled() const;
   batch &clear_all();
@@ -62,14 +66,14 @@ private:
 };
 
 // execute a batched gemm given a, b, c batch lists
-template<typename P>
-void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta);
+template<typename P, resource resrc>
+void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta);
 
 // execute a batched gemv given a, b, c batch lists
-template<typename P>
-void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta);
+template<typename P, resource resrc>
+void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta);
 
 // this could be named better
 struct matrix_size_set
@@ -116,9 +120,10 @@ allocate_batches(PDE<P> const &pde, int const num_elems);
 // do the arithmetic for a single connected element.
 template<typename P>
 void kronmult_to_batch_sets(
-    std::vector<fk::matrix<P, mem_type::view>> const A,
-    fk::vector<P, mem_type::view> x, fk::vector<P, mem_type::view> y,
-    std::vector<fk::vector<P, mem_type::view>> const work,
+    std::vector<fk::matrix<P, mem_type::view, resource::device>> const A,
+    fk::vector<P, mem_type::view, resource::device> x,
+    fk::vector<P, mem_type::view, resource::device> y,
+    std::vector<fk::vector<P, mem_type::view, resource::device>> const work,
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde);
 
@@ -129,14 +134,24 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 extern template class batch<float>;
 extern template class batch<double>;
+extern template class batch<float, resource::host>;
+extern template class batch<double, resource::host>;
 
 extern template void batched_gemm(batch<float> const &a, batch<float> const &b,
                                   batch<float> const &c, float const alpha,
                                   float const beta);
-
 extern template void
 batched_gemm(batch<double> const &a, batch<double> const &b,
              batch<double> const &c, double const alpha, double const beta);
+
+extern template void batched_gemm(batch<float, resource::host> const &a,
+                                  batch<float, resource::host> const &b,
+                                  batch<float, resource::host> const &c,
+                                  float const alpha, float const beta);
+extern template void batched_gemm(batch<double, resource::host> const &a,
+                                  batch<double, resource::host> const &b,
+                                  batch<double, resource::host> const &c,
+                                  double const alpha, double const beta);
 
 extern template void batched_gemv(batch<float> const &a, batch<float> const &b,
                                   batch<float> const &c, float const alpha,
@@ -145,22 +160,34 @@ extern template void
 batched_gemv(batch<double> const &a, batch<double> const &b,
              batch<double> const &c, double const alpha, double const beta);
 
+extern template void batched_gemv(batch<float, resource::host> const &a,
+                                  batch<float, resource::host> const &b,
+                                  batch<float, resource::host> const &c,
+                                  float const alpha, float const beta);
+extern template void batched_gemv(batch<double, resource::host> const &a,
+                                  batch<double, resource::host> const &b,
+                                  batch<double, resource::host> const &c,
+                                  double const alpha, double const beta);
+
 extern template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);
 extern template std::vector<batch_operands_set<double>>
 allocate_batches(PDE<double> const &pde, int const num_elems);
 
 extern template void kronmult_to_batch_sets(
-    std::vector<fk::matrix<float, mem_type::view>> const A,
-    fk::vector<float, mem_type::view> x, fk::vector<float, mem_type::view> y,
-    std::vector<fk::vector<float, mem_type::view>> const work,
+    std::vector<fk::matrix<float, mem_type::view, resource::device>> const A,
+    fk::vector<float, mem_type::view, resource::device> x,
+    fk::vector<float, mem_type::view, resource::device> y,
+    std::vector<fk::vector<float, mem_type::view, resource::device>> const work,
     std::vector<batch_operands_set<float>> &batches, int const batch_offset,
     PDE<float> const &pde);
 
 extern template void kronmult_to_batch_sets(
-    std::vector<fk::matrix<double, mem_type::view>> const A,
-    fk::vector<double, mem_type::view> x, fk::vector<double, mem_type::view> y,
-    std::vector<fk::vector<double, mem_type::view>> const work,
+    std::vector<fk::matrix<double, mem_type::view, resource::device>> const A,
+    fk::vector<double, mem_type::view, resource::device> x,
+    fk::vector<double, mem_type::view, resource::device> y,
+    std::vector<fk::vector<double, mem_type::view, resource::device>> const
+        work,
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
 

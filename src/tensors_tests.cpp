@@ -686,35 +686,367 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   {
     // on construction, vectors have 0 views
     fk::vector<TestType> const test;
-    assert(test.get_num_views() == 0);
+    REQUIRE(test.get_num_views() == 0);
     fk::vector<TestType> const test_init({1});
-    assert(test_init.get_num_views() == 0);
+    REQUIRE(test_init.get_num_views() == 0);
     fk::vector<TestType> const test_sz(1);
-    assert(test_sz.get_num_views() == 0);
+    REQUIRE(test_sz.get_num_views() == 0);
     fk::vector<TestType> const test_conv(fk::vector<int>(1));
-    assert(test_conv.get_num_views() == 0);
+    REQUIRE(test_conv.get_num_views() == 0);
     fk::vector<TestType> const test_copy(test);
-    assert(test_copy.get_num_views() == 0);
+    REQUIRE(test_copy.get_num_views() == 0);
 
     // creating views increments view count
     fk::vector<TestType, mem_type::view> const test_view(test);
-    assert(test.get_num_views() == 1);
+    REQUIRE(test.get_num_views() == 1);
     fk::vector<TestType, mem_type::view> const test_view_2(test);
-    assert(test.get_num_views() == 2);
+    REQUIRE(test.get_num_views() == 2);
 
     // copies have a fresh view count
     fk::vector<TestType> const test_cp(test);
-    assert(test_cp.get_num_views() == 0);
-    assert(test.get_num_views() == 2);
+    REQUIRE(test_cp.get_num_views() == 0);
+    REQUIRE(test.get_num_views() == 2);
 
     // test that view count gets decremented when views go out of scope
     {
       fk::vector<TestType, mem_type::view> test_view_3(test);
-      assert(test.get_num_views() == 3);
+      REQUIRE(test.get_num_views() == 3);
     }
-    assert(test.get_num_views() == 2);
+    REQUIRE(test.get_num_views() == 2);
   }
 } // end fk::vector utilities
+
+TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
+                   int)
+{
+  fk::vector<TestType> const gold = {1, 3, 5, 7, 9};
+
+  SECTION("ctors")
+  {
+    // default
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect;
+      REQUIRE(vect.size() == 0);
+      REQUIRE(vect.data() == nullptr);
+    }
+    // from init list
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          {1, 3, 5, 7, 9});
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+    // from size w/ copy to device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(5);
+      vect.transfer_from(gold);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+
+    // transfer - new vector - owner device to host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+
+    // transfer - new vector - owner host to device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const copy(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          copy.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // transfer - new vector - view device to host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy(
+          vect_view.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+
+    // transfer - new vector - view host to device
+    {
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          gold);
+      fk::vector<TestType, mem_type::owner, resource::device> const copy(
+          vect_view.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          copy.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+  }
+
+  SECTION("copy and move")
+  {
+    // copy owner
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::device> const copy_d(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
+          copy_d.clone_onto_host());
+      REQUIRE(copy_h == gold);
+    }
+
+    // move owner
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::device> const moved_d(
+          std::move(vect));
+      REQUIRE(vect.data() == nullptr);
+      REQUIRE(vect.size() == 0);
+      fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
+          moved_d.clone_onto_host());
+      REQUIRE(moved_h == gold);
+    }
+
+    // copy view
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const view_d(vect);
+      REQUIRE(vect.get_num_views() == 1);
+      fk::vector<TestType, mem_type::view, resource::device> const view_copy_d(
+          view_d);
+      REQUIRE(vect.get_num_views() == 2);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
+          view_copy_d.clone_onto_host());
+      REQUIRE(copy_h == gold);
+    }
+
+    // move view
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+
+      fk::vector<TestType, mem_type::view, resource::device> view_d(vect);
+      REQUIRE(vect.get_num_views() == 1);
+
+      fk::vector<TestType, mem_type::view, resource::device> const view_moved_d(
+          std::move(view_d));
+      REQUIRE(view_d.data() == nullptr);
+      REQUIRE(view_d.size() == 0);
+      REQUIRE(vect.get_num_views() == 1);
+
+      fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
+          view_moved_d.clone_onto_host());
+      REQUIRE(moved_h == gold);
+    }
+  }
+
+  SECTION("transfer copies and assignments")
+  {
+    // owner device to owner host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType> vect_h(5);
+      vect_h.transfer_from(vect);
+      REQUIRE(vect_h == gold);
+    }
+
+    // owner device to view host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType> vect_h(5);
+      fk::vector<TestType, mem_type::view> vect_view(vect_h);
+      vect_view.transfer_from(vect);
+      REQUIRE(vect_view == gold);
+    }
+
+    // owner device to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect;
+      fk::vector<TestType> const vect_h(vect_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // owner device to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect_d);
+      vect_view = vect;
+      fk::vector<TestType, mem_type::owner> const vect_h(
+          vect_view.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // view device to owner host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
+      vect_h.transfer_from(vect_view);
+      REQUIRE(vect_h == gold);
+    }
+
+    // view device to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect_view;
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          vect_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // view device to view host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
+      fk::vector<TestType, mem_type::view, resource::host> vect_view_h(vect_h);
+      vect_view_h.transfer_from(vect_view);
+      REQUIRE(vect_view_h == gold);
+    }
+
+    // view device to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view_2(
+          vect_d);
+      vect_view_2 = vect_view;
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          vect_view_2.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // owner host to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d.transfer_from(vect);
+      fk::vector<TestType> const vect_h(vect_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // owner host to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect_d);
+      vect_view.transfer_from(vect);
+      fk::vector<TestType> const vect_h(vect_view.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // view host to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d.transfer_from(vect_view);
+      fk::vector<TestType> const vect_h(vect_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // view host to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view_d(
+          vect_d);
+      vect_view_d.transfer_from(vect_view);
+      fk::vector<TestType> const vect_h(vect_view_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+  }
+
+  SECTION("vector resize")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> test_reduced_d{
+        1, 3, 5, 7, 9, 11, 13};
+    fk::vector<TestType, mem_type::owner> const gold_enlarged{1, 3, 5, 0, 0};
+    fk::vector<TestType, mem_type::owner, resource::device> test_enlarged_d{
+        1, 3, 5};
+
+    test_reduced_d.resize(gold.size());
+    test_enlarged_d.resize(gold.size());
+
+    fk::vector<TestType, mem_type::owner> const test_enlarged(
+        test_enlarged_d.clone_onto_host());
+    fk::vector<TestType, mem_type::owner> const test_reduced(
+        test_reduced_d.clone_onto_host());
+
+    REQUIRE(test_reduced == gold);
+    REQUIRE(test_enlarged == gold_enlarged);
+  }
+
+  SECTION("views")
+  {
+    // ref counting on device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      REQUIRE(vect.get_num_views() == 0);
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      REQUIRE(vect.get_num_views() == 1);
+      {
+        fk::vector<TestType, mem_type::view, resource::device> const
+            vect_view_2(vect);
+        REQUIRE(vect.get_num_views() == 2);
+        fk::vector<TestType, mem_type::view, resource::device> const
+            vect_view_3(vect_view);
+        REQUIRE(vect.get_num_views() == 3);
+      }
+      REQUIRE(vect.get_num_views() == 1);
+    }
+
+    // view semantics on device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
+      {
+        fk::vector<TestType, mem_type::owner, resource::host> const copy(
+            vect_view.clone_onto_host());
+        REQUIRE(copy == gold);
+      }
+      fk::vector<TestType, mem_type::owner, resource::host> const gold_2(
+          {1, 2, 3, 4, 5});
+      vect_view.transfer_from(gold_2);
+      {
+        fk::vector<TestType, mem_type::owner, resource::host> const copy(
+            vect.clone_onto_host());
+        REQUIRE(copy == gold_2);
+      }
+    }
+  }
+}
 
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
                    double, float, int)
@@ -1679,6 +2011,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     // clang-format on
     REQUIRE(gold_copy == test);
   }
+
   SECTION("matrix set submatrix(row, col, submatrix)")
   {
     // clang-format off
@@ -1998,33 +2331,399 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   {
     // on construction, matrices have 0 views
     fk::matrix<TestType> const test;
-    assert(test.get_num_views() == 0);
+    REQUIRE(test.get_num_views() == 0);
     fk::matrix<TestType> const test_init({{1}});
-    assert(test_init.get_num_views() == 0);
+    REQUIRE(test_init.get_num_views() == 0);
     fk::matrix<TestType> const test_sz(1, 1);
-    assert(test_sz.get_num_views() == 0);
+    REQUIRE(test_sz.get_num_views() == 0);
     fk::matrix<TestType> const test_conv(fk::matrix<int>(1, 1));
-    assert(test_conv.get_num_views() == 0);
+    REQUIRE(test_conv.get_num_views() == 0);
     fk::matrix<TestType> const test_copy(test);
-    assert(test_copy.get_num_views() == 0);
+    REQUIRE(test_copy.get_num_views() == 0);
 
     // creating views increments view count
     fk::matrix<TestType, mem_type::view> const test_view(test);
-    assert(test.get_num_views() == 1);
+    REQUIRE(test.get_num_views() == 1);
     fk::matrix<TestType, mem_type::view> const test_view_2(test);
-    assert(test.get_num_views() == 2);
+    REQUIRE(test.get_num_views() == 2);
 
     // copies have a fresh view count
     fk::matrix<TestType> const test_cp(test);
-    assert(test_cp.get_num_views() == 0);
-    assert(test.get_num_views() == 2);
+    REQUIRE(test_cp.get_num_views() == 0);
+    REQUIRE(test.get_num_views() == 2);
 
     // test that view count gets decremented when views go out of scope
     {
       fk::matrix<TestType, mem_type::view> test_view_3(test);
-      assert(test.get_num_views() == 3);
+      REQUIRE(test.get_num_views() == 3);
     }
-    assert(test.get_num_views() == 2);
+    REQUIRE(test.get_num_views() == 2);
   }
 
 } // end fk::matrix utilities
+
+TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
+                   float, int)
+{
+  // clang-format off
+  fk::matrix<TestType> const gold = {{ 1,  3,  5,  7,  9},
+  				     {11, 13, 15, 17, 19}};
+  // clang-format on
+
+  SECTION("ctors")
+  {
+    SECTION("default")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat;
+      REQUIRE(mat.size() == 0);
+      REQUIRE(mat.data() == nullptr);
+    }
+
+    SECTION("from init list")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          {{1, 3, 5, 7, 9}, {11, 13, 15, 17, 19}});
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+    SECTION("from size w/ copy to device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> mat(2, 5);
+      mat.transfer_from(gold);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+
+    SECTION("transfer - new matrix - owner device to host")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+
+    SECTION("transfer - new matrix - owner host to device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy(
+          mat.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          copy.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("transfer - new matrix - view device to host")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat_view.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+
+    SECTION("transfer - new matrix - view host to device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy(
+          mat_view.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          copy.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+  }
+
+  SECTION("copy and move")
+  {
+    SECTION("copy owner")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::device> const copy_d(mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy_h(
+          copy_d.clone_onto_host());
+      REQUIRE(copy_h == gold);
+    }
+
+    SECTION("move owner")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::device> const moved_d(
+          std::move(mat));
+      REQUIRE(mat.data() == nullptr);
+      REQUIRE(mat.size() == 0);
+      fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
+          moved_d.clone_onto_host());
+      REQUIRE(moved_h == gold);
+    }
+
+    SECTION("copy view")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::view, resource::device> const view_d(mat);
+      REQUIRE(mat.get_num_views() == 1);
+      fk::matrix<TestType, mem_type::view, resource::device> const view_copy_d(
+          view_d);
+      REQUIRE(mat.get_num_views() == 2);
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy_h(
+          view_copy_d.clone_onto_host());
+      REQUIRE(copy_h == gold);
+    }
+
+    SECTION("move view")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+
+      fk::matrix<TestType, mem_type::view, resource::device> view_d(mat);
+      REQUIRE(mat.get_num_views() == 1);
+
+      fk::matrix<TestType, mem_type::view, resource::device> const view_moved_d(
+          std::move(view_d));
+      REQUIRE(view_d.data() == nullptr);
+      REQUIRE(view_d.size() == 0);
+      REQUIRE(mat.get_num_views() == 1);
+
+      fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
+          view_moved_d.clone_onto_host());
+      REQUIRE(moved_h == gold);
+    }
+  }
+
+  SECTION("transfers and copies")
+  {
+    SECTION("owner device to owner host")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType> mat_h(2, 5);
+      mat_h.transfer_from(mat);
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("owner device to view host")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType> mat_h(2, 5);
+      fk::matrix<TestType, mem_type::view> mat_view(mat_h);
+      mat_view.transfer_from(mat);
+      REQUIRE(mat_view == gold);
+    }
+
+    SECTION("owner device to owner device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d = mat;
+      fk::matrix<TestType> const mat_h(mat_d.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("owner device to view device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat_d);
+      mat_view = mat;
+      fk::matrix<TestType, mem_type::owner> const mat_h(
+          mat_view.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("view device to owner host")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> mat_h(2, 5);
+      mat_h.transfer_from(mat_view);
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("view device to owner device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d = mat_view;
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          mat_d.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("view device to view host")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::host> mat_h(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::host> mat_view_h(mat_h);
+      mat_view_h.transfer_from(mat_view);
+      REQUIRE(mat_view_h == gold);
+    }
+
+    SECTION("view device to view device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+          gold.clone_onto_device());
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+          mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view_2(mat_d);
+      mat_view_2 = mat_view;
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+          mat_view_2.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("owner host to owner device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d.transfer_from(mat);
+      fk::matrix<TestType> const mat_h(mat_d.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("owner host to view device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat_d);
+      mat_view.transfer_from(mat);
+      fk::matrix<TestType> const mat_h(mat_view.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("view host to owner device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      mat_d.transfer_from(mat_view);
+      fk::matrix<TestType> const mat_h(mat_d.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+
+    SECTION("view host to view device")
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+      fk::matrix<TestType, mem_type::view, resource::host> const mat_view(mat);
+      fk::matrix<TestType, mem_type::owner, resource::device> mat_d(2, 5);
+      fk::matrix<TestType, mem_type::view, resource::device> mat_view_d(mat_d);
+      mat_view_d.transfer_from(mat_view);
+      fk::matrix<TestType> const mat_h(mat_view_d.clone_onto_host());
+      REQUIRE(mat_h == gold);
+    }
+  }
+  SECTION("clear and resize")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> gold_copy(
+        gold.clone_onto_device());
+    gold_copy.clear_and_resize(2, 1);
+    // clang-format off
+    fk::matrix<TestType> const test {
+      {0},
+      {0},
+      };
+    // clang-format on
+    fk::matrix<TestType> const gold_copy_h(gold_copy.clone_onto_host());
+    REQUIRE(gold_copy_h == test);
+  }
+  SECTION("views - ref counting on device")
+
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+        gold.clone_onto_device());
+    REQUIRE(mat.get_num_views() == 0);
+    fk::matrix<TestType, mem_type::view, resource::device> const mat_view(mat);
+    REQUIRE(mat.get_num_views() == 1);
+    {
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view_2(
+          mat);
+      REQUIRE(mat.get_num_views() == 2);
+      fk::matrix<TestType, mem_type::view, resource::device> const mat_view_3(
+          mat_view);
+      REQUIRE(mat.get_num_views() == 3);
+    }
+    REQUIRE(mat.get_num_views() == 1);
+  }
+
+  SECTION("views - semantics on device")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat(
+        gold.clone_onto_device());
+    fk::matrix<TestType, mem_type::view, resource::device> mat_view(mat);
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat_view.clone_onto_host());
+      REQUIRE(copy == gold);
+    }
+    fk::matrix<TestType, mem_type::owner, resource::host> const gold_2(
+        {{1, 2, 3, 4, 5}, {11, 12, 13, 14, 15}});
+    mat_view.transfer_from(gold_2);
+    {
+      fk::matrix<TestType, mem_type::owner, resource::host> const copy(
+          mat.clone_onto_host());
+      REQUIRE(copy == gold_2);
+    }
+  }
+
+  SECTION("views - copying - stride != num_rows - host to device")
+  {
+    fk::matrix<TestType, mem_type::view, resource::host> const gold_view(
+        gold, 0, 0, 0, 4);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+    fk::matrix<TestType, mem_type::view, resource::host> const mat_view(
+        mat, 0, 0, 0, 4);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+        mat_view.clone_onto_device());
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+        mat_d.clone_onto_host());
+    REQUIRE(mat_h == gold_view);
+  }
+
+  SECTION("views - copying - stride != num_rows - device to device")
+  {
+    fk::matrix<TestType, mem_type::view, resource::host> const gold_view(
+        gold, 0, 0, 0, 4);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+        mat.clone_onto_device());
+    fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+        mat_d, 0, 0, 0, 4);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d2(
+        mat_view);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+        mat_d2.clone_onto_host());
+    REQUIRE(mat_h == gold_view);
+  }
+
+  SECTION("views - copying - stride != num_rows - device to host")
+  {
+    fk::matrix<TestType, mem_type::view, resource::host> const gold_view(
+        gold, 0, 0, 0, 4);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat(gold);
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+        mat.clone_onto_device());
+    fk::matrix<TestType, mem_type::view, resource::device> const mat_view(
+        mat_d, 0, 0, 0, 4);
+    fk::matrix<TestType, mem_type::owner, resource::host> const mat_h(
+        mat_view.clone_onto_host());
+    REQUIRE(mat_h == gold_view);
+  }
+}

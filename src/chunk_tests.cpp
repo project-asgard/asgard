@@ -397,10 +397,10 @@ auto const test_copy_in = [](PDE<double> const &pde, element_chunk const &chunk,
   auto const x_range   = columns_in_chunk(chunk);
   auto const num_elems = (x_range.stop - x_range.start + 1) * elem_size;
 
+  fk::vector<double> const input_copy(rank_space.batch_input.clone_onto_host());
   for (int i = 0; i < num_elems; ++i)
   {
-    REQUIRE(rank_space.batch_input(i) ==
-            host_space.x(i + x_range.start * elem_size));
+    REQUIRE(input_copy(i) == host_space.x(i + x_range.start * elem_size));
   }
 };
 
@@ -413,11 +413,13 @@ auto const test_copy_out = [](PDE<double> const &pde,
   auto const y_range   = rows_in_chunk(chunk);
   auto const num_elems = (y_range.stop - y_range.start + 1) * elem_size;
 
+  fk::vector<double> const output_copy(
+      rank_space.batch_output.clone_onto_host());
   for (int i = 0; i < num_elems; ++i)
   {
     int const fx_index = i + y_range.start * elem_size;
     REQUIRE(std::abs(host_space.fx(fx_index) - fx_prior(fx_index) -
-                     rank_space.batch_output(i)) <
+                     output_copy(i)) <
             std::numeric_limits<double>::epsilon() * num_elems);
   }
 };
@@ -549,9 +551,12 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
+    fk::vector<double> batch_out_h(rank_space.batch_output.clone_onto_host());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.batch_output.begin(),
-                  rank_space.batch_output.end(), gen);
+
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output.transfer_from(batch_out_h);
+
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -586,9 +591,12 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
+
+    fk::vector<double> batch_out_h(rank_space.batch_output.clone_onto_host());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.batch_output.begin(),
-                  rank_space.batch_output.end(), gen);
+
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output.transfer_from(batch_out_h);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -623,9 +631,12 @@ TEST_CASE("chunk data management functions", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-2.0, 2.0);
+
+    fk::vector<double> batch_out_h(rank_space.batch_output.clone_onto_host());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.batch_output.begin(),
-                  rank_space.batch_output.end(), gen);
+
+    std::generate(batch_out_h.begin(), batch_out_h.end(), gen);
+    rank_space.batch_output.transfer_from(batch_out_h);
     std::generate(host_space.fx.begin(), host_space.fx.end(), gen);
 
     for (auto const &chunk : chunks)
@@ -660,15 +671,16 @@ auto const test_reduction = [](PDE<double> const &pde,
       return prev_elems;
     }();
     int const reduction_offset = prev_row_elems * pde.num_terms * elem_size;
-    fk::matrix<double, mem_type::view> const reduction_matrix(
+    fk::matrix<double, mem_type::view, resource::device> const reduction_matrix(
         rank_space.reduction_space, elem_size,
         (cols.stop - cols.start + 1) * pde.num_terms, reduction_offset);
 
+    fk::matrix<double> reduction_copy(reduction_matrix.clone_onto_host());
     fk::vector<double> sum(reduction_matrix.nrows());
     for (int i = 0; i < reduction_matrix.nrows(); ++i)
     {
       for (int j = 0; j < reduction_matrix.ncols(); ++j)
-        sum(i) += reduction_matrix(i, j);
+        sum(i) += reduction_copy(i, j);
     }
     int const row_this_task = row - chunk.begin()->first;
     fk::vector<double, mem_type::view> partial_sum(
@@ -678,7 +690,9 @@ auto const test_reduction = [](PDE<double> const &pde,
     partial_sum = partial_sum + sum;
   }
 
-  fk::vector<double> const diff = rank_space.batch_output - total_sum;
+  fk::vector<double> const output_copy(
+      rank_space.batch_output.clone_onto_host());
+  fk::vector<double> const diff = output_copy - total_sum;
   auto abs_compare              = [](double const a, double const b) {
     return (std::abs(a) < std::abs(b));
   };
@@ -687,11 +701,6 @@ auto const test_reduction = [](PDE<double> const &pde,
   int const num_cols = (x_range.stop - x_range.start + 1) * pde.num_terms;
   // tol = epsilon * possible number of additions for an element * 10
   double const tol = std::numeric_limits<double>::epsilon() * num_cols * 10;
-  if (result > tol)
-  {
-    std::cout << result << std::endl;
-    std::cout << tol << std::endl;
-  }
   REQUIRE(result <= tol);
 };
 
@@ -720,9 +729,12 @@ TEST_CASE("chunk reduction function", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-3.0, 3.0);
+    fk::vector<double> reduction_h(
+        rank_space.reduction_space.clone_onto_host());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.reduction_space.begin(),
-                  rank_space.reduction_space.end(), gen);
+
+    std::generate(reduction_h.begin(), reduction_h.end(), gen);
+    rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {
@@ -755,9 +767,12 @@ TEST_CASE("chunk reduction function", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-3.0, 3.0);
+    fk::vector<double> reduction_h(
+        rank_space.reduction_space.clone_onto_host());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.reduction_space.begin(),
-                  rank_space.reduction_space.end(), gen);
+
+    std::generate(reduction_h.begin(), reduction_h.end(), gen);
+    rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {
@@ -790,9 +805,12 @@ TEST_CASE("chunk reduction function", "[chunk]")
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<double> dist(-3.0, 3.0);
+    fk::vector<double> reduction_h(
+        rank_space.reduction_space.clone_onto_host());
     auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(rank_space.reduction_space.begin(),
-                  rank_space.reduction_space.end(), gen);
+
+    std::generate(reduction_h.begin(), reduction_h.end(), gen);
+    rank_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {

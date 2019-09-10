@@ -43,20 +43,4 @@ ctest
 ./asgard
 ```
 
-# Specific build instructions
-## OSX (tested on Mojave)
-```
-git clone https://github.com/project-asgard/asgard.git
-cd asgard
-mkdir build
-cd build
-cmake ../ -DASGARD_BUILD_OPENBLAS=1
-make
-ctest
-./asgard
-```
-
-# References
-
-Pointers to papers, posters, and presentations about both the method and the
-code go here.
+For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)

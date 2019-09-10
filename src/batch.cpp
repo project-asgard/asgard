@@ -7,9 +7,9 @@
 // object to store lists of operands for batched gemm/gemv.
 // utilized as the primary data structure for other functions
 // within this component.
-template<typename P>
-batch<P>::batch(int const num_entries, int const nrows, int const ncols,
-                int const stride, bool const do_trans)
+template<typename P, resource resrc>
+batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
+                       int const stride, bool const do_trans)
     : num_entries_(num_entries), nrows_(nrows), ncols_(ncols), stride_(stride),
       do_trans_(do_trans), batch_{new P *[num_entries]()}
 {
@@ -23,8 +23,8 @@ batch<P>::batch(int const num_entries, int const nrows, int const ncols,
   }
 }
 
-template<typename P>
-batch<P>::batch(batch<P> const &other)
+template<typename P, resource resrc>
+batch<P, resrc>::batch(batch<P, resrc> const &other)
     : num_entries_(other.num_entries()), nrows_(other.nrows()),
       ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{new P *[other.num_entries()]()}
@@ -32,8 +32,8 @@ batch<P>::batch(batch<P> const &other)
   std::memcpy(batch_, other.batch_, other.num_entries() * sizeof(P *));
 }
 
-template<typename P>
-batch<P> &batch<P>::operator=(batch<P> const &other)
+template<typename P, resource resrc>
+batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
 {
   if (&other == this)
   {
@@ -48,8 +48,8 @@ batch<P> &batch<P>::operator=(batch<P> const &other)
   return *this;
 }
 
-template<typename P>
-batch<P>::batch(batch<P> &&other)
+template<typename P, resource resrc>
+batch<P, resrc>::batch(batch<P, resrc> &&other)
     : num_entries_(other.num_entries()), nrows_(other.nrows()),
       ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{other.batch_}
@@ -57,8 +57,8 @@ batch<P>::batch(batch<P> &&other)
   other.batch_ = nullptr;
 }
 
-template<typename P>
-batch<P> &batch<P>::operator=(batch<P> &&other)
+template<typename P, resource resrc>
+batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> &&other)
 {
   if (&other == this)
   {
@@ -75,14 +75,14 @@ batch<P> &batch<P>::operator=(batch<P> &&other)
   return *this;
 }
 
-template<typename P>
-batch<P>::~batch()
+template<typename P, resource resrc>
+batch<P, resrc>::~batch()
 {
   delete[] batch_;
 }
 
-template<typename P>
-bool batch<P>::operator==(batch<P> other) const
+template<typename P, resource resrc>
+bool batch<P, resrc>::operator==(batch<P, resrc> other) const
 {
   if (nrows() != other.nrows())
   {
@@ -116,8 +116,8 @@ bool batch<P>::operator==(batch<P> other) const
   return true;
 }
 
-template<typename P>
-P *batch<P>::operator()(int const position) const
+template<typename P, resource resrc>
+P *batch<P, resrc>::operator()(int const position) const
 {
   assert(position >= 0);
   assert(position < num_entries());
@@ -127,9 +127,9 @@ P *batch<P>::operator()(int const position) const
 // assign the provided view's data pointer
 // at the index indicated by position argument
 // cannot overwrite previous assignment
-template<typename P>
-void batch<P>::assign_entry(fk::matrix<P, mem_type::view> const a,
-                            int const position)
+template<typename P, resource resrc>
+void batch<P, resrc>::assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
+                                   int const position)
 {
   // make sure this matrix is the
   // same dimensions as others in batch
@@ -157,8 +157,8 @@ void batch<P>::assign_entry(fk::matrix<P, mem_type::view> const a,
 // clear one assignment
 // returns true if there was a previous assignment,
 // false if nothing was assigned
-template<typename P>
-bool batch<P>::clear_entry(int const position)
+template<typename P, resource resrc>
+bool batch<P, resrc>::clear_entry(int const position)
 {
   P *temp          = batch_[position];
   batch_[position] = nullptr;
@@ -169,17 +169,17 @@ bool batch<P>::clear_entry(int const position)
 // pointers for batched blas call
 // for performance, may have to
 // provide a direct access to P**
-// from batch_, but avoid for now
-template<typename P>
-P *const *batch<P>::get_list() const
+// from batch_, ~~but avoid for now~~ yep :-(
+template<typename P, resource resrc>
+P **batch<P, resrc>::get_list() const
 {
   return batch_;
 }
 
 // verify that every allocated pointer
 // has been assigned to
-template<typename P>
-bool batch<P>::is_filled() const
+template<typename P, resource resrc>
+bool batch<P, resrc>::is_filled() const
 {
   for (P *const ptr : (*this))
   {
@@ -192,8 +192,8 @@ bool batch<P>::is_filled() const
 }
 
 // clear assignments
-template<typename P>
-batch<P> &batch<P>::clear_all()
+template<typename P, resource resrc>
+batch<P, resrc> &batch<P, resrc>::clear_all()
 {
   for (P *&ptr : (*this))
   {
@@ -205,16 +205,15 @@ batch<P> &batch<P>::clear_all()
 // execute a batched gemm given a, b, c batch lists
 // and other blas information
 // if we store info in the batch about where it is
-// resident, this could be an abstraction point
+// resrcident, this could be an abstraction point
 // for calling cpu/gpu blas etc.
-template<typename P>
-void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta)
+template<typename P, resource resrc>
+void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
   assert(b.num_entries() == c.num_entries());
-  int const num_entries = a.num_entries();
 
   // not allowed by blas interface
   // can be removed if we decide
@@ -238,30 +237,30 @@ void batched_gemm(batch<P> const &a, batch<P> const &b, batch<P> const &c,
 
   // setup blas args
   int m = rows_a;
-  int n = cols_b; // technically these should be of op(A) or (B), but our dims
-                  // are the same when transposing
-  int k                  = cols_a;
-  int lda                = a.get_stride();
-  int ldb                = b.get_stride();
-  int ldc                = c.get_stride();
-  char const transpose_a = a.get_trans() ? 't' : 'n';
-  char const transpose_b = b.get_trans() ? 't' : 'n';
-  P alpha_               = alpha;
-  P beta_                = beta;
+  int n = cols_b; // technically these should be of op(A) or (B), but our
+                  // dims are the same when transposing
+  int k              = cols_a;
+  int lda            = a.get_stride();
+  int ldb            = b.get_stride();
+  int ldc            = c.get_stride();
+  char const trans_a = a.get_trans() ? 't' : 'n';
+  char const trans_b = b.get_trans() ? 't' : 'n';
 
-  for (int i = 0; i < num_entries; ++i)
-  {
-    if (a(i) && b(i) && c(i))
-      lib_dispatch::gemm(&transpose_a, &transpose_b, &m, &n, &k, &alpha_, a(i),
-                         &lda, b(i), &ldb, &beta_, c(i), &ldc);
-  }
+  P alpha_ = alpha;
+  P beta_  = beta;
+
+  int num_batch = a.num_entries();
+
+  lib_dispatch::batched_gemm(a.get_list(), &lda, &trans_a, b.get_list(), &ldb,
+                             &trans_b, c.get_list(), &ldc, &m, &n, &k, &alpha_,
+                             &beta_, &num_batch, resrc);
 }
 
 // execute a batched gemv given a, b, c batch lists
 // and other blas information
-template<typename P>
-void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
-                  P const alpha, P const beta)
+template<typename P, resource resrc>
+void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta)
 {
   // check cardinality of sets
   assert(a.num_entries() == b.num_entries());
@@ -285,21 +284,19 @@ void batched_gemv(batch<P> const &a, batch<P> const &b, batch<P> const &c,
   assert(c.ncols() == 1);
 
   // setup blas args
-  int m                  = rows_a;
-  int n                  = cols_a;
-  int lda                = a.get_stride();
-  int stride_b           = b.get_stride();
-  int stride_c           = c.get_stride();
+  int m   = rows_a;
+  int n   = cols_a;
+  int lda = a.get_stride();
+
   char const transpose_a = a.get_trans() ? 't' : 'n';
   P alpha_               = alpha;
   P beta_                = beta;
 
-  for (int i = 0; i < num_entries; ++i)
-  {
-    if (a(i) && b(i) && c(i))
-      lib_dispatch::gemv(&transpose_a, &m, &n, &alpha_, a(i), &lda, b(i),
-                         &stride_b, &beta_, c(i), &stride_c);
-  }
+  int num_batch = num_entries;
+
+  lib_dispatch::batched_gemv(a.get_list(), &lda, &transpose_a, b.get_list(),
+                             c.get_list(), &m, &n, &alpha_, &beta_, &num_batch,
+                             resrc);
 }
 
 // --- batch allocation code --- /
@@ -398,18 +395,25 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
 //
 // batch offset is the 0-indexed ordinal numbering
 // of the connected element these gemms address
+//
+// note that the view inputs are device tensors;
+// this indicates that they will be resident on the
+// accelerator when the appropriate build options
+// are set.
 template<typename P>
-static void
-kron_base(fk::matrix<P, mem_type::view> const A,
-          fk::vector<P, mem_type::view> x, fk::vector<P, mem_type::view> y,
-          batch_operands_set<P> &batches, int const batch_offset,
-          int const degree, int const num_dims)
+static void kron_base(fk::matrix<P, mem_type::view, resource::device> const A,
+                      fk::vector<P, mem_type::view, resource::device> x,
+                      fk::vector<P, mem_type::view, resource::device> y,
+                      batch_operands_set<P> &batches, int const batch_offset,
+                      int const degree, int const num_dims)
 {
   batches[0].assign_entry(A, batch_offset);
   matrix_size_set const sizes = compute_dimensions(degree, num_dims, 0);
-  fk::matrix<P, mem_type::view> x_view(x, sizes.rows_b, sizes.cols_b);
+  fk::matrix<P, mem_type::view, resource::device> x_view(x, sizes.rows_b,
+                                                         sizes.cols_b);
   batches[1].assign_entry(x_view, batch_offset);
-  fk::matrix<P, mem_type::view> y_view(y, sizes.rows_a, sizes.cols_b);
+  fk::matrix<P, mem_type::view, resource::device> y_view(y, sizes.rows_a,
+                                                         sizes.cols_b);
   batches[2].assign_entry(y_view, batch_offset);
 }
 
@@ -431,11 +435,16 @@ kron_base(fk::matrix<P, mem_type::view> const A,
 //
 //   1 batch set to perform the reduction of connected element
 //   contributions to each work item.
+//
+// like the other batch building functions, the tensor arguments
+// are resident on the accelerator when the appropriate build option
+// is set
 template<typename P>
 void kronmult_to_batch_sets(
-    std::vector<fk::matrix<P, mem_type::view>> const A,
-    fk::vector<P, mem_type::view> x, fk::vector<P, mem_type::view> y,
-    std::vector<fk::vector<P, mem_type::view>> const work,
+    std::vector<fk::matrix<P, mem_type::view, resource::device>> const A,
+    fk::vector<P, mem_type::view, resource::device> x,
+    fk::vector<P, mem_type::view, resource::device> y,
+    std::vector<fk::vector<P, mem_type::view, resource::device>> const work,
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde)
 {
@@ -444,19 +453,19 @@ void kronmult_to_batch_sets(
   int const degree = pde.get_dimensions()[0].get_degree();
 
   // check vector sizes
-  int const result_size = std::pow(degree, pde.num_dims);
-  assert(x.size() == result_size);
-  assert(y.size() == result_size);
+  int const resrcult_size = std::pow(degree, pde.num_dims);
+  assert(x.size() == resrcult_size);
+  assert(y.size() == resrcult_size);
 
   // check workspace sizes
   assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
-  for (fk::vector<P, mem_type::view> const &vector : work)
+  for (fk::vector<P, mem_type::view, resource::device> const &vector : work)
   {
-    assert(vector.size() == result_size);
+    assert(vector.size() == resrcult_size);
   }
 
   // check matrix sizes
-  for (fk::matrix<P, mem_type::view> const &matrix : A)
+  for (fk::matrix<P, mem_type::view, resource::device> const &matrix : A)
   {
     assert(matrix.nrows() == degree);
     assert(matrix.ncols() == degree);
@@ -498,14 +507,14 @@ void kronmult_to_batch_sets(
     for (int gemm = 0; gemm < num_gemms; ++gemm)
     {
       // the modulus here is to alternate input/output workspaces per dimension
-      fk::matrix<P, mem_type::view> x_view(
+      fk::matrix<P, mem_type::view, resource::device> x_view(
           work[(dimension - 1) % 2], sizes.rows_a, sizes.cols_a, offset * gemm);
       batches[dimension][0].assign_entry(x_view,
                                          batch_offset * num_gemms + gemm);
       batches[dimension][1].assign_entry(A[dimension],
                                          batch_offset * num_gemms + gemm);
-      fk::matrix<P, mem_type::view> work_view(work[dimension % 2], sizes.rows_a,
-                                              sizes.cols_a, offset * gemm);
+      fk::matrix<P, mem_type::view, resource::device> work_view(
+          work[dimension % 2], sizes.rows_a, sizes.cols_a, offset * gemm);
       batches[dimension][2].assign_entry(work_view,
                                          batch_offset * num_gemms + gemm);
     }
@@ -515,11 +524,12 @@ void kronmult_to_batch_sets(
   matrix_size_set const sizes =
       compute_dimensions(degree, pde.num_dims, pde.num_dims - 1);
 
-  fk::matrix<P, mem_type::view> x_view(work[pde.num_dims % 2], sizes.rows_a,
-                                       sizes.cols_a);
+  fk::matrix<P, mem_type::view, resource::device> x_view(
+      work[pde.num_dims % 2], sizes.rows_a, sizes.cols_a);
   batches[pde.num_dims - 1][0].assign_entry(x_view, batch_offset);
   batches[pde.num_dims - 1][1].assign_entry(A[pde.num_dims - 1], batch_offset);
-  fk::matrix<P, mem_type::view> y_view(y, sizes.rows_a, sizes.cols_a);
+  fk::matrix<P, mem_type::view, resource::device> y_view(y, sizes.rows_a,
+                                                         sizes.cols_a);
   batches[pde.num_dims - 1][2].assign_entry(y_view, batch_offset);
 }
 
@@ -640,37 +650,39 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // y space, where kron outputs are written
         int const y_index = elem_size * kron_index;
 
-        fk::vector<P, mem_type::view> const y_view(
+        fk::vector<P, mem_type::view, resource::device> const y_view(
             workspace.reduction_space, y_index, y_index + elem_size - 1);
 
         // work space, intermediate kron data
         int const work_index =
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
-        std::vector<fk::vector<P, mem_type::view>> work_views(
-            num_workspaces, fk::vector<P, mem_type::view>(
+        std::vector<fk::vector<P, mem_type::view, resource::device>> work_views(
+            num_workspaces, fk::vector<P, mem_type::view, resource::device>(
                                 workspace.batch_intermediate, work_index,
                                 work_index + elem_size - 1));
         if (num_workspaces == 2)
         {
-          work_views[1] = fk::vector<P, mem_type::view>(
+          work_views[1] = fk::vector<P, mem_type::view, resource::device>(
               workspace.batch_intermediate, work_index + elem_size,
               work_index + elem_size * 2 - 1);
         }
 
         // operator views, windows into operator matrix
-        std::vector<fk::matrix<P, mem_type::view>> operator_views;
+        std::vector<fk::matrix<P, mem_type::view, resource::device>>
+            operator_views;
         for (int d = pde.num_dims - 1; d >= 0; --d)
         {
-          operator_views.push_back(fk::matrix<P, mem_type::view>(
-              pde.get_coefficients(k, d), operator_row(d),
-              operator_row(d) + degree - 1, operator_col(d),
-              operator_col(d) + degree - 1));
+          operator_views.push_back(
+              fk::matrix<P, mem_type::view, resource::device>(
+                  pde.get_coefficients(k, d), operator_row(d),
+                  operator_row(d) + degree - 1, operator_col(d),
+                  operator_col(d) + degree - 1));
         }
 
         int const x_index = (total_prev_elems % elem_table.size()) * elem_size;
 
         // x vector input to kronmult
-        fk::vector<P, mem_type::view> const x_view(
+        fk::vector<P, mem_type::view, resource::device> const x_view(
             workspace.batch_input, x_index, x_index + elem_size - 1);
 
         kronmult_to_batch_sets(operator_views, x_view, y_view, work_views,
@@ -683,14 +695,24 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 template class batch<float>;
 template class batch<double>;
+template class batch<float, resource::host>;
+template class batch<double, resource::host>;
 
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
                            float const beta);
-
 template void batched_gemm(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
                            double const beta);
+
+template void batched_gemm(batch<float, resource::host> const &a,
+                           batch<float, resource::host> const &b,
+                           batch<float, resource::host> const &c,
+                           float const alpha, float const beta);
+template void batched_gemm(batch<double, resource::host> const &a,
+                           batch<double, resource::host> const &b,
+                           batch<double, resource::host> const &c,
+                           double const alpha, double const beta);
 
 template void batched_gemv(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
@@ -699,22 +721,34 @@ template void batched_gemv(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
                            double const beta);
 
+template void batched_gemv(batch<float, resource::host> const &a,
+                           batch<float, resource::host> const &b,
+                           batch<float, resource::host> const &c,
+                           float const alpha, float const beta);
+template void batched_gemv(batch<double, resource::host> const &a,
+                           batch<double, resource::host> const &b,
+                           batch<double, resource::host> const &c,
+                           double const alpha, double const beta);
+
 template std::vector<batch_operands_set<float>>
 allocate_batches(PDE<float> const &pde, int const num_elems);
 template std::vector<batch_operands_set<double>>
 allocate_batches(PDE<double> const &pde, int const num_elems);
 
 template void kronmult_to_batch_sets(
-    std::vector<fk::matrix<float, mem_type::view>> const A,
-    fk::vector<float, mem_type::view> x, fk::vector<float, mem_type::view> y,
-    std::vector<fk::vector<float, mem_type::view>> const work,
+    std::vector<fk::matrix<float, mem_type::view, resource::device>> const A,
+    fk::vector<float, mem_type::view, resource::device> x,
+    fk::vector<float, mem_type::view, resource::device> y,
+    std::vector<fk::vector<float, mem_type::view, resource::device>> const work,
     std::vector<batch_operands_set<float>> &batches, int const batch_offset,
     PDE<float> const &pde);
 
 template void kronmult_to_batch_sets(
-    std::vector<fk::matrix<double, mem_type::view>> const A,
-    fk::vector<double, mem_type::view> x, fk::vector<double, mem_type::view> y,
-    std::vector<fk::vector<double, mem_type::view>> const work,
+    std::vector<fk::matrix<double, mem_type::view, resource::device>> const A,
+    fk::vector<double, mem_type::view, resource::device> x,
+    fk::vector<double, mem_type::view, resource::device> y,
+    std::vector<fk::vector<double, mem_type::view, resource::device>> const
+        work,
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
 

@@ -39,6 +39,7 @@ limits columns_in_chunk(element_chunk const &g)
                           .second.stop;
   return limits(min_col, max_col);
 }
+
 limits rows_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
@@ -77,12 +78,16 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   batch_intermediate.resize(reduction_space.size() * num_workspaces);
+
   unit_vector_.resize(pde.num_terms * max_conn);
-  std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
+  fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
+  std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
+  unit_vector_.transfer_from(unit_vect);
 }
 
 template<typename P>
-fk::vector<P> const &rank_workspace<P>::get_unit_vector() const
+fk::vector<P, mem_type::owner, resource::device> const &
+rank_workspace<P>::get_unit_vector() const
 {
   return unit_vector_;
 }
@@ -258,7 +263,7 @@ void copy_chunk_inputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
   fk::vector<P, mem_type::view> const x_view(
       host_space.x, x_range.start * elem_size,
       (x_range.stop + 1) * elem_size - 1);
-  fm::copy(x_view, rank_space.batch_input);
+  rank_space.batch_input.transfer_from(x_view);
 }
 
 template<typename P>
@@ -268,14 +273,16 @@ void copy_chunk_outputs(PDE<P> const &pde, rank_workspace<P> &rank_space,
 {
   int const elem_size = element_segment_size(pde);
   auto const y_range  = rows_in_chunk(chunk);
+
   fk::vector<P, mem_type::view> y_view(host_space.fx, y_range.start * elem_size,
                                        (y_range.stop + 1) * elem_size - 1);
 
-  fk::vector<P, mem_type::view> const out_view(
+  fk::vector<P, mem_type::view, resource::device> const out_view(
       rank_space.batch_output, 0,
       (y_range.stop - y_range.start + 1) * elem_size - 1);
 
-  y_view = fm::axpy(out_view, y_view);
+  fk::vector<P, mem_type::owner> const out_view_h(out_view.clone_onto_host());
+  y_view = fm::axpy(out_view_h, y_view);
 }
 
 template<typename P>
@@ -300,17 +307,17 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
       return prev_elems;
     }();
 
-    fk::matrix<P, mem_type::view> const reduction_matrix(
+    fk::matrix<P, mem_type::view, resource::device> const reduction_matrix(
         rank_space.reduction_space, elem_size,
         (cols.stop - cols.start + 1) * pde.num_terms,
         prev_row_elems * elem_size * pde.num_terms);
 
     int const reduction_row = row - chunk.begin()->first;
-    fk::vector<P, mem_type::view> output_view(
+    fk::vector<P, mem_type::view, resource::device> output_view(
         rank_space.batch_output, reduction_row * elem_size,
         ((reduction_row + 1) * elem_size) - 1);
 
-    fk::vector<P, mem_type::view> const unit_view(
+    fk::vector<P, mem_type::view, resource::device> const unit_view(
         rank_space.get_unit_vector(), 0,
         (cols.stop - cols.start + 1) * pde.num_terms - 1);
 

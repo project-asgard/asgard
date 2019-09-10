@@ -190,7 +190,7 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
     fk::vector<int> gold;
     REQUIRE(find(haystack, greater_eq) == gold);
   }
-  SECTION("find a group -- vector")
+  SECTION("find a chunk -- vector")
   {
     fk::vector<int> gold = {0, 2, 4};
     REQUIRE(find(haystack, is_even) == gold);
@@ -202,7 +202,7 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
     fk::matrix<int> gold;
     REQUIRE(find(haystack_mat, greater_eq) == gold);
   }
-  SECTION("find a group -- vector")
+  SECTION("find a chunk -- vector")
   {
     //clang-format off
     fk::matrix<int> gold = {{0, 0}, {1, 0}, {2, 0}, {2, 1}};

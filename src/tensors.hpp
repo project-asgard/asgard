@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef ASGARD_USE_CUDA
+#include <cuda_runtime.h>
+#endif
+
 #include "lib_dispatch.hpp"
 #include <memory>
 #include <string>
@@ -29,19 +33,50 @@ using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 template<mem_type mem>
 using enable_for_view = std::enable_if_t<mem == mem_type::view>;
 
+template<resource resrc>
+using enable_for_host = std::enable_if_t<resrc == resource::host>;
+
+template<resource resrc>
+using enable_for_device = std::enable_if_t<resrc == resource::device>;
+
+// resource arguments allow developers to select host (CPU only) or device
+// (accelerator if enabled, fall back to host) allocation for tensors. device
+// tensors have a restricted API - most member functions are disabled. the fast
+// math component is designed to allow BLAS on host and device tensors.
+
+// mem_type arguments allow for the selection of owner or view (read/write
+// window into underlying owner memory) semantics.
+
+// device owners can be constructed with no-arg, size, or
+// initializer list constructors.
+//
+// device owners are allocated in accelerator DRAM when
+// the appropriate build option is set, with allocation
+// falling back to CPU RAM otherwise.
+//
+// additionally, device owners can be transfer constructed from a
+// host owner or copy/move constructed from another device owner.
+//
+// host owners can be created with any of the below constructors.
+//
+// device views can only be created from a device owner, and host
+// views can only be constructor from host owners
+
 namespace fk
 {
 // forward declarations
-template<typename P, mem_type mem = mem_type::owner> // default to be an owner
+template<typename P, mem_type mem = mem_type::owner,
+         resource resrc = resource::host> // default to be an owner only on host
 class vector;
-template<typename P, mem_type mem = mem_type::owner>
+template<typename P, mem_type mem = mem_type::owner,
+         resource resrc = resource::host>
 class matrix;
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 class vector
 {
   // all types of vectors are mutual friends
-  template<typename, mem_type>
+  template<typename, mem_type, resource>
   friend class vector;
 
 public:
@@ -51,84 +86,120 @@ public:
   explicit vector(int const size);
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   vector(std::initializer_list<P> list);
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   vector(std::vector<P> const &);
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   vector(fk::matrix<P> const &);
 
   // create view from owner.
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner> const &owner,
+  explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner,
                   int const start_index, int const stop_index);
   // overload for default case - whole vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner> const &owner);
+  explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner);
 
   ~vector();
 
   // constructor/assignment (required to be same to same T==T)
-  vector(vector<P, mem> const &);
-  vector<P, mem> &operator=(vector<P, mem> const &);
+  vector(vector<P, mem, resrc> const &);
+  vector<P, mem, resrc> &operator=(vector<P, mem, resrc> const &);
 
-  // move precision constructor/assignment (required to be same to same)
-  vector(vector<P, mem> &&);
-  vector<P, mem> &operator=(vector<P, mem> &&);
+  // move constructor/assignment (required to be same to same)
+  vector(vector<P, mem, resrc> &&);
+  vector<P, mem, resrc> &operator=(vector<P, mem, resrc> &&);
+
+  // copy construct owner from view values
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  explicit vector(vector<P, mem_type::view, resrc> const &);
+
+  // assignment owner <-> view
+  template<mem_type omem>
+  vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
 
   // converting constructor/assignment overloads
   template<typename PP, mem_type omem, mem_type m_ = mem,
-           typename = enable_for_owner<m_>>
+           typename = enable_for_owner<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   explicit vector(vector<PP, omem> const &);
-  template<typename PP, mem_type omem>
+  template<typename PP, mem_type omem, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   vector<P, mem> &operator=(vector<PP, omem> const &);
+
+  // device transfer
+  // host to device, new vector
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  vector<P, mem_type::owner, resource::device> clone_onto_device() const;
+  // host to device copy
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
+  vector<P, mem, resrc> &transfer_from(vector<P, omem, resource::host> const &);
+  // device to host, new vector
+  template<resource r_ = resrc, typename = enable_for_device<r_>>
+  vector<P, mem_type::owner, resource::host> clone_onto_host() const;
+  // device to host copy
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  vector<P, mem, resrc> &
+  transfer_from(vector<P, omem, resource::device> const &);
 
   //
   // copy out of std::vector
   //
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &operator=(std::vector<P> const &);
 
   //
   // copy into std::vector
   //
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   std::vector<P> to_std() const;
 
   //
   // subscripting operators
   //
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   P &operator()(int const);
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   P operator()(int const) const;
+
   //
   // comparison operators
   //
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator==(vector<P, omem> const &) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator!=(vector<P, omem> const &) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator<(vector<P, omem> const &) const;
+
   //
   // math operators
   //
-
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator+(vector<P, omem> const &right) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator-(vector<P, omem> const &right) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   P operator*(vector<P, omem> const &)const;
 
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator*(matrix<P, omem> const &)const;
 
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator*(P const) const;
 
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &scale(P const x);
+
   //
   // basic queries to private data
   //
   int size() const { return size_; }
+
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   // this can be offsetted for views
@@ -137,7 +208,7 @@ public:
   // owners - specifically, we want to allow a matrix<view> to be made from a
   // vector<owner>
   std::shared_ptr<int>
-      get_ref_count(access_badge<matrix<P, mem_type::view>>) const
+      get_ref_count(access_badge<matrix<P, mem_type::view, resrc>>) const
   {
     return ref_count_;
   }
@@ -145,24 +216,38 @@ public:
   //
   // utility functions
   //
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   void print(std::string const label = "") const;
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   void dump_to_octave(char const *) const;
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  fk::vector<P, mem> &resize(int const size = 0);
+  fk::vector<P, mem_type::owner, resrc> &resize(int const size = 0);
 
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &set_subvector(int const, vector<P, omem> const);
 
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> extract(int const, int const) const;
 
-  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>>
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &concat(vector<P, omem> const &right);
 
   typedef P *iterator;
   typedef const P *const_iterator;
-  iterator begin() { return data(); }
-  iterator end() { return data() + size(); }
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  iterator begin()
+  {
+    return data();
+  }
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  iterator end()
+  {
+    return data() + size();
+  }
   const_iterator begin() const { return data(); }
   const_iterator end() const { return data() + size(); }
 
@@ -175,10 +260,10 @@ private:
   std::shared_ptr<int> ref_count_ = nullptr;
 };
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 class matrix
 {
-  template<typename, mem_type>
+  template<typename, mem_type, resource>
   friend class matrix; // so that views can access owner sharedptr/rows
 
   // template on pointer/ref type to get iterator and const iterator
@@ -196,77 +281,114 @@ public:
 
   // create view from owner.
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner> const &owner,
+  explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner,
                   int const start_row, int const stop_row, int const start_col,
                   int const stop_col);
   // overload for default case - whole matrix
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner> const &owner);
+  explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner);
 
   // create matrix view from vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
-  explicit matrix(fk::vector<P, omem> const &source, int const num_rows,
+  explicit matrix(fk::vector<P, omem, resrc> const &source, int const num_rows,
                   int const num_cols, int const start_index = 0);
 
   ~matrix();
 
-  matrix(matrix<P, mem> const &);
-  matrix<P, mem> &operator=(matrix<P, mem> const &);
+  // copy constructor/assign
+  matrix(matrix<P, mem, resrc> const &);
+  matrix<P, mem, resrc> &operator=(matrix<P, mem, resrc> const &);
 
+  // copy construct owner from view values
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  explicit matrix(matrix<P, mem_type::view, resrc> const &);
+
+  // assignment owner <-> view
+  template<mem_type omem>
+  matrix<P, mem, resrc> &operator=(matrix<P, omem, resrc> const &);
+
+  // converting construction/assign
   template<typename PP, mem_type omem, mem_type m_ = mem,
-           typename = enable_for_owner<m_>>
+           typename = enable_for_owner<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   explicit matrix(matrix<PP, omem> const &);
-  template<typename PP, mem_type omem>
+  template<typename PP, mem_type omem, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
 
-  matrix(matrix<P, mem> &&);
-  matrix<P, mem> &operator=(matrix<P, mem> &&);
+  // host to device, new matrix
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  fk::matrix<P, mem_type::owner, resource::device> clone_onto_device() const;
+  // host to device copy
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
+  matrix<P, mem, resrc> &transfer_from(matrix<P, omem, resource::host> const &);
+  // device to host, new matrix
+  template<resource r_ = resrc, typename = enable_for_device<r_>>
+  fk::matrix<P, mem_type::owner, resource::host> clone_onto_host() const;
+  // device to host copy
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  matrix<P, mem, resrc> &
+  transfer_from(matrix<P, omem, resource::device> const &);
+
+  // move constructor/assign
+  matrix(matrix<P, mem, resrc> &&);
+  matrix<P, mem, resrc> &operator=(matrix<P, mem, resrc> &&);
 
   //
   // copy out of fk::vector
   //
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(fk::vector<P, omem> const &);
+
   //
   // subscripting operators
   //
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   P &operator()(int const, int const);
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   P operator()(int const, int const) const;
+
   //
   // comparison operators
   //
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator==(matrix<P, omem> const &) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator!=(matrix<P, omem> const &) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator<(matrix<P, omem> const &) const;
   //
   // math operators
   //
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator*(P const) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator*(vector<P, omem> const &)const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator*(matrix<P, omem> const &)const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator+(matrix<P, omem> const &) const;
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator-(matrix<P, omem> const &) const;
 
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &transpose();
 
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> kron(matrix<P, omem> const &) const;
 
   // clang-format off
-  template<typename U = P>
+  template<typename U=P, resource r_ = resrc,
+	  typename = enable_for_host<r_>>
   std::enable_if_t<
     std::is_floating_point<U>::value && std::is_same<P, U>::value,
   matrix<P, mem> &> invert();
 
 
-  template<typename U = P>
+  template<typename U=P, resource r_ = resrc,
+	  typename = enable_for_host<r_>>
   std::enable_if_t<
       std::is_floating_point<U>::value && std::is_same<P, U>::value,
   P> determinant() const;
@@ -288,26 +410,33 @@ public:
     // return &data_[i * stride() + j]; // row-major
     return &data_[j * stride() + i]; // column-major
   }
+
   //
   // utility functions
   //
-
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_col(int const, fk::vector<P, omem> const &);
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_col(int const, std::vector<P> const &);
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_row(int const, fk::vector<P, omem> const &);
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_row(int const, std::vector<P> const &);
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  matrix<P> &clear_and_resize(int const, int const);
+  matrix<P, mem_type::owner, resrc> &clear_and_resize(int const, int const);
 
-  template<mem_type omem>
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &set_submatrix(int const row_idx, int const col_idx,
                                 fk::matrix<P, omem> const &submatrix);
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> extract_submatrix(int const row_idx, int const col_idx,
                               int const num_rows, int const num_cols) const;
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   void print(std::string const label = "") const;
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   void dump_to_octave(char const *name) const;
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
@@ -342,6 +471,129 @@ private:
                // elements in a row
   std::shared_ptr<int> ref_count_ = nullptr;
 };
+
+//-----------------------------------------------------------------------------
+//
+// device allocation and transfer helpers
+//
+//-----------------------------------------------------------------------------
+
+template<typename P>
+static void allocate_device(P *&ptr, int const num_elems)
+{
+#ifdef ASGARD_USE_CUDA
+  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
+  assert(success == 0);
+  success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
+  assert(success == 0);
+#else
+  ptr = new P[num_elems]();
+#endif
+}
+template<typename P>
+static void delete_device(P *const ptr)
+{
+#ifdef ASGARD_USE_CUDA
+  cudaFree(ptr);
+#else
+  delete[] ptr;
+#endif
+}
+
+template<typename P>
+static void
+copy_on_device(P *const dest, P const *const source, int const num_elems)
+{
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
+  assert(success == 0);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
+template<typename P>
+static void
+copy_to_device(P *const dest, P const *const source, int const num_elems)
+{
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
+  assert(success == 0);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
+template<typename P>
+static void
+copy_to_host(P *const dest, P const *const source, int const num_elems)
+{
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
+  assert(success == 0);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
+template<typename P, mem_type mem, mem_type omem>
+static void
+copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
+                      fk::matrix<P, omem, resource::device> const &source)
+{
+  assert(source.nrows() == dest.nrows());
+  assert(source.ncols() == dest.ncols());
+
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                   source.ncols(), cudaMemcpyDeviceToDevice);
+  assert(success == 0);
+#else
+  std::copy(source.begin(), source.end(), dest.begin());
+#endif
+}
+
+template<typename P, mem_type mem, mem_type omem>
+static void
+copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
+                      fk::matrix<P, omem, resource::host> const &source)
+{
+  assert(source.nrows() == dest.nrows());
+  assert(source.ncols() == dest.ncols());
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                   source.ncols(), cudaMemcpyHostToDevice);
+  assert(success == 0);
+#else
+  std::copy(source.begin(), source.end(), dest.begin());
+#endif
+}
+
+template<typename P, mem_type mem, mem_type omem>
+static void
+copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
+                    fk::matrix<P, omem, resource::device> const &source)
+{
+  assert(source.nrows() == dest.nrows());
+  assert(source.ncols() == dest.ncols());
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                   source.ncols(), cudaMemcpyDeviceToHost);
+  assert(success == 0);
+#else
+  std::copy(source.begin(), source.end(), dest.begin());
+#endif
+}
+
 } // namespace fk
 
 //
@@ -362,35 +614,51 @@ private:
 // fk::vector class implementation starts here
 //
 //-----------------------------------------------------------------------------
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem>::vector()
+fk::vector<P, mem, resrc>::vector()
     : data_{nullptr}, size_{0}, ref_count_{std::make_shared<int>(0)}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(int const size)
-    : data_{new P[size]()}, size_{size}, ref_count_{std::make_shared<int>(0)}
-{}
+fk::vector<P, mem, resrc>::vector(int const size)
+    : size_{size}, ref_count_{std::make_shared<int>(0)}
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[size_]();
+  }
+  else
+  {
+    allocate_device(data_, size_);
+  }
+}
 
 // can also do this with variadic template constructor for constness
 // https://stackoverflow.com/a/5549918
 // but possibly this is "too clever" for our needs right now
-
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(std::initializer_list<P> list)
-    : data_{new P[list.size()]}, size_{static_cast<int>(list.size())},
-      ref_count_{std::make_shared<int>(0)}
+fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
+    : size_{static_cast<int>(list.size())}, ref_count_{std::make_shared<int>(0)}
 {
-  std::copy(list.begin(), list.end(), data_);
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[size_]();
+    std::copy(list.begin(), list.end(), data_);
+  }
+  else
+  {
+    allocate_device(data_, size_);
+    copy_to_device(data_, list.begin(), size_);
+  }
 }
 
-template<typename P, mem_type mem>
-template<mem_type, typename>
-fk::vector<P, mem>::vector(std::vector<P> const &v)
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename, resource, typename>
+fk::vector<P, mem, resrc>::vector(std::vector<P> const &v)
     : data_{new P[v.size()]}, size_{static_cast<int>(v.size())},
       ref_count_{std::make_shared<int>(0)}
 {
@@ -401,9 +669,9 @@ fk::vector<P, mem>::vector(std::vector<P> const &v)
 // matrix conversion constructor linearizes the matrix, i.e. stacks the columns
 // of the matrix into a single vector
 //
-template<typename P, mem_type mem>
-template<mem_type, typename>
-fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename, resource, typename>
+fk::vector<P, mem, resrc>::vector(fk::matrix<P> const &mat)
     : data_{new P[mat.size()]}, ref_count_{std::make_shared<int>(0)}
 {
   size_ = mat.size();
@@ -423,10 +691,11 @@ fk::vector<P, mem>::vector(fk::matrix<P> const &mat)
 }
 
 // vector view constructor given a start and stop index
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
-                           int const stop_index)
+fk::vector<P, mem, resrc>::vector(
+    fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
+    int const stop_index)
     : ref_count_{vec.ref_count_}
 {
   data_ = nullptr;
@@ -445,33 +714,52 @@ fk::vector<P, mem>::vector(fk::vector<P> const &vec, int const start_index,
 
 // delegating constructor to extract view from owner. overload for default case
 // of viewing the entire owner
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem>::vector(fk::vector<P> const &a)
+fk::vector<P, mem, resrc>::vector(
+    fk::vector<P, mem_type::owner, resrc> const &a)
     : vector(a, 0, std::max(0, a.size() - 1))
 {}
 
-template<typename P, mem_type mem>
-fk::vector<P, mem>::~vector()
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc>::~vector()
 {
   if constexpr (mem == mem_type::owner)
   {
     assert(ref_count_.use_count() == 1);
-    delete[] data_;
+
+    if constexpr (resrc == resource::host)
+    {
+      delete[] data_;
+    }
+    else
+    {
+      delete_device(data_);
+    }
   }
 }
 
 //
 // vector copy constructor for like types (like types only)
 //
-template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P, mem> const &a) : size_{a.size_}
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
+    : size_{a.size_}
 {
   if constexpr (mem == mem_type::owner)
   {
-    data_      = new P[a.size()];
     ref_count_ = std::make_shared<int>(0);
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+
+    if constexpr (resrc == resource::host)
+    {
+      data_ = new P[a.size()];
+      std::memcpy(data_, a.data(), a.size() * sizeof(P));
+    }
+    else
+    {
+      allocate_device(data_, a.size());
+      copy_on_device(data_, a.data(), a.size());
+    }
   }
   else
   {
@@ -485,15 +773,23 @@ fk::vector<P, mem>::vector(vector<P, mem> const &a) : size_{a.size_}
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename P, mem_type mem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
+operator=(vector<P, mem, resrc> const &a)
 {
   if (&a == this)
     return *this;
 
   assert(size() == a.size());
 
-  std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  if constexpr (resrc == resource::host)
+  {
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  }
+  else
+  {
+    copy_on_device(data_, a.data(), a.size());
+  }
 
   return *this;
 }
@@ -503,8 +799,9 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
-template<typename P, mem_type mem>
-fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> &&a)
+    : data_{a.data_}, size_{a.size_}
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -519,8 +816,9 @@ fk::vector<P, mem>::vector(vector<P, mem> &&a) : data_{a.data_}, size_{a.size_}
 //
 // vector move assignment
 //
-template<typename P, mem_type mem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
+operator=(vector<P, mem, resrc> &&a)
 {
   if (&a == this)
     return *this;
@@ -544,9 +842,9 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<P, mem> &&a)
 //
 // converting vector constructor
 //
-template<typename P, mem_type mem>
-template<typename PP, mem_type omem, mem_type, typename>
-fk::vector<P, mem>::vector(vector<PP, omem> const &a)
+template<typename P, mem_type mem, resource resrc>
+template<typename PP, mem_type omem, mem_type, typename, resource, typename>
+fk::vector<P, mem, resrc>::vector(vector<PP, omem> const &a)
     : data_{new P[a.size()]}, size_{a.size()}, ref_count_{
                                                    std::make_shared<int>(0)}
 {
@@ -561,9 +859,10 @@ fk::vector<P, mem>::vector(vector<PP, omem> const &a)
 // this can probably be optimized better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename P, mem_type mem>
-template<typename PP, mem_type omem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
+template<typename P, mem_type mem, resource resrc>
+template<typename PP, mem_type omem, resource, typename>
+fk::vector<P, mem> &fk::vector<P, mem, resrc>::
+operator=(vector<PP, omem> const &a)
 {
   assert(size() == a.size());
 
@@ -576,11 +875,96 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(vector<PP, omem> const &a)
   return *this;
 }
 
+// copy construct owner from view values
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(vector<P, mem_type::view, resrc> const &a)
+    : size_(a.size()), ref_count_(std::make_shared<int>(0))
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[a.size()];
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  }
+  else
+  {
+    allocate_device(data_, a.size());
+    copy_on_device(data_, a.data(), a.size());
+  }
+}
+
+// assignment owner <-> view
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
+operator=(vector<P, omem, resrc> const &a)
+{
+  assert(size() == a.size());
+  if constexpr (resrc == resource::host)
+  {
+    std::memcpy(data_, a.data(), size() * sizeof(P));
+  }
+  else
+  {
+    copy_on_device(data_, a.data(), size());
+  }
+  return *this;
+}
+
+// transfer functions
+// host->dev, new vector
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::vector<P, mem_type::owner, resource::device>
+fk::vector<P, mem, resrc>::clone_onto_device() const
+
+{
+  fk::vector<P, mem_type::owner, resource::device> a(size());
+  copy_to_device(a.data(), data(), size());
+  return a;
+}
+
+// host->dev copy
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
+    fk::vector<P, omem, resource::host> const &a)
+{
+  assert(a.size() == size());
+  copy_to_device(data_, a.data(), a.size());
+  return *this;
+}
+
+// dev -> host, new vector
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::vector<P, mem_type::owner, resource::host>
+fk::vector<P, mem, resrc>::clone_onto_host() const
+
+{
+  fk::vector<P> a(size());
+  copy_to_host(a.data(), data(), size());
+  return a;
+}
+
+// dev -> host copy
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
+    vector<P, omem, resource::device> const &a)
+{
+  assert(a.size() == size());
+  copy_to_host(data_, a.data(), a.size());
+  return *this;
+}
+
 //
 // copy out of std::vector
 //
-template<typename P, mem_type mem>
-fk::vector<P, mem> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::vector<P, mem> &fk::vector<P, mem, resrc>::
+operator=(std::vector<P> const &v)
 {
   assert(size() == static_cast<int>(v.size()));
   std::memcpy(data_, v.data(), v.size() * sizeof(P));
@@ -590,8 +974,9 @@ fk::vector<P, mem> &fk::vector<P, mem>::operator=(std::vector<P> const &v)
 //
 // copy into std::vector
 //
-template<typename P, mem_type mem>
-std::vector<P> fk::vector<P, mem>::to_std() const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+std::vector<P> fk::vector<P, mem, resrc>::to_std() const
 {
   return std::vector<P>(data(), data() + size());
 }
@@ -600,15 +985,17 @@ std::vector<P> fk::vector<P, mem>::to_std() const
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
-template<typename P, mem_type mem>
-P &fk::vector<P, mem>::operator()(int i)
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+P &fk::vector<P, mem, resrc>::operator()(int i)
 {
   assert(i < size_);
   return data_[i];
 }
 
-template<typename P, mem_type mem>
-P fk::vector<P, mem>::operator()(int i) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+P fk::vector<P, mem, resrc>::operator()(int i) const
 {
   assert(i < size_);
   return data_[i];
@@ -617,9 +1004,9 @@ P fk::vector<P, mem>::operator()(int i) const
 // vector comparison operators - set default tolerance above
 // see https://stackoverflow.com/a/253874/6595797
 // FIXME do we need to be more careful with these fp comparisons?
-template<typename P, mem_type mem>
-template<mem_type omem>
-bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+bool fk::vector<P, mem, resrc>::operator==(vector<P, omem> const &other) const
 {
   if constexpr (omem == mem)
     if (&other == this)
@@ -643,16 +1030,16 @@ bool fk::vector<P, mem>::operator==(vector<P, omem> const &other) const
     }
   return true;
 }
-template<typename P, mem_type mem>
-template<mem_type omem>
-bool fk::vector<P, mem>::operator!=(vector<P, omem> const &other) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+bool fk::vector<P, mem, resrc>::operator!=(vector<P, omem> const &other) const
 {
   return !(*this == other);
 }
 
-template<typename P, mem_type mem>
-template<mem_type omem>
-bool fk::vector<P, mem>::operator<(vector<P, omem> const &other) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+bool fk::vector<P, mem, resrc>::operator<(vector<P, omem> const &other) const
 {
   return std::lexicographical_compare(begin(), end(), other.begin(),
                                       other.end());
@@ -661,9 +1048,10 @@ bool fk::vector<P, mem>::operator<(vector<P, omem> const &other) const
 //
 // vector addition operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P> fk::vector<P, mem>::operator+(vector<P, omem> const &right) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P> fk::vector<P, mem, resrc>::
+operator+(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -675,9 +1063,10 @@ fk::vector<P> fk::vector<P, mem>::operator+(vector<P, omem> const &right) const
 //
 // vector subtraction operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P> fk::vector<P, mem>::operator-(vector<P, omem> const &right) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P> fk::vector<P, mem, resrc>::
+operator-(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   vector<P> ans(size());
@@ -689,9 +1078,9 @@ fk::vector<P> fk::vector<P, mem>::operator-(vector<P, omem> const &right) const
 //
 // vector*vector multiplication operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+P fk::vector<P, mem, resrc>::operator*(vector<P, omem> const &right) const
 {
   assert(size() == right.size());
   int n           = size();
@@ -704,9 +1093,10 @@ P fk::vector<P, mem>::operator*(vector<P, omem> const &right) const
 //
 // vector*matrix multiplication operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P> fk::vector<P, mem, resrc>::
+operator*(fk::matrix<P, omem> const &A) const
 {
   // check dimension compatibility
   assert(size() == A.nrows());
@@ -729,8 +1119,9 @@ fk::vector<P> fk::vector<P, mem>::operator*(fk::matrix<P, omem> const &A) const
 //
 // vector*scalar multiplication operator
 //
-template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::vector<P> fk::vector<P, mem, resrc>::operator*(P const x) const
 {
   vector<P> a(*this);
   int one_i = 1;
@@ -747,10 +1138,10 @@ fk::vector<P> fk::vector<P, mem>::operator*(P const x) const
 // interpreting vector operands/return vector
 // as single column matrices.
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P>
-fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P> fk::vector<P, mem, resrc>::single_column_kron(
+    vector<P, omem> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
   for (int i = 0; i < (*this).size(); ++i)
@@ -763,8 +1154,9 @@ fk::vector<P, mem>::single_column_kron(vector<P, omem> const &right) const
   return product;
 }
 
-template<typename P, mem_type mem>
-fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::vector<P, mem> &fk::vector<P, mem, resrc>::scale(P const x)
 {
   int one_i = 1;
   int n     = this->size();
@@ -786,8 +1178,9 @@ fk::vector<P, mem> &fk::vector<P, mem>::scale(P const x)
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename P, mem_type mem>
-void fk::vector<P, mem>::print(std::string const label) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+void fk::vector<P, mem, resrc>::print(std::string const label) const
 {
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
@@ -817,8 +1210,9 @@ void fk::vector<P, mem>::print(std::string const label) const
 // @param[in]   b       the vector from the batch to print out
 // @return      Nothing
 //
-template<typename P, mem_type mem>
-void fk::vector<P, mem>::dump_to_octave(char const *filename) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+void fk::vector<P, mem, resrc>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
@@ -832,30 +1226,49 @@ void fk::vector<P, mem>::dump_to_octave(char const *filename) const
 // resize the vector
 // (currently supports a subset of the std::vector.resize() interface)
 //
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem> &fk::vector<P, mem>::resize(int const new_size)
+fk::vector<P, mem_type::owner, resrc> &
+fk::vector<P, mem, resrc>::resize(int const new_size)
 {
+  assert(new_size >= 0);
   if (new_size == this->size())
     return *this;
   P *old_data{data_};
-  data_ = new P[new_size]();
-  if (size() > 0 && new_size > 0)
+
+  if constexpr (resrc == resource::host)
   {
-    if (size() < new_size)
-      std::memcpy(data_, old_data, size() * sizeof(P));
-    else
-      std::memcpy(data_, old_data, new_size * sizeof(P));
+    data_ = new P[new_size]();
+    if (size() > 0 && new_size > 0)
+    {
+      if (size() < new_size)
+        std::memcpy(data_, old_data, size() * sizeof(P));
+      else
+        std::memcpy(data_, old_data, new_size * sizeof(P));
+    }
+    delete[] old_data;
+  }
+  else
+  {
+    allocate_device(data_, new_size);
+    if (size() > 0 && new_size > 0)
+    {
+      if (size() < new_size)
+        copy_on_device(data_, old_data, size());
+      else
+        copy_on_device(data_, old_data, new_size);
+    }
+    delete_device(old_data);
   }
 
   size_ = new_size;
-  delete[] old_data;
   return *this;
 }
 
-template<typename P, mem_type mem>
-template<mem_type omem, mem_type, typename>
-fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, mem_type, typename, resource, typename>
+fk::vector<P, mem> &
+fk::vector<P, mem, resrc>::concat(vector<P, omem> const &right)
 {
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
@@ -869,11 +1282,11 @@ fk::vector<P, mem> &fk::vector<P, mem>::concat(vector<P, omem> const &right)
 }
 
 // set a subvector beginning at provided index
-template<typename P, mem_type mem>
-template<mem_type omem>
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
 fk::vector<P, mem> &
-fk::vector<P, mem>::set_subvector(int const index,
-                                  fk::vector<P, omem> const sub_vector)
+fk::vector<P, mem, resrc>::set_subvector(int const index,
+                                         fk::vector<P, omem> const sub_vector)
 {
   assert(index >= 0);
   assert((index + sub_vector.size()) <= this->size());
@@ -883,8 +1296,10 @@ fk::vector<P, mem>::set_subvector(int const index,
 }
 
 // extract subvector, indices inclusive
-template<typename P, mem_type mem>
-fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::vector<P>
+fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
 {
   assert(start >= 0);
   assert(stop < this->size());
@@ -900,9 +1315,9 @@ fk::vector<P> fk::vector<P, mem>::extract(int const start, int const stop) const
 }
 
 // get number of outstanding views for an owner
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-int fk::vector<P, mem>::get_num_views() const
+int fk::vector<P, mem, resrc>::get_num_views() const
 {
   return ref_count_.use_count() - 1;
 }
@@ -912,9 +1327,9 @@ int fk::vector<P, mem>::get_num_views() const
 //
 //-----------------------------------------------------------------------------
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix()
+fk::matrix<P, mem, resrc>::matrix()
     : data_{nullptr}, nrows_{0}, ncols_{0}, stride_{nrows_},
       ref_count_{std::make_shared<int>(0)}
 
@@ -922,45 +1337,62 @@ fk::matrix<P, mem>::matrix()
 
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
-
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix(int M, int N)
-    : data_{new P[M * N]()}, nrows_{M}, ncols_{N}, stride_{nrows_},
-      ref_count_{std::make_shared<int>(0)}
+fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
+    : nrows_{m}, ncols_{n}, stride_{nrows_}, ref_count_{
+                                                 std::make_shared<int>(0)}
 
-{}
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[nrows() * ncols()]();
+  }
+  else
+  {
+    allocate_device(data_, nrows() * ncols());
+  }
+}
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix(
+fk::matrix<P, mem, resrc>::matrix(
     std::initializer_list<std::initializer_list<P>> llist)
-    : data_{new P[llist.size() * llist.begin()->size()]()},
-      nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
+    : nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
                                                   llist.begin()->size())},
       stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
 {
-  int row_idx = 0;
-  for (auto const &row_list : llist)
+  if constexpr (resrc == resource::host)
   {
-    // much simpler for row-major storage
-    // std::copy(row_list.begin(), row_list.end(), data(row_idx));
-    int col_idx = 0;
-    for (auto const &col_elem : row_list)
+    data_       = new P[llist.size() * llist.begin()->size()]();
+    int row_idx = 0;
+    for (auto const &row_list : llist)
     {
-      (*this)(row_idx, col_idx) = col_elem;
-      ++col_idx;
+      // much simpler for row-major storage
+      // std::copy(row_list.begin(), row_list.end(), data(row_idx));
+      int col_idx = 0;
+      for (auto const &col_elem : row_list)
+      {
+        (*this)(row_idx, col_idx) = col_elem;
+        ++col_idx;
+      }
+      ++row_idx;
     }
-    ++row_idx;
+  }
+  else
+  {
+    fk::matrix<P, mem, resource::host> const wrap(llist);
+    allocate_device(data_, llist.size() * llist.begin()->size());
+    copy_matrix_to_device(*this, wrap);
   }
 }
 
 // create view from owner.
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
-                           int const start_row, int const stop_row,
-                           int const start_col, int const stop_col)
+fk::matrix<P, mem, resrc>::matrix(
+    fk::matrix<P, mem_type::owner, resrc> const &owner, int const start_row,
+    int const stop_row, int const start_col, int const stop_col)
     : ref_count_(owner.ref_count_)
 {
   data_   = nullptr;
@@ -986,19 +1418,20 @@ fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner,
 }
 
 // overload for default case - whole matrix
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P, mem>::matrix(fk::matrix<P, mem_type::owner> const &owner)
+fk::matrix<P, mem, resrc>::matrix(
+    fk::matrix<P, mem_type::owner, resrc> const &owner)
     : matrix(owner, 0, std::max(0, owner.nrows() - 1), 0,
              std::max(0, owner.ncols() - 1))
 {}
 
 // create matrix view of an existing vector
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
-fk::matrix<P, mem>::matrix(fk::vector<P, omem> const &source,
-                           int const num_rows, int const num_cols,
-                           int const start_index)
+fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
+                                  int const num_rows, int const num_cols,
+                                  int const start_index)
     : ref_count_(source.get_ref_count({}))
 {
   assert(start_index >= 0);
@@ -1022,44 +1455,44 @@ fk::matrix<P, mem>::matrix(fk::vector<P, omem> const &source,
   }
 }
 
-template<typename P, mem_type mem>
-fk::matrix<P, mem>::~matrix()
+template<typename P, mem_type mem, resource resrc>
+fk::matrix<P, mem, resrc>::~matrix()
 {
   if constexpr (mem == mem_type::owner)
   {
     assert(ref_count_.use_count() == 1);
-    delete[] data_;
+    if constexpr (resrc == resource::host)
+    {
+      delete[] data_;
+    }
+    else
+    {
+      delete_device(data_);
+    }
   }
 }
 
 //
 // matrix copy constructor
 //
-template<typename P, mem_type mem>
-fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
+template<typename P, mem_type mem, resource resrc>
+fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
     : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.stride()}
 
 {
   if constexpr (mem == mem_type::owner)
   {
-    data_      = new P[a.size()]();
     ref_count_ = std::make_shared<int>(0);
 
-    // for optimization - if the matrices are contiguous, use memcpy
-    // for performance
-    if (stride() == nrows() && a.stride() == a.nrows())
+    if constexpr (resrc == resource::host)
     {
-      std::memcpy(data_, a.data(), a.size() * sizeof(P));
-
-      // else copy using loops. noticably slower in testing
+      data_ = new P[a.size()]();
+      std::copy(a.begin(), a.end(), begin());
     }
     else
     {
-      for (auto j = 0; j < a.ncols(); ++j)
-        for (auto i = 0; i < a.nrows(); ++i)
-        {
-          (*this)(i, j) = a(i, j);
-        }
+      allocate_device(data_, a.size());
+      copy_matrix_on_device(*this, a);
     }
   }
   else
@@ -1074,40 +1507,81 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-template<typename P, mem_type mem>
-fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> const &a)
+template<typename P, mem_type mem, resource resrc>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
+operator=(matrix<P, mem, resrc> const &a)
 {
   if (&a == this)
     return *this;
 
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
-  // for optimization - if the matrices are contiguous, use memcpy
-  // for performance
-  if (stride() == nrows() && a.stride() == a.nrows())
+  if constexpr (mem == mem_type::owner)
   {
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
-
-    // else copy using loops. noticably slower in testing
+    if constexpr (resrc == resource::host)
+    {
+      std::copy(a.begin(), a.end(), begin());
+    }
+    else
+    {
+      copy_matrix_on_device(*this, a);
+    }
   }
   else
   {
-    for (auto j = 0; j < a.ncols(); ++j)
-      for (auto i = 0; i < a.nrows(); ++i)
-      {
-        (*this)(i, j) = a(i, j);
-      }
+    data_      = a.data();
+    ref_count_ = a.ref_count_;
   }
 
+  return *this;
+}
+
+// copy construct owner from view values
+//
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(matrix<P, mem_type::view, resrc> const &a)
+    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
+      ref_count_{std::make_shared<int>(0)}
+
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[size()]();
+    std::copy(a.begin(), a.end(), begin());
+  }
+  else
+  {
+    allocate_device(data_, size());
+    copy_matrix_on_device(*this, a);
+  }
+}
+
+// assignment owner <-> view
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
+operator=(matrix<P, omem, resrc> const &a)
+{
+  assert(nrows() == a.nrows());
+  assert(ncols() == a.ncols());
+  if constexpr (resrc == resource::host)
+  {
+    std::copy(a.begin(), a.end(), begin());
+  }
+  else
+  {
+    copy_matrix_on_device(*this, a);
+  }
   return *this;
 }
 
 //
 // converting matrix copy constructor
 //
-template<typename P, mem_type mem>
-template<typename PP, mem_type omem, mem_type, typename>
-fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
+template<typename P, mem_type mem, resource resrc>
+template<typename PP, mem_type omem, mem_type, typename, resource, typename>
+fk::matrix<P, mem, resrc>::matrix(matrix<PP, omem> const &a)
     : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
       stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
 
@@ -1124,10 +1598,10 @@ fk::matrix<P, mem>::matrix(matrix<PP, omem> const &a)
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
-
-template<typename P, mem_type mem>
-template<typename PP, mem_type omem>
-fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<PP, omem> const &a)
+template<typename P, mem_type mem, resource resrc>
+template<typename PP, mem_type omem, resource, typename>
+fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::
+operator=(matrix<PP, omem> const &a)
 {
   assert((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
@@ -1141,14 +1615,64 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<PP, omem> const &a)
   return *this;
 }
 
+// transfer functions
+// host->dev, new matrix
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::matrix<P, mem_type::owner, resource::device>
+fk::matrix<P, mem, resrc>::clone_onto_device() const
+
+{
+  fk::matrix<P, mem_type::owner, resource::device> a(nrows(), ncols());
+  copy_matrix_to_device(a, *this);
+  return a;
+}
+
+// host->dev copy
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
+    fk::matrix<P, omem, resource::host> const &a)
+{
+  assert(a.nrows() == nrows());
+  assert(a.ncols() == ncols());
+
+  copy_matrix_to_device(*this, a);
+
+  return *this;
+}
+
+// dev->host, new matrix
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::matrix<P, mem_type::owner, resource::host>
+fk::matrix<P, mem, resrc>::clone_onto_host() const
+
+{
+  fk::matrix<P> a(nrows(), ncols());
+  copy_matrix_to_host(a, *this);
+  return a;
+}
+
+// dev->host copy
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
+    matrix<P, omem, resource::device> const &a)
+{
+  assert(a.nrows() == nrows());
+  assert(a.ncols() == ncols());
+  copy_matrix_to_host(*this, a);
+  return *this;
+}
+
 //
 // matrix move constructor
 // this can probably be done better. see:
 // http://stackoverflow.com/questions/3106110/what-are-move-semantics
 //
-
-template<typename P, mem_type mem>
-fk::matrix<P, mem>::matrix(matrix<P, mem> &&a)
+template<typename P, mem_type mem, resource resrc>
+fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> &&a)
     : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.stride()}
 {
   if constexpr (mem == mem_type::owner)
@@ -1167,8 +1691,9 @@ fk::matrix<P, mem>::matrix(matrix<P, mem> &&a)
 //
 // matrix move assignment
 //
-template<typename P, mem_type mem>
-fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
+template<typename P, mem_type mem, resource resrc>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
+operator=(matrix<P, mem, resrc> &&a)
 {
   if (&a == this)
     return *this;
@@ -1194,9 +1719,10 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(matrix<P, mem> &&a)
 //
 // copy out of fk::vector - assumes the vector is column-major
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(fk::vector<P, omem> const &v)
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::
+operator=(fk::vector<P, omem> const &v)
 {
   assert(nrows() * ncols() == v.size());
 
@@ -1212,15 +1738,17 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::operator=(fk::vector<P, omem> const &v)
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
-template<typename P, mem_type mem>
-P &fk::matrix<P, mem>::operator()(int const i, int const j)
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+P &fk::matrix<P, mem, resrc>::operator()(int const i, int const j)
 {
   assert(i < nrows() && j < ncols());
   return *(data(i, j));
 }
 
-template<typename P, mem_type mem>
-P fk::matrix<P, mem>::operator()(int const i, int const j) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+P fk::matrix<P, mem, resrc>::operator()(int const i, int const j) const
 {
   assert(i < nrows() && j < ncols());
   return *(data(i, j));
@@ -1229,9 +1757,9 @@ P fk::matrix<P, mem>::operator()(int const i, int const j) const
 // matrix comparison operators - set default tolerance above
 // see https://stackoverflow.com/a/253874/6595797
 // FIXME we may need to be more careful with these comparisons
-template<typename P, mem_type mem>
-template<mem_type omem>
-bool fk::matrix<P, mem>::operator==(matrix<P, omem> const &other) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+bool fk::matrix<P, mem, resrc>::operator==(matrix<P, omem> const &other) const
 {
   if constexpr (mem == omem)
   {
@@ -1260,16 +1788,16 @@ bool fk::matrix<P, mem>::operator==(matrix<P, omem> const &other) const
   return true;
 }
 
-template<typename P, mem_type mem>
-template<mem_type omem>
-bool fk::matrix<P, mem>::operator!=(matrix<P, omem> const &other) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+bool fk::matrix<P, mem, resrc>::operator!=(matrix<P, omem> const &other) const
 {
   return !(*this == other);
 }
 
-template<typename P, mem_type mem>
-template<mem_type omem>
-bool fk::matrix<P, mem>::operator<(matrix<P, omem> const &other) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+bool fk::matrix<P, mem, resrc>::operator<(matrix<P, omem> const &other) const
 {
   return std::lexicographical_compare(this->begin(), this->end(), other.begin(),
                                       other.end());
@@ -1278,9 +1806,10 @@ bool fk::matrix<P, mem>::operator<(matrix<P, omem> const &other) const
 //
 // matrix addition operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::matrix<P> fk::matrix<P, mem>::operator+(matrix<P, omem> const &right) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P> fk::matrix<P, mem, resrc>::
+operator+(matrix<P, omem> const &right) const
 {
   assert(nrows() == right.nrows() && ncols() == right.ncols());
 
@@ -1298,9 +1827,10 @@ fk::matrix<P> fk::matrix<P, mem>::operator+(matrix<P, omem> const &right) const
 //
 // matrix subtraction operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::matrix<P> fk::matrix<P, mem>::operator-(matrix<P, omem> const &right) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P> fk::matrix<P, mem, resrc>::
+operator-(matrix<P, omem> const &right) const
 {
   assert(nrows() == right.nrows() && ncols() == right.ncols());
 
@@ -1318,8 +1848,9 @@ fk::matrix<P> fk::matrix<P, mem>::operator-(matrix<P, omem> const &right) const
 //
 // matrix*scalar multiplication operator
 //
-template<typename P, mem_type mem>
-fk::matrix<P> fk::matrix<P, mem>::operator*(P const right) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::matrix<P> fk::matrix<P, mem, resrc>::operator*(P const right) const
 {
   matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
@@ -1335,9 +1866,9 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(P const right) const
 //
 // matrix*vector multiplication operator
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::vector<P> fk::matrix<P, mem>::
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::vector<P> fk::matrix<P, mem, resrc>::
 operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
@@ -1362,9 +1893,10 @@ operator*(fk::vector<P, omem> const &right) const
 //
 // matrix*matrix multiplication operator C[m,n] = A[m,k] * B[k,n]
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P> fk::matrix<P, mem, resrc>::
+operator*(matrix<P, omem> const &B) const
 {
   assert(ncols() == B.nrows()); // k == k
 
@@ -1393,8 +1925,9 @@ fk::matrix<P> fk::matrix<P, mem>::operator*(matrix<P, omem> const &B) const
 // @return  the transposed matrix
 //
 // FIXME could be worthwhile to optimize the matrix transpose
-template<typename P, mem_type mem>
-fk::matrix<P, mem> &fk::matrix<P, mem>::transpose()
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::transpose()
 {
   matrix<P> temp(ncols(), nrows());
 
@@ -1421,9 +1954,9 @@ fk::matrix<P, mem> &fk::matrix<P, mem>::transpose()
 // we will use the batch gemm method
 // for performance-critical (large)
 // krons
-template<typename P, mem_type mem>
-template<mem_type omem>
-fk::matrix<P> fk::matrix<P, mem>::kron(matrix<P, omem> const &B) const
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
+fk::matrix<P> fk::matrix<P, mem, resrc>::kron(matrix<P, omem> const &B) const
 {
   fk::matrix<P> C(nrows() * B.nrows(), ncols() * B.ncols());
   for (auto i = 0; i < nrows(); ++i)
@@ -1448,11 +1981,11 @@ fk::matrix<P> fk::matrix<P, mem>::kron(matrix<P, omem> const &B) const
 // disabled for non-fp types; haven't written a routine to do it
 // @return  the inverted matrix
 //
-template<typename P, mem_type mem>
-template<typename U>
+template<typename P, mem_type mem, resource resrc>
+template<typename U, resource, typename>
 std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
                  fk::matrix<P, mem> &>
-fk::matrix<P, mem>::invert()
+fk::matrix<P, mem, resrc>::invert()
 {
   assert(nrows() == ncols());
 
@@ -1484,11 +2017,11 @@ fk::matrix<P, mem>::invert()
 // @param[in]   mat   integer matrix (walker) to get determinant from
 // @return  the determinant (type double)
 //
-template<typename P, mem_type mem>
-template<typename U>
+template<typename P, mem_type mem, resource resrc>
+template<typename U, resource, typename>
 std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
                  P>
-fk::matrix<P, mem>::determinant() const
+fk::matrix<P, mem, resrc>::determinant() const
 {
   assert(nrows() == ncols());
 
@@ -1517,10 +2050,11 @@ fk::matrix<P, mem>::determinant() const
 // Update a specific col of a matrix, given a fk::vector<P> (overwrites
 // original)
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_col(int const col_idx, fk::vector<P, omem> const &v)
+fk::matrix<P, mem, resrc>::update_col(int const col_idx,
+                                      fk::vector<P, omem> const &v)
 {
   assert(nrows() == static_cast<int>(v.size()));
   assert(col_idx < ncols());
@@ -1537,9 +2071,11 @@ fk::matrix<P, mem>::update_col(int const col_idx, fk::vector<P, omem> const &v)
 //
 // Update a specific col of a matrix, given a std::vector (overwrites original)
 //
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_col(int const col_idx, std::vector<P> const &v)
+fk::matrix<P, mem, resrc>::update_col(int const col_idx,
+                                      std::vector<P> const &v)
 {
   assert(nrows() == static_cast<int>(v.size()));
   assert(col_idx < ncols());
@@ -1558,10 +2094,11 @@ fk::matrix<P, mem>::update_col(int const col_idx, std::vector<P> const &v)
 // Update a specific row of a matrix, given a fk::vector<P> (overwrites
 // original)
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
+fk::matrix<P, mem, resrc>::update_row(int const row_idx,
+                                      fk::vector<P, omem> const &v)
 {
   assert(ncols() == v.size());
   assert(row_idx < nrows());
@@ -1578,9 +2115,11 @@ fk::matrix<P, mem>::update_row(int const row_idx, fk::vector<P, omem> const &v)
 //
 // Update a specific row of a matrix, given a std::vector (overwrites original)
 //
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
+fk::matrix<P, mem, resrc>::update_row(int const row_idx,
+                                      std::vector<P> const &v)
 {
   assert(ncols() == static_cast<int>(v.size()));
   assert(row_idx < nrows());
@@ -1598,10 +2137,10 @@ fk::matrix<P, mem>::update_row(int const row_idx, std::vector<P> const &v)
 //
 // Resize, clearing all data
 //
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::matrix<P> &
-fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
+fk::matrix<P, mem_type::owner, resrc> &
+fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
 {
   assert(ref_count_.use_count() == 1);
 
@@ -1609,8 +2148,18 @@ fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
   assert(cols >= 0);
   if (rows == 0 || cols == 0)
     assert(cols == rows);
-  delete[] data_;
-  data_   = new P[rows * cols]();
+
+  if constexpr (resrc == resource::host)
+  {
+    delete[] data_;
+    data_ = new P[rows * cols]();
+  }
+  else
+  {
+    delete_device(data_);
+    allocate_device(data_, rows * cols);
+  }
+
   nrows_  = rows;
   ncols_  = cols;
   stride_ = nrows_;
@@ -1620,11 +2169,11 @@ fk::matrix<P, mem>::clear_and_resize(int const rows, int const cols)
 //
 // Set a submatrix within the matrix, given another (smaller) matrix
 //
-template<typename P, mem_type mem>
-template<mem_type omem>
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, resource, typename>
 fk::matrix<P, mem> &
-fk::matrix<P, mem>::set_submatrix(int const row_idx, int const col_idx,
-                                  matrix<P, omem> const &submatrix)
+fk::matrix<P, mem, resrc>::set_submatrix(int const row_idx, int const col_idx,
+                                         matrix<P, omem> const &submatrix)
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -1645,11 +2194,13 @@ fk::matrix<P, mem>::set_submatrix(int const row_idx, int const col_idx,
 //
 // Extract a rectangular submatrix from within the matrix
 //
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
 fk::matrix<P>
-fk::matrix<P, mem>::extract_submatrix(int const row_idx, int const col_idx,
-                                      int const num_rows,
-                                      int const num_cols) const
+fk::matrix<P, mem, resrc>::extract_submatrix(int const row_idx,
+                                             int const col_idx,
+                                             int const num_rows,
+                                             int const num_cols) const
 {
   assert(row_idx >= 0);
   assert(col_idx >= 0);
@@ -1672,8 +2223,9 @@ fk::matrix<P, mem>::extract_submatrix(int const row_idx, int const col_idx,
 // Prints out the values of a matrix
 // @return  Nothing
 //
-template<typename P, mem_type mem>
-void fk::matrix<P, mem>::print(std::string label) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+void fk::matrix<P, mem, resrc>::print(std::string label) const
 {
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, "
@@ -1712,8 +2264,9 @@ void fk::matrix<P, mem>::print(std::string label) const
 //
 // @return  Nothing
 //
-template<typename P, mem_type mem>
-void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+void fk::matrix<P, mem, resrc>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
@@ -1728,16 +2281,16 @@ void fk::matrix<P, mem>::dump_to_octave(char const *filename) const
 }
 
 // get number of outstanding views for an owner
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-int fk::matrix<P, mem>::get_num_views() const
+int fk::matrix<P, mem, resrc>::get_num_views() const
 {
   return ref_count_.use_count() - 1;
 }
 
-template<typename P, mem_type mem>
+template<typename P, mem_type mem, resource resrc>
 template<typename T, typename R>
-class fk::matrix<P, mem>::matrix_iterator
+class fk::matrix<P, mem, resrc>::matrix_iterator
 {
 public:
   using self_type         = matrix_iterator;
