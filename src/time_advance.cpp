@@ -135,7 +135,7 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
-  fk::matrix<P> A(A_size, A_size);
+  fk::matrix<P, mem_type::owner,resource::host> A(A_size, A_size);
 
   for (auto const &chunk : chunks)
   {

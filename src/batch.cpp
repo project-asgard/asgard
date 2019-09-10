@@ -767,8 +767,12 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
           //       operator_row(d) + degree - 1,
           //       operator_col(d) + degree - 1);
           // printf("=====================================\n");
+          fk::matrix<P, mem_type::owner, resource::host> tmp;
+          auto & t = pde.get_coefficients(k, d);
+          tmp.clear_and_resize(t.nrows(), t.ncols());
+          tmp.transfer_from(t);
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
-              pde.get_coefficients(k, d), operator_row(d),
+              tmp, operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1);
           // op_view.print("OP_VIEW");
