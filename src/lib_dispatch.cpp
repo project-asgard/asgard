@@ -731,6 +731,36 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
   }
 }
 
+template<typename P>
+void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
+          int *info)
+{
+  assert(n);
+  assert(nrhs);
+  assert(A);
+  assert(lda);
+  assert(ipiv);
+  assert(info);
+  assert(b);
+  assert(ldb);
+  assert(*ldb >= 1);
+  assert(*lda >= 1);
+  assert(*n >= 0);
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+  }
+  else
+  { // not instantiated; should never be reached
+    std::cerr << "gesv not implemented for non-floating types" << '\n';
+    assert(false);
+  }
+}
+
 template void
 copy(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
 template void
@@ -810,4 +840,8 @@ template void batched_gemv(double **const &a, int *lda, char const *transa,
                            double *alpha, double *beta, int *num_batch,
                            resource const resrc);
 
+template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+                   int *ldb, int *info);
+template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+                   int *ldb, int *info);
 } // namespace lib_dispatch

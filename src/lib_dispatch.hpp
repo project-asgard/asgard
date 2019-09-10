@@ -76,6 +76,11 @@ extern "C"
 
   void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
                int *info);
+
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+              int *ldb, int *info);
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+              int *ldb, int *info);
 }
 
 // -- precision/execution resource wrapper for blas --
@@ -126,6 +131,10 @@ template<typename P>
 void batched_gemv(P **const &a, int *lda, char const *transa, P **const &x,
                   P **const &y, int *m, int *n, P *alpha, P *beta,
                   int *num_batch, resource const resrc = resource::host);
+
+template<typename P>
+void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
+          int *info);
 
 extern template void
 copy(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
@@ -210,5 +219,10 @@ extern template void
 batched_gemv(double **const &a, int *lda, char const *transa, double **const &x,
              double **const &y, int *m, int *n, double *alpha, double *beta,
              int *num_batch, resource const resrc);
+
+extern template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv,
+                          double *b, int *ldb, int *info);
+extern template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv,
+                          float *b, int *ldb, int *info);
 
 } // namespace lib_dispatch

@@ -132,6 +132,16 @@ std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
               rank_workspace<P> const &workspace, element_chunk const &chunk);
 
+template<typename P>
+void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
+                           element_chunk const &chunk, fk::matrix<P> &A);
+
+template<typename P>
+fk::matrix<P>
+build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
+                      int const connected_start    = 0,
+                      int const elements_per_batch = -1);
+
 extern template class batch<float>;
 extern template class batch<double>;
 extern template class batch<float, resource::host>;
@@ -199,3 +209,20 @@ extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);
+
+extern template fk::matrix<double>
+build_implicit_system(PDE<double> const &pde, element_table const &elem_table,
+                      int const connected_start    = 0,
+                      int const elements_per_batch = -1);
+
+extern template fk::matrix<float>
+build_implicit_system(PDE<float> const &pde, element_table const &elem_table,
+                      int const connected_start    = 0,
+                      int const elements_per_batch = -1);
+
+extern template void
+build_implicit_system(PDE<double> const &pde, element_table const &elem_table,
+                      element_chunk const &chunk, fk::matrix<double> &A);
+extern template void
+build_implicit_system(PDE<float> const &pde, element_table const &elem_table,
+                      element_chunk const &chunk, fk::matrix<float> &A);
