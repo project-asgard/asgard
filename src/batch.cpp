@@ -758,6 +758,7 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
         fk::matrix<P> kron0(1, 1);
         kron0(0, 0) = 1.0;
         kron_vals.push_back(kron0);
+       // FIXME need to cache host coefficients to avoid repeated copies
         for (int d = 0; d < pde.num_dims; d++)
         {
           // printf("pde.get_coefficients(%d, %d) :\n", k, d);
