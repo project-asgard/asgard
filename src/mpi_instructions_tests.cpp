@@ -3,52 +3,6 @@
 
 #include <set>
 
-/* specifies num_segments intervals of interval_max length */
-std::vector<int>
-segment_range(int interval_max, int num_segments, std::random_device &rdev)
-{
-  std::vector<int> segment;
-
-  int start = 0;
-
-  while (num_segments > 0)
-  {
-    int n = (rdev() % interval_max) + 1;
-
-    segment.push_back(start + n);
-
-    start += n;
-
-    num_segments--;
-  }
-
-  return segment;
-}
-
-std::vector<int> reverse_offset(std::vector<int> &c_stop)
-{
-  std::vector<int> r_stop;
-
-  int last_index = c_stop.size() - 1;
-
-  int start = 0;
-
-  for (int i = 0; i < (int)c_stop.size() - 1; i++)
-  {
-    int j = last_index - i;
-
-    int diff = c_stop[j] - c_stop[j - 1];
-
-    r_stop.push_back(start + diff);
-
-    start += diff;
-  }
-
-  r_stop.push_back(c_stop.back());
-
-  return r_stop;
-}
-
 /* ensures that each segment described in c_stop is encoded via possibly
    multiple intervals
    in r_stop. Ensures that the r_stop continuously represents the entire range
@@ -127,19 +81,21 @@ cut_a_slice(const class mpi_node_and_range &nar, const std::vector<int> &c_stop,
     first = r_stop[r - 1] + 1;
 
   /* convert to global coordinates */
+  /*
   int start = first + nar.start;
 
   int stop = first + nar.stop;
+  */
 
   /* copy those indices into slice and return it */
   std::vector<int>::const_iterator iter_0 = x.begin();
 
   std::vector<int>::const_iterator iter_1 = x.begin();
 
-  std::advance(iter_0, start);
+  std::advance(iter_0, nar.start);
 
   /* +1 because copy range is [ first iterator, last iterator ) */
-  std::advance(iter_1, stop + 1);
+  std::advance(iter_1, nar.stop + 1);
 
   std::copy(iter_0, iter_1, std::back_inserter(slice));
 
@@ -188,14 +144,19 @@ bool check_slices(const class mpi_instructions &mpi_instructions)
   /* create fake data */
   std::vector<int> x;
 
-  std::random_device rdev;
-
   const std::vector<int> &r_stop = mpi_instructions.get_r_stop();
 
   const std::vector<int> &c_stop = mpi_instructions.get_c_stop();
 
+  std::cout << "x:" << std::endl;
+
   for (int i = 0; i < c_stop.back(); i++)
+  {
     x.push_back(i);
+    std::cout << " " << i;
+  }
+
+  std::cout << std::endl;
 
   for (int r = 0; r < (int)r_stop.size(); r++)
   {
@@ -224,8 +185,31 @@ bool check_slices(const class mpi_instructions &mpi_instructions)
 
       std::vector<int> goal_slice = correct_slice(c, c_stop, x);
 
-      if (derived_slice != goal_slice)
+      if( derived_slice.size() != goal_slice.size() )
+      {
+        std::cout << "size mismatch" << std::endl;
+
         return false;
+      }
+
+      else if (derived_slice != goal_slice)
+      {
+        std::cout << "derived:" << std::endl;
+        for( int i = 0; i < derived_slice.size(); i++ )
+        {
+          std::cout << " " << derived_slice[ i ];
+        }
+        std::cout << std::endl;
+
+        std::cout << "goal:" << std::endl;
+        for( int i = 0; i < goal_slice.size(); i++ )
+        {
+          std::cout << " " << goal_slice[ i ];
+        }
+        std::cout << std::endl;
+
+        return false;
+      }
     }
   }
 
@@ -289,64 +273,111 @@ bool check_packet_mpi_messages(const class mpi_instructions &mpi_instructions)
   return true;
 }
 
+bool check_correct_intervals( std::vector< std::vector< mpi_node_and_range > > const &check,
+                              std::vector< std::vector< mpi_node_and_range > > const &correct )
+{
+  if( check.size() != correct.size() ) return false; 
+
+  else for( int i = 0; i < check.size(); i++ )
+  {
+    if( check[ i ].size() != correct[ i ].size() ) return false;
+
+    else for( int j = 0; j < check[ i ].size(); j++ )
+    {
+      mpi_node_and_range const &check_nar = check[ i ][ j ];
+
+      mpi_node_and_range const &correct_nar = correct[ i ][ j ];
+
+      if( check_nar.linear_index != correct_nar.linear_index ) return false;
+      if( check_nar.start != correct_nar.start ) return false;
+      if( check_nar.stop != correct_nar.stop ) return false;
+    }
+  }
+
+  return true;
+}
+
 TEST_CASE("mpi_mpi_messages", "[mpi]")
 {
-  /* testing parameters */
-  int c_segments = 100;
+  std::vector< std::vector< int > > c_stops =
+  {{ 12, 18, 20, 36 }, { 5, 10, 15 }, { 10, 23, 47, 100 }};
 
-  int interval_max = 100;
+  std::vector< std::vector< int > > r_stops =
+  {{ 4, 8, 12, 20, 32, 36 }, { 7, 15 }, { 25, 50, 90, 100 }};
 
-  std::random_device rdev;
+  std::vector< std::vector< std::vector< mpi_node_and_range > > > correct_intervals_v =
+  {
+  {{ mpi_node_and_range( 0, 0, 4 ),
+     mpi_node_and_range( 1, 5, 8 ),
+     mpi_node_and_range( 2, 9, 12 ) },
+   { mpi_node_and_range( 3, 13, 18 ) },
+   { mpi_node_and_range( 3, 19, 20 ) },
+   { mpi_node_and_range( 4, 21, 32 ),
+     mpi_node_and_range( 5, 33, 36 ) }},
+  {{ mpi_node_and_range( 0, 0, 5 ) },
+   { mpi_node_and_range( 0, 6, 7 ), mpi_node_and_range( 1, 8, 10 ) },
+   { mpi_node_and_range( 1, 11, 15 ) }},
+  {{ mpi_node_and_range( 0, 0, 10 ) },
+   { mpi_node_and_range( 0, 11, 23 ) },
+   { mpi_node_and_range( 0, 24, 25 ), mpi_node_and_range( 1, 26, 47 ) }, 
+   { mpi_node_and_range( 1, 48, 50 ), mpi_node_and_range( 2, 51, 90 ), 
+     mpi_node_and_range( 3, 91, 100 ) }}
+  };
 
-  /* test data */
-  std::vector<int> c_stop = segment_range(interval_max, c_segments, rdev);
-
-  std::vector<int> r_stop = reverse_offset(c_stop);
-
-  /* test code */
-  c_stop = { 10, 23, 47, 100 };
-  r_stop = { 25, 50, 90, 100 };
-  /*
-
-  c_stop = { 5, 10, 15 };
-  r_stop = { 7, 15 };
-
-  c_stop = { 5, 10 };
-  r_stop = { 5, 10 };
-  c_stop = { 1, 2, 3, 4, 5 };
-  r_stop = { 2, 3, 5 };
-  r_stop = { 1, 2, 3, 4, 5 };
-  c_stop = { 2, 3, 5 };
-  r_stop = { 55, 111 };
-  c_stop = { 55, 111 };
-  */
-  /* end test code */
+  std::vector< std::vector< mpi_node_and_range > > correct_intervals =
+  {{ mpi_node_and_range( 0, 0, 4 ),
+     mpi_node_and_range( 1, 5, 8 ),
+     mpi_node_and_range( 2, 9, 12 ) },
+   { mpi_node_and_range( 3, 13, 18 ) },
+   { mpi_node_and_range( 3, 19, 20 ) },
+   { mpi_node_and_range( 4, 21, 32 ),
+     mpi_node_and_range( 5, 33, 36 ) }};
 
   /* create object */
-  class mpi_instructions mpi_instructions(std::move(r_stop), std::move(c_stop));
-
   SECTION("rowspace_intervals")
   {
-    const std::vector<std::vector<class mpi_node_and_range>>
-        row_space_intervals = mpi_instructions.gen_row_space_intervals();
+    bool pass = true;
 
-    bool pass = check_row_space_intervals(row_space_intervals,
-                                          mpi_instructions.get_c_stop(),
-                                          mpi_instructions.get_r_stop());
+    for( int i = 0; i < r_stops.size(); i++ )
+    {
+      class mpi_instructions mpi_instructions( std::move( std::vector< int >( r_stops[ i ] ) ), 
+                                               std::move( std::vector< int >( c_stops[ i ] ) ) );
+
+      const std::vector<std::vector<class mpi_node_and_range>>
+          row_space_intervals = mpi_instructions.gen_row_space_intervals();
+
+      pass = pass && check_correct_intervals( row_space_intervals, correct_intervals_v[ i ] );
+    }
 
     REQUIRE(pass == true);
   }
 
   SECTION("build_slices")
   {
-    bool pass = check_slices(mpi_instructions);
+    bool pass = true;
+
+    for( int i = 0; i < r_stops.size(); i++ )
+    {
+      class mpi_instructions mpi_instructions( std::move( std::vector< int >( r_stops[ i ] ) ), 
+                                               std::move( std::vector< int >( c_stops[ i ] ) ) );
+
+      pass = pass && check_slices(mpi_instructions);
+    }
 
     REQUIRE(pass == true);
   }
 
   SECTION("check_mpi_messages")
   {
-    bool pass = check_packet_mpi_messages(mpi_instructions);
+    bool pass = true;
+
+    for( int i = 0; i < r_stops.size(); i++ )
+    {
+      class mpi_instructions mpi_instructions( std::move( std::vector< int >( r_stops[ i ] ) ), 
+                                               std::move( std::vector< int >( c_stops[ i ] ) ) );
+
+      pass = pass && check_packet_mpi_messages(mpi_instructions);
+    }
 
     REQUIRE(pass == true);
   }

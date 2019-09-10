@@ -20,21 +20,17 @@ int row_round_robin_wheel::spin()
 mpi_node_and_range::mpi_node_and_range(int linear_index, int start, int stop)
     : linear_index(linear_index), start(start), stop(stop)
 {
-  return;
 }
 
 mpi_message::mpi_message(mpi_message_enum mpi_message_type,
                          class mpi_node_and_range &nar)
     : mpi_message_type(mpi_message_type), nar(nar)
 {
-  return;
 }
 
 void mpi_instruction::queue_mpi_message(class mpi_message &item)
 {
   mpi_messages.push_back(item);
-
-  return;
 }
 
 // this function describes each column interval as a combination of row
@@ -187,8 +183,6 @@ void mpi_instructions::gen_mpi_messages(
       }
     }
   }
-
-  return;
 }
 
 mpi_instructions::mpi_instructions(const std::vector<int> &&r_stop,
@@ -211,6 +205,4 @@ mpi_instructions::mpi_instructions(const std::vector<int> &&r_stop,
 
   /* generate mpi_message lists for each process node */
   gen_mpi_messages(row_space_intervals);
-
-  return;
 }

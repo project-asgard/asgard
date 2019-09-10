@@ -1,11 +1,3 @@
-/*
-
-east const, more const, more east const
-flatten the class structure to functional
-remove nondeterminism
-remove class keyword
-
-*/
 #include <vector>
 
 enum class mpi_message_enum
@@ -33,6 +25,7 @@ private:
 class mpi_node_and_range
 {
 public:
+
   mpi_node_and_range(int linear_index, int start, int stop);
 
   int const linear_index;
