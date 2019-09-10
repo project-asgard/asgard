@@ -61,33 +61,10 @@ bool check_row_space_intervals(
 
 /* return a slice that corresponds to the range specified in nar */
 std::vector<int>
-cut_a_slice(const class mpi_node_and_range &nar, const std::vector<int> &c_stop,
-            const std::vector<int> &r_stop, const std::vector<int> &x)
+cut_a_slice( mpi_node_and_range const &nar, const std::vector<int> &x )
 {
   std::vector<int> slice;
 
-  /* convert nar's start and stop into global indices */
-  /* get the column index */
-  int r = nar.linear_index / c_stop.size();
-
-  int first;
-
-  if (r == 0)
-  {
-    first = 0;
-  }
-
-  else
-    first = r_stop[r - 1] + 1;
-
-  /* convert to global coordinates */
-  /*
-  int start = first + nar.start;
-
-  int stop = first + nar.stop;
-  */
-
-  /* copy those indices into slice and return it */
   std::vector<int>::const_iterator iter_0 = x.begin();
 
   std::vector<int>::const_iterator iter_1 = x.begin();
@@ -145,15 +122,7 @@ bool check_slices(const std::vector< std::vector< mpi_message > > &mpi_instructi
   /* create fake data */
   std::vector<int> x;
 
-  std::cout << "x:" << std::endl;
-
-  for (int i = 0; i < c_stop.back(); i++)
-  {
-    x.push_back(i);
-    std::cout << " " << i;
-  }
-
-  std::cout << std::endl;
+  for (int i = 0; i < c_stop.back(); i++) x.push_back(i);
 
   for (int r = 0; r < (int)r_stop.size(); r++)
   {
@@ -170,7 +139,7 @@ bool check_slices(const std::vector< std::vector< mpi_message > > &mpi_instructi
         if (mpi_messages[i].mpi_message_type == mpi_message_enum::receive)
         {
           std::vector<int> sub_slice =
-              cut_a_slice(mpi_messages[i].nar, c_stop, r_stop, x);
+              cut_a_slice(mpi_messages[ i ].nar, x);
 
           std::copy(sub_slice.begin(), sub_slice.end(),
                     std::back_inserter(derived_slice));
@@ -179,31 +148,9 @@ bool check_slices(const std::vector< std::vector< mpi_message > > &mpi_instructi
 
       std::vector<int> goal_slice = correct_slice(c, c_stop, x);
 
-      if( derived_slice.size() != goal_slice.size() )
-      {
-        std::cout << "size mismatch" << std::endl;
+      if( derived_slice.size() != goal_slice.size() ) return false;
 
-        return false;
-      }
-
-      else if (derived_slice != goal_slice)
-      {
-        std::cout << "derived:" << std::endl;
-        for( int i = 0; i < derived_slice.size(); i++ )
-        {
-          std::cout << " " << derived_slice[ i ];
-        }
-        std::cout << std::endl;
-
-        std::cout << "goal:" << std::endl;
-        for( int i = 0; i < goal_slice.size(); i++ )
-        {
-          std::cout << " " << goal_slice[ i ];
-        }
-        std::cout << std::endl;
-
-        return false;
-      }
+      else if (derived_slice != goal_slice) return false;
     }
   }
 
@@ -221,9 +168,9 @@ bool check_mpi_messages(const std::vector< std::vector< mpi_message > > &mpi_mes
 
   std::vector<std::array<const int, 4>> send_mpi_message;
 
-  for (int r = 0; r < r_stop.size(); r++)
+  for (int r = 0; r < (int)r_stop.size(); r++)
   {
-    for (int c = 0; c < c_stop.size(); c++)
+    for (int c = 0; c < (int)c_stop.size(); c++)
     {
       const std::vector<class mpi_message> &mpi_message =
       mpi_messages[ r * c_stop.size() + c ];
@@ -235,7 +182,7 @@ bool check_mpi_messages(const std::vector< std::vector< mpi_message > > &mpi_mes
         if (mpi_message[i].mpi_message_type == mpi_message_enum::send)
         {
           const std::array<const int, 4> array{
-              r * c_stop.size() + c, nar.linear_index,
+              r * (int)c_stop.size() + c, nar.linear_index,
               nar.start, nar.stop};
 
           send_mpi_message.emplace_back(std::move(array));
@@ -244,7 +191,7 @@ bool check_mpi_messages(const std::vector< std::vector< mpi_message > > &mpi_mes
         else if (mpi_message[i].mpi_message_type == mpi_message_enum::receive)
         {
           std::array<const int, 4> array{nar.linear_index,
-                                         r * c_stop.size() + c,
+                                         r * (int)c_stop.size() + c,
                                          nar.start, nar.stop};
 
           receive_mpi_message.emplace(std::move(array));
@@ -271,11 +218,11 @@ bool check_correct_intervals( std::vector< std::vector< mpi_node_and_range > > c
 {
   if( check.size() != correct.size() ) return false; 
 
-  else for( int i = 0; i < check.size(); i++ )
+  else for( int i = 0; i < (int)check.size(); i++ )
   {
     if( check[ i ].size() != correct[ i ].size() ) return false;
 
-    else for( int j = 0; j < check[ i ].size(); j++ )
+    else for( int j = 0; j < (int)check[ i ].size(); j++ )
     {
       mpi_node_and_range const &check_nar = check[ i ][ j ];
 
@@ -327,12 +274,11 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
    { mpi_node_and_range( 4, 21, 32 ),
      mpi_node_and_range( 5, 33, 36 ) }};
 
-  /* create object */
   SECTION("rowspace_intervals")
   {
     bool pass = true;
 
-    for( int i = 0; i < r_stops.size(); i++ )
+    for( int i = 0; i < (int)r_stops.size(); i++ )
     {
       const std::vector<std::vector<class mpi_node_and_range>>
       row_space_intervals = generate_row_space_intervals( r_stops[ i ], c_stops[ i ] );
@@ -347,7 +293,7 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
   {
     bool pass = true;
 
-    for( int i = 0; i < r_stops.size(); i++ )
+    for( int i = 0; i < (int)r_stops.size(); i++ )
     {
       std::vector< std::vector< mpi_message > > const mpi_messages =
       generate_mpi_messages( r_stops[ i ], c_stops[ i ] );
@@ -362,7 +308,7 @@ TEST_CASE("mpi_mpi_messages", "[mpi]")
   {
     bool pass = true;
 
-    for( int i = 0; i < r_stops.size(); i++ )
+    for( int i = 0; i < (int)r_stops.size(); i++ )
     {
       std::vector< std::vector< mpi_message > > const mpi_messages =
       generate_mpi_messages( r_stops[ i ], c_stops[ i ] );
