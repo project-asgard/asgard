@@ -715,8 +715,19 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * elem_table.size();
+  using key_type      = std::pair<int, int>;
+  using val_type      = fk::matrix<P, mem_type::owner, resource::host>;
+  std::map<key_type, val_type> coef_cache;
 
   assert(A.ncols() == A_size && A.nrows() == A_size);
+  for (int k = 0; k < pde.num_terms; ++k)
+  {
+    for (int d = 0; d < pde.num_dims; d++)
+    {
+      coef_cache.insert(std::pair<key_type, val_type>(
+          key_type(k, d), pde.get_coefficients(k, d).clone_onto_host()));
+    }
+  }
 
   // loop over elements
   // FIXME eventually want to do this in parallel
@@ -758,7 +769,6 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
         fk::matrix<P> kron0(1, 1);
         kron0(0, 0) = 1.0;
         kron_vals.push_back(kron0);
-       // FIXME need to cache host coefficients to avoid repeated copies
         for (int d = 0; d < pde.num_dims; d++)
         {
           // printf("pde.get_coefficients(%d, %d) :\n", k, d);
@@ -768,12 +778,8 @@ void build_implicit_system(PDE<P> const &pde, element_table const &elem_table,
           //       operator_row(d) + degree - 1,
           //       operator_col(d) + degree - 1);
           // printf("=====================================\n");
-          fk::matrix<P, mem_type::owner, resource::host> tmp;
-          auto & t = pde.get_coefficients(k, d);
-          tmp.clear_and_resize(t.nrows(), t.ncols());
-          tmp.transfer_from(t);
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
-              tmp, operator_row(d),
+              coef_cache[key_type(k, d)], operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1);
           // op_view.print("OP_VIEW");
