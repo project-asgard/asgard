@@ -117,7 +117,6 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
     P const time = i * dt;
     explicit_time_advance(pde, table, initial_sources, host_space, rank_space,
                           chunks, plan, my_rank, time, dt);
-
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
     int const degree       = pde.get_dimensions()[0].get_degree();
@@ -126,12 +125,13 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-
+    gold.print("gold");
+    host_space.x.print("hsx");
     relaxed_comparison(gold, host_space.x);
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
+/*TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 
 {
@@ -268,7 +268,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
     time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
-
+*/
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
                    float, double)
 {

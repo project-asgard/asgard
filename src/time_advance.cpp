@@ -32,6 +32,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   element_subgrid const &grid = plan.at(my_rank);
   int const elem_size         = element_segment_size(pde);
 
+  host_space.x.print("0");
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
 
@@ -44,6 +45,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
+  host_space.x.print("1");
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
 
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
@@ -60,7 +62,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
-
+  host_space.x.print("2");
   apply_explicit(pde, table, grid, chunks, host_space, rank_space);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
