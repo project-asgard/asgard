@@ -63,10 +63,14 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   int const num_ranks = 1;
 #endif
 
-  std::string const grid_str    = full_grid ? "-f" : "";
-  std::vector<std::string> args = {"-l", std::to_string(level), "-d",
-                                   std::to_string(degree), grid_str};
-  args.insert(args.end(), additional_args.begin(), additional_args.end());
+  std::string const grid_str          = full_grid ? "-f" : "";
+  std::vector<std::string> const args = [&additional_args, level, degree,
+                                         grid_str]() {
+    std::vector<std::string> args = {"-l", std::to_string(level), "-d",
+                                     std::to_string(degree), grid_str};
+    args.insert(args.end(), additional_args.begin(), additional_args.end());
+    return args;
+  }();
   options const o = make_options(args);
 
   element_table const table(o, pde.num_dims);
@@ -128,13 +132,11 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-    gold.print("gold");
-    host_space.x.print("hsx");
     relaxed_comparison(gold, host_space.x);
   }
 }
 
-/*TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
+TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 
 {
@@ -271,7 +273,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
     time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
-*/
+
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
                    float, double)
 {
