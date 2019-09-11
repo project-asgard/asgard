@@ -52,7 +52,8 @@ int const workspace_limit_MB = 1000;
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
-                       bool const full_grid = false, std::vector<std::string> const& additional_args = {})
+                       bool const full_grid                            = false,
+                       std::vector<std::string> const &additional_args = {})
 {
 #ifdef ASGARD_USE_MPI
   int const my_rank   = distrib_test_info.get_my_rank();
@@ -62,12 +63,11 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   int const num_ranks = 1;
 #endif
 
-  std::string const grid_str = full_grid ? "-f" : "";
-  std::vector<std::string> args = 
-      {"-l", std::to_string(level), "-d", std::to_string(degree), grid_str};
-  args.insert( args.end(), additional_args.begin(), additional_args.end() );
-  options const o            = make_options(
-      {"-l", std::to_string(level), "-d", std::to_string(degree), grid_str});
+  std::string const grid_str    = full_grid ? "-f" : "";
+  std::vector<std::string> args = {"-l", std::to_string(level), "-d",
+                                   std::to_string(degree), grid_str};
+  args.insert(args.end(), additional_args.begin(), additional_args.end());
+  options const o = make_options(args);
 
   element_table const table(o, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);
@@ -281,13 +281,14 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
     int const level             = 2;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck1_4p1a_sg_l2_d2_t";
-    
-    std::vector<std::string> addtl_args = {"-c", "0.01"};
+
+    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
     auto pde =
         make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
 
     bool const full_grid = false;
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
   }
 }
 
