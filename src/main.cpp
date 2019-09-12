@@ -194,9 +194,9 @@ int main(int argc, char **argv)
 
     if (opts.using_implicit())
     {
-      // std::cout << "USING IMPLICIT TIME ADVANCE" << std::endl;
+      bool update_system = i == 0;
       implicit_time_advance(*pde, table, initial_sources, host_space, chunks,
-                            time, dt, true);
+                            time, dt, update_system);
     }
     else
     {

@@ -132,13 +132,12 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   assert(dt > 0);
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
   static fk::matrix<P, mem_type::owner, resource::host> A;
+  static std::vector<int> ipiv;
   static bool first_time = true;
 
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
-  std::cout << "First TIme = " << first_time
-            << ",  update_system = " << update_system << std::endl;
   if (first_time || update_system)
   {
     A.clear_and_resize(A_size, A_size);
@@ -146,22 +145,30 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
     {
       build_system_matrix(pde, table, chunk, A);
     }
-    first_time = false;
+    // AA = I - dt*A;
+    for (int i = 0; i < A.nrows(); ++i)
+    {
+      for (int j = 0; j < A.ncols(); ++j)
+      {
+        A(i, j) *= -dt;
+      }
+      A(i, i) += 1.0;
+    }
+    // first_time = false;
   }
-  A.print("A");
+  // A.print("A");
   fm::copy(host_space.x, host_space.x_orig);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
-  // AA = I - dt*A;
-  for (int i = 0; i < A.nrows(); ++i)
-  {
-    for (int j = 0; j < A.ncols(); ++j)
-    {
-      A(i, j) *= -dt;
-    }
-    A(i, i) += 1.0;
-  }
   host_space.x = host_space.x + host_space.scaled_source * dt;
-  fm::gesv(A, host_space.x);
+  if (first_time || update_system){
+    if (ipiv.size() != A.nrows())
+      ipiv.resize(A.nrows());
+    fm::gesv(A, host_space.x, ipiv);
+    first_time = false;
+  }
+  else{
+    fm::getrs(A, host_space.x, ipiv);
+  }
   fm::copy(host_space.x, host_space.fx);
 }
 
