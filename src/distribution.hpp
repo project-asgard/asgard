@@ -1,6 +1,8 @@
 #pragma once
 #include "element_table.hpp"
+#ifdef ASGARD_USE_MPI
 #include "mpi.h"
+#endif
 #include <map>
 
 struct element_subgrid

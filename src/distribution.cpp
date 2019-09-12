@@ -1,7 +1,6 @@
 #include "distribution.hpp"
 
 #include <cmath>
-#include <mpi.h>
 #include <numeric>
 
 #include "chunk.hpp"
@@ -168,11 +167,7 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(my_rank >= 0);
   assert(my_rank < static_cast<int>(plan.size()));
 
-#ifndef ASGARD_USE_MPI
-  fm::copy(source, dest);
-  return;
-#endif
-
+#ifdef ASGARD_USE_MPI
   if (plan.size() == 1)
   {
     fm::copy(source, dest);
@@ -200,6 +195,11 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 
   success = MPI_Comm_free(&row_communicator);
   assert(success == 0);
+
+#else
+  fm::copy(source, dest);
+  return;
+#endif
 }
 
 // static helper for copying my own output to input
@@ -241,6 +241,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
                              element_subgrid const &my_grid,
                              mpi_message const &message, int const segment_size)
 {
+#ifdef ASGARD_USE_MPI
   assert(segment_size > 0);
 
   MPI_Datatype const mpi_type =
@@ -283,6 +284,9 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
                                   MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
     assert(success == 0);
   }
+#else
+  assert(false);
+#endif
 }
 
 template<typename P>
@@ -293,10 +297,8 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(dest.size() <= source.size());
   assert(my_rank >= 0);
   assert(my_rank < static_cast<int>(plan.size()));
-#ifndef ASGARD_USE_MPI
-  fm::copy(source, dest);
-  return;
-#endif
+#ifdef ASGARD_USE_MPI
+
   if (plan.size() == 1)
   {
     fm::copy(source, dest);
@@ -340,6 +342,12 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
 
     dispatch_message(source, dest, my_subgrid, message, segment_size);
   }
+
+#else
+  ignore(segment_size);
+  fm::copy(source, dest);
+  return;
+#endif
 }
 
 // gather errors from other local ranks
@@ -348,9 +356,9 @@ template<typename P>
 std::array<fk::vector<P>, 2>
 gather_errors(P const root_mean_squared, P const relative)
 {
-  std::array<P, 2> const error{root_mean_squared, relative};
-
 #ifdef ASGARD_USE_MPI
+
+  std::array<P, 2> const error{root_mean_squared, relative};
   MPI_Comm local_comm;
   auto success =
       MPI_Comm_split_type(distro_handle.get_global_comm(), MPI_COMM_TYPE_SHARED,
@@ -487,6 +495,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
   return own_results();
 
 #else
+  ignore(element_segment_size);
   return own_results();
 #endif
 }
