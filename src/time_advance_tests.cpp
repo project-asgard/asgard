@@ -63,9 +63,9 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   int const num_ranks = 1;
 #endif
 
-  std::string const grid_str          = full_grid ? "-f" : "";
   std::vector<std::string> const args = [&additional_args, level, degree,
-                                         grid_str]() {
+                                         full_grid]() {
+    std::string const grid_str    = full_grid ? "-f" : "";
     std::vector<std::string> args = {"-l", std::to_string(level), "-d",
                                      std::to_string(degree), grid_str};
     args.insert(args.end(), additional_args.begin(), additional_args.end());
