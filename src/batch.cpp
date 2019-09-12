@@ -703,7 +703,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 // given a problem instance (pde/elem table)
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
-                           element_chunk const &chunk, fk::matrix<P> &A)
+                         element_chunk const &chunk, fk::matrix<P> &A)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
@@ -861,7 +861,7 @@ build_batches(PDE<double> const &pde, element_table const &elem_table,
 
 template void
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
-                      element_chunk const &chunk, fk::matrix<double> &A);
+                    element_chunk const &chunk, fk::matrix<double> &A);
 template void
 build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
-                      element_chunk const &chunk, fk::matrix<float> &A);
+                    element_chunk const &chunk, fk::matrix<float> &A);
