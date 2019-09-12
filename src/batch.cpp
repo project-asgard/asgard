@@ -784,8 +784,13 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
             A, global_row, global_row + k_tmp.nrows() - 1, global_col,
             global_col + k_tmp.ncols() - 1);
 
-        A_view = A_view + k_tmp;
-        A_view.print("A_view 2");
+        for (int j = 0; j < A_view.ncols(); j++)
+        {
+          for (int i = 0; i < A_view.nrows(); i++)
+          {
+            A_view(i, j) += k_tmp(i, j);
+          }
+        }
       }
     }
   }
