@@ -134,13 +134,13 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
-                           element_chunk const &chunk, fk::matrix<P> &A);
+                         element_chunk const &chunk, fk::matrix<P> &A);
 
 template<typename P>
 fk::matrix<P>
 build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
-                      int const connected_start    = 0,
-                      int const elements_per_batch = -1);
+                    int const connected_start    = 0,
+                    int const elements_per_batch = -1);
 
 extern template class batch<float>;
 extern template class batch<double>;
@@ -212,17 +212,17 @@ build_batches(PDE<double> const &pde, element_table const &elem_table,
 
 extern template fk::matrix<double>
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
-                      int const connected_start    = 0,
-                      int const elements_per_batch = -1);
+                    int const connected_start    = 0,
+                    int const elements_per_batch = -1);
 
 extern template fk::matrix<float>
 build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
-                      int const connected_start    = 0,
-                      int const elements_per_batch = -1);
+                    int const connected_start    = 0,
+                    int const elements_per_batch = -1);
 
 extern template void
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
-                      element_chunk const &chunk, fk::matrix<double> &A);
+                    element_chunk const &chunk, fk::matrix<double> &A);
 extern template void
 build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
-                      element_chunk const &chunk, fk::matrix<float> &A);
+                    element_chunk const &chunk, fk::matrix<float> &A);
