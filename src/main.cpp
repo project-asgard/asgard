@@ -196,7 +196,7 @@ int main(int argc, char **argv)
     {
       // std::cout << "USING IMPLICIT TIME ADVANCE" << std::endl;
       implicit_time_advance(*pde, table, initial_sources, host_space, chunks,
-                            time, dt);
+                            time, dt, true);
     }
     else
     {
