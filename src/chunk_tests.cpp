@@ -464,6 +464,7 @@ void copy_in_test(int const degree, int const level, PDE<P> const &pde,
 
   for (auto const &[rank, subgrid] : plan)
   {
+    ignore(rank);
     host_workspace<P> host_space(pde, subgrid);
 
     std::random_device rd;
@@ -519,6 +520,7 @@ void copy_out_test(int const level, int const degree, PDE<P> const &pde,
 
   for (auto const &[rank, grid] : plan)
   {
+    ignore(rank);
     host_workspace<P> host_space(pde, grid);
     int const limit_MB = 1000;
     auto const chunks =
@@ -712,7 +714,7 @@ void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
   // tol = epsilon * possible number of additions for an element * 10
   auto const tol = std::numeric_limits<P>::epsilon() * num_cols * 10;
   REQUIRE(result <= tol);
-};
+}
 
 template<typename P>
 void reduction_test(int const degree, int const level, PDE<P> const &pde,
@@ -727,6 +729,7 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde,
 
   for (auto const &[rank, grid] : plan)
   {
+    ignore(rank);
     host_workspace<P> host_space(pde, grid);
 
     int const limit_MB = 1000;
