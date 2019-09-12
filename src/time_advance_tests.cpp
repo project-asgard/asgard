@@ -17,7 +17,6 @@ struct distribution_test_init
     num_ranks                      = total_ranks;
   }
   ~distribution_test_init() { finalize_distribution(); }
-
   int get_my_rank() const { return my_rank; }
   int get_num_ranks() const { return num_ranks; }
 
@@ -40,9 +39,10 @@ void relaxed_comparison(fk::vector<P> const &first, fk::vector<P> const &second)
   };
   P const result =
       std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-  P const tol = std::numeric_limits<P>::epsilon() * 1e5;
 
-  REQUIRE(result <= tol);
+  P const tolerance = std::numeric_limits<P>::epsilon() *
+                      (std::is_same<P, double>::value ? 1e5 : 1e3);
+  REQUIRE(result <= tolerance);
 }
 
 int const num_steps          = 5;
