@@ -2415,7 +2415,9 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    auto const gen = [&dist, &mersenne_engine]() {
+      return dist(mersenne_engine);
+    };
 
     // create different matrices for each term/dim pairing
     std::vector<fk::matrix<TestType, mem_type::owner, resource::device>> A_mats;

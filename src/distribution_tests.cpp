@@ -410,3 +410,125 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
 #endif
   }
 }
+
+TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
+{
+  // in this case, the source vector is simply copied into dest
+  SECTION("single rank")
+  {
+    fk::vector<TestType> const source{1, 2, 3, 4, 5};
+    fk::vector<TestType> dest(source.size());
+    distribution_plan plan;
+    plan.emplace(0, element_subgrid(0, 1, 2, 3));
+    int const segment_size = 0;
+    int const my_rank      = 0;
+    prepare_inputs(source, dest, segment_size, plan, my_rank);
+    REQUIRE(source == dest);
+  }
+  SECTION("multiple rank")
+  {
+#ifdef ASGARD_USE_MPI
+
+    int const my_rank   = distrib_test_info.get_my_rank();
+    int const num_ranks = distrib_test_info.get_num_ranks();
+    if (my_rank < num_ranks)
+    {
+      int const degree        = 4;
+      int const level         = 6;
+      int const num_dims      = 2;
+      auto const segment_size = static_cast<int>(std::pow(degree, num_dims));
+
+      options const o = make_options(
+          {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+      element_table const table(o, num_dims);
+
+      // create the system vector
+      fk::vector<TestType> const fx = [&table, segment_size]() {
+        fk::vector<TestType> fx(table.size() * segment_size);
+        std::iota(fx.begin(), fx.end(), -1e6);
+        return fx;
+      }();
+
+      auto const plan = get_plan(num_ranks, table);
+      auto const grid = plan.at(my_rank);
+
+      int const input_start  = grid.row_start * segment_size;
+      int const input_end    = (grid.row_stop + 1) * segment_size - 1;
+      int const output_start = grid.col_start * segment_size;
+      int const output_end   = (grid.col_stop + 1) * segment_size - 1;
+      fk::vector<TestType> const my_input = fx.extract(input_start, input_end);
+      fk::vector<TestType> const gold = fx.extract(output_start, output_end);
+
+      fk::vector<TestType> result(gold.size());
+
+      prepare_inputs(my_input, result, segment_size, plan, my_rank);
+
+      REQUIRE(result == gold);
+    }
+
+#else
+    REQUIRE(true);
+#endif
+  }
+}
+
+TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
+{
+  SECTION("single rank")
+  {
+    fk::vector<TestType> const source{1, 2, 3, 4, 5};
+    distribution_plan plan;
+    plan.emplace(0, element_subgrid(0, 1, 2, 3));
+    int const segment_size = 0;
+    int const my_rank      = 0;
+    auto const result = gather_results(source, plan, my_rank, segment_size);
+    REQUIRE(source == fk::vector<TestType>(result));
+  }
+
+  SECTION("multiple rank")
+  {
+#ifdef ASGARD_USE_MPI
+
+    int const my_rank   = distrib_test_info.get_my_rank();
+    int const num_ranks = distrib_test_info.get_num_ranks();
+    if (my_rank < num_ranks)
+    {
+      int const degree   = 2;
+      int const level    = 2;
+      int const num_dims = 2;
+
+      options const o = make_options(
+          {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+      element_table const table(o, num_dims);
+      auto const plan         = get_plan(num_ranks, table);
+      auto const segment_size = static_cast<int>(std::pow(degree, num_dims));
+
+      // create the system vector
+      fk::vector<TestType> const fx = [&table, segment_size]() {
+        fk::vector<TestType> fx(table.size() * segment_size);
+        std::iota(fx.begin(), fx.end(), -1e6);
+        return fx;
+      }();
+
+      auto const grid = plan.at(my_rank);
+
+      int const my_start = grid.col_start * segment_size;
+      int const my_end   = (grid.col_stop + 1) * segment_size - 1;
+      fk::vector<TestType> const my_input = fx.extract(my_start, my_end);
+
+      std::vector<TestType> const results =
+          gather_results(my_input, plan, my_rank, segment_size);
+
+      if (my_rank == 0)
+      {
+        REQUIRE(fx == fk::vector<TestType>(results));
+      }
+
+#else
+    REQUIRE(true);
+#endif
+    }
+  }
+}
