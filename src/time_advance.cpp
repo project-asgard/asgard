@@ -160,13 +160,15 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::copy(host_space.x, host_space.x_orig);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
   host_space.x = host_space.x + host_space.scaled_source * dt;
-  if (first_time || update_system){
+  if (first_time || update_system)
+  {
     if (ipiv.size() != A.nrows())
       ipiv.resize(A.nrows());
     fm::gesv(A, host_space.x, ipiv);
     first_time = false;
   }
-  else{
+  else
+  {
     fm::getrs(A, host_space.x, ipiv);
   }
   fm::copy(host_space.x, host_space.fx);
