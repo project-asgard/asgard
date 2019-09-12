@@ -115,20 +115,22 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
 // template void gesv( int* n, int* nrhs, float* A, int* lda, int* ipiv,
 //                    float* b, int* ldb, int* info );
 template<typename P, mem_type amem, mem_type bmem>
-void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B)
+void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
+          std::vector<int> &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
 
   int rows_B = B.size();
   int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
   assert(cols_A == rows_B);
+  assert(rows_ipiv == rows_A);
 
   int lda = A.stride();
   int ldb = B.size();
 
-  printf(" lda = %d   ldb = %d\n", lda, ldb);
-  std::vector<int> ipiv(rows_A);
   int info;
   lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
                      &ldb, &info);
@@ -137,6 +139,42 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B)
     printf("The diagonal element of the triangular factor of A,\n");
     printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
     printf("the solution could not be computed.\n");
+    exit(1);
+  }
+}
+
+// getrs - Solve Ax=B using LU factorization
+// A is assumed to have already beem factored using a
+// previous call to gesv() or getrf() where ipiv is
+// computed.
+// void getrs(char *trans, int *n, int *nrhs, double *A,
+//            int *lda, int *ipiv, double *b, int *ldb,
+//            int *info);
+//
+template<typename P, mem_type amem, mem_type bmem>
+void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
+           std::vector<int> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  assert(cols_A == rows_B);
+  assert(rows_ipiv == rows_A);
+
+  char trans = 'N';
+  int lda    = A.stride();
+  int ldb    = B.size();
+
+  int info;
+  lib_dispatch::getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
+                      B.data(), &ldb, &info);
+  if (info < 0)
+  {
+    printf("Argument %d in call to getrs() has an illegal value\n", -info);
     exit(1);
   }
 }
