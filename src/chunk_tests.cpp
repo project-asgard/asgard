@@ -452,15 +452,15 @@ void validate_copy_in(PDE<P> const &pde, element_subgrid const &grid,
 }
 
 template<typename P>
-void copy_in_test(int const degree, int const level, PDE<P> const &pde,
-                  int const num_ranks)
+void copy_in_test(int const degree, int const level, PDE<P> const &pde)
 {
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
 
   element_table const elem_table(o, pde.num_dims);
 
-  auto const plan = get_plan(num_ranks, elem_table);
+  int const num_ranks = 1;
+  auto const plan     = get_plan(num_ranks, elem_table);
 
   for (auto const &[rank, subgrid] : plan)
   {
@@ -509,14 +509,14 @@ void validate_copy_out(PDE<P> const &pde, element_subgrid const &grid,
 }
 
 template<typename P>
-void copy_out_test(int const level, int const degree, PDE<P> const &pde,
-                   int const num_ranks)
+void copy_out_test(int const level, int const degree, PDE<P> const &pde)
 {
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
 
   element_table const elem_table(o, pde.num_dims);
-  auto const plan = get_plan(num_ranks, elem_table);
+  int const num_ranks = 1;
+  auto const plan     = get_plan(num_ranks, elem_table);
 
   for (auto const &[rank, grid] : plan)
   {
@@ -554,109 +554,52 @@ void copy_out_test(int const level, int const degree, PDE<P> const &pde,
 
 TEMPLATE_TEST_CASE("chunk data management functions", "[chunk]", float, double)
 {
-  SECTION("copy in deg 2/lev 4, continuity 1, 1 rank")
+  SECTION("copy in deg 2/lev 4, continuity 1")
   {
-    int const degree    = 2;
-    int const level     = 4;
-    int const num_ranks = 1;
+    int const degree = 2;
+    int const level  = 4;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    copy_in_test(degree, level, *pde, num_ranks);
+    copy_in_test(degree, level, *pde);
   }
-  SECTION("copy in deg 2/lev 4, continuity 1, 4 ranks")
+
+  SECTION("copy in deg 4/lev 5, continuity 3")
   {
-    int const degree    = 2;
-    int const level     = 4;
-    int const num_ranks = 4;
+    int const degree = 4;
+    int const level  = 5;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    copy_in_test(degree, level, *pde);
+  }
+
+  SECTION("copy in deg 3/lev 2, continuity 6")
+  {
+    int const degree = 3;
+    int const level  = 2;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    copy_in_test(degree, level, *pde);
+  }
+
+  SECTION("copy out deg 2/lev 4, continuity 1")
+  {
+    int const degree = 2;
+    int const level  = 4;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    copy_in_test(degree, level, *pde, num_ranks);
+    copy_out_test(degree, level, *pde);
   }
 
-  SECTION("copy in deg 4/lev 5, continuity 3, 1 rank")
+  SECTION("copy out deg 4/lev 5, continuity 3")
   {
-    int const degree    = 4;
-    int const level     = 5;
-    int const num_ranks = 1;
+    int const degree = 4;
+    int const level  = 5;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    copy_in_test(degree, level, *pde, num_ranks);
+    copy_out_test(degree, level, *pde);
   }
 
-  SECTION("copy in deg 4/lev 5, continuity 3, 6 ranks")
+  SECTION("copy out deg 3/lev 2, continuity 6")
   {
-    int const degree    = 4;
-    int const level     = 5;
-    int const num_ranks = 6;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    copy_in_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("copy in deg 4/lev 2, continuity 6, 1 rank")
-  {
-    int const degree    = 4;
-    int const level     = 2;
-    int const num_ranks = 1;
+    int const degree = 3;
+    int const level  = 2;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    copy_in_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("copy in deg 4/lev 2, continuity 6, 9 ranks")
-  {
-    int const degree    = 4;
-    int const level     = 2;
-    int const num_ranks = 9;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    copy_in_test(degree, level, *pde, num_ranks);
-  }
-  SECTION("copy out deg 2/lev 4, continuity 1, 1 rank")
-  {
-    int const degree    = 2;
-    int const level     = 4;
-    int const num_ranks = 1;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    copy_out_test(degree, level, *pde, num_ranks);
-  }
-  SECTION("copy out deg 2/lev 4, continuity 1, 4 ranks")
-  {
-    int const degree    = 2;
-    int const level     = 4;
-    int const num_ranks = 4;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    copy_out_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("copy out deg 4/lev 5, continuity 3, 1 rank")
-  {
-    int const degree    = 4;
-    int const level     = 5;
-    int const num_ranks = 1;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    copy_out_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("copy out deg 4/lev 5, continuity 3, 6 ranks")
-  {
-    int const degree    = 4;
-    int const level     = 5;
-    int const num_ranks = 6;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    copy_out_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("copy out deg 4/lev 2, continuity 6, 1 rank")
-  {
-    int const degree    = 4;
-    int const level     = 2;
-    int const num_ranks = 1;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    copy_out_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("copy out deg 4/lev 2, continuity 6, 9 ranks")
-  {
-    int const degree    = 4;
-    int const level     = 2;
-    int const num_ranks = 9;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    copy_out_test(degree, level, *pde, num_ranks);
+    copy_out_test(degree, level, *pde);
   }
 }
 
@@ -717,15 +660,15 @@ void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
 }
 
 template<typename P>
-void reduction_test(int const degree, int const level, PDE<P> const &pde,
-                    int const num_ranks)
+void reduction_test(int const degree, int const level, PDE<P> const &pde)
 {
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
 
   element_table const elem_table(o, pde.num_dims);
 
-  auto const plan = get_plan(num_ranks, elem_table);
+  int const num_ranks = 1;
+  auto const plan     = get_plan(num_ranks, elem_table);
 
   for (auto const &[rank, grid] : plan)
   {
@@ -758,39 +701,26 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde,
 
 TEMPLATE_TEST_CASE("chunk reduction function", "[chunk]", float, double)
 {
-  SECTION("reduction deg 2/lev 4, continuity 1, 1 rank")
+  SECTION("reduction deg 2/lev 4, continuity 1")
   {
     int const degree    = 2;
     int const level     = 4;
-    int const num_ranks = 1;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    reduction_test(degree, level, *pde, num_ranks);
+    reduction_test(degree, level, *pde);
   }
 
-  SECTION("reduction deg 2/lev 4, continuity 1, 4 ranks")
+  SECTION("reduction deg 4/lev 5, continuity 3")
   {
-    int const degree    = 2;
-    int const level     = 4;
-    int const num_ranks = 4;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    reduction_test(degree, level, *pde, num_ranks);
-  }
-
-  SECTION("reduction deg 4/lev 5, continuity 3, 1 rank")
-  {
-    int const degree    = 4;
-    int const level     = 5;
-    int const num_ranks = 1;
+    int const degree = 4;
+    int const level  = 5;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    reduction_test(degree, level, *pde, num_ranks);
+    reduction_test(degree, level, *pde);
   }
-
-  SECTION("reduction deg 4/lev 5, continuity 3, 6 ranks")
+  SECTION("reduction deg 3/lev 2, continuity 6")
   {
-    int const degree    = 4;
-    int const level     = 5;
-    int const num_ranks = 6;
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    reduction_test(degree, level, *pde, num_ranks);
+    int const degree = 3;
+    int const level  = 2;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    reduction_test(degree, level, *pde);
   }
 }
