@@ -532,3 +532,24 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
     }
   }
 }
+
+TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", float, double)
+{
+  int const my_rank   = distrib_test_info.get_my_rank();
+  int const num_ranks = distrib_test_info.get_num_ranks();
+  if (my_rank < num_ranks)
+  {
+    TestType const my_rmse      = static_cast<TestType>(my_rank);
+    TestType const my_rel_error = static_cast<TestType>(my_rank + num_ranks);
+    auto const [rmse_vect, relative_error_vect] =
+        gather_errors(my_rmse, my_rel_error);
+    if (my_rank == 0)
+    {
+      for (int i = 0; i < num_ranks; ++i)
+      {
+        REQUIRE(rmse_vect(i) == i);
+        REQUIRE(relative_error_vect(i) == i + num_ranks);
+      }
+    }
+  }
+}
