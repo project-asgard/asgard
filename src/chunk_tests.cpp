@@ -498,7 +498,7 @@ void validate_copy_out(PDE<P> const &pde, element_subgrid const &grid,
   auto const y_range   = rows_in_chunk(chunk);
   auto const num_elems = (y_range.stop - y_range.start + 1) * elem_size;
 
-  fk::vector<P> const output_copy(rank_space.batch_output);
+  fk::vector<P> const output_copy(rank_space.batch_output.clone_onto_host());
   for (int i = 0; i < num_elems; ++i)
   {
     int const fx_index = i + grid.to_local_row(y_range.start) * elem_size;
@@ -703,8 +703,8 @@ TEMPLATE_TEST_CASE("chunk reduction function", "[chunk]", float, double)
 {
   SECTION("reduction deg 2/lev 4, continuity 1")
   {
-    int const degree    = 2;
-    int const level     = 4;
+    int const degree = 2;
+    int const level  = 4;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     reduction_test(degree, level, *pde);
   }
