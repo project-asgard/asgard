@@ -525,18 +525,23 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
       {
         REQUIRE(fx == fk::vector<TestType>(results));
       }
-
+    }
 #else
     REQUIRE(true);
 #endif
-    }
   }
 }
 
 TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", float, double)
 {
+#ifdef ASGARD_USE_MPI
   int const my_rank   = distrib_test_info.get_my_rank();
   int const num_ranks = distrib_test_info.get_num_ranks();
+#else
+  int const my_rank = 0;
+  int const num_ranks = 1;
+#endif
+
   if (my_rank < num_ranks)
   {
     TestType const my_rmse      = static_cast<TestType>(my_rank);

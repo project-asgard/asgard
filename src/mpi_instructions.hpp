@@ -1,125 +1,72 @@
+#pragma once
+
+#include "chunk.hpp"
+#include "distribution.hpp"
 #include <vector>
 
-enum class mpi_message_enum
+/* utility class for round robin selection */
+class round_robin_wheel
+{
+public:
+  round_robin_wheel(int const size) : size(size), current_index(0) {}
+  int spin();
+
+private:
+  int const size;
+  int current_index;
+};
+
+/* a message can either be a send or a receive  */
+/* target is the sender rank for a receive, and receive rank for send  */
+/* the range describes the global indices (inclusive) that will be transmitted
+ */
+enum class message_direction
 {
   send,
   receive
 };
 
-/* utility class for round robin selection */
-class row_round_robin_wheel
+struct message
 {
-public:
-  row_round_robin_wheel(int size);
-
-  int spin();
-
-private:
-  int size;
-
-  int current_index;
+  message(message_direction const message_dir, int const target, limits<> range)
+      : message_dir(message_dir), target(target), range(range)
+  {}
+  message_direction const message_dir;
+  int const target;
+  limits<> range;
 };
 
-/* used to describe a range of elements and a node from which to obtain the
- * range */
-class mpi_node_and_range
-{
-public:
-  mpi_node_and_range(int linear_index, int start, int stop);
+/* the rows and columns for subgrid( row, column ) owned by rank( row, column )
+   include rows: [ row_boundaries[ row - 1 ] + 1, row_boundaries[ row ] ]
+   inclusive and columns: [ column_boundaries[ col - 1 ] + 1, column_boundaries[
+   col ] ] inclusive. The first row and column are assumed to start at 0. */
 
-  const int linear_index;
-
-  const int start;
-
-  const int stop;
-};
-
-/* an mpi communication mpi_message can either be a send or a receive. */
-class mpi_message
-{
-public:
-  mpi_message(mpi_message_enum mpi_message_type, class mpi_node_and_range &nar);
-
-  const mpi_message_enum mpi_message_type;
-
-  const class mpi_node_and_range nar;
-};
-
-/* contains a list of instructions to execute an ordered, mixed sequence of send
-   and receive calls for an mpi rank to follow. If they are called in the order
-   they appear in the list, the entire system is guaranteed not to deadlock */
-class mpi_instruction
-{
-  /* functions */
-public:
-  mpi_instruction() { return; };
-
-  void queue_mpi_message(class mpi_message &item);
-
-  const std::vector<class mpi_message> &mpi_messages_in_order() const
-  {
-    return mpi_message;
-  };
-
-  /* variables */
-private:
-  std::vector<class mpi_message> mpi_message;
-};
-
-/* partitions a matrix and assigns a process to each tile */
-/* the rows and columns for tile( row, column ) owned by node( row, column )
-   include rows: [ r_stop[ row - 1 ] + 1, r_stop[ row ] ] inclusive and
-   columns: [ c_stop[ col - 1 ] + 1, c_stop[ col ] ] inclusive.
-   The first row and column are assumed to start at 0. */
-
-/* Assuming the partitioning above, this class creates a set of instructions for
-   each process.*/
+/* Assuming the partitioning above, generate_messages() creates a set of
+   instructions for each rank.*/
 
 /* The communication for this module follows the access pattern for a
-   matrix-vector multiply in a loop: Ax = b in which all tiles on row "i" have
-   the same data. Specifically, any tile on tile row "i" contains a range of
-   elements from the vector "x" corresponding to the rows of that tile. */
-class mpi_instructions
-{
-  /* functions */
-public:
-  mpi_instructions(const std::vector<int> &&r_stop,
-                   const std::vector<int> &&c_stop);
+   matrix-vector multiply in a loop: Ax = b in which all subgrid on row "i" have
+   the same data. */
 
-  const class mpi_instruction &get_mpi_instructions(int linear_index) const
-  {
-    return mpi_instruction[linear_index];
-  };
+/* the vector is num_subgrid_columns in length. Element "x" in this vector
+ * describes the subgrid rows holding data that members of subgrid column "x"
+ * need to receive, as well as the global indices of that data in the solution
+ * vector  */
+using row_to_range = std::map<int, limits<>>;
+std::vector<row_to_range>
+generate_row_intervals(std::vector<int> const &row_boundaries,
+                       std::vector<int> const &column_boundaries);
 
-  const class mpi_instruction &get_mpi_instructions(int row, int col) const
-  {
-    return mpi_instruction[row * c_stop.size() + col];
-  };
+std::vector<std::vector<message>> const
+intervals_to_messages(std::vector<row_to_range> const &row_intervals,
+                      std::vector<int> const &row_boundaries,
+                      std::vector<int> const &column_boundaries);
 
-  const std::vector<int> &get_c_stop() const { return c_stop; };
+/* given a distribution plan, map each rank to a list of messages */
+/* index "x" of this vector contains the messages that must be transmitted
+ * for rank "x" */
 
-  const std::vector<int> &get_r_stop() const { return r_stop; };
-
-  int n_tile_rows() const { return r_stop.size(); };
-
-  int n_tile_cols() const { return c_stop.size(); };
-
-  const std::vector<std::vector<class mpi_node_and_range>>
-  gen_row_space_intervals();
-
-  /* functions */
-private:
-  void gen_mpi_messages(const std::vector<std::vector<class mpi_node_and_range>>
-                            &row_space_intervals);
-
-  /* variables */
-private:
-  /* each rank has an mpi_instruction object in this vector */
-  std::vector<class mpi_instruction> mpi_instruction;
-
-  std::vector<class row_round_robin_wheel> row_row_round_robin_wheel;
-
-  const std::vector<int> r_stop;
-
-  const std::vector<int> c_stop;
-};
+/* if the messages are invoked in order, they are guaranteed not
+ * to produce a deadlock */
+std::vector<std::vector<message>> const
+generate_messages(distribution_plan const &plan);
