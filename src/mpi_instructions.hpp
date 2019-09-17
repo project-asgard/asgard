@@ -52,13 +52,13 @@ struct message
  * describes the subgrid rows holding data that members of subgrid column "x"
  * need to receive, as well as the global indices of that data in the solution
  * vector  */
-using row_to_range = std::map<int, limits<>>;
-std::vector<row_to_range>
-generate_row_intervals(std::vector<int> const &row_boundaries,
+using rows_to_range = std::map<int, limits<>>;
+std::vector<rows_to_range>
+find_column_dependencies(std::vector<int> const &row_boundaries,
                        std::vector<int> const &column_boundaries);
 
 std::vector<std::vector<message>> const
-intervals_to_messages(std::vector<row_to_range> const &row_intervals,
+dependencies_to_messages(std::vector<rows_to_range> const &row_intervals,
                       std::vector<int> const &row_boundaries,
                       std::vector<int> const &column_boundaries);
 

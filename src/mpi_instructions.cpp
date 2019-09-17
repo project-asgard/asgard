@@ -14,14 +14,14 @@ int round_robin_wheel::spin()
   return n;
 }
 
-std::vector<row_to_range>
-generate_row_intervals(std::vector<int> const &row_boundaries,
+std::vector<rows_to_range>
+find_column_dependencies(std::vector<int> const &row_boundaries,
                        std::vector<int> const &column_boundaries)
 {
   // contains an element for each subgrid column describing
   // the subgrid rows, and associated ranges, that the column
   // members will need information from
-  std::vector<row_to_range> row_intervals(column_boundaries.size());
+  std::vector<rows_to_range> column_dependencies(column_boundaries.size());
 
   // start at the first row and column interval
   // col_start is the first index in this column interval
@@ -41,7 +41,7 @@ generate_row_intervals(std::vector<int> const &row_boundaries,
       {
         // emplace the section of the row interval that falls within the column
         // interval
-        row_intervals[c].emplace(r, limits<>(std::max(row_start, col_start),
+        column_dependencies[c].emplace(r, limits<>(std::max(row_start, col_start),
                                              std::min(row_end, column_end)));
       }
 
@@ -52,16 +52,16 @@ generate_row_intervals(std::vector<int> const &row_boundaries,
     col_start = column_end + 1;
   }
 
-  return row_intervals;
+  return column_dependencies;
 }
 
 std::vector<std::vector<message>> const
-intervals_to_messages(std::vector<row_to_range> const &row_intervals,
+dependencies_to_messages(std::vector<rows_to_range> const &col_dependencies,
                       std::vector<int> const &row_boundaries,
                       std::vector<int> const &column_boundaries)
 {
   assert(column_boundaries.size() == row_boundaries.size());
-  assert(row_intervals.size() == column_boundaries.size());
+  assert(col_dependencies.size() == column_boundaries.size());
 
   /* initialize a round robin selector for each row */
   std::vector<round_robin_wheel> row_round_robin_wheels;
@@ -75,13 +75,13 @@ intervals_to_messages(std::vector<row_to_range> const &row_intervals,
                                              column_boundaries.size());
 
   /* iterate over each subgrid column's input requirements */
-  for (int c = 0; c < static_cast<int>(row_intervals.size()); c++)
+  for (int c = 0; c < static_cast<int>(col_dependencies.size()); c++)
   {
-    /* interval map describes the subgrid row each column member will need
+    /* dependencies describes the subgrid rows each column member will need
      * to communicate with, as well as the solution vector ranges needed
      * from each. these requirements are the same for every column member */
-    row_to_range const interval_map = row_intervals[c];
-    for (auto const &[row, limits] : interval_map)
+    rows_to_range const dependencies = col_dependencies[c];
+    for (auto const &[row, limits] : dependencies)
     {
       /* iterate every rank in the subgrid column */
       for (int r = 0; r < static_cast<int>(row_boundaries.size()); ++r)
@@ -143,11 +143,11 @@ generate_messages(distribution_plan const plan)
   }
 
   /* describe the rows/ranges each column needs to communicate with */
-  auto const row_intervals =
-      generate_row_intervals(row_boundaries, col_boundaries);
+  auto const col_dependencies =
+      find_column_dependencies(row_boundaries, col_boundaries);
   /* finally, build message list */
   auto const messages =
-      intervals_to_messages(row_intervals, row_boundaries, col_boundaries);
+      dependencies_to_messages(col_dependencies, row_boundaries, col_boundaries);
 
   return messages;
 }
