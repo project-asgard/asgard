@@ -1,15 +1,12 @@
+
+#include <map>
+
+#include "chunk.hpp"
 #include "mpi_instructions.hpp"
-#include <iostream>
 
-row_round_robin_wheel::row_round_robin_wheel(int size)
-    : size(size), current_index(0)
+int round_robin_wheel::spin()
 {
-  return;
-}
-
-int row_round_robin_wheel::spin()
-{
-  int n = current_index++;
+  int const n = current_index++;
 
   if (current_index == size)
     current_index = 0;
@@ -17,166 +14,140 @@ int row_round_robin_wheel::spin()
   return n;
 }
 
-mpi_node_and_range::mpi_node_and_range(int linear_index, int start, int stop)
-    : linear_index(linear_index), start(start), stop(stop)
+std::vector<row_to_range>
+generate_row_intervals(std::vector<int> const &row_boundaries,
+                       std::vector<int> const &column_boundaries)
 {
-  return;
-}
-
-mpi_message::mpi_message(mpi_message_enum mpi_message_type,
-                         class mpi_node_and_range &nar)
-    : mpi_message_type(mpi_message_type), nar(nar)
-{
-  return;
-}
-
-void mpi_instruction::queue_mpi_message(class mpi_message &item)
-{
-  mpi_message.push_back(item);
-
-  return;
-}
-
-// this function describes each column interval as a combination of row
-// intervals
-std::vector<std::vector<mpi_node_and_range>> const
-mpi_instructions::gen_row_space_intervals()
-{
-  // v is the row_space_intervals vector.
-  // it contains an element for each column
-  std::vector<std::vector<mpi_node_and_range>> row_space_intervals(
-      c_stop.size());
+  // contains an element for each subgrid column describing
+  // the subgrid rows, and associated ranges, that the column
+  // members will need information from
+  std::vector<row_to_range> row_intervals(column_boundaries.size());
 
   // start at the first row and column interval
-  int c_start = 0;
-  for (int c = 0; c < static_cast<int>(c_stop.size()); ++c)
+  // col_start is the first index in this column interval
+  int col_start = 0;
+  for (int c = 0; c < static_cast<int>(column_boundaries.size()); ++c)
   {
+    int row_start = 0;
     // the stop vectors represent the end of a range
-    int const c_end = c_stop[c];
-    int r_start     = 0;
-    for (int r = 0; r < static_cast<int>(r_stop.size()); ++r)
+    int const column_end = column_boundaries[c];
+    for (int r = 0; r < static_cast<int>(row_boundaries.size()); ++r)
     {
-      int const r_end = r_stop[r];
+      int const row_end = row_boundaries[r];
 
       // if the row interval falls within the column interval
-      if ((c_start >= r_start && c_start <= r_end) ||
-          (r_start >= c_start && r_start <= c_end))
+      if ((col_start >= row_start && col_start <= row_end) ||
+          (row_start >= col_start && row_start <= column_end))
       {
         // emplace the section of the row interval that falls within the column
         // interval
-        row_space_intervals[c].emplace_back(r, std::max(r_start, c_start),
-                                            std::min(r_end, c_end));
+        row_intervals[c].emplace(r, limits<>(std::max(row_start, col_start),
+                                             std::min(row_end, column_end)));
       }
 
       // the beginning of the next interval is one more than the end of the
       // previous
-      r_start = r_end + 1;
+      row_start = row_end + 1;
     }
-    c_start = c_end + 1;
+    col_start = column_end + 1;
   }
 
-  return row_space_intervals;
+  return row_intervals;
 }
 
-/* take the output of gen_row_space_intervals() and construct mpi messages to
-   move the specified ranges to the nodes they need to get to */
-void mpi_instructions::gen_mpi_messages(
-    const std::vector<std::vector<class mpi_node_and_range>>
-        &row_space_intervals)
+std::vector<std::vector<message>> const
+intervals_to_messages(std::vector<row_to_range> const &row_intervals,
+                      std::vector<int> const &row_boundaries,
+                      std::vector<int> const &column_boundaries)
 {
-  /* iterate over every column space interval */
-  for (int c = 0; c < (int)row_space_intervals.size(); c++)
+  assert(column_boundaries.size() == row_boundaries.size());
+  assert(row_intervals.size() == column_boundaries.size());
+
+  /* initialize a round robin selector for each row */
+  std::vector<round_robin_wheel> row_round_robin_wheels;
+  for (int i = 0; i < static_cast<int>(row_boundaries.size()); ++i)
   {
-    /* this vector contains a set of row intervals and row interval
-       sub-intervals that equal column interval "c" */
-    std::vector<class mpi_node_and_range> nar_vec = row_space_intervals[c];
+    row_round_robin_wheels.emplace_back(column_boundaries.size());
+  }
 
-    /* every node in the same tile column needs the data described by the vector
-     * above */
-    for (int j = 0; j < (int)nar_vec.size(); j++)
+  /* this vector contains lists of messages indexed by rank */
+  std::vector<std::vector<message>> messages(row_boundaries.size() *
+                                             column_boundaries.size());
+
+  /* iterate over each subgrid column's input requirements */
+  for (int c = 0; c < static_cast<int>(row_intervals.size()); c++)
+  {
+    /* interval map describes the subgrid row each column member will need
+     * to communicate with, as well as the solution vector ranges needed
+     * from each. these requirements are the same for every column member */
+    row_to_range const interval_map = row_intervals[c];
+    for (auto const &[row, limits] : interval_map)
     {
-      /* the sub-range described by the node and range below has a corresponding
-         send/receive pair */
-      /* the linear_index field of this object indicates a tile row - each
-         element in the tile row has the same data */
-      class mpi_node_and_range &nar = nar_vec[j];
-
-      /* iterate every node in the tile column */
-      for (int r = 0; r < (int)r_stop.size(); r++)
+      /* iterate every rank in the subgrid column */
+      for (int r = 0; r < static_cast<int>(row_boundaries.size()); ++r)
       {
         /* construct the receive item */
-        /* receiving_linear_index is the node that will be receiving this range
-         */
-        int receiving_linear_index = r * c_stop.size() + c;
+        int const receiver_rank = r * column_boundaries.size() + c;
 
-        class mpi_instruction &receiving_node =
-            mpi_instruction[receiving_linear_index];
+        /* if receiver_rank has the data it needs locally, it will copy from its
+         * own output otherwise, use round robin wheel to select a sender from
+         * another row - every member of the row has the same data */
+        int const sender_rank = [row = row, r, receiver_rank,
+                                 &column_boundaries,
+                                 &wheel = row_round_robin_wheels[row]]() {
+          if (row == r)
+          {
+            return receiver_rank;
+          }
+          return static_cast<int>(row * column_boundaries.size() +
+                                  wheel.spin());
+        }();
 
-        /* from_linear index is the node that will be sending the range to
-           receiving_linear_index*/
-        /* by default, assume that this node already has the data */
-        int from_linear_index = receiving_linear_index;
+        /* add message to the receiver's message list */
+        message const incoming_message(message_direction::receive, sender_rank,
+                                       limits);
+        messages[receiver_rank].push_back(incoming_message);
 
-        /* if it does not, spin the round robin row wheel to select a node from
-         */
-        /* all nodes in the same row have the data it needs, so round robin
-           selection of a node from the correct row ensures balanced send
-           operations */
-        if (nar.linear_index != r)
-        {
-          from_linear_index = nar.linear_index * c_stop.size() +
-                              row_row_round_robin_wheel[r].spin();
-        }
-
-        /* now that the correct sender has been determined, create a
-           node_and_range from the sender and add it to the receiver's list of
-           send/receive items */
-        class mpi_node_and_range incoming_range(from_linear_index, nar.start,
-                                                nar.stop);
-
-        class mpi_message incoming_message(mpi_message_enum::receive,
-                                           incoming_range);
-
-        receiving_node.queue_mpi_message(incoming_message);
-
-        /* construct the corresponding send item */
-        class mpi_instruction &sending_node =
-            mpi_instruction[from_linear_index];
-
-        class mpi_node_and_range outgoing_range(receiving_linear_index,
-                                                nar.start, nar.stop);
-
-        class mpi_message outgoing_message(mpi_message_enum::send,
-                                           outgoing_range);
-
-        sending_node.queue_mpi_message(outgoing_message);
+        /* construct and enqeue the corresponding send item */
+        message const outgoing_message(message_direction::send, receiver_rank,
+                                       limits);
+        messages[sender_rank].push_back(outgoing_message);
       }
     }
   }
 
-  return;
+  return messages;
 }
 
-mpi_instructions::mpi_instructions(const std::vector<int> &&r_stop,
-                                   const std::vector<int> &&c_stop)
-    : r_stop(r_stop), c_stop(c_stop)
+std::vector<std::vector<message>> const
+generate_messages(distribution_plan const plan)
 {
-  /* total number of subgrids, each owned by a process node */
-  mpi_instruction.resize(r_stop.size() * c_stop.size());
+  /* first, determine the subgrid tiling for this plan */
+  std::vector<int> row_boundaries;
+  std::vector<int> col_boundaries;
 
-  /* create row row_round_robin_wheel */
-  row_row_round_robin_wheel.reserve(r_stop.size());
+  auto const num_cols = get_num_subgrid_cols(plan.size());
+  assert(plan.size() % num_cols == 0);
+  auto const num_rows = static_cast<int>(plan.size()) / num_cols;
 
-  for (int i = 0; i < (int)r_stop.size(); i++)
+  for (int i = 0; i < num_rows; ++i)
   {
-    row_row_round_robin_wheel.push_back(c_stop.size());
+    element_subgrid const &grid = plan.at(i * num_cols);
+    row_boundaries.push_back(grid.row_stop);
   }
 
-  const std::vector<std::vector<class mpi_node_and_range>> row_space_intervals =
-      gen_row_space_intervals();
+  for (int i = 0; i < num_cols; ++i)
+  {
+    element_subgrid const &grid = plan.at(i);
+    col_boundaries.push_back(grid.col_stop);
+  }
 
-  /* generate mpi_message lists for each process node */
-  gen_mpi_messages(row_space_intervals);
+  /* describe the rows/ranges each column needs to communicate with */
+  auto const row_intervals =
+      generate_row_intervals(row_boundaries, col_boundaries);
+  /* finally, build message list */
+  auto const messages =
+      intervals_to_messages(row_intervals, row_boundaries, col_boundaries);
 
-  return;
+  return messages;
 }

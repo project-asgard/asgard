@@ -273,7 +273,7 @@ int main(int argc, char **argv)
   auto const final_result =
       gather_results(host_space.x, plan, my_rank, segment_size);
 
-  // temp
+  // FIXME
   fk::vector<prec> ans(final_result);
   if (!my_rank)
     ans.print();

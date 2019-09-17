@@ -206,23 +206,23 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 template<typename P>
 static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
                           element_subgrid const &my_grid,
-                          mpi_message const &message, int const segment_size)
+                          message const &message, int const segment_size)
 {
   assert(segment_size > 0);
-  if (message.mpi_message_type == mpi_message_enum::send)
+  if (message.message_dir == message_direction::send)
   {
     int64_t const output_start =
-        static_cast<int64_t>(my_grid.to_local_row(message.nar.start)) *
+        static_cast<int64_t>(my_grid.to_local_row(message.range.start)) *
         segment_size;
     int64_t const output_end =
-        static_cast<int64_t>(my_grid.to_local_row(message.nar.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_row(message.range.stop) + 1) *
             segment_size -
         1;
     int64_t const input_start =
-        static_cast<int64_t>(my_grid.to_local_col(message.nar.start)) *
+        static_cast<int64_t>(my_grid.to_local_col(message.range.start)) *
         segment_size;
     int64_t const input_end =
-        static_cast<int64_t>(my_grid.to_local_col(message.nar.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_col(message.range.stop) + 1) *
             segment_size -
         1;
 
@@ -239,7 +239,7 @@ static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
 template<typename P>
 static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
                              element_subgrid const &my_grid,
-                             mpi_message const &message, int const segment_size)
+                             message const &message, int const segment_size)
 {
 #ifdef ASGARD_USE_MPI
   assert(segment_size > 0);
@@ -249,13 +249,13 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   MPI_Comm const communicator = distro_handle.get_global_comm();
 
   int const mpi_tag = 0;
-  if (message.mpi_message_type == mpi_message_enum::send)
+  if (message.message_dir == message_direction::send)
   {
     auto const output_start =
-        static_cast<int64_t>(my_grid.to_local_row(message.nar.start)) *
+        static_cast<int64_t>(my_grid.to_local_row(message.range.start)) *
         segment_size;
     auto const output_end =
-        static_cast<int64_t>(my_grid.to_local_row(message.nar.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_row(message.range.stop) + 1) *
             segment_size -
         1;
 
@@ -263,25 +263,25 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
                                                output_end);
 
     auto const success =
-        MPI_Send((void *)window.data(), window.size(), mpi_type,
-                 message.nar.linear_index, mpi_tag, communicator);
+        MPI_Send((void *)window.data(), window.size(), mpi_type, message.target,
+                 mpi_tag, communicator);
     assert(success == 0);
   }
   else
   {
     auto const input_start =
-        static_cast<int64_t>(my_grid.to_local_col(message.nar.start)) *
+        static_cast<int64_t>(my_grid.to_local_col(message.range.start)) *
         segment_size;
     auto const input_end =
-        static_cast<int64_t>(my_grid.to_local_col(message.nar.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_col(message.range.stop) + 1) *
             segment_size -
         1;
 
     fk::vector<P, mem_type::view> window(dest, input_start, input_end);
 
-    auto const success = MPI_Recv((void *)window.data(), window.size(),
-                                  mpi_type, message.nar.linear_index,
-                                  MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+    auto const success =
+        MPI_Recv((void *)window.data(), window.size(), mpi_type, message.target,
+                 MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
     assert(success == 0);
   }
 #else
@@ -306,35 +306,15 @@ void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
   }
 
   // build communication plan
-  std::vector<int> row_boundaries;
-  std::vector<int> col_boundaries;
-
-  auto const num_cols = get_num_subgrid_cols(plan.size());
-  assert(plan.size() % num_cols == 0);
-  auto const num_rows = static_cast<int>(plan.size()) / num_cols;
-
-  for (int i = 0; i < num_rows; ++i)
-  {
-    element_subgrid const &grid = plan.at(i * num_cols);
-    row_boundaries.push_back(grid.row_stop);
-  }
-
-  for (int i = 0; i < num_cols; ++i)
-  {
-    element_subgrid const &grid = plan.at(i);
-    col_boundaries.push_back(grid.col_stop);
-  }
-
-  mpi_instructions const message_list(std::move(row_boundaries),
-                                      std::move(col_boundaries));
+  auto const message_lists = generate_messages(plan);
 
   // call send/recv
   auto const &my_subgrid = plan.at(my_rank);
-  auto const messages    = message_list.get_mpi_instructions(my_rank);
+  auto const messages    = message_lists[my_rank];
 
-  for (auto const &message : messages.mpi_messages_in_order())
+  for (auto const &message : messages)
   {
-    if (message.nar.linear_index == my_rank)
+    if (message.target == my_rank)
     {
       copy_to_input(source, dest, my_subgrid, message, segment_size);
       continue;
