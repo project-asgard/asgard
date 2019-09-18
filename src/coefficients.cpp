@@ -71,7 +71,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
 
   // get quadrature points and quadrature_weights.
   // we do the two-step store because we cannot have 'static' bindings
-  static const auto legendre_values =
+  static auto const legendre_values =
       legendre_weights<double>(quad_num, -1.0, 1.0);
   auto const [quadrature_points, quadrature_weights] = legendre_values;
   auto const [legendre_poly_L, legendre_poly_R]      = [&]() {
