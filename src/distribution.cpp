@@ -6,9 +6,6 @@
 #include "chunk.hpp"
 #include "lib_dispatch.hpp"
 
-// FIXME temp
-#include "mpi_instructions.hpp"
-
 #ifdef ASGARD_USE_MPI
 struct distribution_handler
 {
@@ -157,6 +154,186 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
   }
 
   return plan;
+}
+
+/* this function determines the subgrid row dependencies for each subgrid column
+ *
+ * the return vector is num_subgrid_columns in length. Element "x" in this
+ * vector describes the subgrid rows holding data that members of subgrid column
+ * "x" need to receive, as well as the global indices of that data in the
+ * solution vector  */
+using rows_to_range = std::map<int, limits<>>;
+static std::vector<rows_to_range>
+find_column_dependencies(std::vector<int> const &row_boundaries,
+                         std::vector<int> const &column_boundaries)
+{
+  // contains an element for each subgrid column describing
+  // the subgrid rows, and associated ranges, that the column
+  // members will need information from
+  std::vector<rows_to_range> column_dependencies(column_boundaries.size());
+
+  // start at the first row and column interval
+  // col_start is the first index in this column interval
+  int col_start = 0;
+  for (int c = 0; c < static_cast<int>(column_boundaries.size()); ++c)
+  {
+    int row_start = 0;
+    // the stop vectors represent the end of a range
+    int const column_end = column_boundaries[c];
+    for (int r = 0; r < static_cast<int>(row_boundaries.size()); ++r)
+    {
+      int const row_end = row_boundaries[r];
+      // if the row interval falls within the column interval
+      if ((col_start >= row_start && col_start <= row_end) ||
+          (row_start >= col_start && row_start <= column_end))
+      {
+        // emplace the section of the row interval that falls within the column
+        // interval
+        column_dependencies[c].emplace(r,
+                                       limits<>(std::max(row_start, col_start),
+                                                std::min(row_end, column_end)));
+      }
+      // the beginning of the next interval is one more than the end of the
+      // previous
+      row_start = row_end + 1;
+    }
+    col_start = column_end + 1;
+  }
+
+  return column_dependencies;
+}
+
+/* utility class for round robin selection, used in dependencies_to_messages */
+class round_robin_wheel
+{
+public:
+  round_robin_wheel(int const size) : size(size), current_index(0) {}
+
+  int spin()
+  {
+    int const n = current_index++;
+
+    if (current_index == size)
+      current_index = 0;
+
+    return n;
+  }
+
+private:
+  int const size;
+  int current_index;
+};
+
+/* this function takes the dependencies for each subgrid column,
+ * and matches specific subgrid column members with the subgrid row
+ * members that have the data they need in a balanced fashion.
+ *
+ * return vector is a list of message lists, one for each rank,
+ * indexed by rank number */
+std::vector<std::vector<message>> const static dependencies_to_messages(
+    std::vector<rows_to_range> const &col_dependencies,
+    std::vector<int> const &row_boundaries,
+    std::vector<int> const &column_boundaries)
+{
+  assert(column_boundaries.size() == row_boundaries.size());
+  assert(col_dependencies.size() == column_boundaries.size());
+
+  /* initialize a round robin selector for each row */
+  std::vector<round_robin_wheel> row_round_robin_wheels;
+  for (int i = 0; i < static_cast<int>(row_boundaries.size()); ++i)
+  {
+    row_round_robin_wheels.emplace_back(column_boundaries.size());
+  }
+
+  /* this vector contains lists of messages indexed by rank */
+  std::vector<std::vector<message>> messages(row_boundaries.size() *
+                                             column_boundaries.size());
+
+  /* iterate over each subgrid column's input requirements */
+  for (int c = 0; c < static_cast<int>(col_dependencies.size()); c++)
+  {
+    /* dependencies describes the subgrid rows each column member will need
+     * to communicate with, as well as the solution vector ranges needed
+     * from each. these requirements are the same for every column member */
+    rows_to_range const dependencies = col_dependencies[c];
+    for (auto const &[row, limits] : dependencies)
+    {
+      /* iterate every rank in the subgrid column */
+      for (int r = 0; r < static_cast<int>(row_boundaries.size()); ++r)
+      {
+        /* construct the receive item */
+        int const receiver_rank = r * column_boundaries.size() + c;
+
+        /* if receiver_rank has the data it needs locally, it will copy from its
+         * own output otherwise, use round robin wheel to select a sender from
+         * another row - every member of the row has the same data */
+        int const sender_rank = [row = row, r, receiver_rank,
+                                 &column_boundaries,
+                                 &wheel = row_round_robin_wheels[row]]() {
+          if (row == r)
+          {
+            return receiver_rank;
+          }
+          return static_cast<int>(row * column_boundaries.size() +
+                                  wheel.spin());
+        }();
+
+        /* add message to the receiver's message list */
+        message const incoming_message(message_direction::receive, sender_rank,
+                                       limits);
+        messages[receiver_rank].push_back(incoming_message);
+
+        /* construct and enqeue the corresponding send item */
+        message const outgoing_message(message_direction::send, receiver_rank,
+                                       limits);
+        messages[sender_rank].push_back(outgoing_message);
+      }
+    }
+  }
+
+  return messages;
+}
+
+/* generate_messages() creates a set of
+   messages for each rank.*/
+
+/* given a distribution plan, map each rank to a list of messages
+ * index "x" of this vector contains the messages that must be transmitted
+ * from and to rank "x" */
+
+/* if the messages are invoked in the order they appear in the vector,
+ * they are guaranteed not to produce a deadlock */
+std::vector<std::vector<message>> const
+generate_messages(distribution_plan const &plan)
+{
+  /* first, determine the subgrid tiling for this plan */
+  std::vector<int> row_boundaries;
+  std::vector<int> col_boundaries;
+
+  auto const num_cols = get_num_subgrid_cols(plan.size());
+  assert(plan.size() % num_cols == 0);
+  auto const num_rows = static_cast<int>(plan.size()) / num_cols;
+
+  for (int i = 0; i < num_rows; ++i)
+  {
+    element_subgrid const &grid = plan.at(i * num_cols);
+    row_boundaries.push_back(grid.row_stop);
+  }
+
+  for (int i = 0; i < num_cols; ++i)
+  {
+    element_subgrid const &grid = plan.at(i);
+    col_boundaries.push_back(grid.col_stop);
+  }
+
+  /* describe the rows/ranges each column needs to communicate with */
+  auto const col_dependencies =
+      find_column_dependencies(row_boundaries, col_boundaries);
+  /* finally, build message list */
+  auto const messages = dependencies_to_messages(
+      col_dependencies, row_boundaries, col_boundaries);
+
+  return messages;
 }
 
 template<typename P>
