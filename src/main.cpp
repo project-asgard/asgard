@@ -93,6 +93,11 @@ int main(int argc, char **argv)
   node_out() << "  generating: element table..." << '\n';
   element_table const table = element_table(opts, pde->num_dims);
 
+  node_out() << "  degrees of freedom: "
+             << table.size() *
+                    static_cast<uint64_t>(std::pow(degree, pde->num_dims))
+             << '\n';
+
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
