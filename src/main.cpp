@@ -93,6 +93,11 @@ int main(int argc, char **argv)
   node_out() << "  generating: element table..." << '\n';
   element_table const table = element_table(opts, pde->num_dims);
 
+  node_out() << "  degrees of freedom: "
+             << table.size() *
+                    static_cast<uint64_t>(std::pow(degree, pde->num_dims))
+             << '\n';
+
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
@@ -272,11 +277,6 @@ int main(int argc, char **argv)
   int const segment_size = element_segment_size(*pde);
   auto const final_result =
       gather_results(host_space.x, plan, my_rank, segment_size);
-
-  // FIXME
-  fk::vector<prec> ans(final_result);
-  if (!my_rank)
-    ans.print();
 
   finalize_distribution();
 
