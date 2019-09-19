@@ -59,11 +59,42 @@ private:
 
   static int constexpr num_dims_           = 2;
   static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 7;
+  static int constexpr num_terms_          = 1;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = false;
 
+  //
+  // define constants / data / functions for this PDE
+  //
+
+  static auto constexpr phi = [](P x) { return std::erf(x); };
+
+  static auto constexpr psi = [](P x) {
+    auto dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(-std::pow(x, 2));
+    auto ret     = 1.0 / (2 * std::pow(x, 2)) * (phi(x) - x * dphi_dx);
+    if (ret < 1e-5)
+      ret = 0;
+    return ret;
+  };
+
+  static P constexpr nuEE     = 1;
+  static P constexpr vT       = 1;
+  static P constexpr delta    = 0.042;
+  static P constexpr Z        = 1;
+  static P constexpr E        = 0.0025;
+  static P constexpr tau      = 1e5;
+  static auto constexpr gamma = [](P p) {
+    return std::sqrt(1 + std::pow(delta * p, 2));
+  };
+  static auto constexpr vx = [](P p) { return 1.0 / vT * (p / gamma(p)); };
+
+  static auto constexpr Ca = [](P p) {
+    return nuEE * std::pow(vT, 2) * (psi(vx(p)) / vx(p));
+  };
+
+  //
   // define dimensions
+  //
 
   // specify initial conditions for each dim
   // p dimension
@@ -147,61 +178,83 @@ private:
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_p, dim_z};
 
-  // g-funcs
-  static P g_func_0(P const x, P const time)
+  //
+  // Setup the terms of the PDE
+  //
+  // -div(flux_C) == termC1 + termC2 + termC3
+  //
+  //
+  // termC1 == 1/p^2*d/dp*p^2*Ca*df/dp
+  //
+  // becomes
+  //
+  // termC1 == g1(p) q(p)        [mass, g1(p) = 1/p^2,  BC N/A]
+  //   q(p) == d/dp g2(p) r(p)   [grad, g2(p) = p^2*Ca, BCL=D,BCR=N]
+  //   r(p) == d/dp g3(p) f(p)   [grad, g3(p) = 1,      BCL=N,BCR=D]
+
+  // create a default mass matrix
+  static P gI(P const x, P const time = 0)
   {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
-  static P g_func_1(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(time);
-    return 1 - std::pow(x, 2);
-  }
-  static P g_func_2(P const x, P const time)
-  {
-    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return 1.0;
   }
 
-  // define terms (1 in this case)
-  // d/dz( (1-z^2) df/dz )
-  //
-  //    termC_z.type = 'diff';
-  // eq1 : 1 * d/dx (1-z^2) q
-  //    termC_z.G1 = @(z,p,t,dat) 1-z.^2;
-  //    termC_z.LF1 = -1; % upwind left
-  //    termC_z.BCL1 = 'D';
-  //    termC_z.BCR1 = 'D';
-  // eq2 : q = df/dx
-  //    termC_z.G2 = @(z,p,t,dat) z*0+1;
-  //    termC_z.LF2 = +1; % upwind right
-  //    termC_z.BCL2 = 'N';
-  //    termC_z.BCR2 = 'N';
+  inline static partial_term<P> pterm_I =
+      partial_term<P>(coefficient_type::mass, gI);
+  inline static term<P> const I_ =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "massY",         // name
+              dim_p,           // owning dim
+              {pterm_I});
 
-  inline static class partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::grad, g_func_1, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  static P g1(P const x, P const time = 0)
+  {
+    ignore(time);
+    return 1.0 / std::pow(x, 2);
+  }
+  static P g2(P const x, P const time = 0)
+  {
+    ignore(time);
+    return std::pow(x, 2) * Ca(x);
+  }
+  static P g3(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
 
-  inline static class partial_term<P> partial_term_1 =
-      partial_term<P>(coefficient_type::grad, g_func_2, flux_type::upwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  // create partial_terms
 
-  inline static term<P> const term0_dim0_ =
+  inline static class partial_term<P> pterm1 =
+      partial_term<P>(coefficient_type::mass, g1);
+
+  inline static class partial_term<P> pterm2 = partial_term<P>(
+      coefficient_type::grad, g2, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::neumann);
+
+  inline static class partial_term<P> pterm3 = partial_term<P>(
+      coefficient_type::grad, g3, flux_type::downwind,
+      boundary_condition::neumann, boundary_condition::dirichlet);
+
+  // combine partial terms into single dimension term
+
+  inline static term<P> const term1_p =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "d_dx",          // name
               dim_p,           // owning dim
-              {partial_term_0, partial_term_1});
+              {pterm1, pterm2, pterm3});
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  // combine single dimension terms into multi dimension term
 
-  inline static term_set<P> const terms_ = {terms0_};
+  inline static const std::vector<term<P>> termC1 = {term1_p, I_};
+
+  // collect all the terms
+
+  inline static term_set<P> const terms_ = {termC1};
 
   // define sources
 
