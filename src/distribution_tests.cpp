@@ -411,6 +411,195 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
   }
 }
 
+void generate_messages_test(int const num_ranks, element_table const &table)
+{
+  auto const plan     = get_plan(num_ranks, table);
+  auto const messages = generate_messages(plan);
+
+  // every rank should have a message list
+  REQUIRE(messages.size() == plan.size());
+
+  fk::vector<int> send_counter(plan.size());
+  for (int i = 0; i < static_cast<int>(messages.size()); ++i)
+  {
+    auto const &message_list = messages[i];
+    auto const &subgrid      = plan.at(i);
+
+    for (int m = 0; m < static_cast<int>(message_list.size()); ++m)
+    {
+      auto const &message = message_list[m];
+
+      if (message.message_dir == message_direction::send)
+      {
+        if (message.target != i)
+        {
+          send_counter(i) += 1;
+        }
+        // make sure the send message is inside my assigned outputs
+        REQUIRE(message.range.start >= subgrid.row_start);
+        REQUIRE(message.range.stop <= subgrid.row_stop);
+      }
+      // receive
+      else
+      {
+        // make sure the receive message is inside my assigned inputs
+        REQUIRE(message.range.start >= subgrid.col_start);
+        REQUIRE(message.range.stop <= subgrid.col_stop);
+
+        // also, check the matching send
+        int const sender_rank       = message.target;
+        auto const &sender_messages = messages[sender_rank];
+        int match_found             = 0;
+        int send_index;
+        for (int j = 0; j < static_cast<int>(sender_messages.size()); ++j)
+        {
+          auto const &sender_message = sender_messages[j];
+          if (sender_message.range == message.range &&
+              sender_message.message_dir == message_direction::send &&
+              sender_message.target == i)
+
+          {
+            send_index = j;
+            match_found++;
+          }
+        }
+
+        // want to find exactly one matching send
+        REQUIRE(match_found == 1);
+
+        // to prevent deadlock, make sure sender doesn't have
+        // a receive from me that occurs before this send,
+        // UNLESS I have a send to them that occurs before that receive
+        for (int j = 0; j < send_index; ++j)
+        {
+          auto const &sender_message = sender_messages[j];
+          if (sender_message.message_dir == message_direction::receive)
+          {
+            bool preceding_send_found;
+            for (int k = 0; k < m; ++k)
+            {
+              auto const &my_message = message_list[k];
+              if (my_message.message_dir == message_direction::send &&
+                  my_message.target == sender_rank)
+              {
+                preceding_send_found = true;
+              }
+            }
+
+            REQUIRE(preceding_send_found);
+          }
+        }
+      }
+    }
+  }
+
+  // all subgrid row members have the same data;
+  // they should all have the same (+/- 1) number
+  // of sends queued up
+  int const num_cols = get_num_subgrid_cols(plan.size());
+  int const num_rows = plan.size() / num_cols;
+  for (auto const &[rank, grid] : plan)
+  {
+    ignore(grid);
+
+    int const my_col    = rank % num_cols;
+    int const row_begin = rank - my_col;
+    int const my_sends  = send_counter(rank);
+
+    for (int i = row_begin; i < num_rows; ++i)
+    {
+      REQUIRE(std::abs(my_sends - send_counter(i)) < 2);
+    }
+  }
+}
+
+TEST_CASE("generate messages tests", "[distribution]")
+{
+  SECTION("one rank, small problem")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    options const o  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
+    element_table const table(o, pde->num_dims);
+
+    int const num_ranks = 1;
+    generate_messages_test(num_ranks, table);
+  }
+
+  SECTION("one rank, larger problem")
+  {
+    int const degree = 4;
+    int const level  = 3;
+    options const o  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+    element_table const table(o, pde->num_dims);
+
+    int const num_ranks = 1;
+    generate_messages_test(num_ranks, table);
+  }
+
+  SECTION("perfect square number of ranks, small")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    options const o  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    element_table const table(o, pde->num_dims);
+
+    int const num_ranks = 9;
+    generate_messages_test(num_ranks, table);
+  }
+
+  SECTION("perfect square number of ranks, large")
+  {
+    int const degree = 6;
+    int const level  = 5;
+    options const o  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+    element_table const table(o, pde->num_dims);
+
+    int const num_ranks = 36;
+    generate_messages_test(num_ranks, table);
+  }
+
+  SECTION("even but not square, small")
+  {
+    int const degree = 5;
+    int const level  = 8;
+    options const o  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
+    element_table const table(o, pde->num_dims);
+
+    int const num_ranks = 20;
+    generate_messages_test(num_ranks, table);
+  }
+
+  SECTION("even but not square, large")
+  {
+    int const degree = 3;
+    int const level  = 2;
+    options const o  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+    element_table const table(o, pde->num_dims);
+
+    int const num_ranks = 32;
+    generate_messages_test(num_ranks, table);
+  }
+}
+
 TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
 {
   // in this case, the source vector is simply copied into dest

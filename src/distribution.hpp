@@ -6,6 +6,7 @@
 #include <map>
 #include <vector>
 
+// simple struct for representing a range
 template<typename P = int>
 struct limits
 {
@@ -111,8 +112,17 @@ auto const get_num_subgrid_cols = [](int const num_ranks) {
   // I believe this is mathematically impossible...
   assert(false);
 };
+
+// should be invoked once on startup to
+// initialize distribution libraries
+//
+// return: [my_rank, num_ranks]
 std::array<int, 2> initialize_distribution();
+
+// should be invoked once on exit
 void finalize_distribution();
+
+// get node-local rank
 int get_local_rank();
 
 // this struct will use node-local ranks to ensure only
@@ -159,16 +169,18 @@ struct message
   {}
   message_direction const message_dir;
   int const target;
-  limits<> range;
+  limits<> const range;
 };
-
-std::vector<std::vector<message>> const
-generate_messages(distribution_plan const &plan);
 
 // reduce the results of a subgrid row
 template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
+
+// generate a message list for each rank for prepare_inputs function;
+// conceptually an internal component function, exposed for testing
+std::vector<std::vector<message>> const
+generate_messages(distribution_plan const &plan);
 
 // exchange results between subgrid rows
 template<typename P>
