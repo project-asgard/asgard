@@ -4,20 +4,6 @@
 #include "pde.hpp"
 #include "tensors.hpp"
 
-template<typename P = int>
-struct limits
-{
-  limits(P const start, P const stop) : start(start), stop(stop){};
-  limits(limits const &l) : start(l.start), stop(l.stop){};
-  limits(limits const &&l) : start(l.start), stop(l.stop){};
-  bool operator==(const limits &rhs) const
-  {
-    return start == rhs.start && stop == rhs.stop;
-  }
-  P const start;
-  P const stop;
-};
-
 using element_chunk = std::map<int, limits<int>>;
 
 // convenience functions when working with element chunks

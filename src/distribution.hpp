@@ -4,7 +4,28 @@
 #include "mpi.h"
 #endif
 #include <map>
+#include <vector>
 
+template<typename P = int>
+struct limits
+{
+  limits(P const start, P const stop) : start(start), stop(stop){};
+  limits(limits const &l) : start(l.start), stop(l.stop){};
+  limits(limits const &&l) : start(l.start), stop(l.stop){};
+  bool operator==(const limits &rhs) const
+  {
+    return start == rhs.start && stop == rhs.stop;
+  }
+  P const start;
+  P const stop;
+};
+
+// this struct is designed to store information about a rank's assigned portion
+// of the element grid.
+//
+// start and stop members are inclusive global indices of the element grid.
+//
+// translation functions are provided for mapping global<->local indices.
 struct element_subgrid
 {
   element_subgrid(int const row_start, int const row_stop, int const col_start,
@@ -70,6 +91,9 @@ struct element_subgrid
   int const col_stop;
 };
 
+// helper lambda for determining the number of subgrid columns given
+// a number of ranks.
+//
 // determine the side lengths that will give us the "squarest" rectangles
 // possible
 auto const get_num_subgrid_cols = [](int const num_ranks) {
@@ -91,6 +115,11 @@ std::array<int, 2> initialize_distribution();
 void finalize_distribution();
 int get_local_rank();
 
+// this struct will use node-local ranks to ensure only
+// one rank prints some input val:
+//
+// usage: node_out() << "something you want to appear once per node"
+//
 struct node_out
 {
   template<typename T>
@@ -106,19 +135,42 @@ struct node_out
   }
 };
 
-// given a rank, determine element subgrid
+// given a rank, determine element subgrid assigned to that rank
 element_subgrid
 get_subgrid(int const num_ranks, int const my_rank, element_table const &table);
 
+// map ranks to assigned subgrids
 using distribution_plan = std::map<int, element_subgrid>;
 distribution_plan get_plan(int const num_ranks, element_table const &table);
+
+enum class message_direction
+{
+  send,
+  receive
+};
+
+// represent a point-to-point message.
+// target is the sender rank for a receive, and receive rank for send
+// the range describes the global indices (inclusive) that will be transmitted
+struct message
+{
+  message(message_direction const message_dir, int const target, limits<> range)
+      : message_dir(message_dir), target(target), range(range)
+  {}
+  message_direction const message_dir;
+  int const target;
+  limits<> range;
+};
+
+std::vector<std::vector<message>> const
+generate_messages(distribution_plan const &plan);
 
 // reduce the results of a subgrid row
 template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
 
-// exchange results between rows
+// exchange results between subgrid rows
 template<typename P>
 void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
                     int const segment_size, distribution_plan const &plan,
