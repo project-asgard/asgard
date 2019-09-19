@@ -144,6 +144,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
 distribution_plan get_plan(int const num_ranks, element_table const &table)
 {
   assert(num_ranks > 0);
+  assert(num_ranks < table.size());
 
   int const num_splits = num_effective_ranks(num_ranks);
 
@@ -203,6 +204,54 @@ find_column_dependencies(std::vector<int> const &row_boundaries,
   return column_dependencies;
 }
 
+template<typename P>
+void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
+                    distribution_plan const &plan, int const my_rank)
+{
+  assert(source.size() == dest.size());
+  assert(my_rank >= 0);
+  assert(my_rank < static_cast<int>(plan.size()));
+
+#ifdef ASGARD_USE_MPI
+  if (plan.size() == 1)
+  {
+    fm::copy(source, dest);
+    return;
+  }
+
+  fm::scal(static_cast<P>(0.0), dest);
+  int const num_cols = get_num_subgrid_cols(plan.size());
+
+  int const my_row = my_rank / num_cols;
+  int const my_col = my_rank % num_cols;
+
+  MPI_Comm row_communicator;
+  MPI_Comm const global_communicator = distro_handle.get_global_comm();
+
+  auto success =
+      MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
+  assert(success == 0);
+
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+  success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
+                          source.size(), mpi_type, MPI_SUM, row_communicator);
+  assert(success == 0);
+
+  success = MPI_Comm_free(&row_communicator);
+  assert(success == 0);
+
+#else
+  fm::copy(source, dest);
+  return;
+#endif
+}
+
+//
+// -- below functionality for exchanging solution vector data across subgrid
+// rows via point-to-point messages.
+//
+
 /* utility class for round robin selection, used in dependencies_to_messages */
 class round_robin_wheel
 {
@@ -235,7 +284,6 @@ std::vector<std::vector<message>> const static dependencies_to_messages(
     std::vector<int> const &row_boundaries,
     std::vector<int> const &column_boundaries)
 {
-  assert(column_boundaries.size() == row_boundaries.size());
   assert(col_dependencies.size() == column_boundaries.size());
 
   /* initialize a round robin selector for each row */
@@ -334,49 +382,6 @@ generate_messages(distribution_plan const &plan)
       col_dependencies, row_boundaries, col_boundaries);
 
   return messages;
-}
-
-template<typename P>
-void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
-                    distribution_plan const &plan, int const my_rank)
-{
-  assert(source.size() == dest.size());
-  assert(my_rank >= 0);
-  assert(my_rank < static_cast<int>(plan.size()));
-
-#ifdef ASGARD_USE_MPI
-  if (plan.size() == 1)
-  {
-    fm::copy(source, dest);
-    return;
-  }
-
-  fm::scal(static_cast<P>(0.0), dest);
-  int const num_cols = get_num_subgrid_cols(plan.size());
-
-  int const my_row = my_rank / num_cols;
-  int const my_col = my_rank % num_cols;
-
-  MPI_Comm row_communicator;
-  MPI_Comm const global_communicator = distro_handle.get_global_comm();
-
-  auto success =
-      MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
-  assert(success == 0);
-
-  MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
-  success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
-                          source.size(), mpi_type, MPI_SUM, row_communicator);
-  assert(success == 0);
-
-  success = MPI_Comm_free(&row_communicator);
-  assert(success == 0);
-
-#else
-  fm::copy(source, dest);
-  return;
-#endif
 }
 
 // static helper for copying my own output to input
