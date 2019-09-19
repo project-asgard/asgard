@@ -467,6 +467,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
     assert(success == 0);
   }
 #else
+  ignore({source, dest, my_grid, message, segment_size});
   assert(false);
 #endif
 }
