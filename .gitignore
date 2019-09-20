@@ -16,3 +16,5 @@ contrib/gperftools
 contrib/linux
 contrib/lperftools
 contrib/valgrind
+contrib/hdf5
+contrib/highfive
