@@ -332,13 +332,13 @@ public:
       : num_dims(num_dims),
         num_sources(num_sources),
         num_terms(num_terms),
-	sources(sources),
+	      sources(sources),
         exact_vector_funcs(exact_vector_funcs),
-	exact_time(exact_time),
-	do_poisson_solve(do_poisson_solve),
+	      exact_time(exact_time),
+	      do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln),
-	dimensions_(dimensions),
-	terms_(terms)
+	      dimensions_(dimensions),
+	      terms_(terms)
   // clang-format on
   {
     assert(num_dims > 0);
