@@ -298,3 +298,55 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
     }
   }
 }
+
+TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
+                   float)
+{
+  int const level     = 3;
+  int const degree    = 4;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+  std::string const filename_base = "../testing/generated-inputs/coefficients/"
+                                    "fokkerplanck2_complete_coefficients_l" +
+                                    std::to_string(level) + "_d" +
+                                    std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time);
+      relaxed_comparison<TestType>(gold, test, 5e6);
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
+                   double, float)
+{
+  int const level     = 3;
+  int const degree    = 4;
+  TestType const time = 1.0;
+  auto const pde =
+      make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+  std::string const filename_base =
+      "../testing/generated-inputs/coefficients/"
+      "fokkerplanck2_complete_coefficients_norotate_l" +
+      std::to_string(level) + "_d" + std::to_string(degree) + "_";
+  for (int t = 0; t < pde->num_terms; ++t)
+  {
+    for (int d = 0; d < pde->num_dims; ++d)
+    {
+      std::string const filename = filename_base + std::to_string(t + 1) + "_" +
+                                   std::to_string(d + 1) + ".dat";
+      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<double> const test = generate_coefficients<TestType>(
+          pde->get_dimensions()[d], pde->get_terms()[t][d], time, false);
+      relaxed_comparison<TestType>(gold, test, 4e2);
+    }
+  }
+}

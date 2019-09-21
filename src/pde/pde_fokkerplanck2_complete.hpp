@@ -74,7 +74,7 @@ private:
   static auto constexpr psi = [](P x) {
     auto dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(-std::pow(x, 2));
     auto ret     = 1.0 / (2 * std::pow(x, 2)) * (phi(x) - x * dphi_dx);
-    if (ret < 1e-5)
+    if (x < 1e-5)
       ret = 0;
     return ret;
   };
@@ -111,7 +111,7 @@ private:
   // specify initial conditions for each dim
   // p dimension
 
-  static int constexpr test = 1;
+  static int constexpr test = 2;
 
   // initial condition in p
   static fk::vector<P> initial_condition_p(fk::vector<P> const x, P const t = 0)
@@ -124,16 +124,19 @@ private:
       std::transform(x.begin(), x.end(), ret.begin(), [](auto elem) {
         return (elem <= 5) ? 3.0 / (2.0 * std::pow(5.0, 3)) : 0;
       });
+      break;
     case 2:
       std::transform(x.begin(), x.end(), ret.begin(), [](auto elem) {
-        int const a = 2;
+        P const a = 2;
         return 2.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
                std::exp(-std::pow(elem, 2) / std::pow(a, 2));
       });
+      break;
     case 3:
       std::transform(x.begin(), x.end(), ret.begin(), [](auto elem) {
         return 2.0 / (3.0 * std::sqrt(M_PI)) * std::exp(-std::pow(elem, 2));
       });
+      break;
     }
     return ret;
   }
@@ -147,8 +150,10 @@ private:
     {
     case 1:
       std::fill(ret.begin(), ret.end(), 1.0);
+      break;
     case 2:
       std::fill(ret.begin(), ret.end(), 1.0);
+      break;
     case 3:
       fk::vector<P> ret(x.size());
 
@@ -164,6 +169,7 @@ private:
         fk::vector<P> const P_0 = P_m.extract_submatrix(0, i, x.size(), 1);
         ret = ret + (P_0 * legendre_coeffs[i] * std::exp(-i * (i + 1) * t));
       }
+      break;
     }
     return ret;
   }
@@ -367,6 +373,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
+    assert(x > 0);
     return 1.0 / std::pow(x, 2);
   }
   static P e1_g3(P const x, P const time = 0)
@@ -379,7 +386,7 @@ private:
   inline static class partial_term<P> e1_pterm1 =
       partial_term<P>(coefficient_type::mass, e1_g1);
   inline static class partial_term<P> e1_pterm2 =
-      partial_term<P>(coefficient_type::grad, e1_g2);
+      partial_term<P>(coefficient_type::mass, e1_g2);
   inline static class partial_term<P> e1_pterm3 = partial_term<P>(
       coefficient_type::grad, e1_g3, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::dirichlet);
@@ -419,7 +426,7 @@ private:
 
   // 1. create partial_terms
   inline static class partial_term<P> e2_pterm1 =
-      partial_term<P>(coefficient_type::grad, e2_g1);
+      partial_term<P>(coefficient_type::mass, e2_g1);
   inline static class partial_term<P> e2_pterm2 =
       partial_term<P>(coefficient_type::grad, e2_g2, flux_type::central,
                       boundary_condition::neumann, boundary_condition::neumann);
@@ -471,12 +478,12 @@ private:
 
   // 1. create partial_terms
   inline static class partial_term<P> r1_pterm1 =
-      partial_term<P>(coefficient_type::grad, r1_g1);
+      partial_term<P>(coefficient_type::mass, r1_g1);
   inline static class partial_term<P> r1_pterm2 = partial_term<P>(
       coefficient_type::grad, r1_g2, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::dirichlet);
   inline static class partial_term<P> r1_pterm3 =
-      partial_term<P>(coefficient_type::grad, r1_g3);
+      partial_term<P>(coefficient_type::mass, r1_g3);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const r1_term_p =
@@ -517,7 +524,7 @@ private:
 
   // 1. create partial_terms
   inline static class partial_term<P> r2_pterm1 =
-      partial_term<P>(coefficient_type::grad, r2_g1);
+      partial_term<P>(coefficient_type::mass, r2_g1);
   inline static class partial_term<P> r2_pterm2 =
       partial_term<P>(coefficient_type::grad, r2_g2, flux_type::central,
                       boundary_condition::neumann, boundary_condition::neumann);
