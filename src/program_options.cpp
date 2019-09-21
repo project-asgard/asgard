@@ -47,9 +47,9 @@ options::options(int argc, char **argv)
   }
 
   // Validation...
-  if (cfl < 0.0)
+  if (cfl <= 0)
   {
-    std::cerr << "CFL must be non-negative" << std::endl;
+    std::cerr << "CFL must be greater than zero" << std::endl;
     valid = false;
   }
   if (degree < 1 && degree != -1)
