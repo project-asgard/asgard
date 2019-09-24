@@ -233,7 +233,7 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(success == 0);
 
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
   success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
                           source.size(), mpi_type, MPI_SUM, row_communicator);
   assert(success == 0);
@@ -427,7 +427,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(segment_size > 0);
 
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
   MPI_Comm const communicator = distro_handle.get_global_comm();
 
   int const mpi_tag = 0;
@@ -529,7 +529,7 @@ gather_errors(P const root_mean_squared, P const relative)
   assert(success == 0);
 
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
 
   int local_rank;
   success = MPI_Comm_rank(local_comm, &local_rank);
@@ -628,7 +628,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
     std::vector<P> results(vect_size);
 
     MPI_Datatype const mpi_type =
-        std::is_same<P, double>::value ? MPI::DOUBLE : MPI::FLOAT;
+        std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
 
     if (my_rank == 0)
     {
