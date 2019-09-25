@@ -747,9 +747,9 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> coords = elem_table.get_coords(j);
-      assert(coords.size() == pde.num_dims * 2);
-      fk::vector<int> connected_indices = linearize(coords);
+      fk::vector<int> coords_nD = elem_table.get_coords(j);
+      assert(coords_nD.size() == pde.num_dims * 2);
+      fk::vector<int> connected_indices = linearize(coords_nD);
 
       // calculate the col portion of the
       // operator position used for this
