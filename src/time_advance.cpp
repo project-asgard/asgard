@@ -138,6 +138,11 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
+
+  fm::copy(host_space.x, host_space.x_orig);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+  host_space.x = host_space.x + host_space.scaled_source * dt;
+
   if (first_time || update_system)
   {
     A.clear_and_resize(A_size, A_size);
@@ -154,15 +159,8 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
       }
       A(i, i) += 1.0;
     }
-    // first_time = false;
-  }
-  // A.print("A");
-  fm::copy(host_space.x, host_space.x_orig);
-  scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
-  host_space.x = host_space.x + host_space.scaled_source * dt;
-  if (first_time || update_system)
-  {
-    if (ipiv.size() != A.nrows())
+
+    if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
       ipiv.resize(A.nrows());
     fm::gesv(A, host_space.x, ipiv);
     first_time = false;
