@@ -119,7 +119,7 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
   }
 }
 
-// this function executes an explicit time step using the current solution
+// this function executes an implicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 void implicit_time_advance(PDE<P> const &pde, element_table const &table,
