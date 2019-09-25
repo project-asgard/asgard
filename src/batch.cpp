@@ -733,7 +733,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
     // dimension
     fk::vector<int> const coords = elem_table.get_coords(i);
     assert(coords.size() == pde.num_dims * 2);
-    fk::vector<int> elem_indices = linearize(coords);
+    fk::vector<int> const elem_indices = linearize(coords);
 
     int const global_row = i * elem_size;
 
