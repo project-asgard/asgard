@@ -57,7 +57,6 @@ endif()
 
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)
-  add_compile_definitions(ASGARD_USE_OPENMP)
   add_compile_options ("-fopenmp")
 endif()
 

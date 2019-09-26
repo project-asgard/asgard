@@ -6,3 +6,4 @@
 #define BUILD_TIME "@BUILD_TIME@"
 
 #cmakedefine ASGARD_IO_HIGHFIVE
+#cmakedefine ASGARD_USE_OPENMP
