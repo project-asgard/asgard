@@ -49,6 +49,12 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
+string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
+set(ASGARD_USE_MKL FALSE)
+if(FOUND_MKL GREATER_EQUAL 0)
+  set(ASGARD_USE_MKL TRUE)
+endif()
+
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)
   add_compile_definitions(ASGARD_USE_OPENMP)
@@ -108,7 +114,7 @@ endif ()
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
-if (ASGARD_USE_OPENMP)
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(batch PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
