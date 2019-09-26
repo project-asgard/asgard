@@ -100,6 +100,7 @@ endif ()
 
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
+  target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
 endforeach ()
 
 if (build_hdf5)
