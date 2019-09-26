@@ -50,7 +50,6 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
-
 string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
 set(ASGARD_USE_MKL FALSE)
 if(FOUND_MKL GREATER_EQUAL 0)
