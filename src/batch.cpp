@@ -545,8 +545,8 @@ static fk::vector<int> linearize(fk::vector<int> const &coords)
 }
 
 template<typename P>
-inline fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
-                                        const fk::vector<int> &elem_indices)
+inline fk::vector<int> get_operator_row(PDE<P> const &pde, int const degree,
+                                        fk::vector<int> const &elem_indices)
 {
   fk::vector<int> op_row(pde.num_dims);
   for (int d = 0; d < pde.num_dims; ++d)
@@ -558,8 +558,8 @@ inline fk::vector<int> get_operator_row(const PDE<P> &pde, const int degree,
 
 template<typename P>
 inline fk::vector<int>
-get_operator_col(const PDE<P> &pde, const int degree,
-                 const fk::vector<int> &connected_indices)
+get_operator_col(PDE<P> const &pde, int const degree,
+                 fk::vector<int> const &connected_indices)
 {
   fk::vector<int> op_col(pde.num_dims);
   for (int d = 0; d < pde.num_dims; ++d)
@@ -714,6 +714,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
   std::map<key_type, val_type> coef_cache;
 
   assert(A.ncols() == A_size && A.nrows() == A_size);
+  // Copy coefficients to host for subsequent use
   for (int k = 0; k < pde.num_terms; ++k)
   {
     for (int d = 0; d < pde.num_dims; d++)
@@ -771,8 +772,6 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
               operator_col(d) + degree - 1);
           fk::matrix<P> k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(k_new);
-
-          // k_new.print("K_NEW");
         }
 
         // calculate the position of this element in the

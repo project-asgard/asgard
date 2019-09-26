@@ -136,9 +136,10 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
                      &ldb, &info);
   if (info > 0)
   {
-    printf("The diagonal element of the triangular factor of A,\n");
-    printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
-    printf("the solution could not be computed.\n");
+    std::cout << "The diagonal element of the triangular factor of A,\n";
+    std::cout << "U(" << info << "," << info
+              << ") is zero, so that A is singular;\n";
+    std::cout << "the solution could not be computed.\n";
     exit(1);
   }
 }
