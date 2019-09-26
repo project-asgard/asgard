@@ -467,26 +467,33 @@ void generate_messages_test(int const num_ranks, element_table const &table)
         // want to find exactly one matching send
         REQUIRE(match_found == 1);
 
+        if (message.target == i)
+        {
+          continue;
+        }
         // to prevent deadlock, make sure sender doesn't have
         // a receive from me that occurs before this send,
         // UNLESS I have a send to them that occurs before that receive
         for (int j = 0; j < send_index; ++j)
         {
           auto const &sender_message = sender_messages[j];
-          if (sender_message.message_dir == message_direction::receive)
+          if (sender_message.message_dir == message_direction::receive &&
+              sender_message.target == i)
           {
-            bool preceding_send_found;
+            bool preceding_send_found = false;
             for (int k = 0; k < m; ++k)
             {
               auto const &my_message = message_list[k];
+
               if (my_message.message_dir == message_direction::send &&
                   my_message.target == sender_rank)
               {
                 preceding_send_found = true;
+                break;
               }
             }
-
             REQUIRE(preceding_send_found);
+            break;
           }
         }
       }
