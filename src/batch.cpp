@@ -1,5 +1,5 @@
 #include "batch.hpp"
-
+#include "build_info.hpp"
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
