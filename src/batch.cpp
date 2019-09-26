@@ -609,7 +609,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   std::vector<int> const index_to_key = [&chunk]() {
     std::vector<int> builder;
-    for (const auto &[i, connected] : chunk)
+    for (auto const &[i, connected] : chunk)
     {
       builder.push_back(i);
       ignore(connected);
