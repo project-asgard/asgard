@@ -129,30 +129,28 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::dirichlet, // left boundary condition
-                   boundary_condition::dirichlet, // right boundary condition
-                   -1.0,                          // domain min
-                   1.0,                           // domain max
-                   2,                             // levels
-                   2,                             // degree
-                   initial_condition_dim0,        // initial condition
-                   "x");                          // name
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim0, // initial condition
+                   "x");                   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
   // define terms (1 in this case)
   //
   //  -d/dz ( (1-z^2)*f )
+  inline static partial_term<P> partial_term_0 = partial_term<P>(
+      coefficient_type::grad, g_func_1, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term0_dim0_ =
-      term<P>(coefficient_type::grad, // operator type
-              g_func_1,               //
-              false,                  // time-dependent
-              flux_type::downwind,    //
-              fk::vector<P>(),        // additional data vector
-              "d_dx",                 // name
-              dim0_                   // owning dim
-      );
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "d_dx",          // name
+              dim0_,           // owning dim
+              {partial_term_0});
 
   inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
 

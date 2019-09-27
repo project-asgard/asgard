@@ -2676,6 +2676,9 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
+    generate_all_coefficients( pde );
+
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -2688,6 +2691,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2744,6 +2748,8 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -2756,6 +2762,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2812,6 +2819,8 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -2824,6 +2833,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2880,6 +2890,8 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -2892,6 +2904,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);

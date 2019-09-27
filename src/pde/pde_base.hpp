@@ -255,6 +255,12 @@ public:
         .transfer_from(new_coefficients);
   }
 
+  void set_partial_coefficients( fk::matrix< P > const &coeffs,
+                                 int const pterm )
+  {
+    partial_terms[ pterm ].set_coefficients( coeffs );
+  }
+
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients() const
   {
@@ -265,9 +271,10 @@ public:
   int degrees_freedom(dimension<P> const d) const
   {
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
-  };
+  }
 
-  partial_term<P> &get_partial_term(int i) { return partial_terms[i]; };
+  std::vector< partial_term< P > > const &get_partial_terms() const
+  { return partial_terms; }
 
   int num_partial_terms() const { return partial_terms.size(); };
 
@@ -438,7 +445,8 @@ public:
   {
     return dimensions_;
   }
-  term_set<P> &get_terms() { return terms_; }
+
+  term_set<P> const &get_terms() { return terms_; }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const
@@ -446,15 +454,27 @@ public:
     return terms_[term][dim].get_coefficients();
   }
 
-  void
-  set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
+  /* gives a vector of partial_term matrices to the term object so it can construct the full
+     operator matrix */
+  void set_coefficients(fk::matrix< P > const coeffs,
+                        int const term,
+                        int const dim)
   {
     terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
+  }
+
+  void set_partial_coefficients( int const term,
+                                 int const dim,
+                                 int const pterm,
+                                 fk::matrix< P > const coeffs )
+  {
+    terms_[ term ][ dim ].set_partial_coefficients( coeffs, pterm );
   }
 
   P get_dt() { return dt_; };
 
 private:
+
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
   P dt_;

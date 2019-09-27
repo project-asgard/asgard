@@ -8,47 +8,52 @@
 #include "transformations.hpp"
 #include <numeric>
 
-// wrap generate_coefficients to allow for construction of the diffusion type
-// operators
-template<typename P>
-fk::matrix<double>
-generate_coefficients(dimension<P> const &dim, term<P> &term_1D,
-                      double const time, bool const rotate)
+template< typename P >
+void generate_all_coefficients( std::unique_ptr< PDE< P > > &pde,
+                                double const time, 
+                                bool const rotate )
 {
-  int const num_pterms = term_1D.num_partial_terms();
-
-  assert(term_1D.num_partial_terms() > 0);
-
-  /* unroll the loop one iteration */
-  fk::matrix<double> full_operator = generate_partial_operator_matrix(
-      dim, term_1D, time, rotate, term_1D.get_partial_term(0));
-
-  /* invoke the type conversion constructor */
-  term_1D.get_partial_term(0).set_coefficients(fk::matrix<P>(full_operator));
-
-  for (int i = 1; i < num_pterms; i++)
+  for (int i = 0; i < pde->num_dims; ++i)
   {
-    fk::matrix<double> next_partial_operator = generate_partial_operator_matrix(
-        dim, term_1D, time, rotate, term_1D.get_partial_term(i));
+    dimension<P> const &dim = pde->get_dimensions()[i];
 
-    term_1D.get_partial_term(i).set_coefficients(
-        fk::matrix<P>(next_partial_operator));
+    for (int j = 0; j < pde->num_terms; ++j)
+    {
+      term<P> const &term_1D = pde->get_terms()[j][i];
 
-    full_operator = full_operator * next_partial_operator;
+      std::vector< partial_term< P > > const &partial_terms = term_1D.get_partial_terms();
+
+      /* generate the first partial term */
+      fk::matrix< double > term_coeff =
+      generate_coefficients< P >( dim, term_1D, partial_terms[ 0 ], time, rotate );
+
+      /* set the partial term's coefficient matrix */
+      pde->set_partial_coefficients( i, j, 0, fk::matrix< P >( term_coeff ) );
+
+      for( int k = 1; k < (int)partial_terms.size(); k++ )
+      {
+        fk::matrix< double > partial_term_coeff = 
+        generate_coefficients< P >( dim, term_1D, partial_terms[ k ], time, rotate );
+
+        term_coeff = term_coeff * partial_term_coeff;
+
+        /* Captain! Ask tyler if move semantics can be used here */
+        pde->set_partial_coefficients( i, j, k, fk::matrix< P >( partial_term_coeff ) );
+      }
+
+      pde->set_coefficients( fk::matrix< P >( term_coeff ), j, i );
+    }
   }
-
-  return full_operator;
 }
-
 // construct 1D coefficient matrix - new conventions
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
 // coefficient matricies
 template<typename P>
 fk::matrix<double>
-generate_partial_operator_matrix(dimension<P> const &dim, term<P> &term_1D,
-                                 double const time, bool const rotate,
-                                 partial_term<P> const &partial_term)
+generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
+                       partial_term<P> const &partial_term,
+                       double const time, bool const rotate)
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
@@ -395,10 +400,26 @@ generate_partial_operator_matrix(dimension<P> const &dim, term<P> &term_1D,
   return coefficients;
 }
 
-template fk::matrix<double>
-generate_coefficients(dimension<float> const &dim, term<float> &term_1D,
-                      double const time, bool const rotate);
+template
+fk::matrix< double >
+generate_coefficients<float>( dimension<float> const &dim,
+                              term<float> const &term_1D,
+                              partial_term< float > const &partial_term, 
+                              double const time,
+                              bool const rotate );
 
-template fk::matrix<double>
-generate_coefficients(dimension<double> const &dim, term<double> &term_1D,
-                      double const time, bool const rotate);
+template
+fk::matrix< double >
+generate_coefficients<double>( dimension<double> const &dim,
+                              term<double> const &term_1D,
+                              partial_term< double > const &partial_term,
+                              double const time,
+                              bool const rotate );
+
+template
+void generate_all_coefficients< float >( std::unique_ptr< PDE< float > > &pde,
+                                         double const time, bool const rotate );
+
+template
+void generate_all_coefficients< double >( std::unique_ptr< PDE< double > > &pde,
+                                          double const time, bool const rotate );

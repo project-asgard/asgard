@@ -46,7 +46,11 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
 
     element_table const table(o, pde->num_dims);
 
+    /* Captain! Commented out the coefficient setting block */
+    generate_all_coefficients( pde );
+
     // set coeffs
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -54,11 +58,13 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
       {
         auto term                     = pde->get_terms()[j][i];
         dimension<TestType> const dim = pde->get_dimensions()[i];
+
         fk::matrix<TestType> coeffs =
             fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -126,6 +132,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -138,6 +146,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -204,7 +213,10 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
 
     element_table const table(o, pde->num_dims);
 
+    generate_all_coefficients( pde );
+
     // set coeffs
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -217,6 +229,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -311,6 +324,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -323,6 +339,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -391,6 +408,10 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    /* Captain! */
+    generate_all_coefficients( pde );
+
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -403,6 +424,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -470,6 +492,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -482,6 +506,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -575,6 +600,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -587,6 +615,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -655,6 +684,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -667,6 +698,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -759,6 +791,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -771,6 +805,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -839,6 +874,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -851,6 +888,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -945,6 +983,9 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -957,6 +998,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -1024,6 +1066,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -1036,6 +1080,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2",
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -1132,6 +1177,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -1144,6 +1191,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
@@ -1240,6 +1288,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     element_table const table(o, pde->num_dims);
 
     // set coeffs
+    generate_all_coefficients( pde );
+    /*
     TestType const init_time = 0.0;
     for (int i = 0; i < pde->num_dims; ++i)
     {
@@ -1252,6 +1302,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
         pde->set_coefficients(coeffs, j, i);
       }
     }
+    */
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
