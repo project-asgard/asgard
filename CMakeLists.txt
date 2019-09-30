@@ -28,7 +28,8 @@ option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
-option (ASGARD_USE_CUDA "Link CUDA support for asgard" OFF)
+option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
+option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -47,6 +48,17 @@ include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
+
+string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
+set(ASGARD_USE_MKL FALSE)
+if(FOUND_MKL GREATER_EQUAL 0)
+  set(ASGARD_USE_MKL TRUE)
+endif()
+
+if(ASGARD_USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+  add_compile_options ("-fopenmp")
+endif()
 
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
@@ -84,10 +96,11 @@ set (components
 )
 if (ASGARD_IO_HIGHFIVE)
   list (APPEND components io)
-endif()
+endif ()
 
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
+  target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
 endforeach ()
 
 if (build_hdf5)
@@ -101,6 +114,9 @@ endif ()
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
+   target_link_libraries(batch PRIVATE OpenMP::OpenMP_CXX)
+endif ()
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)

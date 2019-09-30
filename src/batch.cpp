@@ -1,4 +1,9 @@
 #include "batch.hpp"
+#include "build_info.hpp"
+#ifdef ASGARD_USE_OPENMP
+#include <omp.h>
+#endif
+
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
@@ -602,10 +607,28 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, elements_in_chunk);
 
-  // loop over elements
-  // FIXME eventually want to do this in parallel
-  for (const auto &[i, connected] : chunk)
+  std::vector<int> const index_to_key = [&chunk]() {
+    std::vector<int> builder;
+    for (auto const &[i, connected] : chunk)
+    {
+      builder.push_back(i);
+      ignore(connected);
+    }
+    return builder;
+  }();
+
+// loop over elements
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
+  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
+       ++chunk_num)
   {
+    // row we are addressing in element grid
+    int const i = index_to_key[chunk_num];
+    // connected start/stop for this row
+    auto const connected = chunk.at(i);
+
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
