@@ -2938,3 +2938,217 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     relaxed_comparison(gold, host_space.fx);
   }
 }
+TEMPLATE_TEST_CASE("system matrix builder", "[batch]", double)
+{
+  auto const relaxed_comparison = [](auto const &first, auto const &second) {
+    auto const diff = first - second;
+
+    auto const abs_compare = [](TestType const a, TestType const b) {
+      return (std::abs(a) < std::abs(b));
+    };
+    TestType const result =
+        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
+    if constexpr (std::is_same<TestType, double>::value)
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
+      REQUIRE(result <= tol);
+    }
+    else
+    {
+      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
+      REQUIRE(result <= tol);
+    }
+  };
+
+  SECTION("continuity1, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options({"-l", std::to_string(level), "-d",
+                                    std::to_string(degree), "--implicit"});
+
+    element_table const table(o, pde->num_dims);
+
+    // set coeffs
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // -- prep workspace/chunks
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+
+    // -- time loop
+    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
+    int const sys_mat_size = elem_size * table.size();
+    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
+    for (auto const &chunk : chunks)
+    {
+      build_system_matrix(*pde, table, chunk, A);
+    }
+
+    std::string const file_path = "../testing/generated-inputs/batch/"
+                                  "continuity1_A_implicit_l2_d2.dat";
+
+    fk::matrix<TestType> const gold =
+        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
+
+    relaxed_comparison(gold, A);
+  }
+
+  SECTION("continuity1, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    options const o = make_options({"-l", std::to_string(level), "-d",
+                                    std::to_string(degree), "--implicit"});
+
+    element_table const table(o, pde->num_dims);
+
+    // set coeffs
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // -- prep workspace/chunks
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+
+    // -- time loop
+    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
+    int const sys_mat_size = elem_size * table.size();
+    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
+    for (auto const &chunk : chunks)
+    {
+      build_system_matrix(*pde, table, chunk, A);
+    }
+
+    std::string const file_path = "../testing/generated-inputs/batch/"
+                                  "continuity1_A_implicit_l4_d3.dat";
+
+    fk::matrix<TestType> const gold =
+        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
+
+    relaxed_comparison(gold, A);
+  }
+
+  SECTION("continuity2, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    options const o = make_options({"-l", std::to_string(level), "-d",
+                                    std::to_string(degree), "--implicit"});
+
+    element_table const table(o, pde->num_dims);
+
+    // set coeffs
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // -- prep workspace/chunks
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+
+    // -- time loop
+    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
+    int const sys_mat_size = elem_size * table.size();
+    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
+    for (auto const &chunk : chunks)
+    {
+      build_system_matrix(*pde, table, chunk, A);
+    }
+
+    std::string const file_path = "../testing/generated-inputs/batch/"
+                                  "continuity2_A_implicit_l2_d2.dat";
+
+    fk::matrix<TestType> const gold =
+        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
+
+    relaxed_comparison(gold, A);
+  }
+
+  SECTION("continuity2, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
+
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    options const o = make_options({"-l", std::to_string(level), "-d",
+                                    std::to_string(degree), "--implicit"});
+
+    element_table const table(o, pde->num_dims);
+
+    // set coeffs
+    TestType const init_time = 0.0;
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      for (int j = 0; j < pde->num_terms; ++j)
+      {
+        auto term                     = pde->get_terms()[j][i];
+        dimension<TestType> const dim = pde->get_dimensions()[i];
+        fk::matrix<TestType> coeffs =
+            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
+        pde->set_coefficients(coeffs, j, i);
+      }
+    }
+
+    // -- prep workspace/chunks
+    std::vector<element_chunk> const chunks =
+        assign_elements(table, get_num_chunks(table, *pde));
+
+    // -- time loop
+    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
+    int const sys_mat_size = elem_size * table.size();
+    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
+    for (auto const &chunk : chunks)
+    {
+      build_system_matrix(*pde, table, chunk, A);
+    }
+
+    std::string const file_path = "../testing/generated-inputs/batch/"
+                                  "continuity2_A_implicit_l4_d3.dat";
+
+    fk::matrix<TestType> const gold =
+        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
+
+    relaxed_comparison(gold, A);
+  }
+}

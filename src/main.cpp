@@ -192,8 +192,17 @@ int main(int argc, char **argv)
   {
     prec const time = i * dt;
 
-    explicit_time_advance(*pde, table, initial_sources, host_space, rank_space,
-                          chunks, time, dt);
+    if (opts.using_implicit())
+    {
+      bool update_system = i == 0;
+      implicit_time_advance(*pde, table, initial_sources, host_space, chunks,
+                            time, dt, update_system);
+    }
+    else
+    {
+      explicit_time_advance(*pde, table, initial_sources, host_space,
+                            rank_space, chunks, time, dt);
+    }
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
