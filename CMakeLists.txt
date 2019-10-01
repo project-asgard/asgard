@@ -69,7 +69,7 @@ endif()
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
-  add_compile_definitions(ASGARD_USE_MPI)
+  include_directories(${MPI_CXX_INCLUDE_DIRS})
 endif()
 
 ###############################################################################
