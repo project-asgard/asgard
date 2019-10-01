@@ -2676,22 +2676,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
-    generate_all_coefficients( pde );
-
-    /*
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-    */
+    generate_all_coefficients(*pde);
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2748,21 +2733,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
-    generate_all_coefficients( pde );
-    /*
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-    */
+    generate_all_coefficients(*pde);
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2819,21 +2790,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
-    generate_all_coefficients( pde );
-    /*
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-    */
+    generate_all_coefficients(*pde);
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2890,21 +2847,7 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 
     element_table const elem_table(o, pde->num_dims);
 
-    generate_all_coefficients( pde );
-    /*
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-    */
+    generate_all_coefficients(*pde);
 
     host_workspace<TestType> host_space(*pde, elem_table);
     std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
@@ -2986,18 +2929,7 @@ TEMPLATE_TEST_CASE("system matrix builder", "[batch]", double)
     element_table const table(o, pde->num_dims);
 
     // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
+    generate_all_coefficients(*pde);
 
     // -- prep workspace/chunks
     std::vector<element_chunk> const chunks =
@@ -3034,18 +2966,7 @@ TEMPLATE_TEST_CASE("system matrix builder", "[batch]", double)
     element_table const table(o, pde->num_dims);
 
     // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
+    generate_all_coefficients(*pde);
 
     // -- prep workspace/chunks
     std::vector<element_chunk> const chunks =
@@ -3082,18 +3003,7 @@ TEMPLATE_TEST_CASE("system matrix builder", "[batch]", double)
     element_table const table(o, pde->num_dims);
 
     // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
+    generate_all_coefficients(*pde);
 
     // -- prep workspace/chunks
     std::vector<element_chunk> const chunks =
@@ -3130,18 +3040,7 @@ TEMPLATE_TEST_CASE("system matrix builder", "[batch]", double)
     element_table const table(o, pde->num_dims);
 
     // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
+    generate_all_coefficients(*pde);
 
     // -- prep workspace/chunks
     std::vector<element_chunk> const chunks =

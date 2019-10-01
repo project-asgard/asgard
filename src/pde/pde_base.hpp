@@ -142,14 +142,13 @@ enum class flux_type
 // do dimensions own terms? need dimension info in
 // term construction...
 
-template<typename P>
-using g_func_type = std::function<P(P const, P const)>;
+using g_func_type = std::function<double(double const, double const)>;
 
 template<typename P>
 class partial_term
 {
 public:
-  partial_term(coefficient_type const coeff_type, g_func_type<P> const g_func,
+  partial_term(coefficient_type const coeff_type, g_func_type const g_func,
                flux_type const flux, boundary_condition const left,
                boundary_condition const right)
       : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
@@ -175,13 +174,11 @@ public:
     return;
   }
 
-  void set_flux_scale(P const dfdu) { flux_scale = dfdu; };
-
   P get_flux_scale() const { return flux_scale; };
 
   coefficient_type const coeff_type;
 
-  g_func_type<P> const g_func;
+  g_func_type const g_func;
 
   flux_type const flux;
 
@@ -219,7 +216,7 @@ class term
 public:
   term(bool const time_dependent, fk::vector<P> const data,
        std::string const name, dimension<P> const owning_dim,
-       std::initializer_list<partial_term<P>> const partial_terms = {})
+       std::initializer_list<partial_term<P>> const partial_terms)
       : time_dependent(time_dependent), name(name), owning_dim(owning_dim),
         partial_terms(partial_terms), data_(data)
 
@@ -255,10 +252,11 @@ public:
         .transfer_from(new_coefficients);
   }
 
-  void set_partial_coefficients( fk::matrix< P > const &coeffs,
-                                 int const pterm )
+  void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
   {
-    partial_terms[ pterm ].set_coefficients( coeffs );
+    assert(partial_terms.size() > 0);
+
+    partial_terms[pterm].set_coefficients(coeffs);
   }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
@@ -273,8 +271,10 @@ public:
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   }
 
-  std::vector< partial_term< P > > const &get_partial_terms() const
-  { return partial_terms; }
+  std::vector<partial_term<P>> const &get_partial_terms() const
+  {
+    return partial_terms;
+  }
 
   int num_partial_terms() const { return partial_terms.size(); };
 
@@ -382,6 +382,11 @@ public:
     for (std::vector<term<P>> const &term_list : terms_)
     {
       assert(term_list.size() == static_cast<unsigned>(num_dims));
+
+      for (term<P> const &term_1D : term_list)
+      {
+        assert(term_1D.get_partial_terms().size() > 0);
+      }
     }
 
     // modify for appropriate level/degree
@@ -454,27 +459,23 @@ public:
     return terms_[term][dim].get_coefficients();
   }
 
-  /* gives a vector of partial_term matrices to the term object so it can construct the full
-     operator matrix */
-  void set_coefficients(fk::matrix< P > const coeffs,
-                        int const term,
-                        int const dim)
+  /* gives a vector of partial_term matrices to the term object so it can
+     construct the full operator matrix */
+  void
+  set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
   {
     terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
   }
 
-  void set_partial_coefficients( int const term,
-                                 int const dim,
-                                 int const pterm,
-                                 fk::matrix< P > const coeffs )
+  void set_partial_coefficients(int const term, int const dim, int const pterm,
+                                fk::matrix<P> const coeffs)
   {
-    terms_[ term ][ dim ].set_partial_coefficients( coeffs, pterm );
+    terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
   P get_dt() { return dt_; };
 
 private:
-
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
   P dt_;

@@ -122,7 +122,7 @@ private:
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
   // clang-format off
-  inline static partial_term<P> 
+  inline static const partial_term<P> 
   partial_term_0 = partial_term<P>( coefficient_type::grad,
                                     g_func_0,
                                     flux_type::central,
@@ -138,9 +138,9 @@ private:
               dim0_,           // owning dim
               {partial_term_0});
 
-  inline static std::vector<term<P>> terms0_ = {term0_dim0_};
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 
-  inline static term_set<P> terms_ = {terms0_};
+  inline static term_set<P> const terms_ = {terms0_};
 
   // define sources
   inline static source<P> const source0_ =

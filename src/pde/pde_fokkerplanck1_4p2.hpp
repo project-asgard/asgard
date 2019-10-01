@@ -159,11 +159,11 @@ private:
   //    termC_z.BCL2 = 'N';
   //    termC_z.BCR2 = 'N';
 
-  inline static partial_term<P> partial_term_0 = partial_term<P>(
+  inline static partial_term<P> const partial_term_0 = partial_term<P>(
       coefficient_type::grad, g_func_1, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  inline static partial_term<P> partial_term_1 =
+  inline static partial_term<P> const partial_term_1 =
       partial_term<P>(coefficient_type::grad, g_func_2, flux_type::upwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 
@@ -174,7 +174,7 @@ private:
               dim0_,           // owning dim
               {partial_term_0, partial_term_1});
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 
   inline static term_set<P> const terms_ = {terms0_};
 

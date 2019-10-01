@@ -202,7 +202,7 @@ private:
 
   // define terms
   // term 0
-  inline static partial_term<P> partial_term_t0_d0 = partial_term<P>(
+  inline static const partial_term<P> partial_term_t0_d0 = partial_term<P>(
       coefficient_type::grad, g_func_t0_d0, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -213,7 +213,7 @@ private:
               dim0_,           // owning dim
               {partial_term_t0_d0});
 
-  inline static partial_term<P> partial_term_t0_d1 = partial_term<P>(
+  inline static partial_term<P> const partial_term_t0_d1 = partial_term<P>(
       coefficient_type::mass, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -224,10 +224,10 @@ private:
               dim1_,           // owning dim
               {partial_term_t0_d1});
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_, term0_dim1_};
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_, term0_dim1_};
 
   // term 1
-  inline static partial_term<P> partial_term_t1_d0 = partial_term<P>(
+  inline static partial_term<P> const partial_term_t1_d0 = partial_term<P>(
       coefficient_type::mass, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -238,7 +238,7 @@ private:
               dim0_,           // owning dim
               {partial_term_t1_d0});
 
-  inline static partial_term<P> partial_term_t1_d1 = partial_term<P>(
+  inline static partial_term<P> const partial_term_t1_d1 = partial_term<P>(
       coefficient_type::grad, g_func_t1_d1, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
@@ -249,7 +249,7 @@ private:
               dim1_,           // owning dim
               {partial_term_t1_d1});
 
-  inline static const std::vector<term<P>> terms1_ = {term1_dim0_, term1_dim1_};
+  inline static std::vector<term<P>> const terms1_ = {term1_dim0_, term1_dim1_};
 
   inline static term_set<P> const terms_ = {terms0_, terms1_};
 

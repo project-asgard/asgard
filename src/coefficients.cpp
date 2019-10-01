@@ -8,40 +8,42 @@
 #include "transformations.hpp"
 #include <numeric>
 
-template< typename P >
-void generate_all_coefficients( std::unique_ptr< PDE< P > > &pde,
-                                double const time, 
-                                bool const rotate )
+/* generate coefficient matrices for each 1D term in each dimension and
+   underlying partial term coefficients matrices */
+template<typename P>
+void generate_all_coefficients(PDE<P> &pde, double const time,
+                               bool const rotate)
 {
-  for (int i = 0; i < pde->num_dims; ++i)
+  for (int i = 0; i < pde.num_dims; ++i)
   {
-    dimension<P> const &dim = pde->get_dimensions()[i];
+    dimension<P> const &dim = pde.get_dimensions()[i];
 
-    for (int j = 0; j < pde->num_terms; ++j)
+    for (int j = 0; j < pde.num_terms; ++j)
     {
-      term<P> const &term_1D = pde->get_terms()[j][i];
+      term<P> const &term_1D = pde.get_terms()[j][i];
 
-      std::vector< partial_term< P > > const &partial_terms = term_1D.get_partial_terms();
+      std::vector<partial_term<P>> const &partial_terms =
+          term_1D.get_partial_terms();
 
       /* generate the first partial term */
-      fk::matrix< double > term_coeff =
-      generate_coefficients< P >( dim, term_1D, partial_terms[ 0 ], time, rotate );
+      fk::matrix<double> term_coeff = generate_coefficients<P>(
+          dim, term_1D, partial_terms[0], time, rotate);
 
       /* set the partial term's coefficient matrix */
-      pde->set_partial_coefficients( i, j, 0, fk::matrix< P >( term_coeff ) );
+      pde.set_partial_coefficients(j, i, 0, fk::matrix<P>(term_coeff));
 
-      for( int k = 1; k < (int)partial_terms.size(); k++ )
+      for (int k = 1; k < static_cast<int>(partial_terms.size()); ++k)
       {
-        fk::matrix< double > partial_term_coeff = 
-        generate_coefficients< P >( dim, term_1D, partial_terms[ k ], time, rotate );
+        fk::matrix<double> partial_term_coeff = generate_coefficients<P>(
+            dim, term_1D, partial_terms[k], time, rotate);
 
         term_coeff = term_coeff * partial_term_coeff;
 
-        /* Captain! Ask tyler if move semantics can be used here */
-        pde->set_partial_coefficients( i, j, k, fk::matrix< P >( partial_term_coeff ) );
+        pde.set_partial_coefficients(j, i, k,
+                                     fk::matrix<P>(partial_term_coeff));
       }
 
-      pde->set_coefficients( fk::matrix< P >( term_coeff ), j, i );
+      pde.set_coefficients(fk::matrix<P>(term_coeff), j, i);
     }
   }
 }
@@ -51,9 +53,9 @@ void generate_all_coefficients( std::unique_ptr< PDE< P > > &pde,
 // coefficient matricies
 template<typename P>
 fk::matrix<double>
-generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
-                       partial_term<P> const &partial_term,
-                       double const time, bool const rotate)
+generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
+                      partial_term<P> const &pterm, double const time,
+                      bool const rotate)
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
@@ -150,7 +152,7 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
       fk::vector<double> g(quadrature_points_i.size());
       for (int i = 0; i < quadrature_points_i.size(); ++i)
       {
-        g(i) = partial_term.g_func(quadrature_points_i(i), time);
+        g(i) = pterm.g_func(quadrature_points_i(i), time);
       }
       return g;
     }();
@@ -169,11 +171,11 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
       }
       fk::matrix<double> block(dim.get_degree(), dim.get_degree());
 
-      if (partial_term.coeff_type == coefficient_type::mass)
+      if (pterm.coeff_type == coefficient_type::mass)
       {
         block = legendre_poly_t * tmp;
       }
-      else if (partial_term.coeff_type == coefficient_type::grad)
+      else if (pterm.coeff_type == coefficient_type::grad)
       {
         block = legendre_prime_t * tmp * (-1);
       }
@@ -201,35 +203,33 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
     // dat is going to be used in the G function (above it is used as linear
     // multuplication but this is not always true)
 
-    auto const flux_left  = partial_term.g_func(x_left, time);
-    auto const flux_right = partial_term.g_func(x_right, time);
+    auto const flux_left  = pterm.g_func(x_left, time);
+    auto const flux_right = pterm.g_func(x_right, time);
 
     // get the "trace" values
     // (values at the left and right of each element for all k)
     auto trace_value_1 =
         (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) +
         (legendre_poly_L_t * legendre_poly_R) *
-            (+1 * partial_term.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+            (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
     auto trace_value_2 =
         (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) +
         (legendre_poly_L_t * legendre_poly_L) *
-            (-1 * partial_term.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+            (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
     auto trace_value_3 =
         (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) +
         (legendre_poly_R_t * legendre_poly_R) *
-            (+1 * partial_term.get_flux_scale() * std::abs(flux_right) / 2 *
-             +1);
+            (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
     auto trace_value_4 =
         (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) +
         (legendre_poly_R_t * legendre_poly_L) *
-            (-1 * partial_term.get_flux_scale() * std::abs(flux_right) / 2 *
-             +1);
+            (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
 
     // If dirichelt
     // u^-_LEFT = g(LEFT)
     // u^+_RIGHT = g(RIGHT)
 
-    if (partial_term.left == boundary_condition::dirichlet) // left dirichlet
+    if (pterm.left == boundary_condition::dirichlet) // left dirichlet
     {
       if (i == 0)
       {
@@ -240,30 +240,26 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
         trace_value_3 =
             (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) +
             (legendre_poly_R_t * legendre_poly_R) *
-                (+1 * partial_term.get_flux_scale() * std::abs(flux_right) / 2 *
-                 +1);
+                (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
         trace_value_4 =
             (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) +
             (legendre_poly_R_t * legendre_poly_L) *
-                (-1 * partial_term.get_flux_scale() * std::abs(flux_right) / 2 *
-                 +1);
+                (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
       }
     }
 
-    if (partial_term.right == boundary_condition::dirichlet) // right dirichlet
+    if (pterm.right == boundary_condition::dirichlet) // right dirichlet
     {
       if (i == num_points - 1)
       {
         trace_value_1 =
             (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) +
             (legendre_poly_L_t * legendre_poly_R) *
-                (+1 * partial_term.get_flux_scale() * std::abs(flux_left) / 2 *
-                 -1);
+                (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
         trace_value_2 =
             (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) +
             (legendre_poly_L_t * legendre_poly_L) *
-                (-1 * partial_term.get_flux_scale() * std::abs(flux_left) / 2 *
-                 -1);
+                (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
         trace_value_3 =
             (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
         trace_value_4 =
@@ -277,7 +273,7 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
     // q*num_points = g (=> q = g for 1D variable)
     // only work for derivatives greater than 1
 
-    if (partial_term.left == boundary_condition::neumann) // left neumann
+    if (pterm.left == boundary_condition::neumann) // left neumann
     {
       if (i == 0)
       {
@@ -288,30 +284,26 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
         trace_value_3 =
             (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) +
             (legendre_poly_R_t * legendre_poly_R) *
-                (+1 * partial_term.get_flux_scale() * std::abs(flux_right) / 2 *
-                 +1);
+                (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
         trace_value_4 =
             (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) +
             (legendre_poly_R_t * legendre_poly_L) *
-                (-1 * partial_term.get_flux_scale() * std::abs(flux_right) / 2 *
-                 +1);
+                (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
       }
     }
 
-    if (partial_term.right == boundary_condition::neumann) // right neumann
+    if (pterm.right == boundary_condition::neumann) // right neumann
     {
       if (i == num_points - 1)
       {
         trace_value_1 =
             (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) +
             (legendre_poly_L_t * legendre_poly_R) *
-                (+1 * partial_term.get_flux_scale() * std::abs(flux_left) / 2 *
-                 -1);
+                (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
         trace_value_2 =
             (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) +
             (legendre_poly_L_t * legendre_poly_L) *
-                (-1 * partial_term.get_flux_scale() * std::abs(flux_left) / 2 *
-                 -1);
+                (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
         trace_value_3 =
             (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right);
         trace_value_4 =
@@ -319,7 +311,7 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
       }
     }
 
-    if (partial_term.coeff_type == coefficient_type::grad)
+    if (pterm.coeff_type == coefficient_type::grad)
     {
       // Add trace values to matrix
 
@@ -335,8 +327,8 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
       int row4 = current;
       int col4 = current + dim.get_degree();
 
-      if (partial_term.left == boundary_condition::periodic ||
-          partial_term.right == boundary_condition::periodic)
+      if (pterm.left == boundary_condition::periodic ||
+          pterm.right == boundary_condition::periodic)
       {
         if (i == 0)
         {
@@ -350,8 +342,8 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
         }
       }
 
-      if (i != 0 || partial_term.left == boundary_condition::periodic ||
-          partial_term.right == boundary_condition::periodic)
+      if (i != 0 || pterm.left == boundary_condition::periodic ||
+          pterm.right == boundary_condition::periodic)
       {
         // Add trace part 1
         fk::matrix<double, mem_type::view> block1(
@@ -371,9 +363,8 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
           col3 + dim.get_degree() - 1);
       block3 = block3 + trace_value_3;
 
-      if (i != num_points - 1 ||
-          partial_term.left == boundary_condition::periodic ||
-          partial_term.right == boundary_condition::periodic)
+      if (i != num_points - 1 || pterm.left == boundary_condition::periodic ||
+          pterm.right == boundary_condition::periodic)
       {
         // Add trace part 4
         fk::matrix<double, mem_type::view> block4(
@@ -400,26 +391,22 @@ generate_coefficients( dimension<P> const &dim, term<P> const &term_1D,
   return coefficients;
 }
 
-template
-fk::matrix< double >
-generate_coefficients<float>( dimension<float> const &dim,
-                              term<float> const &term_1D,
-                              partial_term< float > const &partial_term, 
-                              double const time,
-                              bool const rotate );
+template fk::matrix<double>
+generate_coefficients<float>(dimension<float> const &dim,
+                             term<float> const &term_1D,
+                             partial_term<float> const &pterm,
+                             double const time, bool const rotate);
 
-template
-fk::matrix< double >
-generate_coefficients<double>( dimension<double> const &dim,
+template fk::matrix<double>
+generate_coefficients<double>(dimension<double> const &dim,
                               term<double> const &term_1D,
-                              partial_term< double > const &partial_term,
-                              double const time,
-                              bool const rotate );
+                              partial_term<double> const &pterm,
+                              double const time, bool const rotate);
 
-template
-void generate_all_coefficients< float >( std::unique_ptr< PDE< float > > &pde,
-                                         double const time, bool const rotate );
+template void generate_all_coefficients<float>(PDE<float> &pde,
+                                               double const time,
+                                               bool const rotate);
 
-template
-void generate_all_coefficients< double >( std::unique_ptr< PDE< double > > &pde,
-                                          double const time, bool const rotate );
+template void generate_all_coefficients<double>(PDE<double> &pde,
+                                                double const time,
+                                                bool const rotate);

@@ -141,7 +141,7 @@ private:
   // define terms (1 in this case)
   //
   //  -d/dz ( (1-z^2)*f )
-  inline static partial_term<P> partial_term_0 = partial_term<P>(
+  inline static partial_term<P> const partial_term_0 = partial_term<P>(
       coefficient_type::grad, g_func_1, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
@@ -152,7 +152,7 @@ private:
               dim0_,           // owning dim
               {partial_term_0});
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 
   inline static term_set<P> const terms_ = {terms0_};
 

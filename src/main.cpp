@@ -126,43 +126,8 @@ int main(int argc, char **argv)
 
   // -- generate and store coefficient matrices.
   std::cout << "  generating: coefficient matrices..." << '\n';
-  /* Captain! replace block */
-  generate_all_coefficients< prec >( pde );
 
-  /*
-  for (int i = 0; i < pde->num_dims; ++i)
-  {
-    dimension<prec> const &dim = pde->get_dimensions()[i];
-
-    for (int j = 0; j < pde->num_terms; ++j)
-    {
-      term<prec> const &term_1D = pde->get_terms()[j][i];
-
-      std::vector< partial_term< prec > > const &partial_terms = term_1D.get_partial_terms();
-
-      // generate the first partial term
-      fk::matrix< double > term_coeff =
-      generate_coefficients< prec >( dim, term_1D, partial_terms[ 0 ] );
-
-      // set the partial term's coefficient matrix
-      pde->set_partial_coefficients( i, j, 0, fk::matrix< prec >( term_coeff ) );
-
-      for( int k = 1; k < (int)partial_terms.size(); k++ )
-      {
-        fk::matrix< double > partial_term_coeff = 
-        generate_coefficients< prec >( dim, term_1D, partial_terms[ k ] );
-
-        term_coeff = term_coeff * partial_term_coeff;
-
-        // Captain! Can move semantics be leveraged here?
-        pde->set_partial_coefficients( i, j, k, fk::matrix< prec >( partial_term_coeff ) );
-      }
-
-      pde->set_coefficients( fk::matrix< prec >( term_coeff ), j, i );
-    }
-  }
-  */
-  /* end replace block */
+  generate_all_coefficients<prec>(*pde);
 
   // this is to bail out for further profiling/development on the setup routines
   if (opts.get_time_steps() < 1)
