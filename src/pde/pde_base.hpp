@@ -276,8 +276,6 @@ public:
     return partial_terms;
   }
 
-  int num_partial_terms() const { return partial_terms.size(); };
-
   // public but const data. no getters
   bool const time_dependent;
   std::string const name;
