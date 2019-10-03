@@ -8,4 +8,3 @@
 #cmakedefine ASGARD_IO_HIGHFIVE
 #cmakedefine ASGARD_USE_OPENMP
 #cmakedefine ASGARD_USE_MPI
-
