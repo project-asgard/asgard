@@ -38,8 +38,8 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
 
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
 {
-  int const level   = 4;
-  int const degree  = 3;
+  int const level     = 4;
+  int const degree    = 3;
   TestType const time = 1.0;
 
   auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
@@ -69,10 +69,10 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
 TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
                    float)
 {
-  int const level   = 4;
-  int const degree  = 4;
+  int const level     = 4;
+  int const degree    = 4;
   TestType const time = 1.0;
-  auto pde          = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+  auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   std::string const filename_base = "../testing/generated-inputs/coefficients/"
                                     "continuity3_coefficients_norotate_l" +
                                     std::to_string(level) + "_d" +
@@ -98,10 +98,10 @@ TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
 
 TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
 {
-  int const level   = 4;
-  int const degree  = 4;
+  int const level     = 4;
+  int const degree    = 4;
   TestType const time = 1.0;
-  auto pde          = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+  auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   std::string const filename_base =
       "../testing/generated-inputs/coefficients/continuity3_coefficients_l" +
       std::to_string(level) + "_d" + std::to_string(degree) + "_";
@@ -126,10 +126,10 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
 
 TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
 {
-  int const level   = 2;
-  int const degree  = 4;
+  int const level     = 2;
+  int const degree    = 4;
   TestType const time = 1.0;
-  auto pde          = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+  auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
   std::string const filename_base =
       "../testing/generated-inputs/coefficients/continuity6_coefficients_l" +
       std::to_string(level) + "_d" + std::to_string(degree) + "_";
@@ -154,8 +154,8 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
 {
-  int const level   = 3;
-  int const degree  = 4;
+  int const level     = 3;
+  int const degree    = 4;
   TestType const time = 1.0;
   auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
   std::string const filename_base = "../testing/generated-inputs/coefficients/"
@@ -183,8 +183,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
 TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
                    double, float)
 {
-  int const level   = 3;
-  int const degree  = 4;
+  int const level     = 3;
+  int const degree    = 4;
   TestType const time = 1.0;
   auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
   std::string const filename_base =
@@ -213,8 +213,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
 {
-  int const level   = 4;
-  int const degree  = 3;
+  int const level     = 4;
+  int const degree    = 3;
   TestType const time = 1.0;
   auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
   std::string const filename_base = "../testing/generated-inputs/coefficients/"
@@ -243,8 +243,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
 {
-  int const level   = 3;
-  int const degree  = 4;
+  int const level     = 3;
+  int const degree    = 4;
   TestType const time = 1.0;
   auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p4, level, degree);
   std::string const filename_base = "../testing/generated-inputs/coefficients/"
@@ -272,8 +272,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
 {
-  int const level   = 5;
-  int const degree  = 2;
+  int const level     = 5;
+  int const degree    = 2;
   TestType const time = 1.0;
   auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p5, level, degree);
   std::string const filename_base = "../testing/generated-inputs/coefficients/"
