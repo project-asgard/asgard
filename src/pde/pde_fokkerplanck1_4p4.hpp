@@ -145,14 +145,12 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::dirichlet, // left boundary condition
-                   boundary_condition::dirichlet, // right boundary condition
-                   -1.0,                          // domain min
-                   1.0,                           // domain max
-                   2,                             // levels
-                   2,                             // degree
-                   f0_vec,                        // initial condition
-                   "x");                          // name
+      dimension<P>(-1.0,   // domain min
+                   1.0,    // domain max
+                   2,      // levels
+                   2,      // degree
+                   f0_vec, // initial condition
+                   "x");   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
@@ -162,40 +160,38 @@ private:
   //
   // -E d/dz((1-z^2) f)
 
-  inline static term<P> const termE_z =
-      term<P>(coefficient_type::grad, // operator type
-              g_func_t1_z,            //
-              false,                  // time-dependent
-              flux_type::downwind,    //
-              fk::vector<P>(),        // additional data vector
-              "d_dx",                 // name
-              dim0_                   // owning dim
-      );
+  inline static partial_term<P> const partial_term_0 = partial_term<P>(
+      coefficient_type::grad, g_func_t1_z, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  inline static const std::vector<term<P>> termE = {termE_z};
+  inline static term<P> const termE_z =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "d_dx",          // name
+              dim0_,           // owning dim
+              {partial_term_0});
+
+  inline static std::vector<term<P>> const termE = {termE_z};
 
   // term 2
   //
   // +C * d/dz( (1-z^2) df/dz )
+  inline static partial_term<P> const partial_term_1 = partial_term<P>(
+      coefficient_type::grad, g_func_t2_z1, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  inline static partial_term<P> const partial_term_2 =
+      partial_term<P>(coefficient_type::grad, g_func_t2_z2, flux_type::upwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   inline static term<P> const termC_z =
-      term<P>(coefficient_type::diff, // operator type
-              g_func_0,               // UNUSED for type "diff"
-              false,                  // time-dependent
-              flux_type::central,     // UNUSED for type "diff"
-              fk::vector<P>(),        // additional data vector
-              "d_dx",                 // name
-              dim0_,                  // owning dim
-              g_func_t2_z1, g_func_t2_z2,
-              flux_type::downwind,           // flux_1
-              flux_type::upwind,             // flux_2
-              boundary_condition::dirichlet, // BCL_1
-              boundary_condition::dirichlet, // BCR_1
-              boundary_condition::neumann,   // BCL_2
-              boundary_condition::neumann    // BCR_2
-      );
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "d_dx",          // name
+              dim0_,           // owning dim
+              {partial_term_1, partial_term_2});
 
-  inline static const std::vector<term<P>> termC = {termC_z};
+  inline static std::vector<term<P>> const termC = {termC_z};
 
   inline static term_set<P> const terms_ = {termE, termC};
 

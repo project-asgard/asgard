@@ -112,28 +112,28 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -1.0,                         // domain min
-                   1.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   initial_condition_dim0,       // initial condition
-                   "x");                         // name
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim0, // initial condition
+                   "x");                   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
-  // define terms (1 in this case)
-  inline static term<P> const term0_dim0_ =
-      term<P>(coefficient_type::grad, // operator type
-              g_func_0,               // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "d_dx",                 // name
-              dim0_);                 // owning dim
+  inline static const partial_term<P> partial_term_0 = partial_term<P>(
+      coefficient_type::grad, g_func_0, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  // define terms (1 in this case)
+  inline static term<P> term0_dim0_ =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "d_dx",          // name
+              dim0_,           // owning dim
+              {partial_term_0});
+
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 
   inline static term_set<P> const terms_ = {terms0_};
 

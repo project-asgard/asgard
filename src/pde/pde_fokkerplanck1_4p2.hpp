@@ -135,14 +135,12 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::dirichlet, // left boundary condition
-                   boundary_condition::dirichlet, // right boundary condition
-                   -1.0,                          // domain min
-                   1.0,                           // domain max
-                   2,                             // levels
-                   2,                             // degree
-                   initial_condition_dim0,        // initial condition
-                   "x");                          // name
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim0, // initial condition
+                   "x");                   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
@@ -161,27 +159,22 @@ private:
   //    termC_z.BCL2 = 'N';
   //    termC_z.BCR2 = 'N';
 
+  inline static partial_term<P> const partial_term_0 = partial_term<P>(
+      coefficient_type::grad, g_func_1, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  inline static partial_term<P> const partial_term_1 =
+      partial_term<P>(coefficient_type::grad, g_func_2, flux_type::upwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
+
   inline static term<P> const term0_dim0_ =
-      term<P>(coefficient_type::diff, // operator type
-              g_func_0,               // UNUSED for type "diff"
-              false,                  // time-dependent
-              flux_type::central,     // UNUSED for type "diff"
-              fk::vector<P>(),        // additional data vector
-              "d_dx",                 // name
-              dim0_,                  // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "d_dx",          // name
+              dim0_,           // owning dim
+              {partial_term_0, partial_term_1});
 
-              g_func_1, g_func_2,
-              flux_type::downwind, // flux_1
-              flux_type::upwind,   // flux_2
-
-              boundary_condition::dirichlet, // BCL_1
-              boundary_condition::dirichlet, // BCR_1
-              boundary_condition::neumann,   // BCL_2
-              boundary_condition::neumann    // BCR_2
-
-      );
-
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 
   inline static term_set<P> const terms_ = {terms0_};
 
