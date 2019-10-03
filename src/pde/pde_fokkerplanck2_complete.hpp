@@ -212,7 +212,7 @@ private:
     return 1.0;
   }
 
-  inline static partial_term<P> pterm_I =
+  inline static partial_term<P> const pterm_I =
       partial_term<P>(coefficient_type::mass, gI);
   inline static term<P> const I_ =
       term<P>(false,           // time-dependent
@@ -248,12 +248,12 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> c1_pterm1 =
+  inline static partial_term<P> const c1_pterm1 =
       partial_term<P>(coefficient_type::mass, c1_g1);
-  inline static class partial_term<P> c1_pterm2 = partial_term<P>(
+  inline static partial_term<P> const c1_pterm2 = partial_term<P>(
       coefficient_type::grad, c1_g2, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::neumann);
-  inline static class partial_term<P> c1_pterm3 = partial_term<P>(
+  inline static partial_term<P> const c1_pterm3 = partial_term<P>(
       coefficient_type::grad, c1_g3, flux_type::downwind,
       boundary_condition::neumann, boundary_condition::dirichlet);
 
@@ -266,7 +266,7 @@ private:
               {c1_pterm1, c1_pterm2, c1_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termC1 = {c1_term_p, I_};
+  inline static std::vector<term<P>> const termC1 = {c1_term_p, I_};
 
   // termC2 == 1/p^2*d/dp*p^2*Cf*f
   //
@@ -287,9 +287,9 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> c2_pterm1 =
+  inline static partial_term<P> const c2_pterm1 =
       partial_term<P>(coefficient_type::mass, c2_g1);
-  inline static class partial_term<P> c2_pterm2 = partial_term<P>(
+  inline static partial_term<P> const c2_pterm2 = partial_term<P>(
       coefficient_type::grad, c2_g2, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::dirichlet);
 
@@ -302,7 +302,7 @@ private:
               {c2_pterm1, c2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termC2 = {c2_term_p, I_};
+  inline static std::vector<term<P>> const termC2 = {c2_term_p, I_};
 
   // termC3 == Cb(p)/p^4 * d/dz( (1-z^2) * df/dz )
   //
@@ -331,12 +331,12 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> c3_pterm1 =
+  inline static partial_term<P> const c3_pterm1 =
       partial_term<P>(coefficient_type::mass, c3_g1);
-  inline static class partial_term<P> c3_pterm2 = partial_term<P>(
+  inline static partial_term<P> const c3_pterm2 = partial_term<P>(
       coefficient_type::grad, c3_g2, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
-  inline static class partial_term<P> c3_pterm3 =
+  inline static partial_term<P> const c3_pterm3 =
       partial_term<P>(coefficient_type::grad, c3_g3, flux_type::downwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 
@@ -355,7 +355,7 @@ private:
               {c3_pterm2, c3_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termC3 = {c3_term_p, c3_term_z};
+  inline static std::vector<term<P>> const termC3 = {c3_term_p, c3_term_z};
 
   // -div(flux_E) == termE1 + termE2
 
@@ -373,7 +373,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    assert(x > 0);
+    assert(x >= 0);
     return 1.0 / std::pow(x, 2);
   }
   static P e1_g3(P const x, P const time = 0)
@@ -383,11 +383,11 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> e1_pterm1 =
+  inline static partial_term<P> const e1_pterm1 =
       partial_term<P>(coefficient_type::mass, e1_g1);
-  inline static class partial_term<P> e1_pterm2 =
+  inline static partial_term<P> const e1_pterm2 =
       partial_term<P>(coefficient_type::mass, e1_g2);
-  inline static class partial_term<P> e1_pterm3 = partial_term<P>(
+  inline static partial_term<P> const e1_pterm3 = partial_term<P>(
       coefficient_type::grad, e1_g3, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::dirichlet);
 
@@ -406,7 +406,7 @@ private:
               {e1_pterm1});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termE1 = {e1_term_p, e1_term_z};
+  inline static std::vector<term<P>> const termE1 = {e1_term_p, e1_term_z};
 
   // termE2 == -E*p*f(p) * d/dz (1-z^2) f(z)
   //        == q(p) * r(z)
@@ -425,9 +425,9 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> e2_pterm1 =
+  inline static partial_term<P> const e2_pterm1 =
       partial_term<P>(coefficient_type::mass, e2_g1);
-  inline static class partial_term<P> e2_pterm2 =
+  inline static partial_term<P> const e2_pterm2 =
       partial_term<P>(coefficient_type::grad, e2_g2, flux_type::central,
                       boundary_condition::neumann, boundary_condition::neumann);
 
@@ -446,7 +446,7 @@ private:
               {e2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termE2 = {e2_term_p, e2_term_z};
+  inline static std::vector<term<P>> const termE2 = {e2_term_p, e2_term_z};
 
   // -div(flux_R) == termR1 + termR2
 
@@ -477,12 +477,12 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> r1_pterm1 =
+  inline static partial_term<P> const r1_pterm1 =
       partial_term<P>(coefficient_type::mass, r1_g1);
-  inline static class partial_term<P> r1_pterm2 = partial_term<P>(
+  inline static partial_term<P> const r1_pterm2 = partial_term<P>(
       coefficient_type::grad, r1_g2, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::dirichlet);
-  inline static class partial_term<P> r1_pterm3 =
+  inline static partial_term<P> const r1_pterm3 =
       partial_term<P>(coefficient_type::mass, r1_g3);
 
   // 2. combine partial terms into single dimension term
@@ -500,7 +500,7 @@ private:
               {r1_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termR1 = {r1_term_p, r1_term_z};
+  inline static std::vector<term<P>> const termR1 = {r1_term_p, r1_term_z};
 
   // clang-format off
   //
@@ -523,9 +523,9 @@ private:
   }
 
   // 1. create partial_terms
-  inline static class partial_term<P> r2_pterm1 =
+  inline static partial_term<P> const r2_pterm1 =
       partial_term<P>(coefficient_type::mass, r2_g1);
-  inline static class partial_term<P> r2_pterm2 =
+  inline static partial_term<P> const r2_pterm2 =
       partial_term<P>(coefficient_type::grad, r2_g2, flux_type::central,
                       boundary_condition::neumann, boundary_condition::neumann);
 
@@ -544,7 +544,7 @@ private:
               {r2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static const std::vector<term<P>> termR2 = {r2_term_p, r2_term_z};
+  inline static std::vector<term<P>> const termR2 = {r2_term_p, r2_term_z};
 
   // collect all the terms
   inline static term_set<P> const terms_ = {termC1, termC2, termC3, termE1,

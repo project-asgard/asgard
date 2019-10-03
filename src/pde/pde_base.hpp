@@ -150,9 +150,16 @@ template<typename P>
 class partial_term
 {
 public:
-  partial_term(coefficient_type const coeff_type, g_func_type const g_func,
-               flux_type const flux, boundary_condition const left,
-               boundary_condition const right)
+  partial_term(coefficient_type const coeff_type,
+               g_func_type const g_func =
+                   [](double const x, double const t) {
+                     ignore(x);
+                     ignore(t);
+                     return 1.0;
+                   },
+               flux_type const flux           = flux_type::central,
+               boundary_condition const left  = boundary_condition::neumann,
+               boundary_condition const right = boundary_condition::neumann)
       : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
         right(right)
   {}

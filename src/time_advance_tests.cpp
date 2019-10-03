@@ -1541,18 +1541,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
     element_table const table(o, pde->num_dims);
 
     // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
+    generate_all_coefficients(*pde);
 
     // -- generate initial condition vector.
     TestType const initial_scale = 1.0;
