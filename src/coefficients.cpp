@@ -11,8 +11,7 @@
 /* generate coefficient matrices for each 1D term in each dimension and
    underlying partial term coefficients matrices */
 template<typename P>
-void generate_all_coefficients(PDE<P> &pde, double const time,
-                               bool const rotate)
+void generate_all_coefficients(PDE<P> &pde, P const time, bool const rotate)
 {
   for (int i = 0; i < pde.num_dims; ++i)
   {
@@ -54,7 +53,7 @@ void generate_all_coefficients(PDE<P> &pde, double const time,
 template<typename P>
 fk::matrix<double>
 generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
-                      partial_term<P> const &pterm, double const time,
+                      partial_term<P> const &pterm, P const time,
                       bool const rotate)
 {
   assert(time >= 0.0);
@@ -394,8 +393,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
 template fk::matrix<double>
 generate_coefficients<float>(dimension<float> const &dim,
                              term<float> const &term_1D,
-                             partial_term<float> const &pterm,
-                             double const time, bool const rotate);
+                             partial_term<float> const &pterm, float const time,
+                             bool const rotate);
 
 template fk::matrix<double>
 generate_coefficients<double>(dimension<double> const &dim,
@@ -404,7 +403,7 @@ generate_coefficients<double>(dimension<double> const &dim,
                               double const time, bool const rotate);
 
 template void generate_all_coefficients<float>(PDE<float> &pde,
-                                               double const time,
+                                               float const time,
                                                bool const rotate);
 
 template void generate_all_coefficients<double>(PDE<double> &pde,

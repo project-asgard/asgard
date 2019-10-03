@@ -254,8 +254,8 @@ public:
 
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
   {
-    assert(partial_terms.size() > 0);
-
+    assert(pterm >= 0);
+    assert(pterm < static_cast<int>(partial_terms.size()));
     partial_terms[pterm].set_coefficients(coeffs);
   }
 
