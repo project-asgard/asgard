@@ -15,6 +15,7 @@
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
 #include "../tensors.hpp"
+
 //
 // This file contains all of the interface and object definitions for our
 // representation of a PDE
@@ -125,10 +126,11 @@ enum class coefficient_type
 
 enum class flux_type
 {
-  central,
-  upwind,
-  downwind,
-  lax_friedrich
+
+  downwind      = -1,
+  central       = 0,
+  upwind        = 1,
+  lax_friedrich = 0
 };
 
 // ---------------------------------------------------------------------------
@@ -153,28 +155,9 @@ public:
                boundary_condition const right)
       : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
         right(right)
-  {
-    if (flux == flux_type::central)
-    {
-      flux_scale = 0.0;
-    }
-    else if (flux == flux_type::upwind)
-    {
-      flux_scale = +1.0;
-    }
-    else if (flux == flux_type::downwind)
-    {
-      flux_scale = -1.0;
-    }
-    else
-    {
-      flux_scale = 0.0;
-    }
+  {}
 
-    return;
-  }
-
-  P get_flux_scale() const { return flux_scale; };
+  P get_flux_scale() const { return static_cast<P>(flux); };
 
   coefficient_type const coeff_type;
 
@@ -186,16 +169,12 @@ public:
 
   boundary_condition const right;
 
-  P flux_scale;
-
   fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 
   void set_coefficients(fk::matrix<P> const &new_coefficients)
   {
     this->coefficients_.clear_and_resize(
         new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
-
-    return;
   }
 
 private:
