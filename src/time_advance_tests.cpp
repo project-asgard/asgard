@@ -259,17 +259,22 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
                    float, double)
 {
   SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
     int const level  = 2;
+
+    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
+    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
+
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
   }
 }
 
@@ -381,10 +386,9 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     int const level  = 2;
 
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    auto const gold_base =
-        "../testing/generated-inputs/implicit_time_advance/"
-        "continuity1_implicit_l2_d2_t" +
-        implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+    auto const gold_base = "../testing/generated-inputs/implicit_time_advance/"
+                           "continuity1_implicit_l2_d2_t";
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 
   SECTION("continuity1, level 4, degree 3, sparse grid")
@@ -418,10 +422,9 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     int const degree = 3;
     int const level  = 4;
 
-    auto const gold_base =
-        "../testing/generated-inputs/implicit_time_advance/"
-        "continuity2_implicit_l4_d3_t" +
-        auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+    auto const gold_base = "../testing/generated-inputs/implicit_time_advance/"
+                           "continuity2_implicit_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
