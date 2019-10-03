@@ -732,20 +732,8 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * elem_table.size();
-  using key_type      = std::pair<int, int>;
-  using val_type      = fk::matrix<P, mem_type::owner, resource::host>;
-  std::map<key_type, val_type> coef_cache;
 
   assert(A.ncols() == A_size && A.nrows() == A_size);
-  // Copy coefficients to host for subsequent use
-  for (int k = 0; k < pde.num_terms; ++k)
-  {
-    for (int d = 0; d < pde.num_dims; d++)
-    {
-      coef_cache.insert(std::pair<key_type, val_type>(
-          key_type(k, d), pde.get_coefficients(k, d).clone_onto_host()));
-    }
-  }
 
   // loop over elements
   // FIXME eventually want to do this in parallel
@@ -764,21 +752,22 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
     // calculate the row portion of the
     // operator position used for this
     // element's gemm calls
-    fk::vector<int> operator_row = get_operator_row(pde, degree, elem_indices);
+    fk::vector<int> const operator_row =
+        get_operator_row(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> coords_nD = elem_table.get_coords(j);
+      fk::vector<int> const coords_nD = elem_table.get_coords(j);
       assert(coords_nD.size() == pde.num_dims * 2);
-      fk::vector<int> connected_indices = linearize(coords_nD);
+      fk::vector<int> const connected_indices = linearize(coords_nD);
 
       // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
-      fk::vector<int> operator_col =
+      fk::vector<int> const operator_col =
           get_operator_col(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
@@ -790,7 +779,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
         for (int d = 0; d < pde.num_dims; d++)
         {
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
-              coef_cache[key_type(k, d)], operator_row(d),
+              pde.get_coefficients(k, d), operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1);
           fk::matrix<P> k_new = kron_vals[d].kron(op_view);
@@ -800,7 +789,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
         // calculate the position of this element in the
         // global system matrix
         int const global_col = j * elem_size;
-        auto &k_tmp          = kron_vals.back();
+        auto const &k_tmp    = kron_vals.back();
 
         fk::matrix<P, mem_type::view> A_view(
             A, global_row, global_row + k_tmp.nrows() - 1, global_col,

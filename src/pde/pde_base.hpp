@@ -245,11 +245,7 @@ public:
     partial_terms[pterm].set_coefficients(coeffs);
   }
 
-  fk::matrix<P, mem_type::owner, resource::device> const &
-  get_coefficients() const
-  {
-    return coefficients_;
-  }
+  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 
   // small helper to return degrees of freedom given dimension
   int degrees_freedom(dimension<P> const d) const

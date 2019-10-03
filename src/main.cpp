@@ -46,6 +46,10 @@ int main(int argc, char **argv)
   {
     // distribution of implicit time advance not yet implemented
     assert(num_ranks == 1);
+// gpu-enabled implicit time advance not yet implemented
+#ifdef ASGARD_USE_CUDA
+    assert(false);
+#endif
   }
 
   // -- parse user input and generate pde
