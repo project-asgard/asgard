@@ -433,6 +433,10 @@ public:
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const
   {
+    assert(term >= 0);
+    assert(term < num_terms);
+    assert(dim >= 0);
+    assert(dim < num_dims);
     return terms_[term][dim].get_coefficients();
   }
 
@@ -441,12 +445,20 @@ public:
   void
   set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
   {
+    assert(term >= 0);
+    assert(term < num_terms);
+    assert(dim >= 0);
+    assert(dim < num_dims);
     terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
   }
 
   void set_partial_coefficients(int const term, int const dim, int const pterm,
                                 fk::matrix<P> const coeffs)
   {
+    assert(term >= 0);
+    assert(term < num_terms);
+    assert(dim >= 0);
+    assert(dim < num_dims);
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
