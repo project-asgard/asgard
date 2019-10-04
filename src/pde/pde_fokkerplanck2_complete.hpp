@@ -111,33 +111,18 @@ private:
   // specify initial conditions for each dim
   // p dimension
 
-  static int constexpr test = 2;
-
   // initial condition in p
   static fk::vector<P> initial_condition_p(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
     fk::vector<P> ret(x.size());
-    switch (test)
-    {
-    case 1:
-      std::transform(x.begin(), x.end(), ret.begin(), [](auto elem) {
-        return (elem <= 5) ? 3.0 / (2.0 * std::pow(5.0, 3)) : 0;
-      });
-      break;
-    case 2:
-      std::transform(x.begin(), x.end(), ret.begin(), [](auto elem) {
-        P const a = 2;
-        return 2.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
-               std::exp(-std::pow(elem, 2) / std::pow(a, 2));
-      });
-      break;
-    case 3:
-      std::transform(x.begin(), x.end(), ret.begin(), [](auto elem) {
-        return 2.0 / (3.0 * std::sqrt(M_PI)) * std::exp(-std::pow(elem, 2));
-      });
-      break;
-    }
+
+    std::transform(x.begin(), x.end(), ret.begin(), [](auto const elem) {
+      P const a = 2;
+      return 2.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
+             std::exp(-std::pow(elem, 2) / std::pow(a, 2));
+    });
+
     return ret;
   }
 
@@ -146,31 +131,7 @@ private:
   {
     ignore(t);
     fk::vector<P> ret(x.size());
-    switch (test)
-    {
-    case 1:
-      std::fill(ret.begin(), ret.end(), 1.0);
-      break;
-    case 2:
-      std::fill(ret.begin(), ret.end(), 1.0);
-      break;
-    case 3:
-      fk::vector<P> ret(x.size());
-
-      std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
-
-      auto const [P_m, dP_m] =
-          legendre(x, legendre_coeffs.size(), legendre_normalization::matlab);
-      ignore(dP_m);
-
-      // let's see you C++ nerds do this without a raw loop
-      for (int i = 0; i < static_cast<int>(legendre_coeffs.size()); ++i)
-      {
-        fk::vector<P> const P_0 = P_m.extract_submatrix(0, i, x.size(), 1);
-        ret = ret + (P_0 * legendre_coeffs[i] * std::exp(-i * (i + 1) * t));
-      }
-      break;
-    }
+    std::fill(ret.begin(), ret.end(), 1.0);
     return ret;
   }
 
