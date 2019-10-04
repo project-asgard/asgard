@@ -322,31 +322,18 @@ template<typename P>
 class PDE
 {
 public:
-  // clang-format off
-  PDE(int const num_levels,
-      int const degree,
-      int const num_dims,
-      int const num_sources,
-      int const num_terms,
-      std::vector<dimension<P>> const dimensions,
-      term_set<P> const terms,
+  PDE(int const num_levels, int const degree, int const num_dims,
+      int const num_sources, int const num_terms,
+      std::vector<dimension<P>> const dimensions, term_set<P> const terms,
       std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
-      scalar_func<P> const exact_time,
-      dt_func<P> const get_dt,
-      bool const do_poisson_solve = false,
-      bool const has_analytic_soln = false)
-      : num_dims(num_dims),
-        num_sources(num_sources),
-        num_terms(num_terms),
-	      sources(sources),
-        exact_vector_funcs(exact_vector_funcs),
-	      exact_time(exact_time),
-	      do_poisson_solve(do_poisson_solve),
-        has_analytic_soln(has_analytic_soln),
-	      dimensions_(dimensions),
-	      terms_(terms)
-  // clang-format on
+      scalar_func<P> const exact_time, dt_func<P> const get_dt,
+      bool const do_poisson_solve = false, bool const has_analytic_soln = false)
+      : num_dims(num_dims), num_sources(num_sources), num_terms(num_terms),
+        sources(sources), exact_vector_funcs(exact_vector_funcs),
+        exact_time(exact_time), do_poisson_solve(do_poisson_solve),
+        has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
+        terms_(terms)
   {
     assert(num_dims > 0);
     assert(num_sources >= 0);
