@@ -334,7 +334,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    assert(x >= 0);
+    assert(x > 0);
     return 1.0 / std::pow(x, 2);
   }
   static P e1_g3(P const x, P const time = 0)
