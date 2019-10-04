@@ -107,7 +107,7 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
   auto const legendre_prime_t = fk::matrix<double>(legendre_prime).transpose();
 
   // get jacobian
-  auto jacobi = grid_spacing / 2;
+  auto const jacobi = grid_spacing / 2;
 
   // convert term input data from wavelet space to realspace
   fk::matrix<double> const forward_trans_transpose =
