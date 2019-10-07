@@ -74,6 +74,7 @@ private:
   // std::map<fk::vector<int>,long int> forward_table_sparse;
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table;
+  //std::map<T,fk::vector<int>> reverse_table_map;
 };
 //template class element_table<int>;
 //template class element_table<int64_t>;
