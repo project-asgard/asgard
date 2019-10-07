@@ -17,7 +17,6 @@ element_table<T>::element_table(options const program_opts, int const num_dims)
   int const num_levels     = program_opts.get_level();
   bool const use_full_grid = program_opts.using_full_grid();
   int const max_levels     = program_opts.get_max_levels();
-  //std::cout << " max levels " << max_levels << std::endl;
 
   assert(num_dims > 0);
   assert(num_levels > 0);
@@ -50,24 +49,19 @@ element_table<T>::element_table(options const program_opts, int const num_dims)
       fk::vector<int> cell_indices =
           index_set.extract_submatrix(cell_set, 0, 1, num_dims);
 
-      int64_t element_idx =
+      T element_idx =
           lev_cell_to_element_index(level_tuple, cell_indices, max_levels);
-      //std::cout << "element_idx " << element_idx << std::endl;
+
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       fk::vector<int> key = level_tuple;
       key.concat(cell_indices);
 
       forward_table[key] = element_idx;
-      // forward_table_sparse[key] = element_idx;
       // note the matlab code has an option to append 1d cell indices to the
       // reverse element table. //FIXME do we need to precompute or can we call
       // the 1d helper as needed?
       reverse_table.push_back(key);
-      //std::cout << "adding map key and vec " << std::endl;
-      ////reverse_table_map[static_cast<int>(element_idx)] = key;
-      //reverse_table_map.insert ( std::pair<T,fk::vector<int>>(element_idx,key) );
-      //std::cout << "added map key and vec " << std::endl;
     }
   }
   assert(forward_table.size() == reverse_table.size());
@@ -91,13 +85,6 @@ fk::vector<int> element_table<T>::get_coords(T const index) const
   assert(static_cast<size_t>(index) < reverse_table.size());
   return reverse_table[index];
 }
-
-// fk::vector<int> element_table::get_coords_sparse(long int const index) const
-//{
-//  assert(index >= 0);
-//  assert(static_cast<size_t>(index) < reverse_table.size());
-//  return reverse_table[index];
-//}
 
 // Static construction helper
 // Return the cell indices, given a level tuple
@@ -166,52 +153,39 @@ element_table<T>::get_cell_index_set(fk::vector<int> const level_tuple)
 template<typename T>
 int element_table<T>::lev_cell_to_1D_index(int const level, int const cell)
 {
-  //std::cout << " here3 " << level << "level and cell " << cell << std::endl;
-
-  int64_t index = 0;
-  //std::cout << " here3.5 " << std::endl;
+  T index = 0;
 
   if (level > 0)
   {
     index = fm::two_raised_to(level - 1) + cell;
   }
 
-  //std::cout << " here4 1d index " << index << std::endl;
   return index;
 }
 
 template<typename T>
 int element_table<T>::lev_cell_to_element_index(fk::vector<int> const levels,
-                                            fk::vector<int> const cells,
-                                            int const max_levels)
+                                                fk::vector<int> const cells,
+                                                int const max_levels)
 {
-  //std::cout << " here1 " << std::endl;
   int const num_dimensions = levels.size();
   assert(cells.size() == num_dimensions);
 
-  int64_t eIdx   = 0;
-  int64_t stride = 1;
-  //std::cout << " here2 " << std::endl;
+  T eIdx   = 0;
+  T stride = 1;
 
   for (int d = 0; d < num_dimensions; d++)
   {
     assert(levels(d) <= max_levels);
-    int64_t idx_1D = lev_cell_to_1D_index(levels(d), cells(d));
-    eIdx            = eIdx + (idx_1D)*stride;
-    stride          = stride * fm::two_raised_to(max_levels);
+    T idx_1D = lev_cell_to_1D_index(levels(d), cells(d));
+    eIdx     = eIdx + (idx_1D)*stride;
+    stride   = stride * fm::two_raised_to(max_levels);
   }
 
-  //std::cout << " here5 eIdx" << eIdx << std::endl;
   assert(eIdx >= 0);
   assert(eIdx < pow(fm::two_raised_to(max_levels), num_dimensions));
-  //std::cout << " here6 " << std::endl;
 
   return eIdx;
 }
 template class element_table<int>;
 template class element_table<int64_t>;
-
-//template fk::vector<int> element_table<int>::get_coords(int const index) const;
-//template fk::vector<int> element_table<int64_t>::get_coords(int64_t const index) const;
-//template int element_table<int>::get_index(fk::vector<int> const coords);
-//template int element_table<int64_t>::get_index(fk::vector<int> const coords);
