@@ -1031,7 +1031,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType,int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1128,7 +1128,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType, int> host_space(*pde, table);
+    host_workspace<TestType,long long int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1224,7 +1224,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
           degree, table, initial_sources_dim, initial_scale));
     }
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType,long long int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1295,7 +1295,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType,long long int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1391,7 +1391,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType,long long int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);
@@ -1462,7 +1462,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     }
 
     // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
+    host_workspace<TestType,long long int> host_space(*pde, table);
     std::vector<element_chunk> const chunks =
         assign_elements(table, get_num_chunks(table, *pde));
     rank_workspace<TestType> rank_space(*pde, chunks);

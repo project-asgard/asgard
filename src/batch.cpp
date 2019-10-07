@@ -724,8 +724,8 @@ build_batches(PDE<P> const &pde, element_table<T> const &elem_table,
 
 // function to allocate and build implicit system.
 // given a problem instance (pde/elem table)
-template<typename P>
-void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
+template<typename P,typename T>
+void build_system_matrix(PDE<P> const &pde, element_table<T> const &elem_table,
                          element_chunk const &chunk, fk::matrix<P> &A)
 {
   // assume uniform degree for now
@@ -889,8 +889,14 @@ build_batches(PDE<double> const &pde, element_table<int64_t> const &elem_table,
               element_chunk const &chunk);
 
 template void
-build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
+build_system_matrix(PDE<double> const &pde, element_table<int> const &elem_table,
                     element_chunk const &chunk, fk::matrix<double> &A);
 template void
-build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
+build_system_matrix(PDE<double> const &pde, element_table<int64_t> const &elem_table,
+                    element_chunk const &chunk, fk::matrix<double> &A);
+template void
+build_system_matrix(PDE<float> const &pde, element_table<int> const &elem_table,
+                    element_chunk const &chunk, fk::matrix<float> &A);
+template void
+build_system_matrix(PDE<float> const &pde, element_table<int64_t> const &elem_table,
                     element_chunk const &chunk, fk::matrix<float> &A);

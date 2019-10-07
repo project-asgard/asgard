@@ -49,7 +49,6 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
       fk::vector<int> t2coords = t_2.get_coords(i);
 
       REQUIRE(t_2.get_coords(i) == gold_coords);
-      int t2getinds           = t_2.get_index(gold_coords);
       fk::vector<int> indices = gold_ind.extract_submatrix(0, i, 1, 1);
       int this_ind            = indices(0);
       REQUIRE(t_2.get_index(gold_coords) == this_ind);

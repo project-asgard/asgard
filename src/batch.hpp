@@ -132,8 +132,8 @@ std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table<T> const &elem_table,
               rank_workspace<P> const &workspace, element_chunk const &chunk);
 
-template<typename P>
-void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
+template<typename P,typename T>
+void build_system_matrix(PDE<P> const &pde, element_table<T> const &elem_table,
                          element_chunk const &chunk, fk::matrix<P> &A);
 
 extern template class batch<float>;
@@ -213,8 +213,14 @@ build_batches(PDE<double> const &pde, element_table<int64_t> const &elem_table,
               element_chunk const &chunk);
 
 extern template void
-build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
+build_system_matrix(PDE<double> const &pde, element_table<int> const &elem_table,
                     element_chunk const &chunk, fk::matrix<double> &A);
 extern template void
-build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
+build_system_matrix(PDE<double> const &pde, element_table<int64_t> const &elem_table,
+                    element_chunk const &chunk, fk::matrix<double> &A);
+extern template void
+build_system_matrix(PDE<float> const &pde, element_table<int> const &elem_table,
+                    element_chunk const &chunk, fk::matrix<float> &A);
+extern template void
+build_system_matrix(PDE<float> const &pde, element_table<int64_t> const &elem_table,
                     element_chunk const &chunk, fk::matrix<float> &A);
