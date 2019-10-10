@@ -33,7 +33,7 @@ options::options(int argc, char **argv)
                          "visualization_frequency")["-z"]["--vis_freq"](
           "Frequency in steps for visualizing output");
 
-  auto result = cli.parse(clara::detail::Args(argc, argv));
+  auto const result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
   {
     std::cerr << "Error in command line parsing: " << result.errorMessage()
@@ -68,7 +68,7 @@ options::options(int argc, char **argv)
     valid = false;
   }
 
-  auto choice = pde_mapping.find(selected_pde);
+  auto const choice = pde_mapping.find(selected_pde);
   if (choice == pde_mapping.end())
   {
     std::cerr << "Invalid pde choice; see options.hpp for valid choices"
@@ -84,6 +84,10 @@ options::options(int argc, char **argv)
   {
     std::cerr << "Frequencies must be non-negative: " << std::endl;
     valid = false;
+  }
+  if (!valid)
+  {
+    exit(-1);
   }
 }
 
