@@ -85,6 +85,8 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
 {
   REQUIRE(first.size() == second.size());
   using P = typename std::remove_pointer<decltype(first.data())>::type;
+  using R = typename std::remove_pointer<decltype(second.data())>::type;
+  static_assert(std::is_same<P, R>::value, "containers must hold same type");
   Catch::StringMaker<P>::precision = 15;
   auto first_it                    = first.begin();
   std::for_each(
