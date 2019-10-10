@@ -365,7 +365,7 @@ template<typename R>
 fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
 {
   assert(degree > 0);
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   int const max_level = fm::two_raised_to(num_levels);
 

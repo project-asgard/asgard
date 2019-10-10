@@ -30,7 +30,7 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
     std::string base_path =
         "../testing/generated-inputs/connectivity/connect_1_";
 
-    std::vector<int> const levels{1, 2, 8};
+    std::vector<int> const levels{2, 3, 8};
     for (size_t i = 0; i < levels.size(); ++i)
     {
       std::string file_path = base_path + std::to_string(levels[i]) + ".dat";

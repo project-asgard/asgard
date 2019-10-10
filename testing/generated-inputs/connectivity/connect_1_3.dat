@@ -1,0 +1,13 @@
+# Created from matlab git hash 9ed654134c253f8ae78b9e82e74412fddcc6047b
+# name: foo
+# type: matrix
+# rows: 8
+# columns: 8
+1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1
+1 1 1 1 1 1 0 1
+1 1 1 1 1 1 1 0
+1 1 1 1 0 1 1 1
+1 1 1 1 1 0 1 1
