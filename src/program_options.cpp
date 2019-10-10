@@ -85,10 +85,6 @@ options::options(int argc, char **argv)
     std::cerr << "Frequencies must be non-negative: " << std::endl;
     valid = false;
   }
-  if (!valid)
-  {
-    exit(-1);
-  }
 }
 
 int options::get_level() const { return level; }
