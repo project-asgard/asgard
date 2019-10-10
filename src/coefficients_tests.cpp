@@ -4,23 +4,6 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
-template<typename P>
-static inline void
-relaxed_comparison(fk::matrix<P> const first, fk::matrix<P> const second,
-                   double const tol_fac = 1e1)
-{
-  Catch::StringMaker<P>::precision = 15;
-  auto first_it                    = first.begin();
-  std::for_each(
-      second.begin(), second.end(), [&first_it, tol_fac](auto &second_elem) {
-        auto const tol = std::numeric_limits<P>::epsilon() * tol_fac;
-        auto const scale_fac =
-            std::max(static_cast<P>(1.0), std::abs(second_elem));
-        REQUIRE_THAT(*first_it++,
-                     Catch::Matchers::WithinAbs(second_elem, tol * scale_fac));
-      });
-}
-
 TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
                    float)
 {
