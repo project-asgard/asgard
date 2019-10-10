@@ -63,7 +63,6 @@ endif()
 
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
-  add_compile_definitions(ASGARD_USE_CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
 
