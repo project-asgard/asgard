@@ -5,48 +5,51 @@
 #include "transformations.hpp"
 #include <numeric>
 
-TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
-{
-  SECTION("Combine dimensions, dim = 2, deg = 2, lev = 3")
-  {
-    int const dims = 2;
-    int const lev  = 3;
-    int const deg  = 2;
+template<typename P>
+void test_combine_dimensions(PDE<P> const & pde, int const lev, int const deg, P const time = 1.0, int const num_ranks = 1, bool const full_grid = false) {
 
+    int const dims = pde.num_dims;
     std::string const filename =
         "../testing/generated-inputs/transformations/combine_dim_dim" +
         std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
-        std::to_string(lev) + "_sg.dat";
+        std::to_string(lev) + "_" + full_grid ? "fg" : "sg" + ".dat";
 
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(filename));
-    dimension const dim = make_PDE<TestType>(PDE_opts::continuity_1, lev, deg)
-                              ->get_dimensions()[0];
-
+    fk::vector<P> const gold =
+        fk::vector<P>(read_vector_from_txt_file(filename));
+    //FIXME assuming uniform dim degree
+    dimension const dim = pde.get_dimensions()[0];
     options const o =
         make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
     element_table const t(o, dims);
-    TestType const time = 2.0;
 
+    std::vector<fk::vector<P>> vectors;
+    P const counter = 1.0;
+    for(int i = 0; i < pde.num_dims; ++i) {
     int const vect_size = dims * static_cast<int>(std::pow(2, lev));
-    fk::vector<TestType> const dim_1 = [&] {
-      fk::vector<TestType> dim_1(vect_size);
-      std::iota(dim_1.begin(), dim_1.end(), static_cast<TestType>(1.0));
-      return dim_1;
+    fk::vector<TestType> const vect_1d = [&counter, vect_size] {
+      fk::vector<P> dim_1(vect_size);
+      std::iota(vect_1d.begin(), vect_1d.end(), static_cast<P>(counter));
+      counter += vect_1d.size();
+      return vect_1d;
     }();
-    fk::vector<TestType> const dim_2 = [&] {
-      fk::vector<TestType> dim_2(vect_size);
-      std::iota(dim_2.begin(), dim_2.end(),
-                dim_1(dim_1.size() - 1) + static_cast<TestType>(1.0));
-      return dim_2;
-    }();
-    std::vector<fk::vector<TestType>> const vectors = {dim_1, dim_2};
+    vectors.push_back(vect_1d);
 
     REQUIRE(combine_dimensions(deg, t, vectors, time) == gold);
+}
+
+TEMPLATE_TEST_CASE("Combine dimensions", "[transformations]", double, float)
+{
+  SECTION("combine dimensions, dim = 1, deg = 2, lev = 3")
+  {
+    int const lev  = 3;
+    int const deg  = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, lev, deg);
+    TestType const time = 2.0;
+    test_combine_dimensions(pde, lev, deg, time);
   }
 
   SECTION(
-      "Combine dimensions, dim = 2, deg = 2, lev = 3, partial build, 1 rank")
+      "combine dimensions, dim = 2, deg = 2, lev = 3, partial build, 1 rank")
   {
     int const dims = 2;
     int const lev  = 3;
