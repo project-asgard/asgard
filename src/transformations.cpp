@@ -46,42 +46,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 
 // FIXME this function will need to change once dimensions can have different
 // degree...
-template<typename P>
-fk::vector<P> combine_dimensions(int const degree, element_table const &table,
-                                 std::vector<fk::vector<P>> const &vectors,
-                                 P const time_scale)
-{
-  int const num_dims = vectors.size();
-  assert(num_dims > 0);
-
-  int64_t const vector_size =
-      table.size() * static_cast<int64_t>(std::pow(degree, num_dims));
-  // FIXME here we want to catch the 64-bit solution vector problem
-  // and halt execution if we spill over. there is an open issue for this
-  assert(vector_size < INT_MAX);
-  fk::vector<P> combined(vector_size);
-
-  for (int i = 0; i < table.size(); ++i)
-  {
-    std::vector<fk::vector<P>> kron_list;
-    fk::vector<int> coords = table.get_coords(i);
-    for (int j = 0; j < num_dims; ++j)
-    {
-      // iterating over cell coords;
-      // first num_dims entries in coords are level coords
-      int const id          = get_1d_index(coords(j), coords(j + num_dims));
-      int const index_start = id * degree;
-      int const index_end   = ((id + 1) * degree) - 1;
-      kron_list.push_back(vectors[j].extract(index_start, index_end));
-    }
-    fk::vector<P> const partial_result =
-        kron_d(kron_list, kron_list.size()) * time_scale;
-    combined.set_subvector(i * std::pow(degree, num_dims), partial_result);
-  }
-  return combined;
-}
-
-// same as above, but only create the portion of the vector associated
+// will only create the portion of the vector associated
 // with the provided subgrid
 template<typename P>
 fk::vector<P>
@@ -124,13 +89,6 @@ combine_dimensions(int const degree, element_table const &table,
   }
   return combined;
 }
-
-template fk::vector<double>
-combine_dimensions(int const, element_table const &,
-                   std::vector<fk::vector<double>> const &, double const);
-template fk::vector<float>
-combine_dimensions(int const, element_table const &,
-                   std::vector<fk::vector<float>> const &, float const);
 
 template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,
