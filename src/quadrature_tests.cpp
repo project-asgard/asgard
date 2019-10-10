@@ -60,7 +60,6 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
 TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
                    float)
 {
-
   SECTION("legendre_weights(10, -1, 1)")
   {
     fk::matrix<TestType> const roots_gold =

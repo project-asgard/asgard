@@ -10,6 +10,7 @@
 #include "../src/program_options.hpp"
 #include "catch.hpp"
 #include <string>
+#include <utility>
 #include <vector>
 
 // Someday I should come up with a more elegant solution here
@@ -73,4 +74,27 @@ std::string to_string_with_precision(T const a_value, int const precision = 6)
   out.precision(precision);
   out << std::fixed << a_value;
   return out.str();
+}
+// compare two templated container types.
+// scaled for value magnitude
+// tol_fac can be used to adjust tolerance; this number is multipled by epsilon
+// to form the tolerance
+template<typename comparable_1, typename comparable_2>
+void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
+                        double const tol_fac = 1e1)
+{
+  REQUIRE(first.size() == second.size());
+  using P = typename std::remove_pointer<decltype(first.data())>::type;
+  Catch::StringMaker<P>::precision = 15;
+  auto first_it                    = first.begin();
+  std::for_each(
+      second.begin(), second.end(),
+      [&first_it, tol_fac](auto const &second_elem) {
+        auto const tol = std::numeric_limits<P>::epsilon() * tol_fac;
+        auto const scale_fac =
+            std::max(std::max(static_cast<P>(1.0), std::abs(*first_it)),
+                     std::abs(second_elem));
+        REQUIRE_THAT(*first_it++,
+                     Catch::Matchers::WithinAbs(second_elem, tol * scale_fac));
+      });
 }

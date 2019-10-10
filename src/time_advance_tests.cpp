@@ -40,7 +40,6 @@ int const num_steps          = 5;
 int const workspace_limit_MB = 1000;
 auto const tol_scale         = 1e4;
 
-
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,

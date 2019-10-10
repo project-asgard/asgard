@@ -9,7 +9,6 @@ auto const tol_scale = 1e3;
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-
   SECTION("Multiwavelet generation, degree = 1")
   {
     int const degree = 1;
@@ -100,7 +99,6 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
-
   SECTION("operator_two_scale(2, 2)")
   {
     int const degree = 2;
