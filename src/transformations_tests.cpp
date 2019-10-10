@@ -18,8 +18,11 @@ void test_combine_dimensions(PDE<P> const &pde, int const lev, int const deg,
 
   // FIXME assuming uniform degree across dims
   dimension const dim = pde.get_dimensions()[0];
-  options const o =
-      make_options({"-d", std::to_string(deg), "-l", std::to_string(lev)});
+
+  std::string const grid_str = full_grid ? "-f" : "";
+  options const o            = make_options(
+      {"-d", std::to_string(deg), "-l", std::to_string(lev), grid_str});
+
   element_table const t(o, dims);
 
   std::vector<fk::vector<P>> vectors;
