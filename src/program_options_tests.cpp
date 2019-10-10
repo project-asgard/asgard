@@ -44,7 +44,7 @@ TEST_CASE("options constructor/getters", "[options]")
     bool def_implicit  = false;
     bool def_full_grid = false;
     bool def_poisson   = false;
-    double def_cfl     = 0.1;
+    double def_cfl     = 0.01;
     PDE_opts def_pde   = PDE_opts::continuity_2;
 
     options o = make_options({});

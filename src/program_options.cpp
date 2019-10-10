@@ -14,7 +14,7 @@ options::options(int argc, char **argv)
           "the Courant-Friedrichs-Lewy (CFL) condition") |
       clara::detail::Opt(degree, "degree")["-d"]["--degree"](
           "Terms in legendre basis polynomials") |
-      clara::detail::Opt(use_full_grid)["-f"]["--num_steps"](
+      clara::detail::Opt(use_full_grid)["-f"]["--full_grid"](
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
