@@ -834,6 +834,132 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
 #endif
 }
 
+template<typename P, resource resrc = resource::device>
+void test_batched_gemm(int const a_start_row, int const a_stop_row,
+                       int const a_start_col, int const a_stop_col,
+                       int const b_start_row, int const b_stop_row,
+                       int const b_start_col, int const b_stop_col,
+                       bool const do_trans_a = false,
+                       bool const do_trans_b = false, P const alpha = 1.0,
+                       P const beta = 0.0)
+{
+  static int const num_batch = 3;
+
+  // clang-format off
+  static fk::matrix<P, mem_type::owner, resrc> const a1 {
+         {12, 22, 32},
+         {13, 23, 33},
+         {14, 24, 34},
+         {15, 25, 35},
+         {16, 26, 36},
+  };
+  static fk::matrix<P, mem_type::owner, resrc> const a2 {
+         {17, 27, 37},
+         {18, 28, 38},
+         {19, 29, 39},
+         {20, 30, 40},
+         {21, 31, 41},
+  };
+  static fk::matrix<P, mem_type::owner, resrc> const a3 {
+         {22, 32, 42},
+         {23, 33, 43},
+         {24, 34, 44},
+         {25, 35, 45},
+         {26, 36, 46},
+  };  
+  static fk::matrix<P, mem_type::owner, resrc> const b1 {
+         {27, 37, 47},
+         {28, 38, 48},
+         {29, 39, 49},
+         {30, 40, 50},
+  };
+  static fk::matrix<P, mem_type::owner, resrc> const b2 {
+         {31, 41, 51},
+         {32, 42, 52},
+         {33, 43, 53},
+         {34, 44, 54},
+  };
+  static fk::matrix<P, mem_type::owner, resrc> const b3 {
+         {35, 45, 55},
+         {36, 46, 56},
+         {37, 47, 57},
+         {38, 48, 58},
+  };
+  // clang-format on
+
+  char const trans_a = do_trans_a ? 't' : 'n';
+  int a_nrows        = a_stop_row - a_start_row + 1;
+  int a_ncols        = a_stop_col - a_start_col + 1;
+  int a_stride       = a1.nrows();
+
+  fk::matrix<P, mem_type::view, resrc> const a1_v(a1, a_start_row, a_stop_row,
+                                                  a_start_col, a_stop_col);
+  fk::matrix<P, mem_type::view, resrc> const a2_v(a2, a_start_row, a_stop_row,
+                                                  a_start_col, a_stop_col);
+  fk::matrix<P, mem_type::view, resrc> const a3_v(a3, a_start_row, a_stop_row,
+                                                  a_start_col, a_stop_col);
+
+  std::vector<P *> a_vect = [&] {
+    std::vector<P *> builder;
+    builder.push_back(a1_v.data());
+    builder.push_back(a2_v.data());
+    builder.push_back(a3_v.data());
+    return builder;
+  }();
+
+  char const trans_b = do_trans_b ? 't' : 'n';
+  int b_ncols        = b_stop_col - b_start_col + 1;
+  int b_stride       = b1.nrows();
+
+  fk::matrix<P, mem_type::view, resrc> const b1_v(b1, b_start_row, b_stop_row,
+                                                  b_start_col, b_stop_col);
+  fk::matrix<P, mem_type::view, resrc> const b2_v(b2, b_start_row, b_stop_row,
+                                                  b_start_col, b_stop_col);
+  fk::matrix<P, mem_type::view, resrc> const b3_v(b3, b_start_row, b_stop_row,
+                                                  b_start_col, b_stop_col);
+
+  std::vector<P *> b_vect = [&] {
+    std::vector<P *> builder;
+    builder.push_back(b1_v.data());
+    builder.push_back(b2_v.data());
+    builder.push_back(b3_v.data());
+    return builder;
+  }();
+
+  fk::matrix<P> c(a_nrows * num_batch, b_ncols);
+  std::vector<fk::matrix<P, mem_type::view, resrc>> c_views;
+
+  int c_stride            = c.stride();
+  std::vector<P *> c_vect = [&c, a_nrows] {
+    std::vector<P *> builder;
+    for (int i = 0; i < num_batch; ++i)
+    {
+      fk::matrix<P, mem_type::view, resrc> c_view(c, i * a_nrows,
+                                                  (i + 1) * a_nrows - 1);
+      builder.push_back(c_view.data());
+    }
+    return builder;
+  }();
+
+  // do the math to create gold matrix
+  assert(num_batch == 3);
+  fk::matrix<P> gold(c.nrows(), c.ncols());
+  fk::matrix<P, mem_type::view> gold1_v(gold, 0, a_nrows - 1, 0, 0);
+  fk::matrix<P, mem_type::view> gold2_v(gold, a_nrows, (a_nrows * 2) - 1, 0, 0);
+  fk::matrix<P, mem_type::view> gold3_v(gold, a_nrows * 2, (a_nrows * 3) - 1, 0,
+                                        0);
+  gold1_v = a1_v * b1_v;
+  gold2_v = a2_v * b2_v;
+  gold3_v = a3_v * b3_v;
+
+  lib_dispatch::batched_gemm(a_vect.data(), &a_stride, &trans_a, b_vect.data(),
+                             &b_stride, &trans_b, c_vect.data(), &c_stride,
+                             &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
+                             &num_batch, resource::host);
+  // compare
+  REQUIRE(c == gold);
+}
+
 TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
 {
   int num_batch = 3;
