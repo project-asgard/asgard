@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <vector>
 
-/* declarations */
 template<typename P>
 fk::matrix<P>
 recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
@@ -154,12 +153,6 @@ extern template fk::vector<float>
 wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
                      element_table const &table, int const max_mem_mb);
 
-extern template fk::vector<double>
-combine_dimensions(int const, element_table const &,
-                   std::vector<fk::vector<double>> const &, double const);
-extern template fk::vector<float>
-combine_dimensions(int const, element_table const &,
-                   std::vector<fk::vector<float>> const &, float const);
 extern template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<double>> const &, double const = 1.0);

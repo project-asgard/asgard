@@ -45,6 +45,12 @@ int get_local_rank()
   return 0;
 }
 
+// to simplify distribution, we have designed the code
+// to run with even and/or perfect square number of ranks.
+
+// if run with odd and nonsquare number of ranks, the closest smaller
+// even number of ranks will be used by the application. this is the
+// "effective" number of ranks returned by this lambda
 auto const num_effective_ranks = [](int const num_ranks) {
   if (std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)) ||
       num_ranks % 2 == 0)

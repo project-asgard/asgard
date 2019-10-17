@@ -179,7 +179,6 @@ int main(int argc, char **argv)
   node_out() << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
 
-
   // Our default device workspace size is 10GB - 12 GB DRAM on TitanV
   // - a couple GB for allocations not currently covered by the
   // workspace limit (including working batch).
