@@ -229,7 +229,7 @@ public:
   fk::vector<P> get_data() const { return data_; };
 
   void set_coefficients(dimension<P> const owning_dim,
-                        fk::matrix<P> const new_coefficients)
+                        fk::matrix<P> const &new_coefficients)
   {
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     assert(degrees_freedom_1d == new_coefficients.nrows());
