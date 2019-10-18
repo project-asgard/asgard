@@ -119,9 +119,9 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
     P const beta  = 0.0;
     for (int i = 0; i < pde.num_dims; ++i)
     {
-      batch<P> const a = batches[i][0];
-      batch<P> const b = batches[i][1];
-      batch<P> const c = batches[i][2];
+      batch<P> const &a = batches[i][0];
+      batch<P> const &b = batches[i][1];
+      batch<P> const &c = batches[i][2];
 
       batched_gemm(a, b, c, alpha, beta);
     }
