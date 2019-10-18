@@ -44,14 +44,17 @@ auto const size_check = [](std::vector<element_chunk> const &chunks,
                            PDE<double> const &pde, int const limit_MB,
                            bool const large_problem) {
   rank_workspace const work(pde, chunks);
-  double lower_bound    = static_cast<double>(limit_MB * 0.49);
-  double upper_bound    = static_cast<double>(limit_MB * 1.01);
-  double workspace_size = work.size_MB();
+  double const lower_bound        = static_cast<double>(limit_MB * 0.49);
+  double const upper_bound        = static_cast<double>(limit_MB * 1.01);
+  double const workspace_size     = work.size_MB();
+  auto const coefficients_size_MB = std::ceil(
+      get_MB<double>(static_cast<uint64_t>(pde.get_coefficients(0, 0).size()) *
+                     pde.num_terms * pde.num_dims));
   if (large_problem)
   {
-    REQUIRE(workspace_size > lower_bound);
+    REQUIRE(workspace_size + coefficients_size_MB > lower_bound);
   }
-  REQUIRE(workspace_size < upper_bound);
+  REQUIRE(workspace_size + coefficients_size_MB < upper_bound);
 };
 
 TEST_CASE("chunk convenience functions", "[chunk]")

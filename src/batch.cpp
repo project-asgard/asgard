@@ -458,15 +458,15 @@ void kronmult_to_batch_sets(
   int const degree = pde.get_dimensions()[0].get_degree();
 
   // check vector sizes
-  int const resrcult_size = std::pow(degree, pde.num_dims);
-  assert(x.size() == resrcult_size);
-  assert(y.size() == resrcult_size);
+  int const result_size = std::pow(degree, pde.num_dims);
+  assert(x.size() == result_size);
+  assert(y.size() == result_size);
 
   // check workspace sizes
   assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
   for (fk::vector<P, mem_type::view, resource::device> const &vector : work)
   {
-    assert(vector.size() == resrcult_size);
+    assert(vector.size() == result_size);
   }
 
   // check matrix sizes
@@ -635,26 +635,27 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     // dimension
     fk::vector<int> const coords = elem_table.get_coords(i);
     assert(coords.size() == pde.num_dims * 2);
-    fk::vector<int> elem_indices = linearize(coords);
+    fk::vector<int> const elem_indices = linearize(coords);
 
     // calculate the row portion of the
     // operator position used for this
     // element's gemm calls
-    fk::vector<int> operator_row = get_operator_row(pde, degree, elem_indices);
+    fk::vector<int> const operator_row =
+        get_operator_row(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> coords = elem_table.get_coords(j);
+      fk::vector<int> const coords = elem_table.get_coords(j);
       assert(coords.size() == pde.num_dims * 2);
-      fk::vector<int> connected_indices = linearize(coords);
+      fk::vector<int> const connected_indices = linearize(coords);
 
       // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
-      fk::vector<int> operator_col =
+      fk::vector<int> const operator_col =
           get_operator_col(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
@@ -703,7 +704,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         {
           operator_views.push_back(
               fk::matrix<P, mem_type::view, resource::device>(
-                  workspace.get_coefficients(k, d), operator_row(d),
+                  pde.get_coefficients(k, d), operator_row(d),
                   operator_row(d) + degree - 1, operator_col(d),
                   operator_col(d) + degree - 1));
         }
@@ -735,9 +736,24 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
 
   assert(A.ncols() == A_size && A.nrows() == A_size);
 
+  using key_type = std::pair<int, int>;
+  using val_type = fk::matrix<P, mem_type::owner, resource::host>;
+  std::map<key_type, val_type> coef_cache;
+
+  assert(A.ncols() == A_size && A.nrows() == A_size);
+  // Copy coefficients to host for subsequent use
+  for (int k = 0; k < pde.num_terms; ++k)
+  {
+    for (int d = 0; d < pde.num_dims; d++)
+    {
+      coef_cache.insert(std::pair<key_type, val_type>(
+          key_type(k, d), pde.get_coefficients(k, d).clone_onto_host()));
+    }
+  }
+
   // loop over elements
   // FIXME eventually want to do this in parallel
-  for (const auto &[i, connected] : chunk)
+  for (auto const &[i, connected] : chunk)
   {
     // first, get linearized indices for this element
     //
@@ -779,7 +795,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
         for (int d = 0; d < pde.num_dims; d++)
         {
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
-              pde.get_coefficients(k, d), operator_row(d),
+              coef_cache[key_type(k, d)], operator_row(d),
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1);
           fk::matrix<P> k_new = kron_vals[d].kron(op_view);

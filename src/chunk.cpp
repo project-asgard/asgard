@@ -79,19 +79,6 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   batch_intermediate.resize(reduction_space.size() * num_workspaces);
 
-  // transfer coefficient matrices to device
-  for (int i = 0; i < pde.num_terms; ++i)
-  {
-    std::vector<fk::matrix<P, mem_type::owner, resource::device>>
-        term_coefficients;
-    for (int j = 0; j < pde.num_dims; ++j)
-    {
-      term_coefficients.emplace_back(
-          pde.get_coefficients(i, j).clone_onto_device());
-    }
-    coefficients_.push_back(term_coefficients);
-  }
-
   // unit vector for reduction
   unit_vector_.resize(pde.num_terms * max_conn);
   fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
@@ -104,13 +91,6 @@ fk::vector<P, mem_type::owner, resource::device> const &
 rank_workspace<P>::get_unit_vector() const
 {
   return unit_vector_;
-}
-
-template<typename P>
-fk::matrix<P, mem_type::owner, resource::device> const &
-rank_workspace<P>::get_coefficients(int const term, int const dim) const
-{
-  return coefficients_[term][dim];
 }
 
 template<typename P>
@@ -135,16 +115,6 @@ host_workspace<P>::host_workspace(PDE<P> const &pde,
 //
 // *does not include operator matrices - working for now on assumption they'll
 // all be resident*
-
-template<typename P>
-static double get_MB(uint64_t const num_elems)
-{
-  assert(num_elems > 0);
-  double const bytes = num_elems * sizeof(P);
-  double const MB    = bytes * 1e-6;
-  return MB;
-}
-
 template<typename P>
 static double get_element_size_MB(PDE<P> const &pde)
 {

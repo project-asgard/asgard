@@ -19,6 +19,15 @@ auto const element_segment_size = [](auto const &pde) {
   return static_cast<int>(std::pow(degree, pde.num_dims));
 };
 
+template<typename P>
+double get_MB(uint64_t const num_elems)
+{
+  assert(num_elems > 0);
+  double const bytes = num_elems * sizeof(P);
+  double const MB    = bytes * 1e-6;
+  return MB;
+}
+
 // workspace for the primary computation in time advance. along with
 // the coefficient matrices, we need this space resident on whatever
 // accelerator we are using
@@ -29,8 +38,7 @@ public:
   rank_workspace(PDE<P> const &pde, std::vector<element_chunk> const &chunks);
   fk::vector<P, mem_type::owner, resource::device> const &
   get_unit_vector() const;
-  fk::matrix<P, mem_type::owner, resource::device> const &
-  get_coefficients(int const term, int const dim) const;
+
   // input, output, workspace for batched gemm/reduction
   fk::vector<P, mem_type::owner, resource::device> batch_input;
   fk::vector<P, mem_type::owner, resource::device> reduction_space;
@@ -42,14 +50,6 @@ public:
                         batch_intermediate.size() + batch_output.size() +
                         unit_vector_.size();
 
-    for (auto const &term_coefficients : coefficients_)
-    {
-      for (auto const &coefficient_matrix : term_coefficients)
-      {
-        num_elems += coefficient_matrix.size();
-      }
-    }
-
     double const bytes     = static_cast<double>(num_elems) * sizeof(P);
     double const megabytes = bytes * 1e-6;
     return megabytes;
@@ -57,8 +57,6 @@ public:
 
 private:
   fk::vector<P, mem_type::owner, resource::device> unit_vector_;
-  std::vector<std::vector<fk::matrix<P, mem_type::owner, resource::device>>>
-      coefficients_;
 };
 
 // larger, host-side memory space holding the assigned portion of input/output

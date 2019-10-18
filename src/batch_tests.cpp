@@ -2030,7 +2030,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 	{14, 15, 16, 17}};
     // clang-format on
 
-    auto coeff = pde->get_coefficients(0, 0);
+    auto coeff = pde->get_coefficients(0, 0).clone_onto_host();
     coeff.set_submatrix(0, 0, A);
     fk::matrix<TestType, mem_type::owner, resource::device> const
         coefficient_matrix(coeff.clone_onto_device());
@@ -2087,7 +2087,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 	{32, 33, 34, 35, 36, 37}};
     // clang-format on
 
-    auto coeff = pde->get_coefficients(0, 0);
+    auto coeff = pde->get_coefficients(0, 0).clone_onto_host();
     coeff.set_submatrix(0, 0, A);
     fk::matrix<TestType, mem_type::owner, resource::device> const
         coefficient_matrix(coeff.clone_onto_device());
@@ -2567,7 +2567,8 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   fk::vector<P> const gold = [&pde, &host_space, &gold_path]() {
     if (pde.num_terms == 1 && pde.num_dims == 1)
     {
-      fk::matrix<P> const &coefficient_matrix = pde.get_coefficients(0, 0);
+      fk::matrix<P> const &coefficient_matrix =
+          pde.get_coefficients(0, 0).clone_onto_host();
       return coefficient_matrix * host_space.x;
     }
     return fk::vector<P>(read_vector_from_txt_file(gold_path));

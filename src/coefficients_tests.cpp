@@ -32,7 +32,8 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
 
   generate_all_coefficients(*continuity1);
 
-  fk::matrix<TestType> const &test = continuity1->get_coefficients(0, 0);
+  fk::matrix<TestType> const test =
+      continuity1->get_coefficients(0, 0).clone_onto_host();
 
   relaxed_comparison<TestType>(gold, test, 1e2);
 }
@@ -59,7 +60,8 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e2);
     }
   }
@@ -88,7 +90,8 @@ TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e2);
     }
   }
@@ -115,7 +118,8 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e3);
     }
   }
@@ -142,7 +146,8 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e3);
     }
   }
@@ -168,7 +173,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
                                    std::to_string(d + 1) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
 
       // FIXME really? pretty loose
       relaxed_comparison<TestType>(gold, test, 1e5);
@@ -199,7 +205,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e2);
     }
   }
@@ -227,7 +234,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e2);
     }
   }
@@ -254,7 +262,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
                                    std::to_string(d + 1) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
 
       relaxed_comparison<TestType>(gold, test, 1e2);
     }
@@ -283,7 +292,8 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
 
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
-      fk::matrix<TestType> const &test = pde->get_coefficients(t, d);
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
       relaxed_comparison<TestType>(gold, test, 1e2);
     }
   }

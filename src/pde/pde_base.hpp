@@ -211,7 +211,7 @@ public:
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
   }
 
-  void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
+  void set_data(dimension<P> const &owning_dim, fk::vector<P> const &data)
   {
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     if (data.size() != 0)
@@ -228,14 +228,15 @@ public:
 
   fk::vector<P> get_data() const { return data_; };
 
-  void set_coefficients(dimension<P> const owning_dim,
+  void set_coefficients(dimension<P> const &owning_dim,
                         fk::matrix<P> const &new_coefficients)
   {
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     assert(degrees_freedom_1d == new_coefficients.nrows());
     assert(degrees_freedom_1d == new_coefficients.ncols());
     this->coefficients_.clear_and_resize(degrees_freedom_1d,
-                                         degrees_freedom_1d) = new_coefficients;
+                                         degrees_freedom_1d) =
+        new_coefficients.clone_onto_device();
   }
 
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
@@ -245,10 +246,14 @@ public:
     partial_terms[pterm].set_coefficients(coeffs);
   }
 
-  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
+  fk::matrix<P, mem_type::owner, resource::device> const &
+  get_coefficients() const
+  {
+    return coefficients_;
+  }
 
   // small helper to return degrees of freedom given dimension
-  int degrees_freedom(dimension<P> const d) const
+  int degrees_freedom(dimension<P> const &d) const
   {
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   }
@@ -279,7 +284,7 @@ private:
   // central or upwind.
 
   // operator matrix for this term at a single dimension
-  fk::matrix<P> coefficients_;
+  fk::matrix<P, mem_type::owner, resource::device> coefficients_;
 };
 
 // ---------------------------------------------------------------------------
@@ -420,7 +425,8 @@ public:
 
   term_set<P> const &get_terms() { return terms_; }
 
-  fk::matrix<P> const &get_coefficients(int const term, int const dim) const
+  fk::matrix<P, mem_type::owner, resource::device> const &
+  get_coefficients(int const term, int const dim) const
   {
     assert(term >= 0);
     assert(term < num_terms);
