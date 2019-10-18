@@ -42,16 +42,6 @@ int main(int argc, char **argv)
 
   options opts(argc, argv);
 
-  if (opts.using_implicit())
-  {
-    // distribution of implicit time advance not yet implemented
-    assert(num_ranks == 1);
-// gpu-enabled implicit time advance not yet implemented
-#ifdef ASGARD_USE_CUDA
-    assert(false);
-#endif
-  }
-
   // -- parse user input and generate pde
   node_out() << "generating: pde..." << '\n';
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
@@ -308,8 +298,14 @@ int main(int argc, char **argv)
   node_out() << "--- simulation complete ---" << '\n';
 
   int const segment_size = element_segment_size(*pde);
-  auto const final_result =
-      gather_results(host_space.x, plan, my_rank, segment_size);
+
+  // gather results from all ranks. not currently writing the result anywhere
+  // yet.
+  if (my_rank == 0)
+  {
+    auto const final_result =
+        gather_results(host_space.x, plan, my_rank, segment_size);
+  }
 
   finalize_distribution();
 

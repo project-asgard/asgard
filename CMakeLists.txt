@@ -234,6 +234,7 @@ if (ASGARD_BUILD_TESTS)
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+    target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")

@@ -22,7 +22,7 @@ int max_connected_in_chunk(element_chunk const &g)
   return current_max;
 }
 
-limits<> columns_in_chunk(element_chunk const &g)
+grid_limits columns_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
   int const min_col =
@@ -37,13 +37,13 @@ limits<> columns_in_chunk(element_chunk const &g)
                                            return a.second.stop < b.second.stop;
                                          }))
                           .second.stop;
-  return limits<>(min_col, max_col);
+  return grid_limits(min_col, max_col);
 }
 
-limits<> rows_in_chunk(element_chunk const &g)
+grid_limits rows_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
-  return limits<>(g.begin()->first, g.rbegin()->first);
+  return grid_limits(g.begin()->first, g.rbegin()->first);
 }
 
 template<typename P>
@@ -275,7 +275,7 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
     element_chunk chunk;
     for (auto const &[row, cols] : chunk_map)
     {
-      chunk.insert({row, limits(cols[0], cols.back())});
+      chunk.insert({row, grid_limits(cols[0], cols.back())});
     }
     chunks.push_back(chunk);
   }

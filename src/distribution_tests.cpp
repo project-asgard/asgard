@@ -1,3 +1,4 @@
+#include "build_info.hpp"
 #include "distribution.hpp"
 #include "tests_general.hpp"
 

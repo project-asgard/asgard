@@ -64,15 +64,15 @@ TEST_CASE("chunk convenience functions", "[chunk]")
   SECTION("elements in chunk - single row")
   {
     element_chunk g;
-    g.insert({2, limits(0, 4)});
+    g.insert({2, grid_limits(0, 4)});
     assert(num_elements_in_chunk(g) == 5);
   }
 
   SECTION("elements in chunk - multiple rows")
   {
     element_chunk g;
-    g.insert({3, limits(1, 2)});
-    g.insert({4, limits(5, 10)});
+    g.insert({3, grid_limits(1, 2)});
+    g.insert({4, grid_limits(5, 10)});
     assert(num_elements_in_chunk(g) == 8);
   }
 
@@ -84,44 +84,44 @@ TEST_CASE("chunk convenience functions", "[chunk]")
   SECTION("max connected in chunk - single row")
   {
     element_chunk g;
-    g.insert({2, limits(0, 4)});
+    g.insert({2, grid_limits(0, 4)});
     assert(max_connected_in_chunk(g) == 5);
   }
   SECTION("max connected in chunk - multiple rows")
   {
     element_chunk g;
-    g.insert({3, limits(1, 2)});
-    g.insert({4, limits(5, 10)});
+    g.insert({3, grid_limits(1, 2)});
+    g.insert({4, grid_limits(5, 10)});
     assert(max_connected_in_chunk(g) == 6);
   }
 
   SECTION("columns in chunk - single row")
   {
     element_chunk g;
-    g.insert({2, limits(0, 4)});
-    assert(columns_in_chunk(g) == limits(0, 4));
+    g.insert({2, grid_limits(0, 4)});
+    assert(columns_in_chunk(g) == grid_limits(0, 4));
   }
 
   SECTION("columns in chunk - multiple rows")
   {
     element_chunk g;
-    g.insert({3, limits(1, 2)});
-    g.insert({4, limits(5, 10)});
-    assert(columns_in_chunk(g) == limits(1, 10));
+    g.insert({3, grid_limits(1, 2)});
+    g.insert({4, grid_limits(5, 10)});
+    assert(columns_in_chunk(g) == grid_limits(1, 10));
   }
 
   SECTION("rows in chunk - single row")
   {
     element_chunk g;
-    g.insert({2, limits(0, 4)});
-    assert(rows_in_chunk(g) == limits(2, 2));
+    g.insert({2, grid_limits(0, 4)});
+    assert(rows_in_chunk(g) == grid_limits(2, 2));
   }
   SECTION("rows in chunk - multiple rows")
   {
     element_chunk g;
-    g.insert({3, limits(1, 2)});
-    g.insert({4, limits(5, 10)});
-    assert(rows_in_chunk(g) == limits(3, 4));
+    g.insert({3, grid_limits(1, 2)});
+    g.insert({4, grid_limits(5, 10)});
+    assert(rows_in_chunk(g) == grid_limits(3, 4));
   }
 }
 

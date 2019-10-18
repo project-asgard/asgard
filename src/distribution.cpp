@@ -1,4 +1,5 @@
 #include "distribution.hpp"
+#include "build_info.hpp"
 
 #include <cmath>
 #include <numeric>
@@ -60,8 +61,11 @@ auto const num_effective_ranks = [](int const num_ranks) {
 
 std::array<int, 2> initialize_distribution()
 {
+  static bool init_done = false;
+  assert(!init_done);
 #ifdef ASGARD_USE_MPI
   auto status = MPI_Init(NULL, NULL);
+  init_done   = true;
   assert(status == 0);
   int num_ranks;
   status = MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
@@ -169,7 +173,7 @@ distribution_plan get_plan(int const num_ranks, element_table const &table)
  * vector describes the subgrid rows holding data that members of subgrid column
  * "x" need to receive, as well as the global indices of that data in the
  * solution vector  */
-using rows_to_range = std::map<int, limits<>>;
+using rows_to_range = std::map<int, grid_limits>;
 static std::vector<rows_to_range>
 find_column_dependencies(std::vector<int> const &row_boundaries,
                          std::vector<int> const &column_boundaries)
@@ -196,9 +200,9 @@ find_column_dependencies(std::vector<int> const &row_boundaries,
       {
         // emplace the section of the row interval that falls within the column
         // interval
-        column_dependencies[c].emplace(r,
-                                       limits<>(std::max(row_start, col_start),
-                                                std::min(row_end, column_end)));
+        column_dependencies[c].emplace(
+            r, grid_limits(std::max(row_start, col_start),
+                           std::min(row_end, column_end)));
       }
       // the beginning of the next interval is one more than the end of the
       // previous

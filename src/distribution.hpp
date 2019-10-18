@@ -1,24 +1,24 @@
 #pragma once
 #include "element_table.hpp"
+
 #ifdef ASGARD_USE_MPI
 #include "mpi.h"
 #endif
 #include <map>
 #include <vector>
 
-// simple struct for representing a range
-template<typename P = int>
-struct limits
+// simple struct for representing a range within the element grid
+struct grid_limits
 {
-  limits(P const start, P const stop) : start(start), stop(stop){};
-  limits(limits const &l) : start(l.start), stop(l.stop){};
-  limits(limits const &&l) : start(l.start), stop(l.stop){};
-  bool operator==(const limits &rhs) const
+  grid_limits(int const start, int const stop) : start(start), stop(stop){};
+  grid_limits(grid_limits const &l) : start(l.start), stop(l.stop){};
+  grid_limits(grid_limits const &&l) : start(l.start), stop(l.stop){};
+  bool operator==(const grid_limits &rhs) const
   {
     return start == rhs.start && stop == rhs.stop;
   }
-  P const start;
-  P const stop;
+  int const start;
+  int const stop;
 };
 
 // this struct is designed to store information about a rank's assigned portion
@@ -27,8 +27,9 @@ struct limits
 // start and stop members are inclusive global indices of the element grid.
 //
 // translation functions are provided for mapping global<->local indices.
-struct element_subgrid
+class element_subgrid
 {
+public:
   element_subgrid(int const row_start, int const row_stop, int const col_start,
                   int const col_stop)
       : row_start(row_start), row_stop(row_stop), col_start(col_start),
@@ -92,12 +93,13 @@ struct element_subgrid
   int const col_stop;
 };
 
-// helper lambda for determining the number of subgrid columns given
+// helper for determining the number of subgrid columns given
 // a number of ranks.
 //
 // determine the side lengths that will give us the "squarest" rectangles
 // possible
-auto const get_num_subgrid_cols = [](int const num_ranks) {
+inline int get_num_subgrid_cols(int const num_ranks)
+{
   assert(num_ranks > 0);
   int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
   while (trial_factor > 0)
@@ -111,7 +113,7 @@ auto const get_num_subgrid_cols = [](int const num_ranks) {
   }
   // I believe this is mathematically impossible...
   assert(false);
-};
+}
 
 // should be invoked once on startup to
 // initialize distribution libraries
@@ -164,12 +166,17 @@ enum class message_direction
 // the range describes the global indices (inclusive) that will be transmitted
 struct message
 {
-  message(message_direction const message_dir, int const target, limits<> range)
+  message(message_direction const message_dir, int const target,
+          grid_limits range)
       : message_dir(message_dir), target(target), range(range)
   {}
+
+  message(message const &) = delete;
+  message(message &&)      = delete;
+
   message_direction const message_dir;
   int const target;
-  limits<> const range;
+  grid_limits const range;
 };
 
 // reduce the results of a subgrid row

@@ -4,14 +4,14 @@
 #include "pde.hpp"
 #include "tensors.hpp"
 
-using element_chunk = std::map<int, limits<int>>;
+using element_chunk = std::map<int, grid_limits>;
 
 // convenience functions when working with element chunks
 int num_elements_in_chunk(element_chunk const &g);
 int max_connected_in_chunk(element_chunk const &g);
 
-limits<int> columns_in_chunk(element_chunk const &g);
-limits<int> rows_in_chunk(element_chunk const &g);
+grid_limits columns_in_chunk(element_chunk const &g);
+grid_limits rows_in_chunk(element_chunk const &g);
 
 // FIXME we should eventually put this in the pde class?
 auto const element_segment_size = [](auto const &pde) {
