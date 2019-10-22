@@ -1,7 +1,12 @@
 #pragma once
 
 #include "tensors.hpp"
+
+// workaround for missing include issue with highfive
+// clang-format off
+#include <numeric>
 #include <highfive/H5Easy.hpp>
+// clang-format on
 
 std::string const output_file_name("asgard.h5");
 std::string const output_dataset_name("asgard");
