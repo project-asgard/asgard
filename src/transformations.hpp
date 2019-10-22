@@ -149,9 +149,8 @@ gen_realspace_transform(PDE<float> const &pde);
 
 extern template fk::vector<double>
 wavelet_to_realspace(PDE<double> const &pde,
-                      fk::vector<double> const &wave_space,
-                      element_table const &table, int const max_mem_mb);
+                     fk::vector<double> const &wave_space,
+                     element_table const &table, int const max_mem_mb);
 extern template fk::vector<float>
-wavelet_to_realspace(PDE<float> const &pde,
-                      fk::vector<float> const &wave_space,
-                      element_table const &table, int const max_mem_mb);
+wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
+                     element_table const &table, int const max_mem_mb);

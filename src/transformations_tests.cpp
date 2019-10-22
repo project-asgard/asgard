@@ -162,7 +162,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
   };
 
   /* memory limit for routines */
-  int const max_mb = 1e2;
+  int const limit_MB = 4000;
 
   SECTION("wavelet_to_realspace_1")
   {
@@ -184,9 +184,10 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     }
 
     fk::vector<TestType> const realspace = wavelet_to_realspace<TestType>(
-        *pde, fk::vector<TestType>(wave_space), table, max_mb);
+        *pde, fk::vector<TestType>(wave_space), table, limit_MB);
     std::string const gold_file_name =
-        "../testing/generated-inputs/wavelet_to_realspace/continuity_1/"
+        "../testing/generated-inputs/transformations/wavelet_to_realspace/"
+        "continuity_1/"
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
@@ -215,9 +216,10 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     }
 
     fk::vector<TestType> const realspace = wavelet_to_realspace<TestType>(
-        *pde, fk::vector<TestType>(wave_space), table, max_mb);
+        *pde, fk::vector<TestType>(wave_space), table, limit_MB);
     std::string const gold_file_name =
-        "../testing/generated-inputs/wavelet_to_realspace/continuity_2/"
+        "../testing/generated-inputs/transformations/wavelet_to_realspace/"
+        "continuity_2/"
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
@@ -244,9 +246,10 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     }
 
     fk::vector<TestType> const realspace = wavelet_to_realspace<TestType>(
-        *pde, fk::vector<TestType>(wave_space), table, max_mb);
+        *pde, fk::vector<TestType>(wave_space), table, limit_MB);
     std::string const gold_file_name =
-        "../testing/generated-inputs/wavelet_to_realspace/continuity_3/"
+        "../testing/generated-inputs/transformations/wavelet_to_realspace/"
+        "continuity_3/"
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
@@ -280,7 +283,8 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
-          "../testing/generated-inputs/matrix_plot_D/continuity_1/"
+          "../testing/generated-inputs/transformations/matrix_plot_D/"
+          "continuity_1/"
           "matrix_plot_D_" +
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
@@ -303,7 +307,8 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
-          "../testing/generated-inputs/matrix_plot_D/continuity_2/"
+          "../testing/generated-inputs/transformations/matrix_plot_D/"
+          "continuity_2/"
           "matrix_plot_D_" +
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
@@ -326,7 +331,8 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
-          "../testing/generated-inputs/matrix_plot_D/continuity_3/"
+          "../testing/generated-inputs/transformations/matrix_plot_D/"
+          "continuity_3/"
           "matrix_plot_D_" +
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
@@ -349,7 +355,8 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
-          "../testing/generated-inputs/matrix_plot_D/continuity_6/"
+          "../testing/generated-inputs/transformations/matrix_plot_D/"
+          "continuity_6/"
           "matrix_plot_D_" +
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
