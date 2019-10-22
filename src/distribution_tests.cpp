@@ -6,11 +6,21 @@ struct distribution_test_init
 {
   distribution_test_init()
   {
+#ifdef ASGARD_USE_MPI
     auto const [rank, total_ranks] = initialize_distribution();
     my_rank                        = rank;
     num_ranks                      = total_ranks;
+#else
+    my_rank   = 0;
+    num_ranks = 1;
+#endif
   }
-  ~distribution_test_init() { finalize_distribution(); }
+  ~distribution_test_init()
+  {
+#ifdef ASGARD_USE_MPI
+    finalize_distribution();
+#endif
+  }
 
   int get_my_rank() const { return my_rank; }
   int get_num_ranks() const { return num_ranks; }
@@ -20,9 +30,7 @@ private:
   int num_ranks;
 };
 
-#ifdef ASGARD_USE_MPI
 static distribution_test_init const distrib_test_info;
-#endif
 
 TEST_CASE("subgrid struct", "[distribution]")
 {
@@ -690,6 +698,7 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
 
     int const my_rank   = distrib_test_info.get_my_rank();
     int const num_ranks = distrib_test_info.get_num_ranks();
+
     if (my_rank < num_ranks)
     {
       int const degree   = 2;

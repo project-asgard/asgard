@@ -18,7 +18,7 @@ struct distribution_handler
     auto const status = MPI_Comm_dup(comm, &global_comm);
     assert(status == 0);
   }
-  MPI_Comm get_global_comm() { return global_comm; }
+  MPI_Comm get_global_comm() const { return global_comm; }
 
 private:
   MPI_Comm global_comm = MPI_COMM_WORLD;
@@ -90,13 +90,13 @@ auto const num_effective_ranks = [](int const num_ranks) {
   return num_ranks - 1;
 };
 
+#ifdef ASGARD_USE_MPI
 static void terminate_all_ranks(int signum)
 {
-#ifdef ASGARD_USE_MPI
   MPI_Abort(distro_handle.get_global_comm(), signum);
-#endif
   exit(signum);
 }
+#endif
 
 std::array<int, 2> initialize_distribution()
 {
