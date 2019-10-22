@@ -152,7 +152,8 @@ endif ()
 
 target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 if (ASGARD_USE_CUDA)
-  target_link_libraries(lib_dispatch PRIVATE ${CUDA_CUBLAS_LIBRARIES})
+  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES} 
+					     ${CUDA_CUBLAS_LIBRARIES})
 endif()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
