@@ -51,7 +51,6 @@ initialize_output_file(fk::vector<P> const &vec,
 template<typename P>
 void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
                         std::string const output_dataset_name = "asgard")
-
 {
   std::string const output_file_name = output_dataset_name + ".h5";
 
