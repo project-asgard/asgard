@@ -28,13 +28,11 @@ options::options(int argc, char **argv)
           "Do poisson solve for electric field") |
       clara::detail::Opt(write_frequency,
                          "write_frequency")["-w"]["--write_freq"](
-          "Frequency in steps for writing output") |
-      clara::detail::Opt(visualization_frequency,
-                         "visualization_frequency")["-z"]["--vis_freq"](
-          "Frequency in steps for visualizing output") |
+          "Frequency in steps for writing wavelet space "
+          "output") |
       clara::detail::Opt(realspace_output_freq,
                          "realspace_output_freq")["-r"]["--real_freq"](
-          "Timesteps in between realspace outputs");
+          "Frequency in steps for writing realspace output");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -70,13 +68,6 @@ options::options(int argc, char **argv)
     std::cerr << "Number of timesteps must be a natural number" << std::endl;
     valid = false;
   }
-  if (realspace_output_freq < 0)
-  {
-    std::cerr
-        << "Timesteps in between realspace outputs must be a natural number"
-        << std::endl;
-    valid = false;
-  }
 
   auto choice = pde_mapping.find(selected_pde);
   if (choice == pde_mapping.end())
@@ -90,7 +81,7 @@ options::options(int argc, char **argv)
     pde_choice = pde_mapping.at(selected_pde);
   }
 
-  if (visualization_frequency < 0 || write_frequency < 0)
+  if (realspace_output_freq < 0 || write_frequency < 0)
   {
     std::cerr << "Frequencies must be non-negative: " << std::endl;
     valid = false;
@@ -101,10 +92,6 @@ int options::get_level() const { return level; }
 int options::get_degree() const { return degree; }
 int options::get_time_steps() const { return num_time_steps; }
 int options::get_write_frequency() const { return write_frequency; }
-int options::get_visualization_frequency() const
-{
-  return visualization_frequency;
-}
 bool options::using_implicit() const { return use_implicit_stepping; }
 bool options::using_full_grid() const { return use_full_grid; }
 double options::get_cfl() const { return cfl; }
@@ -113,8 +100,25 @@ std::string options::get_pde_string() const { return selected_pde; }
 bool options::is_valid() const { return valid; }
 bool options::do_poisson_solve() const { return do_poisson; }
 int options::get_realspace_output_freq() const { return realspace_output_freq; }
+bool options::write_at_step(int const i) const
+{
+  assert(i >= 0);
+
+  if (write_frequency == 0)
+  {
+    return false;
+  }
+  if (i % write_frequency == 0)
+  {
+    return true;
+  }
+  return false;
+}
+
 bool options::transform_at_step(int const i) const
 {
+  assert(i >= 0);
+
   if (realspace_output_freq == 0)
   {
     return false;

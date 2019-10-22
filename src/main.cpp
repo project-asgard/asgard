@@ -47,13 +47,11 @@ int main(int argc, char **argv)
   std::cout << "  degree: " << opts.get_degree() << '\n';
   std::cout << "  N steps: " << opts.get_time_steps() << '\n';
   std::cout << "  write freq: " << opts.get_write_frequency() << '\n';
-  std::cout << "  vis. freq: " << opts.get_visualization_frequency() << '\n';
+  std::cout << "  realspace freq: " << opts.get_realspace_output_freq() << '\n';
   std::cout << "  implicit: " << opts.using_implicit() << '\n';
   std::cout << "  full grid: " << opts.using_full_grid() << '\n';
   std::cout << "  CFL number: " << opts.get_cfl() << '\n';
   std::cout << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
-  std::cout << "  realspace output freq: " << opts.get_realspace_output_freq()
-            << '\n';
 
   // -- print out time and memory estimates based on profiling
   std::pair<std::string, double> runtime_info = expected_time(
@@ -236,19 +234,20 @@ int main(int argc, char **argv)
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
-    update_output_file(output_dataset, host_space.fx);
-#endif
+    if (opts.write_at_step(i))
+    {
+      update_output_file(output_dataset, host_space.fx);
+    }
     /* write realspace output to file */
     if (opts.transform_at_step(i))
     {
+      std::cout << i << '\n';
       fk::vector<prec> const realspace_at_t = wavelet_to_real_space<prec>(
           *pde, host_space.fx, table, default_workspace_cpu_MB);
-
-#ifdef ASGARD_IO_HIGHFIVE
       update_output_file(output_dataset_real, realspace_at_t,
                          realspace_output_name);
-#endif
     }
+#endif
 
     std::cout << "timestep: " << i << " complete" << '\n';
   }
