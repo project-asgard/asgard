@@ -162,7 +162,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
   };
 
   /* memory limit for routines */
-  long const max_bytes = 1e8;
+  int const max_mb = 1e2;
 
   SECTION("wavelet_to_realspace_1")
   {
@@ -184,7 +184,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     }
 
     fk::vector<TestType> const real_space = wavelet_to_real_space<TestType>(
-        *pde, fk::vector<TestType>(wave_space), table, max_bytes);
+        *pde, fk::vector<TestType>(wave_space), table, max_mb);
     std::string const gold_file_name =
         "../testing/generated-inputs/wavelet_to_realspace/continuity_1/"
         "wavelet_to_realspace.dat";
@@ -215,7 +215,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     }
 
     fk::vector<TestType> const real_space = wavelet_to_real_space<TestType>(
-        *pde, fk::vector<TestType>(wave_space), table, max_bytes);
+        *pde, fk::vector<TestType>(wave_space), table, max_mb);
     std::string const gold_file_name =
         "../testing/generated-inputs/wavelet_to_realspace/continuity_2/"
         "wavelet_to_realspace.dat";
@@ -244,7 +244,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     }
 
     fk::vector<TestType> const real_space = wavelet_to_real_space<TestType>(
-        *pde, fk::vector<TestType>(wave_space), table, max_bytes);
+        *pde, fk::vector<TestType>(wave_space), table, max_mb);
     std::string const gold_file_name =
         "../testing/generated-inputs/wavelet_to_realspace/continuity_3/"
         "wavelet_to_realspace.dat";

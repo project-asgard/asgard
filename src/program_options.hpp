@@ -19,6 +19,7 @@ private:
   bool use_full_grid          = false; // enable full(/sparse) grid
   bool do_poisson             = false; // do poisson solve for electric field
   double cfl = 0.1; // the Courant-Friedrichs-Lewy (CFL) condition
+  int realspace_output_freq = 0;
 
   // default
   std::string selected_pde = "continuity_2";
@@ -45,4 +46,6 @@ public:
   std::string get_pde_string() const;
   bool do_poisson_solve() const;
   bool is_valid() const;
+  int get_realspace_output_freq() const;
+  bool transform_at_step( int i ) const;
 };

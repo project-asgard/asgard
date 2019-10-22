@@ -25,7 +25,7 @@ std::vector<fk::matrix<P>> gen_real_space_transform(PDE<P> const &pde);
 template<typename P>
 fk::vector<P>
 wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                      element_table const &table, long const max_mem_bytes);
+                      element_table const &table, int const max_mem_mb);
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
@@ -150,8 +150,8 @@ gen_real_space_transform(PDE<float> const &pde);
 extern template fk::vector<double>
 wavelet_to_real_space(PDE<double> const &pde,
                       fk::vector<double> const &wave_space,
-                      element_table const &table, long const max_mem_bytes);
+                      element_table const &table, int const max_mem_mb);
 extern template fk::vector<float>
 wavelet_to_real_space(PDE<float> const &pde,
                       fk::vector<float> const &wave_space,
-                      element_table const &table, long const max_mem_bytes);
+                      element_table const &table, int const max_mem_mb);

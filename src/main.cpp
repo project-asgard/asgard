@@ -52,6 +52,7 @@ int main(int argc, char **argv)
   std::cout << "  full grid: " << opts.using_full_grid() << '\n';
   std::cout << "  CFL number: " << opts.get_cfl() << '\n';
   std::cout << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
+  std::cout << "  realspace output freq: " << opts.get_realspace_output_freq() << '\n';
 
   // -- print out time and memory estimates based on profiling
   std::pair<std::string, double> runtime_info = expected_time(
@@ -87,6 +88,7 @@ int main(int argc, char **argv)
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
   auto output_dataset = initialize_output_file(initial_condition);
+  auto output_dataset_real = initialize_output_file(initial_condition_real);
 #endif
 
   // -- generate source vectors.
@@ -156,6 +158,8 @@ int main(int argc, char **argv)
   //
   // FIXME eventually going to be settable from the cmake
   static int const default_workspace_MB = 7000;
+
+  static int const default_workspace_cpu_mb = 4000;
 
   // FIXME stand-in
   static int const ranks = 1;
@@ -229,6 +233,16 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     update_output_file(output_dataset, host_space.fx);
 #endif
+    /* write realspace output to file */
+    if( opts.transform_at_step( i ) )
+    {
+      fk::vector< prec > realspace_at_t =
+      wavelet_to_realspace< prec >( *pde, host_space.x, table, default_workspace_cpu_mb );
+
+#ifdef ASGARD_IO_HIGHFIVE
+      update_output_file( output_dataset_real, realspace_at_t );
+#endif
+    }
 
     std::cout << "timestep: " << i << " complete" << '\n';
   }

@@ -74,8 +74,9 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
   return combined;
 }
 
+/* calculate required mb for the matrix resulting from the kron prod of a sequence of matrices */
 template<typename P>
-int kron_matrix_bytes(
+int kron_matrix_mb(
     std::vector<fk::matrix<P, mem_type::view>> const &kron_matrices)
 {
   long r = 1;
@@ -87,7 +88,7 @@ int kron_matrix_bytes(
     c *= kron_matrices[i].ncols();
   }
 
-  return r * c * sizeof(P);
+  return r * c * sizeof(P) * 1e-6;
 }
 
 /* given a vector of matrices, return the Kronecker product of all of them in
@@ -153,8 +154,10 @@ std::vector<fk::matrix<P>> gen_real_space_transform(PDE<P> const &pde)
 template<typename P>
 fk::vector<P>
 wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                      element_table const &table, long const max_mem_bytes)
+                      element_table const &table, int const max_mem_mb)
 {
+  assert( max_mem_mb > 0 );
+
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
   /* determine the length of the real-space vector */
   int prod = 1;
@@ -173,13 +176,11 @@ wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
   int const stride =
       std::pow(pde.get_dimensions()[0].get_degree(), dims.size());
 
-  long max = 0;
-
   for (int i = 0; i < table.size(); i++)
   {
     std::vector<fk::matrix<P, mem_type::view>> kron_matrices;
     kron_matrices.reserve(pde.num_dims);
-    fk::vector<int> coords = table.get_coords(i);
+    fk::vector<int> const coords = table.get_coords(i);
 
     for (int j = 0; j < pde.num_dims; j++)
     {
@@ -192,10 +193,7 @@ wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
     }
 
     /* compute the amount of needed memory */
-    long bytes = kron_matrix_bytes(kron_matrices);
-    if (max < bytes)
-      max = bytes;
-    assert(bytes <= max_mem_bytes);
+    assert(kron_matrix_mb(kron_matrices) <= max_mem_mb);
 
     /* get a matrix by kronecker producting the list together */
     fk::matrix<P> const kronecker_product = recursive_kron(kron_matrices);
@@ -226,11 +224,11 @@ gen_real_space_transform(PDE<float> const &pde);
 template fk::vector<double>
 wavelet_to_real_space(PDE<double> const &pde,
                       fk::vector<double> const &wave_space,
-                      element_table const &table, long const max_mem_bytes);
+                      element_table const &table, int const max_mem_mb);
 template fk::vector<float>
 wavelet_to_real_space(PDE<float> const &pde,
                       fk::vector<float> const &wave_space,
-                      element_table const &table, long const max_mem_bytes);
+                      element_table const &table, int const max_mem_mb);
 
 template fk::vector<double>
 combine_dimensions(int const, element_table const &,
