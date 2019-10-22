@@ -709,6 +709,9 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                   operator_col(d) + degree - 1));
         }
 
+        // determine the index for the input vector
+        // j - connected start is the first connected element
+        // for this chunk
         int const x_index = (j - connected.start) * elem_size;
 
         // x vector input to kronmult

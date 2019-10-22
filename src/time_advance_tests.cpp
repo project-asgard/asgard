@@ -66,33 +66,38 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   generate_all_coefficients(pde);
 
   // -- generate initial condition vector.
-  P const initial_scale = 1.0;
-  std::vector<fk::vector<P>> initial_conditions;
-  for (dimension<P> const &dim : pde.get_dimensions())
-  {
-    initial_conditions.push_back(
-        forward_transform<P>(dim, dim.initial_condition));
-  }
-  fk::vector<P> const initial_condition = combine_dimensions(
-      degree, table, subgrid.col_start, subgrid.col_stop, initial_conditions);
+  fk::vector<P> const initial_condition = [&pde, &table, &subgrid, degree]() {
+    std::vector<fk::vector<P>> initial_conditions;
+    for (dimension<P> const &dim : pde.get_dimensions())
+    {
+      initial_conditions.push_back(
+          forward_transform<P>(dim, dim.initial_condition));
+    }
+    return combine_dimensions(degree, table, subgrid.col_start,
+                              subgrid.col_stop, initial_conditions);
+  }();
 
   // -- generate sources.
   // these will be scaled later for time
-  std::vector<fk::vector<P>> initial_sources;
-
-  for (source<P> const &source : pde.sources)
-  {
-    std::vector<fk::vector<P>> initial_sources_dim;
-    for (int i = 0; i < pde.num_dims; ++i)
+  std::vector<fk::vector<P>> const initial_sources = [&pde, &table, &subgrid,
+                                                      degree]() {
+    std::vector<fk::vector<P>> initial_sources;
+    for (source<P> const &source : pde.sources)
     {
-      initial_sources_dim.push_back(forward_transform<P>(
-          pde.get_dimensions()[i], source.source_funcs[i]));
+      // gather contributions from each dim for this source, in wavelet space
+      std::vector<fk::vector<P>> initial_sources_dim;
+      for (int i = 0; i < pde.num_dims; ++i)
+      {
+        initial_sources_dim.push_back(forward_transform<P>(
+            pde.get_dimensions()[i], source.source_funcs[i]));
+      }
+      // combine those contributions to form the unscaled source vector
+      initial_sources.push_back(
+          combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
+                             initial_sources_dim));
     }
-
-    initial_sources.push_back(
-        combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
-                           initial_sources_dim, initial_scale));
-  }
+    return initial_sources;
+  }();
 
   // -- prep workspace/chunks
   host_workspace<P> host_space(pde, subgrid);

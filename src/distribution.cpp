@@ -194,6 +194,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
   return element_subgrid(start_row, stop_row, start_col, stop_col);
 }
 
+// distribution plan is a mapping from rank -> assigned subgrid
 distribution_plan get_plan(int const num_ranks, element_table const &table)
 {
   assert(num_ranks > 0);

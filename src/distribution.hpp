@@ -175,13 +175,15 @@ struct message
           grid_limits const range)
       : message_dir(message_dir), target(target), range(range)
   {}
-
-  message(message const &other)
-      : message_dir(other.message_dir), target(other.target), range(other.range)
-  {}
-  message(message &&other)
-      : message_dir(other.message_dir), target(other.target), range(other.range)
-  {}
+  message(message const &other) = default;
+  // message(message const &other)
+  //    : message_dir(other.message_dir), target(other.target),
+  //    range(other.range)
+  //{}
+  message(message &&other) = default;
+  //    : message_dir(other.message_dir), target(other.target),
+  //    range(other.range)
+  //{}
 
   message_direction const message_dir;
   int const target;

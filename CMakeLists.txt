@@ -161,7 +161,7 @@ target_link_libraries (pde PRIVATE basis matlab_utilities tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
-target_link_libraries (program_options PRIVATE clara)
+target_link_libraries (program_options PRIVATE clara distribution)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
