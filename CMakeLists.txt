@@ -240,16 +240,35 @@ if (ASGARD_BUILD_TESTS)
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
-    
+       
     if (ASGARD_USE_MPI)
-      target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
+       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)  
+       if ("${component}" STREQUAL "distribution" OR
+           "${component}" STREQUAL "time_advance")
+     
+       if (ASGARD_USE_CUDA)
+          set(test_ranks "1")
+       else ()
+          set(test_ranks "4")
+       endif () 
+       add_test (NAME ${component}-test-mpi
+                 COMMAND mpirun -n ${test_ranks} ${component}-tests
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+       endif()
     endif ()
+
+
+
+
+
+ 
 
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
-
+  
+  
 
 
 else ()

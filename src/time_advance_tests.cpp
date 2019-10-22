@@ -59,6 +59,14 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   options const o = make_options(args);
 
   element_table const table(o, pde.num_dims);
+
+  // can't run problem with fewer elements than ranks
+  // this is asserted on in the distribution component
+  if (num_ranks < static_cast<int>(table.size()))
+  {
+    return;
+  }
+
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
 
@@ -296,6 +304,17 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
+  if (num_ranks > 1)
+  {
+    // distributed implicit stepping not implemented
+    ignore(level);
+    ignore(degree);
+    ignore(pde);
+    ignore(num_steps);
+    ignore(filepath);
+    ignore(full_grid);
+    return;
+  }
 
   std::string const grid_str = full_grid ? "-f" : "";
   options const o =

@@ -198,7 +198,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
 distribution_plan get_plan(int const num_ranks, element_table const &table)
 {
   assert(num_ranks > 0);
-  assert(num_ranks < table.size());
+  assert(num_ranks <= table.size());
 
   int const num_splits = num_effective_ranks(num_ranks);
 
