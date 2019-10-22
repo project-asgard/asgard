@@ -117,7 +117,7 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 /* given a pde, for each dimension create a matrix where the columns are
    legendre basis functions evaluated at the roots */
 template<typename P>
-std::vector<fk::matrix<P>> gen_real_space_transform(PDE<P> const &pde)
+std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
 {
   /* contains a basis matrix for each dimension */
   std::vector<fk::matrix<P>> real_space_transform;
@@ -154,10 +154,10 @@ std::vector<fk::matrix<P>> gen_real_space_transform(PDE<P> const &pde)
 
 template<typename P>
 fk::vector<P>
-wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                      element_table const &table, int const max_mem_mb)
+wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
+                      element_table const &table, int const memory_limit_MB)
 {
-  assert(max_mem_mb > 0);
+  assert(memory_limit_MB > 0);
 
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
   /* determine the length of the real-space vector */
@@ -171,7 +171,7 @@ wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_real_space_transform(pde);
+      gen_realspace_transform(pde);
   /* Assume the degree in the first dimension is equal across all the remaining
    */
   int const stride =
@@ -194,7 +194,7 @@ wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
     }
 
     /* compute the amount of needed memory */
-    assert(kron_matrix_mb(kron_matrices) <= max_mem_mb);
+    assert(kron_matrix_mb(kron_matrices) <= memory_limit_MB);
 
     /* get a matrix by kronecker producting the list together */
     fk::matrix<P> const kronecker_product = recursive_kron(kron_matrices);
@@ -217,19 +217,19 @@ recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
                int index);
 
 template std::vector<fk::matrix<double>>
-gen_real_space_transform(PDE<double> const &pde);
+gen_realspace_transform(PDE<double> const &pde);
 
 template std::vector<fk::matrix<float>>
-gen_real_space_transform(PDE<float> const &pde);
+gen_realspace_transform(PDE<float> const &pde);
 
 template fk::vector<double>
-wavelet_to_real_space(PDE<double> const &pde,
+wavelet_to_realspace(PDE<double> const &pde,
                       fk::vector<double> const &wave_space,
-                      element_table const &table, int const max_mem_mb);
+                      element_table const &table, int const memory_limit_MB);
 template fk::vector<float>
-wavelet_to_real_space(PDE<float> const &pde,
+wavelet_to_realspace(PDE<float> const &pde,
                       fk::vector<float> const &wave_space,
-                      element_table const &table, int const max_mem_mb);
+                      element_table const &table, int const memory_limit_MB);
 
 template fk::vector<double>
 combine_dimensions(int const, element_table const &,

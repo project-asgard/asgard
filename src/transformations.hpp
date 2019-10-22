@@ -17,15 +17,15 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
                int index = 0);
 
 template<typename P>
-std::vector<fk::matrix<P>> gen_real_space_transform(PDE<P> const &pde);
+std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
 
 template<typename P>
-std::vector<fk::matrix<P>> gen_real_space_transform(PDE<P> const &pde);
+std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
 
 template<typename P>
 fk::vector<P>
-wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                      element_table const &table, int const max_mem_mb);
+wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
+                     element_table const &table, int const memory_limit_MB);
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
@@ -142,16 +142,16 @@ recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
                int index);
 
 extern template std::vector<fk::matrix<double>>
-gen_real_space_transform(PDE<double> const &pde);
+gen_realspace_transform(PDE<double> const &pde);
 
 extern template std::vector<fk::matrix<float>>
-gen_real_space_transform(PDE<float> const &pde);
+gen_realspace_transform(PDE<float> const &pde);
 
 extern template fk::vector<double>
-wavelet_to_real_space(PDE<double> const &pde,
+wavelet_to_realspace(PDE<double> const &pde,
                       fk::vector<double> const &wave_space,
                       element_table const &table, int const max_mem_mb);
 extern template fk::vector<float>
-wavelet_to_real_space(PDE<float> const &pde,
+wavelet_to_realspace(PDE<float> const &pde,
                       fk::vector<float> const &wave_space,
                       element_table const &table, int const max_mem_mb);

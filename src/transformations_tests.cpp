@@ -183,14 +183,14 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
       wave_space.push_back(arbitrary_func(i));
     }
 
-    fk::vector<TestType> const real_space = wavelet_to_real_space<TestType>(
+    fk::vector<TestType> const realspace = wavelet_to_realspace<TestType>(
         *pde, fk::vector<TestType>(wave_space), table, max_mb);
     std::string const gold_file_name =
         "../testing/generated-inputs/wavelet_to_realspace/continuity_1/"
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
-    relaxed_comparison(gold, real_space, 1e-4);
+    relaxed_comparison(gold, realspace, 1e-4);
   }
 
   SECTION("wavelet_to_realspace_2")
@@ -214,14 +214,14 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
       wave_space.push_back(arbitrary_func(i));
     }
 
-    fk::vector<TestType> const real_space = wavelet_to_real_space<TestType>(
+    fk::vector<TestType> const realspace = wavelet_to_realspace<TestType>(
         *pde, fk::vector<TestType>(wave_space), table, max_mb);
     std::string const gold_file_name =
         "../testing/generated-inputs/wavelet_to_realspace/continuity_2/"
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
-    relaxed_comparison(gold, real_space, 1e-2);
+    relaxed_comparison(gold, realspace, 1e-2);
   }
 
   SECTION("wavelet_to_realspace_3")
@@ -243,14 +243,14 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
       wave_space.push_back(arbitrary_func(i));
     }
 
-    fk::vector<TestType> const real_space = wavelet_to_real_space<TestType>(
+    fk::vector<TestType> const realspace = wavelet_to_realspace<TestType>(
         *pde, fk::vector<TestType>(wave_space), table, max_mb);
     std::string const gold_file_name =
         "../testing/generated-inputs/wavelet_to_realspace/continuity_3/"
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
-    relaxed_comparison(gold, real_space, 1e-2);
+    relaxed_comparison(gold, realspace, 1e-2);
   }
 }
 
@@ -273,11 +273,11 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     int const level  = 8;
     int const degree = 7;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    std::vector<fk::matrix<TestType>> real_space_transform =
-        gen_real_space_transform(*pde);
+    std::vector<fk::matrix<TestType>> realspace_transform =
+        gen_realspace_transform(*pde);
 
     /* check against gold data */
-    for (int i = 0; i < static_cast<int>(real_space_transform.size()); i++)
+    for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
           "../testing/generated-inputs/matrix_plot_D/continuity_1/"
@@ -285,7 +285,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, real_space_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], 1e-3);
     }
   }
 
@@ -296,11 +296,11 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     int const level  = 7;
     int const degree = 6;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    std::vector<fk::matrix<TestType>> real_space_transform =
-        gen_real_space_transform(*pde);
+    std::vector<fk::matrix<TestType>> realspace_transform =
+        gen_realspace_transform(*pde);
 
     /* check against gold data */
-    for (int i = 0; i < static_cast<int>(real_space_transform.size()); i++)
+    for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
           "../testing/generated-inputs/matrix_plot_D/continuity_2/"
@@ -308,7 +308,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, real_space_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], 1e-3);
     }
   }
 
@@ -319,11 +319,11 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     int const level  = 6;
     int const degree = 5;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    std::vector<fk::matrix<TestType>> real_space_transform =
-        gen_real_space_transform(*pde);
+    std::vector<fk::matrix<TestType>> realspace_transform =
+        gen_realspace_transform(*pde);
 
     /* check against gold data */
-    for (int i = 0; i < static_cast<int>(real_space_transform.size()); i++)
+    for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
           "../testing/generated-inputs/matrix_plot_D/continuity_3/"
@@ -331,7 +331,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, real_space_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], 1e-3);
     }
   }
 
@@ -342,11 +342,11 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
     int const level  = 2;
     int const degree = 3;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    std::vector<fk::matrix<TestType>> real_space_transform =
-        gen_real_space_transform(*pde);
+    std::vector<fk::matrix<TestType>> realspace_transform =
+        gen_realspace_transform(*pde);
 
     /* check against gold data */
-    for (int i = 0; i < static_cast<int>(real_space_transform.size()); i++)
+    for (int i = 0; i < static_cast<int>(realspace_transform.size()); i++)
     {
       std::string const gold_file_name =
           "../testing/generated-inputs/matrix_plot_D/continuity_6/"
@@ -354,7 +354,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, real_space_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], 1e-3);
     }
   }
 }
