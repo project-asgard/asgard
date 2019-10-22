@@ -12,19 +12,8 @@
 
 struct distribution_test_init
 {
-  distribution_test_init()
-  {
-    auto const [rank, total_ranks] = initialize_distribution();
-    my_rank                        = rank;
-    num_ranks                      = total_ranks;
-  }
+  distribution_test_init() { initialize_distribution(); }
   ~distribution_test_init() { finalize_distribution(); }
-  int get_my_rank() const { return my_rank; }
-  int get_num_ranks() const { return num_ranks; }
-
-private:
-  int my_rank;
-  int num_ranks;
 };
 
 #ifdef ASGARD_USE_MPI
@@ -56,13 +45,8 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        bool const full_grid                            = false,
                        std::vector<std::string> const &additional_args = {})
 {
-#ifdef ASGARD_USE_MPI
-  int const my_rank   = distrib_test_info.get_my_rank();
-  int const num_ranks = distrib_test_info.get_num_ranks();
-#else
-  int const my_rank   = 0;
-  int const num_ranks = 1;
-#endif
+  int const my_rank   = get_rank();
+  int const num_ranks = get_num_ranks();
 
   std::vector<std::string> const args = [&additional_args, level, degree,
                                          full_grid]() {
@@ -124,7 +108,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   {
     P const time = i * dt;
     explicit_time_advance(pde, table, initial_sources, host_space, rank_space,
-                          chunks, plan, my_rank, time, dt);
+                          chunks, plan, time, dt);
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
     int const degree       = pde.get_dimensions()[0].get_degree();
@@ -305,13 +289,8 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                 int const num_steps, std::string const filepath,
                                 bool const full_grid = false)
 {
-#ifdef ASGARD_USE_MPI
-  int const my_rank   = distrib_test_info.get_my_rank();
-  int const num_ranks = distrib_test_info.get_num_ranks();
-#else
-  int const my_rank   = 0;
-  int const num_ranks = 1;
-#endif
+  int const my_rank   = get_rank();
+  int const num_ranks = get_num_ranks();
 
   std::string const grid_str = full_grid ? "-f" : "";
   options const o =

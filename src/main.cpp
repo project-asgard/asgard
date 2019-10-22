@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
-  auto const subgrid = plan.at(my_rank);
+  auto const subgrid = plan.at(get_rank());
 
   // -- generate initial condition vector.
   node_out() << "  generating: initial conditions..." << '\n';
@@ -241,7 +241,7 @@ int main(int argc, char **argv)
     {
       // FIXME fold initial sources into host space
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, chunks, plan, my_rank, time, dt);
+                            rank_space, chunks, plan, time, dt);
     }
 
     // print root mean squared error from analytic solution

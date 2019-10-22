@@ -1,4 +1,5 @@
 #include "time_advance.hpp"
+#include "distribution.hpp"
 #include "element_table.hpp"
 #include "fast_math.hpp"
 
@@ -10,8 +11,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            host_workspace<P> &host_space,
                            rank_workspace<P> &rank_space,
                            std::vector<element_chunk> chunks,
-                           distribution_plan const &plan, int const my_rank,
-                           P const time, P const dt)
+                           distribution_plan const &plan, P const time,
+                           P const dt)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -29,6 +30,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
+  int const my_rank           = get_rank();
   element_subgrid const &grid = plan.at(my_rank);
   int const elem_size         = element_segment_size(pde);
 
@@ -192,8 +194,8 @@ explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       host_workspace<double> &host_space,
                       rank_workspace<double> &rank_space,
                       std::vector<element_chunk> chunks,
-                      distribution_plan const &plan, int const my_rank,
-                      double const time, double const dt);
+                      distribution_plan const &plan, double const time,
+                      double const dt);
 
 template void
 explicit_time_advance(PDE<float> const &pde, element_table const &table,
@@ -201,8 +203,8 @@ explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       host_workspace<float> &host_space,
                       rank_workspace<float> &rank_space,
                       std::vector<element_chunk> chunks,
-                      distribution_plan const &plan, int const my_rank,
-                      float const time, float const dt);
+                      distribution_plan const &plan, float const time,
+                      float const dt);
 
 template void
 implicit_time_advance(PDE<double> const &pde, element_table const &table,

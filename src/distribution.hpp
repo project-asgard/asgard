@@ -1,4 +1,5 @@
 #pragma once
+#include "build_info.hpp"
 #include "element_table.hpp"
 
 #ifdef ASGARD_USE_MPI
@@ -126,6 +127,10 @@ void finalize_distribution();
 
 // get node-local rank
 int get_local_rank();
+// get overall rank
+int get_rank();
+// get number of ranks overall
+int get_num_ranks();
 
 // this struct will use node-local ranks to ensure only
 // one rank prints some input val:

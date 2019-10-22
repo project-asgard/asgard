@@ -235,7 +235,7 @@ if (ASGARD_BUILD_TESTS)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
-    target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
+    target_link_libraries (${component}-tests PRIVATE ${component} tests_general) 
     # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)

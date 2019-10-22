@@ -1,8 +1,8 @@
 
 #include "distribution.hpp"
-#include "build_info.hpp"
 
 #include <cmath>
+#include <csignal>
 #include <numeric>
 
 #include "chunk.hpp"
@@ -47,6 +47,36 @@ int get_local_rank()
   return 0;
 }
 
+int get_rank()
+{
+#ifdef ASGARD_USE_MPI
+  static int const rank = []() {
+    int my_rank;
+    auto const status =
+        MPI_Comm_rank(distro_handle.get_global_comm(), &my_rank);
+    assert(status == 0);
+    return my_rank;
+  }();
+  return rank;
+#endif
+  return 0;
+}
+
+int get_num_ranks()
+{
+#ifdef ASGARD_USE_MPI
+  static int const num_ranks = []() {
+    int num_ranks;
+    auto const status =
+        MPI_Comm_size(distro_handle.get_global_comm(), &num_ranks);
+    assert(status == 0);
+    return num_ranks;
+  }();
+  return num_ranks;
+#endif
+  return 1;
+}
+
 // to simplify distribution, we have designed the code
 // to run with even and/or perfect square number of ranks.
 
@@ -60,14 +90,25 @@ auto const num_effective_ranks = [](int const num_ranks) {
   return num_ranks - 1;
 };
 
+static void terminate_all_ranks(int signum)
+{
+#ifdef ASGARD_USE_MPI
+  MPI_Abort(distro_handle.get_global_comm(), signum);
+#endif
+  exit(signum);
+}
+
 std::array<int, 2> initialize_distribution()
 {
   static bool init_done = false;
   assert(!init_done);
 #ifdef ASGARD_USE_MPI
+  signal(SIGABRT, terminate_all_ranks);
   auto status = MPI_Init(NULL, NULL);
-  init_done   = true;
+
+  init_done = true;
   assert(status == 0);
+
   int num_ranks;
   status = MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
   assert(status == 0);
@@ -91,6 +132,7 @@ std::array<int, 2> initialize_distribution()
     distro_handle.set_global_comm(effective_communicator);
     initialize_libraries(get_local_rank());
   }
+
   return {my_rank, num_participating};
 
 #endif
