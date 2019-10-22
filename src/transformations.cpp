@@ -74,7 +74,8 @@ fk::vector<P> combine_dimensions(int const degree, element_table const &table,
   return combined;
 }
 
-/* calculate required mb for the matrix resulting from the kron prod of a sequence of matrices */
+/* calculate required mb for the matrix resulting from the kron prod of a
+ * sequence of matrices */
 template<typename P>
 int kron_matrix_mb(
     std::vector<fk::matrix<P, mem_type::view>> const &kron_matrices)
@@ -156,7 +157,7 @@ fk::vector<P>
 wavelet_to_real_space(PDE<P> const &pde, fk::vector<P> const &wave_space,
                       element_table const &table, int const max_mem_mb)
 {
-  assert( max_mem_mb > 0 );
+  assert(max_mem_mb > 0);
 
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
   /* determine the length of the real-space vector */

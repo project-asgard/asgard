@@ -47,5 +47,5 @@ public:
   bool do_poisson_solve() const;
   bool is_valid() const;
   int get_realspace_output_freq() const;
-  bool transform_at_step( int i ) const;
+  bool transform_at_step(int i) const;
 };

@@ -33,8 +33,8 @@ options::options(int argc, char **argv)
                          "visualization_frequency")["-z"]["--vis_freq"](
           "Frequency in steps for visualizing output") |
       clara::detail::Opt(realspace_output_freq,
-			 "realspace_output_freq")["-r"]["--real_freq"](
-	  "Timesteps in between realspace outputs");
+                         "realspace_output_freq")["-r"]["--real_freq"](
+          "Timesteps in between realspace outputs");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -70,9 +70,11 @@ options::options(int argc, char **argv)
     std::cerr << "Number of timesteps must be a natural number" << std::endl;
     valid = false;
   }
-  if (realspace_output_freq < 0 )
+  if (realspace_output_freq < 0)
   {
-    std::cerr << "Timesteps in between realspace outputs must be a natural number" << std::endl;
+    std::cerr
+        << "Timesteps in between realspace outputs must be a natural number"
+        << std::endl;
     valid = false;
   }
 
@@ -110,12 +112,16 @@ PDE_opts options::get_selected_pde() const { return pde_choice; }
 std::string options::get_pde_string() const { return selected_pde; }
 bool options::is_valid() const { return valid; }
 bool options::do_poisson_solve() const { return do_poisson; }
-int options::get_realspace_output_freq() const { return realspace_output_freq };
-bool options::transform_at_step( int i ) const
+int options::get_realspace_output_freq() const { return realspace_output_freq; }
+bool options::transform_at_step(int const i) const
 {
-  if( i == 0 ) return false;
-
-  if( i % realspace_output_freq == 0 ) return true;
-  
+  if (realspace_output_freq == 0)
+  {
+    return false;
+  }
+  if (i % realspace_output_freq == 0)
+  {
+    return true;
+  }
   return false;
 }
