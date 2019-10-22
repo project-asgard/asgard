@@ -527,9 +527,9 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
 }
 
 template<typename P>
-void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
-                    int const segment_size, distribution_plan const &plan,
-                    int const my_rank)
+void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
+                      int const segment_size, distribution_plan const &plan,
+                      int const my_rank)
 {
   assert(dest.size() <= source.size());
   assert(my_rank >= 0);
@@ -724,12 +724,14 @@ template void reduce_results(fk::vector<double> const &source,
                              fk::vector<double> &dest,
                              distribution_plan const &plan, int const my_rank);
 
-template void prepare_inputs(fk::vector<float> const &source,
-                             fk::vector<float> &dest, int const segment_size,
-                             distribution_plan const &plan, int const my_rank);
-template void prepare_inputs(fk::vector<double> const &source,
-                             fk::vector<double> &dest, int const segment_size,
-                             distribution_plan const &plan, int const my_rank);
+template void exchange_results(fk::vector<float> const &source,
+                               fk::vector<float> &dest, int const segment_size,
+                               distribution_plan const &plan,
+                               int const my_rank);
+template void exchange_results(fk::vector<double> const &source,
+                               fk::vector<double> &dest, int const segment_size,
+                               distribution_plan const &plan,
+                               int const my_rank);
 
 template std::array<fk::vector<float>, 2>
 gather_errors(float const root_mean_squared, float const relative);

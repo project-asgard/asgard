@@ -38,8 +38,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
-  prepare_inputs(host_space.reduced_fx, host_space.result_1, elem_size, plan,
-                 my_rank);
+  exchange_results(host_space.reduced_fx, host_space.result_1, elem_size, plan,
+                   my_rank);
 
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
@@ -49,8 +49,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
-  prepare_inputs(host_space.reduced_fx, host_space.result_2, elem_size, plan,
-                 my_rank);
+  exchange_results(host_space.reduced_fx, host_space.result_2, elem_size, plan,
+                   my_rank);
 
   fm::copy(host_space.x_orig, host_space.x);
   P const fx_scale_2a = a31 * dt;
@@ -65,8 +65,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                 time + c3 * dt);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  prepare_inputs(host_space.reduced_fx, host_space.result_3, elem_size, plan,
-                 my_rank);
+  exchange_results(host_space.reduced_fx, host_space.result_3, elem_size, plan,
+                   my_rank);
 
   fm::copy(host_space.x_orig, host_space.x);
   P const scale_1 = dt * b1;

@@ -620,7 +620,7 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
     plan.emplace(0, element_subgrid(0, 1, 2, 3));
     int const segment_size = 0;
     int const my_rank      = 0;
-    prepare_inputs(source, dest, segment_size, plan, my_rank);
+    exchange_results(source, dest, segment_size, plan, my_rank);
     REQUIRE(source == dest);
   }
   SECTION("multiple rank")
@@ -660,7 +660,7 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
 
       fk::vector<TestType> result(gold.size());
 
-      prepare_inputs(my_input, result, segment_size, plan, my_rank);
+      exchange_results(my_input, result, segment_size, plan, my_rank);
 
       REQUIRE(result == gold);
     }

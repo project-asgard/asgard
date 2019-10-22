@@ -175,15 +175,9 @@ struct message
           grid_limits const range)
       : message_dir(message_dir), target(target), range(range)
   {}
+
   message(message const &other) = default;
-  // message(message const &other)
-  //    : message_dir(other.message_dir), target(other.target),
-  //    range(other.range)
-  //{}
-  message(message &&other) = default;
-  //    : message_dir(other.message_dir), target(other.target),
-  //    range(other.range)
-  //{}
+  message(message &&other)      = default;
 
   message_direction const message_dir;
   int const target;
@@ -195,16 +189,16 @@ template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank);
 
-// generate a message list for each rank for prepare_inputs function;
+// generate a message list for each rank for exchange_results function;
 // conceptually an internal component function, exposed for testing
 std::vector<std::vector<message>> const
 generate_messages(distribution_plan const &plan);
 
 // exchange results between subgrid rows
 template<typename P>
-void prepare_inputs(fk::vector<P> const &source, fk::vector<P> &dest,
-                    int const segment_size, distribution_plan const &plan,
-                    int const my_rank);
+void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
+                      int const segment_size, distribution_plan const &plan,
+                      int const my_rank);
 
 // gather errors from all local ranks for printing
 template<typename P>
@@ -225,13 +219,13 @@ reduce_results(fk::vector<double> const &source, fk::vector<double> &dest,
                distribution_plan const &plan, int const my_rank);
 
 extern template void
-prepare_inputs(fk::vector<float> const &source, fk::vector<float> &dest,
-               int const segment_size, distribution_plan const &plan,
-               int const my_rank);
+exchange_results(fk::vector<float> const &source, fk::vector<float> &dest,
+                 int const segment_size, distribution_plan const &plan,
+                 int const my_rank);
 extern template void
-prepare_inputs(fk::vector<double> const &source, fk::vector<double> &dest,
-               int const segment_size, distribution_plan const &plan,
-               int const my_rank);
+exchange_results(fk::vector<double> const &source, fk::vector<double> &dest,
+                 int const segment_size, distribution_plan const &plan,
+                 int const my_rank);
 
 extern template std::array<fk::vector<float>, 2>
 gather_errors(float const root_mean_squared, float const relative);
