@@ -241,7 +241,6 @@ int main(int argc, char **argv)
     /* write realspace output to file */
     if (opts.transform_at_step(i))
     {
-      std::cout << i << '\n';
       fk::vector<prec> const realspace_at_t = wavelet_to_real_space<prec>(
           *pde, host_space.fx, table, default_workspace_cpu_MB);
       update_output_file(output_dataset_real, realspace_at_t,
