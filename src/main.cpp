@@ -25,6 +25,13 @@
 using prec = double;
 int main(int argc, char **argv)
 {
+  options opts(argc, argv);
+  if (!opts.is_valid())
+  {
+    node_out() << "invalid cli string; exiting" << '\n';
+    exit(-1);
+  }
+
   // -- set up distribution
   auto const [my_rank, num_ranks] = initialize_distribution();
 
@@ -39,13 +46,6 @@ int main(int argc, char **argv)
   node_out() << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
              << '\n';
   node_out() << "This executable was built on " << BUILD_TIME << '\n';
-
-  options opts(argc, argv);
-  if (!opts.is_valid())
-  {
-    node_out() << "invalid cli string; exiting" << '\n';
-    exit(-1);
-  }
 
   // -- parse user input and generate pde
   node_out() << "generating: pde..." << '\n';
