@@ -255,3 +255,30 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
     REQUIRE(dt == gold);
   }
 }
+
+TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
+                   double, float)
+{
+  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete);
+  std::string const base_dir =
+      "../testing/generated-inputs/pde/fokkerplanck2_complete_";
+  fk::vector<TestType> const x = {0.5};
+
+  SECTION("fokkerplanck2_complete initial condition functions")
+  {
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      TestType const gold = read_scalar_from_txt_file(
+          base_dir + "initial_dim" + std::to_string(i) + ".dat");
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
+      relaxed_compare(fx, gold);
+    }
+  }
+
+  SECTION("fokkerplanck2_complete dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
+  }
+}

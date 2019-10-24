@@ -20,6 +20,7 @@
 #include "pde/pde_fokkerplanck1_4p3.hpp"
 #include "pde/pde_fokkerplanck1_4p4.hpp"
 #include "pde/pde_fokkerplanck1_4p5.hpp"
+#include "pde/pde_fokkerplanck2_complete.hpp"
 #include "tensors.hpp"
 
 //
@@ -42,6 +43,7 @@ enum class PDE_opts
   fokkerplanck_1d_4p3,
   fokkerplanck_1d_4p4,
   fokkerplanck_1d_4p5,
+  fokkerplanck_2d_complete,
   // FIXME the below have not been implemented according to the
   // new specification. david is working on that in the matlab
   vlasov4,  // PDE corresponding to Fig. 4 in FIXME
@@ -66,6 +68,7 @@ static pde_map_t const pde_mapping = {
     {"fokkerplanck_1d_4p3", PDE_opts::fokkerplanck_1d_4p3},
     {"fokkerplanck_1d_4p4", PDE_opts::fokkerplanck_1d_4p4},
     {"fokkerplanck_1d_4p5", PDE_opts::fokkerplanck_1d_4p5},
+    {"fokkerplanck_2d_complete", PDE_opts::fokkerplanck_2d_complete},
     {"pde_user", PDE_opts::pde_user},
     {"vlasov4", PDE_opts::vlasov4},
     {"vlasov7", PDE_opts::vlasov7},
@@ -104,6 +107,8 @@ make_PDE(PDE_opts choice, int const level = -1, int const degree = -1)
     return std::make_unique<PDE_fokkerplanck_1d_4p4<P>>(level, degree);
   case PDE_opts::fokkerplanck_1d_4p5:
     return std::make_unique<PDE_fokkerplanck_1d_4p5<P>>(level, degree);
+  case PDE_opts::fokkerplanck_2d_complete:
+    return std::make_unique<PDE_fokkerplanck_2d_complete<P>>(level, degree);
   // TODO not yet implemented, replace return with appropriate types
   case PDE_opts::vlasov4:
     return std::make_unique<PDE_continuity_1d<P>>(level, degree);

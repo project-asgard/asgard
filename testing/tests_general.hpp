@@ -4,8 +4,7 @@
 //
 //-----------------------------------------------------------------------------
 
-#ifndef _tests_general_h_
-#define _tests_general_h_
+#pragma once
 
 #include "../src/pde.hpp"
 #include "../src/program_options.hpp"
@@ -67,4 +66,11 @@ dimension<P> make_dummy_dim(
 
 options make_options(std::vector<std::string> const arguments);
 
-#endif
+template<typename T>
+std::string to_string_with_precision(T const a_value, int const precision = 6)
+{
+  std::ostringstream out;
+  out.precision(precision);
+  out << std::fixed << a_value;
+  return out.str();
+}
