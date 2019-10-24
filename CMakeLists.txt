@@ -30,6 +30,8 @@ option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executabl
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
+option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
+set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -65,6 +67,12 @@ if(ASGARD_USE_CUDA)
   add_compile_definitions(ASGARD_USE_CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
+
+if(ASGARD_USE_MPI)
+  find_package(MPI REQUIRED)
+  include_directories(${MPI_CXX_INCLUDE_DIRS})
+endif()
+
 ###############################################################################
 ## Building asgard
 #
@@ -81,8 +89,9 @@ set (components
   batch
   coefficients
   connectivity
+  distribution
   element_table
-  fast_math 
+  fast_math
   chunk
   lib_dispatch
   matlab_utilities
@@ -114,6 +123,7 @@ endif ()
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
+
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(batch PRIVATE OpenMP::OpenMP_CXX)
 endif ()
@@ -124,7 +134,12 @@ target_link_libraries (coefficients
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
 
-target_link_libraries(chunk PRIVATE element_table fast_math pde)
+target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
+
+target_link_libraries(distribution PRIVATE element_table lib_dispatch)
+if (ASGARD_USE_MPI)
+  target_link_libraries(distribution PRIVATE MPI::MPI_CXX)
+endif ()
 
 target_link_libraries (element_table
   PRIVATE permutations program_options tensors)
@@ -138,7 +153,8 @@ endif ()
 
 target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 if (ASGARD_USE_CUDA)
-	target_link_libraries(lib_dispatch PRIVATE ${CUDA_CUBLAS_LIBRARIES})
+  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
+					     ${CUDA_CUBLAS_LIBRARIES})
 endif()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
@@ -147,19 +163,19 @@ target_link_libraries (pde PRIVATE basis matlab_utilities tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
-target_link_libraries (program_options PRIVATE clara)
+target_link_libraries (program_options PRIVATE clara distribution)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 if (ASGARD_USE_CUDA)
-	target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
+  target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
 target_link_libraries (time_advance PRIVATE batch fast_math pde tensors INTERFACE element_table)
 
 target_link_libraries (transformations
-  PRIVATE connectivity matlab_utilities pde program_options
+  PRIVATE connectivity distribution matlab_utilities pde program_options
   quadrature tensors)
 
 # define the main application and its linking
@@ -170,6 +186,7 @@ set (main_app_link_deps
   batch
   coefficients
   connectivity
+  distribution
   element_table
   matlab_utilities
   pde
@@ -181,6 +198,10 @@ set (main_app_link_deps
 )
 if (ASGARD_IO_HIGHFIVE)
   list (APPEND main_app_link_deps io)
+endif()
+
+if (ASGARD_USE_MPI)
+  list (APPEND main_app_link_deps PRIVATE MPI::MPI_CXX)
 endif()
 
 foreach (link_dep IN LISTS main_app_link_deps)
@@ -215,15 +236,42 @@ if (ASGARD_BUILD_TESTS)
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+    target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
+
+    if (ASGARD_USE_MPI)
+      target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
+      if ("${component}" STREQUAL "distribution" OR
+          "${component}" STREQUAL "time_advance")
+
+      set(test_ranks "4")
+      if (ASGARD_USE_CUDA)
+         set(test_ranks "1")
+      endif ()
+      if (${ASGARD_TESTING_RANKS})
+         set(test_ranks ${ASGARD_TESTING_RANKS})
+      endif ()
+      add_test (NAME ${component}-test-mpi
+                COMMAND mpirun -n ${test_ranks} ${component}-tests
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+      endif()
+    endif ()
+
+
+
+
+
+
+
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
+
 
 
 

@@ -458,15 +458,15 @@ void kronmult_to_batch_sets(
   int const degree = pde.get_dimensions()[0].get_degree();
 
   // check vector sizes
-  int const resrcult_size = std::pow(degree, pde.num_dims);
-  assert(x.size() == resrcult_size);
-  assert(y.size() == resrcult_size);
+  int const result_size = std::pow(degree, pde.num_dims);
+  assert(x.size() == result_size);
+  assert(y.size() == result_size);
 
   // check workspace sizes
   assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
   for (fk::vector<P, mem_type::view, resource::device> const &vector : work)
   {
-    assert(vector.size() == resrcult_size);
+    assert(vector.size() == result_size);
   }
 
   // check matrix sizes
@@ -635,26 +635,27 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     // dimension
     fk::vector<int> const coords = elem_table.get_coords(i);
     assert(coords.size() == pde.num_dims * 2);
-    fk::vector<int> elem_indices = linearize(coords);
+    fk::vector<int> const elem_indices = linearize(coords);
 
     // calculate the row portion of the
     // operator position used for this
     // element's gemm calls
-    fk::vector<int> operator_row = get_operator_row(pde, degree, elem_indices);
+    fk::vector<int> const operator_row =
+        get_operator_row(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> coords = elem_table.get_coords(j);
+      fk::vector<int> const coords = elem_table.get_coords(j);
       assert(coords.size() == pde.num_dims * 2);
-      fk::vector<int> connected_indices = linearize(coords);
+      fk::vector<int> const connected_indices = linearize(coords);
 
       // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
-      fk::vector<int> operator_col =
+      fk::vector<int> const operator_col =
           get_operator_col(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
@@ -708,7 +709,10 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
                   operator_col(d) + degree - 1));
         }
 
-        int const x_index = (total_prev_elems % elem_table.size()) * elem_size;
+        // determine the index for the input vector
+        // j - connected start is the first connected element
+        // for this chunk
+        int const x_index = (j - connected.start) * elem_size;
 
         // x vector input to kronmult
         fk::vector<P, mem_type::view, resource::device> const x_view(
@@ -732,8 +736,11 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * elem_table.size();
-  using key_type      = std::pair<int, int>;
-  using val_type      = fk::matrix<P, mem_type::owner, resource::host>;
+
+  assert(A.ncols() == A_size && A.nrows() == A_size);
+
+  using key_type = std::pair<int, int>;
+  using val_type = fk::matrix<P, mem_type::owner, resource::host>;
   std::map<key_type, val_type> coef_cache;
 
   assert(A.ncols() == A_size && A.nrows() == A_size);
@@ -749,7 +756,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
 
   // loop over elements
   // FIXME eventually want to do this in parallel
-  for (const auto &[i, connected] : chunk)
+  for (auto const &[i, connected] : chunk)
   {
     // first, get linearized indices for this element
     //
@@ -764,21 +771,22 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
     // calculate the row portion of the
     // operator position used for this
     // element's gemm calls
-    fk::vector<int> operator_row = get_operator_row(pde, degree, elem_indices);
+    fk::vector<int> const operator_row =
+        get_operator_row(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> coords_nD = elem_table.get_coords(j);
+      fk::vector<int> const coords_nD = elem_table.get_coords(j);
       assert(coords_nD.size() == pde.num_dims * 2);
-      fk::vector<int> connected_indices = linearize(coords_nD);
+      fk::vector<int> const connected_indices = linearize(coords_nD);
 
       // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
-      fk::vector<int> operator_col =
+      fk::vector<int> const operator_col =
           get_operator_col(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
@@ -800,7 +808,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
         // calculate the position of this element in the
         // global system matrix
         int const global_col = j * elem_size;
-        auto &k_tmp          = kron_vals.back();
+        auto const &k_tmp    = kron_vals.back();
 
         fk::matrix<P, mem_type::view> A_view(
             A, global_row, global_row + k_tmp.nrows() - 1, global_col,

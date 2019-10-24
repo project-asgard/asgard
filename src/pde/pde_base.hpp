@@ -211,7 +211,7 @@ public:
     set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
   }
 
-  void set_data(dimension<P> const owning_dim, fk::vector<P> const data)
+  void set_data(dimension<P> const &owning_dim, fk::vector<P> const &data)
   {
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     if (data.size() != 0)
@@ -228,14 +228,15 @@ public:
 
   fk::vector<P> get_data() const { return data_; };
 
-  void set_coefficients(dimension<P> const owning_dim,
-                        fk::matrix<P> const new_coefficients)
+  void set_coefficients(dimension<P> const &owning_dim,
+                        fk::matrix<P> const &new_coefficients)
   {
     int const degrees_freedom_1d = degrees_freedom(owning_dim);
     assert(degrees_freedom_1d == new_coefficients.nrows());
     assert(degrees_freedom_1d == new_coefficients.ncols());
-    this->coefficients_.clear_and_resize(degrees_freedom_1d, degrees_freedom_1d)
-        .transfer_from(new_coefficients);
+    this->coefficients_.clear_and_resize(degrees_freedom_1d,
+                                         degrees_freedom_1d) =
+        new_coefficients.clone_onto_device();
   }
 
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
@@ -252,7 +253,7 @@ public:
   }
 
   // small helper to return degrees of freedom given dimension
-  int degrees_freedom(dimension<P> const d) const
+  int degrees_freedom(dimension<P> const &d) const
   {
     return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
   }
@@ -364,8 +365,8 @@ public:
     // if default lev/degree not used
     if (num_levels > 0 || degree > 0)
     {
-      // FIXME -- temp -- eventually independent levels for each dim will be
-
+      // FIXME eventually independent levels for each dim will be
+      // supported
       for (dimension<P> &d : dimensions_)
       {
         if (num_levels > 0)
@@ -437,7 +438,7 @@ public:
   /* gives a vector of partial_term matrices to the term object so it can
      construct the full operator matrix */
   void
-  set_coefficients(fk::matrix<P> const coeffs, int const term, int const dim)
+  set_coefficients(fk::matrix<P> const &coeffs, int const term, int const dim)
   {
     assert(term >= 0);
     assert(term < num_terms);
@@ -447,7 +448,7 @@ public:
   }
 
   void set_partial_coefficients(int const term, int const dim, int const pterm,
-                                fk::matrix<P> const coeffs)
+                                fk::matrix<P> const &coeffs)
   {
     assert(term >= 0);
     assert(term < num_terms);
@@ -456,7 +457,7 @@ public:
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
-  P get_dt() { return dt_; };
+  P get_dt() const { return dt_; };
 
 private:
   std::vector<dimension<P>> dimensions_;

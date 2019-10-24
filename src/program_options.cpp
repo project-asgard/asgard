@@ -1,6 +1,7 @@
 #include "program_options.hpp"
-
+#include "build_info.hpp"
 #include "clara.hpp"
+#include "distribution.hpp"
 #include <iostream>
 
 options::options(int argc, char **argv)
@@ -38,42 +39,42 @@ options::options(int argc, char **argv)
   if (!result)
   {
     std::cerr << "Error in command line parsing: " << result.errorMessage()
-              << std::endl;
+              << '\n';
     valid = false;
   }
   if (show_help)
   {
-    std::cerr << cli << std::endl;
+    std::cerr << cli << '\n';
     exit(0);
   }
 
   // Validation...
-  if (cfl <= 0)
+  if (cfl <= 0.0)
   {
-    std::cerr << "CFL must be greater than zero" << std::endl;
+    std::cerr << "CFL must be positive" << '\n';
     valid = false;
   }
   if (degree < 1 && degree != -1)
   {
-    std::cerr << "Degree must be a natural number" << std::endl;
+    std::cerr << "Degree must be a natural number" << '\n';
     valid = false;
   }
   if (level < 1 && level != -1)
   {
-    std::cerr << "Level must be a natural number" << std::endl;
+    std::cerr << "Level must be a natural number" << '\n';
     valid = false;
   }
   if (num_time_steps < 1)
   {
-    std::cerr << "Number of timesteps must be a natural number" << std::endl;
+    std::cerr << "Number of timesteps must be a natural number" << '\n';
     valid = false;
   }
 
-  auto choice = pde_mapping.find(selected_pde);
+  auto const choice = pde_mapping.find(selected_pde);
   if (choice == pde_mapping.end())
   {
     std::cerr << "Invalid pde choice; see options.hpp for valid choices"
-              << std::endl;
+              << '\n';
     valid = false;
   }
   else
@@ -83,9 +84,32 @@ options::options(int argc, char **argv)
 
   if (realspace_output_freq < 0 || write_frequency < 0)
   {
-    std::cerr << "Frequencies must be non-negative: " << std::endl;
+    std::cerr << "Frequencies must be non-negative: " << '\n';
     valid = false;
   }
+
+#ifdef ASGARD_USE_CUDA
+  if (use_implicit_stepping)
+  {
+    std::cerr << "GPU acceleration not implemented for implicit stepping"
+              << '\n';
+    valid = false;
+  }
+#endif
+
+#ifdef ASGARD_USE_MPI
+  if (use_implicit_stepping && get_num_ranks() > 1)
+  {
+    std::cerr << "Distribution not implemented for implicit stepping" << '\n';
+    valid = false;
+  }
+  if (realspace_output_freq > 0)
+  {
+    std::cerr << "Distribution does not yet support realspace transform"
+              << '\n';
+    valid = false;
+  }
+#endif
 }
 
 int options::get_level() const { return level; }
@@ -100,6 +124,7 @@ std::string options::get_pde_string() const { return selected_pde; }
 bool options::is_valid() const { return valid; }
 bool options::do_poisson_solve() const { return do_poisson; }
 int options::get_realspace_output_freq() const { return realspace_output_freq; }
+
 bool options::write_at_step(int const i) const
 {
   assert(i >= 0);

@@ -2021,8 +2021,7 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     int const num_elems = 1;
 
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    fk::matrix<TestType, mem_type::owner, resource::device> coefficient_matrix =
-        pde->get_coefficients(0, 0);
+
     // clang-format off
     fk::matrix<TestType> const A {
         { 2,  3,  4,  5}, 
@@ -2031,9 +2030,10 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 	{14, 15, 16, 17}};
     // clang-format on
 
-    fk::matrix<TestType> coeff_h(coefficient_matrix.clone_onto_host());
-    coeff_h.set_submatrix(0, 0, A);
-    coefficient_matrix.transfer_from(coeff_h);
+    auto coeff = pde->get_coefficients(0, 0).clone_onto_host();
+    coeff.set_submatrix(0, 0, A);
+    fk::matrix<TestType, mem_type::owner, resource::device> const
+        coefficient_matrix(coeff.clone_onto_device());
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
     fk::vector<TestType, mem_type::owner, resource::device> const x(
@@ -2076,8 +2076,6 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     int const num_elems = 2;
 
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    fk::matrix<TestType, mem_type::owner, resource::device> coefficient_matrix =
-        pde->get_coefficients(0, 0);
 
     // clang-format off
     fk::matrix<TestType> const A {
@@ -2088,9 +2086,11 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 	{26, 27, 28, 29, 30, 31}, 
 	{32, 33, 34, 35, 36, 37}};
     // clang-format on
-    fk::matrix<TestType> coeff_h(coefficient_matrix.clone_onto_host());
-    coeff_h.set_submatrix(0, 0, A);
-    coefficient_matrix.transfer_from(coeff_h);
+
+    auto coeff = pde->get_coefficients(0, 0).clone_onto_host();
+    coeff.set_submatrix(0, 0, A);
+    fk::matrix<TestType, mem_type::owner, resource::device> const
+        coefficient_matrix(coeff.clone_onto_device());
 
     fk::vector<TestType> const x_h{18, 19, 20, 21};
     fk::vector<TestType, mem_type::owner, resource::device> const x(
@@ -2105,10 +2105,10 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     fk::matrix<TestType, mem_type::view, resource::device> const A_view_e1(
         coefficient_matrix, 2, 2 + degree - 1, 2, 2 + degree - 1);
 
-    fk::matrix<TestType, mem_type::view> const A_view_e0_h(
-        coeff_h, 0, degree - 1, 0, degree - 1);
-    fk::matrix<TestType, mem_type::view> const A_view_e1_h(
-        coeff_h, 2, 2 + degree - 1, 2, 2 + degree - 1);
+    fk::matrix<TestType, mem_type::view> const A_view_e0_h(A, 0, degree - 1, 0,
+                                                           degree - 1);
+    fk::matrix<TestType, mem_type::view> const A_view_e1_h(A, 2, 2 + degree - 1,
+                                                           2, 2 + degree - 1);
 
     fk::vector<TestType> const gold_e0 = A_view_e0_h * x_h;
     fk::vector<TestType> const gold_e1 = A_view_e1_h * x_h;
@@ -2285,7 +2285,9 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    auto const gen = [&dist, &mersenne_engine]() {
+      return dist(mersenne_engine);
+    };
 
     // create different matrices for each term/dim pairing
     std::vector<fk::matrix<TestType, mem_type::owner, resource::device>> A_mats;
@@ -2413,7 +2415,9 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+    auto const gen = [&dist, &mersenne_engine]() {
+      return dist(mersenne_engine);
+    };
 
     // create different matrices for each term/dim pairing
     std::vector<fk::matrix<TestType, mem_type::owner, resource::device>> A_mats;
@@ -2524,543 +2528,142 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
   }
 }
 
+template<typename P>
+void relaxed_comparison(fk::vector<P> const &first, fk::vector<P> const &second)
+{
+  auto const diff = first - second;
+
+  auto const abs_compare = [](P const a, P const b) {
+    return (std::abs(a) < std::abs(b));
+  };
+  P const result =
+      std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
+  P const tolerance = std::numeric_limits<P>::epsilon() *
+                      (std::is_same<P, double>::value ? 1e5 : 1e3);
+  REQUIRE(result <= tolerance);
+}
+
+template<typename P>
+void batch_builder_test(int const degree, int const level, PDE<P> &pde,
+                        std::string const &gold_path = {},
+                        bool const full_grid         = false)
+{
+  std::string const grid_str          = full_grid ? "-f" : "";
+  std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
+                                         std::to_string(degree), grid_str};
+  options const o                     = make_options(args);
+
+  element_table const elem_table(o, pde.num_dims);
+  int const num_ranks = 1;
+  int const my_rank   = 0;
+  auto const plan     = get_plan(num_ranks, elem_table);
+  auto const subgrid  = plan.at(my_rank);
+
+  generate_all_coefficients(pde);
+
+  host_workspace<P> host_space(pde, subgrid);
+  std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
+
+  fk::vector<P> const gold = [&pde, &host_space, &gold_path]() {
+    if (pde.num_terms == 1 && pde.num_dims == 1)
+    {
+      fk::matrix<P> const &coefficient_matrix =
+          pde.get_coefficients(0, 0).clone_onto_host();
+      return coefficient_matrix * host_space.x;
+    }
+    return fk::vector<P>(read_vector_from_txt_file(gold_path));
+  }();
+
+  auto const chunks = assign_elements(subgrid, get_num_chunks(subgrid, pde));
+  rank_workspace<P> rank_space(pde, chunks);
+
+  fm::scal(static_cast<P>(0.0), host_space.fx);
+  for (auto const &chunk : chunks)
+  {
+    // copy in inputs
+    copy_chunk_inputs(pde, subgrid, rank_space, host_space, chunk);
+
+    // build batches for this chunk
+    std::vector<batch_operands_set<P>> batches =
+        build_batches(pde, elem_table, rank_space, chunk);
+
+    // do the gemms
+    P const alpha = 1.0;
+    P const beta  = 0.0;
+    for (int i = 0; i < pde.num_dims; ++i)
+    {
+      batch<P> const a = batches[i][0];
+      batch<P> const b = batches[i][1];
+      batch<P> const c = batches[i][2];
+
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // do the reduction
+    reduce_chunk(pde, rank_space, chunk);
+
+    // copy outputs back
+    copy_chunk_outputs(pde, subgrid, rank_space, host_space, chunk);
+  }
+
+  relaxed_comparison(gold, host_space.fx);
+}
+
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   SECTION("1d, 1 term, degree 2, level 2")
   {
     int const degree = 2;
     int const level  = 2;
-
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    fk::matrix<TestType> coefficient_matrix(
-        pde->get_coefficients(0, 0).clone_onto_host());
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
-    pde->set_coefficients(coefficient_matrix, 0, 0);
-
-    host_workspace<TestType> host_space(*pde, elem_table);
-    auto const chunks =
-        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-
-    std::generate(host_space.x.begin(), host_space.x.end(), gen);
-    fk::vector<TestType> const gold = coefficient_matrix * host_space.x;
-
-    fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-
-      // build batches for this chunk
-      std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, chunk);
-
-      // do the gemm
-      batch<TestType> const a = batches[0][0];
-      batch<TestType> const b = batches[0][1];
-      batch<TestType> const c = batches[0][2];
-
-      TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
-
-      batched_gemm(a, b, c, alpha, beta);
-
-      // do the reduction
-      reduce_chunk(*pde, rank_space, chunk);
-
-      // copy outputs back
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-    }
-    relaxed_comparison(gold, host_space.fx);
+    batch_builder_test(degree, level, *pde);
   }
-
   SECTION("1d, 1 term, degree 4, level 3")
   {
     int const degree = 4;
     int const level  = 3;
-
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    fk::matrix<TestType> coefficient_matrix(
-        pde->get_coefficients(0, 0).clone_onto_host());
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-    std::generate(coefficient_matrix.begin(), coefficient_matrix.end(), gen);
-    pde->set_coefficients(coefficient_matrix, 0, 0);
-
-    host_workspace<TestType> host_space(*pde, elem_table);
-    auto const chunks =
-        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-
-    std::generate(host_space.x.begin(), host_space.x.end(), gen);
-    fk::vector<TestType> const gold = coefficient_matrix * host_space.x;
-
-    fm::scal(static_cast<TestType>(0.0), host_space.fx);
-
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-
-      // build batches for this chunk
-      std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, chunk);
-
-      // do the gemm
-      batch<TestType> const a = batches[0][0];
-      batch<TestType> const b = batches[0][1];
-      batch<TestType> const c = batches[0][2];
-
-      TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
-
-      batched_gemm(a, b, c, alpha, beta);
-
-      // do the reduction
-      reduce_chunk(*pde, rank_space, chunk);
-
-      // copy outputs back
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-    }
-
-    relaxed_comparison(gold, host_space.fx);
+    batch_builder_test(degree, level, *pde);
   }
 
   SECTION("2d, 2 terms, level 2, degree 2")
   {
     int const degree = 2;
     int const level  = 2;
-
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    generate_all_coefficients(*pde);
-
-    host_workspace<TestType> host_space(*pde, elem_table);
-    std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    auto const chunks =
-        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-
-    fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-
-      // build batches for this chunk
-      std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, chunk);
-
-      // do the gemms
-      TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        batch<TestType> const a = batches[i][0];
-        batch<TestType> const b = batches[i][1];
-        batch<TestType> const c = batches[i][2];
-
-        batched_gemm(a, b, c, alpha, beta);
-      }
-
-      // do the reduction
-      reduce_chunk(*pde, rank_space, chunk);
-
-      // copy outputs back
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-    }
-
-    std::string const file_path =
+    std::string const gold_path =
         "../testing/generated-inputs/batch/continuity2_sg_l2_d2_t1.dat";
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-    relaxed_comparison(gold, host_space.fx);
+    batch_builder_test(degree, level, *pde, gold_path);
   }
 
   SECTION("2d, 2 terms, level 3, degree 4, full grid")
   {
     int const degree = 4;
     int const level  = 3;
-
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    generate_all_coefficients(*pde);
-
-    host_workspace<TestType> host_space(*pde, elem_table);
-    std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    auto const chunks =
-        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-
-    fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-
-      // build batches for this chunk
-      std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, chunk);
-
-      // do the gemms
-      TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        batch<TestType> const a = batches[i][0];
-        batch<TestType> const b = batches[i][1];
-        batch<TestType> const c = batches[i][2];
-
-        batched_gemm(a, b, c, alpha, beta);
-      }
-
-      // do the reduction
-      reduce_chunk(*pde, rank_space, chunk);
-
-      // copy outputs back
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-    }
-
-    std::string const file_path =
+    std::string const gold_path =
         "../testing/generated-inputs/batch/continuity2_fg_l3_d4_t1.dat";
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-    relaxed_comparison(gold, host_space.fx);
+    bool const full_grid = true;
+    batch_builder_test(degree, level, *pde, gold_path, full_grid);
   }
 
   SECTION("3d, 3 terms, level 3, degree 4, sparse grid")
   {
     int const degree = 4;
     int const level  = 3;
-
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    generate_all_coefficients(*pde);
-
-    host_workspace<TestType> host_space(*pde, elem_table);
-    std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    auto const chunks =
-        assign_elements(elem_table, get_num_chunks(elem_table, *pde));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-
-    fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-
-      // build batches for this chunk
-      std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, chunk);
-
-      // do the gemms
-      TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        batch<TestType> const a = batches[i][0];
-        batch<TestType> const b = batches[i][1];
-        batch<TestType> const c = batches[i][2];
-
-        batched_gemm(a, b, c, alpha, beta);
-      }
-
-      // do the reduction
-      reduce_chunk(*pde, rank_space, chunk);
-
-      // copy outputs back
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-    }
-
-    std::string const file_path =
+    std::string const gold_path =
         "../testing/generated-inputs/batch/continuity3_sg_l3_d4_t1.dat";
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-    relaxed_comparison(gold, host_space.fx);
+    batch_builder_test(degree, level, *pde, gold_path);
   }
 
   SECTION("6d, 6 terms, level 2, degree 3, sparse grid")
   {
     int const degree = 3;
     int const level  = 2;
-
     auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const elem_table(o, pde->num_dims);
-
-    generate_all_coefficients(*pde);
-
-    host_workspace<TestType> host_space(*pde, elem_table);
-    std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
-    int const ranks    = 2;
-    int const limit_MB = 100;
-    auto const chunks  = assign_elements(
-        elem_table, get_num_chunks(elem_table, *pde, ranks, limit_MB));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-
-    fm::scal(static_cast<TestType>(0.0), host_space.fx);
-    for (auto const &chunk : chunks)
-    {
-      // copy in inputs
-      copy_chunk_inputs(*pde, rank_space, host_space, chunk);
-
-      // build batches for this chunk
-      std::vector<batch_operands_set<TestType>> batches =
-          build_batches(*pde, elem_table, rank_space, chunk);
-
-      // do the gemms
-      TestType const alpha = 1.0;
-      TestType const beta  = 0.0;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        batch<TestType> const a = batches[i][0];
-        batch<TestType> const b = batches[i][1];
-        batch<TestType> const c = batches[i][2];
-
-        batched_gemm(a, b, c, alpha, beta);
-      }
-
-      // do the reduction
-      reduce_chunk(*pde, rank_space, chunk);
-
-      // copy outputs back
-      copy_chunk_outputs(*pde, rank_space, host_space, chunk);
-    }
-
-    std::string const file_path =
+    std::string const gold_path =
         "../testing/generated-inputs/batch/continuity6_sg_l2_d3_t1.dat";
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-    relaxed_comparison(gold, host_space.fx);
-  }
-}
-TEMPLATE_TEST_CASE("system matrix builder", "[batch]", double)
-{
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
-  SECTION("continuity1, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options({"-l", std::to_string(level), "-d",
-                                    std::to_string(degree), "--implicit"});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    generate_all_coefficients(*pde);
-
-    // -- prep workspace/chunks
-    std::vector<element_chunk> const chunks =
-        assign_elements(table, get_num_chunks(table, *pde));
-
-    // -- time loop
-    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
-    int const sys_mat_size = elem_size * table.size();
-    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
-    for (auto const &chunk : chunks)
-    {
-      build_system_matrix(*pde, table, chunk, A);
-    }
-
-    std::string const file_path = "../testing/generated-inputs/batch/"
-                                  "continuity1_A_implicit_l2_d2.dat";
-
-    fk::matrix<TestType> const gold =
-        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
-
-    relaxed_comparison(gold, A);
-  }
-
-  SECTION("continuity1, level 4, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 4;
-
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options({"-l", std::to_string(level), "-d",
-                                    std::to_string(degree), "--implicit"});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    generate_all_coefficients(*pde);
-
-    // -- prep workspace/chunks
-    std::vector<element_chunk> const chunks =
-        assign_elements(table, get_num_chunks(table, *pde));
-
-    // -- time loop
-    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
-    int const sys_mat_size = elem_size * table.size();
-    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
-    for (auto const &chunk : chunks)
-    {
-      build_system_matrix(*pde, table, chunk, A);
-    }
-
-    std::string const file_path = "../testing/generated-inputs/batch/"
-                                  "continuity1_A_implicit_l4_d3.dat";
-
-    fk::matrix<TestType> const gold =
-        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
-
-    relaxed_comparison(gold, A);
-  }
-
-  SECTION("continuity2, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options({"-l", std::to_string(level), "-d",
-                                    std::to_string(degree), "--implicit"});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    generate_all_coefficients(*pde);
-
-    // -- prep workspace/chunks
-    std::vector<element_chunk> const chunks =
-        assign_elements(table, get_num_chunks(table, *pde));
-
-    // -- time loop
-    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
-    int const sys_mat_size = elem_size * table.size();
-    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
-    for (auto const &chunk : chunks)
-    {
-      build_system_matrix(*pde, table, chunk, A);
-    }
-
-    std::string const file_path = "../testing/generated-inputs/batch/"
-                                  "continuity2_A_implicit_l2_d2.dat";
-
-    fk::matrix<TestType> const gold =
-        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
-
-    relaxed_comparison(gold, A);
-  }
-
-  SECTION("continuity2, level 4, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 4;
-
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options({"-l", std::to_string(level), "-d",
-                                    std::to_string(degree), "--implicit"});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    generate_all_coefficients(*pde);
-
-    // -- prep workspace/chunks
-    std::vector<element_chunk> const chunks =
-        assign_elements(table, get_num_chunks(table, *pde));
-
-    // -- time loop
-    int const elem_size    = static_cast<int>(std::pow(degree, pde->num_dims));
-    int const sys_mat_size = elem_size * table.size();
-    fk::matrix<TestType> A(sys_mat_size, sys_mat_size);
-    for (auto const &chunk : chunks)
-    {
-      build_system_matrix(*pde, table, chunk, A);
-    }
-
-    std::string const file_path = "../testing/generated-inputs/batch/"
-                                  "continuity2_A_implicit_l4_d3.dat";
-
-    fk::matrix<TestType> const gold =
-        fk::matrix<TestType>(read_matrix_from_txt_file(file_path));
-
-    relaxed_comparison(gold, A);
+    batch_builder_test(degree, level, *pde, gold_path);
   }
 }

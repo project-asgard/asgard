@@ -1,14 +1,19 @@
 #include "batch.hpp"
 #include "build_info.hpp"
+#include "chunk.hpp"
 #include "coefficients.hpp"
 #include "connectivity.hpp"
+#include "distribution.hpp"
 #include "element_table.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
 #endif
 
-#include "chunk.hpp"
+#ifdef ASGARD_USE_MPI
+#include <mpi.h>
+#endif
+
 #include "pde.hpp"
 #include "predict.hpp"
 #include "program_options.hpp"
@@ -20,15 +25,30 @@
 using prec = double;
 int main(int argc, char **argv)
 {
-  std::cout << "Branch: " << GIT_BRANCH << '\n';
-  std::cout << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
-            << '\n';
-  std::cout << "This executable was built on " << BUILD_TIME << '\n';
-
   options opts(argc, argv);
+  if (!opts.is_valid())
+  {
+    node_out() << "invalid cli string; exiting" << '\n';
+    exit(-1);
+  }
+
+  // -- set up distribution
+  auto const [my_rank, num_ranks] = initialize_distribution();
+
+  // kill off unused processes
+  if (my_rank >= num_ranks)
+  {
+    finalize_distribution();
+    return 0;
+  }
+
+  node_out() << "Branch: " << GIT_BRANCH << '\n';
+  node_out() << "Commit Summary: " << GIT_COMMIT_HASH << GIT_COMMIT_SUMMARY
+             << '\n';
+  node_out() << "This executable was built on " << BUILD_TIME << '\n';
 
   // -- parse user input and generate pde
-  std::cout << "generating: pde..." << '\n';
+  node_out() << "generating: pde..." << '\n';
   auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
                             opts.get_degree());
 
@@ -56,39 +76,50 @@ int main(int argc, char **argv)
   // -- print out time and memory estimates based on profiling
   std::pair<std::string, double> runtime_info = expected_time(
       opts.get_selected_pde(), opts.get_level(), opts.get_degree());
-  std::cout << "Predicted compute time (seconds): " << runtime_info.second
-            << '\n';
-  std::cout << runtime_info.first << '\n';
+  node_out() << "Predicted compute time (seconds): " << runtime_info.second
+             << '\n';
+  node_out() << runtime_info.first << '\n';
 
   std::pair<std::string, double> mem_usage_info = total_mem_usage(
       opts.get_selected_pde(), opts.get_level(), opts.get_degree());
-  std::cout << "Predicted total mem usage (MB): " << mem_usage_info.second
-            << '\n';
-  std::cout << mem_usage_info.first << '\n';
+  node_out() << "Predicted total mem usage (MB): " << mem_usage_info.second
+             << '\n';
+  node_out() << mem_usage_info.first << '\n';
 
-  std::cout << "--- begin setup ---" << '\n';
+  node_out() << "--- begin setup ---" << '\n';
 
   // -- create forward/reverse mapping between elements and indices
-  std::cout << "  generating: element table..." << '\n';
+  node_out() << "  generating: element table..." << '\n';
   element_table const table = element_table(opts, pde->num_dims);
 
+  node_out() << "  degrees of freedom: "
+             << table.size() *
+                    static_cast<uint64_t>(std::pow(degree, pde->num_dims))
+             << '\n';
+
+  // -- get distribution plan - dividing element grid into subgrids
+  auto const plan    = get_plan(num_ranks, table);
+  auto const subgrid = plan.at(get_rank());
+
   // -- generate initial condition vector.
-  std::cout << "  generating: initial conditions..." << '\n';
-  fk::vector<prec> const initial_condition = [&pde, &table, degree]() {
+  node_out() << "  generating: initial conditions..." << '\n';
+  fk::vector<prec> const initial_condition = [&pde, &table, &subgrid,
+                                              degree]() {
     std::vector<fk::vector<prec>> initial_conditions;
     for (dimension<prec> const &dim : pde->get_dimensions())
     {
       initial_conditions.push_back(
           forward_transform<prec>(dim, dim.initial_condition));
     }
-    return combine_dimensions(degree, table, initial_conditions);
+    return combine_dimensions(degree, table, subgrid.col_start,
+                              subgrid.col_stop, initial_conditions);
   }();
 
   // -- generate source vectors.
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
-  std::cout << "  generating: source vectors..." << '\n';
-  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table,
+  node_out() << "  generating: source vectors..." << '\n';
+  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table, &subgrid,
                                                          degree]() {
     std::vector<fk::vector<prec>> initial_sources;
     for (source<prec> const &source : pde->sources)
@@ -102,14 +133,17 @@ int main(int argc, char **argv)
       }
       // combine those contributions to form the unscaled source vector
       initial_sources.push_back(
-          combine_dimensions(degree, table, initial_sources_dim));
+          combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
+                             initial_sources_dim));
     }
     return initial_sources;
   }();
 
   // -- generate analytic solution vector.
-  std::cout << "  generating: analytic solution at t=0 ..." << '\n';
-  fk::vector<prec> const analytic_solution = [&pde, &table, degree]() {
+  node_out() << "  generating: analytic solution at t=0 ..." << '\n';
+
+  fk::vector<prec> const analytic_solution = [&pde, &table, &subgrid,
+                                              degree]() {
     if (pde->has_analytic_soln)
     {
       std::vector<fk::vector<prec>> analytic_solutions_D;
@@ -118,15 +152,17 @@ int main(int argc, char **argv)
         analytic_solutions_D.push_back(forward_transform<prec>(
             pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
       }
-      return combine_dimensions(degree, table, analytic_solutions_D);
+      return combine_dimensions(degree, table, subgrid.col_start,
+                                subgrid.col_stop, analytic_solutions_D);
     }
     else
     {
-      return fk::vector<prec>{};
+      return fk::vector<prec>();
     }
   }();
 
   // -- generate and store coefficient matrices.
+
   std::cout << "  generating: coefficient matrices..." << '\n';
 
   generate_all_coefficients<prec>(*pde);
@@ -135,48 +171,50 @@ int main(int argc, char **argv)
   if (opts.get_time_steps() < 1)
     return 0;
 
-  std::cout << "--- begin time loop staging ---" << '\n';
+  node_out() << "--- begin time loop staging ---" << '\n';
   // -- allocate/setup for batch gemm
+
+  // Our default device workspace size is 10GB - 12 GB DRAM on TitanV
+  // - a couple GB for allocations not currently covered by the
+  // workspace limit (including working batch).
+
+  // This limit is only for the rank workspace - the portion
+  // of our allocation that will be resident on an accelerator
+  // if the code is built for that.
+  //
+  // FIXME eventually going to be settable from the cmake
+  static int const default_workspace_MB = 10000;
+
+  // FIXME currently used to check realspace transform only
+  static int const default_workspace_cpu_MB = 4000;
+
+  host_workspace<prec> host_space(*pde, subgrid);
+  std::vector<element_chunk> const chunks = assign_elements(
+      subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
+  rank_workspace<prec> rank_space(*pde, chunks);
+
   auto const get_MB = [&](int num_elems) {
     uint64_t const bytes   = num_elems * sizeof(prec);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };
 
-  // Our default workspace size is ~7GB.
+  node_out() << "allocating workspace..." << '\n';
 
-  // This 7GB doesn't include coefficient matrices, element table,
-  // or time advance workspace - only the primary memory consumers (kronmult
-  // intermediate and result workspaces).
-  //
-  // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB     = 7000;
-  static int const default_workspace_cpu_MB = 4000;
-
-  // FIXME stand-in
-  static int const ranks = 1;
-
-  host_workspace<prec> host_space(*pde, table);
-  std::vector<element_chunk> const chunks = assign_elements(
-      table, get_num_chunks(table, *pde, ranks, default_workspace_MB));
-  rank_workspace<prec> rank_space(*pde, chunks);
-
-  std::cout << "allocating workspace..." << '\n';
-
-  std::cout << "input vector size (MB): "
-            << get_MB(rank_space.batch_input.size()) << '\n';
-  std::cout << "kronmult output space size (MB): "
-            << get_MB(rank_space.reduction_space.size()) << '\n';
-  std::cout << "kronmult working space size (MB): "
-            << get_MB(rank_space.batch_intermediate.size()) << '\n';
-  std::cout << "output vector size (MB): "
-            << get_MB(rank_space.batch_output.size()) << '\n';
+  node_out() << "input vector size (MB): "
+             << get_MB(rank_space.batch_input.size()) << '\n';
+  node_out() << "kronmult output space size (MB): "
+             << get_MB(rank_space.reduction_space.size()) << '\n';
+  node_out() << "kronmult working space size (MB): "
+             << get_MB(rank_space.batch_intermediate.size()) << '\n';
+  node_out() << "output vector size (MB): "
+             << get_MB(rank_space.batch_output.size()) << '\n';
   auto const &unit_vect = rank_space.get_unit_vector();
-  std::cout << "reduction vector size (MB): " << get_MB(unit_vect.size())
-            << '\n';
+  node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
+             << '\n';
 
-  std::cout << "explicit time loop workspace size (host) (MB): "
-            << host_space.size_MB() << '\n';
+  node_out() << "explicit time loop workspace size (host) (MB): "
+             << host_space.size_MB() << '\n';
 
   host_space.x = initial_condition;
 
@@ -192,7 +230,7 @@ int main(int argc, char **argv)
 #endif
 
   // -- time loop
-  std::cout << "--- begin time loop ---" << '\n';
+  node_out() << "--- begin time loop ---" << '\n';
   prec const dt = pde->get_dt() * opts.get_cfl();
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
@@ -206,8 +244,9 @@ int main(int argc, char **argv)
     }
     else
     {
+      // FIXME fold initial sources into host space
       explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, chunks, time, dt);
+                            rank_space, chunks, plan, time, dt);
     }
 
     // print root mean squared error from analytic solution
@@ -217,7 +256,7 @@ int main(int argc, char **argv)
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = host_space.fx - analytic_solution_t;
+      fk::vector<prec> const diff = host_space.x - analytic_solution_t;
       prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
@@ -227,22 +266,30 @@ int main(int argc, char **argv)
         return std::sqrt(mean);
       }();
       auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
-      std::cout << "RMSE (numeric-analytic) [wavelet]: " << RMSE << '\n';
-      std::cout << "Relative difference (numeric-analytic) [wavelet]: "
-                << relative_error << " %" << '\n';
+      auto const [rmse_errors, relative_errors] =
+          gather_errors(RMSE, relative_error);
+      assert(rmse_errors.size() == relative_errors.size());
+      for (int i = 0; i < rmse_errors.size(); ++i)
+      {
+        node_out() << "Errors for local rank: " << i << '\n';
+        node_out() << "RMSE (numeric-analytic) [wavelet]: " << rmse_errors(i)
+                   << '\n';
+        node_out() << "Relative difference (numeric-analytic) [wavelet]: "
+                   << relative_errors(i) << " %" << '\n';
+      }
     }
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.write_at_step(i))
     {
-      update_output_file(output_dataset, host_space.fx);
+      update_output_file(output_dataset, host_space.x);
     }
     /* write realspace output to file */
     if (opts.transform_at_step(i))
     {
       fk::vector<prec> const realspace_at_t = wavelet_to_realspace<prec>(
-          *pde, host_space.fx, table, default_workspace_cpu_MB);
+          *pde, host_space.x, table, default_workspace_cpu_MB);
       update_output_file(output_dataset_real, realspace_at_t,
                          realspace_output_name);
     }
@@ -250,9 +297,22 @@ int main(int argc, char **argv)
     ignore(default_workspace_cpu_MB);
 #endif
 
-    std::cout << "timestep: " << i << " complete" << '\n';
+    node_out() << "timestep: " << i << " complete" << '\n';
   }
 
-  std::cout << "--- simulation complete ---" << '\n';
+  node_out() << "--- simulation complete ---" << '\n';
+
+  int const segment_size = element_segment_size(*pde);
+
+  // gather results from all ranks. not currently writing the result anywhere
+  // yet.
+  if (my_rank == 0)
+  {
+    auto const final_result =
+        gather_results(host_space.x, plan, my_rank, segment_size);
+  }
+
+  finalize_distribution();
+
   return 0;
 }

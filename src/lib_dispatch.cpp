@@ -5,23 +5,72 @@
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+#endif
 
+auto const ignore = [](auto ignored) { (void)ignored; };
 struct device_handler
 {
-  cublasHandle_t handle;
-
   device_handler()
   {
+#ifdef ASGARD_USE_CUDA
     auto success = cublasCreate(&handle);
     assert(success == 0);
 
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
     assert(success == 0);
+#endif
   }
-  ~device_handler() { cublasDestroy(handle); }
+
+  void set_device(int const local_rank)
+  {
+#ifdef ASGARD_USE_CUDA
+    int num_devices;
+    auto success = cudaGetDeviceCount(&num_devices);
+    assert(success == 0);
+    assert(local_rank >= 0);
+    assert(local_rank < num_devices);
+
+    if (handle)
+    {
+      auto const cublas_success = cublasDestroy(handle);
+      assert(cublas_success == 0);
+    }
+    success = cudaSetDevice(local_rank);
+    assert(success == 0);
+    auto const cublas_success = cublasCreate(&handle);
+    assert(cublas_success == 0);
+#else
+    ignore(local_rank);
+#endif
+  }
+#ifdef ASGARD_USE_CUDA
+  cublasHandle_t const &get_handle() const { return handle; }
+#endif
+  ~device_handler()
+  {
+#ifdef ASGARD_USE_CUDA
+    cublasDestroy(handle);
+#endif
+  }
+
+private:
+#ifdef ASGARD_USE_CUDA
+  cublasHandle_t handle;
+#endif
 };
 static device_handler device;
 
+void initialize_libraries(int const local_rank)
+{
+#ifdef ASGARD_USE_CUDA
+  assert(local_rank >= 0);
+  device.set_device(local_rank);
+#else
+  ignore(local_rank);
+#endif
+}
+
+#ifdef ASGARD_USE_CUDA
 inline cublasOperation_t cublas_trans(char trans)
 {
   if (trans == 'N' || trans == 'n')
@@ -33,7 +82,6 @@ inline cublasOperation_t cublas_trans(char trans)
     return CUBLAS_OP_T;
   }
 }
-auto const ignore = [](auto ignored) { (void)ignored; };
 #endif
 
 namespace lib_dispatch
@@ -57,12 +105,14 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDcopy(device.handle, *n, x, *incx, y, *incy);
+      auto const success =
+          cublasDcopy(device.get_handle(), *n, x, *incx, y, *incy);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasScopy(device.handle, *n, x, *incx, y, *incy);
+      auto const success =
+          cublasScopy(device.get_handle(), *n, x, *incx, y, *incy);
       assert(success == 0);
     }
     return;
@@ -108,13 +158,13 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDdot(device.handle, *n, x, *incx, y, *incy, &result);
+          cublasDdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSdot(device.handle, *n, x, *incx, y, *incy, &result);
+          cublasSdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
       assert(success == 0);
     }
     return result;
@@ -163,13 +213,13 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDaxpy(device.handle, *n, alpha, x, *incx, y, *incy);
+          cublasDaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSaxpy(device.handle, *n, alpha, x, *incx, y, *incy);
+          cublasSaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
       assert(success == 0);
     }
     return;
@@ -212,12 +262,14 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDscal(device.handle, *n, alpha, x, *incx);
+      auto const success =
+          cublasDscal(device.get_handle(), *n, alpha, x, *incx);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSscal(device.handle, *n, alpha, x, *incx);
+      auto const success =
+          cublasSscal(device.get_handle(), *n, alpha, x, *incx);
       assert(success == 0);
     }
     return;
@@ -324,15 +376,15 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDgemv(device.handle, cublas_trans(*trans), *m, *n, alpha, A,
-                      *lda, x, *incx, beta, y, *incy);
+          cublasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
+                      A, *lda, x, *incx, beta, y, *incy);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSgemv(device.handle, cublas_trans(*trans), *m, *n, alpha, A,
-                      *lda, x, *incx, beta, y, *incy);
+          cublasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
+                      A, *lda, x, *incx, beta, y, *incy);
       assert(success == 0);
     }
     return;
@@ -387,16 +439,16 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemm(device.handle, cublas_trans(*transa),
-                                       cublas_trans(*transb), *m, *n, *k, alpha,
-                                       A, *lda, B, *ldb, beta, C, *ldc);
+      auto const success = cublasDgemm(
+          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
+          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemm(device.handle, cublas_trans(*transa),
-                                       cublas_trans(*transb), *m, *n, *k, alpha,
-                                       A, *lda, B, *ldb, beta, C, *ldc);
+      auto const success = cublasSgemm(
+          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
+          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       assert(success == 0);
     }
     return;
@@ -451,14 +503,14 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success =
-          cublasDgetrfBatched(device.handle, *n, A_d, *lda, ipiv, info, 1);
+      auto const success = cublasDgetrfBatched(device.get_handle(), *n, A_d,
+                                               *lda, ipiv, info, 1);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success =
-          cublasSgetrfBatched(device.handle, *n, A_d, *lda, ipiv, info, 1);
+      auto const success = cublasSgetrfBatched(device.get_handle(), *n, A_d,
+                                               *lda, ipiv, info, 1);
       assert(success == 0);
     }
     return;
@@ -519,14 +571,14 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetriBatched(device.handle, *n, A_d, *lda,
-                                               nullptr, work_d, *n, info, 1);
+      auto const success = cublasDgetriBatched(
+          device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
       assert(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetriBatched(device.handle, *n, A_d, *lda,
-                                               nullptr, work_d, *n, info, 1);
+      auto const success = cublasSgetriBatched(
+          device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
       assert(success == 0);
     }
     return;
@@ -599,8 +651,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemmBatched(
-          device.handle, cublas_trans(*transa), cublas_trans(*transb), *m, *n,
-          *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
+          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       assert(cuda_stat == 0);
       assert(success == 0);
@@ -608,8 +660,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemmBatched(
-          device.handle, cublas_trans(*transa), cublas_trans(*transb), *m, *n,
-          *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
+          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       assert(cuda_stat == 0);
       assert(success == 0);
@@ -691,8 +743,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemmBatched(
-          device.handle, cublas_trans(*trans), cublas_trans(transb), gemm_m,
-          gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
+          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
+          gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       assert(cuda_stat == 0);
@@ -701,8 +753,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemmBatched(
-          device.handle, cublas_trans(*trans), cublas_trans(transb), gemm_m,
-          gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
+          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
+          gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       assert(cuda_stat == 0);
