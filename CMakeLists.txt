@@ -31,6 +31,7 @@ option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
+set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -90,7 +91,7 @@ set (components
   connectivity
   distribution
   element_table
-  fast_math 
+  fast_math
   chunk
   lib_dispatch
   matlab_utilities
@@ -136,7 +137,7 @@ target_link_libraries (connectivity
 target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
 
 target_link_libraries(distribution PRIVATE element_table lib_dispatch)
-if (ASGARD_USE_MPI)	
+if (ASGARD_USE_MPI)
   target_link_libraries(distribution PRIVATE MPI::MPI_CXX)
 endif ()
 
@@ -152,7 +153,7 @@ endif ()
 
 target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 if (ASGARD_USE_CUDA)
-  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES} 
+  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
 					     ${CUDA_CUBLAS_LIBRARIES})
 endif()
 
@@ -236,40 +237,42 @@ if (ASGARD_BUILD_TESTS)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
-    target_link_libraries (${component}-tests PRIVATE ${component} tests_general) 
+    target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
-       
+
     if (ASGARD_USE_MPI)
-       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)  
-       if ("${component}" STREQUAL "distribution" OR
-           "${component}" STREQUAL "time_advance")
-     
-       if (ASGARD_USE_CUDA)
-          set(test_ranks "1")
-       else ()
-          set(test_ranks "4")
-       endif () 
-       add_test (NAME ${component}-test-mpi
-                 COMMAND mpirun -n ${test_ranks} ${component}-tests
-                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-       endif()
+      target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
+      if ("${component}" STREQUAL "distribution" OR
+          "${component}" STREQUAL "time_advance")
+
+      set(test_ranks "4")
+      if (ASGARD_USE_CUDA)
+         set(test_ranks "1")
+      endif ()
+      if (${ASGARD_TESTING_RANKS})
+         set(test_ranks ${ASGARD_TESTING_RANKS})
+      endif ()
+      add_test (NAME ${component}-test-mpi
+                COMMAND mpirun -n ${test_ranks} ${component}-tests
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+      endif()
     endif ()
 
 
 
 
 
- 
+
 
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
-  
-  
+
+
 
 
 else ()
