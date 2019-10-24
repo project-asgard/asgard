@@ -143,9 +143,9 @@ int main(int argc, char **argv)
     return megabytes;
   };
 
-  // Our default workspace size is ~1GB.
+  // Our default workspace size is ~7GB.
 
-  // This 1GB doesn't include coefficient matrices, element table,
+  // This 7GB doesn't include coefficient matrices, element table,
   // or time advance workspace - only the primary memory consumers (kronmult
   // intermediate and result workspaces).
   //
@@ -200,7 +200,7 @@ int main(int argc, char **argv)
 
     if (opts.using_implicit())
     {
-      bool update_system = i == 0;
+      bool const update_system = i == 0;
       implicit_time_advance(*pde, table, initial_sources, host_space, chunks,
                             time, dt, update_system);
     }
@@ -246,6 +246,8 @@ int main(int argc, char **argv)
       update_output_file(output_dataset_real, realspace_at_t,
                          realspace_output_name);
     }
+#else
+    ignore(default_workspace_cpu_MB);
 #endif
 
     std::cout << "timestep: " << i << " complete" << '\n';

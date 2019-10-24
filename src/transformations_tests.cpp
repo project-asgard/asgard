@@ -205,9 +205,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const wave_space_size = table.size() * std::pow(degree, pde->num_dims);
 
     /* arbitrary function to transform from wavelet space to real space */
-    auto const arbitrary_func = [wave_space_size](TestType x) -> TestType {
-      return 2.0 * x;
-    };
+    auto const arbitrary_func = [](TestType x) -> TestType { return 2.0 * x; };
 
     /* simple wave space function to transform */
     for (int i = 0; i < wave_space_size; i++)
