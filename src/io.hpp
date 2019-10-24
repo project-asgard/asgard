@@ -8,12 +8,13 @@
 #include <highfive/H5Easy.hpp>
 // clang-format on
 
-std::string const output_file_name("asgard.h5");
-std::string const output_dataset_name("asgard");
-
 template<typename P>
-HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
+HighFive::DataSet
+initialize_output_file(fk::vector<P> const &vec,
+                       std::string const output_dataset_name = "asgard")
 {
+  std::string const output_file_name = output_dataset_name + ".h5";
+
   // Cast vec.size() to a long unsigned int to make the warnings happy.
   // Why is fk::vector.size() returning a signed it anyway?
 
@@ -48,8 +49,12 @@ HighFive::DataSet initialize_output_file(fk::vector<P> const &vec)
 }
 
 template<typename P>
-void update_output_file(HighFive::DataSet &dataset, fk::vector<P> &vec)
+void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
+                        std::string const output_dataset_name = "asgard")
+
 {
+  std::string const output_file_name = output_dataset_name + ".h5";
+
   // Cast vec.size() to a long unsigned int to make the warnings happy.
   // Why is fk::vector.size() returning a signed it anyway?
 
