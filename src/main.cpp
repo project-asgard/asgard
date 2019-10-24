@@ -41,7 +41,11 @@ int main(int argc, char **argv)
   node_out() << "This executable was built on " << BUILD_TIME << '\n';
 
   options opts(argc, argv);
-  assert(opts.is_valid());
+  if (!opts.is_valid())
+  {
+    node_out() << "invalid cli string; exiting" << '\n';
+    exit(-1);
+  }
 
   // -- parse user input and generate pde
   node_out() << "generating: pde..." << '\n';
