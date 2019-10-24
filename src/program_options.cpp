@@ -103,6 +103,12 @@ options::options(int argc, char **argv)
     std::cerr << "Distribution not implemented for implicit stepping" << '\n';
     valid = false;
   }
+  if (realspace_output_freq > 0)
+  {
+    std::cerr << "Distribution does not yet support realspace transform"
+              << '\n';
+    valid = false;
+  }
 #endif
 }
 

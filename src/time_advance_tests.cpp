@@ -297,6 +297,27 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
   }
 }
 
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 3;
+
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck2_complete_sg_l3_d3_t";
+    std::vector<std::string> const addtl_args = {
+        "-c", to_string_with_precision(1e-10, 16)};
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
+  }
+}
+
 template<typename P>
 void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                 int const num_steps, std::string const filepath,
@@ -432,105 +453,5 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
-                   float, double)
-{
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    Catch::StringMaker<TestType>::precision = 20;
-
-    auto const diff        = first - second;
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
-  int const test_steps = 1;
-
-  SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 3;
-
-    auto pde =
-        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
-
-    options const o =
-        make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
-                      "-c", to_string_with_precision(1e-10, 16)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    generate_all_coefficients(*pde);
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition =
-        combine_dimensions(degree, table, initial_conditions, initial_scale);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          degree, table, initial_sources_dim, initial_scale));
-    }
-
-    // -- prep workspace/chunks
-    host_workspace<TestType> host_space(*pde, table);
-    std::vector<element_chunk> const chunks =
-        assign_elements(table, get_num_chunks(table, *pde));
-    rank_workspace<TestType> rank_space(*pde, chunks);
-    host_space.x = initial_condition;
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, chunks, time, dt);
-
-      std::string const file_path = "../testing/generated-inputs/time_advance/"
-                                    "fokkerplanck2_complete_sg_l" +
-                                    std::to_string(level) + "_d" +
-                                    std::to_string(degree) + "_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      relaxed_comparison(gold, host_space.fx);
-    }
   }
 }

@@ -320,11 +320,12 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
     {
       std::string const filename = filename_base + std::to_string(t + 1) + "_" +
                                    std::to_string(d + 1) + ".dat";
-      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
+      fk::matrix<TestType> const gold =
+          fk::matrix<TestType>(read_matrix_from_txt_file(filename));
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
 
-      fk::matrix<double> const test =
-          fk::matrix<double>(pde->get_coefficients(t, d).clone_onto_host());
-
+      // FIXME what's with this large tolerance?
       relaxed_comparison<TestType>(gold, test, 5e6);
     }
   }
@@ -351,12 +352,13 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
     {
       std::string const filename = filename_base + std::to_string(t + 1) + "_" +
                                    std::to_string(d + 1) + ".dat";
-      fk::matrix<double> const gold = read_matrix_from_txt_file(filename);
 
-      fk::matrix<double> const test =
-          fk::matrix<double>(pde->get_coefficients(t, d).clone_onto_host());
+      fk::matrix<TestType> const gold =
+          fk::matrix<TestType>(read_matrix_from_txt_file(filename));
+      fk::matrix<TestType> const &test =
+          pde->get_coefficients(t, d).clone_onto_host();
 
-      relaxed_comparison<TestType>(gold, test, 4e2);
+      relaxed_comparison<TestType>(gold, test, 1e3);
     }
   }
 }
