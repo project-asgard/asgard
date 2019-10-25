@@ -75,6 +75,21 @@ std::string to_string_with_precision(T const a_value, int const precision = 6)
   out << std::fixed << a_value;
   return out.str();
 }
+
+template<typename P>
+using enable_for_fp = std::enable_if_t<std::is_floating_point_v<P>>;
+
+// compare two fp types with some tolerance
+template<typename P, typename P_ = P, typename = enable_for_fp<P_>>
+void relaxed_fp_comparison(P const first, P const second,
+                           double const tol_fac = 1e1)
+{
+  auto const tol       = std::numeric_limits<P>::epsilon() * tol_fac;
+  auto const scale_fac = std::max(
+      std::max(static_cast<P>(1.0), std::abs(first)), std::abs(second));
+  REQUIRE_THAT(first, Catch::Matchers::WithinAbs(second, tol * scale_fac));
+}
+
 // compare two templated container types.
 // scaled for value magnitude
 // tol_fac can be used to adjust tolerance; this number is multipled by epsilon

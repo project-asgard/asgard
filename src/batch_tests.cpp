@@ -6,6 +6,8 @@
 #include "tests_general.hpp"
 #include <numeric>
 #include <random>
+
+auto const tol_scale = 1e4;
 TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
                        ((typename TestType, resource resrc), TestType, resrc),
                        (double, resource::host), (double, resource::device),
@@ -2529,21 +2531,6 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 }
 
 template<typename P>
-void relaxed_comparison(fk::vector<P> const &first, fk::vector<P> const &second)
-{
-  auto const diff = first - second;
-
-  auto const abs_compare = [](P const a, P const b) {
-    return (std::abs(a) < std::abs(b));
-  };
-  P const result =
-      std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-  P const tolerance = std::numeric_limits<P>::epsilon() *
-                      (std::is_same<P, double>::value ? 1e5 : 1e3);
-  REQUIRE(result <= tolerance);
-}
-
-template<typename P>
 void batch_builder_test(int const degree, int const level, PDE<P> &pde,
                         std::string const &gold_path = {},
                         bool const full_grid         = false)
@@ -2606,7 +2593,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
     copy_chunk_outputs(pde, subgrid, rank_space, host_space, chunk);
   }
 
-  relaxed_comparison(gold, host_space.fx);
+  relaxed_comparison(gold, host_space.fx, tol_scale);
 }
 
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)

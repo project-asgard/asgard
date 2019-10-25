@@ -5,6 +5,7 @@
 #include "transformations.hpp"
 #include <numeric>
 
+auto const tol_scale = 1e3;
 TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 {
   SECTION("combine dimensions, dim = 2, deg = 2, lev = 3, 1 rank")
@@ -176,15 +177,6 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e4) ==
-              second_elem);
-    });
-  };
-
   SECTION("transform(2, 2, -1, 1, double)")
   {
     int const degree     = 2;
@@ -205,7 +197,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it);
-    relaxed_comparison(gold, test);
+    relaxed_comparison(gold, test, tol_scale);
   }
 
   SECTION("transform(3, 4, -2.0, 2.0, double plus)")
@@ -230,20 +222,13 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus);
 
-    relaxed_comparison(gold, test);
+    relaxed_comparison(gold, test, tol_scale);
   }
 }
 
 TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second,
-                                     double epsilon) {
-    auto first_it = first.begin();
-    std::for_each(
-        second.begin(), second.end(), [&first_it, epsilon](auto &second_elem) {
-          REQUIRE(Approx(*first_it++).epsilon(epsilon) == second_elem);
-        });
-  };
+  auto const tol_factor = std::is_same<float, TestType>::value ? 1e5 : 1e8;
 
   /* memory limit for routines */
   int const limit_MB = 4000;
@@ -275,7 +260,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
-    relaxed_comparison(gold, realspace, 1e-4);
+    relaxed_comparison(gold, realspace, tol_factor);
   }
 
   SECTION("wavelet_to_realspace_2")
@@ -305,7 +290,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
-    relaxed_comparison(gold, realspace, 1e-2);
+    relaxed_comparison(gold, realspace, tol_factor);
   }
 
   SECTION("wavelet_to_realspace_3")
@@ -335,21 +320,14 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "wavelet_to_realspace.dat";
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(gold_file_name));
-    relaxed_comparison(gold, realspace, 1e-2);
+    relaxed_comparison(gold, realspace, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
                    float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second,
-                                     double epsilon) {
-    auto first_it = first.begin();
-    std::for_each(
-        second.begin(), second.end(), [&first_it, epsilon](auto &second_elem) {
-          REQUIRE(Approx(*first_it++).epsilon(epsilon) == second_elem);
-        });
-  };
+  auto const tol_factor = std::is_same<float, TestType>::value ? 1e5 : 1e8;
 
   /* continuity_1 */
   SECTION("gen_realspace_transform_1")
@@ -371,7 +349,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, realspace_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], tol_factor);
     }
   }
 
@@ -395,7 +373,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, realspace_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], tol_factor);
     }
   }
 
@@ -419,7 +397,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, realspace_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], tol_factor);
     }
   }
 
@@ -443,7 +421,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
           std::to_string(i) + ".dat";
       fk::matrix<TestType> const gold =
           fk::matrix<TestType>(read_matrix_from_txt_file(gold_file_name));
-      relaxed_comparison(gold, realspace_transform[i], 1e-3);
+      relaxed_comparison(gold, realspace_transform[i], tol_factor);
     }
   }
 }

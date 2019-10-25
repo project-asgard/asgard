@@ -559,26 +559,6 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
 TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 {
-  auto const relaxed_comparison = [](auto const &first, auto const &second) {
-    auto const diff = first - second;
-
-    auto const abs_compare = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    if constexpr (std::is_same<TestType, double>::value)
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e5;
-      REQUIRE(result <= tol);
-    }
-    else
-    {
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
-  };
-
   fk::matrix<TestType> const A_gold{
       {3.383861628748717e+00, 1.113343240310116e-02, 2.920740795411032e+00},
       {3.210305545769361e+00, 3.412141162288144e+00, 3.934494120167269e+00},

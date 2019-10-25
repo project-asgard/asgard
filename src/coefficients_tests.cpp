@@ -18,7 +18,7 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   fk::matrix<TestType> const test =
       continuity1->get_coefficients(0, 0).clone_onto_host();
 
-  relaxed_comparison<TestType>(gold, test, 1e2);
+  relaxed_comparison(gold, test, 1e2);
 }
 
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
@@ -45,7 +45,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      relaxed_comparison(gold, test, 1e2);
     }
   }
 }
@@ -75,7 +75,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      relaxed_comparison(gold, test, 1e2);
     }
   }
 }
@@ -103,7 +103,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e3);
+      relaxed_comparison(gold, test, 1e3);
     }
   }
 }
@@ -131,7 +131,7 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e3);
+      relaxed_comparison(gold, test, 1e3);
     }
   }
 }
@@ -160,7 +160,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
           pde->get_coefficients(t, d).clone_onto_host();
 
       // FIXME really? pretty loose
-      relaxed_comparison<TestType>(gold, test, 1e5);
+      relaxed_comparison(gold, test, 1e5);
     }
   }
 }
@@ -190,7 +190,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      relaxed_comparison(gold, test, 1e2);
     }
   }
 }
@@ -219,7 +219,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      relaxed_comparison(gold, test, 1e2);
     }
   }
 }
@@ -248,7 +248,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
 
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      relaxed_comparison(gold, test, 1e2);
     }
   }
 }
@@ -277,7 +277,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      relaxed_comparison(gold, test, 1e2);
     }
   }
 }
@@ -309,7 +309,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
           pde->get_coefficients(t, d).clone_onto_host();
 
       // FIXME what's with this large tolerance?
-      relaxed_comparison<TestType>(gold, test, 5e6);
+      relaxed_comparison(gold, test, 5e6);
     }
   }
 }
@@ -341,7 +341,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
 
-      relaxed_comparison<TestType>(gold, test, 1e3);
+      relaxed_comparison(gold, test, 1e3);
     }
   }
 }

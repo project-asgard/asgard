@@ -4,11 +4,7 @@
 #include "tests_general.hpp"
 #include <vector>
 
-// our trig functions don't exactly match matlab. we need a little wiggle room.
-auto relaxed_compare = [](auto fx, auto gold) {
-  auto relaxed_epsilon = std::numeric_limits<decltype(gold)>::epsilon() * 1e2;
-  REQUIRE(Approx(fx).epsilon(relaxed_epsilon) == gold);
-};
+auto const tol_scale = 1e2;
 TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
                    float)
 {
@@ -23,7 +19,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -34,12 +30,12 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
     TestType const gold =
         read_scalar_from_txt_file(base_dir + "exact_time.dat");
     TestType const fx = pde->exact_time(x(0));
-    relaxed_compare(fx, gold);
+    relaxed_fp_comparison(fx, gold, tol_scale);
   }
   SECTION("continuity 1 source functions")
   {
@@ -53,12 +49,12 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
         TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_compare(fx, gold);
+        relaxed_fp_comparison(fx, gold, tol_scale);
       }
       TestType const gold =
           read_scalar_from_txt_file(source_string + "time.dat");
       TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -83,7 +79,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -94,12 +90,12 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
     TestType const gold =
         read_scalar_from_txt_file(base_dir + "exact_time.dat");
     TestType const fx = pde->exact_time(x(0));
-    relaxed_compare(fx, gold);
+    relaxed_fp_comparison(fx, gold, tol_scale);
   }
   SECTION("continuity 2 source functions")
   {
@@ -113,12 +109,12 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
         TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_compare(fx, gold);
+        relaxed_fp_comparison(fx, gold, tol_scale);
       }
       TestType const gold =
           read_scalar_from_txt_file(source_string + "time.dat");
       TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -145,7 +141,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
 
       TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -156,12 +152,12 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
     TestType const gold =
         read_scalar_from_txt_file(base_dir + "exact_time.dat");
     TestType const fx = pde->exact_time(x(0));
-    relaxed_compare(fx, gold);
+    relaxed_fp_comparison(fx, gold, tol_scale);
   }
   SECTION("continuity 3 source functions")
   {
@@ -175,13 +171,13 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
         TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_compare(fx, gold);
+        relaxed_fp_comparison(fx, gold, tol_scale);
       }
 
       TestType const gold =
           read_scalar_from_txt_file(source_string + "time.dat");
       TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -208,7 +204,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
 
       TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -219,12 +215,12 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "exact_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
     TestType const gold =
         read_scalar_from_txt_file(base_dir + "exact_time.dat");
     TestType const fx = pde->exact_time(x(0));
-    relaxed_compare(fx, gold);
+    relaxed_fp_comparison(fx, gold, tol_scale);
   }
   SECTION("continuity 6 source functions")
   {
@@ -238,13 +234,13 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
             source_string + "dim" + std::to_string(j) + ".dat";
         TestType const gold = read_scalar_from_txt_file(full_path);
         TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_compare(fx, gold);
+        relaxed_fp_comparison(fx, gold, tol_scale);
       }
 
       TestType const gold =
           read_scalar_from_txt_file(source_string + "time.dat");
       TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
@@ -271,7 +267,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
       TestType const gold = read_scalar_from_txt_file(
           base_dir + "initial_dim" + std::to_string(i) + ".dat");
       TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_compare(fx, gold);
+      relaxed_fp_comparison(fx, gold, tol_scale);
     }
   }
 
