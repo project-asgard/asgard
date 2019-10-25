@@ -327,7 +327,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
                    float)
 {
-  auto const tol_factor = std::is_same<float, TestType>::value ? 1e5 : 1e8;
+  auto const tol_factor = std::is_same<float, TestType>::value ? 1e5 : 1e6;
 
   /* continuity_1 */
   SECTION("gen_realspace_transform_1")
