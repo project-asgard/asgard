@@ -115,7 +115,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-    relaxed_comparison(gold, host_space.x);
+    relaxed_comparison(gold, host_space.x, tol_scale);
   }
 }
 
