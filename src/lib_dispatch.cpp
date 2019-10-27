@@ -1,4 +1,5 @@
 #include "lib_dispatch.hpp"
+#include "build_info.hpp"
 #include <iostream>
 #include <type_traits>
 

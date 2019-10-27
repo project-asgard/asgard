@@ -1,5 +1,7 @@
 #pragma once
 
+#include "build_info.hpp"
+
 #ifdef ASGARD_USE_CUDA
 #include <cuda_runtime.h>
 #endif
