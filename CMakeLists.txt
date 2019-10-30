@@ -109,6 +109,7 @@ set (components
   tensors
   time_advance
   transformations
+  kron
 )
 if (ASGARD_IO_HIGHFIVE)
   list (APPEND components io)
@@ -184,6 +185,8 @@ target_link_libraries (time_advance PRIVATE batch fast_math pde tensors INTERFAC
 target_link_libraries (transformations
   PRIVATE connectivity distribution matlab_utilities pde program_options
   quadrature tensors)
+
+target_link_libraries(kron PRIVATE tensors fast_math transformations)
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
