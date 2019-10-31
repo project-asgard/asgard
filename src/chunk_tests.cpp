@@ -573,10 +573,10 @@ TEMPLATE_TEST_CASE("chunk data management functions", "[chunk]", float, double)
     copy_in_test(degree, level, *pde);
   }
 
-  SECTION("copy in deg 3/lev 2, continuity 6")
+  SECTION("copy in deg 7/lev 4, continuity 6")
   {
-    int const degree = 3;
-    int const level  = 2;
+    int const degree = 7;
+    int const level  = 4;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
     copy_in_test(degree, level, *pde);
   }
@@ -597,7 +597,7 @@ TEMPLATE_TEST_CASE("chunk data management functions", "[chunk]", float, double)
     copy_out_test(degree, level, *pde);
   }
 
-  SECTION("copy out deg 3/lev 2, continuity 6")
+  SECTION("copy out deg 7/lev 4, continuity 6")
   {
     int const degree = 3;
     int const level  = 2;
