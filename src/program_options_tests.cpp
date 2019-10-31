@@ -58,7 +58,7 @@ TEST_CASE("options constructor/getters", "[options]")
     bool const def_implicit      = false;
     bool const def_full_grid     = false;
     bool const def_poisson       = false;
-    double const def_cfl         = 0.1;
+    double const def_cfl         = 0.01;
     PDE_opts const def_pde       = PDE_opts::continuity_2;
 
     options o = make_options({});
