@@ -59,9 +59,9 @@ options::options(int argc, char **argv)
     std::cerr << "Degree must be a natural number" << '\n';
     valid = false;
   }
-  if (level < 1 && level != -1)
+  if (level < 2 && level != -1)
   {
-    std::cerr << "Level must be a natural number" << '\n';
+    std::cerr << "Level must be greater than one" << '\n';
     valid = false;
   }
   if (num_time_steps < 1)
