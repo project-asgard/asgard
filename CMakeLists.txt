@@ -182,11 +182,11 @@ endif ()
 
 target_link_libraries (time_advance PRIVATE batch fast_math pde tensors INTERFACE element_table)
 
+target_link_libraries(kron PRIVATE tensors fast_math batch)
+
 target_link_libraries (transformations
   PRIVATE connectivity distribution matlab_utilities pde program_options
-  quadrature tensors)
-
-target_link_libraries(kron PRIVATE tensors fast_math transformations)
+  quadrature tensors kron)
 
 # define the main application and its linking
 add_executable (asgard src/main.cpp)
