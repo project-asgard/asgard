@@ -129,6 +129,11 @@ void kronmult_to_batch_sets(
     PDE<P> const &pde);
 
 template<typename P>
+void kronmult_to_batch_sets(std::vector<P *> const &A, P *const x, P *const y,
+                            std::vector<P *> const &work,
+                            std::vector<batch_operands_set<P>> &batches,
+                            int const batch_offset, PDE<P> const &pde);
+template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
               rank_workspace<P> const &workspace, element_chunk const &chunk);
@@ -196,6 +201,18 @@ extern template void kronmult_to_batch_sets(
         &work,
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
+
+extern template void
+kronmult_to_batch_sets(std::vector<float *> const &A, float *const x,
+                       float *const y, std::vector<float *> const &work,
+                       std::vector<batch_operands_set<float>> &batches,
+                       int const batch_offset, PDE<float> const &pde);
+
+extern template void
+kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
+                       double *const y, std::vector<double *> const &work,
+                       std::vector<batch_operands_set<double>> &batches,
+                       int const batch_offset, PDE<double> const &pde);
 
 extern template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
