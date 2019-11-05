@@ -159,6 +159,17 @@ void batch<P, resrc>::assign_entry(
   batch_[position] = a.data();
 }
 
+template<typename P, resource resrc>
+void batch<P, resrc>::assign_raw(P *const a, int const position)
+{
+  assert(position >= 0);
+  assert(position < num_entries());
+  // ensure nothing already assigned
+  assert(!batch_[position]);
+
+  batch_[position] = a;
+}
+
 // clear one assignment
 // returns true if there was a previous assignment,
 // false if nothing was assigned
@@ -512,16 +523,25 @@ void kronmult_to_batch_sets(
     for (int gemm = 0; gemm < num_gemms; ++gemm)
     {
       // the modulus here is to alternate input/output workspaces per dimension
-      fk::matrix<P, mem_type::view, resource::device> x_view(
-          work[(dimension - 1) % 2], sizes.rows_a, sizes.cols_a, offset * gemm);
-      batches[dimension][0].assign_entry(x_view,
-                                         batch_offset * num_gemms + gemm);
+
+      // fk::matrix<P, mem_type::view, resource::device> x_view(
+      //    work[(dimension - 1) % 2], sizes.rows_a, sizes.cols_a, offset *
+      //    gemm);
+      P *const x_ptr = work[(dimension - 1) % 2].data() + offset * gemm;
+      // batches[dimension][0].assign_entry(x_view,
+      //                                   batch_offset * num_gemms + gemm);
+      batches[dimension][0].assign_raw(x_ptr, batch_offset * num_gemms + gemm);
+
       batches[dimension][1].assign_entry(A[dimension],
                                          batch_offset * num_gemms + gemm);
-      fk::matrix<P, mem_type::view, resource::device> work_view(
-          work[dimension % 2], sizes.rows_a, sizes.cols_a, offset * gemm);
-      batches[dimension][2].assign_entry(work_view,
-                                         batch_offset * num_gemms + gemm);
+      // fk::matrix<P, mem_type::view, resource::device> work_view(
+      //    work[dimension % 2], sizes.rows_a, sizes.cols_a, offset * gemm);
+      P *const work_ptr = work[dimension % 2].data() + offset * gemm;
+
+      // batches[dimension][2].assign_entry(work_view,
+      //                                   batch_offset * num_gemms + gemm);
+      batches[dimension][2].assign_raw(work_ptr,
+                                       batch_offset * num_gemms + gemm);
     }
   }
 
