@@ -116,7 +116,7 @@ TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
     {
       batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
       test.assign_entry(first_v, 0);
-      TestType *const *const ptr_list = test.get_list();
+      TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == nullptr);
       REQUIRE(ptr_list[2] == nullptr);
@@ -147,7 +147,7 @@ TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
     {
       batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
       test.assign_raw(first_v.data(), 0);
-      TestType *const *const ptr_list = test.get_list();
+      TestType *const *ptr_list = test.get_list();
       REQUIRE(ptr_list[0] == first_v.data());
       REQUIRE(ptr_list[1] == nullptr);
       REQUIRE(ptr_list[2] == nullptr);
@@ -2609,9 +2609,9 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
     P const beta  = 0.0;
     for (int i = 0; i < pde.num_dims; ++i)
     {
-      batch<P> const a = batches[i][0];
-      batch<P> const b = batches[i][1];
-      batch<P> const c = batches[i][2];
+      batch<P> const &a = batches[i][0];
+      batch<P> const &b = batches[i][1];
+      batch<P> const &c = batches[i][2];
 
       batched_gemm(a, b, c, alpha, beta);
     }
