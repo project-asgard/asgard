@@ -13,12 +13,12 @@
 // utilized as the primary data structure for other functions
 // within this component.
 template<typename P, resource resrc>
-batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
+batch<P, resrc>::batch(int const capacity, int const nrows, int const ncols,
                        int const stride, bool const do_trans)
-    : num_entries_(num_entries), nrows_(nrows), ncols_(ncols), stride_(stride),
-      do_trans_(do_trans), batch_{new P *[num_entries]()}
+    : capacity_(capacity), num_entries_(capacity), nrows_(nrows), ncols_(ncols),
+      stride_(stride), do_trans_(do_trans), batch_{new P *[capacity]()}
 {
-  assert(num_entries > 0);
+  assert(capacity > 0);
   assert(nrows > 0);
   assert(ncols > 0);
   assert(stride > 0);
@@ -30,9 +30,9 @@ batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
 
 template<typename P, resource resrc>
 batch<P, resrc>::batch(batch<P, resrc> const &other)
-    : num_entries_(other.num_entries()), nrows_(other.nrows()),
-      ncols_(other.ncols()), stride_(other.get_stride()),
-      do_trans_(other.get_trans()), batch_{new P *[other.num_entries()]()}
+    : capacity_(other.get_capacity()), num_entries_(other.num_entries()),
+      nrows_(other.nrows()), ncols_(other.ncols()), stride_(other.get_stride()),
+      do_trans_(other.get_trans()), batch_{new P *[other.get_capacity()]()}
 {
   std::memcpy(batch_, other.batch_, other.num_entries() * sizeof(P *));
 }
@@ -44,7 +44,8 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
   {
     return *this;
   }
-  assert(num_entries() == other.num_entries());
+  assert(get_capacity() == other.get_capacity());
+  set_num_entries(other.num_entries());
   assert(nrows() == other.nrows());
   assert(ncols() == other.ncols());
   assert(get_stride() == other.get_stride());
@@ -55,8 +56,8 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
 
 template<typename P, resource resrc>
 batch<P, resrc>::batch(batch<P, resrc> &&other)
-    : num_entries_(other.num_entries()), nrows_(other.nrows()),
-      ncols_(other.ncols()), stride_(other.get_stride()),
+    : capacity_(other.get_capacity()), num_entries_(other.num_entries()),
+      nrows_(other.nrows()), ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{other.batch_}
 {
   other.batch_ = nullptr;
@@ -69,7 +70,9 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> &&other)
   {
     return *this;
   }
-  assert(num_entries() == other.num_entries());
+  assert(get_capacity() == other.get_capacity());
+  set_num_entries(other.num_entries());
+
   assert(nrows() == other.nrows());
   assert(ncols() == other.ncols());
   assert(get_stride() == other.get_stride());
@@ -396,6 +399,41 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
         batch<P>(num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a, false)};
   }
   return batches;
+}
+
+// resize batches for chunk
+template<typename P>
+inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
+                          std::vector<batch_operands_set<P>> &batches)
+{
+  // FIXME when we allow varying degree by dimension, all
+  // this code will have to change...
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const num_elems = num_elements_in_chunk(chunk);
+
+  // add the first (lowest dimension) batch
+  bool const do_trans         = false;
+  int const num_gemms         = pde.num_terms * num_elems;
+  matrix_size_set const sizes = compute_dimensions(degree, pde.num_dims, 0);
+
+  // get stride of first coefficient matrix in 0th term set.
+  // note all the coefficient matrices for each term have the
+  // same dimensions
+  int const stride = pde.get_coefficients(0, 0).stride();
+  batches[0][0].set_num_entries(num_gemms);
+  batches[0][1].set_num_entries(num_gemms);
+  batches[0][2].set_num_entries(num_gemms);
+
+  // remaining batches
+  for (int i = 1; i < pde.num_dims; ++i)
+  {
+    int const num_gemms =
+        compute_batch_size(degree, pde.num_dims, i) * pde.num_terms * num_elems;
+
+    batches[i][0].set_num_entries(num_gemms);
+    batches[i][1].set_num_entries(num_gemms);
+    batches[i][2].set_num_entries(num_gemms);
+  }
 }
 
 // --- kronmult batching code --- //
@@ -807,6 +845,155 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   return batches;
 }
 
+template<typename P>
+void build_batches(PDE<P> const &pde, element_table const &elem_table,
+                   rank_workspace<P> const &workspace,
+                   element_chunk const &chunk,
+                   std::vector<batch_operands_set<P>> &batches)
+{
+  // assume uniform degree for now
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const x_size    = chunk.size();
+  assert(workspace.batch_input.size() >= x_size);
+
+  int const elements_in_chunk = num_elements_in_chunk(chunk);
+
+  // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
+  assert(workspace.reduction_space.size() >=
+         (elem_size * elements_in_chunk * pde.num_terms));
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  assert(workspace.batch_intermediate.size() ==
+         workspace.reduction_space.size() * num_workspaces);
+
+  int const max_connected       = max_connected_in_chunk(chunk);
+  int const max_items_to_reduce = pde.num_terms * max_connected;
+  assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
+
+  ready_batches(pde, chunk, batches);
+
+  std::vector<int> const index_to_key = [&chunk]() {
+    std::vector<int> builder;
+    for (auto const &[i, connected] : chunk)
+    {
+      builder.push_back(i);
+      ignore(connected);
+    }
+    return builder;
+  }();
+
+// loop over elements
+#ifdef ASGARD_USE_OPENMP
+//#pragma omp parallel for
+#endif
+  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
+       ++chunk_num)
+  {
+    // row we are addressing in element grid
+    int const i = index_to_key[chunk_num];
+    // connected start/stop for this row
+    auto const connected = chunk.at(i);
+
+    // first, get linearized indices for this element
+    //
+    // calculate from the level/cell indices for each
+    // dimension
+    fk::vector<int> const coords = elem_table.get_coords(i);
+    assert(coords.size() == pde.num_dims * 2);
+    fk::vector<int> const elem_indices = linearize(coords);
+
+    // calculate the row portion of the
+    // operator position used for this
+    // element's gemm calls
+    fk::vector<int> const operator_row =
+        get_operator_row(pde, degree, elem_indices);
+
+    // loop over connected elements. for now, we assume
+    // full connectivity
+
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
+    for (int j = connected.start; j <= connected.stop; ++j)
+    {
+      // get linearized indices for this connected element
+      fk::vector<int> const coords = elem_table.get_coords(j);
+      assert(coords.size() == pde.num_dims * 2);
+      fk::vector<int> const connected_indices = linearize(coords);
+
+      // calculate the col portion of the
+      // operator position used for this
+      // element's gemm calls
+      fk::vector<int> const operator_col =
+          get_operator_col(pde, degree, connected_indices);
+
+      for (int k = 0; k < pde.num_terms; ++k)
+      {
+        // term major y-space layout, followed by connected items, finally work
+        // items.
+        int const prev_row_elems = [i = i, &chunk] {
+          if (i == chunk.begin()->first)
+          {
+            return 0;
+          }
+          int prev_elems = 0;
+          for (int r = chunk.begin()->first; r < i; ++r)
+          {
+            prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
+          }
+          return prev_elems;
+        }();
+
+        int const total_prev_elems = prev_row_elems + j - connected.start;
+        int const kron_index       = k + total_prev_elems * pde.num_terms;
+
+        // y space, where kron outputs are written
+        int const y_index = elem_size * kron_index;
+        P *const y_ptr    = workspace.reduction_space.data() + y_index;
+
+        // work space, intermediate kron data
+        int const work_index =
+            elem_size * kron_index * std::min(pde.num_dims - 1, 2);
+        std::vector<P *> const work_ptrs = [&workspace, work_index,
+                                            num_workspaces, elem_size]() {
+          std::vector<P *> work_ptrs(num_workspaces);
+          work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
+          if (num_workspaces == 2)
+            work_ptrs[1] =
+                workspace.batch_intermediate.data() + work_index + elem_size;
+          return work_ptrs;
+        }();
+
+        // operator views, windows into operator matrix
+        std::vector<P *> const operator_ptrs = [&pde, &operator_row,
+                                                &operator_col, k]() {
+          std::vector<P *> operator_ptrs;
+          for (int d = pde.num_dims - 1; d >= 0; --d)
+          {
+            operator_ptrs.push_back(
+                pde.get_coefficients(k, d).data() + operator_row(d) +
+                operator_col(d) * pde.get_coefficients(k, d).stride());
+          }
+          return operator_ptrs;
+        }();
+
+        // determine the index for the input vector
+        // j - connected start is the first connected element
+        // for this chunk
+        int const x_index = (j - connected.start) * elem_size;
+
+        // x vector input to kronmult
+        P *const x_ptr = workspace.batch_input.data() + x_index;
+
+        kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs, batches,
+                               kron_index, pde);
+      }
+    }
+  }
+}
+
 // function to allocate and build implicit system.
 // given a problem instance (pde/elem table)
 template<typename P>
@@ -982,6 +1169,17 @@ template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);
+
+template void build_batches(PDE<float> const &pde,
+                            element_table const &elem_table,
+                            rank_workspace<float> const &workspace,
+                            element_chunk const &chunk,
+                            std::vector<batch_operands_set<float>> &);
+template void build_batches(PDE<double> const &pde,
+                            element_table const &elem_table,
+                            rank_workspace<double> const &workspace,
+                            element_chunk const &chunk,
+                            std::vector<batch_operands_set<double>> &);
 
 template void
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,

@@ -9,7 +9,7 @@ project (asgard
 ###############################################################################
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_options ("-g" "-Wall" "-Wextra" "-Wpedantic")
+add_compile_options ("-O3" "-Wall" "-Wextra" "-Wpedantic")
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
 # set up possible commandline input variable defaults (override with -D)
@@ -40,7 +40,7 @@ if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
 
-
+add_definitions(-DNDEBUG)
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################

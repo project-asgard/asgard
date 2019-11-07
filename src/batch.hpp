@@ -16,8 +16,8 @@ template<typename P,
 class batch
 {
 public:
-  batch(int const num_entries, int const nrows, int const ncols,
-        int const stride, bool const do_trans);
+  batch(int const capacity, int const nrows, int const ncols, int const stride,
+        bool const do_trans);
   batch(batch<P, resrc> const &other);
   batch &operator=(batch<P, resrc> const &other);
   batch(batch<P, resrc> &&other);
@@ -37,7 +37,16 @@ public:
   bool is_filled() const;
   batch &clear_all();
 
+  int get_capacity() const { return capacity_; }
+
   int num_entries() const { return num_entries_; }
+  batch &set_num_entries(int const new_num_entries)
+  {
+    assert(new_num_entries > 0);
+    assert(new_num_entries <= get_capacity());
+    num_entries_ = new_num_entries;
+    return *this;
+  }
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
   int get_stride() const { return stride_; }
@@ -50,7 +59,8 @@ public:
   const_iterator end() const { return batch_ + num_entries(); }
 
 private:
-  int const num_entries_; // number of matrices/vectors in the batch
+  int const capacity_; // number of matrices/vectors this batch can hold
+  int num_entries_;    // number of matrices/vectors for this chunk
   int const nrows_;  // number of rows in matrices/size of vectors in this batch
   int const ncols_;  // number of cols in matrices (1 for vectors) in this batch
   int const stride_; // leading dimension passed into BLAS call for matrices;
@@ -146,6 +156,12 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
               rank_workspace<P> const &workspace, element_chunk const &chunk);
 
 template<typename P>
+void build_batches(PDE<P> const &pde, element_table const &elem_table,
+                   rank_workspace<P> const &workspace,
+                   element_chunk const &chunk,
+                   std::vector<batch_operands_set<P>> &batches);
+
+template<typename P>
 void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
                          element_chunk const &chunk, fk::matrix<P> &A);
 
@@ -230,6 +246,17 @@ extern template std::vector<batch_operands_set<double>>
 build_batches(PDE<double> const &pde, element_table const &elem_table,
               rank_workspace<double> const &workspace,
               element_chunk const &chunk);
+
+extern template void build_batches(PDE<float> const &pde,
+                                   element_table const &elem_table,
+                                   rank_workspace<float> const &workspace,
+                                   element_chunk const &chunk,
+                                   std::vector<batch_operands_set<float>> &);
+extern template void build_batches(PDE<double> const &pde,
+                                   element_table const &elem_table,
+                                   rank_workspace<double> const &workspace,
+                                   element_chunk const &chunk,
+                                   std::vector<batch_operands_set<double>> &);
 
 extern template void
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
