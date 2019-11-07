@@ -375,7 +375,7 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
   // note all the coefficient matrices for each term have the
   // same dimensions
   int const stride = pde.get_coefficients(0, 0).stride();
-  batches[0] = std::vector<batch<P>>{
+  batches[0]       = std::vector<batch<P>>{
       batch<P>(num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans),
       batch<P>(num_gemms, sizes.rows_b, sizes.cols_b, sizes.rows_b, do_trans),
       batch<P>(num_gemms, sizes.rows_a, sizes.cols_b, sizes.rows_a, false)};
@@ -390,7 +390,7 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
     bool const trans_b          = true;
 
     int const stride = pde.get_coefficients(0, i).stride();
-    batches[i] = std::vector<batch<P>>{
+    batches[i]       = std::vector<batch<P>>{
         batch<P>(num_gemms, sizes.rows_a, sizes.cols_a, sizes.rows_a, trans_a),
         batch<P>(num_gemms, sizes.rows_b, sizes.cols_b, stride, trans_b),
         batch<P>(num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a, false)};
@@ -757,7 +757,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // term major y-space layout, followed by connected items, finally work
         // items.
         int const prev_row_elems = [i = i, &chunk] {
-	  if (i == chunk.begin()->first)
+          if (i == chunk.begin()->first)
           {
             return 0;
           }
@@ -784,8 +784,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
           std::vector<P *> work_ptrs(num_workspaces);
           work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
           if (num_workspaces == 2)
-            work_ptrs[1] = workspace.batch_intermediate.data() +
-                                work_index + elem_size;
+            work_ptrs[1] =
+                workspace.batch_intermediate.data() + work_index + elem_size;
           return work_ptrs;
         }();
 
