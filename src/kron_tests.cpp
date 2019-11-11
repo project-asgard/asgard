@@ -11,11 +11,17 @@ TEMPLATE_TEST_CASE( "kron", "[kron]", double, float )
     fk::matrix< TestType > e( 10, 5 );
     fk::matrix< TestType > f( 10, 5 );
 
-    std::vector< fk::matrix< TestType, mem_type::owner > > matrix =
-    { a, b, c, e, f };
+    std::vector< fk::matrix< TestType, mem_type::view > > matrix =
+    { 
+      fk::matrix< TestType, mem_type::view >(a), 
+      fk::matrix< TestType, mem_type::view >(b), 
+      fk::matrix< TestType, mem_type::view >(c), 
+      fk::matrix< TestType, mem_type::view >(e), 
+      fk::matrix< TestType, mem_type::view >(f)
+    }; 
 
     int x_size = std::accumulate( matrix.begin(), matrix.end(), 1, 
-                                 []( int i, fk::matrix< TestType > &m )
+                                 []( int i, fk::matrix< TestType, mem_type::view > &m )
                                  {
                                    return i * m.ncols();
                                  } );
@@ -37,13 +43,17 @@ TEMPLATE_TEST_CASE( "kron", "[kron]", double, float )
     { fk::matrix<TestType, mem_type::view, resource::device >(a),
       fk::matrix<TestType, mem_type::view, resource::device >(b) };
 
-    fk::vector< TestType, mem_type::owner, resource::device > x = { 10, 11, 12, 13 };
+    fk::vector< TestType, mem_type::owner, resource::device > const x = { 10, 11, 12, 13 };
+
+    const fk::vector< TestType, mem_type::view, resource::device > x_view( x );
 
     fk::vector< TestType, mem_type::owner, resource::host > correct = { 763, 997, 1363, 1781 };
 
-    fk::vector< TestType, mem_type::owner, resource::device > r = 
-    kron< TestType, mem_type::view >( matrix, 
-                                      fk::vector<TestType, mem_type::view, resource::device >(x) );
+    /* Captain! Here */
+    batch_job< TestType, resource::device > bj =
+    kron_batch( matrix, x_view );
+
+    fk::vector< TestType, mem_type::owner, resource::device > r = execute_batch_job( bj );
 
     REQUIRE( r.clone_onto_host() == correct );
   }
@@ -89,29 +99,31 @@ TEMPLATE_TEST_CASE( "kron", "[kron]", double, float )
       fk::matrix<TestType, mem_type::view, resource::device >( m8 )
     };
 
-    /* Captain! see if you can use auto to fix the compiler warning 
-       that will be generated below */
     int x_size = std::accumulate( matrix.begin(), matrix.end(), 1, 
-                                 []( int i, fk::matrix< TestType, mem_type::view > &m )
+                                 []( int i, fk::matrix< TestType,
+                                                        mem_type::view,
+                                                        resource::device > &m )
                                  {
                                    return i * m.ncols();
                                  } );
 
     int y_size = std::accumulate( matrix.begin(), matrix.end(), 1, 
-                                 []( int i, fk::matrix< TestType, mem_type::view > &m )
+                                 []( int i, fk::matrix< TestType,
+                                                        mem_type::view,
+                                                        resource::device > &m )
                                  {
                                    return i * m.nrows();
                                  } );
 
-    /* could you make this a view instead of an owner? */
     fk::vector< TestType, mem_type::owner, resource::host >
     x( std::vector< TestType >( x_size, 1 ) );
 
-    auto r =
-    kron< TestType, mem_type::view >( matrix, 
-                                      fk::vector< TestType, 
-                                                  mem_type::view,
-                                                  resource::device >(x.clone_onto_device() ) );
+    batch_job< TestType, resource::device > bj = 
+    kron_batch( matrix, fk::vector< TestType,
+                                    mem_type::view,
+                                    resource::device >( x.clone_onto_device() ) );
+
+    fk::vector< TestType, mem_type::owner, resource::device > r = execute_batch_job( bj );
 
     fk::vector< TestType > 
     correct( std::vector< TestType >( y_size, x_size * ( 1 << ( matrix.size() - 1 ) ) * 3 ) );
