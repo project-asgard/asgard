@@ -460,7 +460,7 @@ void generate_messages_test(int const num_ranks, element_table const &table)
         int const sender_rank       = message.target;
         auto const &sender_messages = messages[sender_rank];
         int match_found             = 0;
-        int send_index;
+        int send_index              = 0;
         for (int j = 0; j < static_cast<int>(sender_messages.size()); ++j)
         {
           auto const &sender_message = sender_messages[j];
