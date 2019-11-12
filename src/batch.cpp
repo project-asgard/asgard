@@ -412,14 +412,8 @@ inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
   int const num_elems = num_elements_in_chunk(chunk);
 
   // add the first (lowest dimension) batch
-  bool const do_trans         = false;
   int const num_gemms         = pde.num_terms * num_elems;
-  matrix_size_set const sizes = compute_dimensions(degree, pde.num_dims, 0);
 
-  // get stride of first coefficient matrix in 0th term set.
-  // note all the coefficient matrices for each term have the
-  // same dimensions
-  int const stride = pde.get_coefficients(0, 0).stride();
   batches[0][0].set_num_entries(num_gemms);
   batches[0][1].set_num_entries(num_gemms);
   batches[0][2].set_num_entries(num_gemms);
