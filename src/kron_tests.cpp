@@ -130,4 +130,39 @@ TEMPLATE_TEST_CASE( "kron", "[kron]", double, float )
 
     REQUIRE( r.clone_onto_host() == correct );
   }
+
+  SECTION("kron_2")
+  {
+    fk::matrix< TestType, mem_type::owner, resource::device > a =
+    { {1}, {2}, {3} };
+
+    fk::matrix< TestType, mem_type::owner, resource::device > b =
+    { {3, 4, 5} };
+
+    fk::matrix< TestType, mem_type::owner, resource::device > c =
+    { {5}, {6}, {7} };
+
+    fk::matrix< TestType, mem_type::owner, resource::device > d =
+    { {7, 8, 9} };
+
+    const std::vector< fk::matrix< TestType, mem_type::view, resource::device > > matrix =
+    { fk::matrix<TestType, mem_type::view, resource::device >(a),
+      fk::matrix<TestType, mem_type::view, resource::device >(b), 
+      fk::matrix<TestType, mem_type::view, resource::device >(c), 
+      fk::matrix<TestType, mem_type::view, resource::device >(d) };
+
+    fk::vector< TestType, mem_type::owner, resource::device > const x = { 1,1,1,1,1,1,1,1,1 };
+
+    const fk::vector< TestType, mem_type::view, resource::device > x_view( x );
+
+    fk::vector< TestType, mem_type::owner, resource::host > correct = 
+    { 1440, 1728, 2016, 2880, 3456, 4032, 4320, 5184, 6048 };
+
+    batch_job< TestType, resource::device > bj =
+    kron_batch( matrix, x_view );
+
+    fk::vector< TestType, mem_type::owner, resource::device > r = execute_batch_job( bj );
+
+    REQUIRE( r.clone_onto_host() == correct );
+  }
 }

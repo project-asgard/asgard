@@ -52,8 +52,6 @@ class batch_set
     batch< P > product;
 };
 
-/* Captain! Mandate which workspace vector needs to be initialized */
-/* the work function will use this object to carry out the batched gemms */
 template< typename P, resource resrc >
 class batch_job
 {
@@ -131,15 +129,14 @@ kron_batch( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix,
   assert( matrix.size() > 0 );
 
   /* ensure "x" is correct size */
-  int const x_size = std::accumulate( matrix.begin(), matrix.end(), 1, 
+  assert( x.size() == std::accumulate( matrix.begin(), matrix.end(), 1, 
                            []( int const i, auto const &m )
                            {
                              return i * m.ncols();
-                           } );
-  assert( x.size() == x_size );
+                           } ) );
 
   /* determine correct workspace length */
-  int const workspace_len = calculate_workspace_len( matrix, x_size );
+  int const workspace_len = calculate_workspace_len( matrix, x.size() );
 
   int const y_size = std::accumulate( matrix.begin(), matrix.end(), 1, 
                            []( int const i, auto const &m )
@@ -148,12 +145,39 @@ kron_batch( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix,
                            } );
 
   batch_job< P, resrc > job( 1, 0, workspace_len, x, y_size );
-  int stride = 1;
-  int v_size = x_size;
-  typename 
-  std::vector< fk::matrix< P, mem_type::view, resource::device > >::const_reverse_iterator iter;
 
-  for( iter = matrix.rbegin(); iter != matrix.rend(); ++iter )
+  /* Below is a loop unrolled one iteration */
+  typename 
+  std::vector< fk::matrix< P, mem_type::view, resource::device > >::const_reverse_iterator iter =
+  matrix.rbegin();
+
+  {
+    int const rows = x.size() / iter->ncols();
+
+    batch< P > left( 1, iter->nrows(), iter->ncols(), iter->stride(), false );
+    batch< P > right( 1, iter->ncols(), rows, iter->ncols(), false );
+    batch< P > product( 1, iter->nrows(), rows, iter->nrows(), false );
+
+    fk::matrix< P, mem_type::view, resource::device >
+    input( job.get_input_workspace(), iter->ncols(), rows, 0 );
+
+    fk::matrix< P, mem_type::view, resource::device >
+    output( job.get_output_workspace(), iter->nrows(), rows, 0 );
+
+    right.assign_entry(input, 0);
+    left.assign_entry( fk::matrix< P, mem_type::view, resource::device >( (*iter ) ), 0);
+    product.assign_entry( output, 0 );
+
+    batch_set< P > bs( std::move( left ), std::move( right ), std::move( product ) );
+
+    job.add_batch_set( std::move( bs ) );
+  }
+
+  int stride = iter->nrows();
+  int v_size = x.size() / iter->ncols() * iter->nrows();
+  ++iter;
+
+  for( ; iter != matrix.rend(); ++iter )
   {
     int const read_stride = stride * iter->ncols();
     int const write_stride = stride * iter->nrows();
@@ -161,8 +185,9 @@ kron_batch( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix,
 
     /* create a batch of matrices */
     batch< P > left( n_gemms, stride, iter->ncols(), stride, false );
-    batch< P > right( n_gemms, iter->nrows(), 
-                                           iter->ncols(), iter->stride(), true );
+    batch< P > right( n_gemms,
+                      iter->nrows(), 
+                      iter->ncols(), iter->stride(), true );
     batch< P > product( n_gemms, stride, iter->nrows(), stride, false );
 
     for( int j = 0; j < n_gemms; ++j )
