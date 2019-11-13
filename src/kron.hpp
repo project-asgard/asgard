@@ -29,17 +29,17 @@ int calculate_workspace_len( std::vector< fk::matrix< P, mem_type::view, resrc >
 }
 
 /* convenience storage class */
-template< typename P >
+template< typename P, resource resrc >
 class batch_set
 {
   public:
 
-    batch_set( batch< P > &&left, batch< P > &&right, batch< P > &&product )
+    batch_set( batch< P, resrc > &&left, batch< P, resrc > &&right, batch< P, resrc > &&product )
       :
       left( left ), right( right ), product( product )
     {}
 
-    batch_set( batch<P> &&bs )
+    batch_set( batch<P, resrc> &&bs )
       :
       left( std::move( bs.left ) ),
       right( std::move( bs.right ) ),
@@ -47,9 +47,9 @@ class batch_set
     {
     }
 
-    batch< P > left;
-    batch< P > right;
-    batch< P > product;
+    batch< P, resrc > left;
+    batch< P, resrc > right;
+    batch< P, resrc > product;
 };
 
 template< typename P, resource resrc >
@@ -75,7 +75,7 @@ class batch_job
       init_w0 = x;
     }
 
-    void add_batch_set( batch_set< P > &&bs )
+    void add_batch_set( batch_set< P, resrc > &&bs )
     {
       batches.emplace_back( bs );
 
@@ -96,7 +96,7 @@ class batch_job
       return workspace[ out ];
     } 
 
-    std::vector< batch_set< P > > batches;
+    std::vector< batch_set< P, resrc > > batches;
     P alpha;
     P beta;
     int in;
@@ -148,27 +148,27 @@ kron_batch( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix,
 
   /* Below is a loop unrolled one iteration */
   typename 
-  std::vector< fk::matrix< P, mem_type::view, resource::device > >::const_reverse_iterator iter =
+  std::vector< fk::matrix< P, mem_type::view, resrc > >::const_reverse_iterator iter =
   matrix.rbegin();
 
   {
     int const rows = x.size() / iter->ncols();
 
-    batch< P > left( 1, iter->nrows(), iter->ncols(), iter->stride(), false );
-    batch< P > right( 1, iter->ncols(), rows, iter->ncols(), false );
-    batch< P > product( 1, iter->nrows(), rows, iter->nrows(), false );
+    batch< P, resrc > left( 1, iter->nrows(), iter->ncols(), iter->stride(), false );
+    batch< P, resrc > right( 1, iter->ncols(), rows, iter->ncols(), false );
+    batch< P, resrc > product( 1, iter->nrows(), rows, iter->nrows(), false );
 
-    fk::matrix< P, mem_type::view, resource::device >
+    fk::matrix< P, mem_type::view, resrc >
     input( job.get_input_workspace(), iter->ncols(), rows, 0 );
 
-    fk::matrix< P, mem_type::view, resource::device >
+    fk::matrix< P, mem_type::view, resrc >
     output( job.get_output_workspace(), iter->nrows(), rows, 0 );
 
     right.assign_entry(input, 0);
-    left.assign_entry( fk::matrix< P, mem_type::view, resource::device >( (*iter ) ), 0);
+    left.assign_entry( fk::matrix< P, mem_type::view, resrc >( (*iter ) ), 0);
     product.assign_entry( output, 0 );
 
-    batch_set< P > bs( std::move( left ), std::move( right ), std::move( product ) );
+    batch_set< P, resrc > bs( std::move( left ), std::move( right ), std::move( product ) );
 
     job.add_batch_set( std::move( bs ) );
   }
@@ -184,26 +184,26 @@ kron_batch( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix,
     int const n_gemms = v_size / read_stride;
 
     /* create a batch of matrices */
-    batch< P > left( n_gemms, stride, iter->ncols(), stride, false );
-    batch< P > right( n_gemms,
+    batch< P, resrc > left( n_gemms, stride, iter->ncols(), stride, false );
+    batch< P, resrc > right( n_gemms,
                       iter->nrows(), 
                       iter->ncols(), iter->stride(), true );
-    batch< P > product( n_gemms, stride, iter->nrows(), stride, false );
+    batch< P, resrc > product( n_gemms, stride, iter->nrows(), stride, false );
 
     for( int j = 0; j < n_gemms; ++j )
     {
-      fk::matrix< P, mem_type::view, resource::device >
+      fk::matrix< P, mem_type::view, resrc >
       input( job.get_input_workspace(), stride, iter->ncols(), j * read_stride );
 
-      fk::matrix< P, mem_type::view, resource::device >
+      fk::matrix< P, mem_type::view, resrc >
       output( job.get_output_workspace(), stride, iter->nrows(), j * write_stride );
 
       left.assign_entry(input, j);
-      right.assign_entry( fk::matrix< P, mem_type::view, resource::device >( (*iter ) ), j);
+      right.assign_entry( fk::matrix< P, mem_type::view, resrc >( (*iter ) ), j);
       product.assign_entry( output, j );
     }
 
-    batch_set< P > bs( std::move( left ), std::move( right ), std::move( product ) );
+    batch_set< P, resrc > bs( std::move( left ), std::move( right ), std::move( product ) );
 
     job.add_batch_set( std::move( bs ) );
     

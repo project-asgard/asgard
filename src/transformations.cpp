@@ -3,6 +3,7 @@
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
+#include "kron.hpp"
 #include <algorithm>
 #include <cassert>
 #include <climits>
@@ -166,12 +167,15 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
     /* compute the amount of needed memory */
     assert(kron_matrix_MB(kron_matrices) <= memory_limit_MB);
 
-    /* get a matrix by kronecker producting the list together */
-    fk::matrix<P> const kronecker_product = recursive_kron(kron_matrices);
+    /* create a view of a section of the wave space vector */
     fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
                                                 (i + 1) * stride - 1);
-    /* add it to the realspace vector */
-    real_space = real_space + (kronecker_product * x);
+    /* create a batch job that expresses the output of the Kronecker product of all matrices in
+       kron_matrices in order multiplied by the vector x */
+    batch_job< P, resource::host > bj = kron_batch< P, resource::host >( kron_matrices, x );
+    /* execute the batch job and add the partial solution to real_space */
+    real_space =
+    real_space + execute_batch_job< P, resource::host >( bj );
   }
 
   return real_space;
