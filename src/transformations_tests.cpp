@@ -183,8 +183,19 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     return wave_space;
   }();
 
-  fk::vector<P> const realspace =
-      wavelet_to_realspace<P>(pde, wave_space, table, limit_MB);
+  int prod = real_solution_size(pde);
+  fk::vector<P> real_space_owner(prod);
+  fk::vector<P, mem_type::view> real_space(real_space_owner);
+
+  fk::vector<P, mem_type::owner, resource::host> workspace_0(prod);
+  fk::vector<P, mem_type::owner, resource::host> workspace_1(prod);
+
+  std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
+      fk::vector<P, mem_type::view, resource::host>(workspace_0),
+      fk::vector<P, mem_type::view, resource::host>(workspace_1)};
+
+  wavelet_to_realspace<P>(pde, wave_space, table, limit_MB, tmp_workspace,
+                          real_space);
 
   fk::vector<P> const gold =
       fk::vector<P>(read_vector_from_txt_file(gold_filename));
@@ -193,7 +204,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   // FIXME these are high relative to other components...
   auto const backward_eps_multiplier =
       std::is_same<float, P>::value ? 1e5 : 1e8;
-  relaxed_comparison(gold, realspace, backward_eps_multiplier);
+  relaxed_comparison(gold, real_space, backward_eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)

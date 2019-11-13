@@ -1,9 +1,9 @@
 #include "transformations.hpp"
 #include "connectivity.hpp"
+#include "kron.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
-#include "kron.hpp"
 #include <algorithm>
 #include <cassert>
 #include <climits>
@@ -124,21 +124,15 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
 }
 
 template<typename P>
-fk::vector<P>
-wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                     element_table const &table, int const memory_limit_MB)
+void wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
+                          element_table const &table, int const memory_limit_MB,
+                          fk::vector<P> &real_space)
 {
   assert(memory_limit_MB > 0);
 
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
-  /* determine the length of the real-space vector */
-  int prod = 1;
-  for (int i = 0; i < static_cast<int>(dims.size()); i++)
-  {
-    prod *= (dims[i].get_degree() * std::pow(2, dims[i].get_level()));
-  }
 
-  fk::vector<P> real_space(prod);
+  std::vector<batch_job<P, resource::host>> jobs;
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
@@ -178,7 +172,21 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
     real_space + execute_batch_job< P, resource::host >( bj );
   }
 
-  return real_space;
+  return;
+}
+
+template<typename P>
+int real_solution_size(PDE<P> &pde)
+{
+  /* determine the length of the realspace solution */
+  std::vector<dimension<P>> const &dims = pde.get_dimensions();
+  int prod                              = 1;
+  for (int i = 0; i < static_cast<int>(dims.size()); i++)
+  {
+    prod *= (dims[i].get_degree() * std::pow(2, dims[i].get_level()));
+  }
+
+  return prod;
 }
 
 // FIXME this function will need to change once dimensions can have different
@@ -246,13 +254,15 @@ gen_realspace_transform(PDE<double> const &pde);
 template std::vector<fk::matrix<float>>
 gen_realspace_transform(PDE<float> const &pde);
 
-template fk::vector<double>
-wavelet_to_realspace(PDE<double> const &pde,
-                     fk::vector<double> const &wave_space,
-                     element_table const &table, int const memory_limit_MB);
-template fk::vector<float>
+template void wavelet_to_realspace(PDE<double> const &pde,
+                                   fk::vector<double> const &wave_space,
+                                   element_table const &table,
+                                   int const memory_limit_MB,
+                                   fk::vector<double> &real_space);
+template void
 wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
-                     element_table const &table, int const memory_limit_MB);
+                     element_table const &table, int const memory_limit_MB,
+                     fk::vector<float> &real_space);
 
 template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,
@@ -260,3 +270,6 @@ combine_dimensions(int const, element_table const &, int const, int const,
 template fk::vector<float>
 combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
+
+template int real_solution_size(PDE<double> &pde);
+template int real_solution_size(PDE<float> &pde);

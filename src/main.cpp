@@ -214,11 +214,14 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
   auto output_dataset = initialize_output_file(initial_condition);
 
-  fk::vector<prec> const initial_condition_real = wavelet_to_realspace<prec>(
-      *pde, initial_condition, table, default_workspace_cpu_MB);
+  int prod = real_solution_size(*pde);
+  fk::vector<P> real_space(prod);
+
+  wavelet_to_realspace<prec>(*pde, initial_condition, table,
+                             default_workspace_cpu_MB, real_space);
   std::string const realspace_output_name = "asgard_realspace";
   auto output_dataset_real =
-      initialize_output_file(initial_condition_real, realspace_output_name);
+      initialize_output_file(real_space, realspace_output_name);
 #endif
 
   // -- time loop
@@ -280,9 +283,9 @@ int main(int argc, char **argv)
     /* write realspace output to file */
     if (opts.transform_at_step(i))
     {
-      fk::vector<prec> const realspace_at_t = wavelet_to_realspace<prec>(
-          *pde, host_space.x, table, default_workspace_cpu_MB);
-      update_output_file(output_dataset_real, realspace_at_t,
+      wavelet_to_realspace<prec>(*pde, host_space.x, table,
+                                 default_workspace_cpu_MB, real_space);
+      update_output_file(output_dataset_real, real_space,
                          realspace_output_name);
     }
 #else

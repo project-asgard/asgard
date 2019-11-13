@@ -1,215 +1,182 @@
-#include "tensors.hpp"
+/*
+Comments assume the user is reading the lines of this file in order.
+
+Problem relevant to functions in this file:
+
+given a vector "x" of length "x_size" and list of matrices of arbitrary dimension
+in "matrix": { m0, m1, ... , m_last }, calculate ( m0 kron m1 kron ... kron m_end ) * x
+
+*/
 #include "batch.hpp"
 #include "fast_math.hpp"
+#include "tensors.hpp"
 
-#include <numeric>
 #include <array>
 #include <iostream>
+#include <numeric>
 
-template< typename P, resource resrc >
-int calculate_workspace_len( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix,
-                             int const x_size )
-{
-  int greatest = x_size;
-  int r_prod = 1;
-  int c_prod = 1;
+/*
+What it is:
 
-  typename std::vector< fk::matrix< P, mem_type::view, resrc > >::const_reverse_iterator iter;
+Stores 3 equal length batches that contain information for a set of matrix multiplications.
 
-  for( iter = matrix.rbegin(); iter != matrix.rend(); ++iter )
-  {
-    c_prod *= iter->ncols();
-    r_prod *= iter->nrows();
+How it is used:
 
-    int const size = x_size / c_prod * r_prod;
-    if( size > greatest ) greatest = size;
-  }
-
-  return greatest;
-}
-
-/* convenience storage class */
-template< typename P, resource resrc >
+Each multiplication is of the form: left[ i ] * right[ i ] = product[ i ]
+each "left[ i ]" is a matrix formed from a subset of the elements of an input fk::vector
+each "right[ i ]" is the same matrix
+each "product[ i ]" is a subset of the elements of an output fk::vector
+*/
+template<typename P, resource resrc>
 class batch_set
 {
-  public:
+public:
 
-    batch_set( batch< P, resrc > &&left, batch< P, resrc > &&right, batch< P, resrc > &&product )
-      :
-      left( left ), right( right ), product( product )
-    {}
+  batch_set( int const left_num_entries, int const left_num_rows, int const left_num_cols,
+             int const left_stride, bool const left_do_trans,
 
-    batch_set( batch<P, resrc> &&bs )
-      :
-      left( std::move( bs.left ) ),
-      right( std::move( bs.right ) ),
-      product( std::move( bs.product ) )
-    {
-    }
+             int const right_num_entries, int const right_num_rows, int const right_num_cols,
+             int const right_stride, bool const right_do_trans,
 
-    batch< P, resrc > left;
-    batch< P, resrc > right;
-    batch< P, resrc > product;
+             int const product_num_entries,
+             int const product_num_rows,
+             int const product_num_cols,
+             int const product_stride,
+             bool const product_do_trans )
+    :
+    left( left_num_entries, left_num_rows, left_num_cols, left_stride, left_do_trans ),
+    right( right_num_entries, right_num_rows, right_num_cols, right_stride, right_do_trans ),
+    product( product_num_entries, product_num_rows, product_num_cols, product_stride, 
+             product_do_trans )
+  { return; }
+
+  batch_set(batch<P, resrc> &&bs)
+      : left(std::move(bs.left)), right(std::move(bs.right)),
+        product(std::move(bs.product))
+  { return; }
+
+  batch<P, resrc> left;
+  batch<P, resrc> right;
+  batch<P, resrc> product;
 };
 
-template< typename P, resource resrc >
+/*
+What is is:
+Stores many batch sets where the output of each one is the input of the next one. The fk::vectors
+in "workspace" alternate between input/output for each successive batch_set. The initial
+input is in the vector "x". The final output will be one of the fk::vectors in "workspace".
+*/
+template<typename P, resource resrc>
 class batch_job
 {
-  public:
+public:
+  batch_job(P const alpha, P const beta, int const workspace_len,
+            fk::vector<P, mem_type::view, resrc> const &x, int const y_size);
 
-    batch_job( P const alpha,
-               P const beta,
-               int const workspace_len,
-               fk::vector< P, mem_type::view, resrc > const &x,
-               int const y_size )
-      :
-      alpha( alpha ),
-      beta( beta ),
-      in( 0 ),
-      out( 1 ),
-      y_size( y_size ),
-      workspace( { fk::vector< P, mem_type::owner, resrc >( workspace_len ), 
-                   fk::vector< P, mem_type::owner, resrc >( workspace_len ) } )
-    {
-      fk::vector< P, mem_type::view, resrc > init_w0( workspace[ 0 ], 0, x.size() - 1 );
-      init_w0 = x;
-    }
+  batch_job(batch_job<P, resrc> &&job) = default;
 
-    void add_batch_set( batch_set< P, resrc > &&bs )
-    {
-      batches.emplace_back( bs );
+  void add_batch_set(batch_set<P, resrc> const &&bs);
 
-      int const tmp = in;
-      in = out;
-      out = tmp;
+  void swap_workspaces();
 
-      return;
-    }
+  fk::vector<P, mem_type::owner, resrc> const &get_input_workspace();
 
-    fk::vector< P, mem_type::owner, resrc > const &get_input_workspace()
-    {
-      return workspace[ in ];
-    } 
+  fk::vector<P, mem_type::owner, resrc> const &get_output_workspace();
 
-    fk::vector< P, mem_type::owner, resrc > const &get_output_workspace()
-    {
-      return workspace[ out ];
-    } 
+  std::vector<batch_set<P, resrc>> batches;
 
-    std::vector< batch_set< P, resrc > > batches;
-    P alpha;
-    P beta;
-    int in;
-    int out;
-    int y_size;
-    std::array< fk::vector< P, mem_type::owner, resrc >, 2 > workspace;
+  /* alpha and beta arguments for BLAS gemm call */
+  P const alpha;
+  P const beta;
+
+  /* length of output vector */
+  int const y_size;
+
+  /* alternating input and output of each stage */
+  std::array<fk::vector<P, mem_type::owner, resrc>, 2> workspace;
+
+private:
+  /* "in" and "out" are state variables that indicate the index of the input and output vector,
+     respectively, within "workspace", that the next batch_set will use */
+  /* "in" alternates between 0 and 1 starting at 0. */
+  int in;
+  /* "out" alternates between 0 and 1 starting at 1. */
+  int out;
 };
 
-template< typename P, resource resrc >
-fk::vector< P, mem_type::owner, resrc >
-execute_batch_job( batch_job< P, resrc > &bj )
-{
-  for( auto const &bs : bj.batches )
-  {
-    batched_gemm( bs.left, bs.right, bs.product, bj.alpha, bj.beta );
-  }
+/* Given a list of matrices in "matrix" and a vector "x", this function creates a "batch_job"
+   object and populates it with "batch_set" objects. The result will be sent to
+   "execute_batch_job". The dataflow delineated in the batch_job implements the problem */
+template<typename P, resource resrc>
+batch_job<P, resrc>
+kron_batch(std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrix,
+           fk::vector<P, mem_type::view, resrc> const &x);
 
-  fk::vector< P, mem_type::view, resrc > v( bj.get_input_workspace(), 0, bj.y_size - 1 );
+/* extern explicit instantiations */
+extern template batch_job<float, resource::device>
+kron_batch(std::vector<fk::matrix<float, mem_type::view, resource::device>> const &matrix,
+           fk::vector<float, mem_type::view, resource::device> const &x);
 
-  fk::vector< P, mem_type::owner, resrc > r(v);
+extern template batch_job<float, resource::host>
+kron_batch(std::vector<fk::matrix<float, mem_type::view, resource::host>> const &matrix,
+           fk::vector<float, mem_type::view, resource::host> const &x);
 
-  return r;
-}
+extern template batch_job<double, resource::device>
+kron_batch(std::vector<fk::matrix<double, mem_type::view, resource::device>> const &matrix,
+           fk::vector<double, mem_type::view, resource::device> const &x);
 
-template< typename P, resource resrc >
-batch_job< P, resrc >
-kron_batch( std::vector< fk::matrix< P, mem_type::view, resrc > > const &matrix, 
-      fk::vector< P, mem_type::view, resrc > const &x )
-{
-  assert( matrix.size() > 0 );
+extern template batch_job<double, resource::host>
+kron_batch(std::vector<fk::matrix<double, mem_type::view, resource::host>> const &matrix,
+           fk::vector<double, mem_type::view, resource::host> const &x);
 
-  /* ensure "x" is correct size */
-  assert( x.size() == std::accumulate( matrix.begin(), matrix.end(), 1, 
-                           []( int const i, auto const &m )
-                           {
-                             return i * m.ncols();
-                           } ) );
+/* explicit instantiations */
+extern template class batch_job<double, resource::device >;
+extern template class batch_job<double, resource::host>;
+extern template class batch_job<float, resource::device >;
+extern template class batch_job<float, resource::host>;
 
-  /* determine correct workspace length */
-  int const workspace_len = calculate_workspace_len( matrix, x.size() );
+/* Given a batch_job class that describes the dataflow of the problem described at top of file,
+   this function carries out the math */
+template<typename P, resource resrc>
+fk::vector<P, mem_type::owner, resrc>
+execute_batch_job(batch_job<P, resrc> &job);
 
-  int const y_size = std::accumulate( matrix.begin(), matrix.end(), 1, 
-                           []( int const i, auto const &m )
-                           {
-                             return i * m.nrows();
-                           } );
+extern template
+fk::vector< double, mem_type::owner, resource::device >
+execute_batch_job< double, resource::device >
+(batch_job<double, resource::device > &job);
 
-  batch_job< P, resrc > job( 1, 0, workspace_len, x, y_size );
+extern template fk::vector< float, mem_type::owner, resource::device >
+execute_batch_job< float, resource::device >
+(batch_job<float, resource::device > &job);
 
-  /* Below is a loop unrolled one iteration */
-  typename 
-  std::vector< fk::matrix< P, mem_type::view, resrc > >::const_reverse_iterator iter =
-  matrix.rbegin();
+extern template fk::vector< double, mem_type::owner, resource::host>
+execute_batch_job< double, resource::host>
+(batch_job<double, resource::host> &job);
 
-  {
-    int const rows = x.size() / iter->ncols();
+extern template fk::vector< float, mem_type::owner, resource::host>
+execute_batch_job< float, resource::host>
+(batch_job<float, resource::host> &job);
 
-    batch< P, resrc > left( 1, iter->nrows(), iter->ncols(), iter->stride(), false );
-    batch< P, resrc > right( 1, iter->ncols(), rows, iter->ncols(), false );
-    batch< P, resrc > product( 1, iter->nrows(), rows, iter->nrows(), false );
+/* Calculates necessary workspace length for the Kron algorithm. See .cpp file for more details */
+template<typename P, resource resrc>
+int calculate_workspace_len(
+    std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrix,
+    int const x_size);
 
-    fk::matrix< P, mem_type::view, resrc >
-    input( job.get_input_workspace(), iter->ncols(), rows, 0 );
+/* external explicit instantiations */
+extern template int calculate_workspace_len(
+    std::vector<fk::matrix<double, mem_type::view, resource::device >> const &matrix,
+    int const x_size);
 
-    fk::matrix< P, mem_type::view, resrc >
-    output( job.get_output_workspace(), iter->nrows(), rows, 0 );
+extern template int calculate_workspace_len(
+    std::vector<fk::matrix<double, mem_type::view, resource::host >> const &matrix,
+    int const x_size);
 
-    right.assign_entry(input, 0);
-    left.assign_entry( fk::matrix< P, mem_type::view, resrc >( (*iter ) ), 0);
-    product.assign_entry( output, 0 );
+extern template int calculate_workspace_len(
+    std::vector<fk::matrix<float, mem_type::view, resource::device >> const &matrix,
+    int const x_size);
 
-    batch_set< P, resrc > bs( std::move( left ), std::move( right ), std::move( product ) );
-
-    job.add_batch_set( std::move( bs ) );
-  }
-
-  int stride = iter->nrows();
-  int v_size = x.size() / iter->ncols() * iter->nrows();
-  ++iter;
-
-  for( ; iter != matrix.rend(); ++iter )
-  {
-    int const read_stride = stride * iter->ncols();
-    int const write_stride = stride * iter->nrows();
-    int const n_gemms = v_size / read_stride;
-
-    /* create a batch of matrices */
-    batch< P, resrc > left( n_gemms, stride, iter->ncols(), stride, false );
-    batch< P, resrc > right( n_gemms,
-                      iter->nrows(), 
-                      iter->ncols(), iter->stride(), true );
-    batch< P, resrc > product( n_gemms, stride, iter->nrows(), stride, false );
-
-    for( int j = 0; j < n_gemms; ++j )
-    {
-      fk::matrix< P, mem_type::view, resrc >
-      input( job.get_input_workspace(), stride, iter->ncols(), j * read_stride );
-
-      fk::matrix< P, mem_type::view, resrc >
-      output( job.get_output_workspace(), stride, iter->nrows(), j * write_stride );
-
-      left.assign_entry(input, j);
-      right.assign_entry( fk::matrix< P, mem_type::view, resrc >( (*iter ) ), j);
-      product.assign_entry( output, j );
-    }
-
-    batch_set< P, resrc > bs( std::move( left ), std::move( right ), std::move( product ) );
-
-    job.add_batch_set( std::move( bs ) );
-    
-    v_size = n_gemms * write_stride;
-    stride = write_stride;
-  }
-
-  return job;
-}
+extern template int calculate_workspace_len(
+    std::vector<fk::matrix<float, mem_type::view, resource::host >> const &matrix,
+    int const x_size);

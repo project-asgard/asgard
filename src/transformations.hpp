@@ -23,9 +23,9 @@ template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
 
 template<typename P>
-fk::vector<P>
-wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                     element_table const &table, int const memory_limit_MB);
+void wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
+                          element_table const &table, int const memory_limit_MB,
+                          fk::vector<P> &real_space);
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
@@ -152,6 +152,8 @@ transform_and_combine_dimensions(PDE<P> const &pde,
   return combine_dimensions(degree, table, start, stop, dimension_components);
 }
 
+int real_solution_size(PDE<P> &pde);
+
 /* extern instantiations */
 extern template fk::matrix<double>
 recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
@@ -165,13 +167,15 @@ gen_realspace_transform(PDE<double> const &pde);
 extern template std::vector<fk::matrix<float>>
 gen_realspace_transform(PDE<float> const &pde);
 
-extern template fk::vector<double>
-wavelet_to_realspace(PDE<double> const &pde,
-                     fk::vector<double> const &wave_space,
-                     element_table const &table, int const max_mem_mb);
-extern template fk::vector<float>
+extern template void wavelet_to_realspace(PDE<double> const &pde,
+                                          fk::vector<double> const &wave_space,
+                                          element_table const &table,
+                                          int const max_mem_mb,
+                                          fk::vector<double> &real_space);
+extern template void
 wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
-                     element_table const &table, int const max_mem_mb);
+                     element_table const &table, int const max_mem_mb,
+                     fk::vector<float> &real_space);
 
 extern template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,
@@ -179,3 +183,6 @@ combine_dimensions(int const, element_table const &, int const, int const,
 extern template fk::vector<float>
 combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
+
+extern template int real_solution_size(PDE<double> &pde);
+extern template int real_solution_size(PDE<float> &pde);
