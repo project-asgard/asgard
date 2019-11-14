@@ -8,31 +8,34 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
 {
   SECTION("linspace(0,1) returns 100 elements")
   {
-    fk::vector<TestType> test = linspace<TestType>(0, 1);
+    fk::vector<TestType> const test = linspace<TestType>(0, 1);
     REQUIRE(test.size() == 100);
   }
   SECTION("linspace(-1,1,9)")
   {
-    fk::vector<TestType> gold = fk::vector<TestType>(read_vector_from_txt_file(
+    fk::vector<TestType> const gold = fk::vector<
+        TestType>(read_vector_from_txt_file(
         "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_9.dat"));
     REQUIRE(gold.size() == 9);
-    fk::vector<TestType> test = linspace<TestType>(-1, 1, 9);
+    fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(1,-1,9)")
   {
-    fk::vector<TestType> gold = fk::vector<TestType>(read_vector_from_txt_file(
+    fk::vector<TestType> const gold = fk::vector<
+        TestType>(read_vector_from_txt_file(
         "../testing/generated-inputs/matlab_utilities/linspace_1_neg1_9.dat"));
     REQUIRE(gold.size() == 9);
-    fk::vector<TestType> test = linspace<TestType>(1, -1, 9);
+    fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(-1,1,8)")
   {
-    fk::vector<TestType> gold = fk::vector<TestType>(read_vector_from_txt_file(
+    fk::vector<TestType> const gold = fk::vector<
+        TestType>(read_vector_from_txt_file(
         "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_8.dat"));
     REQUIRE(gold.size() == 8);
-    fk::vector<TestType> test = linspace<TestType>(-1, 1, 8);
+    fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);
   }
 }
@@ -44,58 +47,58 @@ TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]", float,
 {
   SECTION("eye()")
   {
-    fk::matrix<TestType> gold{{1}};
-    fk::matrix<TestType> test = eye<TestType>();
+    fk::matrix<TestType> const gold{{1}};
+    fk::matrix<TestType> const test = eye<TestType>();
     REQUIRE(test == gold);
   }
   SECTION("eye(5)")
   {
     // clang-format off
-    fk::matrix<TestType> gold{
+    fk::matrix<TestType> const gold{
       {1, 0, 0, 0, 0},
       {0, 1, 0, 0, 0},
       {0, 0, 1, 0, 0},
       {0, 0, 0, 1, 0},
       {0, 0, 0, 0, 1},
     }; // clang-format on
-    fk::matrix<TestType> test = eye<TestType>(5);
+    fk::matrix<TestType> const test = eye<TestType>(5);
     REQUIRE(test == gold);
   }
   SECTION("eye(5,5)")
   {
     // clang-format off
-    fk::matrix<TestType> gold{
+    fk::matrix<TestType> const gold{
       {1, 0, 0, 0, 0},
       {0, 1, 0, 0, 0},
       {0, 0, 1, 0, 0},
       {0, 0, 0, 1, 0},
       {0, 0, 0, 0, 1},
     }; // clang-format on
-    fk::matrix<TestType> test = eye<TestType>(5, 5);
+    fk::matrix<TestType> const test = eye<TestType>(5, 5);
     REQUIRE(test == gold);
   }
   SECTION("eye(5,3)")
   {
     // clang-format off
-    fk::matrix<TestType> gold{
+    fk::matrix<TestType> const gold{
       {1, 0, 0},
       {0, 1, 0},
       {0, 0, 1},
       {0, 0, 0},
       {0, 0, 0},
     }; // clang-format on
-    fk::matrix<TestType> test = eye<TestType>(5, 3);
+    fk::matrix<TestType> const test = eye<TestType>(5, 3);
     REQUIRE(test == gold);
   }
   SECTION("eye(3,5)")
   {
     // clang-format off
-    fk::matrix<TestType> gold{
+    fk::matrix<TestType> const gold{
       {1, 0, 0, 0, 0},
       {0, 1, 0, 0, 0},
       {0, 0, 1, 0, 0},
     }; // clang-format on
-    fk::matrix<TestType> test = eye<TestType>(3, 5);
+    fk::matrix<TestType> const test = eye<TestType>(3, 5);
     REQUIRE(test == gold);
   }
 }
@@ -105,26 +108,26 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
 {
   SECTION("polyval(p = [3,2,1], x = [5,7,9])")
   {
-    fk::vector<TestType> p{3, 2, 1};
-    fk::vector<TestType> x{5, 7, 9};
-    fk::vector<TestType> gold{86, 162, 262};
-    fk::vector<TestType> test = polyval(p, x);
+    fk::vector<TestType> const p{3, 2, 1};
+    fk::vector<TestType> const x{5, 7, 9};
+    fk::vector<TestType> const gold{86, 162, 262};
+    fk::vector<TestType> const test = polyval(p, x);
     REQUIRE(test == gold);
   }
   SECTION("polyval(p = [4, 0, 1, 2], x = 2")
   {
-    fk::vector<TestType> p{4, 0, 1, 2};
-    TestType x    = 2;
-    TestType gold = 36;
-    TestType test = polyval(p, x);
+    fk::vector<TestType> const p{4, 0, 1, 2};
+    TestType const x    = 2;
+    TestType const gold = 36;
+    TestType const test = polyval(p, x);
     REQUIRE(test == gold);
   }
   SECTION("polyval(p = [4, 0, 1, 2], x = 0")
   {
-    fk::vector<TestType> p{4, 0, 1, 2};
-    TestType x    = 0;
-    TestType gold = 2;
-    TestType test = polyval(p, x);
+    fk::vector<TestType> const p{4, 0, 1, 2};
+    TestType const x    = 0;
+    TestType const gold = 2;
+    TestType const test = polyval(p, x);
     REQUIRE(test == gold);
   }
 }
@@ -182,31 +185,31 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
 
   int const needle = 7;
   // not capturing "needle" because https://stackoverflow.com/a/43468519
-  auto greater_eq = [](TestType i) { return i >= needle; };
+  auto const greater_eq = [](TestType i) { return i >= needle; };
+  auto const is_even    = [](TestType i) {
+    return (static_cast<int>(i) % 2) == 0;
+  };
 
-  auto is_even = [](TestType i) { return (static_cast<int>(i) % 2) == 0; };
   SECTION("empty find -- vector")
   {
-    fk::vector<int> gold;
+    fk::vector<int> const gold;
     REQUIRE(find(haystack, greater_eq) == gold);
   }
   SECTION("find a chunk -- vector")
   {
-    fk::vector<int> gold = {0, 2, 4};
+    fk::vector<int> const gold = {0, 2, 4};
     REQUIRE(find(haystack, is_even) == gold);
   }
 
-  fk::matrix<TestType> haystack_mat{{2, 3}, {4, 5}, {6, 6}};
+  fk::matrix<TestType> const haystack_mat{{2, 3}, {4, 5}, {6, 6}};
   SECTION("empty find -- matrix")
   {
-    fk::matrix<int> gold;
+    fk::matrix<int> const gold;
     REQUIRE(find(haystack_mat, greater_eq) == gold);
   }
   SECTION("find a chunk -- vector")
   {
-    //clang-format off
-    fk::matrix<int> gold = {{0, 0}, {1, 0}, {2, 0}, {2, 1}};
-    //clang-format on
+    fk::matrix<int> const gold = {{0, 0}, {1, 0}, {2, 0}, {2, 1}};
     REQUIRE(find(haystack_mat, is_even) == gold);
   }
 }
@@ -249,25 +252,19 @@ TEST_CASE("read_vector_from_bin_file returns expected vector", "[matlab]")
 {
   SECTION("read_vector_from_bin_file gets 100-element row vector")
   {
-    fk::vector<double> gold = linspace<double>(-1, 1);
-    fk::vector<double> test = read_vector_from_bin_file(
+    fk::vector<double> const gold = linspace<double>(-1, 1);
+    fk::vector<double> const test = read_vector_from_bin_file(
         "../testing/generated-inputs/matlab_utilities/"
         "read_vector_bin_neg1_1_100.dat");
     REQUIRE(test == gold);
   }
   SECTION("read_vector_from_bin_file gets 100-element column vector")
   {
-    fk::vector<double> gold = linspace<double>(-1, 1);
-    fk::vector<double> test = read_vector_from_bin_file(
+    fk::vector<double> const gold = linspace<double>(-1, 1);
+    fk::vector<double> const test = read_vector_from_bin_file(
         "../testing/generated-inputs/matlab_utilities/"
         "read_vector_bin_neg1_1_100T.dat");
     REQUIRE(test == gold);
-  }
-  SECTION("read_vector_from_bin_file fails on non-existent path")
-  {
-    fk::vector<double> test =
-        read_vector_from_bin_file("this/path/does/not/exist");
-    REQUIRE(test.size() == 0);
   }
 }
 
@@ -283,8 +280,8 @@ TEST_CASE("read_vector_from_txt_file returns expected vector", "[matlab]")
   }
   SECTION("read_vector_from_txt_file gets 100-element column vector")
   {
-    fk::vector<double> gold = linspace<double>(-1, 1);
-    fk::vector<double> test = read_vector_from_txt_file(
+    fk::vector<double> const gold = linspace<double>(-1, 1);
+    fk::vector<double> const test = read_vector_from_txt_file(
         "../testing/generated-inputs/matlab_utilities/"
         "read_vector_txt_neg1_1_100T.dat");
     REQUIRE(test == gold);
@@ -301,15 +298,9 @@ TEST_CASE("read_matrix_from_txt_file returns expected vector", "[matlab]")
       for (int j = 0; j < 5; j++)
         gold(i, j) = 17.0 / (i + 1 + j);
 
-    fk::matrix<double> test = read_matrix_from_txt_file(
+    fk::matrix<double> const test = read_matrix_from_txt_file(
         "../testing/generated-inputs/matlab_utilities/read_matrix_txt_5x5.dat");
     REQUIRE(test == gold);
-  }
-  SECTION("read_matrix_from_txt_file fails on non-existent path")
-  {
-    fk::matrix<double> test =
-        read_matrix_from_txt_file("this/path/does/not/exist");
-    REQUIRE(test.size() == 0);
   }
 }
 
@@ -332,7 +323,7 @@ TEMPLATE_TEST_CASE(
   {
     fk::matrix<TestType> matrix{{1, 3}, {2, 4}};
     fk::matrix<TestType> test = reshape<TestType>(matrix, 1, 4);
-    fk::matrix<TestType> gold{{1, 2, 3, 4}};
+    fk::matrix<TestType> const gold{{1, 2, 3, 4}};
     REQUIRE(test == gold);
   }
 
@@ -343,8 +334,9 @@ TEMPLATE_TEST_CASE(
                                 {3, 7, 11, 15, 19, 23},
                                 {4, 8, 12, 16, 20, 24}};
     fk::matrix<TestType> test = reshape<TestType>(matrix, 2, 12);
-    fk::matrix<TestType> gold{{1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23},
-                              {2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24}};
+    fk::matrix<TestType> const gold{
+        {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23},
+        {2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24}};
     REQUIRE(test == gold);
   }
 }
