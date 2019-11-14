@@ -354,7 +354,8 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   // read failed, return empty
   if (!infile)
   {
-    return {};
+    std::cout << "matrix not found at path" << '\n';
+    exit(-1);
   }
 
   std::string tmp_str;

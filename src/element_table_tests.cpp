@@ -24,9 +24,8 @@ void test_element_table(int const levels, int const dims,
 
 TEST_CASE("element table constructor/accessors/size", "[element_table]")
 {
-
-static std::string const gold_base =
-    "../testing/generated-inputs/element_table/element_table";
+  static std::string const gold_base =
+      "../testing/generated-inputs/element_table/element_table";
   SECTION("1D element table")
   {
     int const levels            = 2;
