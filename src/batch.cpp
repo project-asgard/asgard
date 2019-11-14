@@ -412,7 +412,7 @@ inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
   int const num_elems = num_elements_in_chunk(chunk);
 
   // add the first (lowest dimension) batch
-  int const num_gemms         = pde.num_terms * num_elems;
+  int const num_gemms = pde.num_terms * num_elems;
 
   batches[0][0].set_num_entries(num_gemms);
   batches[0][1].set_num_entries(num_gemms);
@@ -953,7 +953,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         std::vector<P *> const work_ptrs = [&workspace, work_index,
                                             num_workspaces, elem_size]() {
           std::vector<P *> work_ptrs(num_workspaces);
-          work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
+          if (num_workspaces > 0)
+            work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
           if (num_workspaces == 2)
             work_ptrs[1] =
                 workspace.batch_intermediate.data() + work_index + elem_size;
