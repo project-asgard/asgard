@@ -697,10 +697,14 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, elements_in_chunk);
 
-  // i: row we are addressing in element grid
-  // connected: start/stop for this row
-  for (auto const &[i, connected] : chunk)
+  // can't use structured binding; variables passed into outlined omp func
+  for (auto const &row_info : chunk)
   {
+    // i: row we are addressing in element grid
+    auto const i = row_info.first;
+    // connected: start/stop for this row
+    auto const connected = row_info.second;
+
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
