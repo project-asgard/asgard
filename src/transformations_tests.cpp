@@ -172,7 +172,6 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     assert(wave_space_size < INT_MAX);
     fk::vector<P> wave_space(wave_space_size);
 
-    /* simple wave space function to transform */
     for (int i = 0; i < wave_space.size(); ++i)
     {
       wave_space(i) = arbitrary_func(i);
@@ -237,15 +236,14 @@ void test_gen_realspace_transform(PDE<P> const &pde,
 {
   std::vector<fk::matrix<P>> const transforms = gen_realspace_transform(pde);
 
-  int i = 0;
-  for (auto const &transform : transforms)
+  for (int i = 0; i < static_cast<int>(transforms.size()); ++i)
   {
-    fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(
-        gold_filename + std::to_string(i++) + ".dat"));
+    fk::matrix<P> const gold = fk::matrix<P>(
+        read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
     // determined emprically 11/19
     // FIXME these are high relative to other components...
     auto const gen_tol_fac = std::is_same<float, P>::value ? 1e2 : 1e6;
-    relaxed_comparison(gold, transform, gen_tol_fac);
+    relaxed_comparison(gold, transforms[i], gen_tol_fac);
   }
 }
 
