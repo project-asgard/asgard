@@ -83,8 +83,9 @@ TEST_CASE("subgrid struct", "[distribution]")
   }
 }
 
-auto const check_coverage = [](element_table const &table,
-                               distribution_plan const &to_test) {
+void check_coverage(element_table const &table,
+                    distribution_plan const &to_test)
+{
   enum element_status
   {
     unassigned,
@@ -100,26 +101,20 @@ auto const check_coverage = [](element_table const &table,
     {
       for (int col = grid.col_start; col <= grid.col_stop; ++col)
       {
-        if (coverage(row, col) != element_status::unassigned)
-        {
-          return false;
-        }
+        REQUIRE(coverage(row, col) == element_status::unassigned);
         coverage(row, col) = element_status::assigned;
       }
     }
   }
   for (auto const &elem : coverage)
   {
-    if (elem != element_status::assigned)
-    {
-      return false;
-    }
+    REQUIRE(elem == element_status::assigned);
   }
-  return true;
-};
+}
 
-auto const check_even_sizing = [](element_table const &table,
-                                  distribution_plan const &to_test) {
+void check_even_sizing(element_table const &table,
+                       distribution_plan const &to_test)
+{
   auto const size = to_test.at(0).size();
   for (auto const &[rank, grid] : to_test)
   {
@@ -130,10 +125,10 @@ auto const check_even_sizing = [](element_table const &table,
                     // another's (in the case of uneven division of elements
                     // by number of ranks) by one row and one column
   }
-};
+}
 
-auto const check_rowmaj_layout = [](distribution_plan const &to_test,
-                                    int const num_cols) {
+void check_rowmaj_layout(distribution_plan const &to_test, int const num_cols)
+{
   for (auto const &[rank, grid] : to_test)
   {
     int const my_col = rank % num_cols;
@@ -142,7 +137,7 @@ auto const check_rowmaj_layout = [](distribution_plan const &to_test,
       REQUIRE(grid.col_start == to_test.at(rank - 1).col_stop + 1);
     }
   }
-};
+}
 
 TEST_CASE("rank subgrid function", "[distribution]")
 {
