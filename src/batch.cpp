@@ -414,9 +414,12 @@ inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
   // add the first (lowest dimension) batch
   int const num_gemms = pde.num_terms * num_elems;
 
-  batches[0][0].set_num_entries(num_gemms);
-  batches[0][1].set_num_entries(num_gemms);
-  batches[0][2].set_num_entries(num_gemms);
+  // FIXME note clearing isn't required; just helps us
+  // check that entries aren't being overwritten by mistake.
+  // could be removed for performance
+  batches[0][0].set_num_entries(num_gemms).clear_all();
+  batches[0][1].set_num_entries(num_gemms).clear_all();
+  batches[0][2].set_num_entries(num_gemms).clear_all();
 
   // remaining batches
   for (int i = 1; i < pde.num_dims; ++i)
@@ -424,9 +427,9 @@ inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
     int const num_gemms =
         compute_batch_size(degree, pde.num_dims, i) * pde.num_terms * num_elems;
 
-    batches[i][0].set_num_entries(num_gemms);
-    batches[i][1].set_num_entries(num_gemms);
-    batches[i][2].set_num_entries(num_gemms);
+    batches[i][0].set_num_entries(num_gemms).clear_all();
+    batches[i][1].set_num_entries(num_gemms).clear_all();
+    batches[i][2].set_num_entries(num_gemms).clear_all();
   }
 }
 
