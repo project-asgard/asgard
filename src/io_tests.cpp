@@ -11,8 +11,8 @@ TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", double, float, int)
     std::string const output_dataset_name("asgard_test");
 
     // the golden values
-    std::vector<TestType> const gold_vec1{1, 2, 3, 4, 5};
-    std::vector<TestType> const gold_vec2{5, 6, 7, 8, 9};
+    fk::vector<TestType> const gold_vec1{1, 2, 3, 4, 5};
+    fk::vector<TestType> const gold_vec2{5, 6, 7, 8, 9};
 
     // setup output file and write initial condition
     auto output_dataset = initialize_output_file(gold_vec1);
