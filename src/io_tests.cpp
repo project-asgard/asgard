@@ -30,7 +30,7 @@ TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", double, float, int)
     REQUIRE(vec1.size() == gold_vec1.size());
     REQUIRE(vec2.size() == gold_vec2.size());
 
-    for (int i = 0; i < static_cast<int>(vec.size()); i++)
+    for (int i = 0; i < static_cast<int>(vec1.size()); i++)
     {
       REQUIRE(vec1[i] == gold_vec1[i]);
       REQUIRE(vec2[i] == gold_vec2[i]);
