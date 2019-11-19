@@ -28,7 +28,7 @@ grid_limits columns_in_chunk(element_chunk const &g)
   int const min_col =
       (*std::min_element(g.begin(), g.end(),
                          [](auto const &a, auto const &b) {
-                           return a.second.start < b.second.stop;
+                           return a.second.start < b.second.start;
                          }))
           .second.start;
 
