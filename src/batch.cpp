@@ -293,7 +293,6 @@ void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
   assert(!b.get_trans() && !c.get_trans());
 
   // check dimensions for gemv
-  int const rows_a = a.get_trans() ? a.ncols() : a.nrows();
   int const cols_a = a.get_trans() ? a.nrows() : a.ncols();
   int const rows_b = b.nrows();
 
@@ -302,8 +301,8 @@ void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
   assert(c.ncols() == 1);
 
   // setup blas args
-  int m   = rows_a;
-  int n   = cols_a;
+  int m   = a.nrows();
+  int n   = a.ncols();
   int lda = a.get_stride();
 
   char const transpose_a = a.get_trans() ? 't' : 'n';
