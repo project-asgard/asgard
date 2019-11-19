@@ -950,7 +950,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     else
     {
       relaxed_comparison(effect_c(matrices[2][i].clone_onto_host()),
-                         effect_c(matrices[3][i].clone_onto_host()));
+                         effect_c(matrices[3][i].clone_onto_host()), 1e3);
     }
   }
 }

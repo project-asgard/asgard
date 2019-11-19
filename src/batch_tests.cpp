@@ -767,6 +767,7 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
   fk::vector<P, mem_type::view, resource::device> const x_view(x);
   fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
                                                          num_terms);
+
   fk::vector<P, mem_type::owner> gold(x_size * num_elems * num_terms);
 
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
@@ -847,25 +848,25 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
 
 TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 {
-  /* SECTION("1 element, 1d, 1 term")
-   {
-     int const degree    = 4;
-     int const level     = 2;
-     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-     int const num_terms = 1;
-     int const num_elems = 1;
-     test_kronmult_batching(*pde, num_terms, num_elems);
-   }
+  SECTION("1 element, 1d, 1 term")
+  {
+    int const degree = 4;
+    int const level  = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    int const num_terms = 1;
+    int const num_elems = 1;
+    test_kronmult_batching(*pde, num_terms, num_elems);
+  }
 
-   SECTION("2 elements, 1d, 1 term")
-   {
-     int const degree    = 4;
-     int const level     = 2;
-     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-     int const num_terms = 1;
-     int const num_elems = 2;
-     test_kronmult_batching(*pde, num_terms, num_elems);
-   }*/
+  SECTION("2 elements, 1d, 1 term")
+  {
+    int const degree = 4;
+    int const level  = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    int const num_terms = 1;
+    int const num_elems = 2;
+    test_kronmult_batching(*pde, num_terms, num_elems);
+  }
 
   SECTION("2 elements, 2d, 2 terms")
   {
@@ -876,24 +877,26 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
     int const num_elems = 2;
     test_kronmult_batching(*pde, num_terms, num_elems);
   }
-  /*
-    SECTION("1 element, 3d, 3 terms")
-    {
-      int const degree    = 5;
-      int const level     = 2;
-      auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level,
-  degree); int const num_terms = 3; int const num_elems = 1;
-      test_kronmult_batching(*pde, num_terms, num_elems);
-    }
 
-    SECTION("3 elements, 6d, 6 terms")
-    {
-      int const degree    = 2;
-      int const level     = 2;
-      auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level,
-  degree); int const num_terms = 6; int const num_elems = 3;
-      test_kronmult_batching(*pde, num_terms, num_elems);
-  }*/
+  SECTION("1 element, 3d, 3 terms")
+  {
+    int const degree = 5;
+    int const level  = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    int const num_terms = 3;
+    int const num_elems = 1;
+    test_kronmult_batching(*pde, num_terms, num_elems);
+  }
+
+  SECTION("3 elements, 6d, 6 terms")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    int const num_terms = 6;
+    int const num_elems = 3;
+    test_kronmult_batching(*pde, num_terms, num_elems);
+  }
 }
 
 // FIXME - these functions shim safe kronmult batching calls into unsafe ones
