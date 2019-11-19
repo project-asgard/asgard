@@ -8,18 +8,21 @@
 #include <numeric>
 
 template<typename P>
-void test_combine_dimensions(PDE<P> const &pde, int const lev, int const deg,
-                             P const time = 1.0, int const num_ranks = 1,
+void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
+                             int const num_ranks  = 1,
                              bool const full_grid = false)
 {
   int const dims = pde.num_dims;
+
+  // FIXME assuming uniform degree across dims
+  dimension const dim = pde.get_dimensions()[0];
+  int const lev       = dim.get_level();
+  int const deg       = dim.get_degree();
+
   std::string const filename =
       "../testing/generated-inputs/transformations/combine_dim_dim" +
       std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
       std::to_string(lev) + "_" + (full_grid ? "fg" : "sg") + ".dat";
-
-  // FIXME assuming uniform degree across dims
-  dimension const dim = pde.get_dimensions()[0];
 
   std::string const grid_str = full_grid ? "-f" : "";
   options const o            = make_options(
@@ -68,7 +71,7 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
     int const deg       = 2;
     auto const pde      = make_PDE<TestType>(PDE_opts::continuity_2, lev, deg);
     TestType const time = 2.0;
-    test_combine_dimensions(*pde, lev, deg, time);
+    test_combine_dimensions(*pde, time);
   }
 
   SECTION("combine dimensions, dim = 2, deg = 2, lev = 3, 8 ranks")
@@ -78,7 +81,7 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
     auto const pde      = make_PDE<TestType>(PDE_opts::continuity_2, lev, deg);
     int const num_ranks = 8;
     TestType const time = 2.0;
-    test_combine_dimensions(*pde, lev, deg, time, num_ranks);
+    test_combine_dimensions(*pde, time, num_ranks);
   }
 
   SECTION("combine dimensions, dim = 3, deg = 3, lev = 2, full grid")
@@ -89,7 +92,7 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
     int const num_ranks  = 20;
     TestType const time  = 2.5;
     bool const full_grid = true;
-    test_combine_dimensions(*pde, lev, deg, time, num_ranks, full_grid);
+    test_combine_dimensions(*pde, time, num_ranks, full_grid);
   }
 }
 

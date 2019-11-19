@@ -629,12 +629,13 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[batch]",
   }
 }
 template<typename P>
-void test_batch_allocator(PDE<P> const &pde, int const degree,
-                          int const num_elems)
+void test_batch_allocator(PDE<P> const &pde, int const num_elems)
 {
+  // FIXME assume uniform level and degree
+  int const degree = pde.get_dimensions()[0].get_degree();
+
   auto const batches = allocate_batches(pde, num_elems);
   REQUIRE(batches.size() == pde.num_dims);
-
   for (int i = 0; i < pde.num_dims; ++i)
   {
     int const gold_size = [&] {
@@ -687,7 +688,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const degree    = 3;
     int const num_elems = 60;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    test_batch_allocator(*pde, degree, num_elems);
+    test_batch_allocator(*pde, num_elems);
   }
 
   SECTION("1d, deg 6")
@@ -696,7 +697,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const degree    = 6;
     int const num_elems = 400;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    test_batch_allocator(*pde, degree, num_elems);
+    test_batch_allocator(*pde, num_elems);
   }
 
   SECTION("2d, deg 2")
@@ -705,7 +706,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const degree    = 2;
     int const num_elems = 101;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    test_batch_allocator(*pde, degree, num_elems);
+    test_batch_allocator(*pde, num_elems);
   }
 
   SECTION("2d, deg 5")
@@ -714,7 +715,7 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const degree    = 5;
     int const num_elems = 251;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    test_batch_allocator(*pde, degree, num_elems);
+    test_batch_allocator(*pde, num_elems);
   }
   SECTION("6d, deg 4")
   {
@@ -722,524 +723,177 @@ TEMPLATE_TEST_CASE("batch allocator", "[batch]", float, double)
     int const degree    = 4;
     int const num_elems = 100;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    test_batch_allocator(*pde, degree, num_elems);
+    test_batch_allocator(*pde, num_elems);
   }
+}
+
+template<typename P>
+void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
+                            int const num_elems)
+{
+  // FIXME assume uniform level and degree
+  auto const dim_0 = pde.get_dimensions()[0];
+  int const degree = dim_0.get_degree();
+  int const level  = dim_0.get_level();
+
+  // first, create example coefficient matrices in the pde
+  int const dof = degree * std::pow(2, level);
+  std::vector<fk::matrix<P>> A_mats_h(num_terms * pde.num_dims,
+                                      fk::matrix<P>(dof, dof));
+
+  // create different matrices for each term/dim pairing
+  int start = 1;
+
+  std::vector<fk::matrix<P, mem_type::owner, resource::device>> A_mats;
+  for (fk::matrix<P> &mat : A_mats_h)
+  {
+    std::iota(mat.begin(), mat.end(), start);
+    start += dof;
+    A_mats.push_back(fk::matrix<P, mem_type::owner, resource::device>(
+        mat.clone_onto_device()));
+  }
+
+  // create input vector
+  int const x_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  fk::vector<P> x_h(x_size);
+  std::iota(x_h.begin(), x_h.end(), 1);
+  fk::vector<P, mem_type::owner, resource::device> const x(
+      x_h.clone_onto_device());
+
+  std::vector<batch_operands_set<P>> batches = allocate_batches(pde, num_elems);
+
+  // create intermediate workspaces
+  // and output vectors
+  fk::vector<P, mem_type::view, resource::device> const x_view(x);
+  fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
+                                                         num_terms);
+  fk::vector<P, mem_type::owner> gold(x_size * num_elems * num_terms);
+
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  fk::vector<P, mem_type::owner, resource::device> work_own(
+      x_size * num_elems * num_terms * num_workspaces);
+
+  for (int i = 0; i < num_elems; ++i)
+  {
+    for (int j = 0; j < pde.num_terms; ++j)
+    {
+      // linearize index
+      int const kron_index = i * num_terms + j;
+
+      // address y space
+      int const y_index = x_size * kron_index;
+      int const work_index =
+          x_size * kron_index * std::min(pde.num_dims - 1, 2);
+      fk::vector<P, mem_type::view, resource::device> y_view(
+          y_own, y_index, y_index + x_size - 1);
+      fk::vector<P, mem_type::view> gold_view(gold, y_index,
+                                              y_index + x_size - 1);
+
+      // intermediate workspace
+      std::vector<fk::vector<P, mem_type::view, resource::device>> work_views(
+          num_workspaces, fk::vector<P, mem_type::view, resource::device>(
+                              work_own, work_index, work_index + x_size - 1));
+      if (num_workspaces == 2)
+      {
+        work_views[1] = fk::vector<P, mem_type::view, resource::device>(
+            work_own, work_index + x_size, work_index + x_size * 2 - 1);
+      }
+
+      // create A_views
+      std::vector<fk::matrix<P, mem_type::view, resource::device>> A_views;
+      std::vector<fk::matrix<P, mem_type::view>> A_views_h;
+      for (int k = 0; k < pde.num_dims; ++k)
+      {
+        int const start_row = degree * i;
+        int const stop_row  = degree * (i + 1) - 1;
+        int const start_col = 0;
+        int const stop_col  = degree - 1;
+        A_views.push_back(fk::matrix<P, mem_type::view, resource::device>(
+            A_mats[j * pde.num_dims + k], start_row, stop_row, start_col,
+            stop_col));
+        A_views_h.push_back(fk::matrix<P, mem_type::view>(
+            A_mats_h[j * pde.num_dims + k], start_row, stop_row, start_col,
+            stop_col));
+      }
+
+      int const batch_offset = kron_index;
+      kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
+                             batch_offset, pde);
+
+      fk::matrix<P> gold_mat = {{1}};
+      for (int i = A_views_h.size() - 1; i >= 0; --i)
+      {
+        fk::matrix<P> const partial_result = gold_mat.kron(A_views_h[i]);
+        gold_mat.clear_and_resize(partial_result.nrows(),
+                                  partial_result.ncols()) = partial_result;
+      }
+      gold_view = gold_mat * x_h;
+    }
+  }
+
+  for (int k = 0; k < pde.num_dims; ++k)
+  {
+    batch<P> const a = batches[k][0];
+    batch<P> const b = batches[k][1];
+    batch<P> const c = batches[k][2];
+    P const alpha    = 1.0;
+    P const beta     = 0.0;
+    batched_gemm(a, b, c, alpha, beta);
+  }
+
+  fk::vector<P> const y_h(y_own.clone_onto_host());
+  relaxed_comparison(y_h, gold);
 }
 
 TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 {
-  SECTION("1 element, 1d, 1 term")
-  {
-    int const degree    = 4;
-    int const level     = 2;
-    int const num_elems = 1;
+  /* SECTION("1 element, 1d, 1 term")
+   {
+     int const degree    = 4;
+     int const level     = 2;
+     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+     int const num_terms = 1;
+     int const num_elems = 1;
+     test_kronmult_batching(*pde, num_terms, num_elems);
+   }
 
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    // clang-format off
-    fk::matrix<TestType> const A {
-        { 2,  3,  4,  5}, 
-	{ 6,  7,  8,  9}, 
-	{10, 11, 12, 13}, 
-	{14, 15, 16, 17}};
-    // clang-format on
-
-    auto coeff = pde->get_coefficients(0, 0).clone_onto_host();
-    coeff.set_submatrix(0, 0, A);
-    fk::matrix<TestType, mem_type::owner, resource::device> const
-        coefficient_matrix(coeff.clone_onto_device());
-
-    fk::vector<TestType> const x_h{18, 19, 20, 21};
-    fk::vector<TestType, mem_type::owner, resource::device> const x(
-        x_h.clone_onto_device());
-    fk::vector<TestType> const gold = A * x_h;
-
-    std::vector<batch_operands_set<TestType>> batches =
-        allocate_batches(*pde, num_elems);
-
-    fk::matrix<TestType, mem_type::view, resource::device> const coeff_view(
-        coefficient_matrix, 0, degree - 1, 0, degree - 1);
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
-        As = {coeff_view};
-    fk::vector<TestType, mem_type::view, resource::device> const x_view(x);
-    fk::vector<TestType, mem_type::owner, resource::device> y_own(degree);
-    fk::vector<TestType, mem_type::view, resource::device> y(y_own);
-    std::vector<fk::vector<TestType, mem_type::view, resource::device>>
-        work_set           = {};
-    int const batch_offset = 0;
-
-    kronmult_to_batch_sets(As, x_view, y, work_set, batches, batch_offset,
-                           *pde);
-
-    batch<TestType> const a = batches[0][0];
-    batch<TestType> const b = batches[0][1];
-    batch<TestType> const c = batches[0][2];
-
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
-
-    fk::vector<TestType, mem_type::owner> const y_h(y.clone_onto_host());
-    REQUIRE(gold == y_h);
-  }
-
-  SECTION("2 elements, 1d, 1 term")
-  {
-    int const degree    = 4;
-    int const level     = 2;
-    int const num_elems = 2;
-
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    // clang-format off
-    fk::matrix<TestType> const A {
-        { 2,  3,  4,  5,  6,  7}, 
-	{ 8,  9, 10, 11, 12, 13}, 
-	{14, 15, 16, 17, 18, 19}, 
-	{20, 21, 22, 23, 24, 25}, 
-	{26, 27, 28, 29, 30, 31}, 
-	{32, 33, 34, 35, 36, 37}};
-    // clang-format on
-
-    auto coeff = pde->get_coefficients(0, 0).clone_onto_host();
-    coeff.set_submatrix(0, 0, A);
-    fk::matrix<TestType, mem_type::owner, resource::device> const
-        coefficient_matrix(coeff.clone_onto_device());
-
-    fk::vector<TestType> const x_h{18, 19, 20, 21};
-    fk::vector<TestType, mem_type::owner, resource::device> const x(
-        x_h.clone_onto_device());
-    std::vector<batch_operands_set<TestType>> batches =
-        allocate_batches(*pde, num_elems);
-
-    // each element addresses a slightly different part of the underlying
-    // coefficients
-    fk::matrix<TestType, mem_type::view, resource::device> const A_view_e0(
-        coefficient_matrix, 0, degree - 1, 0, degree - 1);
-    fk::matrix<TestType, mem_type::view, resource::device> const A_view_e1(
-        coefficient_matrix, 2, 2 + degree - 1, 2, 2 + degree - 1);
-
-    fk::matrix<TestType, mem_type::view> const A_view_e0_h(A, 0, degree - 1, 0,
-                                                           degree - 1);
-    fk::matrix<TestType, mem_type::view> const A_view_e1_h(A, 2, 2 + degree - 1,
-                                                           2, 2 + degree - 1);
-
-    fk::vector<TestType> const gold_e0 = A_view_e0_h * x_h;
-    fk::vector<TestType> const gold_e1 = A_view_e1_h * x_h;
-    fk::vector<TestType> const gold    = gold_e0 + gold_e1;
-
-    fk::vector<TestType, mem_type::view, resource::device> const x_view(x);
-    fk::vector<TestType, mem_type::owner, resource::device> y_own(degree *
-                                                                  num_elems);
-
-    // schedule gemms for both elements
-    int batch_offset = 0;
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
-        As_e0 = {A_view_e0};
-    fk::vector<TestType, mem_type::view, resource::device> y_e0(y_own, 0,
-                                                                degree - 1);
-    std::vector<fk::vector<TestType, mem_type::view, resource::device>>
-        work_set_e0 = {};
-    kronmult_to_batch_sets(As_e0, x_view, y_e0, work_set_e0, batches,
-                           batch_offset, *pde);
-
-    batch_offset = 1;
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
-        As_e1 = {A_view_e1};
-    fk::vector<TestType, mem_type::view, resource::device> y_e1(
-        y_own, degree, y_own.size() - 1);
-    std::vector<fk::vector<TestType, mem_type::view, resource::device>>
-        work_set_e1 = {};
-
-    kronmult_to_batch_sets(As_e1, x_view, y_e1, work_set_e1, batches,
-                           batch_offset, *pde);
-
-    batch<TestType> const a = batches[0][0];
-    batch<TestType> const b = batches[0][1];
-    batch<TestType> const c = batches[0][2];
-
-    TestType const alpha = 1.0;
-    TestType const beta  = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
-
-    fk::vector<TestType> const y_e0_h(y_e0.clone_onto_host());
-    fk::vector<TestType> const y_e1_h(y_e1.clone_onto_host());
-
-    REQUIRE(gold_e0 == y_e0_h);
-    REQUIRE(gold_e1 == y_e1_h);
-    REQUIRE(gold == (y_e0_h + y_e1_h));
-  }
+   SECTION("2 elements, 1d, 1 term")
+   {
+     int const degree    = 4;
+     int const level     = 2;
+     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+     int const num_terms = 1;
+     int const num_elems = 2;
+     test_kronmult_batching(*pde, num_terms, num_elems);
+   }*/
 
   SECTION("2 elements, 2d, 2 terms")
   {
-    int const degree    = 5;
-    int const level     = 2;
-    int const num_elems = 2;
+    int const degree = 2;
+    int const level  = 2;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
     int const num_terms = 2;
-    int const num_dims  = 2;
-    // first, create example coefficient matrices in the pde
-    int const dof = degree * std::pow(2, level);
-    std::array<fk::matrix<TestType>, num_terms *num_dims> A_mats_h = {
-        fk::matrix<TestType>(dof, dof), fk::matrix<TestType>(dof, dof),
-        fk::matrix<TestType>(dof, dof), fk::matrix<TestType>(dof, dof)};
-
-    // create different matrices for each term/dim pairing
-    int start = 1;
-
-    std::vector<fk::matrix<TestType, mem_type::owner, resource::device>> A_mats;
-    for (fk::matrix<TestType> &mat : A_mats_h)
-    {
-      std::iota(mat.begin(), mat.end(), start);
-      start += dof;
-      A_mats.push_back(fk::matrix<TestType, mem_type::owner, resource::device>(
-          mat.clone_onto_device()));
-    }
-
-    // create input vector
-    int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
-    fk::vector<TestType> x_h(x_size);
-    std::iota(x_h.begin(), x_h.end(), 1);
-    fk::vector<TestType, mem_type::owner, resource::device> const x(
-        x_h.clone_onto_device());
-
-    std::vector<batch_operands_set<TestType>> batches =
-        allocate_batches(*pde, num_elems);
-
-    // create intermediate workspaces
-    // and output vectors
-    fk::vector<TestType, mem_type::view, resource::device> const x_view(x);
-    fk::vector<TestType, mem_type::owner, resource::device> y_own(
-        x_size * num_elems * num_terms);
-    fk::vector<TestType, mem_type::owner> gold(x_size * num_elems * num_terms);
-    fk::vector<TestType, mem_type::owner, resource::device> work_own(
-        x_size * num_elems * num_terms * std::min(num_dims - 1, 2));
-
-    for (int i = 0; i < num_elems; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        // linearize index
-        int const kron_index = i * num_terms + j;
-
-        // address y space
-        int const y_index    = x_size * kron_index;
-        int const work_index = x_size * kron_index * std::min(num_dims - 1, 2);
-        fk::vector<TestType, mem_type::view, resource::device> y_view(
-            y_own, y_index, y_index + x_size - 1);
-        fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
-                                                       y_index + x_size - 1);
-
-        // intermediate workspace
-        std::vector<fk::vector<TestType, mem_type::view, resource::device>>
-            work_views = {
-                fk::vector<TestType, mem_type::view, resource::device>(
-                    work_own, work_index, work_index + x_size - 1)};
-
-        // create A_views
-        std::vector<fk::matrix<TestType, mem_type::view, resource::device>>
-            A_views;
-        std::vector<fk::matrix<TestType, mem_type::view>> A_views_h;
-        for (int k = 0; k < pde->num_dims; ++k)
-        {
-          int const start_row = degree * i;
-          int const stop_row  = degree * (i + 1) - 1;
-          int const start_col = 0;
-          int const stop_col  = degree - 1;
-          A_views.push_back(
-              fk::matrix<TestType, mem_type::view, resource::device>(
-                  A_mats[j * num_dims + k], start_row, stop_row, start_col,
-                  stop_col));
-
-          A_views_h.push_back(fk::matrix<TestType, mem_type::view>(
-              A_mats_h[j * num_dims + k], start_row, stop_row, start_col,
-              stop_col));
-        }
-
-        int const batch_offset = kron_index;
-        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
-                               batch_offset, *pde);
-
-        gold_view = (A_views_h[1].kron(A_views_h[0])) * x_h;
-      }
-    }
-
-    for (int k = 0; k < pde->num_dims; ++k)
-    {
-      batch<TestType> const a = batches[k][0];
-      batch<TestType> const b = batches[k][1];
-      batch<TestType> const c = batches[k][2];
-      TestType const alpha    = 1.0;
-      TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta);
-    }
-
-    fk::vector<TestType> const y_h(y_own.clone_onto_host());
-    REQUIRE(y_h == gold);
+    int const num_elems = 2;
+    test_kronmult_batching(*pde, num_terms, num_elems);
   }
-
-  SECTION("1 element, 3d, 3 terms")
-  {
-    int const degree    = 5;
-    int const level     = 2;
-    int const num_elems = 1;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-
-    int const num_terms = 3;
-    int const num_dims  = 3;
-    // first, create example coefficient matrices in the pde
-    int const dof = degree * std::pow(2, level);
-    std::vector<fk::matrix<TestType>> A_mats_h;
-    for (int i = 0; i < num_terms * num_dims; ++i)
+  /*
+    SECTION("1 element, 3d, 3 terms")
     {
-      A_mats_h.push_back(fk::matrix<TestType>(dof, dof));
+      int const degree    = 5;
+      int const level     = 2;
+      auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level,
+  degree); int const num_terms = 3; int const num_elems = 1;
+      test_kronmult_batching(*pde, num_terms, num_elems);
     }
 
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto const gen = [&dist, &mersenne_engine]() {
-      return dist(mersenne_engine);
-    };
-
-    // create different matrices for each term/dim pairing
-    std::vector<fk::matrix<TestType, mem_type::owner, resource::device>> A_mats;
-    for (fk::matrix<TestType> &mat : A_mats_h)
+    SECTION("3 elements, 6d, 6 terms")
     {
-      std::generate(mat.begin(), mat.end(), gen);
-      A_mats.push_back(fk::matrix<TestType, mem_type::owner, resource::device>(
-          mat.clone_onto_device()));
-    }
-
-    // create input vector
-    int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
-    fk::vector<TestType> x_h(x_size);
-    std::generate(x_h.begin(), x_h.end(), gen);
-
-    fk::vector<TestType, mem_type::owner, resource::device> const x(
-        x_h.clone_onto_device());
-
-    std::vector<batch_operands_set<TestType>> batches =
-        allocate_batches(*pde, num_elems);
-
-    // create intermediate workspaces
-    // and output vectors
-    fk::vector<TestType, mem_type::view, resource::device> const x_view(x);
-    fk::vector<TestType, mem_type::owner, resource::device> y_own(
-        x_size * num_elems * num_terms);
-    fk::vector<TestType, mem_type::owner> gold(x_size * num_elems * num_terms);
-    fk::vector<TestType, mem_type::owner, resource::device> work_own(
-        x_size * num_elems * num_terms * std::min(num_dims - 1, 2));
-
-    for (int i = 0; i < num_elems; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        // linearize index
-        int const kron_index = pde->num_terms * i + j;
-
-        // address y space
-        int const y_index    = x_size * kron_index;
-        int const work_index = x_size * kron_index * std::min(num_dims - 1, 2);
-        fk::vector<TestType, mem_type::view, resource::device> y_view(
-            y_own, y_index, y_index + x_size - 1);
-        fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
-                                                       y_index + x_size - 1);
-
-        // intermediate workspace
-        std::vector<fk::vector<TestType, mem_type::view, resource::device>>
-            work_views = {
-                fk::vector<TestType, mem_type::view, resource::device>(
-                    work_own, work_index, work_index + x_size - 1),
-                fk::vector<TestType, mem_type::view, resource::device>(
-                    work_own, work_index + x_size,
-                    work_index + x_size * 2 - 1)};
-
-        // create A_views
-        std::vector<fk::matrix<TestType, mem_type::view>> A_views_h;
-        std::vector<fk::matrix<TestType, mem_type::view, resource::device>>
-            A_views;
-        for (int k = 0; k < pde->num_dims; ++k)
-        {
-          int const start_row = degree * i;
-          int const stop_row  = degree * (i + 1) - 1;
-          int const start_col = 0;
-          int const stop_col  = degree - 1;
-
-          A_views.push_back(
-              fk::matrix<TestType, mem_type::view, resource::device>(
-                  A_mats[j * num_dims + k], start_row, stop_row, start_col,
-                  stop_col));
-
-          A_views_h.push_back(fk::matrix<TestType, mem_type::view>(
-              A_mats_h[j * num_dims + k], start_row, stop_row, start_col,
-              stop_col));
-        }
-
-        int const batch_offset = kron_index;
-        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
-                               batch_offset, *pde);
-
-        gold_view = (A_views_h[2].kron(A_views_h[1].kron(A_views_h[0]))) * x_h;
-      }
-    }
-
-    for (int k = 0; k < pde->num_dims; ++k)
-    {
-      batch<TestType> const a = batches[k][0];
-      batch<TestType> const b = batches[k][1];
-      batch<TestType> const c = batches[k][2];
-      TestType const alpha    = 1.0;
-      TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta);
-    }
-
-    // this method of computing "correctness" borrowed from ed's tests:
-    //
-    // https://code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
-    fk::vector<TestType> const y_h(y_own.clone_onto_host());
-    fk::vector<TestType> const diff = gold - y_h;
-    auto abs_compare                = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon();
-    REQUIRE(result <= tol * gold.size());
-  }
-
-  SECTION("3 elements, 6d, 6 terms")
-  {
-    int const degree    = 2;
-    int const level     = 2;
-    int const num_elems = 3;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-
-    int const num_terms = 6;
-    int const num_dims  = 6;
-    // first, create example coefficient matrices in the pde
-    int const dof = degree * std::pow(2, level);
-    std::vector<fk::matrix<TestType>> A_mats_h;
-    for (int i = 0; i < num_terms * num_dims; ++i)
-    {
-      A_mats_h.push_back(fk::matrix<TestType>(dof, dof));
-    }
-
-    std::random_device rd;
-    std::mt19937 mersenne_engine(rd());
-    std::uniform_real_distribution<TestType> dist(-2.0, 2.0);
-    auto const gen = [&dist, &mersenne_engine]() {
-      return dist(mersenne_engine);
-    };
-
-    // create different matrices for each term/dim pairing
-    std::vector<fk::matrix<TestType, mem_type::owner, resource::device>> A_mats;
-    for (fk::matrix<TestType> &mat : A_mats_h)
-    {
-      std::generate(mat.begin(), mat.end(), gen);
-      A_mats.push_back(fk::matrix<TestType, mem_type::owner, resource::device>(
-          mat.clone_onto_device()));
-    }
-
-    // create input vector
-    int const x_size = static_cast<int>(std::pow(degree, pde->num_dims));
-    fk::vector<TestType> x_h(x_size);
-    std::generate(x_h.begin(), x_h.end(), gen);
-    fk::vector<TestType, mem_type::owner, resource::device> const x(
-        x_h.clone_onto_device());
-
-    std::vector<batch_operands_set<TestType>> batches =
-        allocate_batches(*pde, num_elems);
-
-    // create intermediate workspaces
-    // and output vectors
-    fk::vector<TestType, mem_type::view, resource::device> x_view(x);
-    fk::vector<TestType, mem_type::owner, resource::device> y_own(
-        x_size * num_elems * num_terms);
-    fk::vector<TestType> gold(x_size * num_elems * num_terms);
-    fk::vector<TestType, mem_type::owner, resource::device> work_own(
-        x_size * num_elems * num_terms * std::min(num_dims - 1, 2));
-
-    for (int i = 0; i < num_elems; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        // linearize index
-        int const kron_index = pde->num_terms * i + j;
-
-        // address y space
-        int const y_index    = x_size * kron_index;
-        int const work_index = x_size * kron_index * std::min(num_dims - 1, 2);
-        fk::vector<TestType, mem_type::view, resource::device> y_view(
-            y_own, y_index, y_index + x_size - 1);
-        fk::vector<TestType, mem_type::view> gold_view(gold, y_index,
-                                                       y_index + x_size - 1);
-
-        // intermediate workspace
-        std::vector<fk::vector<TestType, mem_type::view, resource::device>>
-            work_views = {
-                fk::vector<TestType, mem_type::view, resource::device>(
-                    work_own, work_index, work_index + x_size - 1),
-                fk::vector<TestType, mem_type::view, resource::device>(
-                    work_own, work_index + x_size,
-                    work_index + x_size * 2 - 1)};
-
-        // create A_views
-        std::vector<fk::matrix<TestType, mem_type::view>> A_views_h;
-        std::vector<fk::matrix<TestType, mem_type::view, resource::device>>
-            A_views;
-        for (int k = 0; k < pde->num_dims; ++k)
-        {
-          int const start_row = degree * i;
-          int const stop_row  = degree * (i + 1) - 1;
-          int const start_col = 0;
-          int const stop_col  = degree - 1;
-
-          A_views.push_back(
-              fk::matrix<TestType, mem_type::view, resource::device>(
-                  A_mats[j * num_dims + k], start_row, stop_row, start_col,
-                  stop_col));
-
-          A_views_h.push_back(fk::matrix<TestType, mem_type::view>(
-              A_mats_h[j * num_dims + k], start_row, stop_row, start_col,
-              stop_col));
-        }
-
-        int const batch_offset = kron_index;
-        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
-                               batch_offset, *pde);
-
-        gold_view = A_views_h[5].kron(A_views_h[4].kron(A_views_h[3].kron(
-                        A_views_h[2].kron(A_views_h[1].kron(A_views_h[0]))))) *
-                    x_h;
-      }
-    }
-
-    for (int k = 0; k < pde->num_dims; ++k)
-    {
-      batch<TestType> const a = batches[k][0];
-      batch<TestType> const b = batches[k][1];
-      batch<TestType> const c = batches[k][2];
-      TestType const alpha    = 1.0;
-      TestType const beta     = 0.0;
-      batched_gemm(a, b, c, alpha, beta);
-    }
-
-    // this method of computing "correctness" borrowed from ed's tests:
-    //
-    // https://
-    // code.ornl.gov/lmm/DG-SparseGrid/blob/reference/Kronmult/test1_batch.m
-    fk::vector<TestType> const y_h(y_own.clone_onto_host());
-    fk::vector<TestType> const diff = gold - y_h;
-    auto abs_compare                = [](TestType const a, TestType const b) {
-      return (std::abs(a) < std::abs(b));
-    };
-    TestType const result =
-        std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-    TestType const tol = std::numeric_limits<TestType>::epsilon();
-    REQUIRE(result <= tol * gold.size());
-  }
+      int const degree    = 2;
+      int const level     = 2;
+      auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level,
+  degree); int const num_terms = 6; int const num_elems = 3;
+      test_kronmult_batching(*pde, num_terms, num_elems);
+  }*/
 }
 
 // FIXME - these functions shim safe kronmult batching calls into unsafe ones
