@@ -26,9 +26,16 @@ The ASGarD project is led by David Green (greendl1@ornl.gov) at Oak Ridge
 National Laboratory.
 
 # Dependencies
+
 *  C++17
 *  cmake 3.13
 *  blas
+
+# Optional depedencies
+
+* cuda
+* mpi
+* highfive/hdf5
 
 # Quickstart
 
@@ -36,7 +43,7 @@ Download and build
 ```
 git clone https://github.com/project-asgard/asgard.git
 cd asgard
-mkdir build
+mkdir build && cd build
 cmake ../
 make
 ctest
