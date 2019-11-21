@@ -435,56 +435,54 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
            bool const fmwt_trans)
 {
   int const n_col = kdegree * pow(2, num_levels);
+  int row_start   = 0;
+  int row_end     = 2 * kdegree - 1;
+  int col_start   = 0;
+  int col_end     = n_col - 1;
+
   fk::matrix<P> product(n_col, n_col);
-  int row_start = 0;
-  int row_end   = 2 * kdegree - 1;
-  int col_start = 0;
-  int col_end   = n_col - 1;
+
+  // section of fmwt used for first multiplication
+  fk::matrix<P, mem_type::view> const fmwt_sub1(fmwt, 0, row_end, 0, col_end);
+
   if (fmwt_left)
   {
     if (fmwt_trans)
     {
-      fk::matrix<P> const fmwt_sub1 =
-          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
-                                 col_end - col_start + 1);
-      fk::matrix<P> const fmwt_sub1t = fk::matrix<P>(fmwt_sub1).transpose();
-      fk::matrix<P> const partial_product1 =
-          fmwt_sub1t * coefficient_matrix.extract_submatrix(
-                           row_start, 0, row_end - row_start + 1, n_col);
-      product.set_submatrix(col_start, 0, partial_product1);
+      fk::matrix<P, mem_type::view> const coefficient_view(
+          coefficient_matrix, 0, row_end, 0, col_end);
+      fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
+                                                    col_end);
+      fm::gemm(fmwt_sub1, coefficient_view, partial_product, fmwt_trans);
     }
     else
     {
-      fk::matrix<P> const partial_product1 =
-          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
-                                 col_end - col_start + 1) *
-          coefficient_matrix.extract_submatrix(col_start, 0,
-                                               col_end - col_start + 1, n_col);
-      product.set_submatrix(row_start, 0, partial_product1);
+      fk::matrix<P, mem_type::view> const coefficient_view(
+          coefficient_matrix, 0, col_end, 0, col_end);
+      fk::matrix<P, mem_type::view> partial_product(product, 0, row_end, 0,
+                                                    col_end);
+      fm::gemm(fmwt_sub1, coefficient_view, partial_product);
     }
   }
   else
   {
     if (fmwt_trans)
     {
-      fk::matrix<P> const fmwt_sub1 =
-          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
-                                 col_end - col_start + 1);
-      fk::matrix<P> const fmwt_sub1t = fk::matrix<P>(fmwt_sub1).transpose();
-      fk::matrix<P> const partial_product1 =
-          coefficient_matrix.extract_submatrix(0, col_start, n_col,
-                                               col_end - col_start + 1) *
-          fmwt_sub1t;
-      product.set_submatrix(row_start, 0, partial_product1);
+      fk::matrix<P, mem_type::view> const coefficient_view(
+          coefficient_matrix, 0, col_end, 0, col_end);
+      fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
+                                                    row_end);
+      bool coeffs_trans = false;
+      fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeffs_trans,
+               fmwt_trans);
     }
     else
     {
-      fk::matrix<P> const partial_product1 =
-          coefficient_matrix.extract_submatrix(0, row_start, n_col,
-                                               row_end - row_start + 1) *
-          fmwt.extract_submatrix(row_start, col_start, row_end - row_start + 1,
-                                 col_end - col_start + 1);
-      product.set_submatrix(row_start, 0, partial_product1);
+      fk::matrix<P, mem_type::view> const coefficient_view(
+          coefficient_matrix, 0, col_end, 0, row_end);
+      fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
+                                                    col_end);
+      fm::gemm(coefficient_view, fmwt_sub1, partial_product);
     }
   }
 
@@ -499,64 +497,56 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
       row_end   = row_start + kdegree - 1;
       col_start = icell * isize;
       col_end   = col_start + isize - 1;
+      fk::matrix<P, mem_type::view> const fmwt_sub1(fmwt, row_start, row_end,
+                                                    col_start, col_end);
+      P const alpha          = 1.0;
+      P const beta           = 1.0;
+      bool const coeff_trans = false;
+
       if (fmwt_left)
       {
         if (fmwt_trans)
         {
-          fk::matrix<P> const fmwt_sub1 = fmwt.extract_submatrix(
-              row_start, col_start, row_end - row_start + 1,
-              col_end - col_start + 1);
-          fk::matrix<P> const fmwt_sub1t = fk::matrix<P>(fmwt_sub1).transpose();
-          product.set_submatrix(
-              col_start, 0,
-              product.extract_submatrix(col_start, 0, col_end - col_start + 1,
-                                        n_col) +
-                  fmwt_sub1t *
-                      coefficient_matrix.extract_submatrix(
-                          row_start, 0, row_end - row_start + 1, n_col));
+          fk::matrix<P, mem_type::view> const coefficient_view(
+              coefficient_matrix, row_start, row_end, 0, n_col - 1);
+          fk::matrix<P, mem_type::view> partial_product(product, col_start,
+                                                        col_end, 0, n_col - 1);
+          fm::gemm(fmwt_sub1, coefficient_view, partial_product, fmwt_trans,
+                   coeff_trans, alpha, beta);
         }
         else
         {
-          product.set_submatrix(
-              row_start, 0,
-              product.extract_submatrix(row_start, 0, row_end - row_start + 1,
-                                        n_col) +
-                  fmwt.extract_submatrix(row_start, col_start,
-                                         row_end - row_start + 1,
-                                         col_end - col_start + 1) *
-                      coefficient_matrix.extract_submatrix(
-                          col_start, 0, col_end - col_start + 1, n_col));
+          fk::matrix<P, mem_type::view> const coefficient_view(
+              coefficient_matrix, col_start, col_end, 0, n_col - 1);
+          fk::matrix<P, mem_type::view> partial_product(product, row_start,
+                                                        row_end, 0, n_col - 1);
+          fm::gemm(fmwt_sub1, coefficient_view, partial_product, fmwt_trans,
+                   coeff_trans, alpha, beta);
         }
       }
       else
       {
         if (fmwt_trans)
         {
-          fk::matrix<P> fmwt_sub1 = fmwt.extract_submatrix(
-              row_start, col_start, row_end - row_start + 1,
-              col_end - col_start + 1);
-          product.set_submatrix(
-              0, row_start,
-              product.extract_submatrix(0, row_start, n_col,
-                                        row_end - row_start + 1) +
-                  coefficient_matrix.extract_submatrix(
-                      0, col_start, n_col, col_end - col_start + 1) *
-                      fmwt_sub1.transpose());
+          fk::matrix<P, mem_type::view> const coefficient_view(
+              coefficient_matrix, 0, n_col - 1, col_start, col_end);
+          fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
+                                                        row_start, row_end);
+          fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeff_trans,
+                   fmwt_trans, alpha, beta);
         }
         else
         {
-          product.set_submatrix(
-              0, col_start,
-              product.extract_submatrix(0, col_start, n_col,
-                                        col_end - col_start + 1) +
-                  coefficient_matrix.extract_submatrix(
-                      0, row_start, n_col, row_end - row_start + 1) *
-                      fmwt.extract_submatrix(row_start, col_start,
-                                             row_end - row_start + 1,
-                                             col_end - col_start + 1));
+          
+          fk::matrix<P, mem_type::view> const coefficient_view(
+              coefficient_matrix, 0, n_col - 1, row_start, row_end);
+          fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
+                                                        col_start, col_end);
+          fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeff_trans,
+                   fmwt_trans, alpha, beta);
+
         }
       }
-
       row_start = row_end + 1;
     }
   }
