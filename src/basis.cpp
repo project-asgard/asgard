@@ -537,14 +537,12 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
         }
         else
         {
-          
           fk::matrix<P, mem_type::view> const coefficient_view(
               coefficient_matrix, 0, n_col - 1, row_start, row_end);
           fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
                                                         col_start, col_end);
           fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeff_trans,
                    fmwt_trans, alpha, beta);
-
         }
       }
       row_start = row_end + 1;
