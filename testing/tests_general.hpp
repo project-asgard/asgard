@@ -99,6 +99,8 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
                         double const tol_fac = 1e1)
 {
   REQUIRE(first.size() == second.size());
+  // retrieving comparable's contained datatype
+  // was using template template parameters, but clang complained
   using P = typename std::remove_pointer<decltype(first.data())>::type;
   using R = typename std::remove_pointer<decltype(second.data())>::type;
   static_assert(std::is_same<P, R>::value, "containers must hold same type");

@@ -4,7 +4,10 @@
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 
-auto const tol_scale = 1e2;
+// determined empirically 11/19
+// lowest tolerance for which component tests pass
+auto const quadrature_tol_scale = 1e2;
+
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
@@ -53,8 +56,8 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     int const degree         = 5;
     auto const [poly, deriv] = legendre(in, degree);
 
-    relaxed_comparison(poly, poly_gold, tol_scale);
-    relaxed_comparison(deriv, deriv_gold, tol_scale);
+    relaxed_comparison(poly, poly_gold, quadrature_tol_scale);
+    relaxed_comparison(deriv, deriv_gold, quadrature_tol_scale);
   }
 }
 
@@ -75,8 +78,8 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     int const a                 = -1;
     int const b                 = 1;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
-    relaxed_comparison(roots, roots_gold, tol_scale);
-    relaxed_comparison(weights, weights_gold, tol_scale);
+    relaxed_comparison(roots, roots_gold, quadrature_tol_scale);
+    relaxed_comparison(weights, weights_gold, quadrature_tol_scale);
   }
 
   SECTION("legendre_weights(32, -5, 2)")
@@ -93,7 +96,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     int const b                 = 2;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
 
-    relaxed_comparison(roots, roots_gold, tol_scale);
-    relaxed_comparison(weights, weights_gold, tol_scale);
+    relaxed_comparison(roots, roots_gold, quadrature_tol_scale);
+    relaxed_comparison(weights, weights_gold, quadrature_tol_scale);
   }
 }

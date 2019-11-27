@@ -5,7 +5,10 @@
 #include "transformations.hpp"
 #include <numeric>
 
-auto const tol_scale = 1e3;
+// determined empirically 11/19
+// lowest tolerance for which component tests pass
+auto const transform_tol_scale = 1e3;
+
 TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 {
   SECTION("combine dimensions, dim = 2, deg = 2, lev = 3, 1 rank")
@@ -197,7 +200,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it);
-    relaxed_comparison(gold, test, tol_scale);
+    relaxed_comparison(gold, test, transform_tol_scale);
   }
 
   SECTION("transform(3, 4, -2.0, 2.0, double plus)")
@@ -222,7 +225,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus);
 
-    relaxed_comparison(gold, test, tol_scale);
+    relaxed_comparison(gold, test, transform_tol_scale);
   }
 }
 

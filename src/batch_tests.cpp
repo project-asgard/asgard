@@ -7,7 +7,6 @@
 #include <numeric>
 #include <random>
 
-auto const tol_scale = 1e4;
 TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
                        ((typename TestType, resource resrc), TestType, resrc),
                        (double, resource::host), (double, resource::device),
@@ -2593,6 +2592,8 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
     copy_chunk_outputs(pde, subgrid, rank_space, host_space, chunk);
   }
 
+  // determined emprically 11/19
+  auto const tol_scale = 1e4;
   relaxed_comparison(gold, host_space.fx, tol_scale);
 }
 

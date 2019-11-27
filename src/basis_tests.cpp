@@ -5,7 +5,9 @@
 #include <numeric>
 #include <random>
 
-auto const tol_scale = 1e3;
+// determined empirically 11/19
+// lowest tolerance for which component tests pass
+auto const basis_tol_scale = 1e3;
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
@@ -41,7 +43,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     SECTION("degree = 1, g1") { REQUIRE(Approx(g1) == m_g1(0, 0)); }
     SECTION("degree = 1, phi_co")
     {
-      relaxed_comparison(phi_co, m_phi_co, tol_scale);
+      relaxed_comparison(phi_co, m_phi_co, basis_tol_scale);
     }
     SECTION("degree = 1, scale_co")
     {
@@ -79,13 +81,13 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
 
-    SECTION("degree = 3, h0") { relaxed_comparison(h0, m_h0, tol_scale); }
-    SECTION("degree = 3, h1") { relaxed_comparison(h1, m_h1, tol_scale); }
-    SECTION("degree = 3, g0") { relaxed_comparison(g0, m_g0, tol_scale); }
-    SECTION("degree = 3, g1") { relaxed_comparison(g1, m_g1, tol_scale); }
+    SECTION("degree = 3, h0") { relaxed_comparison(h0, m_h0, basis_tol_scale); }
+    SECTION("degree = 3, h1") { relaxed_comparison(h1, m_h1, basis_tol_scale); }
+    SECTION("degree = 3, g0") { relaxed_comparison(g0, m_g0, basis_tol_scale); }
+    SECTION("degree = 3, g1") { relaxed_comparison(g1, m_g1, basis_tol_scale); }
     SECTION("degree = 3, phi_co")
     {
-      relaxed_comparison(phi_co, m_phi_co, tol_scale);
+      relaxed_comparison(phi_co, m_phi_co, basis_tol_scale);
     }
     SECTION("degree = 3, scale_co")
     {
@@ -145,7 +147,7 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test =
         operator_two_scale<TestType>(dim.get_degree(), dim.get_level());
-    relaxed_comparison(gold, test, tol_scale);
+    relaxed_comparison(gold, test, basis_tol_scale);
   }
   SECTION("operator_two_scale(5, 5)")
   {
@@ -160,7 +162,7 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     fk::matrix<TestType> const test =
         operator_two_scale<TestType>(dim.get_degree(), dim.get_level());
 
-    relaxed_comparison(gold, test, tol_scale);
+    relaxed_comparison(gold, test, basis_tol_scale);
   }
 
   SECTION("operator_two_scale(2, 6)")
