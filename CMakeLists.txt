@@ -64,7 +64,6 @@ endif()
 
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
-  add_compile_definitions(ASGARD_USE_CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
 
@@ -233,6 +232,7 @@ if (ASGARD_BUILD_TESTS)
   # Define ctest tests and their executables
   add_library (tests_general testing/tests_general.cpp)
   target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
+  target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
