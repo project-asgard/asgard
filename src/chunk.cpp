@@ -28,7 +28,7 @@ grid_limits columns_in_chunk(element_chunk const &g)
   int const min_col =
       (*std::min_element(g.begin(), g.end(),
                          [](auto const &a, auto const &b) {
-                           return a.second.start < b.second.stop;
+                           return a.second.start < b.second.start;
                          }))
           .second.start;
 
@@ -54,24 +54,29 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
 
   int const max_elems =
       (*std::max_element(chunks.begin(), chunks.end(),
-                         [](const element_chunk &a, const element_chunk &b) {
+                         [](element_chunk const &a, element_chunk const &b) {
                            return a.size() < b.size();
                          }))
           .size();
 
-  int const max_conn = max_connected_in_chunk(*std::max_element(
+  auto const max_col_limits = columns_in_chunk(*std::max_element(
       chunks.begin(), chunks.end(),
-      [](const element_chunk &a, const element_chunk &b) {
-        return max_connected_in_chunk(a) < max_connected_in_chunk(b);
+      [](element_chunk const &a, element_chunk const &b) {
+        auto const cols_in_a = columns_in_chunk(a);
+        auto const cols_in_b = columns_in_chunk(b);
+        auto const num_a     = cols_in_a.stop - cols_in_a.start + 1;
+        auto const num_b     = cols_in_b.stop - cols_in_b.start + 1;
+        return num_a < num_b;
       }));
+  auto const max_cols       = max_col_limits.stop - max_col_limits.start + 1;
 
   int const max_total = num_elements_in_chunk(*std::max_element(
       chunks.begin(), chunks.end(),
-      [](const element_chunk &a, const element_chunk &b) {
+      [](element_chunk const &a, element_chunk const &b) {
         return num_elements_in_chunk(a) < num_elements_in_chunk(b);
       }));
 
-  batch_input.resize(elem_size * max_conn);
+  batch_input.resize(elem_size * max_cols);
   batch_output.resize(elem_size * max_elems);
   reduction_space.resize(elem_size * max_total * pde.num_terms);
 
@@ -80,7 +85,7 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
   batch_intermediate.resize(reduction_space.size() * num_workspaces);
 
   // unit vector for reduction
-  unit_vector_.resize(pde.num_terms * max_conn);
+  unit_vector_.resize(pde.num_terms * max_cols);
   fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
   std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
   unit_vector_.transfer_from(unit_vect);
@@ -263,7 +268,10 @@ void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
   fk::vector<P, mem_type::view> const x_view(
       host_space.x, grid.to_local_col(x_range.start) * elem_size,
       (grid.to_local_col(x_range.stop) + 1) * elem_size - 1);
-  rank_space.batch_input.transfer_from(x_view);
+  fk::vector<P, mem_type::view, resource::device> in_view(
+      rank_space.batch_input, 0,
+      (x_range.stop - x_range.start + 1) * elem_size - 1);
+  in_view.transfer_from(x_view);
 }
 
 template<typename P>
