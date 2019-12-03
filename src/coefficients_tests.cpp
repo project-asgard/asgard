@@ -4,23 +4,6 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
-template<typename P>
-static inline void
-relaxed_comparison(fk::matrix<P> const first, fk::matrix<P> const second,
-                   double const tol_fac = 1e1)
-{
-  Catch::StringMaker<P>::precision = 15;
-  auto first_it                    = first.begin();
-  std::for_each(
-      second.begin(), second.end(), [&first_it, tol_fac](auto &second_elem) {
-        auto const tol = std::numeric_limits<P>::epsilon() * tol_fac;
-        auto const scale_fac =
-            std::max(static_cast<P>(1.0), std::abs(second_elem));
-        REQUIRE_THAT(*first_it++,
-                     Catch::Matchers::WithinAbs(second_elem, tol * scale_fac));
-      });
-}
-
 TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
                    float)
 {
@@ -35,7 +18,9 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   fk::matrix<TestType> const test =
       continuity1->get_coefficients(0, 0).clone_onto_host();
 
-  relaxed_comparison<TestType>(gold, test, 1e2);
+  // determined empirically 11/19
+  auto const tol_scale = 1e2;
+  relaxed_comparison(gold, test, tol_scale);
 }
 
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
@@ -62,7 +47,10 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+
+      // determined empirically 11/19
+      auto const tol_scale = 1e2;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -92,7 +80,10 @@ TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+
+      // determined empirically 11/19
+      auto const tol_scale = 1e2;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -120,7 +111,10 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e3);
+
+      // determined empirically 11/19
+      auto const tol_scale = 1e3;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -148,7 +142,10 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e3);
+
+      // determined empirically 11/19
+      auto const tol_scale = 1e3;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -176,8 +173,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
 
-      // FIXME really? pretty loose
-      relaxed_comparison<TestType>(gold, test, 1e5);
+      // determined empirically 11/19
+      // FIXME seems loose
+      auto const tol_scale = 1e5;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -207,7 +206,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+
+      // determined empirically 11/19
+      auto const tol_scale = 1e2;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -236,7 +238,9 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      // determined empirically 11/19
+      auto const tol_scale = 1e2;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -265,7 +269,9 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
 
-      relaxed_comparison<TestType>(gold, test, 1e2);
+      // determined empirically 11/19
+      auto const tol_scale = 1e2;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -294,7 +300,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
           fk::matrix<TestType>(read_matrix_from_txt_file(filename));
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison<TestType>(gold, test, 1e2);
+
+      // determined empirically 11/19
+      auto const tol_scale = 1e2;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -325,8 +334,10 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
 
+      // determined empirically 11/19
       // FIXME what's with this large tolerance?
-      relaxed_comparison<TestType>(gold, test, 5e6);
+      auto const tol_scale = 5e6;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }
@@ -358,7 +369,9 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
       fk::matrix<TestType> const &test =
           pde->get_coefficients(t, d).clone_onto_host();
 
-      relaxed_comparison<TestType>(gold, test, 1e3);
+      // determined empirically 11/19
+      auto const tol_scale = 1e3;
+      relaxed_comparison(gold, test, tol_scale);
     }
   }
 }

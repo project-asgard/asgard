@@ -20,22 +20,6 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-template<typename P>
-void relaxed_comparison(fk::vector<P> const &first, fk::vector<P> const &second)
-{
-  auto const diff = first - second;
-
-  auto const abs_compare = [](P const a, P const b) {
-    return (std::abs(a) < std::abs(b));
-  };
-  P const result =
-      std::abs(*std::max_element(diff.begin(), diff.end(), abs_compare));
-
-  P const tolerance = std::numeric_limits<P>::epsilon() *
-                      (std::is_same<P, double>::value ? 1e5 : 1e3);
-  REQUIRE(result <= tolerance);
-}
-
 int const num_steps          = 5;
 int const workspace_limit_MB = 1000;
 
@@ -130,7 +114,11 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-    relaxed_comparison(gold, host_space.x);
+
+    // determined empirically 11/19; lowest tolerance
+    // for which all current tests pass
+    auto const tol_scale = 1e4;
+    relaxed_comparison(gold, host_space.x, tol_scale);
   }
 }
 

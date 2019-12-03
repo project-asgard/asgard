@@ -5,17 +5,12 @@
 #include <numeric>
 #include <random>
 
+// determined empirically 11/19
+// lowest tolerance for which component tests pass
+auto const basis_tol_scale = 1e3;
+
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e3) ==
-              second_elem);
-    });
-  };
-
   SECTION("Multiwavelet generation, degree = 1")
   {
     int const degree = 1;
@@ -46,7 +41,10 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     SECTION("degree = 1, h1") { REQUIRE(Approx(h1) == m_h1(0, 0)); }
     SECTION("degree = 1, g0") { REQUIRE(Approx(g0) == m_g0(0, 0)); }
     SECTION("degree = 1, g1") { REQUIRE(Approx(g1) == m_g1(0, 0)); }
-    SECTION("degree = 1, phi_co") { relaxed_comparison(phi_co, m_phi_co); }
+    SECTION("degree = 1, phi_co")
+    {
+      relaxed_comparison(phi_co, m_phi_co, basis_tol_scale);
+    }
     SECTION("degree = 1, scale_co")
     {
       REQUIRE(Approx(scale_co) == m_scale_co(0, 0));
@@ -83,11 +81,14 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
     auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
         generate_multi_wavelets<TestType>(degree);
 
-    SECTION("degree = 3, h0") { relaxed_comparison(h0, m_h0); }
-    SECTION("degree = 3, h1") { relaxed_comparison(h1, m_h1); }
-    SECTION("degree = 3, g0") { relaxed_comparison(g0, m_g0); }
-    SECTION("degree = 3, g1") { relaxed_comparison(g1, m_g1); }
-    SECTION("degree = 3, phi_co") { relaxed_comparison(phi_co, m_phi_co); }
+    SECTION("degree = 3, h0") { relaxed_comparison(h0, m_h0, basis_tol_scale); }
+    SECTION("degree = 3, h1") { relaxed_comparison(h1, m_h1, basis_tol_scale); }
+    SECTION("degree = 3, g0") { relaxed_comparison(g0, m_g0, basis_tol_scale); }
+    SECTION("degree = 3, g1") { relaxed_comparison(g1, m_g1, basis_tol_scale); }
+    SECTION("degree = 3, phi_co")
+    {
+      relaxed_comparison(phi_co, m_phi_co, basis_tol_scale);
+    }
     SECTION("degree = 3, scale_co")
     {
       relaxed_comparison(scale_co, m_scale_co);
@@ -100,18 +101,6 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", double)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    Catch::StringMaker<TestType>::precision = 20;
-
-    auto first_it = first.begin();
-    auto tol      = std::numeric_limits<TestType>::epsilon() * 1e3;
-    std::for_each(second.begin(), second.end(),
-                  [&first_it, tol](auto &second_elem) {
-                    REQUIRE_THAT(*first_it++,
-                                 Catch::Matchers::WithinAbs(second_elem, tol));
-                  });
-  };
-
   SECTION("operator_two_scale(2, 2)")
   {
     int const degree = 2;
@@ -158,7 +147,7 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
         std::to_string(degree) + "_" + std::to_string(levels) + ".dat");
     fk::matrix<TestType> const test =
         operator_two_scale<TestType>(dim.get_degree(), dim.get_level());
-    relaxed_comparison(gold, test);
+    relaxed_comparison(gold, test, basis_tol_scale);
   }
   SECTION("operator_two_scale(5, 5)")
   {
@@ -173,7 +162,7 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     fk::matrix<TestType> const test =
         operator_two_scale<TestType>(dim.get_degree(), dim.get_level());
 
-    relaxed_comparison(gold, test);
+    relaxed_comparison(gold, test, basis_tol_scale);
   }
 
   SECTION("operator_two_scale(2, 6)")
@@ -196,15 +185,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 
 TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      auto const f1 = *first_it++;
-      auto tol      = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE_THAT(f1, Catch::Matchers::WithinAbs(second_elem, tol));
-    });
-  };
-
   // Testing of various apply fmwt methods
   // for two size arrays generated (random [0,1]) matrix
   // is read in and used as the coefficient matrix
@@ -212,9 +192,9 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
   // to the full matrix multiplication (method 1)
   SECTION("Apply fmwt test set 1 - kdeg=2 lev=2")
   {
-    int kdeg = 2;
-    int lev  = 2;
-    int n    = kdeg * pow(2, lev);
+    int const kdeg = 2;
+    int const lev  = 2;
+    int const n    = kdeg * pow(2, lev);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());

@@ -4,23 +4,13 @@
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 
+// determined empirically 11/19
+// lowest tolerance for which component tests pass
+auto const quadrature_tol_scale = 1e2;
+
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
-  // the relaxed comparison is due to:
-  // 1) difference in precision in calculations
-  // (c++ float/double vs matlab always double)
-  // 2) the reordered operations make very subtle differences
-  // requiring relaxed comparison for certain inputs
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
-              second_elem);
-    });
-  };
-
   SECTION("legendre(-1,0)")
   {
     fk::matrix<TestType> const poly_gold  = {{1.0}};
@@ -66,23 +56,14 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     int const degree         = 5;
     auto const [poly, deriv] = legendre(in, degree);
 
-    relaxed_comparison(poly, poly_gold);
-    relaxed_comparison(deriv, deriv_gold);
+    relaxed_comparison(poly, poly_gold, quadrature_tol_scale);
+    relaxed_comparison(deriv, deriv_gold, quadrature_tol_scale);
   }
 }
 
 TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
                    float)
 {
-  auto const relaxed_comparison = [](auto const first, auto const second) {
-    auto first_it = first.begin();
-    std::for_each(second.begin(), second.end(), [&first_it](auto &second_elem) {
-      REQUIRE(Approx(*first_it++)
-                  .epsilon(std::numeric_limits<TestType>::epsilon() * 1e2) ==
-              second_elem);
-    });
-  };
-
   SECTION("legendre_weights(10, -1, 1)")
   {
     fk::matrix<TestType> const roots_gold =
@@ -93,12 +74,12 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
         TestType>(read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_10_neg1_1.dat"));
 
-    const int n                 = 10;
-    const int a                 = -1;
-    const int b                 = 1;
+    int const n                 = 10;
+    int const a                 = -1;
+    int const b                 = 1;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
-    relaxed_comparison(roots, roots_gold);
-    relaxed_comparison(weights, weights_gold);
+    relaxed_comparison(roots, roots_gold, quadrature_tol_scale);
+    relaxed_comparison(weights, weights_gold, quadrature_tol_scale);
   }
 
   SECTION("legendre_weights(32, -5, 2)")
@@ -110,12 +91,12 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
         TestType>(read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_32_neg5_2.dat"));
 
-    const int n                 = 32;
-    const int a                 = -5;
-    const int b                 = 2;
+    int const n                 = 32;
+    int const a                 = -5;
+    int const b                 = 2;
     auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
 
-    relaxed_comparison(roots, roots_gold);
-    relaxed_comparison(weights, weights_gold);
+    relaxed_comparison(roots, roots_gold, quadrature_tol_scale);
+    relaxed_comparison(weights, weights_gold, quadrature_tol_scale);
   }
 }
