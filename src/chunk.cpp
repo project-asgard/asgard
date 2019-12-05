@@ -26,14 +26,17 @@ grid_limits columns_in_chunk(element_chunk const &g)
 {
   assert(g.size() > 0);
   int const min_col =
-      (*std::min_element(g.begin(), g.end(), [](auto const &a, auto const &b) {
-        return a.second.start < b.second.start;
-      })).second.start;
+      (*std::min_element(g.begin(), g.end(),
+                         [](auto const &a, auto const &b) {
+                           return a.second.start < b.second.start;
+                         }))
+          .second.start;
 
-  int const max_col =
-      (*std::max_element(g.begin(), g.end(), [](auto const &a, auto const &b) {
-        return a.second.stop < b.second.stop;
-      })).second.stop;
+  int const max_col = (*std::max_element(g.begin(), g.end(),
+                                         [](auto const &a, auto const &b) {
+                                           return a.second.stop < b.second.stop;
+                                         }))
+                          .second.stop;
   return grid_limits(min_col, max_col);
 }
 
@@ -133,12 +136,7 @@ static double get_element_size_MB(PDE<P> const &pde)
                           : get_MB<P>(static_cast<double>(num_workspaces) *
                                       pde.num_terms * elem_size);
 
-  // calc in and out vector sizes for each elem
-  // since we will scheme to have most elems require overlapping pieces of
-  // x and y, we will never need 2 addtl xy space per elem
-  double const elem_xy_space_MB = get_MB<P>(elem_size * 1.2);
-  return (elem_reduction_space_MB + elem_intermediate_space_MB +
-          elem_xy_space_MB);
+  return elem_reduction_space_MB + elem_intermediate_space_MB;
 }
 
 // determine how many chunks will be required to solve the problem
@@ -153,6 +151,16 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
   // determine total problem size
   auto const num_elems        = grid.size();
   double const space_per_elem = get_element_size_MB(pde);
+
+  // determine size of assigned x and y vectors
+  int const elem_size = element_segment_size(pde);
+  auto const num_x_elems =
+      static_cast<uint64_t>(grid.col_stop - grid.col_start + 1) * elem_size;
+  assert(num_x_elems < INT_MAX);
+  auto const num_y_elems =
+      static_cast<uint64_t>(grid.row_stop - grid.row_start + 1) * elem_size;
+  assert(num_y_elems < INT_MAX);
+  double const xy_space_MB = get_MB<P>(num_y_elems + num_x_elems);
 
   // make sure rank size is something reasonable
   // a single element is the finest we can split the problem
@@ -169,9 +177,10 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
       get_MB<P>(static_cast<uint64_t>(pde.get_coefficients(0, 0).size()) *
                 pde.num_terms * pde.num_dims)));
 
-  // make sure the coefficient matrices aren't leaving us without room
-  // for anything else in rank workspace
-  int const remaining_rank_MB = rank_size_MB - coefficients_size_MB;
+  // make sure the coefficient matrices/xy vectors aren't leaving us without
+  // room for anything else in rank workspace
+  int const remaining_rank_MB =
+      rank_size_MB - coefficients_size_MB - xy_space_MB;
   assert(remaining_rank_MB > space_per_elem * 2);
 
   // determine number of chunks
@@ -254,6 +263,7 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   return chunks;
 }
 
+// FIXME remove
 template<typename P>
 void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
                        rank_workspace<P> &rank_space,
@@ -261,13 +271,27 @@ void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
                        element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
-  auto const x_range  = columns_in_chunk(chunk);
-  fk::vector<P, mem_type::const_view> const x_view(
-      host_space.x, grid.to_local_col(x_range.start) * elem_size,
-      (grid.to_local_col(x_range.stop) + 1) * elem_size - 1);
+
   fk::vector<P, mem_type::view, resource::device> in_view(
       rank_space.batch_input, 0,
-      (x_range.stop - x_range.start + 1) * elem_size - 1);
+      (grid.col_stop - grid.col_start + 1) * elem_size - 1);
+  in_view.transfer_from(x_view);
+}
+
+template<typename P>
+void copy_grid_inputs(PDE<P> const &pde, element_subgrid const &grid,
+                      rank_workspace<P> &rank_space,
+                      host_workspace<P> const &host_space)
+//                 element_chunk const &chunk)
+{
+  int const elem_size = element_segment_size(pde);
+  // auto const x_range  = columns_in_chunk(chunk);
+  fk::vector<P, mem_type::view> const x_view(
+      host_space.x, grid.col_start * elem_size,
+      (grid.col_stop + 1) * elem_size - 1);
+  fk::vector<P, mem_type::view, resource::device> in_view(
+      rank_space.batch_input, 0,
+      (grid.col_stop - grid.col_start + 1) * elem_size - 1);
   in_view.transfer_from(x_view);
 }
 
@@ -344,6 +368,16 @@ template int get_num_chunks(element_subgrid const &grid, PDE<float> const &pde,
                             int const rank_size_MB);
 template int get_num_chunks(element_subgrid const &grid, PDE<double> const &pde,
                             int const rank_size_MB);
+
+template void copy_grid_inputs(PDE<float> const &pde,
+                               element_subgrid const &grid,
+                               rank_workspace<float> &rank_space,
+                               host_workspace<float> const &host_space);
+
+template void copy_grid_inputs(PDE<double> const &pde,
+                               element_subgrid const &grid,
+                               rank_workspace<double> &rank_space,
+                               host_workspace<double> const &host_space);
 
 template void copy_chunk_inputs(PDE<float> const &pde,
                                 element_subgrid const &grid,

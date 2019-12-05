@@ -827,7 +827,7 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         // determine the index for the input vector
         // j - connected start is the first connected element
         // for this chunk
-        int const x_index = (j - connected.start) * elem_size;
+        int const x_index = j * elem_size; //(j - connected.start) * elem_size;
 
         // x vector input to kronmult
         P *const x_ptr = workspace.batch_input.data() + x_index;
