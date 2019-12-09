@@ -23,7 +23,7 @@ int get_1d_index(int const level, int const cell)
 // Build connectivity for single dimension
 fk::matrix<int> make_1d_connectivity(int const num_levels)
 {
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   int const lev_squared = static_cast<int>(std::pow(2, num_levels));
   fk::matrix<int> grid(lev_squared, lev_squared);
@@ -40,9 +40,10 @@ fk::matrix<int> make_1d_connectivity(int const num_levels)
       int const other_end   = std::min(cell + 1, cell_boundary);
       fk::vector<int> other_cells(other_end - other_start + 1);
       std::iota(other_cells.begin(), other_cells.end(), other_start);
-      std::transform(
-          other_cells.begin(), other_cells.end(), other_cells.begin(),
-          [level](int &other_cell) { return get_1d_index(level, other_cell); });
+      std::transform(other_cells.begin(), other_cells.end(),
+                     other_cells.begin(), [level](int const &other_cell) {
+                       return get_1d_index(level, other_cell);
+                     });
 
       // connect diagonal
       for (int const &j : other_cells)
@@ -145,7 +146,7 @@ list_set make_connectivity(element_table table, int const num_dims,
 
     list_set levels_lists, cells_lists;
     // iterate over the cell portion of the coordinates...
-    for (auto dim = 0; dim < num_dims; ++dim)
+    for (auto const dim = 0; dim < num_dims; ++dim)
     {
       int const cell_coord = get_1d_index(coords(dim), coords(dim + num_dims));
 
@@ -169,10 +170,10 @@ list_set make_connectivity(element_table table, int const num_dims,
         levels_lists, num_dims, max_level_sum, max_level_val);
 
     fk::vector<int> connected_elements(index_matrix.nrows());
-    for (auto element = 0; element < index_matrix.nrows(); ++element)
+    for (auto const element = 0; element < index_matrix.nrows(); ++element)
     {
       fk::vector<int> key(num_dims * 2);
-      for (auto dim = 0; dim < index_matrix.ncols(); ++dim)
+      for (auto const dim = 0; dim < index_matrix.ncols(); ++dim)
       {
         int const level_coord = levels_lists[dim](index_matrix(element, dim));
         int const cell_coord  = cells_lists[dim](index_matrix(element, dim));
