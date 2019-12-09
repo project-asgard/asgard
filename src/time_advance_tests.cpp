@@ -142,7 +142,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    bool const full_grid                      = true;
+    bool const full_grid = true;
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 
@@ -176,7 +176,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    bool const full_grid                      = true;
+    bool const full_grid = true;
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 
