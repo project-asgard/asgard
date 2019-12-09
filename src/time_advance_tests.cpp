@@ -133,10 +133,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
   SECTION("continuity1, level 2, degree 2, full grid")
   {
@@ -146,9 +143,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
         "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     bool const full_grid                      = true;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 
   SECTION("continuity1, level 4, degree 3, sparse grid")
@@ -158,10 +153,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
@@ -174,10 +166,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 
   SECTION("continuity2, level 2, degree 2, full grid")
@@ -188,9 +177,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
         "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     bool const full_grid                      = true;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 
   SECTION("continuity2, level 4, degree 3, sparse grid")
@@ -200,10 +187,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
@@ -217,10 +201,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 
   SECTION("continuity3, level 4, degree 3, sparse grid")
@@ -230,10 +211,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
@@ -247,10 +225,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
@@ -264,10 +239,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/fokkerplanck1_4p2_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.1)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
@@ -282,10 +254,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
@@ -301,10 +270,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
 
     auto pde =
         make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
