@@ -97,18 +97,11 @@ std::vector<element_chunk>
 assign_elements(element_subgrid const &grid, int const num_chunks);
 
 // data management functions
-template<typename P>
-void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
-                       rank_workspace<P> &rank_space,
-                       host_workspace<P> const &host_space,
-                       element_chunk const &chunk);
-
-// data management functions
+// FIXME move...to distro? idk.
 template<typename P>
 void copy_grid_inputs(PDE<P> const &pde, element_subgrid const &grid,
                       rank_workspace<P> &rank_space,
                       host_workspace<P> const &host_space);
-// element_chunk const &chunk);
 
 template<typename P>
 void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
@@ -137,18 +130,6 @@ extern template void copy_grid_inputs(PDE<double> const &pde,
                                       element_subgrid const &grid,
                                       rank_workspace<double> &rank_space,
                                       host_workspace<double> const &host_space);
-
-extern template void copy_chunk_inputs(PDE<float> const &pde,
-                                       element_subgrid const &grid,
-                                       rank_workspace<float> &rank_space,
-                                       host_workspace<float> const &host_space,
-                                       element_chunk const &chunk);
-
-extern template void copy_chunk_inputs(PDE<double> const &pde,
-                                       element_subgrid const &grid,
-                                       rank_workspace<double> &rank_space,
-                                       host_workspace<double> const &host_space,
-                                       element_chunk const &chunk);
 
 extern template void copy_chunk_outputs(PDE<float> const &pde,
                                         element_subgrid const &grid,

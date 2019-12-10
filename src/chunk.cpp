@@ -1,5 +1,6 @@
 #include "chunk.hpp"
 #include "fast_math.hpp"
+#include <limits.h>
 
 int num_elements_in_chunk(element_chunk const &g)
 {
@@ -263,21 +264,6 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   return chunks;
 }
 
-// FIXME remove
-template<typename P>
-void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
-                       rank_workspace<P> &rank_space,
-                       host_workspace<P> const &host_space,
-                       element_chunk const &chunk)
-{
-  int const elem_size = element_segment_size(pde);
-
-  fk::vector<P, mem_type::view, resource::device> in_view(
-      rank_space.batch_input, 0,
-      (grid.col_stop - grid.col_start + 1) * elem_size - 1);
-  in_view.transfer_from(x_view);
-}
-
 template<typename P>
 void copy_grid_inputs(PDE<P> const &pde, element_subgrid const &grid,
                       rank_workspace<P> &rank_space,
@@ -285,7 +271,6 @@ void copy_grid_inputs(PDE<P> const &pde, element_subgrid const &grid,
 //                 element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
-  // auto const x_range  = columns_in_chunk(chunk);
   fk::vector<P, mem_type::view> const x_view(
       host_space.x, grid.col_start * elem_size,
       (grid.col_stop + 1) * elem_size - 1);
@@ -378,18 +363,6 @@ template void copy_grid_inputs(PDE<double> const &pde,
                                element_subgrid const &grid,
                                rank_workspace<double> &rank_space,
                                host_workspace<double> const &host_space);
-
-template void copy_chunk_inputs(PDE<float> const &pde,
-                                element_subgrid const &grid,
-                                rank_workspace<float> &rank_space,
-                                host_workspace<float> const &host_space,
-                                element_chunk const &chunk);
-
-template void copy_chunk_inputs(PDE<double> const &pde,
-                                element_subgrid const &grid,
-                                rank_workspace<double> &rank_space,
-                                host_workspace<double> const &host_space,
-                                element_chunk const &chunk);
 
 template void copy_chunk_outputs(PDE<float> const &pde,
                                  element_subgrid const &grid,

@@ -35,7 +35,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const elem_size         = element_segment_size(pde);
 
   // allocate batches
-
   // max number of elements in any chunk
   int const max_elems = num_elements_in_chunk(*std::max_element(
       chunks.begin(), chunks.end(),
@@ -120,7 +119,7 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   fm::scal(static_cast<P>(0.0), host_space.fx);
 
   // copy in inputs
-  copy_grid_inputs(pde, grid, rank_space, host_space); //, chunk);
+  copy_grid_inputs(pde, grid, rank_space, host_space);
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
