@@ -32,13 +32,13 @@ TEST_CASE("one-dimensional connectivity", "[connectivity]")
         "../testing/generated-inputs/connectivity/connect_1_";
 
     std::vector<int> const levels{2, 3, 8};
-    for (size_t i = 0; i < levels.size(); ++i)
+    for (int const level : levels)
     {
-      std::string const file_path =
-          base_path + std::to_string(levels[i]) + ".dat";
+      std::string const file_path = base_path + std::to_string(level) + ".dat";
       fk::matrix<int> const gold =
           fk::matrix<int>(read_matrix_from_txt_file(file_path));
-      REQUIRE(make_1d_connectivity(levels[i]) == gold);
+      gold.print();
+      REQUIRE(make_1d_connectivity(level) == gold);
     }
   }
 }

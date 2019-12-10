@@ -146,7 +146,7 @@ list_set make_connectivity(element_table table, int const num_dims,
 
     list_set levels_lists, cells_lists;
     // iterate over the cell portion of the coordinates...
-    for (auto const dim = 0; dim < num_dims; ++dim)
+    for (auto dim = 0; dim < num_dims; ++dim)
     {
       int const cell_coord = get_1d_index(coords(dim), coords(dim + num_dims));
 
@@ -170,10 +170,10 @@ list_set make_connectivity(element_table table, int const num_dims,
         levels_lists, num_dims, max_level_sum, max_level_val);
 
     fk::vector<int> connected_elements(index_matrix.nrows());
-    for (auto const element = 0; element < index_matrix.nrows(); ++element)
+    for (auto element = 0; element < index_matrix.nrows(); ++element)
     {
       fk::vector<int> key(num_dims * 2);
-      for (auto const dim = 0; dim < index_matrix.ncols(); ++dim)
+      for (auto dim = 0; dim < index_matrix.ncols(); ++dim)
       {
         int const level_coord = levels_lists[dim](index_matrix(element, dim));
         int const cell_coord  = cells_lists[dim](index_matrix(element, dim));
