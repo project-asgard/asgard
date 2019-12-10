@@ -123,7 +123,7 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   dev_space.batch_input.transfer_from(host_space.x);
 
   // copy in inputs
-  copy_grid_inputs(pde, grid, rank_space, host_space);
+  rank_space.batch_input.transfer_from(host_space.x);
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
