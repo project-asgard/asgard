@@ -234,6 +234,7 @@ TEMPLATE_TEST_CASE("element chunk, continuity 6", "[chunk]", float, double)
     int const degree = 4;
     int const level  = 4;
     int const ranks  = 11;
+
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
     test_chunking(*pde, ranks);
   }
