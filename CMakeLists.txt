@@ -15,8 +15,15 @@ endif ()
 ###############################################################################
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_options ("-g" "-Wall" "-Wextra" "-Wpedantic")
+
+# default to debug build
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
+
+# add compiler flags we always want to use
+add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-fno-exceptions")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -266,19 +273,10 @@ if (ASGARD_BUILD_TESTS)
       endif()
     endif ()
 
-
-
-
-
-
-
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
-
-
-
 
 else ()
   message (WARNING "warning: tests will not be built.")
