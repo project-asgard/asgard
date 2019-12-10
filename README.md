@@ -51,3 +51,17 @@ ctest
 ```
 
 For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)
+
+# Running examples
+
+Execute an existing pde problem
+```
+./asgard -p fokkerplanck_1d_4p1a -n 1000 -f -d 4 -l 5 -i -r 100
+```
+
+View output in MATLAB
+```
+hinfo = hdf5info('asgard_realspace.h5');
+dset = hdf5read(hinfo.GroupHierarchy.Datasets(1));
+semilogy(linspace(-1,1,length(dset)),dset)
+```

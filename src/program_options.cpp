@@ -24,7 +24,7 @@ options::options(int argc, char **argv)
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
           "Number of iterations") |
       clara::detail::Opt(selected_pde, "selected_pde")["-p"]["--pde"](
-          "PDE to solve; see options.hpp for list") |
+          "PDE to solve; see pde.hpp for list") |
       clara::detail::Opt(do_poisson)["-s"]["--solve_poisson"](
           "Do poisson solve for electric field") |
       clara::detail::Opt(write_frequency,
@@ -73,7 +73,7 @@ options::options(int argc, char **argv)
   auto const choice = pde_mapping.find(selected_pde);
   if (choice == pde_mapping.end())
   {
-    std::cerr << "Invalid pde choice; see options.hpp for valid choices"
+    std::cerr << "Invalid pde choice; see pde.hpp for valid choices"
               << '\n';
     valid = false;
   }
