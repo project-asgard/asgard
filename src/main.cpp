@@ -211,10 +211,10 @@ int main(int argc, char **argv)
   host_workspace<prec> host_space(*pde, subgrid);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
-  rank_workspace<prec> rank_space(*pde, chunks);
+  rank_workspace<prec> rank_space(*pde, plan.at(my_rank), chunks);
 
   auto const get_MB = [&](int num_elems) {
-    uint64_t const bytes   = num_elems * sizeof(prec);
+    int64_t const bytes    = num_elems * sizeof(prec);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };

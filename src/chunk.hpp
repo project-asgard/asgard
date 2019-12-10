@@ -35,7 +35,8 @@ template<typename P>
 class rank_workspace
 {
 public:
-  rank_workspace(PDE<P> const &pde, std::vector<element_chunk> const &chunks);
+  rank_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
+                 std::vector<element_chunk> const &chunks);
   fk::vector<P, mem_type::owner, resource::device> const &
   get_unit_vector() const;
 
@@ -97,12 +98,6 @@ std::vector<element_chunk>
 assign_elements(element_subgrid const &grid, int const num_chunks);
 
 // data management functions
-// FIXME move...to distro? idk.
-template<typename P>
-void copy_grid_inputs(PDE<P> const &pde, element_subgrid const &grid,
-                      rank_workspace<P> &rank_space,
-                      host_workspace<P> const &host_space);
-
 template<typename P>
 void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
                         rank_workspace<P> const &rank_space,
@@ -120,16 +115,6 @@ extern template int get_num_chunks(element_subgrid const &grid,
 extern template int get_num_chunks(element_subgrid const &grid,
                                    PDE<double> const &pde,
                                    int const rank_size_MB);
-
-extern template void copy_grid_inputs(PDE<float> const &pde,
-                                      element_subgrid const &grid,
-                                      rank_workspace<float> &rank_space,
-                                      host_workspace<float> const &host_space);
-
-extern template void copy_grid_inputs(PDE<double> const &pde,
-                                      element_subgrid const &grid,
-                                      rank_workspace<double> &rank_space,
-                                      host_workspace<double> const &host_space);
 
 extern template void copy_chunk_outputs(PDE<float> const &pde,
                                         element_subgrid const &grid,

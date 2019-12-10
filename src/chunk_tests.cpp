@@ -110,9 +110,10 @@ void validity_check_subgrid(std::vector<element_chunk> const &chunks,
 // check that a given chunk vector occupies between 49% and 101% of the limiit
 template<typename P>
 void size_check_subgrid(std::vector<element_chunk> const &chunks,
-                        PDE<P> const &pde, int const limit_MB)
+                        element_subgrid const &subgrid, PDE<P> const &pde,
+                        int const limit_MB)
 {
-  rank_workspace const work(pde, chunks);
+  rank_workspace const work(pde, subgrid, chunks);
   P lower_bound                   = static_cast<P>(limit_MB * 0.49);
   P const upper_bound             = static_cast<P>(limit_MB * 1.01);
   P const workspace_size          = work.size_MB();
@@ -154,7 +155,7 @@ void test_chunking(PDE<P> const &pde, int const ranks)
       auto const chunks    = assign_elements(grid, num_chunks);
       assert(static_cast<int>(chunks.size()) == num_chunks);
       validity_check_subgrid(chunks, grid);
-      size_check_subgrid(chunks, pde, limit_MB);
+      size_check_subgrid(chunks, grid, pde, limit_MB);
     }
   }
 }
@@ -173,8 +174,9 @@ TEMPLATE_TEST_CASE("element chunk, continuity 2", "[chunk]", float, double)
   {
     int const degree = 5;
     int const level  = 6;
-    int const ranks  = 2;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    int const ranks = 2;
+    auto const pde  = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     test_chunking(*pde, ranks);
   }
 }
@@ -194,6 +196,7 @@ TEMPLATE_TEST_CASE("element chunk, continuity 3", "[chunk]", float, double)
     int const degree = 4;
     int const level  = 6;
     int const ranks  = 2;
+
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
     test_chunking(*pde, ranks);
   }
@@ -202,6 +205,7 @@ TEMPLATE_TEST_CASE("element chunk, continuity 3", "[chunk]", float, double)
     int const degree = 4;
     int const level  = 6;
     int const ranks  = 3;
+
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
     test_chunking(*pde, ranks);
   }
@@ -230,7 +234,6 @@ TEMPLATE_TEST_CASE("element chunk, continuity 6", "[chunk]", float, double)
     int const degree = 4;
     int const level  = 4;
     int const ranks  = 11;
-
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
     test_chunking(*pde, ranks);
   }
@@ -312,7 +315,7 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde)
     int const limit_MB = 1000;
     auto const chunks =
         assign_elements(grid, get_num_chunks(grid, pde, limit_MB));
-    rank_workspace<P> rank_space(pde, chunks);
+    rank_workspace<P> rank_space(pde, grid, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());

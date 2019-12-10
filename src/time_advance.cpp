@@ -119,11 +119,11 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   fm::scal(static_cast<P>(0.0), host_space.fx);
 
   // copy in inputs
-  copy_grid_inputs(pde, grid, rank_space, host_space);
+  rank_space.batch_input.transfer_from(host_space.x);
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
-    build_batches(pde, elem_table, rank_space, chunk, batches);
+    build_batches(pde, elem_table, rank_space, grid, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;
