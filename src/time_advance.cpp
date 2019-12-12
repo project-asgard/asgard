@@ -10,7 +10,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            rank_workspace<P> &rank_space,
-                           std::vector<element_chunk> chunks,
+                           std::vector<element_chunk> const &chunks,
                            distribution_plan const &plan, P const time,
                            P const dt)
 {
@@ -119,8 +119,9 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   fm::scal(static_cast<P>(0.0), host_space.fx);
   fm::scal(static_cast<P>(0.0), rank_space.batch_output);
 
-  // copy in inputs
+  // copy inputs onto GPU
   rank_space.batch_input.transfer_from(host_space.x);
+
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
@@ -140,10 +141,9 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
 
     // do the reduction
     reduce_chunk(pde, rank_space, grid, chunk);
-
-    // copy outputs back
-    // copy_chunk_outputs(pde, grid, rank_space, host_space, chunk);
   }
+
+  // copy outputs back from GPU
   host_space.fx.transfer_from(rank_space.batch_output);
 }
 
@@ -204,7 +204,7 @@ explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       host_workspace<double> &host_space,
                       rank_workspace<double> &rank_space,
-                      std::vector<element_chunk> chunks,
+                      std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, double const time,
                       double const dt);
 
@@ -213,7 +213,7 @@ explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
                       rank_workspace<float> &rank_space,
-                      std::vector<element_chunk> chunks,
+                      std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, float const time,
                       float const dt);
 
