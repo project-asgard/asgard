@@ -1006,7 +1006,6 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   // copy in inputs
 
   rank_space.batch_input.transfer_from(host_space.x);
-  fm::scal(static_cast<P>(0.0), host_space.fx);
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
@@ -1025,11 +1024,9 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
     }
 
     // do the reduction
-    reduce_chunk(pde, rank_space, chunk);
-
-    // copy outputs back
-    copy_chunk_outputs(pde, subgrid, rank_space, host_space, chunk);
+    reduce_chunk(pde, rank_space, subgrid, chunk);
   }
+  host_space.fx.transfer_from(rank_space.batch_output);
 
   // determined emprically 11/19
   auto const eps_multiplier = std::is_same<float, P>::value ? 1e3 : 1e4;

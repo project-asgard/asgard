@@ -56,37 +56,30 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
 {
   int const elem_size = element_segment_size(pde);
 
-  int const max_elems =
-      (*std::max_element(chunks.begin(), chunks.end(),
-                         [](element_chunk const &a, element_chunk const &b) {
-                           return a.size() < b.size();
-                         }))
-          .size();
-
-  /*
-  auto const columns_in_chunks = [&chunks]() {
-    int const min_col =
-        columns_in_chunk((*std::min_element(chunks.begin(), chunks.end(),
-                                            [](auto const &a, auto const &b) {
-                                              return columns_in_chunk(a).start <
-                                                     columns_in_chunk(b).start;
-                                            })))
-            .start;
-
-    int const max_col =
-        columns_in_chunk(*std::max_element(chunks.begin(), chunks.end(),
-                                           [](auto const &a, auto const &b) {
-                                             return columns_in_chunk(a).stop <
-                                                    columns_in_chunk(b).stop;
-                                           }))
-            .stop;
-    return grid_limits(min_col, max_col);
-  }();*/
-
-  // the size of the x vector needed for this set of chunks
-  auto const x_size = subgrid.ncols();
+  // the size of the x vector needed for assigned subgrid
+  auto const x_size = static_cast<int64_t>(subgrid.ncols()) * elem_size;
   assert(x_size < INT_MAX);
+  batch_input.resize(x_size);
 
+  // the size of the y vector for assigned subgrid
+  auto const y_size = static_cast<int64_t>(subgrid.nrows()) * elem_size;
+  assert(y_size < INT_MAX);
+  batch_output.resize(y_size);
+
+  // reduction space for kron outputs
+  int const max_total = num_elements_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](element_chunk const &a, element_chunk const &b) {
+        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
+      }));
+
+  reduction_space.resize(elem_size * max_total * pde.num_terms);
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  batch_intermediate.resize(reduction_space.size() * num_workspaces);
+
+  // unit vector for reduction
   auto const max_col_limits = columns_in_chunk(*std::max_element(
       chunks.begin(), chunks.end(),
       [](element_chunk const &a, element_chunk const &b) {
@@ -96,23 +89,8 @@ rank_workspace<P>::rank_workspace(PDE<P> const &pde,
         auto const num_b     = cols_in_b.stop - cols_in_b.start + 1;
         return num_a < num_b;
       }));
-  auto const max_cols       = max_col_limits.stop - max_col_limits.start + 1;
+  auto const max_cols       = max_col_limits.size();
 
-  int const max_total = num_elements_in_chunk(*std::max_element(
-      chunks.begin(), chunks.end(),
-      [](element_chunk const &a, element_chunk const &b) {
-        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
-      }));
-
-  batch_input.resize(elem_size * x_size);
-  batch_output.resize(elem_size * max_elems);
-  reduction_space.resize(elem_size * max_total * pde.num_terms);
-
-  // intermediate workspaces for kron product.
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  batch_intermediate.resize(reduction_space.size() * num_workspaces);
-
-  // unit vector for reduction
   unit_vector_.resize(pde.num_terms * max_cols);
   fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
   std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
@@ -293,35 +271,21 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   return chunks;
 }
 
-template<typename P>
-void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
-                        rank_workspace<P> const &rank_space,
-                        host_workspace<P> &host_space,
-                        element_chunk const &chunk)
-{
-  int const elem_size = element_segment_size(pde);
-  auto const y_range  = rows_in_chunk(chunk);
-  fk::vector<P, mem_type::view> y_view(
-      host_space.fx, grid.to_local_row(y_range.start) * elem_size,
-      (grid.to_local_row(y_range.stop) + 1) * elem_size - 1);
-
-  fk::vector<P, mem_type::const_view, resource::device> const out_view(
-      rank_space.batch_output, 0,
-      (y_range.stop - y_range.start + 1) * elem_size - 1);
-
-  fk::vector<P, mem_type::owner> const out_view_h(out_view.clone_onto_host());
-  y_view = fm::axpy(out_view_h, y_view);
-}
 
 template<typename P>
 void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
-                  element_chunk const &chunk)
+                  element_subgrid const &subgrid, element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
 
-  fm::scal(static_cast<P>(0.0), rank_space.batch_output);
   for (auto const &[row, cols] : chunk)
   {
+    // assert that chunk is within passed subgrid's range
+    assert(row >= subgrid.row_start);
+    assert(row <= subgrid.row_stop);
+    assert(cols.start >= subgrid.col_start);
+    assert(cols.stop <= subgrid.col_stop);
+
     int const prev_row_elems = [i = row, &chunk] {
       if (i == chunk.begin()->first)
       {
@@ -335,19 +299,18 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
       return prev_elems;
     }();
 
-    fk::matrix<P, mem_type::const_view, resource::device> const
-        reduction_matrix(rank_space.reduction_space, elem_size,
-                         (cols.stop - cols.start + 1) * pde.num_terms,
-                         prev_row_elems * elem_size * pde.num_terms);
+    fk::matrix<P, mem_type::const_view, resource::device> const reduction_matrix(
+        rank_space.reduction_space, elem_size, cols.size() * pde.num_terms,
+        prev_row_elems * elem_size * pde.num_terms);
 
-    int const reduction_row = row - chunk.begin()->first;
+    int const reduction_row = subgrid.to_local_row(row);
     fk::vector<P, mem_type::view, resource::device> output_view(
         rank_space.batch_output, reduction_row * elem_size,
         ((reduction_row + 1) * elem_size) - 1);
 
     fk::vector<P, mem_type::const_view, resource::device> const unit_view(
-        rank_space.get_unit_vector(), 0,
-        (cols.stop - cols.start + 1) * pde.num_terms - 1);
+        rank_space.get_unit_vector(), 0, cols.size() * pde.num_terms - 1);
+
 
     P const alpha     = 1.0;
     P const beta      = 1.0;
@@ -367,22 +330,11 @@ template int get_num_chunks(element_subgrid const &grid, PDE<float> const &pde,
 template int get_num_chunks(element_subgrid const &grid, PDE<double> const &pde,
                             int const rank_size_MB);
 
-template void copy_chunk_outputs(PDE<float> const &pde,
-                                 element_subgrid const &grid,
-                                 rank_workspace<float> const &rank_space,
-                                 host_workspace<float> &host_space,
-                                 element_chunk const &chunk);
+template void
+reduce_chunk(PDE<float> const &pde, rank_workspace<float> &rank_space,
+             element_subgrid const &subgrid, element_chunk const &chunk);
 
-template void copy_chunk_outputs(PDE<double> const &pde,
-                                 element_subgrid const &grid,
-                                 rank_workspace<double> const &rank_space,
-                                 host_workspace<double> &host_space,
-                                 element_chunk const &chunk);
+template void
+reduce_chunk(PDE<double> const &pde, rank_workspace<double> &rank_space,
+             element_subgrid const &subgrid, element_chunk const &chunk);
 
-template void reduce_chunk(PDE<float> const &pde,
-                           rank_workspace<float> &rank_space,
-                           element_chunk const &chunk);
-
-template void reduce_chunk(PDE<double> const &pde,
-                           rank_workspace<double> &rank_space,
-                           element_chunk const &chunk);

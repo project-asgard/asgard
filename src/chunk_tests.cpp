@@ -330,7 +330,7 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde)
     for (auto const &chunk : chunks)
     {
       // reduce and test
-      reduce_chunk(pde, rank_space, chunk);
+      reduce_chunk(pde, rank_space, grid, chunk);
       verify_reduction(pde, chunk, rank_space);
     }
   }

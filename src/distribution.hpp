@@ -14,6 +14,7 @@ struct grid_limits
   grid_limits(int const start, int const stop) : start(start), stop(stop){};
   grid_limits(grid_limits const &l) : start(l.start), stop(l.stop){};
   grid_limits(grid_limits const &&l) : start(l.start), stop(l.stop){};
+  int size() const { return stop - start + 1; }
   bool operator==(const grid_limits &rhs) const
   {
     return start == rhs.start && stop == rhs.stop;
