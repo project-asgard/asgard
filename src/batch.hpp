@@ -24,10 +24,10 @@ public:
   batch &operator=(batch<P, resrc> &&other);
   ~batch();
 
-  bool operator==(batch<P, resrc>) const;
+  bool operator==(batch<P, resrc> const &) const;
   P *operator()(int const) const;
 
-  void assign_entry(fk::matrix<P, mem_type::view, resrc> const a,
+  void assign_entry(fk::matrix<P, mem_type::view, resrc> const &a,
                     int const position);
   bool clear_entry(int const position);
 
@@ -120,10 +120,10 @@ allocate_batches(PDE<P> const &pde, int const num_elems);
 // do the arithmetic for a single connected element.
 template<typename P>
 void kronmult_to_batch_sets(
-    std::vector<fk::matrix<P, mem_type::view, resource::device>> const A,
-    fk::vector<P, mem_type::view, resource::device> x,
-    fk::vector<P, mem_type::view, resource::device> y,
-    std::vector<fk::vector<P, mem_type::view, resource::device>> const work,
+    std::vector<fk::matrix<P, mem_type::view, resource::device>> const &A,
+    fk::vector<P, mem_type::view, resource::device> const &x,
+    fk::vector<P, mem_type::view, resource::device> const &y,
+    std::vector<fk::vector<P, mem_type::view, resource::device>> const &work,
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde);
 
@@ -179,19 +179,20 @@ extern template std::vector<batch_operands_set<double>>
 allocate_batches(PDE<double> const &pde, int const num_elems);
 
 extern template void kronmult_to_batch_sets(
-    std::vector<fk::matrix<float, mem_type::view, resource::device>> const A,
-    fk::vector<float, mem_type::view, resource::device> x,
-    fk::vector<float, mem_type::view, resource::device> y,
-    std::vector<fk::vector<float, mem_type::view, resource::device>> const work,
+    std::vector<fk::matrix<float, mem_type::view, resource::device>> const &A,
+    fk::vector<float, mem_type::view, resource::device> const &x,
+    fk::vector<float, mem_type::view, resource::device> const &y,
+    std::vector<fk::vector<float, mem_type::view, resource::device>> const
+        &work,
     std::vector<batch_operands_set<float>> &batches, int const batch_offset,
     PDE<float> const &pde);
 
 extern template void kronmult_to_batch_sets(
-    std::vector<fk::matrix<double, mem_type::view, resource::device>> const A,
-    fk::vector<double, mem_type::view, resource::device> x,
-    fk::vector<double, mem_type::view, resource::device> y,
+    std::vector<fk::matrix<double, mem_type::view, resource::device>> const &A,
+    fk::vector<double, mem_type::view, resource::device> const &x,
+    fk::vector<double, mem_type::view, resource::device> const &y,
     std::vector<fk::vector<double, mem_type::view, resource::device>> const
-        work,
+        &work,
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
 
