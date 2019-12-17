@@ -46,7 +46,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // can't run problem with fewer elements than ranks
   // this is asserted on in the distribution component
-  if (num_ranks < static_cast<int>(table.size()))
+  if (num_ranks < static_cast<int64_t>(table.size()) * table.size())
   {
     return;
   }
