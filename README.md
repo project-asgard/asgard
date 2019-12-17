@@ -56,7 +56,7 @@ For specific platform build instructions, [see this wiki page.](https://github.c
 
 Execute an existing pde problem
 ```
-./asgard -p fokkerplanck_1d_4p1a -n 1000 -f -d 4 -l 5 -i -r 100
+./asgard -p fokkerplanck_1d_4p1a -n 481 -f -d 4 -l 5 -i -r 80
 ```
 
 View output in MATLAB
