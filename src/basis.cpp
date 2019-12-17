@@ -365,7 +365,7 @@ template<typename R>
 fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
 {
   assert(degree > 0);
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   int const max_level = fm::two_raised_to(num_levels);
 
@@ -434,6 +434,9 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
            int const kdegree, int const num_levels, bool const fmwt_left,
            bool const fmwt_trans)
 {
+  assert(num_levels > 1);
+  assert(kdegree > 0);
+
   int const n_col = kdegree * pow(2, num_levels);
   int row_start   = 0;
   int row_end     = 2 * kdegree - 1;

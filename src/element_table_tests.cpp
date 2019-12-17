@@ -11,11 +11,11 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
 
   SECTION("1D element table")
   {
-    int const levels = 1;
+    int const levels = 2;
     int const dims   = 1;
     options o        = make_options({"-l", std::to_string(levels)});
     element_table t(o, dims);
-    std::string test_base = out_base + "_1_1_SG";
+    std::string test_base = out_base + "_1_2_SG";
     std::string file_path = test_base + ".dat";
     auto gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
     for (auto i = 0; i < t.size(); ++i)
@@ -26,7 +26,7 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
       REQUIRE(t.get_coords(i) == gold_coords);
       REQUIRE(t.get_index(gold_coords) == i);
     }
-    REQUIRE(t.size() == 2);
+    REQUIRE(t.size() == 4);
   }
 
   SECTION("2D element table")
