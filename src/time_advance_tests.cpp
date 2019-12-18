@@ -46,7 +46,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // can't run problem with fewer elements than ranks
   // this is asserted on in the distribution component
-  if (num_ranks < static_cast<int>(table.size()))
+  if (num_ranks > static_cast<int>(table.size()))
   {
     return;
   }
@@ -114,7 +114,8 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-
+    gold.print("printed gold");
+    host_space.x.print("solution");
     // determined empirically 11/19; lowest tolerance
     // for which all current tests pass
     auto const tol_scale = 1e4;
@@ -278,6 +279,26 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
     std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
     auto pde =
         make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
+
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1b", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_1d_4p1b, level 2, degree 2, sparse grid")
+  {
+    int const degree            = 2;
+    int const level             = 2;
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_4p1b_sg_l2_d2_t";
+
+    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1b, level, degree);
 
     bool const full_grid = false;
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
