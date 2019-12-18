@@ -295,6 +295,26 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1b", "[time_advance]",
   }
 }
 
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1b", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_1d_4p1b, level 2, degree 2, sparse grid")
+  {
+    int const degree            = 2;
+    int const level             = 2;
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_4p1b_sg_l2_d2_t";
+
+    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1b, level, degree);
+
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
+  }
+}
+
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
                    float, double)
 {
