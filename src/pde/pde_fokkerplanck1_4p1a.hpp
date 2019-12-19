@@ -151,7 +151,7 @@ private:
   // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
 
   inline static partial_term<P> const partial_term_0 =
-      partial_term<P>(coefficient_type::grad, g_func_1, flux_type::central,
+      partial_term<P>(coefficient_type::grad, g_func_1, flux_type::downwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 
   inline static term<P> const term0_dim0_ =
