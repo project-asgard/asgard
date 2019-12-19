@@ -168,7 +168,6 @@ legendre_weights(int const num_points, int const lower_bound,
   // x_linspace=linspace(-1,1,num_points)';
   // This is a linearly spaced vector used to compose the initial guess
   // of the roots x_roots done next
-  std::cout << num_points << '\n';
   fk::vector<P> const x_linspace =
       linspace(static_cast<P>(-1.0), static_cast<P>(1.0), num_points);
 
