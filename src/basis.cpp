@@ -30,15 +30,13 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   fk::matrix<P> scalet_coefficients(degree, degree);
 
   // Set up parameters for quadrature - used for inner product evaluation
-  // stepping sets accuracy
   // In this routine there are three intervals for the quadrature
   // Negative one to zero --zero to one -- and negative one to one
   // since this is done on the "reference element" -1 to 1
   // the intervals are fixed to be (-1,0), (0,1), and (-1,1)
-  int const stepping = fm::two_raised_to(6);
-  P const neg1       = -1.0;
-  P const zero       = 0.0;
-  P const one        = 1.0;
+  P const neg1 = -1.0;
+  P const zero = 0.0;
+  P const one  = 1.0;
 
   // Step 1 of 2 in creating scalets
   // generate Legendre polynomial coefficients
@@ -87,15 +85,15 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // Roots and weights of Legendre polynomials on (-1,0), (0,1), and (-1,1)
   // we do the two-step store because we cannot have 'static' bindings
   static auto const legendre_neg1_zero = legendre_weights<P>(
-      stepping, static_cast<int>(neg1), static_cast<int>(zero));
+      degree, static_cast<int>(neg1), static_cast<int>(zero));
   auto const [roots_neg1to0, weights_neg1to0] = legendre_neg1_zero;
 
   static auto const legendre_zero_one = legendre_weights<P>(
-      stepping, static_cast<int>(zero), static_cast<int>(one));
+      degree, static_cast<int>(zero), static_cast<int>(one));
   auto const [roots_0to1, weights_0to1] = legendre_zero_one;
 
   static auto const legendre_neg1_one = legendre_weights<P>(
-      stepping, static_cast<int>(neg1), static_cast<int>(one));
+      degree, static_cast<int>(neg1), static_cast<int>(one));
   auto const [roots_neg1to1, weights_neg1to1] = legendre_neg1_one;
 
   // this is to get around unused warnings

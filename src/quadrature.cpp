@@ -138,13 +138,13 @@ legendre(fk::vector<P> const domain, int const degree,
 
 //% lgwt.m
 //% This script is for computing the Legendre-Gauss nodes (roots on x) and
-// weights % on an interval % [interval_start,interval_end] for Legendre
-// polynomial degree polynomial_degree % These are later used for computing
+// weights % on an interval % [lower_bound,upper_bound] for Legendre
+// polynomial degree num_points % These are later used for computing
 // definite integrals using Legendre-Gauss % Quadrature.
 //%
 //% Suppose you have a continuous function f(x) which is defined on
-//% [interval_start,interval_end]
-//% which you can evaluate at any x in [interval_start, interval_end].
+//% [lower_bound,upper_bound]
+//% which you can evaluate at any x in [lower_bound, upper_bound].
 //% Simply evaluate it at all of
 //% the values contained in the x vector to obtain a vector f. Then compute
 //% the definite integral using sum(f.*w);
@@ -155,62 +155,61 @@ legendre(fk::vector<P> const domain, int const degree,
 
 template<typename P>
 std::array<fk::vector<P>, 2>
-legendre_weights(const int polynomial_degree, const int interval_start,
-                 const int interval_end)
+legendre_weights(int const degree, int const lower_bound, int const upper_bound)
 {
-  assert(polynomial_degree > 0);
-  assert(interval_start < interval_end);
+  assert(degree > 0);
+  assert(lower_bound < upper_bound);
+
+  int const num_points = std::max(10, degree + 1);
 
   // prepare output vectors
   // the number of roots of a Legendre polynomial is equal to its degree
-  fk::vector<P> x_roots(polynomial_degree);
-  fk::vector<P> weights(polynomial_degree);
+  fk::vector<P> x_roots(num_points);
+  fk::vector<P> weights(num_points);
 
-  // x_linspace=linspace(-1,1,polynomial_degree)';
+  // x_linspace=linspace(-1,1,num_points)';
   // This is a linearly spaced vector used to compose the initial guess
   // of the roots x_roots done next
   fk::vector<P> const x_linspace =
-      linspace(static_cast<P>(-1.0), static_cast<P>(1.0), polynomial_degree);
+      linspace(static_cast<P>(-1.0), static_cast<P>(1.0), num_points);
 
   //% Initial guess at the roots for the Legendre polynomial of degree
-  // polynomial_degree
-  // x_roots=cos((2*(0:polynomial_degree-1)'+1)*pi/(2*(polynomial_degree-1)+2))+(0.27/polynomial_degree)*sin(pi*x_linspace*((polynomial_degree-1)/(polynomial_degree+1);
+  // num_points
+  // x_roots=cos((2*(0:num_points-1)'+1)*pi/(2*(num_points-1)+2))+(0.27/num_points)*sin(pi*x_linspace*((num_points-1)/(num_points+1);
   // It is unkown where this guess comes from, but seems to work well
   // The above operation is split into two pieces, the cos term (performed on
   // x_roots) and then the sin term (performed on x_roots2) then they are added
   // together
-  x_roots =
-      linspace(static_cast<P>(0.0), static_cast<P>((polynomial_degree - 1)),
-               polynomial_degree);
+  x_roots = linspace(static_cast<P>(0.0), static_cast<P>((num_points - 1)),
+                     num_points);
   std::transform(x_roots.begin(), x_roots.end(), x_roots.begin(), [&](P &elem) {
     return std::cos((2 * elem + 1) * M_PI /
-                    static_cast<P>((2 * (polynomial_degree - 1) + 2)));
+                    static_cast<P>((2 * (num_points - 1) + 2)));
   });
 
   fk::vector<P> x_roots2(x_linspace);
-  std::transform(x_roots2.begin(), x_roots2.end(), x_roots2.begin(),
-                 [&](P &elem) {
-                   return (static_cast<P>(0.27) / polynomial_degree) *
-                          std::sin(M_PI * elem * (polynomial_degree - 1) /
-                                   (polynomial_degree + 1));
-                 });
+  std::transform(
+      x_roots2.begin(), x_roots2.end(), x_roots2.begin(), [&](P &elem) {
+        return (static_cast<P>(0.27) / num_points) *
+               std::sin(M_PI * elem * (num_points - 1) / (num_points + 1));
+      });
 
   x_roots = x_roots + x_roots2;
 
   //% Legendre-Gauss Vandermonde Matrix
-  //% Legendre polynomial values for poly degree 0 to polynomial_degree_plus_one
-  //% at the (estimated) zeros of the polynomial of degree polynomial_degree
-  // legendre_y_values=zeros(polynomial_degree,polynomial_degree+2);
-  fk::matrix<P> legendre_y_values(polynomial_degree, (polynomial_degree + 1));
+  //% Legendre polynomial values for poly degree 0 to num_points_plus_one
+  //% at the (estimated) zeros of the polynomial of degree num_points
+  // legendre_y_values=zeros(num_points,num_points+2);
+  fk::matrix<P> legendre_y_values(num_points, (num_points + 1));
   // The y values of the derivative of the legendre polynomial
-  // of degree equals polynomial_degree at each of the (estimated) root
+  // of degree equals num_points at each of the (estimated) root
   // locations
-  fk::vector<P> legendre_prime_y_values(polynomial_degree);
+  fk::vector<P> legendre_prime_y_values(num_points);
 
   // Set x_roots_initial to a value that will fail the
   // closeness comparison for the Newton iteration
   // x_roots_initial=2
-  fk::vector<P> x_roots_initial(polynomial_degree);
+  fk::vector<P> x_roots_initial(num_points);
   std::fill(x_roots_initial.begin(), x_roots_initial.end(),
             static_cast<P>(2.0));
   P const eps = std::numeric_limits<P>::epsilon();
@@ -218,12 +217,12 @@ legendre_weights(const int polynomial_degree, const int interval_start,
   // This piece of the code uses Newton's method to solve for the
   // Legendre polynomial roots
   // x_roots = x_roots_initial - f(x_roots_initial)/f'(x_roots_initial)
-  // where the function f is the legendre polynomial of degree polynomial_degree
+  // where the function f is the legendre polynomial of degree num_points
   //% Iterate until new points are uniformly within epsilon of old points
   // Recursion formulae for Legendre polynomials as wellas the derivative
   // are used
   // while max(abs(x_roots-x_roots_initial))>eps
-  fk::vector<P> diff(polynomial_degree);
+  fk::vector<P> diff(num_points);
   auto const abs_diff = [&](P const &y_elem, P const &y0_elem) {
     return std::fabs(y_elem - y0_elem);
   };
@@ -241,10 +240,10 @@ legendre_weights(const int polynomial_degree, const int interval_start,
     // legendre_y_values column 1
     legendre_y_values.update_col(1, x_roots);
 
-    // for i=1:polynomial_degree-1
+    // for i=1:num_points-1
     // Set values of Legendre polynomial P_i
     // we set the i+1th column of L at each iter
-    for (int i = 1; i < (polynomial_degree); ++i)
+    for (int i = 1; i < (num_points); ++i)
     {
       // Legendre polynomials P_i-1 and P_i are used in a recurrence relation to
       // produce P_i+1
@@ -272,20 +271,17 @@ legendre_weights(const int polynomial_degree, const int interval_start,
     }
     // P'_i(x_roots) = i*(P_i-1(x_roots) -
     // x_roots*P_i(x_roots))/(1-x_roots.^2) Here we want to produce
-    // P'_polynomial_degree(x_roots) so P_polynomial_degree and
-    // P_polynomial_degree-1 are needed
-    fk::vector<P> legendre_polynomial_degree =
-        legendre_y_values.extract_submatrix(0, polynomial_degree,
-                                            legendre_y_values.nrows(), 1);
-    fk::vector<P> legendre_polynomial_degree_minus_one =
-        legendre_y_values.extract_submatrix(0, polynomial_degree - 1,
+    // P'_num_points(x_roots) so P_num_points and
+    // P_num_points-1 are needed
+    fk::vector<P> legendre_num_points = legendre_y_values.extract_submatrix(
+        0, num_points, legendre_y_values.nrows(), 1);
+    fk::vector<P> legendre_num_points_minus_one =
+        legendre_y_values.extract_submatrix(0, num_points - 1,
                                             legendre_y_values.nrows(), 1);
     // legendre_polynomial_scaled = P_i(x_roots)*x_roots
-    fk::vector<P> legendre_polynomial_degree_scaled(
-        legendre_polynomial_degree.size());
-    std::transform(legendre_polynomial_degree.begin(),
-                   legendre_polynomial_degree.end(), x_roots.begin(),
-                   legendre_polynomial_degree_scaled.begin(),
+    fk::vector<P> legendre_num_points_scaled(legendre_num_points.size());
+    std::transform(legendre_num_points.begin(), legendre_num_points.end(),
+                   x_roots.begin(), legendre_num_points_scaled.begin(),
                    std::multiplies<P>());
     // x_roots_denominator = (1-x_roots^2)
     fk::vector<P> const x_roots_denominator = [&] {
@@ -298,9 +294,9 @@ legendre_weights(const int polynomial_degree, const int interval_start,
     // calculation of part of legendre_prime_y_values
     // P'i(x_roots) = ((i+1)*x_roots*P_i(x_roots) - (i+1)*P_i+1(x_roots))
     // division by (1-x_roots^2) next
-    legendre_prime_y_values = (legendre_polynomial_degree_minus_one -
-                               legendre_polynomial_degree_scaled) *
-                              (polynomial_degree);
+    legendre_prime_y_values =
+        (legendre_num_points_minus_one - legendre_num_points_scaled) *
+        (num_points);
     auto const element_division = [](P const &one, P const &two) {
       return one / two;
     };
@@ -313,12 +309,11 @@ legendre_weights(const int polynomial_degree, const int interval_start,
 
     x_roots_initial = x_roots;
 
-    // x_roots=x_roots_initial-legendre_polynomial_degree./legendre_prime_y_values;
-    std::transform(legendre_polynomial_degree.begin(),
-                   legendre_polynomial_degree.end(),
-                   legendre_prime_y_values.begin(),
-                   legendre_polynomial_degree.begin(), element_division);
-    x_roots = x_roots_initial - legendre_polynomial_degree;
+    // x_roots=x_roots_initial-legendre_num_points./legendre_prime_y_values;
+    std::transform(legendre_num_points.begin(), legendre_num_points.end(),
+                   legendre_prime_y_values.begin(), legendre_num_points.begin(),
+                   element_division);
+    x_roots = x_roots_initial - legendre_num_points;
 
     // diff = abs(x_roots-x_roots_initial)
     std::transform(x_roots.begin(), x_roots.end(), x_roots_initial.begin(),
@@ -326,18 +321,18 @@ legendre_weights(const int polynomial_degree, const int interval_start,
   }
 
   //% Compute the weights
-  // w=(interval_end-interval_start)./((1-x_roots^2).*legendre_prime_y_values.^2);
+  // w=(upper_bound-lower_bound)./((1-x_roots^2).*legendre_prime_y_values.^2);
   std::transform(
       x_roots.begin(), x_roots.end(), legendre_prime_y_values.begin(),
       weights.begin(), [&](P &y_elem, P &lp_elem) {
-        return (interval_end - interval_start) /
+        return (upper_bound - lower_bound) /
                ((static_cast<P>(1.0) - y_elem * y_elem) * lp_elem * lp_elem);
       });
 
-  //% Linear map from[-1,1] to [interval_start,interval_end]
-  // x_roots=(interval_start*(1-x_roots)+interval_end*(1+x_roots))/2;
+  //% Linear map from[-1,1] to [lower_bound,upper_bound]
+  // x_roots=(lower_bound*(1-x_roots)+upper_bound*(1+x_roots))/2;
   std::transform(x_roots.begin(), x_roots.end(), x_roots.begin(), [&](P &elem) {
-    return (interval_start * (1 - elem) + interval_end * (1 + elem)) / 2;
+    return (lower_bound * (1 - elem) + upper_bound * (1 + elem)) / 2;
   });
 
   // x=x(end:-1:1);
@@ -357,6 +352,8 @@ legendre(fk::vector<double> const domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
-legendre_weights(const int n, const int a, const int b);
+legendre_weights(int const degree, int const lower_bound,
+                 int const upper_bound);
 template std::array<fk::vector<double>, 2>
-legendre_weights(const int n, const int a, const int b);
+legendre_weights(int const degree, int const lower_bound,
+                 int const upper_bound);
