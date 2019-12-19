@@ -152,15 +152,13 @@ legendre(fk::vector<P> const domain, int const degree,
 //% Written by Greg von Winckel - 02/25/2004
 
 // return[0] are the x_roots, return[1] are the weights
-
 template<typename P>
 std::array<fk::vector<P>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound)
+legendre_weights(int const num_points, int const lower_bound,
+                 int const upper_bound)
 {
-  assert(degree > 0);
+  assert(num_points > 0);
   assert(lower_bound < upper_bound);
-
-  int const num_points = std::max(10, degree + 1);
 
   // prepare output vectors
   // the number of roots of a Legendre polynomial is equal to its degree
@@ -170,6 +168,7 @@ legendre_weights(int const degree, int const lower_bound, int const upper_bound)
   // x_linspace=linspace(-1,1,num_points)';
   // This is a linearly spaced vector used to compose the initial guess
   // of the roots x_roots done next
+  std::cout << num_points << '\n';
   fk::vector<P> const x_linspace =
       linspace(static_cast<P>(-1.0), static_cast<P>(1.0), num_points);
 
@@ -352,8 +351,8 @@ legendre(fk::vector<double> const domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
-legendre_weights(int const degree, int const lower_bound,
+legendre_weights(int const num_points, int const lower_bound,
                  int const upper_bound);
 template std::array<fk::vector<double>, 2>
-legendre_weights(int const degree, int const lower_bound,
+legendre_weights(int const num_points, int const lower_bound,
                  int const upper_bound);

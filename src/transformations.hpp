@@ -60,9 +60,8 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
-  // we do the two-step store because we cannot have 'static' bindings
-  static auto const legendre_values = legendre_weights<P>(degree, -1, 1);
-  auto const [roots, weights]       = legendre_values;
+  auto const [roots, weights] =
+      legendre_weights<P>(default_quad_number(degree), -1, 1);
 
   // get grid spacing.
   // hate this name TODO
