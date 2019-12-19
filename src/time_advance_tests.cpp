@@ -29,8 +29,13 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
                        bool const full_grid                            = false,
                        std::vector<std::string> const &additional_args = {},
+<<<<<<< HEAD
                        double const eps_multiplier                     = 1e4)
 // eps multiplier determined empirically 11/19; lowest epsilon multiplier
+=======
+                       double const tol_factor                         = 1e4)
+// tol factor determined empirically 11/19; lowest tolerance
+>>>>>>> tracking down differences in pde spec for fokker_planck2d complete
 // for which all current tests pass with the exception of fp2d
 {
   int const my_rank   = get_rank();
@@ -60,6 +65,11 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // -- set coeffs
   generate_all_coefficients(pde);
+ for(int i=0; i< pde.num_terms; ++i){
+   for(int j=0;j<pde.num_dims; j++){
+     pde.get_coefficients(i,j).clone_onto_host().print();
+   }
+ }
 
   // -- generate initial condition vector.
   fk::vector<P> const initial_condition = [&pde, &table, &subgrid, degree]() {
@@ -275,26 +285,6 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1b", "[time_advance]",
-                   float, double)
-{
-  SECTION("fokkerplanck_1d_4p1b, level 2, degree 2, sparse grid")
-  {
-    int const degree            = 2;
-    int const level             = 2;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p1b_sg_l2_d2_t";
-
-    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
-    auto pde =
-        make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1b, level, degree);
-
-    bool const full_grid = false;
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args);
-  }
-}
-
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
                    float, double)
 {
@@ -310,9 +300,10 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
     bool const full_grid                      = false;
     std::vector<std::string> const addtl_args = {
         "-c", to_string_with_precision(1e-10, 16)};
-    auto const eps_multiplier = 1e7; // FIXME why so high?
+    double tol_factor = 1e4; // FIXME why so high?
+
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args, eps_multiplier);
+                      addtl_args, tol_factor);
   }
 }
 
