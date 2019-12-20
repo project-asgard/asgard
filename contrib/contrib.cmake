@@ -123,6 +123,17 @@ if (NOT LINALG_LIBS_FOUND)
   else (NOT DEFINED LINALG_LIBS)
     message (STATUS "OpenBLAS not found. We'll build it from source.")
 
+    # OpenBLAS will build without Fortran, but it will silently neglect to build vital functions
+    include( CheckLanguage )
+    message( STATUS "Checking for Fortran compiler..." )
+    check_language(Fortran)
+    if(CMAKE_Fortran_COMPILER)
+      enable_language(Fortran)
+      message( STATUS "Fortran compiler found" )
+    else()
+      message( FATAL_ERROR "Fortran compiler missing - required to build OpenBLAS" )
+    endif()
+
     include (ExternalProject)
     ExternalProject_Add (openblas-ext
       UPDATE_COMMAND ""
