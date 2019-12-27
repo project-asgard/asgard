@@ -2565,7 +2565,10 @@ TEMPLATE_TEST_CASE("kronmult batching", "[batch]", float, double)
 template<typename P, typename T>
 std::vector<P *> views_to_ptrs(std::vector<T> const &views)
 {
-  assert(views.size() > 0);
+  if (views.size() == 0)
+  {
+    return std::vector<P *>();
+  }
   using R = typename std::remove_pointer<decltype(views[0].data())>::type;
   static_assert(std::is_same<P, R>::value,
                 "view element type must match ptr type");
