@@ -432,7 +432,9 @@ static void kron_base(fk::matrix<P, mem_type::view, resource::device> const &A,
   batches[2].assign_entry(y_view, batch_offset);
 }
 
-// same function, high performance version
+// same function, unsafe version that uses raw pointers for performance
+// view reference counting was identified as a bottleneck in
+// parallel batch building code
 template<typename P>
 inline void kron_base(P *const A, P *const x, P *const y,
                       batch_operands_set<P> &batches, int const batch_offset)
@@ -559,11 +561,12 @@ void kronmult_to_batch_sets(
   batches[pde.num_dims - 1][2].assign_entry(y_view, batch_offset);
 }
 
+// unsafe version; uses raw pointers rather than views
 template<typename P>
-void kronmult_to_batch_sets(std::vector<P *> const &A, P *const x, P *const y,
-                            std::vector<P *> const &work,
-                            std::vector<batch_operands_set<P>> &batches,
-                            int const batch_offset, PDE<P> const &pde)
+void unsafe_kronmult_to_batch_sets(std::vector<P *> const &A, P *const x,
+                                   P *const y, std::vector<P *> const &work,
+                                   std::vector<batch_operands_set<P>> &batches,
+                                   int const batch_offset, PDE<P> const &pde)
 {
   // FIXME when we allow varying degree by dimension, all
   // this code will have to change...
@@ -796,8 +799,8 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
         // x vector input to kronmult
         P *const x_ptr = workspace.batch_input.data() + x_index;
 
-        kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs, batches,
-                               kron_index, pde);
+        unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs,
+                                      batches, kron_index, pde);
       }
     }
   }
@@ -959,16 +962,17 @@ template void kronmult_to_batch_sets(
     PDE<double> const &pde);
 
 template void
-kronmult_to_batch_sets(std::vector<float *> const &A, float *const x,
-                       float *const y, std::vector<float *> const &work,
-                       std::vector<batch_operands_set<float>> &batches,
-                       int const batch_offset, PDE<float> const &pde);
+unsafe_kronmult_to_batch_sets(std::vector<float *> const &A, float *const x,
+                              float *const y, std::vector<float *> const &work,
+                              std::vector<batch_operands_set<float>> &batches,
+                              int const batch_offset, PDE<float> const &pde);
 
 template void
-kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
-                       double *const y, std::vector<double *> const &work,
-                       std::vector<batch_operands_set<double>> &batches,
-                       int const batch_offset, PDE<double> const &pde);
+unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
+                              double *const y,
+                              std::vector<double *> const &work,
+                              std::vector<batch_operands_set<double>> &batches,
+                              int const batch_offset, PDE<double> const &pde);
 
 template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
