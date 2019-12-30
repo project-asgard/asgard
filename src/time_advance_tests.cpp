@@ -318,7 +318,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   std::string const grid_str = full_grid ? "-f" : "";
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
-                    "-c", std::to_string(0.1), "--implicit", grid_str});
+                    "-c", std::to_string(0.01), "--implicit", grid_str});
 
   element_table const table(o, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);
