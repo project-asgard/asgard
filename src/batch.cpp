@@ -985,8 +985,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         // x vector input to kronmult
         P *const x_ptr = workspace.batch_input.data() + x_index;
 
-        kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs, batches,
-                               kron_index, pde);
+        unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs,
+                                      batches, kron_index, pde);
       }
     }
   }
