@@ -702,146 +702,10 @@ get_operator_col(PDE<P> const &pde, int const degree,
   return op_col;
 }
 
-// function to allocate and build batch lists.
-// given a problem instance (pde/elem table) and
-// memory allocations (x, y, work), enqueue the
-// batch gemms/reduction gemv to perform A*x
-template<typename P>
-std::vector<batch_operands_set<P>>
-build_batches(PDE<P> const &pde, element_table const &elem_table,
-              rank_workspace<P> const &workspace, element_chunk const &chunk)
-{
-  // assume uniform degree for now
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const x_size    = chunk.size();
-  assert(workspace.batch_input.size() >= x_size);
-
-  int const elements_in_chunk = num_elements_in_chunk(chunk);
-
-  // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
-  assert(workspace.reduction_space.size() >=
-         (elem_size * elements_in_chunk * pde.num_terms));
-
-  // intermediate workspaces for kron product.
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  assert(workspace.batch_intermediate.size() ==
-         workspace.reduction_space.size() * num_workspaces);
-
-  int const max_connected       = max_connected_in_chunk(chunk);
-  int const max_items_to_reduce = pde.num_terms * max_connected;
-  assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
-
-  std::vector<batch_operands_set<P>> batches =
-      allocate_batches<P>(pde, elements_in_chunk);
-
-  // can't use structured binding; variables passed into outlined omp func
-  for (auto const &row_info : chunk)
-  {
-    // i: row we are addressing in element grid
-    auto const i = row_info.first;
-    // connected: start/stop for this row
-    auto const connected = row_info.second;
-
-    // first, get linearized indices for this element
-    //
-    // calculate from the level/cell indices for each
-    // dimension
-    fk::vector<int> const coords = elem_table.get_coords(i);
-    assert(coords.size() == pde.num_dims * 2);
-    fk::vector<int> const elem_indices = linearize(coords);
-
-    // calculate the row portion of the
-    // operator position used for this
-    // element's gemm calls
-    fk::vector<int> const operator_row =
-        get_operator_row(pde, degree, elem_indices);
-
-    // loop over connected elements. for now, we assume
-    // full connectivity
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
-#endif
-    for (int j = connected.start; j <= connected.stop; ++j)
-    {
-      // get linearized indices for this connected element
-      fk::vector<int> const coords = elem_table.get_coords(j);
-      assert(coords.size() == pde.num_dims * 2);
-      fk::vector<int> const connected_indices = linearize(coords);
-
-      // calculate the col portion of the
-      // operator position used for this
-      // element's gemm calls
-      fk::vector<int> const operator_col =
-          get_operator_col(pde, degree, connected_indices);
-
-      for (int k = 0; k < pde.num_terms; ++k)
-      {
-        // term major y-space layout, followed by connected items, finally work
-        // items.
-        int const prev_row_elems = [i = i, &chunk] {
-          if (i == chunk.begin()->first)
-          {
-            return 0;
-          }
-          int prev_elems = 0;
-          for (int r = chunk.begin()->first; r < i; ++r)
-          {
-            prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
-          }
-          return prev_elems;
-        }();
-
-        int const total_prev_elems = prev_row_elems + j - connected.start;
-        int const kron_index       = k + total_prev_elems * pde.num_terms;
-
-        // y space, where kron outputs are written
-        int const y_index = elem_size * kron_index;
-        P *const y_ptr    = workspace.reduction_space.data() + y_index;
-
-        // work space, intermediate kron data
-        int const work_index =
-            elem_size * kron_index * std::min(pde.num_dims - 1, 2);
-        std::vector<P *> const work_ptrs = [&workspace, work_index,
-                                            num_workspaces, elem_size]() {
-          std::vector<P *> work_ptrs(num_workspaces);
-          if (num_workspaces > 0)
-            work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
-          if (num_workspaces == 2)
-            work_ptrs[1] =
-                workspace.batch_intermediate.data() + work_index + elem_size;
-          return work_ptrs;
-        }();
-
-        // operator views, windows into operator matrix
-        std::vector<P *> const operator_ptrs = [&pde, &operator_row,
-                                                &operator_col, k]() {
-          std::vector<P *> operator_ptrs;
-          for (int d = pde.num_dims - 1; d >= 0; --d)
-          {
-            operator_ptrs.push_back(
-                pde.get_coefficients(k, d).data() + operator_row(d) +
-                operator_col(d) * pde.get_coefficients(k, d).stride());
-          }
-          return operator_ptrs;
-        }();
-
-        // determine the index for the input vector
-        // j - connected start is the first connected element
-        // for this chunk
-        int const x_index = (j - connected.start) * elem_size;
-
-        // x vector input to kronmult
-        P *const x_ptr = workspace.batch_input.data() + x_index;
-
-        unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs,
-                                      batches, kron_index, pde);
-      }
-    }
-  }
-  return batches;
-}
-
+// function to build batch lists.
+// given allocated batches and a  problem instance
+// (pde/elem table) and memory allocations (x, y, work),
+// enqueue the batch gemms/reduction gemv to perform A*x
 template<typename P>
 void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    rank_workspace<P> const &workspace,
@@ -871,28 +735,13 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   ready_batches(pde, chunk, batches);
 
-  std::vector<int> const index_to_key = [&chunk]() {
-    std::vector<int> builder;
-    for (auto const &[i, connected] : chunk)
-    {
-      builder.push_back(i);
-      ignore(connected);
-    }
-    return builder;
-  }();
-
-// loop over elements
-#ifdef ASGARD_USE_OPENMP
-//#pragma omp parallel for
-#endif
-  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
-       ++chunk_num)
+  // can't use structured binding; variables passed into outlined omp func
+  for (auto const &row_info : chunk)
   {
-    // row we are addressing in element grid
-    int const i = index_to_key[chunk_num];
-    // connected start/stop for this row
-    auto const connected = chunk.at(i);
-
+    // i: row we are addressing in element grid
+    auto const i = row_info.first;
+    // connected: start/stop for this row
+    auto const connected = row_info.second;
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
@@ -909,7 +758,6 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -1158,15 +1006,6 @@ unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
                               std::vector<double *> const &work,
                               std::vector<batch_operands_set<double>> &batches,
                               int const batch_offset, PDE<double> const &pde);
-
-template std::vector<batch_operands_set<float>>
-build_batches(PDE<float> const &pde, element_table const &elem_table,
-              rank_workspace<float> const &workspace,
-              element_chunk const &chunk);
-template std::vector<batch_operands_set<double>>
-build_batches(PDE<double> const &pde, element_table const &elem_table,
-              rank_workspace<double> const &workspace,
-              element_chunk const &chunk);
 
 template void build_batches(PDE<float> const &pde,
                             element_table const &elem_table,

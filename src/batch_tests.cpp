@@ -3142,15 +3142,17 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   auto const chunks = assign_elements(subgrid, get_num_chunks(subgrid, pde));
   rank_workspace<P> rank_space(pde, chunks);
 
+  auto const num_elems = elem_table.size() * elem_table.size();
+  auto batches         = allocate_batches(pde, num_elems);
   fm::scal(static_cast<P>(0.0), host_space.fx);
+
   for (auto const &chunk : chunks)
   {
     // copy in inputs
     copy_chunk_inputs(pde, subgrid, rank_space, host_space, chunk);
 
     // build batches for this chunk
-    std::vector<batch_operands_set<P>> batches =
-        build_batches(pde, elem_table, rank_space, chunk);
+    build_batches(pde, elem_table, rank_space, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;

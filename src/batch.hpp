@@ -151,11 +151,6 @@ void unsafe_kronmult_to_batch_sets(std::vector<P *> const &A, P *const x,
                                    std::vector<batch_operands_set<P>> &batches,
                                    int const batch_offset, PDE<P> const &pde);
 template<typename P>
-std::vector<batch_operands_set<P>>
-build_batches(PDE<P> const &pde, element_table const &elem_table,
-              rank_workspace<P> const &workspace, element_chunk const &chunk);
-
-template<typename P>
 void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    rank_workspace<P> const &workspace,
                    element_chunk const &chunk,
@@ -237,15 +232,6 @@ unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
                               std::vector<double *> const &work,
                               std::vector<batch_operands_set<double>> &batches,
                               int const batch_offset, PDE<double> const &pde);
-
-extern template std::vector<batch_operands_set<float>>
-build_batches(PDE<float> const &pde, element_table const &elem_table,
-              rank_workspace<float> const &workspace,
-              element_chunk const &chunk);
-extern template std::vector<batch_operands_set<double>>
-build_batches(PDE<double> const &pde, element_table const &elem_table,
-              rank_workspace<double> const &workspace,
-              element_chunk const &chunk);
 
 extern template void build_batches(PDE<float> const &pde,
                                    element_table const &elem_table,
