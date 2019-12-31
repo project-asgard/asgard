@@ -365,16 +365,18 @@ public:
     // if default lev/degree not used
     if (num_levels != -1 || degree != -1)
     {
-      assert(num_levels > 1);
-      assert(degree > 0);
       // FIXME eventually independent levels for each dim will be
       // supported
       for (dimension<P> &d : dimensions_)
       {
-        if (num_levels != -1)
+        if (num_levels != -1) {
+          assert(num_levels > 1);
           d.set_level(num_levels);
-        if (degree != -1)
+        }
+        if (degree != -1) {
+          assert(degree > 0);
           d.set_degree(degree);
+        }
       }
 
       for (std::vector<term<P>> &term_list : terms_)

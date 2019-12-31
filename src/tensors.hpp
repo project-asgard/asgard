@@ -1306,7 +1306,7 @@ fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
 {
   assert(start >= 0);
   assert(stop < this->size());
-  assert(stop > start);
+  assert(stop >= start);
 
   int const sub_size = stop - start + 1;
   fk::vector<P> sub_vector(sub_size);
