@@ -29,6 +29,7 @@ public:
 
   void assign_entry(fk::matrix<P, mem_type::view, resrc> const &a,
                     int const position);
+  void assign_raw(P *const a, int const position);
   bool clear_entry(int const position);
 
   P **get_list() const;
@@ -127,6 +128,18 @@ void kronmult_to_batch_sets(
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde);
 
+// unsafe version of kronmult to batch sets function
+// conceptually performs the same operations, but works
+// with raw pointers rather than views.
+
+// we chose to implement this because the reference counting
+// in the view class incurs a prohibitive runtime cost when used
+// to batch millions (or billions) of GEMMs, e.g. for a 6d problem
+template<typename P>
+void unsafe_kronmult_to_batch_sets(std::vector<P *> const &A, P *const x,
+                                   P *const y, std::vector<P *> const &work,
+                                   std::vector<batch_operands_set<P>> &batches,
+                                   int const batch_offset, PDE<P> const &pde);
 template<typename P>
 std::vector<batch_operands_set<P>>
 build_batches(PDE<P> const &pde, element_table const &elem_table,
@@ -195,6 +208,19 @@ extern template void kronmult_to_batch_sets(
         &work,
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
+
+extern template void
+unsafe_kronmult_to_batch_sets(std::vector<float *> const &A, float *const x,
+                              float *const y, std::vector<float *> const &work,
+                              std::vector<batch_operands_set<float>> &batches,
+                              int const batch_offset, PDE<float> const &pde);
+
+extern template void
+unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
+                              double *const y,
+                              std::vector<double *> const &work,
+                              std::vector<batch_operands_set<double>> &batches,
+                              int const batch_offset, PDE<double> const &pde);
 
 extern template std::vector<batch_operands_set<float>>
 build_batches(PDE<float> const &pde, element_table const &elem_table,
