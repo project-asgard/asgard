@@ -219,10 +219,11 @@ combine_dimensions(int const degree, element_table const &table,
           degree > 1 ? (((id + 1) * degree) - 1) : index_start;
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
-    fk::vector<P> const partial_result =
-        kron_d(kron_list, kron_list.size()) * time_scale;
-    combined.set_subvector((i - start_element) * std::pow(degree, num_dims),
-                           partial_result);
+    int const start_index = (i - start_element) * std::pow(degree, num_dims);
+    int const stop_index  = start_index + std::pow(degree, num_dims) - 1;
+    fk::vector<P, mem_type::view> combined_view(combined, start_index,
+                                                stop_index);
+    combined_view = kron_d(kron_list, kron_list.size()) * time_scale;
   }
   return combined;
 }
