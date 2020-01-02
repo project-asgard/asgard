@@ -34,7 +34,19 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   element_subgrid const &grid = plan.at(my_rank);
   int const elem_size         = element_segment_size(pde);
 
-  apply_explicit(pde, table, grid, chunks, host_space, rank_space);
+  // allocate batches
+
+  // max number of elements in any chunk
+  int const max_elems = num_elements_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](element_chunk const &a, element_chunk const &b) {
+        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
+      }));
+  // allocate batches for that size
+  std::vector<batch_operands_set<P>> batches =
+      allocate_batches<P>(pde, max_elems);
+
+  apply_explicit(pde, table, grid, chunks, host_space, rank_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
@@ -44,7 +56,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
-  apply_explicit(pde, table, grid, chunks, host_space, rank_space);
+  apply_explicit(pde, table, grid, chunks, host_space, rank_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
@@ -59,7 +71,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
-  apply_explicit(pde, table, grid, chunks, host_space, rank_space);
+  apply_explicit(pde, table, grid, chunks, host_space, rank_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c3 * dt);
@@ -103,7 +115,8 @@ static void
 apply_explicit(PDE<P> const &pde, element_table const &elem_table,
                element_subgrid const &grid,
                std::vector<element_chunk> const &chunks,
-               host_workspace<P> &host_space, rank_workspace<P> &rank_space)
+               host_workspace<P> &host_space, rank_workspace<P> &rank_space,
+               std::vector<batch_operands_set<P>> &batches)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
 
@@ -113,8 +126,7 @@ apply_explicit(PDE<P> const &pde, element_table const &elem_table,
     copy_chunk_inputs(pde, grid, rank_space, host_space, chunk);
 
     // build batches for this chunk
-    std::vector<batch_operands_set<P>> batches =
-        build_batches(pde, elem_table, rank_space, chunk);
+    build_batches(pde, elem_table, rank_space, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;

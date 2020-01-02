@@ -40,7 +40,6 @@ if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
 
-
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################

@@ -13,12 +13,12 @@
 // utilized as the primary data structure for other functions
 // within this component.
 template<typename P, resource resrc>
-batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
+batch<P, resrc>::batch(int const capacity, int const nrows, int const ncols,
                        int const stride, bool const do_trans)
-    : num_entries_(num_entries), nrows_(nrows), ncols_(ncols), stride_(stride),
-      do_trans_(do_trans), batch_{new P *[num_entries]()}
+    : capacity_(capacity), num_entries_(capacity), nrows_(nrows), ncols_(ncols),
+      stride_(stride), do_trans_(do_trans), batch_{new P *[capacity]()}
 {
-  assert(num_entries > 0);
+  assert(capacity > 0);
   assert(nrows > 0);
   assert(ncols > 0);
   assert(stride > 0);
@@ -30,9 +30,9 @@ batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
 
 template<typename P, resource resrc>
 batch<P, resrc>::batch(batch<P, resrc> const &other)
-    : num_entries_(other.num_entries()), nrows_(other.nrows()),
-      ncols_(other.ncols()), stride_(other.get_stride()),
-      do_trans_(other.get_trans()), batch_{new P *[other.num_entries()]()}
+    : capacity_(other.get_capacity()), num_entries_(other.num_entries()),
+      nrows_(other.nrows()), ncols_(other.ncols()), stride_(other.get_stride()),
+      do_trans_(other.get_trans()), batch_{new P *[other.get_capacity()]()}
 {
   std::memcpy(batch_, other.batch_, other.num_entries() * sizeof(P *));
 }
@@ -44,7 +44,8 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
   {
     return *this;
   }
-  assert(num_entries() == other.num_entries());
+  assert(get_capacity() == other.get_capacity());
+  set_num_entries(other.num_entries());
   assert(nrows() == other.nrows());
   assert(ncols() == other.ncols());
   assert(get_stride() == other.get_stride());
@@ -55,8 +56,8 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
 
 template<typename P, resource resrc>
 batch<P, resrc>::batch(batch<P, resrc> &&other)
-    : num_entries_(other.num_entries()), nrows_(other.nrows()),
-      ncols_(other.ncols()), stride_(other.get_stride()),
+    : capacity_(other.get_capacity()), num_entries_(other.num_entries()),
+      nrows_(other.nrows()), ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{other.batch_}
 {
   other.batch_ = nullptr;
@@ -69,7 +70,9 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> &&other)
   {
     return *this;
   }
-  assert(num_entries() == other.num_entries());
+  assert(get_capacity() == other.get_capacity());
+  set_num_entries(other.num_entries());
+
   assert(nrows() == other.nrows());
   assert(ncols() == other.ncols());
   assert(get_stride() == other.get_stride());
@@ -398,6 +401,38 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
   return batches;
 }
 
+// resize batches for chunk
+template<typename P>
+inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
+                          std::vector<batch_operands_set<P>> &batches)
+{
+  // FIXME when we allow varying degree by dimension, all
+  // this code will have to change...
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const num_elems = num_elements_in_chunk(chunk);
+
+  // add the first (lowest dimension) batch
+  int const num_gemms = pde.num_terms * num_elems;
+
+  // FIXME note clearing isn't required; just helps us
+  // check that entries aren't being overwritten by mistake.
+  // could be removed for performance
+  batches[0][0].set_num_entries(num_gemms).clear_all();
+  batches[0][1].set_num_entries(num_gemms).clear_all();
+  batches[0][2].set_num_entries(num_gemms).clear_all();
+
+  // remaining batches
+  for (int i = 1; i < pde.num_dims; ++i)
+  {
+    int const num_gemms =
+        compute_batch_size(degree, pde.num_dims, i) * pde.num_terms * num_elems;
+
+    batches[i][0].set_num_entries(num_gemms).clear_all();
+    batches[i][1].set_num_entries(num_gemms).clear_all();
+    batches[i][2].set_num_entries(num_gemms).clear_all();
+  }
+}
+
 // --- kronmult batching code --- //
 
 // helper for lowest level of kronmult
@@ -667,14 +702,15 @@ get_operator_col(PDE<P> const &pde, int const degree,
   return op_col;
 }
 
-// function to allocate and build batch lists.
-// given a problem instance (pde/elem table) and
-// memory allocations (x, y, work), enqueue the
-// batch gemms/reduction gemv to perform A*x
+// function to build batch lists.
+// given allocated batches and a  problem instance
+// (pde/elem table) and memory allocations (x, y, work),
+// enqueue the batch gemms/reduction gemv to perform A*x
 template<typename P>
-std::vector<batch_operands_set<P>>
-build_batches(PDE<P> const &pde, element_table const &elem_table,
-              rank_workspace<P> const &workspace, element_chunk const &chunk)
+void build_batches(PDE<P> const &pde, element_table const &elem_table,
+                   rank_workspace<P> const &workspace,
+                   element_chunk const &chunk,
+                   std::vector<batch_operands_set<P>> &batches)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
@@ -697,8 +733,7 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
   int const max_items_to_reduce = pde.num_terms * max_connected;
   assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
 
-  std::vector<batch_operands_set<P>> batches =
-      allocate_batches<P>(pde, elements_in_chunk);
+  ready_batches(pde, chunk, batches);
 
   // can't use structured binding; variables passed into outlined omp func
   for (auto const &row_info : chunk)
@@ -707,7 +742,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
     auto const i = row_info.first;
     // connected: start/stop for this row
     auto const connected = row_info.second;
-
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
@@ -804,7 +838,6 @@ build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
     }
   }
-  return batches;
 }
 
 // function to allocate and build implicit system.
@@ -974,14 +1007,16 @@ unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
                               std::vector<batch_operands_set<double>> &batches,
                               int const batch_offset, PDE<double> const &pde);
 
-template std::vector<batch_operands_set<float>>
-build_batches(PDE<float> const &pde, element_table const &elem_table,
-              rank_workspace<float> const &workspace,
-              element_chunk const &chunk);
-template std::vector<batch_operands_set<double>>
-build_batches(PDE<double> const &pde, element_table const &elem_table,
-              rank_workspace<double> const &workspace,
-              element_chunk const &chunk);
+template void build_batches(PDE<float> const &pde,
+                            element_table const &elem_table,
+                            rank_workspace<float> const &workspace,
+                            element_chunk const &chunk,
+                            std::vector<batch_operands_set<float>> &);
+template void build_batches(PDE<double> const &pde,
+                            element_table const &elem_table,
+                            rank_workspace<double> const &workspace,
+                            element_chunk const &chunk,
+                            std::vector<batch_operands_set<double>> &);
 
 template void
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
