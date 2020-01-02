@@ -369,11 +369,13 @@ public:
       // supported
       for (dimension<P> &d : dimensions_)
       {
-        if (num_levels != -1) {
+        if (num_levels != -1)
+        {
           assert(num_levels > 1);
           d.set_level(num_levels);
         }
-        if (degree != -1) {
+        if (degree != -1)
+        {
           assert(degree > 0);
           d.set_degree(degree);
         }
