@@ -635,7 +635,7 @@ void test_batch_allocator(PDE<P> const &pde, int const num_elems)
   int const degree = pde.get_dimensions()[0].get_degree();
 
   auto const batches = allocate_batches(pde, num_elems);
-  REQUIRE(batches.size() == pde.num_dims);
+  REQUIRE(static_cast<int>(batches.size()) == pde.num_dims);
   for (int i = 0; i < pde.num_dims; ++i)
   {
     int const gold_size = [&] {
