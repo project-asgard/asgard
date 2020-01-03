@@ -40,6 +40,12 @@ if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
 
+if(${CMAKE_SYSTEM_NAME} STREQUAL "CrayLinuxEnvironment")
+  if (CMAKE_VERSION VERSION_LESS "3.16")
+    message (WARNING "To use Cray LibSci instead of building OpenBLAS, you must use CMake >= 3.16.")
+  endif ()
+endif ()
+
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################

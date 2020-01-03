@@ -79,12 +79,22 @@ if (NOT ASGARD_BUILD_OPENBLAS)
     find_package (BLAS QUIET)
     if (LAPACK_FOUND)
     #if (LAPACK_FOUND AND BLAS_FOUND)
-      set (LINALG_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+      # CMake 3.16 fixed LAPACK and BLAS detection on Cray systems, and
+      # intentionally sets LAPACK_LIBRARIES and BLAS_LIBRARIES to empty
+      # strings, trusting that the compiler wrapper will link the correct
+      # library which supplies BLAS and LAPACK functions. If we try to append
+      # LAPACK_LIBRARIES and BLAS_LIBRARIES to LINALG_LIBS whenever
+      # LAPACK_FOUND is true, then LINALG_LIBS becomes itself an empty string
+      # on Cray systems, and as a result will build OpenBLAS (which we don't
+      # want).
+      if (LAPACK_LIBRARIES AND BLAS_LIBRARIES)
+        set (LINALG_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+      endif ()
     endif ()
   endif ()
 
   # search for blas/lapack libraries
-  if (NOT LINALG_LIBS)
+  if (NOT LINALG_LIBS AND NOT LAPACK_FOUND)
     find_library (LAPACK_LIB lapack openblas)
     find_library (BLAS_LIB blas openblas)
     if (LAPACK_LIB AND BLAS_LIB)
@@ -92,11 +102,15 @@ if (NOT ASGARD_BUILD_OPENBLAS)
     endif()
   endif ()
 
-  message (STATUS "LINALG libraries found: ${LINALG_LIBS}")
+  if (LINALG_LIBS)
+    message (STATUS "LINALG libraries found: ${LINALG_LIBS}")
+  elseif (LAPACK_FOUND AND NOT LINALG_LIBS)
+    message (STATUS "LINALG libraries found, relying on compiler wrappers")
+  endif ()
 endif ()
 
 # if cmake couldn't find other blas/lapack, or the user asked to build openblas
-if (NOT LINALG_LIBS)
+if (NOT LINALG_LIBS AND NOT LAPACK_FOUND)
   # first check if it has already been built
   set (OpenBLAS_PATH ${CMAKE_SOURCE_DIR}/contrib/blas/openblas)
   find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib)
