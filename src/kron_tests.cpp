@@ -18,11 +18,11 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
         fk::matrix<TestType, mem_type::view>(e),
         fk::matrix<TestType, mem_type::view>(f)};
 
-    int const x_size =
-        std::accumulate(matrix.begin(), matrix.end(), 1,
-                        [](int const i, fk::matrix<TestType, mem_type::view> const &m) {
-                          return i * m.ncols();
-                        });
+    int const x_size = std::accumulate(
+        matrix.begin(), matrix.end(), 1,
+        [](int const i, fk::matrix<TestType, mem_type::view> const &m) {
+          return i * m.ncols();
+        });
     int const correct_size = 1e5;
 
     REQUIRE(calculate_workspace_len(matrix, x_size) == correct_size);
@@ -31,13 +31,13 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
   SECTION("kron_0_device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> const a = {{2, 3},
-                                                                 {4, 5}};
+                                                                       {4, 5}};
 
     fk::matrix<TestType, mem_type::owner, resource::device> const b = {{6, 7},
-                                                                 {8, 9}};
+                                                                       {8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>>
-    const matrix = {fk::matrix<TestType, mem_type::view, resource::device>(a),
+    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
+        matrix = {fk::matrix<TestType, mem_type::view, resource::device>(a),
                   fk::matrix<TestType, mem_type::view, resource::device>(b)};
 
     fk::vector<TestType, mem_type::owner, resource::device> const x = {10, 11,
@@ -48,50 +48,81 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
 
     fk::vector<TestType, mem_type::view, resource::device> const x_view(x);
 
-    batch_job<TestType, resource::device> job = kron_batch(matrix, x_view);
+    int workspace_len = calculate_workspace_len(matrix, x.size());
 
-    fk::vector<TestType, mem_type::owner, resource::device> const r =
-        execute_batch_job(job);
+    fk::vector<TestType, mem_type::owner, resource::device> workspace_0(
+        workspace_len);
+    fk::vector<TestType, mem_type::owner, resource::device> workspace_1(
+        workspace_len);
+    std::array<fk::vector<TestType, mem_type::view, resource::device>, 2>
+        workspace = {
+            fk::vector<TestType, mem_type::view, resource::device>(workspace_0),
+            fk::vector<TestType, mem_type::view, resource::device>(
+                workspace_1)};
 
-    REQUIRE(r.clone_onto_host() == correct);
+    fk::vector<TestType, mem_type::owner, resource::device> real_space_owner(
+        correct.size());
+    fk::vector<TestType, mem_type::view, resource::device> real_space(
+        real_space_owner);
+
+    batch_chain<TestType, resource::device> chain(matrix, x_view, workspace,
+                                                  real_space);
+    chain.execute_batch_chain();
+
+    REQUIRE(real_space.clone_onto_host() == correct);
   }
 
   SECTION("kron_0_host")
   {
-    fk::matrix<TestType, mem_type::owner, resource::host > const a = {{2, 3},
-                                                                 {4, 5}};
+    fk::matrix<TestType, mem_type::owner, resource::host> const a = {{2, 3},
+                                                                     {4, 5}};
 
-    fk::matrix<TestType, mem_type::owner, resource::host > const b = {{6, 7},
-                                                                 {8, 9}};
+    fk::matrix<TestType, mem_type::owner, resource::host> const b = {{6, 7},
+                                                                     {8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::host >>
-    const matrix = {fk::matrix<TestType, mem_type::view, resource::host >(a),
-                  fk::matrix<TestType, mem_type::view, resource::host >(b)};
+    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const
+        matrix = {fk::matrix<TestType, mem_type::view, resource::host>(a),
+                  fk::matrix<TestType, mem_type::view, resource::host>(b)};
 
-    fk::vector<TestType, mem_type::owner, resource::host> const x = {10, 11,
-                                                                       12, 13};
+    fk::vector<TestType, mem_type::owner, resource::host> const x = {10, 11, 12,
+                                                                     13};
 
     fk::vector<TestType, mem_type::owner, resource::host> const correct = {
         763, 997, 1363, 1781};
 
     fk::vector<TestType, mem_type::view, resource::host> const x_view(x);
 
-    batch_job<TestType, resource::host> job = kron_batch(matrix, x_view);
+    int workspace_len = calculate_workspace_len(matrix, x.size());
 
-    fk::vector<TestType, mem_type::owner, resource::host> const r =
-        execute_batch_job(job);
+    fk::vector<TestType, mem_type::owner, resource::host> workspace_0(
+        workspace_len);
+    fk::vector<TestType, mem_type::owner, resource::host> workspace_1(
+        workspace_len);
+    std::array<fk::vector<TestType, mem_type::view, resource::host>, 2>
+        workspace = {
+            fk::vector<TestType, mem_type::view, resource::host>(workspace_0),
+            fk::vector<TestType, mem_type::view, resource::host>(workspace_1)};
 
-    REQUIRE(r == correct);
+    fk::vector<TestType, mem_type::owner, resource::host> real_space_owner(
+        correct.size());
+    fk::vector<TestType, mem_type::view, resource::host> real_space(
+        real_space_owner);
+
+    batch_chain<TestType, resource::host> chain(matrix, x_view, workspace,
+                                                real_space);
+    chain.execute_batch_chain();
+
+    REQUIRE(real_space == correct);
   }
 
   SECTION("kron_1_device")
   {
     auto matrix_all_twos = [](int const rows, int const cols)
         -> fk::matrix<TestType, mem_type::owner, resource::device> {
-
       fk::matrix<TestType, mem_type::owner, resource::host> m(rows, cols);
 
-      for( auto &element : m ) element = 2;
+      for (auto &element : m)
+        element = 2;
 
       return m.clone_onto_device();
     };
@@ -105,52 +136,72 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     auto const m6 = matrix_all_twos(10, 3);
     auto const m7 = matrix_all_twos(6, 5);
     fk::matrix<TestType, mem_type::owner, resource::device> const m8 = {{3, 3},
-                                                                       {3, 3}};
+                                                                        {3, 3}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const matrix =
-        {fk::matrix<TestType, mem_type::view, resource::device>(m0),
-         fk::matrix<TestType, mem_type::view, resource::device>(m1),
-         fk::matrix<TestType, mem_type::view, resource::device>(m2),
-         fk::matrix<TestType, mem_type::view, resource::device>(m3),
-         fk::matrix<TestType, mem_type::view, resource::device>(m4),
-         fk::matrix<TestType, mem_type::view, resource::device>(m5),
-         fk::matrix<TestType, mem_type::view, resource::device>(m6),
-         fk::matrix<TestType, mem_type::view, resource::device>(m7),
-         fk::matrix<TestType, mem_type::view, resource::device>(m8)};
+    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
+        matrix = {fk::matrix<TestType, mem_type::view, resource::device>(m0),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m1),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m2),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m3),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m4),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m5),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m6),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m7),
+                  fk::matrix<TestType, mem_type::view, resource::device>(m8)};
 
     int x_size = std::accumulate(
         matrix.begin(), matrix.end(), 1,
-        [](int i, fk::matrix<TestType, mem_type::view, resource::device> const &m) {
+        [](int i,
+           fk::matrix<TestType, mem_type::view, resource::device> const &m) {
           return i * m.ncols();
         });
 
     fk::vector<TestType, mem_type::owner, resource::host> const x(
         std::vector<TestType>(x_size, 1));
 
+    fk::vector<TestType, mem_type::owner, resource::device> x_device =
+        x.clone_onto_device();
+
     int y_size = std::accumulate(
         matrix.begin(), matrix.end(), 1,
-        [](int i, fk::matrix<TestType, mem_type::view, resource::device> const &m) {
+        [](int i,
+           fk::matrix<TestType, mem_type::view, resource::device> const &m) {
           return i * m.nrows();
         });
 
     fk::vector<TestType> const correct(
         std::vector<TestType>(y_size, x_size * (1 << (matrix.size() - 1)) * 3));
 
-    batch_job<TestType, resource::device> job = kron_batch(
-        matrix, fk::vector<TestType, mem_type::view, resource::device>(
-                    x.clone_onto_device()));
+    int workspace_len = calculate_workspace_len(matrix, x.size());
+    fk::vector<TestType, mem_type::owner, resource::device> workspace_0(
+        workspace_len);
+    fk::vector<TestType, mem_type::owner, resource::device> workspace_1(
+        workspace_len);
+    std::array<fk::vector<TestType, mem_type::view, resource::device>, 2>
+        workspace = {
+            fk::vector<TestType, mem_type::view, resource::device>(workspace_0),
+            fk::vector<TestType, mem_type::view, resource::device>(
+                workspace_1)};
 
-    fk::vector<TestType, mem_type::owner, resource::device> const r =
-        execute_batch_job(job);
+    fk::vector<TestType, mem_type::owner, resource::device> real_space_owner(
+        correct.size());
+    fk::vector<TestType, mem_type::view, resource::device> real_space(
+        real_space_owner);
 
-    REQUIRE(r.clone_onto_host() == correct);
+    batch_chain<TestType, resource::device> chain(
+        matrix,
+        fk::vector<TestType, mem_type::view, resource::device>(x_device),
+        workspace, real_space);
+
+    chain.execute_batch_chain();
+
+    REQUIRE(real_space.clone_onto_host() == correct);
   }
 
   SECTION("kron_1_host")
   {
     auto matrix_all_twos = [](int const rows, int const cols)
         -> fk::matrix<TestType, mem_type::owner, resource::host> {
-
       fk::matrix<TestType, mem_type::owner, resource::host> m(rows, cols);
 
       for (int i = 0; i < rows; ++i)
@@ -173,22 +224,23 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     auto const m6 = matrix_all_twos(10, 3);
     auto const m7 = matrix_all_twos(6, 5);
     fk::matrix<TestType, mem_type::owner, resource::host> const m8 = {{3, 3},
-                                                                       {3, 3}};
+                                                                      {3, 3}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const matrix =
-        {fk::matrix<TestType, mem_type::view, resource::host>(m0),
-         fk::matrix<TestType, mem_type::view, resource::host>(m1),
-         fk::matrix<TestType, mem_type::view, resource::host>(m2),
-         fk::matrix<TestType, mem_type::view, resource::host>(m3),
-         fk::matrix<TestType, mem_type::view, resource::host>(m4),
-         fk::matrix<TestType, mem_type::view, resource::host>(m5),
-         fk::matrix<TestType, mem_type::view, resource::host>(m6),
-         fk::matrix<TestType, mem_type::view, resource::host>(m7),
-         fk::matrix<TestType, mem_type::view, resource::host>(m8)};
+    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const
+        matrix = {fk::matrix<TestType, mem_type::view, resource::host>(m0),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m1),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m2),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m3),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m4),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m5),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m6),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m7),
+                  fk::matrix<TestType, mem_type::view, resource::host>(m8)};
 
     int x_size = std::accumulate(
         matrix.begin(), matrix.end(), 1,
-        [](int i, fk::matrix<TestType, mem_type::view, resource::host> const &m) {
+        [](int i,
+           fk::matrix<TestType, mem_type::view, resource::host> const &m) {
           return i * m.ncols();
         });
 
@@ -197,34 +249,53 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
 
     int y_size = std::accumulate(
         matrix.begin(), matrix.end(), 1,
-        [](int i, fk::matrix<TestType, mem_type::view, resource::host> const &m) {
+        [](int i,
+           fk::matrix<TestType, mem_type::view, resource::host> const &m) {
           return i * m.nrows();
         });
 
     fk::vector<TestType> const correct(
         std::vector<TestType>(y_size, x_size * (1 << (matrix.size() - 1)) * 3));
 
-    batch_job<TestType, resource::host> job = kron_batch(
-        matrix, fk::vector<TestType, mem_type::view, resource::host>(x));
+    int workspace_len = calculate_workspace_len(matrix, x.size());
+    fk::vector<TestType, mem_type::owner, resource::host> workspace_0(
+        workspace_len);
+    fk::vector<TestType, mem_type::owner, resource::host> workspace_1(
+        workspace_len);
+    std::array<fk::vector<TestType, mem_type::view, resource::host>, 2>
+        workspace = {
+            fk::vector<TestType, mem_type::view, resource::host>(workspace_0),
+            fk::vector<TestType, mem_type::view, resource::host>(workspace_1)};
 
-    fk::vector<TestType, mem_type::owner, resource::host> const r =
-        execute_batch_job(job);
+    fk::vector<TestType, mem_type::owner, resource::host> real_space_owner(
+        correct.size());
+    fk::vector<TestType, mem_type::view, resource::host> real_space(
+        real_space_owner);
 
-    REQUIRE(r == correct);
+    batch_chain<TestType, resource::host> chain(
+        matrix, fk::vector<TestType, mem_type::view, resource::host>(x),
+        workspace, real_space);
+    chain.execute_batch_chain();
+
+    REQUIRE(real_space == correct);
   }
 
   SECTION("kron_2_device")
   {
-    fk::matrix<TestType, mem_type::owner, resource::device> const a = {{1}, {2}, {3}};
+    fk::matrix<TestType, mem_type::owner, resource::device> const a = {
+        {1}, {2}, {3}};
 
-    fk::matrix<TestType, mem_type::owner, resource::device> const b = {{3, 4, 5}};
+    fk::matrix<TestType, mem_type::owner, resource::device> const b = {
+        {3, 4, 5}};
 
-    fk::matrix<TestType, mem_type::owner, resource::device> const c = {{5}, {6}, {7}};
+    fk::matrix<TestType, mem_type::owner, resource::device> const c = {
+        {5}, {6}, {7}};
 
-    fk::matrix<TestType, mem_type::owner, resource::device> const d = {{7, 8, 9}};
+    fk::matrix<TestType, mem_type::owner, resource::device> const d = {
+        {7, 8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>>
-    const matrix = {fk::matrix<TestType, mem_type::view, resource::device>(a),
+    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
+        matrix = {fk::matrix<TestType, mem_type::view, resource::device>(a),
                   fk::matrix<TestType, mem_type::view, resource::device>(b),
                   fk::matrix<TestType, mem_type::view, resource::device>(c),
                   fk::matrix<TestType, mem_type::view, resource::device>(d)};
@@ -237,26 +308,43 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
 
     fk::vector<TestType, mem_type::view, resource::device> const x_view(x);
 
-    batch_job<TestType, resource::device> bj = kron_batch(matrix, x_view);
+    int workspace_len = calculate_workspace_len(matrix, x.size());
+    fk::vector<TestType, mem_type::owner, resource::device> workspace_0(
+        workspace_len);
+    fk::vector<TestType, mem_type::owner, resource::device> workspace_1(
+        workspace_len);
+    std::array<fk::vector<TestType, mem_type::view, resource::device>, 2>
+        workspace = {
+            fk::vector<TestType, mem_type::view, resource::device>(workspace_0),
+            fk::vector<TestType, mem_type::view, resource::device>(
+                workspace_1)};
 
-    fk::vector<TestType, mem_type::owner, resource::device> const r =
-        execute_batch_job(bj);
+    fk::vector<TestType, mem_type::owner, resource::device> real_space_owner(
+        correct.size());
+    fk::vector<TestType, mem_type::view, resource::device> real_space(
+        real_space_owner);
 
-    REQUIRE(r.clone_onto_host() == correct);
+    batch_chain<TestType, resource::device> chain(matrix, x_view, workspace,
+                                                  real_space);
+    chain.execute_batch_chain();
+
+    REQUIRE(real_space.clone_onto_host() == correct);
   }
 
   SECTION("kron_2_host")
   {
-    fk::matrix<TestType, mem_type::owner, resource::host> const a = {{1}, {2}, {3}};
+    fk::matrix<TestType, mem_type::owner, resource::host> const a = {
+        {1}, {2}, {3}};
 
     fk::matrix<TestType, mem_type::owner, resource::host> const b = {{3, 4, 5}};
 
-    fk::matrix<TestType, mem_type::owner, resource::host> const c = {{5}, {6}, {7}};
+    fk::matrix<TestType, mem_type::owner, resource::host> const c = {
+        {5}, {6}, {7}};
 
     fk::matrix<TestType, mem_type::owner, resource::host> const d = {{7, 8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::host>>
-    const matrix = {fk::matrix<TestType, mem_type::view, resource::host>(a),
+    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const
+        matrix = {fk::matrix<TestType, mem_type::view, resource::host>(a),
                   fk::matrix<TestType, mem_type::view, resource::host>(b),
                   fk::matrix<TestType, mem_type::view, resource::host>(c),
                   fk::matrix<TestType, mem_type::view, resource::host>(d)};
@@ -269,11 +357,26 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
 
     fk::vector<TestType, mem_type::view, resource::host> const x_view(x);
 
-    batch_job<TestType, resource::host> bj = kron_batch(matrix, x_view);
+    int workspace_len = calculate_workspace_len(matrix, x.size());
+    fk::vector<TestType, mem_type::owner, resource::host> workspace_0(
+        workspace_len);
+    fk::vector<TestType, mem_type::owner, resource::host> workspace_1(
+        workspace_len);
+    std::array<fk::vector<TestType, mem_type::view, resource::host>, 2>
+        workspace = {
+            fk::vector<TestType, mem_type::view, resource::host>(workspace_0),
+            fk::vector<TestType, mem_type::view, resource::host>(workspace_1)};
 
-    fk::vector<TestType, mem_type::owner, resource::host > const r =
-        execute_batch_job(bj);
+    fk::vector<TestType, mem_type::owner, resource::host> real_space_owner(
+        correct.size());
+    fk::vector<TestType, mem_type::view, resource::host> real_space(
+        real_space_owner);
 
-    REQUIRE(r == correct);
+    batch_chain<TestType, resource::host> chain(
+        matrix, fk::vector<TestType, mem_type::view, resource::host>(x),
+        workspace, real_space);
+    chain.execute_batch_chain();
+
+    REQUIRE(real_space == correct);
   }
 }

@@ -124,23 +124,31 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
 }
 
 template<typename P>
-void wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                          element_table const &table, int const memory_limit_MB,
-                          fk::vector<P> &real_space)
+void wavelet_to_realspace(
+    PDE<P> const &pde, fk::vector<P> const &wave_space,
+    element_table const &table, int const memory_limit_MB,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<P, mem_type::view> &real_space)
 {
   assert(memory_limit_MB > 0);
 
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
 
-  std::vector<batch_job<P, resource::host>> jobs;
+  std::vector<batch_chain<P, resource::host>> chain;
+
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
       gen_realspace_transform(pde);
+
   /* Assume the degree in the first dimension is equal across all the remaining
    */
   int const stride =
       std::pow(pde.get_dimensions()[0].get_degree(), dims.size());
+
+  fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
+  fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
+      accumulator);
 
   for (int i = 0; i < table.size(); i++)
   {
@@ -163,20 +171,25 @@ void wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
 
     /* create a view of a section of the wave space vector */
     fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
-                                                (i + 1) * stride - 1);
-    /* create a batch job that expresses the output of the Kronecker product of all matrices in
-       kron_matrices in order multiplied by the vector x */
-    batch_job< P, resource::host > bj = kron_batch< P, resource::host >( kron_matrices, x );
-    /* execute the batch job and add the partial solution to real_space */
-    real_space =
-    real_space + execute_batch_job< P, resource::host >( bj );
+                                          (i + 1) * stride - 1);
+
+    chain.emplace_back(kron_matrices, x, workspace, real_space_accumulator);
+  }
+
+  /* clear out the vector */
+  real_space.scale(0);
+
+  for (auto &link : chain)
+  {
+    link.execute_batch_chain();
+    real_space = real_space + real_space_accumulator;
   }
 
   return;
 }
 
 template<typename P>
-int real_solution_size(PDE<P> &pde)
+int real_solution_size(PDE<P> const &pde)
 {
   /* determine the length of the realspace solution */
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
@@ -254,15 +267,17 @@ gen_realspace_transform(PDE<double> const &pde);
 template std::vector<fk::matrix<float>>
 gen_realspace_transform(PDE<float> const &pde);
 
-template void wavelet_to_realspace(PDE<double> const &pde,
-                                   fk::vector<double> const &wave_space,
-                                   element_table const &table,
-                                   int const memory_limit_MB,
-                                   fk::vector<double> &real_space);
-template void
-wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
-                     element_table const &table, int const memory_limit_MB,
-                     fk::vector<float> &real_space);
+template void wavelet_to_realspace(
+    PDE<double> const &pde, fk::vector<double> const &wave_space,
+    element_table const &table, int const memory_limit_MB,
+    std::array<fk::vector<double, mem_type::view, resource::host>, 2>
+        &workspace,
+    fk::vector<double, mem_type::view> &real_space);
+template void wavelet_to_realspace(
+    PDE<float> const &pde, fk::vector<float> const &wave_space,
+    element_table const &table, int const memory_limit_MB,
+    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<float, mem_type::view> &real_space);
 
 template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,
@@ -271,5 +286,5 @@ template fk::vector<float>
 combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
 
-template int real_solution_size(PDE<double> &pde);
-template int real_solution_size(PDE<float> &pde);
+template int real_solution_size(PDE<double> const &pde);
+template int real_solution_size(PDE<float> const &pde);
