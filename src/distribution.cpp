@@ -695,6 +695,8 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                            first_row_communicator, MPI_STATUS_IGNORE);
         assert(success == 0);
       }
+
+      return results;
     }
     else
     {
@@ -703,9 +705,8 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                          0, mpi_tag, first_row_communicator);
 
       assert(success == 0);
+      return own_results();
     }
-
-    return results;
   }
 
   return own_results();

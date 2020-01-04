@@ -307,11 +307,9 @@ int main(int argc, char **argv)
 
   // gather results from all ranks. not currently writing the result anywhere
   // yet.
-  if (my_rank == 0)
-  {
-    auto const final_result =
-        gather_results(host_space.x, plan, my_rank, segment_size);
-  }
+
+  auto const final_result =
+      gather_results(host_space.x, plan, my_rank, segment_size);
 
   finalize_distribution();
 
