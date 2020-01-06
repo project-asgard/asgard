@@ -182,7 +182,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
 
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck2_complete_coefficients_norotate";
-  bool const rotate = false;
+  bool const rotate      = false;
   TestType const tol_fac = 1e3; // derived empirically 11/19
   test_coefficients(*pde, gold_path, rotate, tol_fac);
 }
