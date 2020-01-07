@@ -20,8 +20,9 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-int const num_steps          = 5;
-int const workspace_limit_MB = 1000;
+// settings for time advance testing
+static auto constexpr num_steps          = 5;
+static auto constexpr workspace_limit_MB = 1000;
 
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
