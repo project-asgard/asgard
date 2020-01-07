@@ -293,10 +293,7 @@ void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
   assert(!b.get_trans() && !c.get_trans());
 
   // check dimensions for gemv
-  int const cols_a = a.get_trans() ? a.nrows() : a.ncols();
-  int const rows_b = b.nrows();
-
-  assert(cols_a == rows_b);
+  assert((a.get_trans() ? a.nrows() : a.ncols()) == b.nrows());
   assert(b.ncols() == 1);
   assert(c.ncols() == 1);
 
