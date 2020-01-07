@@ -6,7 +6,7 @@
 
 // determined empirically 11/19
 // lowest tolerance for which component tests pass
-auto const quadrature_tol_scale = 1e2;
+static auto const quadrature_tol_scale = 1e2;
 
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)

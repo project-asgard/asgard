@@ -588,7 +588,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
   fk::vector<TestType> const X1_gold{
       1.812300946484165e-01, -7.824949213916167e-02, 1.254969087137521e-01};
 
-  fk::matrix<TestType> LU_gold = L_gold + U_gold - I_gold;
+  fk::matrix<TestType> const LU_gold = L_gold + U_gold - I_gold;
 
   SECTION("gesv and getrs")
   {
