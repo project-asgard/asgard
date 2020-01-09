@@ -949,8 +949,11 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     }
     else
     {
+      // determined empirically 11/19
+      auto const eps_multiplier = 1e3;
       relaxed_comparison(effect_c(matrices[2][i].clone_onto_host()),
-                         effect_c(matrices[3][i].clone_onto_host()), 1e3);
+                         effect_c(matrices[3][i].clone_onto_host()),
+                         eps_multiplier);
     }
   }
 }

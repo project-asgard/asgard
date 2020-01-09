@@ -6,7 +6,7 @@
 
 template<typename P>
 void test_coefficients(PDE<P> &pde, std::string const gold_path,
-                       bool const rotate = true, P const tol_scale = 1e2)
+                       bool const rotate = true, P const eps_multiplier = 1e2)
 {
   // FIXME assume uniform level and degree
   dimension<P> const &d           = pde.get_dimensions()[0];
@@ -28,7 +28,7 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
       fk::matrix<P> const gold =
           fk::matrix<P>(read_matrix_from_txt_file(filename));
       fk::matrix<P> const &test = pde.get_coefficients(t, d).clone_onto_host();
-      relaxed_comparison(gold, test, tol_scale);
+      relaxed_comparison(gold, test, eps_multiplier);
     }
   }
 }
@@ -48,8 +48,8 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
       continuity1->get_coefficients(0, 0).clone_onto_host();
 
   // determined empirically 11/19
-  auto const tol_scale = 1e2;
-  relaxed_comparison(gold, test, tol_scale);
+  auto const eps_multiplier = 1e2;
+  relaxed_comparison(gold, test, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
@@ -81,9 +81,9 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
   auto pde         = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/continuity3_coefficients";
-  bool const rotate      = true;
-  TestType const tol_fac = 1e3;
-  test_coefficients(*pde, gold_path, rotate, tol_fac);
+  bool const rotate             = true;
+  TestType const eps_multiplier = 1e3;
+  test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
@@ -96,8 +96,8 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
   bool const rotate = true;
 
   // determined empirically 11/19
-  TestType const tol_fac = 1e3;
-  test_coefficients(*pde, gold_path, rotate, tol_fac);
+  TestType const eps_multiplier = 1e3;
+  test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
@@ -108,9 +108,9 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck1_4p2_coefficients";
   bool const rotate = true;
-  TestType const tol_fac =
+  TestType const eps_multiplier =
       1e5; // FIXME seems pretty loose, empirically determined 11/19
-  test_coefficients(*pde, gold_path, rotate, tol_fac);
+  test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
@@ -167,9 +167,10 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
       make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck2_complete_coefficients";
-  bool const rotate      = true;
-  TestType const tol_fac = 5e6; // FIXME why so loose? empirically derived 11/19
-  test_coefficients(*pde, gold_path, rotate, tol_fac);
+  bool const rotate = true;
+  TestType const eps_multiplier =
+      5e6; // FIXME why so loose? empirically derived 11/19
+  test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
@@ -182,7 +183,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
 
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck2_complete_coefficients_norotate";
-  bool const rotate      = false;
-  TestType const tol_fac = 1e3; // derived empirically 11/19
-  test_coefficients(*pde, gold_path, rotate, tol_fac);
+  bool const rotate             = false;
+  TestType const eps_multiplier = 1e3; // derived empirically 11/19
+  test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }

@@ -6,8 +6,8 @@
 #include <random>
 
 // determined empirically 11/19
-// lowest tolerance for which component tests pass
-static auto constexpr tol_scale = 1e3;
+// lowest epsilon multiplier for which component tests pass
+static auto constexpr eps_multiplier = 1e3;
 
 template<typename P>
 void test_multiwavelet_gen(int const degree)
@@ -60,11 +60,11 @@ void test_multiwavelet_gen(int const degree)
   fk::matrix<P> const phi_co =
       fk::matrix<P>(read_matrix_from_txt_file(phi_string));
 
-  relaxed_comparison(h0, m_h0, tol_scale);
-  relaxed_comparison(h1, m_h1, tol_scale);
-  relaxed_comparison(g0, m_g0, tol_scale);
-  relaxed_comparison(g1, m_g1, tol_scale);
-  relaxed_comparison(phi_co, m_phi_co, tol_scale);
+  relaxed_comparison(h0, m_h0, eps_multiplier);
+  relaxed_comparison(h1, m_h1, eps_multiplier);
+  relaxed_comparison(g0, m_g0, eps_multiplier);
+  relaxed_comparison(g1, m_g1, eps_multiplier);
+  relaxed_comparison(phi_co, m_phi_co, eps_multiplier);
   relaxed_comparison(scale_co, m_scale_co);
 }
 
@@ -90,7 +90,7 @@ void test_operator_two_scale(int const levels, int const degree)
       "../testing/generated-inputs/transformations/operator_two_scale_" +
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
-  relaxed_comparison(gold, test, tol_scale);
+  relaxed_comparison(gold, test, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
@@ -129,7 +129,7 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   }
 }
 
-static auto const fmwt_tol_scale = 1e3;
+static auto const fmwt_eps_multiplier = 1e3;
 template<typename P>
 void test_apply_fmwt(int const levels, int const degree)
 {
@@ -151,23 +151,23 @@ void test_apply_fmwt(int const levels, int const degree)
 
   auto const left_gold = fmwt * to_transform;
   auto const left_test = apply_left_fmwt<P>(fmwt, to_transform, degree, levels);
-  relaxed_comparison(left_test, left_gold, fmwt_tol_scale);
+  relaxed_comparison(left_test, left_gold, fmwt_eps_multiplier);
 
   fk::matrix<P> const fmwt_transpose  = fk::matrix<P>(fmwt).transpose();
   fk::matrix<P> const left_trans_gold = fmwt_transpose * to_transform;
   auto const left_trans_test =
       apply_left_fmwt_transposed<P>(fmwt, to_transform, degree, levels);
-  relaxed_comparison(left_trans_test, left_trans_gold, fmwt_tol_scale);
+  relaxed_comparison(left_trans_test, left_trans_gold, fmwt_eps_multiplier);
 
   auto const right_gold = to_transform * fmwt;
   auto const right_test =
       apply_right_fmwt<P>(fmwt, to_transform, degree, levels);
-  relaxed_comparison(right_test, right_gold, fmwt_tol_scale);
+  relaxed_comparison(right_test, right_gold, fmwt_eps_multiplier);
 
   auto const right_trans_gold = to_transform * fmwt_transpose;
   auto const right_trans_test =
       apply_right_fmwt_transposed<P>(fmwt, to_transform, degree, levels);
-  relaxed_comparison(right_trans_test, right_trans_gold, fmwt_tol_scale);
+  relaxed_comparison(right_trans_test, right_trans_gold, fmwt_eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)

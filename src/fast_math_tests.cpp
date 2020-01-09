@@ -602,5 +602,5 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
     x = B1_gold;
     fm::getrs(A_copy, x, ipiv);
     relaxed_comparison(x, X1_gold);
-  };
+  }
 }

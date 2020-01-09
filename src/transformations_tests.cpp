@@ -99,7 +99,7 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
-  static auto constexpr fmwt_tol_scale = 1e3;
+  static auto constexpr fmwt_eps_multiplier = 1e3;
   SECTION("transform(2, 2, -1, 1, double)")
   {
     int const degree     = 2;
@@ -122,8 +122,8 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
         forward_transform<TestType>(dim, double_it);
 
     // determined empirically 11/19
-    // lowest tolerance for which tests pass
-    relaxed_comparison(gold, test, fmwt_tol_scale);
+    // lowest epsilon multiplier for which tests pass
+    relaxed_comparison(gold, test, fmwt_eps_multiplier);
   }
 
   SECTION("transform(3, 4, -2.0, 2.0, double plus)")
@@ -148,7 +148,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus);
 
-    relaxed_comparison(gold, test, fmwt_tol_scale);
+    relaxed_comparison(gold, test, fmwt_eps_multiplier);
   }
 }
 
@@ -191,8 +191,9 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
 
   // determined empirically 11/19
   // FIXME these are high relative to other components...
-  auto const backward_tol_fac = std::is_same<float, P>::value ? 1e5 : 1e8;
-  relaxed_comparison(gold, realspace, backward_tol_fac);
+  auto const backward_eps_multiplier =
+      std::is_same<float, P>::value ? 1e5 : 1e8;
+  relaxed_comparison(gold, realspace, backward_eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
@@ -246,8 +247,8 @@ void test_gen_realspace_transform(PDE<P> const &pde,
         read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
     // determined emprically 11/19
     // FIXME these are high relative to other components...
-    auto const gen_tol_fac = std::is_same<float, P>::value ? 1e2 : 1e6;
-    relaxed_comparison(gold, transforms[i], gen_tol_fac);
+    auto const gen_eps_multiplier = std::is_same<float, P>::value ? 1e2 : 1e6;
+    relaxed_comparison(gold, transforms[i], gen_eps_multiplier);
   }
 }
 

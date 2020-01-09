@@ -116,10 +116,10 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
 
-    // determined empirically 11/19; lowest tolerance
+    // determined empirically 11/19; lowest epsilon multiplier
     // for which all current tests pass
-    auto const tol_scale = 1e4;
-    relaxed_comparison(gold, host_space.x, tol_scale);
+    auto const eps_multiplier = 1e4;
+    relaxed_comparison(gold, host_space.x, eps_multiplier);
   }
 }
 

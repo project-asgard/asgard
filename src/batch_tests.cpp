@@ -1008,8 +1008,8 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }
 
   // determined emprically 11/19
-  auto const tol_scale = 1e4;
-  relaxed_comparison(gold, host_space.fx, tol_scale);
+  auto const eps_multiplier = 1e4;
+  relaxed_comparison(gold, host_space.fx, eps_multiplier);
 }
 
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
