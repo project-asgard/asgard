@@ -375,8 +375,9 @@ public:
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator-(matrix<P, omem> const &) const;
 
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
-  matrix<P, mem> &transpose();
+  template<resource r_ = resrc, mem_type m_ = mem,
+           typename = enable_for_host<r_>, typename = enable_for_owner<m_>>
+  matrix<P, mem, resrc> &transpose();
 
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> kron(matrix<P, omem> const &) const;
@@ -1928,8 +1929,8 @@ operator*(matrix<P, omem> const &B) const
 //
 // FIXME could be worthwhile to optimize the matrix transpose
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
-fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::transpose()
+template<resource, mem_type, typename, typename>
+fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transpose()
 {
   matrix<P> temp(ncols(), nrows());
 

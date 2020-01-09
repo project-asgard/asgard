@@ -835,1925 +835,379 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
 #endif
 }
 
-TEMPLATE_TEST_CASE("batched gemm", "[lib_dispatch]", float, double)
+template<typename P, resource resrc = resource::host>
+void test_batched_gemm(int const m, int const n, int const k, int const lda,
+                       int const ldb, int const ldc, int const num_batch = 3,
+                       bool const trans_a = false, bool const trans_b = false,
+                       P const alpha = 1.0, P const beta = 0.0)
 {
-  int num_batch = 3;
-  // clang-format off
-  fk::matrix<TestType> const a1 {
-         {12, 22, 32},
-         {13, 23, 33},
-         {14, 24, 34},
-         {15, 25, 35},
-         {16, 26, 36},
-  };
-  fk::matrix<TestType> const a2 {
-         {17, 27, 37},
-         {18, 28, 38},
-         {19, 29, 39},
-         {20, 30, 40},
-         {21, 31, 41},
-  };
-  fk::matrix<TestType> const a3 {
-         {22, 32, 42},
-         {23, 33, 43},
-         {24, 34, 44},
-         {25, 35, 45},
-         {26, 36, 46},
-  };  
+  assert(m > 0);
+  assert(n > 0);
+  assert(k > 0);
 
-  fk::matrix<TestType> const b1 {
-         {27, 37, 47},
-         {28, 38, 48},
-         {29, 39, 49},
-         {30, 40, 50},
-  };
-  fk::matrix<TestType> const b2 {
-         {31, 41, 51},
-         {32, 42, 52},
-         {33, 43, 53},
-         {34, 44, 54},
-  };
-  fk::matrix<TestType> const b3 {
-         {35, 45, 55},
-         {36, 46, 56},
-         {37, 47, 57},
-         {38, 48, 58},
-  };
-  // clang-format on
-  fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(
-      a1.clone_onto_device());
-  fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(
-      a2.clone_onto_device());
-  fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(
-      a3.clone_onto_device());
+  int const rows_a = trans_a ? k : m;
+  int const cols_a = trans_a ? m : k;
+  assert(lda >= rows_a);
+  assert(ldc >= m);
 
-  fk::matrix<TestType, mem_type::owner, resource::device> const b1_d(
-      b1.clone_onto_device());
-  fk::matrix<TestType, mem_type::owner, resource::device> const b2_d(
-      b2.clone_onto_device());
-  fk::matrix<TestType, mem_type::owner, resource::device> const b3_d(
-      b3.clone_onto_device());
+  int const rows_b = trans_b ? n : k;
+  int const cols_b = trans_b ? k : n;
+  assert(ldb >= rows_b);
 
+  std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> const
+      matrices = [=]() {
+        // {a, b, c, gold}
+        std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>>
+            matrices(4);
+
+        std::random_device rd;
+        std::mt19937 mersenne_engine(rd());
+        std::uniform_real_distribution<P> dist(-2.0, 2.0);
+        auto const gen = [&dist, &mersenne_engine]() {
+          return dist(mersenne_engine);
+        };
+
+        for (int i = 0; i < num_batch; ++i)
+        {
+          fk::matrix<P> a(lda, cols_a);
+          fk::matrix<P> b(ldb, cols_b);
+          fk::matrix<P> c(ldc, n);
+          std::generate(a.begin(), a.end(), gen);
+          std::generate(b.begin(), b.end(), gen);
+          std::generate(c.begin(), c.end(), gen);
+
+          if constexpr (resrc == resource::host)
+          {
+            matrices[0].push_back(a);
+            matrices[1].push_back(b);
+            matrices[2].push_back(c);
+          }
+          else
+          {
+            matrices[0].push_back(a.clone_onto_device());
+            matrices[1].push_back(b.clone_onto_device());
+            matrices[2].push_back(c.clone_onto_device());
+          }
+
+          fk::matrix<P, mem_type::view> const effective_a(a, 0, rows_a - 1, 0,
+                                                          cols_a - 1);
+          fk::matrix<P, mem_type::view> const effective_b(b, 0, rows_b - 1, 0,
+                                                          cols_b - 1);
+          fk::matrix<P, mem_type::view> effective_c(c, 0, m - 1, 0, n - 1);
+          fm::gemm(effective_a, effective_b, effective_c, trans_a, trans_b,
+                   alpha, beta);
+
+          if constexpr (resrc == resource::host)
+          {
+            matrices[3].push_back(fk::matrix<P>(effective_c));
+          }
+          else
+          {
+            matrices[3].push_back(effective_c.clone_onto_device());
+          }
+        }
+        return matrices;
+      }();
+
+  std::vector<std::vector<P *>> ptrs = [=, &matrices]() {
+    std::vector<std::vector<P *>> ptrs(3);
+    for (int i = 0; i < num_batch; ++i)
+    {
+      ptrs[0].push_back(matrices[0][i].data());
+      ptrs[1].push_back(matrices[1][i].data());
+      ptrs[2].push_back(matrices[2][i].data());
+    }
+    return ptrs;
+  }();
+
+  int lda_          = lda;
+  int ldb_          = ldb;
+  int ldc_          = ldc;
+  int m_            = m;
+  int n_            = n;
+  int k_            = k;
+  char const transa = trans_a ? 't' : 'n';
+  char const transb = trans_b ? 't' : 'n';
+  P alpha_          = alpha;
+  P beta_           = beta;
+  int num_batch_    = num_batch;
+
+  lib_dispatch::batched_gemm(ptrs[0].data(), &lda_, &transa, ptrs[1].data(),
+                             &ldb_, &transb, ptrs[2].data(), &ldc_, &m_, &n_,
+                             &k_, &alpha_, &beta_, &num_batch_, resrc);
+
+  // check results. we only want the effective region of c,
+  // i.e. not the padding region that extends to ldc
+  auto const effect_c = [m, n](auto const c) {
+    return fk::matrix<P, mem_type::view>(c, 0, m - 1, 0, n - 1);
+  };
+  for (int i = 0; i < num_batch; ++i)
+  {
+    if constexpr (resrc == resource::host)
+    {
+      REQUIRE(effect_c(matrices[2][i]) == effect_c(matrices[3][i]));
+    }
+    else
+    {
+      // determined empirically 11/19
+      auto const eps_multiplier = 1e3;
+      relaxed_comparison(effect_c(matrices[2][i].clone_onto_host()),
+                         effect_c(matrices[3][i].clone_onto_host()),
+                         eps_multiplier);
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
+{
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x1 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 2;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::matrix<TestType> c(6, 1);
-    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
-    int c_stride                   = c.stride();
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 1);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
-    gold1_v = a1_v * b1_v;
-    gold2_v = a2_v * b2_v;
-    gold3_v = a3_v * b3_v;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
-        &num_batch, resource::host);
-
-    // compare
-    REQUIRE(c == gold);
+    int const m         = 4;
+    int const n         = 4;
+    int const k         = 4;
+    int const num_batch = 3;
+    int const lda       = m;
+    int const ldb       = k;
+    int const ldc       = m;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch);
   }
-
-  SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0, device")
-  {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x1 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 2;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
-        b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b2_v_d(
-        b2_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b3_v_d(
-        b3_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(6, 1);
-    fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
-                                                                  0);
-    fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
-                                                                  0);
-    fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
-                                                                  0);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 1);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
-    gold1_v = a1_v * b1_v;
-    gold2_v = a2_v * b2_v;
-    gold3_v = a3_v * b3_v;
-
-    // call batched gemm
-    int c_stride   = c_d.stride();
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
-        &num_batch, resource::device);
-
-    // compare
-    fk::matrix<TestType> const c(c_d.clone_onto_host());
-    REQUIRE(c == gold);
-  }
-
-  auto const get_trans =
-      [](fk::matrix<TestType, mem_type::view> orig) -> fk::matrix<TestType> {
-    fk::matrix<TestType> builder(orig);
-    return builder.transpose();
-  };
 
   SECTION("batched gemm: trans a, no trans b, alpha = 1.0, beta = 0.0")
   {
-    char const trans_a = 't';
-    // make 3x2 (pre-trans) "a" views
-    int const a_start_row = 1;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 1;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const a1_t = get_trans(a1_v);
-    fk::matrix<TestType> const a2_t = get_trans(a2_v);
-    fk::matrix<TestType> const a3_t = get_trans(a3_v);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x2 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 1;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 3x2 "c" views
-    fk::matrix<TestType> c(6, 2);
-    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 2);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
-
-    gold1_v = a1_t * b1_v;
-    gold2_v = a2_t * b2_v;
-    gold3_v = a3_t * b3_v;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    int c_stride   = c.stride();
-
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_ncols, &b_ncols, &a_nrows, &alpha, &beta,
-        &num_batch, resource::host);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemm: trans a, no trans b, alpha = 1.0, beta = 0.0, device")
-  {
-    char const trans_a = 't';
-    // make 3x2 (pre-trans) "a" views
-    int const a_start_row = 1;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 1;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const a1_t = get_trans(a1_v);
-    fk::matrix<TestType> const a2_t = get_trans(a2_v);
-    fk::matrix<TestType> const a3_t = get_trans(a3_v);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x2 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 1;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
-        b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b2_v_d(
-        b2_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b3_v_d(
-        b3_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 3x2 "c" views
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(6, 2);
-    fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
-                                                                  1);
-    fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
-                                                                  1);
-    fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
-                                                                  1);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 2);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
-
-    gold1_v = a1_t * b1_v;
-    gold2_v = a2_t * b2_v;
-    gold3_v = a3_t * b3_v;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    int c_stride = c_d.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_ncols, &b_ncols, &a_nrows, &alpha, &beta,
-        &num_batch, resource::device);
-
-    fk::matrix<TestType> const c(c_d.clone_onto_host());
-    // compare
-    REQUIRE(c == gold);
+    int const m         = 8;
+    int const n         = 2;
+    int const k         = 3;
+    int const num_batch = 2;
+    int const lda       = k + 1;
+    int const ldb       = k + 2;
+    int const ldc       = m;
+    bool const trans_a  = true;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a);
   }
 
   SECTION("batched gemm: no trans a, trans b, alpha = 1.0, beta = 0.0")
   {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 't';
-    // make 2x3 (pre trans) "b" views
-    int const b_start_row = 0;
-    int const b_stop_row  = 1;
-    int const b_start_col = 0;
-    int const b_stop_col  = 2;
-    int b_nrows           = b_stop_row - b_start_row + 1;
-
-    int b_stride = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const b1_t = get_trans(b1_v);
-    fk::matrix<TestType> const b2_t = get_trans(b2_v);
-    fk::matrix<TestType> const b3_t = get_trans(b3_v);
-
-    // make 2x2 "c" views
-    fk::matrix<TestType> c(6, 2);
-    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 2);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
-    gold1_v = a1_v * b1_t;
-    gold2_v = a2_v * b2_t;
-    gold3_v = a3_v * b3_t;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    int c_stride   = c.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_nrows, &a_ncols, &alpha, &beta,
-        &num_batch, resource::host);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemm: no trans a, trans b, alpha = 1.0, beta = 0.0, device")
-  {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 't';
-    // make 2x3 (pre trans) "b" views
-    int const b_start_row = 0;
-    int const b_stop_row  = 1;
-    int const b_start_col = 0;
-    int const b_stop_col  = 2;
-    int b_nrows           = b_stop_row - b_start_row + 1;
-
-    int b_stride = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
-        b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b2_v_d(
-        b2_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b3_v_d(
-        b3_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const b1_t = get_trans(b1_v);
-    fk::matrix<TestType> const b2_t = get_trans(b2_v);
-    fk::matrix<TestType> const b3_t = get_trans(b3_v);
-
-    // make 2x2 "c" views
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(6, 2);
-    fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
-                                                                  1);
-    fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
-                                                                  1);
-    fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
-                                                                  1);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 2);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
-    gold1_v = a1_v * b1_t;
-    gold2_v = a2_v * b2_t;
-    gold3_v = a3_v * b3_t;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    int c_stride   = c_d.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_nrows, &a_ncols, &alpha, &beta,
-        &num_batch, resource::device);
-
-    // compare
-    fk::matrix<TestType> const c(c_d.clone_onto_host());
-    REQUIRE(c == gold);
+    int const m         = 3;
+    int const n         = 6;
+    int const k         = 5;
+    int const num_batch = 4;
+    int const lda       = m;
+    int const ldb       = n;
+    int const ldc       = m + 1;
+    bool const trans_a  = false;
+    bool const trans_b  = true;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b);
   }
 
   SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0")
   {
-    char const trans_a = 't';
-    // make 3x2 (pre-trans) "a" views
-    int const a_start_row = 1;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 1;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const a1_t = get_trans(a1_v);
-    fk::matrix<TestType> const a2_t = get_trans(a2_v);
-    fk::matrix<TestType> const a3_t = get_trans(a3_v);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 't';
-    // make 2x3 (pre trans) "b" views
-    int const b_start_row = 0;
-    int const b_stop_row  = 1;
-    int const b_start_col = 0;
-    int const b_stop_col  = 2;
-
-    int b_nrows = b_stop_row - b_start_row + 1;
-
-    int b_stride = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const b1_t = get_trans(b1_v);
-    fk::matrix<TestType> const b2_t = get_trans(b2_v);
-    fk::matrix<TestType> const b3_t = get_trans(b3_v);
-
-    // make 2x2 "c" views
-    fk::matrix<TestType> c(6, 2);
-    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 1);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 2);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
-    gold1_v = a1_t * b1_t;
-    gold2_v = a2_t * b2_t;
-    gold3_v = a3_t * b3_t;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    int c_stride   = c.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_ncols, &b_nrows, &a_nrows, &alpha, &beta,
-        &num_batch, resource::host);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0, device")
-  {
-    char const trans_a = 't';
-    // make 3x2 (pre-trans) "a" views
-    int const a_start_row = 1;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 1;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const a1_t = get_trans(a1_v);
-    fk::matrix<TestType> const a2_t = get_trans(a2_v);
-    fk::matrix<TestType> const a3_t = get_trans(a3_v);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 't';
-    // make 2x3 (pre trans) "b" views
-    int const b_start_row = 0;
-    int const b_stop_row  = 1;
-    int const b_start_col = 0;
-    int const b_stop_col  = 2;
-    int b_nrows           = b_stop_row - b_start_row + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
-        b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b2_v_d(
-        b2_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b3_v_d(
-        b3_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make the transposed versions for forming golden value
-    fk::matrix<TestType> const b1_t = get_trans(b1_v);
-    fk::matrix<TestType> const b2_t = get_trans(b2_v);
-    fk::matrix<TestType> const b3_t = get_trans(b3_v);
-
-    // make 2x2 "c" views
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(6, 2);
-    fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
-                                                                  1);
-    fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
-                                                                  1);
-    fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
-                                                                  1);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 2);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 1);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 1);
-    gold1_v = a1_t * b1_t;
-    gold2_v = a2_t * b2_t;
-    gold3_v = a3_t * b3_t;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-    int c_stride   = c_d.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_ncols, &b_nrows, &a_nrows, &alpha, &beta,
-        &num_batch, resource::device);
-
-    // compare
-    fk::matrix<TestType> const c(c_d.clone_onto_host());
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 1.0")
-  {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x1 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 2;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    // clang-format off
-    fk::matrix<TestType> c {
-	    {3548},
-  	    {3695},
-  	    {4631},
-  	    {4790},
-  	    {5834},
-  	    {6005},
-    }; // clang-format on
-    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 1);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
-    gold1_v = (a1_v * b1_v) * 2.0;
-    gold2_v = (a2_v * b2_v) * 2.0;
-    gold3_v = (a3_v * b3_v) * 2.0;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 1.0;
-    int c_stride   = c.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
-        &num_batch, resource::host);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 1.0, device")
-  {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x1 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 2;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
-        b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b2_v_d(
-        b2_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b3_v_d(
-        b3_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    // clang-format off
-    fk::matrix<TestType> c {
-	    {3548},
-  	    {3695},
-  	    {4631},
-  	    {4790},
-  	    {5834},
-  	    {6005},
-    }; // clang-format on
-
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(
-        c.clone_onto_device());
-    fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
-                                                                  0);
-    fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
-                                                                  0);
-    fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
-                                                                  0);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 1);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
-    gold1_v = (a1_v * b1_v) * 2.0;
-    gold2_v = (a2_v * b2_v) * 2.0;
-    gold3_v = (a3_v * b3_v) * 2.0;
-
-    // call batched gemm
-    TestType alpha = 1.0;
-    TestType beta  = 1.0;
-    int c_stride   = c_d.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
-        &num_batch, resource::device);
-
-    // compare
-    c.transfer_from(c_d);
-    REQUIRE(c == gold);
+    int const m         = 9;
+    int const n         = 8;
+    int const k         = 7;
+    int const num_batch = 6;
+    int const lda       = k + 1;
+    int const ldb       = n + 2;
+    int const ldc       = m + 3;
+    bool const trans_a  = true;
+    bool const trans_b  = true;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b);
   }
 
   SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 0.0")
   {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x1 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 2;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::matrix<TestType> c(6, 1);
-    fk::matrix<TestType, mem_type::view> c1_v(c, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> c2_v(c, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> c3_v(c, 4, 5, 0, 0);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 1);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
-    gold1_v = (a1_v * b1_v) * 3.0;
-    gold2_v = (a2_v * b2_v) * 3.0;
-    gold3_v = (a3_v * b3_v) * 3.0;
-
-    // call batched gemm
-    TestType alpha = 3.0;
-    TestType beta  = 1.0;
-    int c_stride   = c.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
-        &num_batch, resource::host);
-
-    // compare
-    REQUIRE(c == gold);
+    int const m          = 4;
+    int const n          = 4;
+    int const k          = 4;
+    int const num_batch  = 3;
+    int const lda        = m;
+    int const ldb        = k;
+    int const ldc        = m;
+    bool const trans_a   = false;
+    bool const trans_b   = false;
+    TestType const alpha = 3.0;
+    TestType const beta  = 0.0;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b, alpha, beta);
   }
 
-  SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 0.0")
+  SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 2.0")
   {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    char const trans_b = 'n';
-    // make 3x1 "b" views
-    int const b_start_row = 1;
-    int const b_stop_row  = 3;
-    int const b_start_col = 2;
-    int const b_stop_col  = 2;
-    int b_ncols           = b_stop_col - b_start_col + 1;
-    int b_stride          = b1.nrows();
-
-    fk::matrix<TestType, mem_type::view, resource::device> const b1_v_d(
-        b1_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b2_v_d(
-        b2_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const b3_v_d(
-        b3_d, b_start_row, b_stop_row, b_start_col, b_stop_col);
-
-    fk::matrix<TestType, mem_type::view> const b1_v(b1, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b2_v(b2, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-    fk::matrix<TestType, mem_type::view> const b3_v(b3, b_start_row, b_stop_row,
-                                                    b_start_col, b_stop_col);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::matrix<TestType, mem_type::owner, resource::device> c_d(6, 1);
-    fk::matrix<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1, 0,
-                                                                  0);
-    fk::matrix<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3, 0,
-                                                                  0);
-    fk::matrix<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5, 0,
-                                                                  0);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::matrix<TestType> gold(6, 1);
-    fk::matrix<TestType, mem_type::view> gold1_v(gold, 0, 1, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold2_v(gold, 2, 3, 0, 0);
-    fk::matrix<TestType, mem_type::view> gold3_v(gold, 4, 5, 0, 0);
-    gold1_v = (a1_v * b1_v) * 3.0;
-    gold2_v = (a2_v * b2_v) * 3.0;
-    gold3_v = (a3_v * b3_v) * 3.0;
-
-    // call batched gemm
-    TestType alpha = 3.0;
-    TestType beta  = 1.0;
-    int c_stride   = c_d.stride();
-    lib_dispatch::batched_gemm(
-        a_vect.data(), &a_stride, &trans_a, b_vect.data(), &b_stride, &trans_b,
-        c_vect.data(), &c_stride, &a_nrows, &b_ncols, &a_ncols, &alpha, &beta,
-        &num_batch, resource::device);
-
-    // compare
-    fk::matrix<TestType> const c(c_d.clone_onto_host());
-    REQUIRE(c == gold);
+    int const m          = 4;
+    int const n          = 4;
+    int const k          = 4;
+    int const num_batch  = 3;
+    int const lda        = m;
+    int const ldb        = k;
+    int const ldc        = m;
+    bool const trans_a   = false;
+    bool const trans_b   = false;
+    TestType const alpha = 3.0;
+    TestType const beta  = 2.0;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b, alpha, beta);
   }
 }
 
-TEMPLATE_TEST_CASE("batched gemv", "[batch]", float, double)
+template<typename P, resource resrc = resource::host>
+void test_batched_gemv(int const m, int const n, int const lda,
+                       int const num_batch = 3, bool const trans_a = false,
+                       P const alpha = 1.0, P const beta = 0.0)
 {
-  int num_batch = 3;
-  // clang-format off
-  fk::matrix<TestType> const a1 {
-         {12, 22, 32},
-         {13, 23, 33},
-         {14, 24, 34},
-         {15, 25, 35},
-         {16, 26, 36},
-  };
-  fk::matrix<TestType> const a2 {
-         {17, 27, 37},
-         {18, 28, 38},
-         {19, 29, 39},
-         {20, 30, 40},
-         {21, 31, 41},
-  };
-  fk::matrix<TestType> const a3 {
-         {22, 32, 42},
-         {23, 33, 43},
-         {24, 34, 44},
-         {25, 35, 45},
-         {26, 36, 46},
+  assert(m > 0);
+  assert(n > 0);
+  assert(lda >= m);
+
+  int const rows_a = trans_a ? n : m;
+  int const cols_a = trans_a ? m : n;
+
+  std::random_device rd;
+  std::mt19937 mersenne_engine(rd());
+  std::uniform_real_distribution<P> dist(-2.0, 2.0);
+  auto const gen = [&dist, &mersenne_engine]() {
+    return dist(mersenne_engine);
   };
 
-  fk::vector<TestType> const b1 {
-         {2},
-         {3},
-         {4},
-         {5},
-	 {6}
-  };
-  // clang-format on
+  std::vector<fk::matrix<P, mem_type::owner, resrc>> const a_mats = [=]() {
+    std::vector<fk::matrix<P, mem_type::owner, resrc>> a_mats;
 
-  fk::matrix<TestType, mem_type::owner, resource::device> const a1_d(
-      a1.clone_onto_device());
-  fk::matrix<TestType, mem_type::owner, resource::device> const a2_d(
-      a2.clone_onto_device());
-  fk::matrix<TestType, mem_type::owner, resource::device> const a3_d(
-      a3.clone_onto_device());
+    for (int i = 0; i < num_batch; ++i)
+    {
+      fk::matrix<P> a(lda, n);
+      std::generate(a.begin(), a.end(), gen);
 
-  fk::vector<TestType, mem_type::owner, resource::device> const b1_d(
-      b1.clone_onto_device());
+      if constexpr (resrc == resource::host)
+      {
+        a_mats.push_back(a);
+      }
+      else
+      {
+        a_mats.push_back(a.clone_onto_device());
+      }
+    }
 
-  auto const get_trans =
-      [](fk::matrix<TestType, mem_type::view> orig) -> fk::matrix<TestType> {
-    fk::matrix<TestType> builder(orig);
-    return builder.transpose();
-  };
+    return a_mats;
+  }();
 
+  std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> const
+      vectors = [=, &a_mats]() {
+        // {x, y, gold}
+        std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> vectors(
+            3);
+
+        std::random_device rd;
+        std::mt19937 mersenne_engine(rd());
+        std::uniform_real_distribution<P> dist(-2.0, 2.0);
+        auto const gen = [&dist, &mersenne_engine]() {
+          return dist(mersenne_engine);
+        };
+
+        for (int i = 0; i < num_batch; ++i)
+        {
+          fk::vector<P> x(cols_a);
+          fk::vector<P> y(rows_a);
+          std::generate(x.begin(), x.end(), gen);
+          std::generate(y.begin(), y.end(), gen);
+
+          if constexpr (resrc == resource::host)
+          {
+            vectors[0].push_back(x);
+            vectors[1].push_back(y);
+          }
+          else
+          {
+            vectors[0].push_back(x.clone_onto_device());
+            vectors[1].push_back(y.clone_onto_device());
+          }
+
+          fk::matrix<P, mem_type::view, resrc> const effective_a(
+              a_mats[i], 0, m - 1, 0, n - 1);
+          fk::vector<P, mem_type::owner, resrc> gold(vectors[1].back());
+          fm::gemv(effective_a, vectors[0].back(), gold, trans_a, alpha, beta);
+          vectors[2].push_back(gold);
+        }
+        return vectors;
+      }();
+
+  std::vector<std::vector<P *>> ptrs = [=, &a_mats, &vectors]() {
+    std::vector<std::vector<P *>> ptrs(3);
+    for (int i = 0; i < num_batch; ++i)
+    {
+      ptrs[0].push_back(a_mats[i].data());
+      ptrs[1].push_back(vectors[0][i].data());
+      ptrs[2].push_back(vectors[1][i].data());
+    }
+    return ptrs;
+  }();
+
+  int lda_ = lda;
+  int m_   = m;
+  int n_   = n;
+
+  char const transa = trans_a ? 't' : 'n';
+
+  P alpha_       = alpha;
+  P beta_        = beta;
+  int num_batch_ = num_batch;
+
+  lib_dispatch::batched_gemv(ptrs[0].data(), &lda_, &transa, ptrs[1].data(),
+                             ptrs[2].data(), &m_, &n_, &alpha_, &beta_,
+                             &num_batch_, resrc);
+
+  for (int i = 0; i < num_batch; ++i)
+  {
+    if constexpr (resrc == resource::host)
+    {
+      REQUIRE(vectors[1][i] == vectors[2][i]);
+    }
+    else
+    {
+      REQUIRE(vectors[1][i].clone_onto_host() ==
+              vectors[2][i].clone_onto_host());
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
+{
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    // make 3x1 "b" views
-    fk::vector<TestType, mem_type::view> const b1_v(b1, 0, 2);
-    fk::vector<TestType, mem_type::view> const b2_v(b1, 1, 3);
-    fk::vector<TestType, mem_type::view> const b3_v(b1, 2, 4);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::vector<TestType> c(6);
-    fk::vector<TestType, mem_type::view> c1_v(c, 0, 1);
-    fk::vector<TestType, mem_type::view> c2_v(c, 2, 3);
-    fk::vector<TestType, mem_type::view> c3_v(c, 4, 5);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::vector<TestType> gold(6);
-    fk::vector<TestType, mem_type::view> gold1_v(gold, 0, 1);
-    fk::vector<TestType, mem_type::view> gold2_v(gold, 2, 3);
-    fk::vector<TestType, mem_type::view> gold3_v(gold, 4, 5);
-    gold1_v = a1_v * b1_v;
-    gold2_v = a2_v * b2_v;
-    gold3_v = a3_v * b3_v;
-
-    // call batched gemv
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    lib_dispatch::batched_gemv(a_vect.data(), &a_stride, &trans_a,
-                               b_vect.data(), c_vect.data(), &a_nrows, &a_ncols,
-                               &alpha, &beta, &num_batch);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0, device")
-  {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 3x1 "b" views
-    fk::vector<TestType, mem_type::view, resource::device> const b1_v_d(b1_d, 0,
-                                                                        2);
-    fk::vector<TestType, mem_type::view, resource::device> const b2_v_d(b1_d, 1,
-                                                                        3);
-    fk::vector<TestType, mem_type::view, resource::device> const b3_v_d(b1_d, 2,
-                                                                        4);
-
-    fk::vector<TestType, mem_type::view> const b1_v(b1, 0, 2);
-    fk::vector<TestType, mem_type::view> const b2_v(b1, 1, 3);
-    fk::vector<TestType, mem_type::view> const b3_v(b1, 2, 4);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::vector<TestType, mem_type::owner, resource::device> c_d(6);
-    fk::vector<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1);
-    fk::vector<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3);
-    fk::vector<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::vector<TestType> gold(6);
-    fk::vector<TestType, mem_type::view> gold1_v(gold, 0, 1);
-    fk::vector<TestType, mem_type::view> gold2_v(gold, 2, 3);
-    fk::vector<TestType, mem_type::view> gold3_v(gold, 4, 5);
-    gold1_v = a1_v * b1_v;
-    gold2_v = a2_v * b2_v;
-    gold3_v = a3_v * b3_v;
-
-    // call batched gemv
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    lib_dispatch::batched_gemv(a_vect.data(), &a_stride, &trans_a,
-                               b_vect.data(), c_vect.data(), &a_nrows, &a_ncols,
-                               &alpha, &beta, &num_batch, resource::device);
-
-    // compare
-    fk::vector<TestType> const c(c_d.clone_onto_host());
-    REQUIRE(c == gold);
+    int const m         = 8;
+    int const n         = 4;
+    int const lda       = m;
+    int const num_batch = 4;
+    test_batched_gemv<TestType, resrc>(m, n, lda, num_batch);
   }
 
   SECTION("batched gemv: trans, alpha = 1.0, beta = 0.0")
   {
-    char const trans_a = 't';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    fk::matrix<TestType> const a1_t = get_trans(a1_v);
-    fk::matrix<TestType> const a2_t = get_trans(a2_v);
-    fk::matrix<TestType> const a3_t = get_trans(a3_v);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "b" views
-    fk::vector<TestType, mem_type::view> const b1_v(b1, 0, 1);
-    fk::vector<TestType, mem_type::view> const b2_v(b1, 1, 2);
-    fk::vector<TestType, mem_type::view> const b3_v(b1, 2, 3);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 3x1 "c" views
-    fk::vector<TestType> c(9);
-    fk::vector<TestType, mem_type::view> c1_v(c, 0, 2);
-    fk::vector<TestType, mem_type::view> c2_v(c, 3, 5);
-    fk::vector<TestType, mem_type::view> c3_v(c, 6, 8);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::vector<TestType> gold(9);
-    fk::vector<TestType, mem_type::view> gold1_v(gold, 0, 2);
-    fk::vector<TestType, mem_type::view> gold2_v(gold, 3, 5);
-    fk::vector<TestType, mem_type::view> gold3_v(gold, 6, 8);
-    gold1_v = a1_t * b1_v;
-    gold2_v = a2_t * b2_v;
-    gold3_v = a3_t * b3_v;
-
-    // call batched gemv
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    lib_dispatch::batched_gemv(a_vect.data(), &a_stride, &trans_a,
-                               b_vect.data(), c_vect.data(), &a_nrows, &a_ncols,
-                               &alpha, &beta, &num_batch);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemv: trans, alpha = 1.0, beta = 0.0, device")
-  {
-    char const trans_a = 't';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    fk::matrix<TestType> const a1_t = get_trans(a1_v);
-    fk::matrix<TestType> const a2_t = get_trans(a2_v);
-    fk::matrix<TestType> const a3_t = get_trans(a3_v);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "b" views
-    fk::vector<TestType, mem_type::view, resource::device> const b1_v_d(b1_d, 0,
-                                                                        1);
-    fk::vector<TestType, mem_type::view, resource::device> const b2_v_d(b1_d, 2,
-                                                                        3);
-    fk::vector<TestType, mem_type::view, resource::device> const b3_v_d(b1_d, 3,
-                                                                        4);
-
-    fk::vector<TestType, mem_type::view> const b1_v(b1, 0, 1);
-    fk::vector<TestType, mem_type::view> const b2_v(b1, 2, 3);
-    fk::vector<TestType, mem_type::view> const b3_v(b1, 3, 4);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::vector<TestType, mem_type::owner, resource::device> c_d(9);
-    fk::vector<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 2);
-    fk::vector<TestType, mem_type::view, resource::device> c2_v_d(c_d, 3, 5);
-    fk::vector<TestType, mem_type::view, resource::device> c3_v_d(c_d, 6, 8);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::vector<TestType> gold(9);
-    fk::vector<TestType, mem_type::view> gold1_v(gold, 0, 2);
-    fk::vector<TestType, mem_type::view> gold2_v(gold, 3, 5);
-    fk::vector<TestType, mem_type::view> gold3_v(gold, 6, 8);
-    gold1_v = a1_t * b1_v;
-    gold2_v = a2_t * b2_v;
-    gold3_v = a3_t * b3_v;
-
-    // call batched gemv
-    TestType alpha = 1.0;
-    TestType beta  = 0.0;
-
-    lib_dispatch::batched_gemv(a_vect.data(), &a_stride, &trans_a,
-                               b_vect.data(), c_vect.data(), &a_nrows, &a_ncols,
-                               &alpha, &beta, &num_batch, resource::device);
-
-    // compare
-    fk::vector<TestType> const c(c_d.clone_onto_host());
-    REQUIRE(c == gold);
+    int const m         = 8;
+    int const n         = 4;
+    int const lda       = m + 1;
+    int const num_batch = 2;
+    bool const trans_a  = true;
+    test_batched_gemv<TestType, resrc>(m, n, lda, num_batch, trans_a);
   }
 
   SECTION("batched gemv: no trans, test scaling")
   {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v.data());
-      builder.push_back(a2_v.data());
-      builder.push_back(a3_v.data());
-
-      return builder;
-    }();
-
-    // make 3x1 "b" views
-    fk::vector<TestType, mem_type::view> const b1_v(b1, 0, 2);
-    fk::vector<TestType, mem_type::view> const b2_v(b1, 1, 3);
-    fk::vector<TestType, mem_type::view> const b3_v(b1, 2, 4);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v.data());
-      builder.push_back(b2_v.data());
-      builder.push_back(b3_v.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::vector<TestType> c{10, 11, 12, 13, 14, 15};
-    fk::vector<TestType, mem_type::view> c1_v(c, 0, 1);
-    fk::vector<TestType, mem_type::view> c2_v(c, 2, 3);
-    fk::vector<TestType, mem_type::view> c3_v(c, 4, 5);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v.data());
-      builder.push_back(c2_v.data());
-      builder.push_back(c3_v.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::vector<TestType> gold(6);
-    fk::vector<TestType, mem_type::view> gold1_v(gold, 0, 1);
-    fk::vector<TestType, mem_type::view> gold2_v(gold, 2, 3);
-    fk::vector<TestType, mem_type::view> gold3_v(gold, 4, 5);
-
-    TestType alpha = 3.0;
-    gold1_v        = (a1_v * alpha) * b1_v + c1_v;
-    gold2_v        = (a2_v * alpha) * b2_v + c2_v;
-    gold3_v        = (a3_v * alpha) * b3_v + c3_v;
-
-    // call batched gemv
-    TestType beta = 1.0;
-    lib_dispatch::batched_gemv(a_vect.data(), &a_stride, &trans_a,
-                               b_vect.data(), c_vect.data(), &a_nrows, &a_ncols,
-                               &alpha, &beta, &num_batch);
-
-    // compare
-    REQUIRE(c == gold);
-  }
-
-  SECTION("batched gemv: no trans, test scaling, device")
-  {
-    char const trans_a = 'n';
-    // make 2x3 "a" views
-    int const a_start_row = 2;
-    int const a_stop_row  = 3;
-    int a_nrows           = a_stop_row - a_start_row + 1;
-    int const a_start_col = 0;
-    int const a_stop_col  = 2;
-    int a_ncols           = a_stop_col - a_start_col + 1;
-    int a_stride          = a1.nrows();
-
-    fk::matrix<TestType, mem_type::view> const a1_v(a1, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a2_v(a2, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view> const a3_v(a3, a_start_row, a_stop_row,
-                                                    a_start_col, a_stop_col);
-
-    fk::matrix<TestType, mem_type::view, resource::device> const a1_v_d(
-        a1_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a2_v_d(
-        a2_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-    fk::matrix<TestType, mem_type::view, resource::device> const a3_v_d(
-        a3_d, a_start_row, a_stop_row, a_start_col, a_stop_col);
-
-    std::vector<TestType *> a_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(a1_v_d.data());
-      builder.push_back(a2_v_d.data());
-      builder.push_back(a3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 3x1 "b" views
-    fk::vector<TestType, mem_type::view, resource::device> const b1_v_d(b1_d, 0,
-                                                                        2);
-    fk::vector<TestType, mem_type::view, resource::device> const b2_v_d(b1_d, 1,
-                                                                        3);
-    fk::vector<TestType, mem_type::view, resource::device> const b3_v_d(b1_d, 2,
-                                                                        4);
-
-    fk::vector<TestType, mem_type::view> const b1_v(b1, 0, 2);
-    fk::vector<TestType, mem_type::view> const b2_v(b1, 1, 3);
-    fk::vector<TestType, mem_type::view> const b3_v(b1, 2, 4);
-
-    std::vector<TestType *> b_vect = [&] {
-      std::vector<TestType *> builder;
-
-      builder.push_back(b1_v_d.data());
-      builder.push_back(b2_v_d.data());
-      builder.push_back(b3_v_d.data());
-
-      return builder;
-    }();
-
-    // make 2x1 "c" views
-    fk::vector<TestType, mem_type::owner, resource::device> c_d{10, 11, 12,
-                                                                13, 14, 15};
-    fk::vector<TestType, mem_type::view, resource::device> c1_v_d(c_d, 0, 1);
-    fk::vector<TestType, mem_type::view, resource::device> c2_v_d(c_d, 2, 3);
-    fk::vector<TestType, mem_type::view, resource::device> c3_v_d(c_d, 4, 5);
-
-    fk::vector<TestType> c(c_d.clone_onto_host());
-    fk::vector<TestType, mem_type::view> c1_v(c, 0, 1);
-    fk::vector<TestType, mem_type::view> c2_v(c, 2, 3);
-    fk::vector<TestType, mem_type::view> c3_v(c, 4, 5);
-
-    std::vector<TestType *> c_vect = [&] {
-      std::vector<TestType *> builder;
-      builder.push_back(c1_v_d.data());
-      builder.push_back(c2_v_d.data());
-      builder.push_back(c3_v_d.data());
-      return builder;
-    }();
-
-    // do the math to create gold matrix
-    fk::vector<TestType> gold(6);
-    fk::vector<TestType, mem_type::view> gold1_v(gold, 0, 1);
-    fk::vector<TestType, mem_type::view> gold2_v(gold, 2, 3);
-    fk::vector<TestType, mem_type::view> gold3_v(gold, 4, 5);
-
-    TestType alpha = 3.0;
-
-    gold1_v = (a1_v * alpha) * b1_v + c1_v;
-    gold2_v = (a2_v * alpha) * b2_v + c2_v;
-    gold3_v = (a3_v * alpha) * b3_v + c3_v;
-
-    // call batched gemv
-    TestType beta = 1.0;
-    lib_dispatch::batched_gemv(a_vect.data(), &a_stride, &trans_a,
-                               b_vect.data(), c_vect.data(), &a_nrows, &a_ncols,
-                               &alpha, &beta, &num_batch, resource::device);
-
-    // compare
-    c.transfer_from(c_d);
-    REQUIRE(c == gold);
+    int const m          = 12;
+    int const n          = 5;
+    int const lda        = m + 3;
+    int const num_batch  = 5;
+    bool const trans_a   = false;
+    TestType const alpha = -2.0;
+    TestType const beta  = -4.5;
+    test_batched_gemv<TestType, resrc>(m, n, lda, num_batch, trans_a, alpha,
+                                       beta);
   }
 }
 

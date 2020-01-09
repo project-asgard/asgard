@@ -20,8 +20,9 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-int const num_steps          = 5;
-int const workspace_limit_MB = 1000;
+// settings for time advance testing
+static auto constexpr num_steps          = 5;
+static auto constexpr workspace_limit_MB = 1000;
 
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
@@ -115,10 +116,10 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
 
-    // determined empirically 11/19; lowest tolerance
+    // determined empirically 11/19; lowest epsilon multiplier
     // for which all current tests pass
-    auto const tol_scale = 1e4;
-    relaxed_comparison(gold, host_space.x, tol_scale);
+    auto const eps_multiplier = 1e4;
+    relaxed_comparison(gold, host_space.x, eps_multiplier);
   }
 }
 

@@ -202,10 +202,11 @@ fk::vector<double> read_vector_from_bin_file(std::string const &path)
   std::ifstream infile;
   infile.open(path, std::ios::in | std::ios::binary);
 
-  // read failed, return empty
+  // read failed
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::streampos bytes;
@@ -243,10 +244,11 @@ double read_scalar_from_txt_file(std::string const &path)
   std::ifstream infile;
   infile.open(path, std::ios::in);
 
-  // read failed, return empty
+  // read failed
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::string tmp_str;
@@ -351,10 +353,11 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   std::ifstream infile;
   infile.open(path, std::ios::in);
 
-  // read failed, return empty
+  // read failed
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::string tmp_str;
