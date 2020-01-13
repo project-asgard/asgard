@@ -177,9 +177,10 @@ int main(int argc, char **argv)
   static int const default_workspace_MB = 10000;
 
   // FIXME currently used to check realspace transform only
-  static int const default_workspace_cpu_MB = 4000;
+  /* RAM on fusiont5 */
+  static int const default_workspace_cpu_MB = 187000;
 
-  host_workspace<prec> host_space(*pde, subgrid);
+  host_workspace<prec> host_space(*pde, subgrid, default_workspace_cpu_MB);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
   rank_workspace<prec> rank_space(*pde, plan.at(my_rank), chunks);

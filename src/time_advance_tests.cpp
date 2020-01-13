@@ -96,7 +96,8 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   }();
 
   // -- prep workspace/chunks
-  host_workspace<P> host_space(pde, subgrid);
+  int const workspace_MB_limit = 4000;
+  host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
   rank_workspace<P> rank_space(pde, subgrid, chunks);
@@ -357,7 +358,8 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   }
 
   // -- prep workspace/chunks
-  host_workspace<P> host_space(pde, subgrid);
+  int const workspace_MB_limit = 4000;
+  host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
   rank_workspace<P> rank_space(pde, subgrid, chunks);
