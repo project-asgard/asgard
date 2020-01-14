@@ -629,6 +629,8 @@ template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(int const size)
     : size_{size}, ref_count_{std::make_shared<int>(0)}
 {
+  assert(size >= 0);
+
   if constexpr (resrc == resource::host)
   {
     data_ = new P[size_]();
@@ -1306,7 +1308,7 @@ fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
 {
   assert(start >= 0);
   assert(stop < this->size());
-  assert(stop > start);
+  assert(stop >= start);
 
   int const sub_size = stop - start + 1;
   fk::vector<P> sub_vector(sub_size);
@@ -1347,6 +1349,9 @@ fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
                                                  std::make_shared<int>(0)}
 
 {
+  assert(m >= 0);
+  assert(n >= 0);
+
   if constexpr (resrc == resource::host)
   {
     data_ = new P[nrows() * ncols()]();
