@@ -1,8 +1,14 @@
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.13) # remove cray check below when >= 3.16
 project (asgard
   VERSION 0.1.0
   LANGUAGES CXX
 )
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "CrayLinuxEnvironment")
+  if (CMAKE_VERSION VERSION_LESS "3.16")
+    message (WARNING "To use Cray LibSci instead of building OpenBLAS, you must use CMake >= 3.16.")
+  endif ()
+endif ()
 
 ###############################################################################
 ## Set up the compiler and general global build options
