@@ -212,26 +212,33 @@ int main(int argc, char **argv)
 
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
+
+  // initialize wavelet output
   auto output_dataset = initialize_output_file(initial_condition);
 
-  int prod = real_solution_size(*pde);
-  fk::vector<prec> real_space(prod);
+  // realspace solution vector - WARNING this is
+  // currently infeasible to form for large problems
+  int const real_space_size = real_solution_size(*pde);
+  fk::vector<prec> real_space(real_space_size);
 
-  /* temporary workspaces for the transform */
-  fk::vector<prec, mem_type::owner, resource::host> workspace_0(prod);
-  fk::vector<prec, mem_type::owner, resource::host> workspace_1(prod);
+  // temporary workspaces for the transform
+  fk::vector<prec, mem_type::owner, resource::host> workspace(real_space_size *
+                                                              2);
+  std::array<fk::vector<prec, mem_type::view, resource::host>, 2>
+      tmp_workspace = {
+          fk::vector<prec, mem_type::view, resource::host>(workspace, 0,
+                                                           real_space_size),
+          fk::vector<prec, mem_type::view, resource::host>(
+              workspace, real_space_size, real_space_size * 2 - 1)};
+  // transform initial condition to realspace
+  wavelet_to_realspace<prec>(*pde, initial_condition, table,
+                             default_workspace_cpu_MB, tmp_workspace,
+                             real_space);
 
-  std::array<fk::vector<prec, mem_type::view, resrc>, 2> tmp_workspace = {
-      fk::vector<prec, mem_type::view, resource::host>(workspace_0),
-      fk::vector<prec, mem_type::view, resource::host>(workspace_1)};
-
-  wavelet_to_realspace<prec>(
-      *pde, initial_condition, table, default_workspace_cpu_MB,
-      fk::vector<prec, mem_type::view> tmp_workspace, real_space);
-
+  // initialize realspace output
   std::string const realspace_output_name = "asgard_realspace";
   auto output_dataset_real =
-      initialize_output_file(real_space, realspace_output_name);
+      initialize_output_file(real_space, "asgard_realspace");
 #endif
 
   // -- time loop
@@ -290,12 +297,13 @@ int main(int argc, char **argv)
     {
       update_output_file(output_dataset, host_space.x);
     }
-    /* write realspace output to file */
+
+    /* transform from wavelet space to real space */
     if (opts.transform_at_step(i))
     {
-      wavelet_to_realspace<prec>(
-          *pde, host_space.x, table, default_workspace_cpu_MB,
-          fk::vector<prec, mem_type::view> tmp_workspace, real_space);
+      wavelet_to_realspace<prec>(*pde, host_space.x, table,
+                                 default_workspace_cpu_MB, tmp_workspace,
+                                 real_space);
 
       update_output_file(output_dataset_real, real_space,
                          realspace_output_name);

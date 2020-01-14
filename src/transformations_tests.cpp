@@ -183,12 +183,11 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     return wave_space;
   }();
 
-  int prod = real_solution_size(pde);
-  fk::vector<P> real_space_owner(prod);
-  fk::vector<P, mem_type::view> real_space(real_space_owner);
+  int const real_space_size = real_solution_size(pde);
+  fk::vector<P> real_space(real_space_size);
 
-  fk::vector<P, mem_type::owner, resource::host> workspace_0(prod);
-  fk::vector<P, mem_type::owner, resource::host> workspace_1(prod);
+  fk::vector<P, mem_type::owner, resource::host> workspace_0(real_space_size);
+  fk::vector<P, mem_type::owner, resource::host> workspace_1(real_space_size);
 
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace_0),

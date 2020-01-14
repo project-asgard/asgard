@@ -27,7 +27,7 @@ void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
     element_table const &table, int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P, mem_type::view> &real_space);
+    fk::vector<P> &real_space);
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
@@ -154,7 +154,18 @@ transform_and_combine_dimensions(PDE<P> const &pde,
   return combine_dimensions(degree, table, start, stop, dimension_components);
 }
 
-int real_solution_size(PDE<P> const &pde);
+inline int real_solution_size(PDE<P> const &pde)
+{
+  /* determine the length of the realspace solution */
+  std::vector<dimension<P>> const &dims = pde.get_dimensions();
+  int prod                              = 1;
+  for (int i = 0; i < static_cast<int>(dims.size()); i++)
+  {
+    prod *= (dims[i].get_degree() * std::pow(2, dims[i].get_level()));
+  }
+
+  return prod;
+}
 
 /* extern instantiations */
 extern template fk::matrix<double>
@@ -174,12 +185,12 @@ extern template void wavelet_to_realspace(
     element_table const &table, int const memory_limit_MB,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
-    fk::vector<double, mem_type::view> &real_space);
+    fk::vector<double> &real_space);
 extern template void wavelet_to_realspace(
     PDE<float> const &pde, fk::vector<float> const &wave_space,
     element_table const &table, int const memory_limit_MB,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float, mem_type::view> &real_space);
+    fk::vector<float> &real_space);
 
 extern template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,
@@ -187,6 +198,3 @@ combine_dimensions(int const, element_table const &, int const, int const,
 extern template fk::vector<float>
 combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
-
-extern template int real_solution_size(PDE<double> const &pde);
-extern template int real_solution_size(PDE<float> const &pde);
