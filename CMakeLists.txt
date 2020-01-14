@@ -257,7 +257,6 @@ if (ASGARD_BUILD_TESTS)
       add_test (NAME ${component}-test-mpi
                 COMMAND mpirun -n ${test_ranks} ${component}-tests
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-      set_tests_properties(${component}-test-mpi PROPERTIES ENVIRONMENT "OPENMP_NUM_THREADS=2")
       endif()
     endif ()
 
@@ -270,7 +269,6 @@ if (ASGARD_BUILD_TESTS)
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-    set_tests_properties(${component}-test PROPERTIES ENVIRONMENT "OPENMP_NUM_THREADS=8")
   endforeach ()
 
 
