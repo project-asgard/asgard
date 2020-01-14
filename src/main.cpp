@@ -306,12 +306,9 @@ int main(int argc, char **argv)
   int const segment_size = element_segment_size(*pde);
 
   // gather results from all ranks. not currently writing the result anywhere
-  // yet.
-  if (my_rank == 0)
-  {
-    auto const final_result =
-        gather_results(host_space.x, plan, my_rank, segment_size);
-  }
+  // yet, but rank 0 holds the complete result after this call
+  auto const final_result =
+      gather_results(host_space.x, plan, my_rank, segment_size);
 
   finalize_distribution();
 
