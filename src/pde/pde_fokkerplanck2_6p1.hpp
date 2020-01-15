@@ -43,10 +43,10 @@
 // ---------------------------------------------------------------------------
 
 template<typename P>
-class PDE_fokkerplanck_2d_complete : public PDE<P>
+class PDE_fokkerplanck_2d_6p1 : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_2d_complete(int const num_levels = -1, int const degree = -1)
+  PDE_fokkerplanck_2d_6p1(int const num_levels = -1, int const degree = -1)
       : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
                dimensions_, terms_, sources_, exact_vector_funcs_,
                exact_scalar_func_, get_dt_, do_poisson_solve_,
@@ -81,9 +81,9 @@ private:
 
   static P constexpr nuEE     = 1;
   static P constexpr vT       = 1;
-  static P constexpr delta    = 0.3;
-  static P constexpr Z        = 5;
-  static P constexpr E        = 0.4;
+  static P constexpr delta    = 0.042;
+  static P constexpr Z        = 1;
+  static P constexpr E        = 0.0025;
   static P constexpr tau      = 1e5;
   static auto constexpr gamma = [](P p) {
     return std::sqrt(1 + std::pow(delta * p, 2));

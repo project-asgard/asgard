@@ -68,10 +68,11 @@ private:
     return z * std::exp(-t) /
            std::sqrt(1 - (std::exp(-2 * t) - 1) * std::pow(z, 2));
   }
-  static P f0(P const z)
-  {
-    return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
-  }
+  //static P f0(P const z)
+  //{
+  //  return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
+  //}
+  static P f0(P const z) { return z * 0 + 0.5; }
 
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
   {
@@ -162,7 +163,7 @@ private:
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
       coefficient_type::grad, g_func_t1_z, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+      boundary_condition::neumann, boundary_condition::neumann);
 
   inline static term<P> const termE_z =
       term<P>(false,           // time-dependent
@@ -189,7 +190,7 @@ private:
               fk::vector<P>(), // additional data vector
               "d_dx",          // name
               dim0_,           // owning dim
-              {partial_term_1, partial_term_2});
+              {partial_term_1,partial_term_2});
 
   inline static std::vector<term<P>> const termC = {termC_z};
 

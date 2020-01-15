@@ -15,17 +15,28 @@
 
 // ---------------------------------------------------------------------------
 //
-// the "fokkerplanck 1d - problem 4.3" pde
+// the "fokkerplanck 1d - problem 4.1" pde
 //
-// Problem 4.3 from the RE paper - radiation damping term
-// df/dt == -d/dz ( z(1-z^2)f )
+// 1D pitch angle collisional term
+// df/dt == d/dz ( (1-z^2) df/dz )
+//
+// Here we use LDG for this second order system. We impose homogeneous
+// Neumann BCs on f
+//
+// d/dz( (1-z^2) df/dz ) becomes
+//
+// d/dz (1-z^2)*q  with free (homogeneous Neumann BC)
+//
+// and the flux is
+//
+// q=df/fz  with homogeneous Dirichlet BC
 //
 // ---------------------------------------------------------------------------
 template<typename P>
-class PDE_fokkerplanck_1d_4p3 : public PDE<P>
+class PDE_fokkerplanck_1d_4p1b : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_1d_4p3(int const num_levels = -1, int const degree = -1)
+  PDE_fokkerplanck_1d_4p1b(int const num_levels = -1, int const degree = -1)
       : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
                dimensions_, terms_, sources_, exact_vector_funcs_,
                exact_scalar_func_, get_dt_, do_poisson_solve_,
@@ -52,45 +63,14 @@ private:
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    return analytic_solution_dim0(x, 0);
+    auto f = analytic_solution_dim0(x, 0);
+    return f;
   }
 
   // analytic solution
 
-  static P phi(P const z, P const t)
-  {
-    return z * std::exp(-t) /
-           std::sqrt(1 - (std::exp(-2 * t) - 1) * std::pow(z, 2));
-  }
-  //static P f0(P const z)
-  //{
-  //  static P const sig   = 0.1;
-
-  //  return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
-  //}
-  //static P f0(P const z)
-  //{
-  //  static P const sig   = 0.1;
-  //  static P const shift = 0.36;
-
-  //  return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2));
-  //}
-  //static P f0(P const z)
-  //{
-  //  static P const sig   = 0.1;
-  //  static P const shift = 0.36;
-
-  //  return std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
-  //}
-  
-  static P f0(P const z)
-  {
-    static P const sig   = 0.1;
-    static P const shift = 0.36;
-
-    return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
-           std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
-  }
+  static P phi(P const z, P const t) { return std::tanh(std::atanh(z) - t); }
+  static P f0(P const z) { return std::exp(-std::pow(z,2)/0.01); }
 
   static fk::vector<P>
   analytic_solution_dim0(fk::vector<P> const z, P const t = 0)
@@ -98,11 +78,11 @@ private:
     fk::vector<P> f(z.size());
     for (int i = 0; i < z.size(); ++i)
     {
-      auto const p  = phi(z(i), t);
-      auto const t1 = p*(1 - std::pow(p, 2));
-      auto const t2 = z(i)*(1 - std::pow(z(i), 2));
-      auto const t3 = f0(p);
-      f(i)          = t1 / t2 * t3;
+      auto p  = phi(z(i), t);
+      auto t1 = 1 - std::pow(p, 2);
+      auto t2 = 1 - std::pow(z(i), 2);
+      auto t3 = f0(p);
+      f(i)    = t1 / t2 * t3;
     }
     return f;
   }
@@ -132,17 +112,20 @@ private:
   // g-funcs
   static P g_func_0(P const x, P const time)
   {
+    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return -1.0;
   }
   static P g_func_1(P const x, P const time)
   {
+    // suppress compiler warnings
     ignore(time);
-    return -x * (1 - std::pow(x, 2));
+    return -1 * (1 - std::pow(x, 2));
   }
   static P g_func_2(P const x, P const time)
   {
+    // suppress compiler warnings
     ignore(x);
     ignore(time);
     return 1.0;
@@ -162,9 +145,14 @@ private:
   // define terms (1 in this case)
   //
   //  -d/dz ( (1-z^2)*f )
-  inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::grad, g_func_1, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  //
+  // term2_z.type = 'grad'; % grad (see coeff_matrix.m for available types)
+  // term2_z.G = @(z,p,t,dat) -1.*(1-z.^2); % G function for use in coeff_matrix
+  // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
+
+  inline static partial_term<P> const partial_term_0 =
+      partial_term<P>(coefficient_type::grad, g_func_1, flux_type::central,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   inline static term<P> const term0_dim0_ =
       term<P>(false,           // time-dependent
@@ -178,6 +166,7 @@ private:
   inline static term_set<P> const terms_ = {terms0_};
 
   // define sources
+
   inline static std::vector<source<P>> const sources_ = {};
 
   // define exact soln functions

@@ -72,7 +72,7 @@ private:
   }
   static P f0(P const z)
   {
-    return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
+    return 1.0/sig/std::sqrt(M_PI)*std::exp(-std::pow(z, 2) / std::pow(sig, 2));
   }
 
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
