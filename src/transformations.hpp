@@ -31,6 +31,24 @@ fk::vector<P>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
+template<typename P>
+fk::vector<P>
+transform_and_combine_dimensions(PDE<P> const &pde,
+                                 std::vector<vector_func<P>> v_functions,
+                                 element_table const &table, int start,
+                                 int stop, int degree);
+
+extern template fk::vector<float>
+transform_and_combine_dimensions(PDE<float> const &pde,
+                                 std::vector<vector_func<float>> v_functions,
+                                 element_table const &table, int start,
+                                 int stop, int degree);
+extern template fk::vector<double>
+transform_and_combine_dimensions(PDE<double> const &pde,
+                                 std::vector<vector_func<double>> v_functions,
+                                 element_table const &table, int start,
+                                 int stop, int degree);
+
 // get only the elements of the combined vector that fall within a specified
 // range
 template<typename P>

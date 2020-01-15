@@ -104,16 +104,18 @@ int main(int argc, char **argv)
 
   // -- generate initial condition vector.
   node_out() << "  generating: initial conditions..." << '\n';
+
   fk::vector<prec> const initial_condition = [&pde, &table, &subgrid,
                                               degree]() {
-    std::vector<fk::vector<prec>> initial_conditions;
+    std::vector<vector_func<prec>> v_functions;
+
     for (dimension<prec> const &dim : pde->get_dimensions())
     {
-      initial_conditions.push_back(
-          forward_transform<prec>(dim, dim.initial_condition));
+      v_functions.push_back(dim.initial_condition);
     }
-    return combine_dimensions(degree, table, subgrid.col_start,
-                              subgrid.col_stop, initial_conditions);
+
+    return transform_and_combine_dimensions(
+        *pde, v_functions, table, subgrid.col_start, subgrid.col_stop, degree);
   }();
 
   // -- generate source vectors.
@@ -123,19 +125,18 @@ int main(int argc, char **argv)
   std::vector<fk::vector<prec>> const initial_sources = [&pde, &table, &subgrid,
                                                          degree]() {
     std::vector<fk::vector<prec>> initial_sources;
+
     for (source<prec> const &source : pde->sources)
     {
-      // gather contributions from each dim for this source, in wavelet space
-      std::vector<fk::vector<prec>> initial_sources_dim;
+      std::vector<vector_func<prec>> v_functions;
       for (int i = 0; i < pde->num_dims; ++i)
       {
-        initial_sources_dim.push_back(forward_transform<prec>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
+        v_functions.push_back(source.source_funcs[i]);
       }
-      // combine those contributions to form the unscaled source vector
-      initial_sources.push_back(
-          combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
-                             initial_sources_dim));
+
+      initial_sources.push_back(transform_and_combine_dimensions(
+          *pde, v_functions, table, subgrid.row_start, subgrid.row_stop,
+          degree));
     }
     return initial_sources;
   }();
@@ -147,14 +148,15 @@ int main(int argc, char **argv)
                                               degree]() {
     if (pde->has_analytic_soln)
     {
-      std::vector<fk::vector<prec>> analytic_solutions_D;
+      std::vector<vector_func<prec>> v_functions;
       for (int d = 0; d < pde->num_dims; d++)
       {
-        analytic_solutions_D.push_back(forward_transform<prec>(
-            pde->get_dimensions()[d], pde->exact_vector_funcs[d]));
+        v_functions.push_back(pde->exact_vector_funcs[d]);
       }
-      return combine_dimensions(degree, table, subgrid.col_start,
-                                subgrid.col_stop, analytic_solutions_D);
+
+      return transform_and_combine_dimensions(*pde, v_functions, table,
+                                              subgrid.col_start,
+                                              subgrid.col_stop, degree);
     }
     else
     {
