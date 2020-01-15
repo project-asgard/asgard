@@ -61,17 +61,18 @@ int main(int argc, char **argv)
   // if we ever do go to p-adaptivity (variable degree) we can change it then
   auto const degree = pde->get_dimensions()[0].get_degree();
 
-  std::cout << "ASGarD problem configuration:" << '\n';
-  std::cout << "  selected PDE: " << opts.get_pde_string() << '\n';
-  std::cout << "  level: " << opts.get_level() << '\n';
-  std::cout << "  degree: " << opts.get_degree() << '\n';
-  std::cout << "  N steps: " << opts.get_time_steps() << '\n';
-  std::cout << "  write freq: " << opts.get_write_frequency() << '\n';
-  std::cout << "  realspace freq: " << opts.get_realspace_output_freq() << '\n';
-  std::cout << "  implicit: " << opts.using_implicit() << '\n';
-  std::cout << "  full grid: " << opts.using_full_grid() << '\n';
-  std::cout << "  CFL number: " << opts.get_cfl() << '\n';
-  std::cout << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
+  node_out() << "ASGarD problem configuration:" << '\n';
+  node_out() << "  selected PDE: " << opts.get_pde_string() << '\n';
+  node_out() << "  level: " << opts.get_level() << '\n';
+  node_out() << "  degree: " << opts.get_degree() << '\n';
+  node_out() << "  N steps: " << opts.get_time_steps() << '\n';
+  node_out() << "  write freq: " << opts.get_write_frequency() << '\n';
+  node_out() << "  realspace freq: " << opts.get_realspace_output_freq()
+             << '\n';
+  node_out() << "  implicit: " << opts.using_implicit() << '\n';
+  node_out() << "  full grid: " << opts.using_full_grid() << '\n';
+  node_out() << "  CFL number: " << opts.get_cfl() << '\n';
+  node_out() << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
 
   // -- print out time and memory estimates based on profiling
   std::pair<std::string, double> runtime_info = expected_time(
@@ -163,7 +164,7 @@ int main(int argc, char **argv)
 
   // -- generate and store coefficient matrices.
 
-  std::cout << "  generating: coefficient matrices..." << '\n';
+  node_out() << "  generating: coefficient matrices..." << '\n';
 
   generate_all_coefficients<prec>(*pde);
 
@@ -305,12 +306,9 @@ int main(int argc, char **argv)
   int const segment_size = element_segment_size(*pde);
 
   // gather results from all ranks. not currently writing the result anywhere
-  // yet.
-  if (my_rank == 0)
-  {
-    auto const final_result =
-        gather_results(host_space.x, plan, my_rank, segment_size);
-  }
+  // yet, but rank 0 holds the complete result after this call
+  auto const final_result =
+      gather_results(host_space.x, plan, my_rank, segment_size);
 
   finalize_distribution();
 

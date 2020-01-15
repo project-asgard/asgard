@@ -211,7 +211,10 @@ combine_dimensions(int const degree, element_table const &table,
       // first num_dims entries in coords are level coords
       int const id          = get_1d_index(coords(j), coords(j + num_dims));
       int const index_start = id * degree;
-      int const index_end   = ((id + 1) * degree) - 1;
+      // index_start and index_end describe a subvector of length degree;
+      // for deg = 1, this is a vector of one element
+      int const index_end =
+          degree > 1 ? (((id + 1) * degree) - 1) : index_start;
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
     fk::vector<P> const partial_result =

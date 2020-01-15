@@ -161,7 +161,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
   assert(my_rank >= 0);
   assert(my_rank < num_ranks);
 
-  assert(static_cast<int64_t>(table.size()) * table.size() > num_ranks);
+  assert(table.size() > num_ranks);
 
   if (num_ranks == 1)
   {
@@ -198,7 +198,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
 distribution_plan get_plan(int const num_ranks, element_table const &table)
 {
   assert(num_ranks > 0);
-  assert(num_ranks <= table.size());
+  assert(table.size() > num_ranks);
 
   int const num_splits = num_effective_ranks(num_ranks);
 
@@ -531,7 +531,6 @@ void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
                       int const segment_size, distribution_plan const &plan,
                       int const my_rank)
 {
-  assert(dest.size() <= source.size());
   assert(my_rank >= 0);
   assert(my_rank < static_cast<int>(plan.size()));
 #ifdef ASGARD_USE_MPI
@@ -696,6 +695,8 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                            first_row_communicator, MPI_STATUS_IGNORE);
         assert(success == 0);
       }
+
+      return results;
     }
     else
     {
@@ -704,9 +705,8 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                          0, mpi_tag, first_row_communicator);
 
       assert(success == 0);
+      return own_results();
     }
-
-    return results;
   }
 
   return own_results();

@@ -1,16 +1,25 @@
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.13) # remove cray check below when >= 3.16
 project (asgard
   VERSION 0.1.0
   LANGUAGES CXX
 )
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "CrayLinuxEnvironment")
+  if (CMAKE_VERSION VERSION_LESS "3.16")
+    message (WARNING "To use Cray LibSci instead of building OpenBLAS, you must use CMake >= 3.16.")
+  endif ()
+endif ()
 
 ###############################################################################
 ## Set up the compiler and general global build options
 ###############################################################################
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_options ("-g" "-Wall" "-Wextra" "-Wpedantic")
+
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
+
+# add compiler flags we always want to use
+add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-g" "-O3")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -260,19 +269,10 @@ if (ASGARD_BUILD_TESTS)
       endif()
     endif ()
 
-
-
-
-
-
-
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
-
-
-
 
 else ()
   message (WARNING "warning: tests will not be built.")
