@@ -8,36 +8,6 @@
 #include <climits>
 #include <cmath>
 #include <numeric>
-
-template<typename P>
-fk::vector<P>
-transform_and_combine_dimensions(PDE<P> const &pde,
-                                 std::vector<vector_func<P>> v_functions,
-                                 element_table const &table, int start,
-                                 int stop, int degree)
-{
-  std::vector<fk::vector<P>> dimension_components;
-
-  for (int i = 0; i < pde.num_dims; ++i)
-  {
-    dimension_components.push_back(
-        forward_transform<P>(pde.get_dimensions()[i], v_functions[i]));
-  }
-
-  return combine_dimensions(degree, table, start, stop, dimension_components);
-}
-
-template fk::vector<float>
-transform_and_combine_dimensions(PDE<float> const &pde,
-                                 std::vector<vector_func<float>> v_functions,
-                                 element_table const &table, int start,
-                                 int stop, int degree);
-template fk::vector<double>
-transform_and_combine_dimensions(PDE<double> const &pde,
-                                 std::vector<vector_func<double>> v_functions,
-                                 element_table const &table, int start,
-                                 int stop, int degree);
-
 //
 // set the range specified by first and last,
 // starting with the supplied value and incrementing

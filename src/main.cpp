@@ -128,14 +128,8 @@ int main(int argc, char **argv)
 
     for (source<prec> const &source : pde->sources)
     {
-      std::vector<vector_func<prec>> v_functions;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        v_functions.push_back(source.source_funcs[i]);
-      }
-
       initial_sources.push_back(transform_and_combine_dimensions(
-          *pde, v_functions, table, subgrid.row_start, subgrid.row_stop,
+          *pde, source.source_funcs, table, subgrid.row_start, subgrid.row_stop,
           degree));
     }
     return initial_sources;
@@ -148,14 +142,8 @@ int main(int argc, char **argv)
                                               degree]() {
     if (pde->has_analytic_soln)
     {
-      std::vector<vector_func<prec>> v_functions;
-      for (int d = 0; d < pde->num_dims; d++)
-      {
-        v_functions.push_back(pde->exact_vector_funcs[d]);
-      }
-
-      return transform_and_combine_dimensions(*pde, v_functions, table,
-                                              subgrid.col_start,
+      return transform_and_combine_dimensions(*pde, pde->exact_vector_funcs,
+                                              table, subgrid.col_start,
                                               subgrid.col_stop, degree);
     }
     else
