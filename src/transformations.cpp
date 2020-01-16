@@ -103,7 +103,9 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
     fk::matrix<P> dimension_transform(deg_freedom_1d, deg_freedom_1d);
     /* create matrix of Legendre polynomial basis functions evaluated at the
      * roots */
-    auto const roots = legendre_weights<P>(d.get_degree(), -1, 1)[0];
+    bool const use_degree_quad = true;
+    auto const roots =
+        legendre_weights<P>(d.get_degree(), -1, 1, use_degree_quad)[0];
     /* normalized legendre transformation matrix. Column i is legendre
        polynomial of degree i. element (i, j) is polynomial evaluated at jth
        root of the highest degree polynomial */
