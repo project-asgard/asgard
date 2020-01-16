@@ -19,7 +19,7 @@ inline int default_quad_number(int const degree)
 {
   assert(degree > 0);
   static int constexpr minimum_quadrature = 10;
-  return std::max(minimum_quadrature, degree);
+  return std::max(minimum_quadrature, degree + 1);
 }
 
 // return[0] are the roots, return[1] are the weights
