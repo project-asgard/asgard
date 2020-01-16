@@ -108,13 +108,23 @@ public:
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner,
                   int const start_index, int const stop_index);
 
-  // create view or const view as appropriate
+  // create view or const view as appropriate - PTR METHOD
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> *vec,
                   int const start_index, int const stop_index);
   template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> const *vec,
                   int const start_index, int const stop_index);
+
+  // create view or const view as appropriate - REF METHOD
+  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  explicit vector(fk::vector<P, mem_type::owner, resrc> &vec,
+                  int const start_index, int const stop_index,
+                  bool distinguish_from_old);
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
+  explicit vector(fk::vector<P, mem_type::owner, resrc> const &vec,
+                  int const start_index, int const stop_index,
+                  bool distinguish_from_old);
 
   // overload for default case - whole vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
@@ -748,6 +758,7 @@ fk::vector<P, mem, resrc>::vector(
   }
 }
 
+// PTR method implementation
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> *vec,
@@ -785,6 +796,49 @@ fk::vector<P, mem, resrc>::vector(
     assert(stop_index >= start_index);
 
     data_ = vec->data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
+
+// REF method implementation
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &vec,
+                                  int const start_index, int const stop_index,
+                                  bool distinguish_from_old)
+    : ref_count_{vec.ref_count_}
+{
+  data_ = nullptr;
+  size_ = 0;
+  std::cout << "NON CONST!" << '\n';
+  if (vec.size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec.size());
+    assert(stop_index >= start_index);
+
+    data_ = vec.data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
+
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(
+    fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
+    int const stop_index, bool distinguish_from_old)
+    : ref_count_{vec.ref_count_}
+{
+  data_ = nullptr;
+  size_ = 0;
+  std::cout << "CONST!" << '\n';
+  if (vec.size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec.size());
+    assert(stop_index >= start_index);
+
+    data_ = vec.data_ + start_index;
     size_ = stop_index - start_index + 1;
   }
 }
