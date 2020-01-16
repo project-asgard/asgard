@@ -25,6 +25,15 @@
 using prec = double;
 int main(int argc, char **argv)
 {
+  fk::vector<float> not_const(1);
+  fk::vector<float> const im_const(1);
+
+  fk::vector<float, mem_type::view>(not_const.get_pointer(), 0, 0);
+  // fk::vector<float, mem_type::const_view>(not_const.get_pointer());
+
+  // fk::vector<float, mem_type::view>(im_const.get_pointer());
+  fk::vector<float, mem_type::const_view>(im_const.get_pointer(), 0, 0);
+
   options opts(argc, argv);
   if (!opts.is_valid())
   {

@@ -26,7 +26,8 @@ class access_badge
 enum class mem_type
 {
   owner,
-  view
+  view,
+  const_view
 };
 
 template<mem_type mem>
@@ -34,6 +35,13 @@ using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 
 template<mem_type mem>
 using enable_for_view = std::enable_if_t<mem == mem_type::view>;
+
+template<mem_type mem>
+using enable_for_const_view = std::enable_if_t<mem == mem_type::const_view>;
+
+template<mem_type mem>
+using enable_for_all_view =
+    std::enable_if_t<mem == mem_type::view || mem == mem_type::const_view>;
 
 template<resource resrc>
 using enable_for_host = std::enable_if_t<resrc == resource::host>;
@@ -99,6 +107,15 @@ public:
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner,
                   int const start_index, int const stop_index);
+
+  // create view or const view as appropriate
+  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  explicit vector(fk::vector<P, mem_type::owner, resrc> *vec,
+                  int const start_index, int const stop_index);
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
+  explicit vector(fk::vector<P, mem_type::owner, resrc> const *vec,
+                  int const start_index, int const stop_index);
+
   // overload for default case - whole vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner);
@@ -255,6 +272,20 @@ public:
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   int get_num_views() const;
+
+  // helper function to determine constness of owner at view construction
+  // callsites
+
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  fk::vector<P, mem_type::owner, resrc> *get_pointer()
+  {
+    return this;
+  }
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  fk::vector<P, mem_type::owner, resrc> const *get_pointer() const
+  {
+    return this;
+  }
 
 private:
   P *data_;  //< pointer to elements
@@ -713,6 +744,47 @@ fk::vector<P, mem, resrc>::vector(
     assert(stop_index >= start_index);
 
     data_ = vec.data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
+
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> *vec,
+                                  int const start_index, int const stop_index)
+    : ref_count_{vec->ref_count_}
+{
+  data_ = nullptr;
+  size_ = 0;
+  std::cout << "NON CONST!" << '\n';
+  if (vec->size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec->size());
+    assert(stop_index >= start_index);
+
+    data_ = vec->data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
+
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(
+    fk::vector<P, mem_type::owner, resrc> const *vec, int const start_index,
+    int const stop_index)
+    : ref_count_{vec->ref_count_}
+{
+  data_ = nullptr;
+  size_ = 0;
+  std::cout << "CONST!" << '\n';
+  if (vec->size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec->size());
+    assert(stop_index >= start_index);
+
+    data_ = vec->data_ + start_index;
     size_ = stop_index - start_index + 1;
   }
 }
