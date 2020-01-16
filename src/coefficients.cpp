@@ -66,8 +66,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
 
   // get quadrature points and quadrature_weights.
   // we do the two-step store because we cannot have 'static' bindings
-  static auto const legendre_values = legendre_weights<double>(
-      default_quad_number(dim.get_degree()), -1.0, 1.0);
+  static auto const legendre_values =
+      legendre_weights<double>(dim.get_degree(), -1.0, 1.0);
   auto const [quadrature_points, quadrature_weights] = legendre_values;
   auto const [legendre_poly_L, legendre_poly_R]      = [&]() {
     auto [lP_L, lPP_L] = legendre(fk::vector<double>{-1}, dim.get_degree());

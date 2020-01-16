@@ -151,14 +151,25 @@ legendre(fk::vector<P> const domain, int const degree,
 //%
 //% Written by Greg von Winckel - 02/25/2004
 
+// uses default quadrature number of max(10, degree+1)
+// unless use_degree_points is set
+
 // return[0] are the x_roots, return[1] are the weights
 template<typename P>
 std::array<fk::vector<P>, 2>
-legendre_weights(int const num_points, int const lower_bound,
-                 int const upper_bound)
+legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+                 bool const use_degree_points)
 {
-  assert(num_points > 0);
+  assert(degree > 0);
   assert(lower_bound < upper_bound);
+
+  auto const default_quad_number = [](int const degree) {
+    static int constexpr minimum_quadrature = 10;
+    return std::max(minimum_quadrature, degree + 1);
+  };
+
+  int const num_points =
+      use_degree_points ? degree : default_quad_number(degree);
 
   // prepare output vectors
   // the number of roots of a Legendre polynomial is equal to its degree
@@ -350,8 +361,8 @@ legendre(fk::vector<double> const domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
-legendre_weights(int const num_points, int const lower_bound,
-                 int const upper_bound);
+legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+                 bool const use_degree_points);
 template std::array<fk::vector<double>, 2>
-legendre_weights(int const num_points, int const lower_bound,
-                 int const upper_bound);
+legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+                 bool const use_degree_points);
