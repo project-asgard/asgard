@@ -123,7 +123,8 @@ if (NOT LINALG_LIBS_FOUND)
   else (NOT DEFINED LINALG_LIBS)
     message (STATUS "OpenBLAS not found. We'll build it from source.")
 
-    # OpenBLAS will build without Fortran, but it will silently neglect to build vital functions
+    # OpenBLAS will build without Fortran, but it will silently neglect to build
+    # vital functions, so ensure we have Fortran to avoid this
     include( CheckLanguage )
     message( STATUS "Checking for Fortran compiler..." )
     check_language(Fortran)
