@@ -34,7 +34,8 @@ template<mem_type mem>
 using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 
 template<mem_type mem>
-using enable_for_view = std::enable_if_t<mem == mem_type::view>;
+using enable_for_view = std::enable_if_t<mem == mem_type::view ||
+                                         mem == mem_type::const_view>; // temp
 
 template<mem_type mem>
 using enable_for_const_view = std::enable_if_t<mem == mem_type::const_view>;
@@ -103,31 +104,18 @@ public:
            resource r_ = resrc, typename = enable_for_host<r_>>
   vector(fk::matrix<P> const &);
 
-  // create view from owner.
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner,
-                  int const start_index, int const stop_index);
-
-  // create view or const view as appropriate - PTR METHOD
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> *vec,
-                  int const start_index, int const stop_index);
-  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> const *vec,
-                  int const start_index, int const stop_index);
-
-  // create view or const view as appropriate - REF METHOD
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> &vec,
-                  int const start_index, int const stop_index,
-                  bool distinguish_from_old);
+                  int const start_index, int const stop_index);
   template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &vec,
-                  int const start_index, int const stop_index,
-                  bool distinguish_from_old);
+                  int const start_index, int const stop_index);
 
-  // overload for default case - whole vector
+  // overloads for default case - whole vector
   template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  explicit vector(fk::vector<P, mem_type::owner, resrc> &owner);
+
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner);
 
   ~vector();
@@ -737,75 +725,11 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P> const &mat)
 }
 
 // vector view constructor given a start and stop index
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(
-    fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
-    int const stop_index)
-    : ref_count_{vec.ref_count_}
-{
-  data_ = nullptr;
-  size_ = 0;
-
-  if (vec.size() > 0)
-  {
-    assert(start_index >= 0);
-    assert(stop_index < vec.size());
-    assert(stop_index >= start_index);
-
-    data_ = vec.data_ + start_index;
-    size_ = stop_index - start_index + 1;
-  }
-}
-
-// PTR method implementation
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> *vec,
-                                  int const start_index, int const stop_index)
-    : ref_count_{vec->ref_count_}
-{
-  data_ = nullptr;
-  size_ = 0;
-  std::cout << "NON CONST!" << '\n';
-  if (vec->size() > 0)
-  {
-    assert(start_index >= 0);
-    assert(stop_index < vec->size());
-    assert(stop_index >= start_index);
-
-    data_ = vec->data_ + start_index;
-    size_ = stop_index - start_index + 1;
-  }
-}
-
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(
-    fk::vector<P, mem_type::owner, resrc> const *vec, int const start_index,
-    int const stop_index)
-    : ref_count_{vec->ref_count_}
-{
-  data_ = nullptr;
-  size_ = 0;
-  std::cout << "CONST!" << '\n';
-  if (vec->size() > 0)
-  {
-    assert(start_index >= 0);
-    assert(stop_index < vec->size());
-    assert(stop_index >= start_index);
-
-    data_ = vec->data_ + start_index;
-    size_ = stop_index - start_index + 1;
-  }
-}
-
-// REF method implementation
+// mutable view version
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &vec,
-                                  int const start_index, int const stop_index,
-                                  bool distinguish_from_old)
+                                  int const start_index, int const stop_index)
     : ref_count_{vec.ref_count_}
 {
   data_ = nullptr;
@@ -822,11 +746,12 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &vec,
   }
 }
 
+// const view version
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(
     fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
-    int const stop_index, bool distinguish_from_old)
+    int const stop_index)
     : ref_count_{vec.ref_count_}
 {
   data_ = nullptr;
@@ -845,10 +770,18 @@ fk::vector<P, mem, resrc>::vector(
 
 // delegating constructor to extract view from owner. overload for default case
 // of viewing the entire owner
+// const view version
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(
     fk::vector<P, mem_type::owner, resrc> const &a)
+    : vector(a, 0, std::max(0, a.size() - 1))
+{}
+
+// mutable view version
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &a)
     : vector(a, 0, std::max(0, a.size() - 1))
 {}
 

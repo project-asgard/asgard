@@ -139,8 +139,8 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
       // NOTE : this is unused pending updating G functions to accept "dat"
       fk::vector<double> data_real_quad =
           legendre_poly *
-          fk::vector<double, mem_type::view>(data_real, current,
-                                             current + dim.get_degree() - 1);
+          fk::vector<double, mem_type::const_view>(
+              data_real, current, current + dim.get_degree() - 1);
       // get g(x,t,dat)
       // FIXME : add dat as a argument to the G functions
       fk::vector<double> g(quadrature_points_i.size());

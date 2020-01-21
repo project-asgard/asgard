@@ -447,11 +447,12 @@ inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
 // accelerator when the appropriate build options
 // are set.
 template<typename P>
-static void kron_base(fk::matrix<P, mem_type::view, resource::device> const &A,
-                      fk::vector<P, mem_type::view, resource::device> const &x,
-                      fk::vector<P, mem_type::view, resource::device> const &y,
-                      batch_operands_set<P> &batches, int const batch_offset,
-                      int const degree, int const num_dims)
+static void
+kron_base(fk::matrix<P, mem_type::view, resource::device> const &A,
+          fk::vector<P, mem_type::const_view, resource::device> const &x,
+          fk::vector<P, mem_type::const_view, resource::device> const &y,
+          batch_operands_set<P> &batches, int const batch_offset,
+          int const degree, int const num_dims)
 {
   batches[0].assign_entry(A, batch_offset);
   matrix_size_set const sizes = compute_dimensions(degree, num_dims, 0);
@@ -500,9 +501,10 @@ inline void kron_base(P *const A, P *const x, P *const y,
 template<typename P>
 void kronmult_to_batch_sets(
     std::vector<fk::matrix<P, mem_type::view, resource::device>> const &A,
-    fk::vector<P, mem_type::view, resource::device> const &x,
-    fk::vector<P, mem_type::view, resource::device> const &y,
-    std::vector<fk::vector<P, mem_type::view, resource::device>> const &work,
+    fk::vector<P, mem_type::const_view, resource::device> const &x,
+    fk::vector<P, mem_type::const_view, resource::device> const &y,
+    std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
+        &work,
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde)
 {
@@ -517,7 +519,8 @@ void kronmult_to_batch_sets(
 
   // check workspace sizes
   assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
-  for (fk::vector<P, mem_type::view, resource::device> const &vector : work)
+  for (fk::vector<P, mem_type::const_view, resource::device> const &vector :
+       work)
   {
     assert(vector.size() == result_size);
   }
@@ -974,19 +977,19 @@ allocate_batches(PDE<double> const &pde, int const num_elems);
 
 template void kronmult_to_batch_sets(
     std::vector<fk::matrix<float, mem_type::view, resource::device>> const &A,
-    fk::vector<float, mem_type::view, resource::device> const &x,
-    fk::vector<float, mem_type::view, resource::device> const &y,
-    std::vector<fk::vector<float, mem_type::view, resource::device>> const
+    fk::vector<float, mem_type::const_view, resource::device> const &x,
+    fk::vector<float, mem_type::const_view, resource::device> const &y,
+    std::vector<fk::vector<float, mem_type::const_view, resource::device>> const
         &work,
     std::vector<batch_operands_set<float>> &batches, int const batch_offset,
     PDE<float> const &pde);
 
 template void kronmult_to_batch_sets(
     std::vector<fk::matrix<double, mem_type::view, resource::device>> const &A,
-    fk::vector<double, mem_type::view, resource::device> const &x,
-    fk::vector<double, mem_type::view, resource::device> const &y,
-    std::vector<fk::vector<double, mem_type::view, resource::device>> const
-        &work,
+    fk::vector<double, mem_type::const_view, resource::device> const &x,
+    fk::vector<double, mem_type::const_view, resource::device> const &y,
+    std::vector<
+        fk::vector<double, mem_type::const_view, resource::device>> const &work,
     std::vector<batch_operands_set<double>> &batches, int const batch_offset,
     PDE<double> const &pde);
 

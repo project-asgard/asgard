@@ -265,7 +265,7 @@ void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
 {
   int const elem_size = element_segment_size(pde);
   auto const x_range  = columns_in_chunk(chunk);
-  fk::vector<P, mem_type::view> const x_view(
+  fk::vector<P, mem_type::const_view> const x_view(
       host_space.x, grid.to_local_col(x_range.start) * elem_size,
       (grid.to_local_col(x_range.stop) + 1) * elem_size - 1);
   fk::vector<P, mem_type::view, resource::device> in_view(
@@ -276,8 +276,8 @@ void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
 
 template<typename P>
 void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
-                        rank_workspace<P> &rank_space,
-                        host_workspace<P> const &host_space,
+                        rank_workspace<P> const &rank_space,
+                        host_workspace<P> &host_space,
                         element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
@@ -286,7 +286,7 @@ void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
       host_space.fx, grid.to_local_row(y_range.start) * elem_size,
       (grid.to_local_row(y_range.stop) + 1) * elem_size - 1);
 
-  fk::vector<P, mem_type::view, resource::device> const out_view(
+  fk::vector<P, mem_type::const_view, resource::device> const out_view(
       rank_space.batch_output, 0,
       (y_range.stop - y_range.start + 1) * elem_size - 1);
 
@@ -326,7 +326,7 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
         rank_space.batch_output, reduction_row * elem_size,
         ((reduction_row + 1) * elem_size) - 1);
 
-    fk::vector<P, mem_type::view, resource::device> const unit_view(
+    fk::vector<P, mem_type::const_view, resource::device> const unit_view(
         rank_space.get_unit_vector(), 0,
         (cols.stop - cols.start + 1) * pde.num_terms - 1);
 
@@ -362,14 +362,14 @@ template void copy_chunk_inputs(PDE<double> const &pde,
 
 template void copy_chunk_outputs(PDE<float> const &pde,
                                  element_subgrid const &grid,
-                                 rank_workspace<float> &rank_space,
-                                 host_workspace<float> const &host_space,
+                                 rank_workspace<float> const &rank_space,
+                                 host_workspace<float> &host_space,
                                  element_chunk const &chunk);
 
 template void copy_chunk_outputs(PDE<double> const &pde,
                                  element_subgrid const &grid,
-                                 rank_workspace<double> &rank_space,
-                                 host_workspace<double> const &host_space,
+                                 rank_workspace<double> const &rank_space,
+                                 host_workspace<double> &host_space,
                                  element_chunk const &chunk);
 
 template void reduce_chunk(PDE<float> const &pde,

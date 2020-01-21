@@ -101,20 +101,20 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
 
     // empty case
     fk::vector<TestType> const empty;
-    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    fk::vector<TestType, mem_type::const_view> const empty_v(empty);
     REQUIRE(empty_v == empty);
     REQUIRE(empty_v.data() == nullptr);
     REQUIRE(empty_v.size() == 0);
   }
   SECTION("construct owner from view")
   {
-    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<TestType> test(gold_v);
     REQUIRE(test == gold);
   }
   SECTION("copy assign to owner from view")
   {
-    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<TestType> test(5);
     test = gold_v;
     REQUIRE(test == gold);
@@ -138,7 +138,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
 
     fk::vector<TestType> base(5);
     fk::vector<TestType, mem_type::view> test_v(base);
-    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     test_v = gold_v;
     REQUIRE(test_v == gold);
   }
@@ -159,7 +159,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   }
   SECTION("converting construction (from views)")
   {
-    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<int> testi(gold_v);
     // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
     REQUIRE(testi == goldi);
@@ -196,7 +196,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   }
   SECTION("converting assignment (from views)")
   {
-    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<int> testi(5);
     fk::vector<int, mem_type::view> testi_v(testi);
     testi   = gold_v;
@@ -258,7 +258,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     testv = gold.to_std();
     compare_vectors(testv, goldv);
 
-    fk::vector<TestType, mem_type::view> gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     std::vector<TestType> testv_v;
     testv_v = gold_v.to_std();
     compare_vectors(testv_v, goldv);
@@ -288,7 +288,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   SECTION("subscript operator (const)")
   {
     REQUIRE(gold(4) == 6);
-    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     REQUIRE(gold_v(4) == 6);
   }
   SECTION("comparison operator") // this gets used in every REQUIRE
@@ -298,7 +298,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     fk::vector<TestType> gold_copy(gold);
     fk::vector<TestType, mem_type::view> test_v(gold_copy);
     fk::vector<TestType> const empty;
-    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    fk::vector<TestType, mem_type::const_view> const empty_v(empty);
 
     test(4)   = 333;
     test_v(4) = 333;
@@ -311,15 +311,15 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   SECTION("less than operator")
   {
     fk::vector<TestType> const empty;
-    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    fk::vector<TestType, mem_type::const_view> const empty_v(empty);
     ;
     fk::vector<TestType> const gold_copy = gold;
-    fk::vector<TestType, mem_type::view> const gold_copy_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_copy_v(gold);
 
     fk::vector<TestType> const gold_prefix{1, 2, 3, 4};
-    fk::vector<TestType, mem_type::view> const gold_prefix_v(gold_prefix);
+    fk::vector<TestType, mem_type::const_view> const gold_prefix_v(gold_prefix);
     fk::vector<TestType> const mismatch{2, 3, 5, 5, 6};
-    fk::vector<TestType, mem_type::view> const mismatch_v(mismatch);
+    fk::vector<TestType, mem_type::const_view> const mismatch_v(mismatch);
 
     // equal vectors return false
     REQUIRE(!(gold_copy < gold));
@@ -341,9 +341,9 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   SECTION("addition operator")
   {
     fk::vector<TestType> const in1{1, 1, 1, 1, 1};
-    fk::vector<TestType, mem_type::view> const in1_v(in1);
+    fk::vector<TestType, mem_type::const_view> const in1_v(in1);
     fk::vector<TestType> const in2{1, 2, 3, 4, 5};
-    fk::vector<TestType, mem_type::view> const in2_v(in2);
+    fk::vector<TestType, mem_type::const_view> const in2_v(in2);
     REQUIRE((in1 + in2) == gold);
     REQUIRE((in1_v + in2_v) == gold);
     REQUIRE((in1 + in2_v) == gold);
@@ -352,9 +352,9 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   SECTION("subtraction operator")
   {
     fk::vector<TestType> const in1{3, 4, 5, 6, 7};
-    fk::vector<TestType, mem_type::view> const in1_v(in1);
+    fk::vector<TestType, mem_type::const_view> const in1_v(in1);
     fk::vector<TestType> const in2{1, 1, 1, 1, 1};
-    fk::vector<TestType, mem_type::view> const in2_v(in2);
+    fk::vector<TestType, mem_type::const_view> const in2_v(in2);
     REQUIRE((in1 - in2) == gold);
     REQUIRE((in1_v - in2_v) == gold);
     REQUIRE((in1 - in2_v) == gold);
@@ -362,7 +362,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   }
   SECTION("vector*vector operator")
   {
-    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     REQUIRE((gold * gold) == 90);
     REQUIRE((gold_v * gold_v) == 90);
     REQUIRE((gold_v * gold) == 90);
@@ -380,7 +380,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     }; // clang-format on
     fk::matrix<TestType, mem_type::view> const test_mat_v(test_mat);
     fk::vector<TestType> const test_vect{2, 3, 4, 5, 6};
-    fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
+    fk::vector<TestType, mem_type::const_view> const test_vect_v(test_vect);
     fk::vector<TestType> const gold{290, 490, 690};
 
     REQUIRE((test_vect * test_mat_v) == gold);
@@ -392,23 +392,23 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   {
     TestType const scale = static_cast<TestType>(-2);
     fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
-    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     REQUIRE((gold * scale) == gold_scaled);
     REQUIRE((gold_v * scale) == gold_scaled);
   }
   SECTION("vector (as matrix) kron product")
   {
-    fk::vector<TestType, mem_type::view> const gold_v(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
 
     fk::vector<TestType> const identity{1};
-    fk::vector<TestType, mem_type::view> const identity_v(identity);
+    fk::vector<TestType, mem_type::const_view> const identity_v(identity);
     REQUIRE(identity.single_column_kron(gold) == gold);
     REQUIRE(identity_v.single_column_kron(gold) == gold);
     REQUIRE(identity.single_column_kron(gold_v) == gold);
     REQUIRE(identity_v.single_column_kron(gold_v) == gold);
 
     fk::vector<TestType> const repeat{1, 1};
-    fk::vector<TestType, mem_type::view> const repeat_v(repeat);
+    fk::vector<TestType, mem_type::const_view> const repeat_v(repeat);
     fk::vector<TestType> const gold_repeated =
         fk::vector<TestType>(gold).concat(gold);
     REQUIRE(repeat.single_column_kron(gold) == gold_repeated);
@@ -418,7 +418,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 
     fk::vector<TestType> const zeros(gold.size());
     fk::vector<TestType> const alternate{1, 0, 2, 0};
-    fk::vector<TestType, mem_type::view> const alternate_v(alternate);
+    fk::vector<TestType, mem_type::const_view> const alternate_v(alternate);
     fk::vector<TestType> const ans =
         fk::vector<TestType>(gold).concat(zeros).concat(gold * 2).concat(zeros);
     REQUIRE(ans == alternate.single_column_kron(gold));
@@ -455,7 +455,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
-  fk::vector<TestType, mem_type::view> const gold_v(
+  fk::vector<TestType, mem_type::const_view> const gold_v(
       gold); // increases ref_count
   SECTION("size(): the number of elements")
   {
@@ -559,7 +559,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     fk::vector<TestType> test_left = {2, 3, 4};
     // fk::vector<TestType, mem_type::view> test_left_v(test_left); // disabled
     fk::vector<TestType> const test_right = {5, 6};
-    fk::vector<TestType, mem_type::view> const test_right_v(test_right);
+    fk::vector<TestType, mem_type::const_view> const test_right_v(test_right);
 
     REQUIRE(test_left.concat(test_right) == gold);
     test_left.resize(3) = fk::vector<TestType>({2, 3, 4});
@@ -610,10 +610,10 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     fk::vector<TestType> const middle_copy(middle);
     fk::vector<TestType> const end_copy(end);
 
-    fk::vector<TestType, mem_type::view> const empty_v(empty_copy);
-    fk::vector<TestType, mem_type::view> const begin_v(begin_copy);
-    fk::vector<TestType, mem_type::view> const middle_v(middle_copy);
-    fk::vector<TestType, mem_type::view> const end_v(end_copy);
+    fk::vector<TestType, mem_type::const_view> const empty_v(empty_copy);
+    fk::vector<TestType, mem_type::const_view> const begin_v(begin_copy);
+    fk::vector<TestType, mem_type::const_view> const middle_v(middle_copy);
+    fk::vector<TestType, mem_type::const_view> const end_v(end_copy);
 
     REQUIRE(vector.set_subvector(0, begin)
                 .set_subvector(0, empty)
@@ -667,7 +667,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   SECTION("vector maximum element")
   {
     fk::vector<TestType> const test{5, 6, 11, 8};
-    fk::vector<TestType, mem_type::view> const test_v(test);
+    fk::vector<TestType, mem_type::const_view> const test_v(test);
     TestType const max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
     REQUIRE(*std::max_element(test_v.begin(), test_v.end()) == max);
@@ -676,7 +676,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   SECTION("vector sum of elements")
   {
     fk::vector<TestType> const test{1, 2, 3, 4, 5, 6, 7, 8};
-    fk::vector<TestType, mem_type::view> const test_v(test);
+    fk::vector<TestType, mem_type::const_view> const test_v(test);
     TestType const sum = 36;
     REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == sum);
     REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0.0) == sum);
@@ -697,9 +697,9 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(test_copy.get_num_views() == 0);
 
     // creating views increments view count
-    fk::vector<TestType, mem_type::view> const test_view(test);
+    fk::vector<TestType, mem_type::const_view> const test_view(test);
     REQUIRE(test.get_num_views() == 1);
-    fk::vector<TestType, mem_type::view> const test_view_2(test);
+    fk::vector<TestType, mem_type::const_view> const test_view_2(test);
     REQUIRE(test.get_num_views() == 2);
 
     // copies have a fresh view count
@@ -709,7 +709,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
     // test that view count gets decremented when views go out of scope
     {
-      fk::vector<TestType, mem_type::view> test_view_3(test);
+      fk::vector<TestType, mem_type::const_view> const test_view_3(test);
       REQUIRE(test.get_num_views() == 3);
     }
     REQUIRE(test.get_num_views() == 2);
@@ -768,8 +768,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::host> const copy(
           vect_view.clone_onto_host());
       REQUIRE(copy == gold);
@@ -777,8 +777,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // transfer - new vector - view host to device
     {
-      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
-          gold);
+      fk::vector<TestType, mem_type::const_view, resource::host> const
+          vect_view(gold);
       fk::vector<TestType, mem_type::owner, resource::device> const copy(
           vect_view.clone_onto_device());
       fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
@@ -817,10 +817,11 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const view_d(vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const view_d(
+          vect);
       REQUIRE(vect.get_num_views() == 1);
-      fk::vector<TestType, mem_type::view, resource::device> const view_copy_d(
-          view_d);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          view_copy_d(view_d);
       REQUIRE(vect.get_num_views() == 2);
       fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
           view_copy_d.clone_onto_host());
@@ -832,11 +833,12 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
 
-      fk::vector<TestType, mem_type::view, resource::device> view_d(vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const view_d(
+          vect);
       REQUIRE(vect.get_num_views() == 1);
 
-      fk::vector<TestType, mem_type::view, resource::device> const view_moved_d(
-          std::move(view_d));
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          view_moved_d(std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
       REQUIRE(view_d.size() == 0);
       REQUIRE(vect.get_num_views() == 1);
@@ -894,8 +896,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
       vect_h.transfer_from(vect_view);
       REQUIRE(vect_h == gold);
@@ -905,8 +907,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       vect_d = vect_view;
       fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
@@ -918,8 +920,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
       fk::vector<TestType, mem_type::view, resource::host> vect_view_h(vect_h);
       vect_view_h.transfer_from(vect_view);
@@ -930,8 +932,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       fk::vector<TestType, mem_type::view, resource::device> vect_view_2(
           vect_d);
@@ -963,8 +965,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     // view host to owner device
     {
       fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
-      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::host> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       vect_d.transfer_from(vect_view);
       fk::vector<TestType> const vect_h(vect_d.clone_onto_host());
@@ -974,8 +976,8 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
     // view host to view device
     {
       fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
-      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::host> const
+          vect_view(vect);
       fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
       fk::vector<TestType, mem_type::view, resource::device> vect_view_d(
           vect_d);
@@ -1012,14 +1014,14 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
       REQUIRE(vect.get_num_views() == 0);
-      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
-          vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_view(vect);
       REQUIRE(vect.get_num_views() == 1);
       {
-        fk::vector<TestType, mem_type::view, resource::device> const
+        fk::vector<TestType, mem_type::const_view, resource::device> const
             vect_view_2(vect);
         REQUIRE(vect.get_num_views() == 2);
-        fk::vector<TestType, mem_type::view, resource::device> const
+        fk::vector<TestType, mem_type::const_view, resource::device> const
             vect_view_3(vect_view);
         REQUIRE(vect.get_num_views() == 3);
       }
@@ -1028,7 +1030,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // view semantics on device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
           gold.clone_onto_device());
       fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
       {
@@ -1897,10 +1899,10 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> test_v_p(own_p, 1, 3, 0, 2);
 
     fk::vector<TestType> const testv{32, 33, 34, 35, 36};
-    fk::vector<TestType, mem_type::view> const testv_v(testv);
+    fk::vector<TestType, mem_type::const_view> const testv_v(testv);
 
     fk::vector<TestType> const testv_p = testv.extract(1, 3);
-    fk::vector<TestType, mem_type::view> const testv_v_p(testv_p);
+    fk::vector<TestType, mem_type::const_view> const testv_v_p(testv_p);
 
     REQUIRE(test.update_col(2, testv) == gold);
     test = orig;
@@ -1960,7 +1962,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> test_v(own);
 
     fk::vector<TestType> const testv{16, 26, 36};
-    fk::vector<TestType, mem_type::view> const testv_v(testv);
+    fk::vector<TestType, mem_type::const_view> const testv_v(testv);
 
     REQUIRE(test.update_row(4, testv) == gold);
     test = orig;

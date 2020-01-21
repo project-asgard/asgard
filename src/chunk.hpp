@@ -105,8 +105,8 @@ void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
 
 template<typename P>
 void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
-                        rank_workspace<P> &rank_space,
-                        host_workspace<P> const &host_space,
+                        rank_workspace<P> const &rank_space,
+                        host_workspace<P> &host_space,
                         element_chunk const &chunk);
 
 // reduce an element chunk's results after batched gemm
@@ -135,14 +135,14 @@ extern template void copy_chunk_inputs(PDE<double> const &pde,
 
 extern template void copy_chunk_outputs(PDE<float> const &pde,
                                         element_subgrid const &grid,
-                                        rank_workspace<float> &rank_space,
-                                        host_workspace<float> const &host_space,
+                                        rank_workspace<float> const &rank_space,
+                                        host_workspace<float> &host_space,
                                         element_chunk const &chunk);
 
 extern template void
 copy_chunk_outputs(PDE<double> const &pde, element_subgrid const &grid,
-                   rank_workspace<double> &rank_space,
-                   host_workspace<double> const &host_space,
+                   rank_workspace<double> const &rank_space,
+                   host_workspace<double> &host_space,
                    element_chunk const &chunk);
 
 extern template void reduce_chunk(PDE<float> const &pde,

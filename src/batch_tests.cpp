@@ -756,9 +756,10 @@ std::vector<P *> views_to_ptrs(std::vector<T> const &views)
 template<typename P>
 void unsafe_kronmult(
     std::vector<fk::matrix<P, mem_type::view, resource::device>> const &A,
-    fk::vector<P, mem_type::view, resource::device> const &x,
-    fk::vector<P, mem_type::view, resource::device> const &y,
-    std::vector<fk::vector<P, mem_type::view, resource::device>> const &work,
+    fk::vector<P, mem_type::const_view, resource::device> const &x,
+    fk::vector<P, mem_type::const_view, resource::device> const &y,
+    std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
+        &work,
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde)
 {
@@ -804,7 +805,7 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
 
   // create intermediate workspaces
   // and output vectors
-  fk::vector<P, mem_type::view, resource::device> const x_view(x);
+  fk::vector<P, mem_type::const_view, resource::device> const x_view(x);
   fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
                                                          num_terms);
 
@@ -825,15 +826,16 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
       int const y_index = x_size * kron_index;
       int const work_index =
           x_size * kron_index * std::min(pde.num_dims - 1, 2);
-      fk::vector<P, mem_type::view, resource::device> y_view(
+      fk::vector<P, mem_type::const_view, resource::device> const y_view(
           y_own, y_index, y_index + x_size - 1);
       fk::vector<P, mem_type::view> gold_view(gold, y_index,
                                               y_index + x_size - 1);
 
       // intermediate workspace
-      std::vector<fk::vector<P, mem_type::view, resource::device>> work_views(
-          num_workspaces, fk::vector<P, mem_type::view, resource::device>(
-                              work_own, work_index, work_index + x_size - 1));
+      std::vector<fk::vector<P, mem_type::const_view, resource::device>>
+          work_views(num_workspaces,
+                     fk::vector<P, mem_type::const_view, resource::device>(
+                         work_own, work_index, work_index + x_size - 1));
       if (num_workspaces == 2)
       {
         work_views[1] = fk::vector<P, mem_type::view, resource::device>(

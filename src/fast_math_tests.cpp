@@ -442,7 +442,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     fk::vector<TestType> test_own(gold.size());
     fk::vector<TestType, mem_type::view> test_view(test_own);
 
-    fk::vector<TestType, mem_type::view> const gold_view(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_view(gold);
 
     REQUIRE(fm::copy(gold, test) == gold);
     test.scale(0);
@@ -468,8 +468,8 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
 
       fk::vector<TestType, mem_type::owner, resource::device> const gold_d(
           gold.clone_onto_device());
-      fk::vector<TestType, mem_type::view, resource::device> const gold_view_d(
-          gold_d);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          gold_view_d(gold_d);
 
       fk::vector<TestType> answer(gold.size());
 
