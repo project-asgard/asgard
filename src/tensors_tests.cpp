@@ -830,15 +830,14 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // move view
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
           gold.clone_onto_device());
 
-      fk::vector<TestType, mem_type::const_view, resource::device> const view_d(
-          vect);
+      fk::vector<TestType, mem_type::view, resource::device> view_d(vect);
       REQUIRE(vect.get_num_views() == 1);
 
-      fk::vector<TestType, mem_type::const_view, resource::device> const
-          view_moved_d(std::move(view_d));
+      fk::vector<TestType, mem_type::view, resource::device> view_moved_d(
+          std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
       REQUIRE(view_d.size() == 0);
       REQUIRE(vect.get_num_views() == 1);

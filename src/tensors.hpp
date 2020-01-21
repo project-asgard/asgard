@@ -734,7 +734,6 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &vec,
 {
   data_ = nullptr;
   size_ = 0;
-  std::cout << "NON CONST!" << '\n';
   if (vec.size() > 0)
   {
     assert(start_index >= 0);
@@ -756,7 +755,6 @@ fk::vector<P, mem, resrc>::vector(
 {
   data_ = nullptr;
   size_ = 0;
-  std::cout << "CONST!" << '\n';
   if (vec.size() > 0)
   {
     assert(start_index >= 0);
