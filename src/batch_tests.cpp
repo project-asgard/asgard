@@ -838,7 +838,7 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
                          work_own, work_index, work_index + x_size - 1));
       if (num_workspaces == 2)
       {
-        work_views[1] = fk::vector<P, mem_type::view, resource::device>(
+        work_views[1] = fk::vector<P, mem_type::const_view, resource::device>(
             work_own, work_index + x_size, work_index + x_size * 2 - 1);
       }
 

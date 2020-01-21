@@ -34,6 +34,10 @@ template<mem_type mem>
 using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 
 template<mem_type mem>
+using enable_for_mutable =
+    std::enable_if_t<mem == mem_type::owner || mem == mem_type::view>;
+
+template<mem_type mem>
 using enable_for_view = std::enable_if_t<mem == mem_type::view ||
                                          mem == mem_type::const_view>; // temp
 
@@ -133,7 +137,7 @@ public:
   explicit vector(vector<P, mem_type::view, resrc> const &);
 
   // assignment owner <-> view
-  template<mem_type omem>
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_mutable<m_>>
   vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
 
   // converting constructor/assignment overloads
@@ -141,7 +145,8 @@ public:
            typename = enable_for_owner<m_>, resource r_ = resrc,
            typename = enable_for_host<r_>>
   explicit vector(vector<PP, omem> const &);
-  template<typename PP, mem_type omem, resource r_ = resrc,
+  template<typename PP, mem_type omem, mem_type m_ = mem,
+           typename = enable_for_owner<m_>, resource r_ = resrc,
            typename = enable_for_host<r_>>
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
@@ -922,7 +927,7 @@ fk::vector<P, mem, resrc>::vector(vector<PP, omem> const &a)
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem, resource resrc>
-template<typename PP, mem_type omem, resource, typename>
+template<typename PP, mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem> &fk::vector<P, mem, resrc>::
 operator=(vector<PP, omem> const &a)
 {
@@ -957,7 +962,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem_type::view, resrc> const &a)
 
 // assignment owner <-> view
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem>
+template<mem_type omem, mem_type, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, omem, resrc> const &a)
 {

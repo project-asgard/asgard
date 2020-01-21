@@ -43,7 +43,7 @@ int main(int argc, char **argv)
   // compile - mutable view from const owner
   fk::vector<float, mem_type::const_view>(
       im_const, 0, 0, false); // this is ok - const view from mutable owner
-  */
+   */
   options opts(argc, argv);
   if (!opts.is_valid())
   {
