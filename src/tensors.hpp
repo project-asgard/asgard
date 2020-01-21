@@ -33,20 +33,23 @@ enum class mem_type
 template<mem_type mem>
 using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 
+// enable for mutable and immutable views
 template<mem_type mem>
-using disable_for_immutable =
-    std::enable_if_t<mem == mem_type::owner || mem == mem_type::view>;
+using enable_for_view =
+    std::enable_if_t<mem == mem_type::view || mem == mem_type::const_view>;
 
-template<mem_type mem>
-using enable_for_view = std::enable_if_t<mem == mem_type::view ||
-                                         mem == mem_type::const_view>; // temp
-
+// enable only for const views
 template<mem_type mem>
 using enable_for_const_view = std::enable_if_t<mem == mem_type::const_view>;
 
+// enable only for mutable views
 template<mem_type mem>
-using enable_for_mutable_view =
-    std::enable_if_t<mem == mem_type::view>;
+using enable_for_mutable_view = std::enable_if_t<mem == mem_type::view>;
+
+// disable for const views
+template<mem_type mem>
+using disable_for_immutable =
+    std::enable_if_t<mem == mem_type::owner || mem == mem_type::view>;
 
 template<resource resrc>
 using enable_for_host = std::enable_if_t<resrc == resource::host>;
@@ -138,9 +141,12 @@ public:
   // copy construct owner from view values
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   explicit vector(vector<P, mem_type::view, resrc> const &);
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  explicit vector(vector<P, mem_type::const_view, resrc> const &);
 
   // assignment owner <-> view
-  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>>
   vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
 
   // converting constructor/assignment overloads
@@ -158,20 +164,25 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem_type::owner, resource::device> clone_onto_device() const;
   // host to device copy
-  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_device<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_device<r_>>
   vector<P, mem, resrc> &transfer_from(vector<P, omem, resource::host> const &);
   // device to host, new vector
   template<resource r_ = resrc, typename = enable_for_device<r_>>
   vector<P, mem_type::owner, resource::host> clone_onto_host() const;
   // device to host copy
-  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   vector<P, mem, resrc> &
   transfer_from(vector<P, omem, resource::device> const &);
 
   //
   // copy out of std::vector
   //
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &operator=(std::vector<P> const &);
 
   //
@@ -183,7 +194,8 @@ public:
   //
   // subscripting operators
   //
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   P &operator()(int const);
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   P operator()(int const) const;
@@ -217,7 +229,8 @@ public:
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &scale(P const x);
 
   //
@@ -229,11 +242,18 @@ public:
   // use subscript operators for general purpose access
   // this can be offsetted for views
   P *data(int const elem = 0) const { return &data_[elem]; }
+
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a matrix<view> to be made from a
   // vector<owner>
   std::shared_ptr<int>
-      get_ref_count(access_badge<matrix<P, mem_type::view, resrc>>) const
+  get_ref_count(access_badge<matrix<P, mem_type::view, resrc> const>)
+  {
+    return ref_count_;
+  }
+
+  std::shared_ptr<int> get_ref_count(
+      access_badge<matrix<P, mem_type::const_view, resrc> const>) const
   {
     return ref_count_;
   }
@@ -250,7 +270,9 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   fk::vector<P, mem_type::owner, resrc> &resize(int const size = 0);
 
-  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   vector<P, mem> &set_subvector(int const, vector<P, omem> const);
 
   template<resource r_ = resrc, typename = enable_for_host<r_>>
@@ -263,12 +285,14 @@ public:
   typedef P *iterator;
   typedef const P *const_iterator;
 
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   iterator begin()
   {
     return data();
   }
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   iterator end()
   {
     return data() + size();
@@ -278,20 +302,6 @@ public:
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   int get_num_views() const;
-
-  // helper function to determine constness of owner at view construction
-  // callsites
-
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  fk::vector<P, mem_type::owner, resrc> *get_pointer()
-  {
-    return this;
-  }
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  fk::vector<P, mem_type::owner, resrc> const *get_pointer() const
-  {
-    return this;
-  }
 
 private:
   P *data_;  //< pointer to elements
@@ -318,18 +328,34 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix(std::initializer_list<std::initializer_list<P>> list);
 
-  // create view from owner.
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  // create const view from owner
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
   explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner,
                   int const start_row, int const stop_row, int const start_col,
                   int const stop_col);
-  // overload for default case - whole matrix
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  // create view from owner - const.
+  template<mem_type m_ = mem, typename = enable_for_mutable_view<m_>>
+  explicit matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
+                  int const start_row, int const stop_row, int const start_col,
+                  int const stop_col);
+
+  // overloads for default case - whole matrix
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
   explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner);
 
+  template<mem_type m_ = mem, typename = enable_for_mutable_view<m_>>
+  explicit matrix(fk::matrix<P, mem_type::owner, resrc> &owner);
+
   // create matrix view from vector
-  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
+  // const view version
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
+           mem_type omem>
   explicit matrix(fk::vector<P, omem, resrc> const &source, int const num_rows,
+                  int const num_cols, int const start_index = 0);
+  // mutable view version
+  template<mem_type m_ = mem, typename = enable_for_mutable_view<m_>,
+           mem_type omem>
+  explicit matrix(fk::vector<P, omem, resrc> &source, int const num_rows,
                   int const num_cols, int const start_index = 0);
 
   ~matrix();
@@ -341,9 +367,12 @@ public:
   // copy construct owner from view values
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   explicit matrix(matrix<P, mem_type::view, resrc> const &);
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  explicit matrix(matrix<P, mem_type::const_view, resrc> const &);
 
   // assignment owner <-> view
-  template<mem_type omem>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>>
   matrix<P, mem, resrc> &operator=(matrix<P, omem, resrc> const &);
 
   // converting construction/assign
@@ -847,10 +876,8 @@ template<typename P, mem_type mem, resource resrc>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, mem, resrc> const &a)
 {
+  static_assert(mem != mem_type::const_view, "cannot assign to const_view!");
 
-  static_assert(mem != mem_type::const_view, 
-                "cannot assign to const_view!");
-  
   if (&a == this)
     return *this;
 
@@ -953,6 +980,24 @@ operator=(vector<PP, omem> const &a)
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(vector<P, mem_type::view, resrc> const &a)
+    : size_(a.size()), ref_count_(std::make_shared<int>(0))
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[a.size()];
+    std::memcpy(data_, a.data(), a.size() * sizeof(P));
+  }
+  else
+  {
+    allocate_device(data_, a.size());
+    copy_on_device(data_, a.data(), a.size());
+  }
+}
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(
+    vector<P, mem_type::const_view, resrc> const &a)
+
     : size_(a.size()), ref_count_(std::make_shared<int>(0))
 {
   if constexpr (resrc == resource::host)
@@ -1494,6 +1539,35 @@ fk::matrix<P, mem, resrc>::matrix(
   }
 }
 
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
+                                  int const start_row, int const stop_row,
+                                  int const start_col, int const stop_col)
+    : ref_count_(owner.ref_count_)
+{
+  data_   = nullptr;
+  nrows_  = 0;
+  ncols_  = 0;
+  stride_ = 0;
+
+  int const view_rows = stop_row - start_row + 1;
+  int const view_cols = stop_col - start_col + 1;
+  if (owner.size() > 0)
+  {
+    assert(start_row >= 0);
+    assert(start_col >= 0);
+    assert(stop_col < owner.ncols());
+    assert(stop_row < owner.nrows());
+    assert(stop_row >= start_row);
+
+    data_   = owner.data(start_row, start_col);
+    nrows_  = view_rows;
+    ncols_  = view_cols;
+    stride_ = owner.nrows();
+  }
+}
+
 // overload for default case - whole matrix
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
@@ -1503,10 +1577,45 @@ fk::matrix<P, mem, resrc>::matrix(
              std::max(0, owner.ncols() - 1))
 {}
 
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner)
+    : matrix(owner, 0, std::max(0, owner.nrows() - 1), 0,
+             std::max(0, owner.ncols() - 1))
+{}
+
 // create matrix view of an existing vector
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
+                                  int const num_rows, int const num_cols,
+                                  int const start_index)
+    : ref_count_(source.get_ref_count({}))
+{
+  assert(start_index >= 0);
+  assert(num_rows > 0);
+  assert(num_cols > 0);
+
+  int const size = num_rows * num_cols;
+  assert(start_index + size <= source.size());
+
+  data_   = nullptr;
+  nrows_  = 0;
+  ncols_  = 0;
+  stride_ = 0;
+
+  if (size > 0)
+  {
+    data_   = source.data(start_index);
+    nrows_  = num_rows;
+    ncols_  = num_cols;
+    stride_ = num_rows;
+  }
+}
+
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename, mem_type omem>
+fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
     : ref_count_(source.get_ref_count({}))
@@ -1588,6 +1697,8 @@ template<typename P, mem_type mem, resource resrc>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
 operator=(matrix<P, mem, resrc> const &a)
 {
+  static_assert(mem != mem_type::const_view, "cannot assign to const_view!");
+
   if (&a == this)
     return *this;
 
@@ -1620,7 +1731,25 @@ template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(matrix<P, mem_type::view, resrc> const &a)
     : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
       ref_count_{std::make_shared<int>(0)}
+{
+  if constexpr (resrc == resource::host)
+  {
+    data_ = new P[size()]();
+    std::copy(a.begin(), a.end(), begin());
+  }
+  else
+  {
+    allocate_device(data_, size());
+    copy_matrix_on_device(*this, a);
+  }
+}
 
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(
+    matrix<P, mem_type::const_view, resrc> const &a)
+    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
+      ref_count_{std::make_shared<int>(0)}
 {
   if constexpr (resrc == resource::host)
   {
@@ -1636,7 +1765,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem_type::view, resrc> const &a)
 
 // assignment owner <-> view
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem>
+template<mem_type omem, mem_type, typename>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
 operator=(matrix<P, omem, resrc> const &a)
 {

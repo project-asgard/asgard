@@ -889,10 +889,10 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
             matrices[2].push_back(c.clone_onto_device());
           }
 
-          fk::matrix<P, mem_type::view> const effective_a(a, 0, rows_a - 1, 0,
-                                                          cols_a - 1);
-          fk::matrix<P, mem_type::view> const effective_b(b, 0, rows_b - 1, 0,
-                                                          cols_b - 1);
+          fk::matrix<P, mem_type::const_view> const effective_a(
+              a, 0, rows_a - 1, 0, cols_a - 1);
+          fk::matrix<P, mem_type::const_view> const effective_b(
+              b, 0, rows_b - 1, 0, cols_b - 1);
           fk::matrix<P, mem_type::view> effective_c(c, 0, m - 1, 0, n - 1);
           fm::gemm(effective_a, effective_b, effective_c, trans_a, trans_b,
                    alpha, beta);
@@ -939,7 +939,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   // check results. we only want the effective region of c,
   // i.e. not the padding region that extends to ldc
   auto const effect_c = [m, n](auto const c) {
-    return fk::matrix<P, mem_type::view>(c, 0, m - 1, 0, n - 1);
+    return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
   for (int i = 0; i < num_batch; ++i)
   {
@@ -1125,7 +1125,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
             vectors[1].push_back(y.clone_onto_device());
           }
 
-          fk::matrix<P, mem_type::view, resrc> const effective_a(
+          fk::matrix<P, mem_type::const_view, resrc> const effective_a(
               a_mats[i], 0, m - 1, 0, n - 1);
           fk::vector<P, mem_type::owner, resrc> gold(vectors[1].back());
           fm::gemv(effective_a, vectors[0].back(), gold, trans_a, alpha, beta);

@@ -258,9 +258,10 @@ void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
       return prev_elems;
     }();
     int const reduction_offset = prev_row_elems * pde.num_terms * elem_size;
-    fk::matrix<P, mem_type::view, resource::device> const reduction_matrix(
-        rank_space.reduction_space, elem_size,
-        (cols.stop - cols.start + 1) * pde.num_terms, reduction_offset);
+    fk::matrix<P, mem_type::const_view, resource::device> const
+        reduction_matrix(rank_space.reduction_space, elem_size,
+                         (cols.stop - cols.start + 1) * pde.num_terms,
+                         reduction_offset);
 
     fk::matrix<P> reduction_copy(reduction_matrix.clone_onto_host());
     fk::vector<P> sum(reduction_matrix.nrows());
