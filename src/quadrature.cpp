@@ -182,10 +182,14 @@ legendre_weights(int const degree, int const lower_bound, int const upper_bound,
   fk::vector<P> const x_linspace =
       linspace(static_cast<P>(-1.0), static_cast<P>(1.0), num_points);
 
-  //% Initial guess at the roots for the Legendre polynomial of degree
-  // num_points
-  // x_roots=cos((2*(0:num_points-1)'+1)*pi/(2*(num_points-1)+2))+(0.27/num_points)*sin(pi*x_linspace*((num_points-1)/(num_points+1);
+  // Initial guess at the roots for the Legendre polynomial of degree num_points
+
+  // x_roots = cos((2*(0:num_points-1)'+1)*pi /
+  // (2*(num_points-1)+2))+(0.27/num_points) *
+  // sin(pi*x_linspace*((num_points-1)/(num_points+1);
+
   // It is unkown where this guess comes from, but seems to work well
+
   // The above operation is split into two pieces, the cos term (performed on
   // x_roots) and then the sin term (performed on x_roots2) then they are added
   // together
