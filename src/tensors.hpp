@@ -34,7 +34,7 @@ template<mem_type mem>
 using enable_for_owner = std::enable_if_t<mem == mem_type::owner>;
 
 template<mem_type mem>
-using enable_for_mutable =
+using disable_for_immutable =
     std::enable_if_t<mem == mem_type::owner || mem == mem_type::view>;
 
 template<mem_type mem>
@@ -45,8 +45,8 @@ template<mem_type mem>
 using enable_for_const_view = std::enable_if_t<mem == mem_type::const_view>;
 
 template<mem_type mem>
-using enable_for_all_view =
-    std::enable_if_t<mem == mem_type::view || mem == mem_type::const_view>;
+using enable_for_mutable_view =
+    std::enable_if_t<mem == mem_type::view>;
 
 template<resource resrc>
 using enable_for_host = std::enable_if_t<resrc == resource::host>;
@@ -108,7 +108,7 @@ public:
            resource r_ = resrc, typename = enable_for_host<r_>>
   vector(fk::matrix<P> const &);
 
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  template<mem_type m_ = mem, typename = enable_for_mutable_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> &vec,
                   int const start_index, int const stop_index);
   template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
@@ -116,7 +116,7 @@ public:
                   int const start_index, int const stop_index);
 
   // overloads for default case - whole vector
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  template<mem_type m_ = mem, typename = enable_for_mutable_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> &owner);
 
   template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
@@ -126,6 +126,9 @@ public:
 
   // constructor/assignment (required to be same to same T==T)
   vector(vector<P, mem, resrc> const &);
+  // cannot be templated per C++ spec 12.8
+  // instead of disabling w/ sfinae for const_view,
+  // static assert added to definition
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> const &);
 
   // move constructor/assignment (required to be same to same)
@@ -137,7 +140,7 @@ public:
   explicit vector(vector<P, mem_type::view, resrc> const &);
 
   // assignment owner <-> view
-  template<mem_type omem, mem_type m_ = mem, typename = enable_for_mutable<m_>>
+  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>>
   vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
 
   // converting constructor/assignment overloads
@@ -155,20 +158,20 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem_type::owner, resource::device> clone_onto_device() const;
   // host to device copy
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_device<r_>>
+  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_device<r_>>
   vector<P, mem, resrc> &transfer_from(vector<P, omem, resource::host> const &);
   // device to host, new vector
   template<resource r_ = resrc, typename = enable_for_device<r_>>
   vector<P, mem_type::owner, resource::host> clone_onto_host() const;
   // device to host copy
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem, resrc> &
   transfer_from(vector<P, omem, resource::device> const &);
 
   //
   // copy out of std::vector
   //
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &operator=(std::vector<P> const &);
 
   //
@@ -180,7 +183,7 @@ public:
   //
   // subscripting operators
   //
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   P &operator()(int const);
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   P operator()(int const) const;
@@ -214,7 +217,7 @@ public:
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> single_column_kron(vector<P, omem> const &) const;
 
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &scale(P const x);
 
   //
@@ -247,7 +250,7 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   fk::vector<P, mem_type::owner, resrc> &resize(int const size = 0);
 
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P, mem> &set_subvector(int const, vector<P, omem> const);
 
   template<resource r_ = resrc, typename = enable_for_host<r_>>
@@ -260,12 +263,12 @@ public:
   typedef P *iterator;
   typedef const P *const_iterator;
 
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   iterator begin()
   {
     return data();
   }
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>, resource r_ = resrc, typename = enable_for_host<r_>>
   iterator end()
   {
     return data() + size();
@@ -844,6 +847,10 @@ template<typename P, mem_type mem, resource resrc>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, mem, resrc> const &a)
 {
+
+  static_assert(mem != mem_type::const_view, 
+                "cannot assign to const_view!");
+  
   if (&a == this)
     return *this;
 
@@ -993,7 +1000,7 @@ fk::vector<P, mem, resrc>::clone_onto_device() const
 
 // host->dev copy
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
     fk::vector<P, omem, resource::host> const &a)
 {
@@ -1016,7 +1023,7 @@ fk::vector<P, mem, resrc>::clone_onto_host() const
 
 // dev -> host copy
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
     vector<P, omem, resource::device> const &a)
 {
@@ -1029,7 +1036,7 @@ fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
 // copy out of std::vector
 //
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
+template<mem_type, typename, resource, typename>
 fk::vector<P, mem> &fk::vector<P, mem, resrc>::
 operator=(std::vector<P> const &v)
 {
@@ -1053,7 +1060,7 @@ std::vector<P> fk::vector<P, mem, resrc>::to_std() const
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
+template<mem_type, typename, resource, typename>
 P &fk::vector<P, mem, resrc>::operator()(int i)
 {
   assert(i < size_);
@@ -1222,7 +1229,7 @@ fk::vector<P> fk::vector<P, mem, resrc>::single_column_kron(
 }
 
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
+template<mem_type, typename, resource, typename>
 fk::vector<P, mem> &fk::vector<P, mem, resrc>::scale(P const x)
 {
   int one_i = 1;
@@ -1350,7 +1357,7 @@ fk::vector<P, mem, resrc>::concat(vector<P, omem> const &right)
 
 // set a subvector beginning at provided index
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem> &
 fk::vector<P, mem, resrc>::set_subvector(int const index,
                                          fk::vector<P, omem> const sub_vector)
