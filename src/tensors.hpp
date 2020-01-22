@@ -380,6 +380,11 @@ public:
            typename = enable_for_owner<m_>, resource r_ = resrc,
            typename = enable_for_host<r_>>
   explicit matrix(matrix<PP, omem> const &);
+  
+  // FIXME HERE! you need to decide to use these semantics,
+  // or the semantics you used for vector conversion
+  // either way, lock this down for immutable
+  // and continue class sfinae from here
   template<typename PP, mem_type omem, resource r_ = resrc,
            typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
