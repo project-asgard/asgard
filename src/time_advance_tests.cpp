@@ -29,13 +29,10 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
                        bool const full_grid                            = false,
                        std::vector<std::string> const &additional_args = {},
-<<<<<<< HEAD
-                       double const eps_multiplier                     = 1e4)
+                       double const eps_multiplier                     = 1e4,//)
 // eps multiplier determined empirically 11/19; lowest epsilon multiplier
-=======
                        double const tol_factor                         = 1e4)
 // tol factor determined empirically 11/19; lowest tolerance
->>>>>>> tracking down differences in pde spec for fokker_planck2d complete
 // for which all current tests pass with the exception of fp2d
 {
   int const my_rank   = get_rank();
