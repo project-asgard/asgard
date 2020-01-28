@@ -806,6 +806,10 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
 
   // create intermediate workspaces
   // and output vectors
+
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  fk::vector<P, mem_type::owner, resource::device> work_own(
+      x_size * num_elems * num_terms * num_workspaces);
   fk::vector<P, mem_type::const_view, resource::device> const x_view(x);
   fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
                                                          num_terms);
@@ -829,11 +833,6 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
                                               y_index + x_size - 1);
 
       // intermediate workspace
-
-      int const num_workspaces = std::min(pde.num_dims - 1, 2);
-      fk::vector<P, mem_type::owner, resource::device> work_own(
-          x_size * num_elems * num_terms * num_workspaces);
-
       std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
           work_views = [&work_own, work_index, x_size, num_workspaces]() {
             std::vector<fk::vector<P, mem_type::const_view, resource::device>>
