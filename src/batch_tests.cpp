@@ -1020,7 +1020,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }
 
   // determined emprically 11/19
-  auto const eps_multiplier = 1e4;
+  auto const eps_multiplier = std::is_same<float, P>::value ? 1e3 : 1e4;
   relaxed_comparison(gold, host_space.fx, eps_multiplier);
 }
 

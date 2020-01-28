@@ -155,7 +155,7 @@ public:
            typename = enable_for_host<r_>>
   explicit vector(vector<PP, omem> const &);
   template<typename PP, mem_type omem, mem_type m_ = mem,
-           typename = enable_for_owner<m_>, resource r_ = resrc,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
            typename = enable_for_host<r_>>
   vector<P, mem> &operator=(vector<PP, omem> const &);
 
@@ -380,12 +380,9 @@ public:
            typename = enable_for_owner<m_>, resource r_ = resrc,
            typename = enable_for_host<r_>>
   explicit matrix(matrix<PP, omem> const &);
-  
-  // FIXME HERE! you need to decide to use these semantics,
-  // or the semantics you used for vector conversion
-  // either way, lock this down for immutable
-  // and continue class sfinae from here
-  template<typename PP, mem_type omem, resource r_ = resrc,
+
+  template<typename PP, mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
            typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(matrix<PP, omem> const &);
 
@@ -410,13 +407,16 @@ public:
   //
   // copy out of fk::vector
   //
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   matrix<P, mem> &operator=(fk::vector<P, omem> const &);
 
   //
   // subscripting operators
   //
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   P &operator()(int const, int const);
 
   template<resource r_ = resrc, typename = enable_for_host<r_>>
@@ -431,10 +431,10 @@ public:
   bool operator!=(matrix<P, omem> const &) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   bool operator<(matrix<P, omem> const &) const;
+
   //
   // math operators
   //
-
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator*(P const) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
@@ -446,27 +446,26 @@ public:
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator-(matrix<P, omem> const &) const;
 
-  template<resource r_ = resrc, mem_type m_ = mem,
-           typename = enable_for_host<r_>, typename = enable_for_owner<m_>>
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem, resrc> &transpose();
 
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> kron(matrix<P, omem> const &) const;
 
   // clang-format off
-  template<typename U=P, resource r_ = resrc,
-	  typename = enable_for_host<r_>>
-  std::enable_if_t<
-    std::is_floating_point<U>::value && std::is_same<P, U>::value,
+  template<typename U = P, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
+  std::enable_if_t<std::is_floating_point<U>::value &&
+                   std::is_same<P, U>::value,
   matrix<P, mem> &> invert();
-
-
-  template<typename U=P, resource r_ = resrc,
-	  typename = enable_for_host<r_>>
-  std::enable_if_t<
-      std::is_floating_point<U>::value && std::is_same<P, U>::value,
-  P> determinant() const;
   // clang-format on
+
+  template<typename U = P, resource r_ = resrc, typename = enable_for_host<r_>>
+  std::enable_if_t<
+      std::is_floating_point<U>::value && std::is_same<P, U>::value, P>
+  determinant() const;
 
   //
   // basic queries to private data
@@ -488,19 +487,27 @@ public:
   //
   // utility functions
   //
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   matrix<P, mem> &update_col(int const, fk::vector<P, omem> const &);
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_col(int const, std::vector<P> const &);
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   matrix<P, mem> &update_row(int const, fk::vector<P, omem> const &);
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_row(int const, std::vector<P> const &);
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix<P, mem_type::owner, resrc> &clear_and_resize(int const, int const);
 
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type omem, mem_type m_ = mem,
+           typename = disable_for_immutable<m_>, resource r_ = resrc,
+           typename = enable_for_host<r_>>
   matrix<P, mem> &set_submatrix(int const row_idx, int const col_idx,
                                 fk::matrix<P, omem> const &submatrix);
   template<resource r_ = resrc, typename = enable_for_host<r_>>
@@ -519,18 +526,27 @@ public:
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
 
-  iterator begin() { return iterator(data(), stride(), nrows()); }
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
+  iterator begin()
+  {
+    return iterator(data(), stride(), nrows());
+  }
 
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
   iterator end()
   {
     return iterator(data() + stride() * ncols(), stride(), nrows());
   }
 
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   const_iterator begin() const
   {
     return const_iterator(data(), stride(), nrows());
   }
 
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   const_iterator end() const
   {
     return const_iterator(data() + stride() * ncols(), stride(), nrows());
@@ -881,7 +897,8 @@ template<typename P, mem_type mem, resource resrc>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, mem, resrc> const &a)
 {
-  static_assert(mem != mem_type::const_view, "cannot assign to const_view!");
+  static_assert(mem != mem_type::const_view,
+                "cannot copy assign into const_view!");
 
   if (&a == this)
     return *this;
@@ -926,6 +943,9 @@ template<typename P, mem_type mem, resource resrc>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, mem, resrc> &&a)
 {
+  static_assert(mem != mem_type::const_view,
+                "cannot move assign into const_view!");
+
   if (&a == this)
     return *this;
 
@@ -1702,7 +1722,8 @@ template<typename P, mem_type mem, resource resrc>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
 operator=(matrix<P, mem, resrc> const &a)
 {
-  static_assert(mem != mem_type::const_view, "cannot assign to const_view!");
+  static_assert(mem != mem_type::const_view,
+                "cannot copy assign into const_view!");
 
   if (&a == this)
     return *this;
@@ -1749,6 +1770,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem_type::view, resrc> const &a)
   }
 }
 
+// copy construct owner from view, immutable view version
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(
@@ -1810,7 +1832,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<PP, omem> const &a)
 // http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
 //
 template<typename P, mem_type mem, resource resrc>
-template<typename PP, mem_type omem, resource, typename>
+template<typename PP, mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::
 operator=(matrix<PP, omem> const &a)
 {
@@ -1906,6 +1928,9 @@ template<typename P, mem_type mem, resource resrc>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
 operator=(matrix<P, mem, resrc> &&a)
 {
+  static_assert(mem != mem_type::const_view,
+                "cannot move assign into const_view!");
+
   if (&a == this)
     return *this;
 
@@ -1931,7 +1956,7 @@ operator=(matrix<P, mem, resrc> &&a)
 // copy out of fk::vector - assumes the vector is column-major
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::
 operator=(fk::vector<P, omem> const &v)
 {
@@ -1950,7 +1975,7 @@ operator=(fk::vector<P, omem> const &v)
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
+template<mem_type, typename, resource, typename>
 P &fk::matrix<P, mem, resrc>::operator()(int const i, int const j)
 {
   assert(i < nrows() && j < ncols());
@@ -2137,7 +2162,7 @@ operator*(matrix<P, omem> const &B) const
 //
 // FIXME could be worthwhile to optimize the matrix transpose
 template<typename P, mem_type mem, resource resrc>
-template<resource, mem_type, typename, typename>
+template<mem_type, typename, resource, typename>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transpose()
 {
   matrix<P> temp(ncols(), nrows());
@@ -2193,7 +2218,7 @@ fk::matrix<P> fk::matrix<P, mem, resrc>::kron(matrix<P, omem> const &B) const
 // @return  the inverted matrix
 //
 template<typename P, mem_type mem, resource resrc>
-template<typename U, resource, typename>
+template<typename U, mem_type, typename, resource, typename>
 std::enable_if_t<std::is_floating_point<U>::value && std::is_same<P, U>::value,
                  fk::matrix<P, mem> &>
 fk::matrix<P, mem, resrc>::invert()
@@ -2262,7 +2287,7 @@ fk::matrix<P, mem, resrc>::determinant() const
 // original)
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_col(int const col_idx,
                                       fk::vector<P, omem> const &v)
@@ -2283,7 +2308,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
 // Update a specific col of a matrix, given a std::vector (overwrites original)
 //
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
+template<mem_type, typename, resource, typename>
 fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_col(int const col_idx,
                                       std::vector<P> const &v)
@@ -2306,7 +2331,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
 // original)
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_row(int const row_idx,
                                       fk::vector<P, omem> const &v)
@@ -2327,7 +2352,7 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
 // Update a specific row of a matrix, given a std::vector (overwrites original)
 //
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
+template<mem_type, typename, resource, typename>
 fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_row(int const row_idx,
                                       std::vector<P> const &v)
@@ -2381,7 +2406,7 @@ fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
 // Set a submatrix within the matrix, given another (smaller) matrix
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
+template<mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::set_submatrix(int const row_idx, int const col_idx,
                                          matrix<P, omem> const &submatrix)
