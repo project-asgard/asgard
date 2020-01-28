@@ -23,6 +23,9 @@ class access_badge
   access_badge(){};
 };
 
+// used to suppress warnings in unused variables
+auto const ignore = [](auto ignored) { (void)ignored; };
+
 enum class mem_type
 {
   owner,
@@ -136,13 +139,16 @@ public:
 
   // move constructor/assignment (required to be same to same)
   vector(vector<P, mem, resrc> &&);
+
+  // as with copy assignment, static assert added
+  // to definition to prevent assignment into
+  // immutable views
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> &&);
 
   // copy construct owner from view values
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  explicit vector(vector<P, mem_type::view, resrc> const &);
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  explicit vector(vector<P, mem_type::const_view, resrc> const &);
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
+           mem_type m__ = omem, typename = enable_for_view<m__>>
+  explicit vector(vector<P, omem, resrc> const &);
 
   // assignment owner <-> view
   template<mem_type omem, mem_type m_ = mem,
@@ -245,15 +251,10 @@ public:
 
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a matrix<view> to be made from a
-  // vector<owner>
+  // vector<owner/view>
+  template<mem_type omem, mem_type m_ = omem, typename = enable_for_view<m_>>
   std::shared_ptr<int>
-  get_ref_count(access_badge<matrix<P, mem_type::view, resrc> const>)
-  {
-    return ref_count_;
-  }
-
-  std::shared_ptr<int> get_ref_count(
-      access_badge<matrix<P, mem_type::const_view, resrc> const>) const
+  get_ref_count(access_badge<matrix<P, omem, resrc>> const) const
   {
     return ref_count_;
   }
@@ -303,6 +304,12 @@ public:
   int get_num_views() const;
 
 private:
+  // mutable/immutable view constructors delegate to this private constructor
+  // delegated is a dummy variable to enable resolution
+  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  explicit vector(fk::vector<P, mem_type::owner, resrc> const &vec,
+                  int const start_index, int const stop_index,
+                  bool const delegated);
   P *data_;  //< pointer to elements
   int size_; //< dimension
   std::shared_ptr<int> ref_count_ = nullptr;
@@ -332,7 +339,7 @@ public:
   explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner,
                   int const start_row, int const stop_row, int const start_col,
                   int const stop_col);
-  // create view from owner - const.
+  // create mutable view from owner
   template<mem_type m_ = mem, typename = enable_for_mutable_view<m_>>
   explicit matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
                   int const start_row, int const stop_row, int const start_col,
@@ -548,6 +555,20 @@ public:
   }
 
 private:
+  // matrix view constructors (mutable/immutable) delegate to this private
+  // constructor delegated is a dummy variable to assist in overload resolution
+  template<mem_type m_ = mem, typename = enable_for_view<m_>>
+  explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner,
+                  int const start_row, int const stop_row, int const start_col,
+                  int const stop_col, bool const delegated);
+
+  // matrix view from vector owner constructors (mutable/immutable) delegate to
+  // this private constructor, also with a dummy variable
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_view<m_>>
+  explicit matrix(fk::vector<P, omem, resrc> const &source, int const num_rows,
+                  int const num_cols, int const start_index,
+                  bool const delegated);
+
   P *data_;    //< pointer to elements
   int nrows_;  //< row dimension
   int ncols_;  //< column dimension
@@ -780,46 +801,22 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P> const &mat)
 }
 
 // vector view constructor given a start and stop index
-// mutable view version
+// mutable view version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &vec,
                                   int const start_index, int const stop_index)
-    : ref_count_{vec.ref_count_}
-{
-  data_ = nullptr;
-  size_ = 0;
-  if (vec.size() > 0)
-  {
-    assert(start_index >= 0);
-    assert(stop_index < vec.size());
-    assert(stop_index >= start_index);
+    : vector(vec, start_index, stop_index, true)
+{}
 
-    data_ = vec.data_ + start_index;
-    size_ = stop_index - start_index + 1;
-  }
-}
-
-// const view version
+// const view version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(
     fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
     int const stop_index)
-    : ref_count_{vec.ref_count_}
-{
-  data_ = nullptr;
-  size_ = 0;
-  if (vec.size() > 0)
-  {
-    assert(start_index >= 0);
-    assert(stop_index < vec.size());
-    assert(stop_index >= start_index);
-
-    data_ = vec.data_ + start_index;
-    size_ = stop_index - start_index + 1;
-  }
-}
+    : vector(vec, start_index, stop_index, true)
+{}
 
 // delegating constructor to extract view from owner. overload for default case
 // of viewing the entire owner
@@ -1000,26 +997,8 @@ operator=(vector<PP, omem> const &a)
 
 // copy construct owner from view values
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(vector<P, mem_type::view, resrc> const &a)
-    : size_(a.size()), ref_count_(std::make_shared<int>(0))
-{
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[a.size()];
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
-  }
-  else
-  {
-    allocate_device(data_, a.size());
-    copy_on_device(data_, a.data(), a.size());
-  }
-}
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(
-    vector<P, mem_type::const_view, resrc> const &a)
-
+template<mem_type omem, mem_type, typename, mem_type, typename>
+fk::vector<P, mem, resrc>::vector(vector<P, omem, resrc> const &a)
     : size_(a.size()), ref_count_(std::make_shared<int>(0))
 {
   if constexpr (resrc == resource::host)
@@ -1462,6 +1441,30 @@ int fk::vector<P, mem, resrc>::get_num_views() const
 {
   return ref_count_.use_count() - 1;
 }
+
+// mutable/immutable view constructors delegate to this private constructor
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(
+    fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
+    int const stop_index, bool const delegated)
+    : ref_count_{vec.ref_count_}
+{
+  // ignore dummy argument to avoid compiler warnings
+  ignore(delegated);
+  data_ = nullptr;
+  size_ = 0;
+  if (vec.size() > 0)
+  {
+    assert(start_index >= 0);
+    assert(stop_index < vec.size());
+    assert(stop_index >= start_index);
+
+    data_ = vec.data_ + start_index;
+    size_ = stop_index - start_index + 1;
+  }
+}
+
 //-----------------------------------------------------------------------------
 //
 // fk::matrix class implementation starts here
@@ -1531,64 +1534,25 @@ fk::matrix<P, mem, resrc>::matrix(
   }
 }
 
-// create view from owner.
+// create view from owner - immutable view version
+// delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(
     fk::matrix<P, mem_type::owner, resrc> const &owner, int const start_row,
     int const stop_row, int const start_col, int const stop_col)
-    : ref_count_(owner.ref_count_)
-{
-  data_   = nullptr;
-  nrows_  = 0;
-  ncols_  = 0;
-  stride_ = 0;
+    : matrix(owner, start_row, stop_row, start_col, stop_col, true)
+{}
 
-  int const view_rows = stop_row - start_row + 1;
-  int const view_cols = stop_col - start_col + 1;
-  if (owner.size() > 0)
-  {
-    assert(start_row >= 0);
-    assert(start_col >= 0);
-    assert(stop_col < owner.ncols());
-    assert(stop_row < owner.nrows());
-    assert(stop_row >= start_row);
-
-    data_   = owner.data(start_row, start_col);
-    nrows_  = view_rows;
-    ncols_  = view_cols;
-    stride_ = owner.nrows();
-  }
-}
-
+// create view from owner - mutable view version
+// delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
                                   int const start_row, int const stop_row,
                                   int const start_col, int const stop_col)
-    : ref_count_(owner.ref_count_)
-{
-  data_   = nullptr;
-  nrows_  = 0;
-  ncols_  = 0;
-  stride_ = 0;
-
-  int const view_rows = stop_row - start_row + 1;
-  int const view_cols = stop_col - start_col + 1;
-  if (owner.size() > 0)
-  {
-    assert(start_row >= 0);
-    assert(start_col >= 0);
-    assert(stop_col < owner.ncols());
-    assert(stop_row < owner.nrows());
-    assert(stop_row >= start_row);
-
-    data_   = owner.data(start_row, start_col);
-    nrows_  = view_rows;
-    ncols_  = view_cols;
-    stride_ = owner.nrows();
-  }
-}
+    : matrix(owner, start_row, stop_row, start_col, stop_col, true)
+{}
 
 // overload for default case - whole matrix
 template<typename P, mem_type mem, resource resrc>
@@ -1607,62 +1571,26 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner)
 {}
 
 // create matrix view of an existing vector
+// immutable version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : ref_count_(source.get_ref_count({}))
-{
-  assert(start_index >= 0);
-  assert(num_rows > 0);
-  assert(num_cols > 0);
+    : matrix(source, num_rows, num_cols, start_index, true)
+{}
 
-  int const size = num_rows * num_cols;
-  assert(start_index + size <= source.size());
-
-  data_   = nullptr;
-  nrows_  = 0;
-  ncols_  = 0;
-  stride_ = 0;
-
-  if (size > 0)
-  {
-    data_   = source.data(start_index);
-    nrows_  = num_rows;
-    ncols_  = num_cols;
-    stride_ = num_rows;
-  }
-}
-
+// create matrix view of existing vector
+// immutable version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : ref_count_(source.get_ref_count({}))
-{
-  assert(start_index >= 0);
-  assert(num_rows > 0);
-  assert(num_cols > 0);
+    : matrix(source, num_rows, num_cols, start_index, true)
+{}
 
-  int const size = num_rows * num_cols;
-  assert(start_index + size <= source.size());
-
-  data_   = nullptr;
-  nrows_  = 0;
-  ncols_  = 0;
-  stride_ = 0;
-
-  if (size > 0)
-  {
-    data_   = source.data(start_index);
-    nrows_  = num_rows;
-    ncols_  = num_cols;
-    stride_ = num_rows;
-  }
-}
-
+// destructor
 template<typename P, mem_type mem, resource resrc>
 fk::matrix<P, mem, resrc>::~matrix()
 {
@@ -2519,6 +2447,70 @@ template<mem_type, typename>
 int fk::matrix<P, mem, resrc>::get_num_views() const
 {
   return ref_count_.use_count() - 1;
+}
+
+// public mutable/immutable view constructors delegate to this private
+// constructor
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(
+    fk::matrix<P, mem_type::owner, resrc> const &owner, int const start_row,
+    int const stop_row, int const start_col, int const stop_col,
+    bool const delegated)
+    : ref_count_(owner.ref_count_)
+{
+  ignore(delegated);
+  data_   = nullptr;
+  nrows_  = 0;
+  ncols_  = 0;
+  stride_ = 0;
+
+  int const view_rows = stop_row - start_row + 1;
+  int const view_cols = stop_col - start_col + 1;
+  if (owner.size() > 0)
+  {
+    assert(start_row >= 0);
+    assert(start_col >= 0);
+    assert(stop_col < owner.ncols());
+    assert(stop_row < owner.nrows());
+    assert(stop_row >= start_row);
+
+    data_   = owner.data(start_row, start_col);
+    nrows_  = view_rows;
+    ncols_  = view_cols;
+    stride_ = owner.nrows();
+  }
+}
+
+// public mutable/immutable matrix view from vector constructors delegate to
+// this private constructor
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
+                                  int const num_rows, int const num_cols,
+                                  int const start_index, bool const delegated)
+    : ref_count_({})
+{
+  ignore(delegated);
+  assert(start_index >= 0);
+  assert(num_rows > 0);
+  assert(num_cols > 0);
+
+  int const size = num_rows * num_cols;
+  assert(start_index + size <= source.size());
+
+  data_   = nullptr;
+  nrows_  = 0;
+  ncols_  = 0;
+  stride_ = 0;
+
+  if (size > 0)
+  {
+    data_   = source.data(start_index);
+    nrows_  = num_rows;
+    ncols_  = num_cols;
+    stride_ = num_rows;
+  }
 }
 
 template<typename P, mem_type mem, resource resrc>

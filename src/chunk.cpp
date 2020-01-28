@@ -316,10 +316,10 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
       return prev_elems;
     }();
 
-    fk::matrix<P, mem_type::view, resource::device> const reduction_matrix(
-        rank_space.reduction_space, elem_size,
-        (cols.stop - cols.start + 1) * pde.num_terms,
-        prev_row_elems * elem_size * pde.num_terms);
+    fk::matrix<P, mem_type::const_view, resource::device> const
+        reduction_matrix(rank_space.reduction_space, elem_size,
+                         (cols.stop - cols.start + 1) * pde.num_terms,
+                         prev_row_elems * elem_size * pde.num_terms);
 
     int const reduction_row = row - chunk.begin()->first;
     fk::vector<P, mem_type::view, resource::device> output_view(

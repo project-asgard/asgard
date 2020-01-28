@@ -24,9 +24,6 @@
 // same pi used by matlab
 static double const PI = 3.141592653589793;
 
-// used to suppress warnings in unused variables
-auto const ignore = [](auto ignored) { (void)ignored; };
-
 // for passing around vector/scalar-valued functions used by the PDE
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
