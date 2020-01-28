@@ -100,12 +100,35 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(test_v2 != gold_portion);
 
     // empty case
+    fk::vector<TestType> empty;
+    fk::vector<TestType, mem_type::view> const empty_v(empty);
+    REQUIRE(empty_v == empty);
+    REQUIRE(empty_v.data() == nullptr);
+    REQUIRE(empty_v.size() == 0);
+  }
+
+  SECTION("construct const view from owner")
+  {
+    // default: view of whole vector
+    fk::vector<TestType, mem_type::const_view> const test_v(gold);
+    REQUIRE(test_v == gold);
+    REQUIRE(test_v.data() == gold.data());
+
+    // specify range (start/stop inclusive)
+    fk::vector<TestType, mem_type::const_view> const test_v2(gold, 1, 3);
+    REQUIRE(test_v2.size() == 3);
+    fk::vector<TestType> const gold_portion = {3, 4, 5};
+    REQUIRE(test_v2 == gold_portion);
+    REQUIRE(test_v2.data() == gold.data() + 1);
+
+    // empty case
     fk::vector<TestType> const empty;
     fk::vector<TestType, mem_type::const_view> const empty_v(empty);
     REQUIRE(empty_v == empty);
     REQUIRE(empty_v.data() == nullptr);
     REQUIRE(empty_v.size() == 0);
   }
+
   SECTION("construct owner from view")
   {
     fk::vector<TestType, mem_type::const_view> const gold_v(gold);

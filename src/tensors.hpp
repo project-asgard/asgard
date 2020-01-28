@@ -252,9 +252,14 @@ public:
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a matrix<view> to be made from a
   // vector<owner/view>
-  template<mem_type omem, mem_type m_ = omem, typename = enable_for_view<m_>>
   std::shared_ptr<int>
-  get_ref_count(access_badge<matrix<P, omem, resrc>> const) const
+  get_ref_count(access_badge<matrix<P, mem_type::view, resrc>> const)
+  {
+    return ref_count_;
+  }
+
+  std::shared_ptr<int> get_ref_count(
+      access_badge<matrix<P, mem_type::const_view, resrc>> const) const
   {
     return ref_count_;
   }
@@ -565,9 +570,9 @@ private:
   // matrix view from vector owner constructors (mutable/immutable) delegate to
   // this private constructor, also with a dummy variable
   template<mem_type omem, mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit matrix(fk::vector<P, omem, resrc> const &source, int const num_rows,
-                  int const num_cols, int const start_index,
-                  bool const delegated);
+  explicit matrix(fk::vector<P, omem, resrc> const &source,
+                  std::shared_ptr<int> source_ref_count, int const num_rows,
+                  int const num_cols, int const start_index);
 
   P *data_;    //< pointer to elements
   int nrows_;  //< row dimension
@@ -1577,17 +1582,17 @@ template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : matrix(source, num_rows, num_cols, start_index, true)
+    : matrix(source, source.get_ref_count({}), num_rows, num_cols, start_index)
 {}
 
 // create matrix view of existing vector
-// immutable version - delegates to private constructor
+// mutable version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : matrix(source, num_rows, num_cols, start_index, true)
+    : matrix(source, source.get_ref_count({}), num_rows, num_cols, start_index)
 {}
 
 // destructor
@@ -2487,11 +2492,11 @@ fk::matrix<P, mem, resrc>::matrix(
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
+                                  std::shared_ptr<int> source_ref_count,
                                   int const num_rows, int const num_cols,
-                                  int const start_index, bool const delegated)
-    : ref_count_({})
+                                  int const start_index)
+    : ref_count_(source_ref_count)
 {
-  ignore(delegated);
   assert(start_index >= 0);
   assert(num_rows > 0);
   assert(num_cols > 0);
