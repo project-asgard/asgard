@@ -2349,3 +2349,41 @@ private:
   int stride_;
   int rows_;
 };
+
+template<typename P, mem_type left_mem, mem_type right_mem>
+void debug_compare(fk::matrix<P, left_mem> const &left,
+                   fk::matrix<P, right_mem> const &right)
+{
+  assert(left.nrows() == right.nrows());
+  assert(left.ncols() == right.ncols());
+
+  static std::string const red("\033[0;31m");
+  static std::string const reset("\033[0m");
+
+  for (auto i = 0; i < left.nrows(); ++i)
+  {
+    for (auto j = 0; j < left.ncols(); ++j)
+    {
+      if constexpr (std::is_floating_point<P>::value)
+      {
+        if (std::abs(left(i, j) - right(i, j)) > TOL)
+        {
+          std::cout << red;
+        }
+
+        std::cout << std::setw(12) << std::setprecision(4) << std::scientific
+                  << std::right << left(i, j) << reset;
+      }
+      else
+      {
+        if (left(i, j) != right(i, j))
+        {
+          std::cout << red;
+        }
+        std::cout << std::right << left(i, j) << reset << " ";
+      }
+    }
+
+    std::cout << '\n';
+  }
+}
