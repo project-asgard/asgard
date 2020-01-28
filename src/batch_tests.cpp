@@ -812,10 +812,6 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
 
   fk::vector<P, mem_type::owner> gold(x_size * num_elems * num_terms);
 
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  fk::vector<P, mem_type::owner, resource::device> work_own(
-      x_size * num_elems * num_terms * num_workspaces);
-
   for (int i = 0; i < num_elems; ++i)
   {
     for (int j = 0; j < pde.num_terms; ++j)
@@ -833,15 +829,32 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
                                               y_index + x_size - 1);
 
       // intermediate workspace
-      std::vector<fk::vector<P, mem_type::const_view, resource::device>>
-          work_views(num_workspaces,
-                     fk::vector<P, mem_type::const_view, resource::device>(
-                         work_own, work_index, work_index + x_size - 1));
-      if (num_workspaces == 2)
-      {
-        work_views[1] = fk::vector<P, mem_type::const_view, resource::device>(
-            work_own, work_index + x_size, work_index + x_size * 2 - 1);
-      }
+
+      int const num_workspaces = std::min(pde.num_dims - 1, 2);
+      fk::vector<P, mem_type::owner, resource::device> work_own(
+          x_size * num_elems * num_terms * num_workspaces);
+
+      std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
+          work_views = [&work_own, work_index, x_size, num_workspaces]() {
+            std::vector<fk::vector<P, mem_type::const_view, resource::device>>
+                builder;
+            builder.reserve(num_workspaces);
+            if (num_workspaces > 0)
+            {
+              builder.emplace_back(
+                  fk::vector<P, mem_type::const_view, resource::device>(
+                      work_own, work_index, work_index + x_size - 1));
+            }
+
+            if (num_workspaces == 2)
+            {
+              builder.emplace_back(
+                  fk::vector<P, mem_type::const_view, resource::device>(
+                      work_own, work_index + x_size,
+                      work_index + x_size * 2 - 1));
+            }
+            return builder;
+          }();
 
       // create A_views
       std::vector<fk::matrix<P, mem_type::const_view, resource::device>>

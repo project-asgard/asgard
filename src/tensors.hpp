@@ -285,18 +285,17 @@ public:
   typedef P *iterator;
   typedef const P *const_iterator;
 
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>>
   iterator begin()
   {
     return data();
   }
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>>
   iterator end()
   {
     return data() + size();
   }
+
   const_iterator begin() const { return data(); }
   const_iterator end() const { return data() + size(); }
 
@@ -526,27 +525,23 @@ public:
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
 
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>>
   iterator begin()
   {
     return iterator(data(), stride(), nrows());
   }
 
-  template<mem_type m_ = mem, typename = disable_for_immutable<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
+  template<mem_type m_ = mem, typename = disable_for_immutable<m_>>
   iterator end()
   {
     return iterator(data() + stride() * ncols(), stride(), nrows());
   }
 
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
   const_iterator begin() const
   {
     return const_iterator(data(), stride(), nrows());
   }
 
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
   const_iterator end() const
   {
     return const_iterator(data() + stride() * ncols(), stride(), nrows());
@@ -648,7 +643,8 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
 #endif
 }
 
-template<typename P, mem_type mem, mem_type omem>
+template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
+         typename = disable_for_immutable<m_>>
 static void
 copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
                       fk::matrix<P, omem, resource::host> const &source)
@@ -666,7 +662,8 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
 #endif
 }
 
-template<typename P, mem_type mem, mem_type omem>
+template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
+         typename = disable_for_immutable<m_>>
 static void
 copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
                     fk::matrix<P, omem, resource::device> const &source)
