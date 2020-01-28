@@ -958,7 +958,7 @@ operator=(vector<P, mem, resrc> &&a)
   size_      = a.size_;
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
-  P *temp{data_};
+  P *const temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
   return *this;

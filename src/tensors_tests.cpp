@@ -131,17 +131,34 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
 
   SECTION("construct owner from view")
   {
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_copy_v(gold_copy);
+    fk::vector<TestType> test(gold_copy_v);
+    REQUIRE(test == gold);
+  }
+  SECTION("construct owner from const view")
+  {
     fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<TestType> test(gold_v);
     REQUIRE(test == gold);
   }
+
   SECTION("copy assign to owner from view")
+  {
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+    fk::vector<TestType> test(5);
+    test = gold_v;
+    REQUIRE(test == gold);
+  }
+  SECTION("copy assign to owner from const view")
   {
     fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<TestType> test(5);
     test = gold_v;
     REQUIRE(test == gold);
   }
+
   SECTION("copy construction")
   {
     fk::vector<TestType> test(gold);
@@ -152,7 +169,12 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     test_v = gold;
     fk::vector<TestType, mem_type::view> test_copy(test_v);
     REQUIRE(test_copy == gold);
+
+    fk::vector<TestType, mem_type::const_view> const gold_view(gold);
+    fk::vector<TestType, mem_type::const_view> const gold_view_copy(gold_view);
+    REQUIRE(gold_view_copy == gold);
   }
+
   SECTION("copy assignment")
   {
     fk::vector<TestType> test(5);
@@ -180,7 +202,26 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(testd == goldd);
     // REQUIRE(testd_v == goldd);
   }
-  SECTION("converting construction (from views)")
+
+  SECTION("converting construction (from views")
+  {
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+    fk::vector<int> testi(gold_v);
+    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
+    REQUIRE(testi == goldi);
+    // REQUIRE(testi_v == goldi);
+    fk::vector<float> testf(gold_v);
+    // fk::vector<float, mem_type::view> testf_v(gold_v);
+    REQUIRE(testf == goldf);
+    // REQUIRE(testf_v == goldf);
+    fk::vector<double> testd(gold_v);
+    // fk::vector<double, mem_type::view> testd_v(gold_v);
+    REQUIRE(testd == goldd);
+    // REQUIRE(testd_v == goldd);
+  }
+
+  SECTION("converting construction (from const views)")
   {
     fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<int> testi(gold_v);
@@ -196,74 +237,142 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(testd == goldd);
     // REQUIRE(testd_v == goldd);
   }
+
   SECTION("converting assignment (from owners)")
   {
     fk::vector<int> testi(5);
-    // fk::vector<int, mem_type::view> testi_v(testi); // disabled
+    fk::vector<int, mem_type::view> testi_v(testi);
     testi = gold;
-    // testi_v = gold;
     REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
+    std::fill(testi.begin(), testi.end(), 0);
+    testi_v = gold;
+    REQUIRE(testi == goldi);
+
+    REQUIRE(testi_v == goldi);
     fk::vector<float> testf(5);
-    // fk::vector<float, mem_type::view> testf_v(testf);
+    fk::vector<float, mem_type::view> testf_v(testf);
     testf = gold;
-    // testf_v = gold;
     REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
+    std::fill(testf.begin(), testf.end(), 0.0f);
+    testf_v = gold;
+    REQUIRE(testf_v == goldf);
+
     fk::vector<double> testd(5);
-    // fk::vector<double, mem_type::view> testd_v(testd);
+    fk::vector<double, mem_type::view> testd_v(testd);
     testd = gold;
-    // testd_v = gold;
     REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
+    std::fill(testd.begin(), testd.end(), 0.0);
+    testd_v = gold;
+    REQUIRE(testd_v == goldd);
   }
+
   SECTION("converting assignment (from views)")
+  {
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+    fk::vector<int> testi(5);
+    fk::vector<int, mem_type::view> testi_v(testi);
+    testi = gold_v;
+    REQUIRE(testi == goldi);
+    std::fill(testi.begin(), testi.end(), 0);
+    testi_v = gold_v;
+    REQUIRE(testi_v == goldi);
+
+    fk::vector<float> testf(5);
+    fk::vector<float, mem_type::view> testf_v(testf);
+    testf = gold_v;
+    REQUIRE(testf == goldf);
+    std::fill(testf.begin(), testf.end(), 0.0f);
+    testf_v = gold_v;
+    REQUIRE(testf_v == goldf);
+
+    fk::vector<double> testd(5);
+    fk::vector<double, mem_type::view> testd_v(testd);
+    testd = gold_v;
+    REQUIRE(testd == goldd);
+    std::fill(testd.begin(), testd.end(), 0.0);
+    testd_v = gold_v;
+    REQUIRE(testd_v == goldd);
+  }
+
+  SECTION("converting assignment (from const views)")
   {
     fk::vector<TestType, mem_type::const_view> const gold_v(gold);
     fk::vector<int> testi(5);
-    // fk::vector<int, mem_type::view> testi_v(testi);
+    fk::vector<int, mem_type::view> testi_v(testi);
     testi = gold_v;
-    // testi_v = gold_v; // disabled
     REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
+    std::fill(testi.begin(), testi.end(), 0);
+    testi_v = gold_v;
+    REQUIRE(testi_v == goldi);
+
     fk::vector<float> testf(5);
-    // fk::vector<float, mem_type::view> testf_v(testf);
+    fk::vector<float, mem_type::view> testf_v(testf);
     testf = gold_v;
-    // testf_v = gold_v;
     REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
+    std::fill(testf.begin(), testf.end(), 0.0f);
+    testf_v = gold_v;
+    REQUIRE(testf_v == goldf);
+
     fk::vector<double> testd(5);
-    // fk::vector<double, mem_type::view> testd_v(testd);
+    fk::vector<double, mem_type::view> testd_v(testd);
     testd = gold_v;
-    // testd_v = gold_v;
     REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
+    std::fill(testd.begin(), testd.end(), 0.0);
+    testd_v = gold_v;
+    REQUIRE(testd_v == goldd);
   }
+
   SECTION("move construction")
   {
-    fk::vector<TestType> moved{2, 3, 4, 5, 6};
+    // owners
+    fk::vector<TestType> moved(gold);
     fk::vector<TestType> test(std::move(moved));
+    REQUIRE(moved.data() == nullptr);
     REQUIRE(test == gold);
 
-    fk::vector<TestType> moved_o{2, 3, 4, 5, 6};
-    fk::vector<TestType, mem_type::view> moved_v(moved_o);
+    // views
+    fk::vector<TestType> moved_own(gold);
+    fk::vector<TestType, mem_type::view> moved_v(moved_own);
     fk::vector<TestType, mem_type::view> test_v(std::move(moved_v));
+    REQUIRE(moved_own.get_num_views() == 1);
+    REQUIRE(moved_v.data() == nullptr);
+    REQUIRE(test_v.data() == moved_own.data());
     REQUIRE(test_v == gold);
+
+    // const views
+    fk::vector<TestType, mem_type::const_view> moved_cv(gold);
+    fk::vector<TestType, mem_type::const_view> test_cv(std::move(moved_cv));
+    REQUIRE(gold.get_num_views() == 1);
+    REQUIRE(moved_cv.data() == nullptr);
+    REQUIRE(test_cv.data() == gold.data());
+    REQUIRE(test_cv == gold);
   }
+
   SECTION("move assignment")
   {
-    fk::vector<TestType> moved{2, 3, 4, 5, 6};
+    // owners
+    fk::vector<TestType> moved(gold);
+    TestType *const data = moved.data();
     fk::vector<TestType> test(5);
-    test = std::move(moved);
+    TestType *const test_data = test.data();
+    test                      = std::move(moved);
+    REQUIRE(test.data() == data);
+    REQUIRE(moved.data() == test_data);
     REQUIRE(test == gold);
 
-    fk::vector<TestType> moved_o{2, 3, 4, 5, 6};
+    // views
+    fk::vector<TestType> moved_o(gold);
     fk::vector<TestType, mem_type::view> moved_v(moved_o);
     fk::vector<TestType> test_o(5);
     fk::vector<TestType, mem_type::view> test_v(test_o);
-    test_v = std::move(moved_v);
+    TestType *const test_data_v = test_v.data();
+    test_v                      = std::move(moved_v);
+    REQUIRE(test_v.data() == moved_o.data());
+    REQUIRE(moved_v.data() == test_data_v);
     REQUIRE(test_v == gold);
   }
+
   SECTION("copy from std::vector")
   {
     std::vector<TestType> v{2, 3, 4, 5, 6};
@@ -275,16 +384,22 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   }
   SECTION("copy into std::vector")
   {
-    std::vector<TestType> goldv{2, 3, 4, 5, 6};
+    std::vector<TestType> const goldv{2, 3, 4, 5, 6};
 
-    std::vector<TestType> testv;
-    testv = gold.to_std();
+    // owners
+    std::vector<TestType> const testv(gold.to_std());
     compare_vectors(testv, goldv);
 
-    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
-    std::vector<TestType> testv_v;
-    testv_v = gold_v.to_std();
+    // views
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+    std::vector<TestType> const testv_v(gold_v.to_std());
     compare_vectors(testv_v, goldv);
+
+    // const views
+    fk::vector<TestType, mem_type::const_view> const gold_cv(gold);
+    std::vector<TestType> const testv_cv(gold_cv.to_std());
+    compare_vectors(testv_cv, goldv);
   }
 } // end fk::vector constructors, copy/move
 
