@@ -1866,14 +1866,15 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     {16, 26, 36},
   };
 
-  fk::matrix<TestType> const gold_own{
+  fk::matrix<TestType> gold_own{
     {12, 22, 32},
     {13, 23, 33},
     {14, 24, 34},
     {15, 25, 35},
     {16, 26, 36},
   }; // clang-format on
-  fk::matrix<TestType, mem_type::const_view> const gold_v(gold_own);
+  fk::matrix<TestType, mem_type::view> const gold_v(gold_own);
+  fk::matrix<TestType, mem_type::const_view> const gold_cv(gold);
 
   SECTION("subscript operator (modifying)")
   {
@@ -1919,13 +1920,16 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   }
   SECTION("subscript operator (const)")
   {
-    TestType const test   = gold(4, 2);
-    TestType const test_v = gold_v(4, 2);
+    TestType const gold_value = 36;
+    TestType const test       = gold(4, 2);
+    TestType const test_v     = gold_v(4, 2);
+    TestType const test_cv    = gold_cv(4, 2);
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 4, 4, 1, 2);
     TestType const test_v_p = gold_v_p(0, 1);
-    REQUIRE(test == 36);
-    REQUIRE(test_v == 36);
-    REQUIRE(test_v_p == 36);
+    REQUIRE(test == gold_value);
+    REQUIRE(test_v == gold_value);
+    REQUIRE(test_cv == gold_value);
+    REQUIRE(test_v_p == gold_value);
   }
   SECTION("comparison operator") // this gets used in every REQUIRE
   SECTION("comparison (negated) operator")
@@ -1933,71 +1937,104 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType> test(gold);
 
     fk::matrix<TestType> own(gold);
-    fk::matrix<TestType> test_v(own);
+    fk::matrix<TestType, mem_type::view> test_v(own);
 
     test(4, 2)   = 333;
     test_v(4, 2) = 333;
 
     REQUIRE(test != gold);
     REQUIRE(test_v != gold);
+    REQUIRE(gold_cv != test);
+    REQUIRE(gold_cv != test_v);
   }
 
   SECTION("less than operator")
   {
-    fk::matrix<TestType> const empty;
-    fk::matrix<TestType, mem_type::const_view> const empty_v(empty);
+    fk::matrix<TestType> empty;
 
-    fk::matrix<TestType> const gold_copy = gold;
-    fk::matrix<TestType, mem_type::const_view> const gold_copy_v(gold_copy);
+    fk::matrix<TestType, mem_type::view> const empty_v(empty);
+    fk::matrix<TestType, mem_type::const_view> const empty_cv(empty);
 
-    fk::matrix<TestType> const gold_prefix{{12, 13, 14}};
-    fk::matrix<TestType, mem_type::const_view> const gold_prefix_v(gold_prefix);
+    fk::matrix<TestType> gold_copy = gold;
+    fk::matrix<TestType, mem_type::view> const gold_copy_v(gold_copy);
+    fk::matrix<TestType, mem_type::const_view> const gold_copy_cv(gold_copy);
 
-    fk::matrix<TestType> const mismatch{{12, 13, 15}};
-    fk::matrix<TestType, mem_type::const_view> const mismatch_v(mismatch);
+    fk::matrix<TestType> gold_prefix{{12, 13, 14}};
+    fk::matrix<TestType, mem_type::view> const gold_prefix_v(gold_prefix);
+    fk::matrix<TestType, mem_type::const_view> const gold_prefix_cv(
+        gold_prefix);
+
+    fk::matrix<TestType> mismatch{{12, 13, 15}};
+    fk::matrix<TestType, mem_type::view> const mismatch_v(mismatch);
+    fk::matrix<TestType, mem_type::const_view> const mismatch_cv(mismatch);
 
     // equal vectors return false
     REQUIRE(!(gold_copy < gold));
     REQUIRE(!(gold_copy < gold_v));
+    REQUIRE(!(gold_copy < gold_cv));
     REQUIRE(!(gold_copy_v < gold));
     REQUIRE(!(gold_copy_v < gold_v));
+    REQUIRE(!(gold_copy_v < gold_cv));
+    REQUIRE(!(gold_copy_cv < gold));
+    REQUIRE(!(gold_copy_cv < gold_v));
+    REQUIRE(!(gold_copy_cv < gold_cv));
 
     // empty range less than non-empty range
     REQUIRE(empty < gold);
     REQUIRE(empty < gold_v);
+    REQUIRE(empty < gold_cv);
     REQUIRE(empty_v < gold);
     REQUIRE(empty_v < gold_v);
+    REQUIRE(empty_v < gold_cv);
+    REQUIRE(empty_cv < gold);
+    REQUIRE(empty_cv < gold_v);
+    REQUIRE(empty_cv < gold_cv);
 
     // a prefix is less than the complete range
     REQUIRE(gold_prefix < gold);
     REQUIRE(gold_prefix < gold_v);
+    REQUIRE(gold_prefix < gold_cv);
     REQUIRE(gold_prefix_v < gold);
     REQUIRE(gold_prefix_v < gold_v);
+    REQUIRE(gold_prefix_v < gold_cv);
+    REQUIRE(gold_prefix_cv < gold);
+    REQUIRE(gold_prefix_cv < gold_v);
+    REQUIRE(gold_prefix_cv < gold_cv);
 
     // otherwise compare on first mismatch
     REQUIRE(gold < mismatch);
     REQUIRE(gold < mismatch_v);
+    REQUIRE(gold < mismatch_cv);
     REQUIRE(gold_v < mismatch);
     REQUIRE(gold_v < mismatch_v);
+    REQUIRE(gold_v < mismatch_cv);
+    REQUIRE(gold_cv < mismatch);
+    REQUIRE(gold_cv < mismatch_v);
+    REQUIRE(gold_cv < mismatch_cv);
 
     // also, empty ranges are equal
     REQUIRE(!(empty < empty));
     REQUIRE(!(empty < empty_v));
+    REQUIRE(!(empty < empty_cv));
     REQUIRE(!(empty_v < empty));
     REQUIRE(!(empty_v < empty_v));
+    REQUIRE(!(empty_v < empty_cv));
+    REQUIRE(!(empty_cv < empty));
+    REQUIRE(!(empty_cv < empty_v));
+    REQUIRE(!(empty_cv < empty_cv));
   }
 
   SECTION("matrix+matrix addition")
   {
     // clang-format off
-    fk::matrix<TestType> const in1 {
+    fk::matrix<TestType> in1 {
       {11, 20, 0},
       {12, 21, 0},
       {13, 22, 0},
       {14, 23, 0},
       {15, 24, 0},
     };
-    fk::matrix<TestType> const in2 {
+    fk::matrix<TestType> in2 {
       {1, 2, 32},
       {1, 2, 33},
       {1, 2, 34},
@@ -2005,30 +2042,40 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {1, 2, 36},
     }; // clang-format on
 
-    fk::matrix<TestType, mem_type::const_view> const in1_v(in1);
-    fk::matrix<TestType, mem_type::const_view> const in2_v(in2);
+    fk::matrix<TestType, mem_type::view> const in1_v(in1);
+    fk::matrix<TestType, mem_type::view> const in2_v(in2);
+    fk::matrix<TestType, mem_type::const_view> const in1_cv(in1);
+    fk::matrix<TestType, mem_type::const_view> const in2_cv(in2);
 
     fk::matrix<TestType, mem_type::const_view> const in1_v_p(in1, 1, 2, 0, 2);
     fk::matrix<TestType, mem_type::const_view> const in2_v_p(in2, 1, 2, 0, 2);
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 2, 0, 2);
 
     REQUIRE((in1 + in2) == gold);
-    REQUIRE((in1_v + in2) == gold);
     REQUIRE((in1 + in2_v) == gold);
+    REQUIRE((in1 + in2_cv) == gold);
+
+    REQUIRE((in1_v + in2) == gold);
     REQUIRE((in1_v + in2_v) == gold);
+    REQUIRE((in1_v + in2_cv) == gold);
+
+    REQUIRE((in1_cv + in2) == gold);
+    REQUIRE((in1_cv + in2_v) == gold);
+    REQUIRE((in1_cv + in2_cv) == gold);
+
     REQUIRE((in1_v_p + in2_v_p) == gold_v_p);
   }
   SECTION("matrix-matrix subtraction")
   {
     // clang-format off
-    fk::matrix<TestType> const in1 {
+    fk::matrix<TestType> in1 {
       {13, 22, 34},
       {14, 23, 35},
       {15, 24, 36},
       {16, 25, 37},
       {17, 26, 38},
     };
-    fk::matrix<TestType> const in2 {
+    fk::matrix<TestType> in2 {
       {1, 0, 2},
       {1, 0, 2},
       {1, 0, 2},
@@ -2036,17 +2083,27 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {1, 0, 2}
     }; // clang-format on
 
-    fk::matrix<TestType, mem_type::const_view> const in1_v(in1);
-    fk::matrix<TestType, mem_type::const_view> const in2_v(in2);
+    fk::matrix<TestType, mem_type::view> const in1_v(in1);
+    fk::matrix<TestType, mem_type::view> const in2_v(in2);
+    fk::matrix<TestType, mem_type::const_view> const in1_cv(in1);
+    fk::matrix<TestType, mem_type::const_view> const in2_cv(in2);
 
     fk::matrix<TestType, mem_type::const_view> const in1_v_p(in1, 0, 3, 1, 2);
     fk::matrix<TestType, mem_type::const_view> const in2_v_p(in2, 0, 3, 1, 2);
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 0, 3, 1, 2);
 
     REQUIRE((in1 - in2) == gold);
-    REQUIRE((in1_v - in2) == gold);
     REQUIRE((in1 - in2_v) == gold);
+    REQUIRE((in1 - in2_cv) == gold);
+
+    REQUIRE((in1_v - in2) == gold);
     REQUIRE((in1_v - in2_v) == gold);
+    REQUIRE((in1_v - in2_cv) == gold);
+
+    REQUIRE((in1_cv - in2) == gold);
+    REQUIRE((in1_cv - in2_v) == gold);
+    REQUIRE((in1_cv - in2_cv) == gold);
+
     REQUIRE((in1_v_p - in2_v_p) == gold_v_p);
   }
 
@@ -2060,7 +2117,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {12, 13, 14},
       {15, 16, 17},
     };
-    fk::matrix<TestType> in_scaled {
+    fk::matrix<TestType> const in_scaled {
       {12, 16, 20},
       {24, 28, 32},
       {36, 40, 44},
@@ -2068,38 +2125,47 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {60, 64, 68},
     }; // clang-format on
 
-    fk::matrix<TestType> own(in);
-    fk::matrix<TestType, mem_type::view> in_v(own);
-    fk::matrix<TestType> own_p(in);
-    fk::matrix<TestType, mem_type::view> in_v_p(own_p, 4, 4, 0, 2);
+    fk::matrix<TestType, mem_type::view> const in_v(in);
+    fk::matrix<TestType, mem_type::const_view> const in_cv(in);
+    fk::matrix<TestType, mem_type::view> const in_v_p(in, 4, 4, 0, 2);
     fk::matrix<TestType, mem_type::const_view> const in_scaled_v_p(in_scaled, 4,
                                                                    4, 0, 2);
     REQUIRE(in * 4 == in_scaled);
     REQUIRE(in_v * 4 == in_scaled);
+    REQUIRE(in_cv * 4 == in_scaled);
     REQUIRE(in_v_p * 4 == in_scaled_v_p);
   }
   SECTION("matrix*vector multiplication")
   {
     // clang-format off
-    fk::matrix<TestType> const testm{
+    fk::matrix<TestType> testm{
       {12, 22, 32},
       {13, 23, 33},
       {14, 24, 34},
       {15, 25, 35},
       {16, 26, 36},
     }; // clang-format on
-    fk::matrix<TestType, mem_type::const_view> const testm_v(testm);
+    fk::matrix<TestType, mem_type::view> const testm_v(testm);
+    fk::matrix<TestType, mem_type::const_view> const testm_cv(testm);
     fk::matrix<TestType, mem_type::const_view> const testm_v_p(testm, 1, 2, 0,
                                                                2);
 
-    fk::vector<TestType> const testv{2, 3, 4};
-    fk::vector<TestType> const testv_v(testv);
+    fk::vector<TestType> testv{2, 3, 4};
+    fk::vector<TestType, mem_type::view> const testv_v(testv);
+    fk::vector<TestType, mem_type::const_view> const testv_cv(testv);
 
     fk::vector<TestType> const gold{218, 227, 236, 245, 254};
     REQUIRE((testm * testv) == gold);
     REQUIRE((testm * testv_v) == gold);
+    REQUIRE((testm * testv_cv) == gold);
+
     REQUIRE((testm_v * testv) == gold);
     REQUIRE((testm_v * testv_v) == gold);
+    REQUIRE((testm_v * testv_cv) == gold);
+
+    REQUIRE((testm_cv * testv) == gold);
+    REQUIRE((testm_cv * testv_v) == gold);
+    REQUIRE((testm_cv * testv_cv) == gold);
 
     fk::vector<TestType> const gold_p = gold.extract(1, 2);
     REQUIRE((testm_v_p * testv_v) == gold_p);
@@ -2118,12 +2184,12 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {347, 497},
       {692, 992}
     };
-    fk::matrix<TestType> const in1 {
+    fk::matrix<TestType> in1 {
       {3, 4, 5, 6, 7},
       {8, 9, 10, 11, 12},
     };
 
-    fk::matrix<TestType> const in2 {
+    fk::matrix<TestType> in2 {
       {12, 22, 32},
       {13, 23, 33},
       {14, 24, 34},
@@ -2131,16 +2197,27 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       {16, 26, 36},
     };
     // clang-format on
-    fk::matrix<TestType, mem_type::const_view> const in1_v(in1);
-    fk::matrix<TestType, mem_type::const_view> const in2_v(in2);
+
+    fk::matrix<TestType, mem_type::view> const in1_v(in1);
+    fk::matrix<TestType, mem_type::view> const in2_v(in2);
+
+    fk::matrix<TestType, mem_type::const_view> const in1_cv(in1);
+    fk::matrix<TestType, mem_type::const_view> const in2_cv(in2);
 
     fk::matrix<TestType, mem_type::const_view> const in1_v_p(in1, 0, 1, 1, 3);
     fk::matrix<TestType, mem_type::const_view> const in2_v_p(in2, 0, 2, 1, 2);
 
     REQUIRE((in1 * in2) == ans);
     REQUIRE((in1 * in2_v) == ans);
+    REQUIRE((in1 * in2_cv) == ans);
+
     REQUIRE((in1_v * in2) == ans);
     REQUIRE((in1_v * in2_v) == ans);
+    REQUIRE((in1_v * in2_cv) == ans);
+
+    REQUIRE((in1_cv * in2) == ans);
+    REQUIRE((in1_cv * in2_v) == ans);
+    REQUIRE((in1_cv * in2_cv) == ans);
 
     REQUIRE((in1_v_p * in2_v_p) == ans_p);
   }
@@ -2148,25 +2225,36 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   {
     // clang-format off
 
-    fk::matrix<TestType> const A {{1,2,3}};
+    fk::matrix<TestType> A {{1,2,3}};
 
-    fk::matrix<TestType> const B {{2,3},
-	                          {4,5},
-				  {6,7},
-				  {8,9}};
+    fk::matrix<TestType> B {{2,3},
+	                    {4,5},
+	                    {6,7},
+	                    {8,9}};
 
     fk::matrix<TestType> const ans {{2,3,4,6,6,9},
 	                            {4,5,8,10,12,15},
 				    {6,7,12,14,18,21},
 				    {8,9,16,18,24,27}};
     // clang-format on
-    fk::matrix<TestType, mem_type::const_view> const A_v(A);
-    fk::matrix<TestType, mem_type::const_view> const B_v(B);
+
+    fk::matrix<TestType, mem_type::view> const A_v(A);
+    fk::matrix<TestType, mem_type::view> const B_v(B);
+
+    fk::matrix<TestType, mem_type::const_view> const A_cv(A);
+    fk::matrix<TestType, mem_type::const_view> const B_cv(B);
 
     REQUIRE(A.kron(B) == ans);
     REQUIRE(A.kron(B_v) == ans);
+    REQUIRE(A.kron(B_cv) == ans);
+
     REQUIRE(A_v.kron(B) == ans);
     REQUIRE(A_v.kron(B_v) == ans);
+    REQUIRE(A_v.kron(B_cv) == ans);
+
+    REQUIRE(A_cv.kron(B) == ans);
+    REQUIRE(A_cv.kron(B_v) == ans);
+    REQUIRE(A_cv.kron(B_cv) == ans);
 
     // add some larger matrices to test partial views...
 
@@ -2247,7 +2335,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     if constexpr (std::is_floating_point<TestType>::value)
     {
       // clang-format off
-    fk::matrix<TestType> const in {
+    fk::matrix<TestType> in {
       {12.130, 14.150, 1.00},
       {13.140, 13.150, 1.00},
       {14.150, 12.130, 1.00},
@@ -2260,12 +2348,14 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       }; // clang-format on
       fk::matrix<TestType, mem_type::const_view> const in_v_p(in_own, 1, 3, 1,
                                                               3);
-      fk::matrix<TestType, mem_type::const_view> const in_v(in);
+      fk::matrix<TestType, mem_type::view> const in_v(in);
+      fk::matrix<TestType, mem_type::const_view> const in_cv(in);
 
       Catch::StringMaker<TestType>::precision = 15;
 
       REQUIRE(in.determinant() == Approx(-0.020200));
       REQUIRE(in_v.determinant() == Approx(-0.020200));
+      REQUIRE(in_cv.determinant() == Approx(-0.020200));
       REQUIRE(in_v_p.determinant() == Approx(-0.020200));
 
       // we haven't implemented a determinant routine for integral types; as
@@ -2282,6 +2372,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 0, 3, 0, 2);
     REQUIRE(gold.nrows() == 5);
     REQUIRE(gold_v.nrows() == 5);
+    REQUIRE(gold_cv.nrows() == 5);
     REQUIRE(gold_v_p.nrows() == 4);
   }
   SECTION("ncols(): the number of columns")
@@ -2289,6 +2380,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 0, 4, 0, 1);
     REQUIRE(gold.ncols() == 3);
     REQUIRE(gold_v.ncols() == 3);
+    REQUIRE(gold_cv.ncols() == 3);
     REQUIRE(gold_v_p.ncols() == 2);
   }
   SECTION("size(): the number of elements")
@@ -2296,14 +2388,17 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 3, 1, 2);
     REQUIRE(gold.size() == 15);
     REQUIRE(gold_v.size() == 15);
+    REQUIRE(gold_cv.size() == 15);
     REQUIRE(gold_v_p.size() == 6);
   }
   SECTION("data(): const get address to an element")
   {
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 3, 4, 1, 2);
-    REQUIRE(*gold.data(4, 2) == 36);
-    REQUIRE(*gold_v.data(4, 2) == 36);
-    REQUIRE(*gold_v_p.data(1, 1) == 36);
+    TestType const gold_value = 36;
+    REQUIRE(*gold.data(4, 2) == gold_value);
+    REQUIRE(*gold_v.data(4, 2) == gold_value);
+    REQUIRE(*gold_cv.data(4, 2) == gold_value);
+    REQUIRE(*gold_v_p.data(1, 1) == gold_value);
   }
 } // end fk::matrix operators
 
@@ -2319,7 +2414,9 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     {16, 26, 36},
   }; // clang-format on
 
-  fk::matrix<TestType, mem_type::const_view> const gold_v(gold);
+  fk::matrix<TestType> gold_copy(gold);
+  fk::matrix<TestType, mem_type::view> const gold_v(gold_copy);
+  fk::matrix<TestType, mem_type::const_view> const gold_cv(gold);
 
   SECTION("matrix update_col(fk::vector)")
   {
@@ -2349,8 +2446,9 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     fk::matrix<TestType> own_p(test);
     fk::matrix<TestType, mem_type::view> test_v_p(own_p, 1, 3, 0, 2);
 
-    fk::vector<TestType> const testv{32, 33, 34, 35, 36};
-    fk::vector<TestType, mem_type::const_view> const testv_v(testv);
+    fk::vector<TestType> testv{32, 33, 34, 35, 36};
+    fk::vector<TestType, mem_type::view> const testv_v(testv);
+    fk::vector<TestType, mem_type::const_view> const testv_cv(testv);
 
     fk::vector<TestType> const testv_p = testv.extract(1, 3);
     fk::vector<TestType, mem_type::const_view> const testv_v_p(testv_p);
@@ -2358,10 +2456,14 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     REQUIRE(test.update_col(2, testv) == gold);
     test = orig;
     REQUIRE(test.update_col(2, testv_v) == gold);
+    test = orig;
+    REQUIRE(test.update_col(2, testv_cv) == gold);
 
     REQUIRE(test_v.update_col(2, testv) == gold);
     test_v = orig;
     REQUIRE(test_v.update_col(2, testv_v) == gold);
+    test_v = orig;
+    REQUIRE(test_v.update_col(2, testv_cv) == gold);
 
     REQUIRE(test_p.update_col(2, testv_p) == gold_v_p);
     test_p = orig_p;
@@ -2412,16 +2514,21 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     fk::matrix<TestType> own(test);
     fk::matrix<TestType, mem_type::view> test_v(own);
 
-    fk::vector<TestType> const testv{16, 26, 36};
-    fk::vector<TestType, mem_type::const_view> const testv_v(testv);
+    fk::vector<TestType> testv{16, 26, 36};
+    fk::vector<TestType, mem_type::view> const testv_v(testv);
+    fk::vector<TestType, mem_type::const_view> const testv_cv(testv);
 
     REQUIRE(test.update_row(4, testv) == gold);
     test = orig;
     REQUIRE(test.update_row(4, testv_v) == gold);
+    test = orig;
+    REQUIRE(test.update_row(4, testv_cv) == gold);
 
     REQUIRE(test_v.update_row(4, testv) == gold);
     test_v = orig;
     REQUIRE(test_v.update_row(4, testv_v) == gold);
+    test_v = orig;
+    REQUIRE(test_v.update_row(4, testv_cv) == gold);
 
     REQUIRE(test_v_p.update_row(1, testv) == gold_v_p);
     test_v_p = orig_p;
@@ -2484,13 +2591,13 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     fk::matrix<TestType, mem_type::view> test_v_p(own_p, 0, 3, 1, 2);
     fk::matrix<TestType> const orig_p(test_v_p);
 
-    fk::matrix<TestType> const sub {
+    fk::matrix<TestType> sub {
       {-13, -23},
       {-14, -24},
       {-15, -25},
     };
-    fk::matrix<TestType, mem_type::const_view> const sub_v(sub);
-
+    fk::matrix<TestType, mem_type::view> const sub_v(sub);
+    fk::matrix<TestType, mem_type::const_view> const sub_cv(sub);
 
     fk::matrix<TestType> const after_set {
       {12,  22,  32},
@@ -2506,13 +2613,21 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     test = orig;
     REQUIRE(test.set_submatrix(1, 1, sub_v) == after_set);
     test = orig;
+    REQUIRE(test.set_submatrix(1, 1, sub_cv) == after_set);
+    test = orig;
+
     REQUIRE(test_v.set_submatrix(1, 1, sub) == after_set);
     test_v = orig;
     REQUIRE(test_v.set_submatrix(1, 1, sub_v) == after_set);
     test_v = orig;
+    REQUIRE(test_v.set_submatrix(1, 1, sub_cv) == after_set);
+    test_v = orig;
+
     REQUIRE(test_v_p.set_submatrix(1, 0, sub) == after_set_v_p);
     test_v_p = orig_p;
     REQUIRE(test_v_p.set_submatrix(1, 0, sub_v) == after_set_v_p);
+    test_v_p = orig_p;
+    REQUIRE(test_v_p.set_submatrix(1, 0, sub_cv) == after_set_v_p);
     test_v_p = orig_p;
 
     // now, test setting a partial view
@@ -2545,12 +2660,12 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
       {0, 0, 35},
     };
 
-    fk::matrix<TestType> const own(test);
-    fk::matrix<TestType, mem_type::const_view> const test_v(own);
+    fk::matrix<TestType> own(test);
+    fk::matrix<TestType, mem_type::view> const test_v(own);
+    fk::matrix<TestType, mem_type::const_view> const test_cv(own);
 
     fk::matrix<TestType> const own_p(test);
     fk::matrix<TestType, mem_type::const_view> const test_v_p(own_p, 1, 4, 0, 1);
-
 
     fk::matrix<TestType> const sub {
       {13, 23},
@@ -2560,6 +2675,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
 
     REQUIRE(test.extract_submatrix(1, 0, 3, 2) == sub);
     REQUIRE(test_v.extract_submatrix(1, 0, 3, 2) == sub);
+    REQUIRE(test_cv.extract_submatrix(1, 0, 3, 2) == sub);
     REQUIRE(test_v_p.extract_submatrix(0, 0, 3, 2) == sub);
   }
 
@@ -2567,105 +2683,112 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   {
     // (effectively) redirect cout
     std::streambuf *old_cout_stream_buf = std::cout.rdbuf();
-    std::ostringstream test_str;
+    std::ostringstream test_str, test_str_v, test_str_cv, test_str_vp;
+
+    fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 3, 0, 2);
+
+    // generate the output (into test_strs)
     std::cout.rdbuf(test_str.rdbuf());
-    // generate the output (into test_str)
     gold.print("golden matrix");
+    std::cout.rdbuf(test_str_v.rdbuf());
+    gold_v.print("golden matrix");
+    std::cout.rdbuf(test_str_cv.rdbuf());
+    gold_cv.print("golden matrix");
+    std::cout.rdbuf(test_str_vp.rdbuf());
+    gold_v_p.print("golden matrix");
+
     // restore cout destination
     std::cout.rdbuf(old_cout_stream_buf);
 
-    std::string golden_string;
+    std::string golden_string, golden_string_v, golden_string_cv,
+        golden_string_vp;
     if constexpr (std::is_floating_point<TestType>::value)
     {
       golden_string =
-          "golden matrix(owner, outstanding views == 1)\n  1.2000e+01  "
+          "golden matrix(owner, outstanding views == 2)\n  1.2000e+01  "
           "2.2000e+01  3.2000e+01\n  "
           "1.3000e+01  "
           "2.3000e+01  3.3000e+01\n  1.4000e+01  2.4000e+01  3.4000e+01\n  "
           "1.5000e+01  2.5000e+01  3.5000e+01\n  1.6000e+01  2.6000e+01  "
           "3.6000e+01\n";
-    }
-    else
-    {
-      golden_string = "golden matrix(owner, outstanding views == 1)\n12 22 32 "
-                      "\n13 23 33 \n14 24 34 \n15 25 "
-                      "35 \n16 26 36 \n";
-    }
-    REQUIRE(test_str.str() == golden_string);
 
-    old_cout_stream_buf = std::cout.rdbuf();
-    std::ostringstream test_str_v;
-    std::cout.rdbuf(test_str_v.rdbuf());
-    gold_v.print("golden matrix");
-    std::cout.rdbuf(old_cout_stream_buf);
-
-    if constexpr (std::is_floating_point<TestType>::value)
-    {
-      golden_string =
+      golden_string_v =
           "golden matrix(view, stride == 5)\n  1.2000e+01  2.2000e+01  "
           "3.2000e+01\n  "
           "1.3000e+01  "
           "2.3000e+01  3.3000e+01\n  1.4000e+01  2.4000e+01  3.4000e+01\n  "
           "1.5000e+01  2.5000e+01  3.5000e+01\n  1.6000e+01  2.6000e+01  "
           "3.6000e+01\n";
+
+      golden_string_cv =
+          "golden matrix(const view, stride == 5)\n  1.2000e+01  2.2000e+01  "
+          "3.2000e+01\n  "
+          "1.3000e+01  "
+          "2.3000e+01  3.3000e+01\n  1.4000e+01  2.4000e+01  3.4000e+01\n  "
+          "1.5000e+01  2.5000e+01  3.5000e+01\n  1.6000e+01  2.6000e+01  "
+          "3.6000e+01\n";
+
+      golden_string_vp =
+          "golden matrix(const view, stride == 5)\n  1.3000e+01  "
+          "2.3000e+01  3.3000e+01\n  "
+          "1.4000e+01  2.4000e+01  3.4000e+01\n  "
+          "1.5000e+01  2.5000e+01  3.5000e+01\n";
     }
     else
     {
-      golden_string = "golden matrix(view, stride == 5)\n12 22 32 \n13 23 33 "
-                      "\n14 24 34 \n15 25 "
+      golden_string = "golden matrix(owner, outstanding views == 2)\n12 22 32 "
+                      "\n13 23 33 \n14 24 34 \n15 25 "
                       "35 \n16 26 36 \n";
-    }
 
-    REQUIRE(test_str_v.str() == golden_string);
-
-    fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 3, 0, 2);
-    old_cout_stream_buf = std::cout.rdbuf();
-    std::ostringstream test_str_v_p;
-    std::cout.rdbuf(test_str_v_p.rdbuf());
-    gold_v_p.print("golden matrix");
-    std::cout.rdbuf(old_cout_stream_buf);
-
-    if constexpr (std::is_floating_point<TestType>::value)
-    {
-      golden_string = "golden matrix(view, stride == 5)\n  1.3000e+01  "
-                      "2.3000e+01  3.3000e+01\n  "
-                      "1.4000e+01  2.4000e+01  3.4000e+01\n  "
-                      "1.5000e+01  2.5000e+01  3.5000e+01\n";
-    }
-    else
-    {
-      golden_string =
-          "golden matrix(view, stride == 5)\n13 23 33 \n14 24 34 \n15 25 "
+      golden_string_v = "golden matrix(view, stride == 5)\n12 22 32 \n13 23 33 "
+                        "\n14 24 34 \n15 25 "
+                        "35 \n16 26 36 \n";
+      golden_string_cv =
+          "golden matrix(const view, stride == 5)\n12 22 32 \n13 23 33 "
+          "\n14 24 34 \n15 25 "
+          "35 \n16 26 36 \n";
+      golden_string_vp =
+          "golden matrix(const view, stride == 5)\n13 23 33 \n14 24 34 \n15 25 "
           "35 \n";
     }
 
-    REQUIRE(test_str_v_p.str() == golden_string);
+    REQUIRE(test_str.str() == golden_string);
+    REQUIRE(test_str_v.str() == golden_string_v);
+    REQUIRE(test_str_cv.str() == golden_string_cv);
+    REQUIRE(test_str_vp.str() == golden_string_vp);
   }
 
   SECTION("dump to octave")
   {
     gold.dump_to_octave("test_out.dat");
     gold_v.dump_to_octave("test_out_v.dat");
+    gold_cv.dump_to_octave("test_out_cv.dat");
+
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 3, 0, 1);
     gold_v_p.dump_to_octave("test_out_v_p.dat");
 
     std::ifstream data_stream("test_out.dat");
     std::ifstream data_stream_v("test_out_v.dat");
+    std::ifstream data_stream_cv("test_out_cv.dat");
     std::ifstream data_stream_v_p("test_out_v_p.dat");
 
     std::string test_string((std::istreambuf_iterator<char>(data_stream)),
                             std::istreambuf_iterator<char>());
     std::string test_string_v((std::istreambuf_iterator<char>(data_stream_v)),
                               std::istreambuf_iterator<char>());
+
+    std::string test_string_cv((std::istreambuf_iterator<char>(data_stream_cv)),
+                               std::istreambuf_iterator<char>());
     std::string test_string_v_p(
         (std::istreambuf_iterator<char>(data_stream_v_p)),
         std::istreambuf_iterator<char>());
 
     std::remove("test_out.dat");
     std::remove("test_out_v.dat");
+    std::remove("test_out_cv.dat");
     std::remove("test_out_v_p.dat");
 
-    std::string golden_string;
+    std::string golden_string, golden_string_p;
 
     if constexpr (std::is_floating_point<TestType>::value)
     {
@@ -2675,6 +2798,10 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
           "1.400000000000e+01 2.400000000000e+01 3.400000000000e+01 \n"
           "1.500000000000e+01 2.500000000000e+01 3.500000000000e+01 \n"
           "1.600000000000e+01 2.600000000000e+01 3.600000000000e+01 \n";
+
+      golden_string_p = "1.300000000000e+01 2.300000000000e+01 \n"
+                        "1.400000000000e+01 2.400000000000e+01 \n"
+                        "1.500000000000e+01 2.500000000000e+01 \n";
     }
     else
     {
@@ -2683,25 +2810,16 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
                       "14 24 34 \n"
                       "15 25 35 \n"
                       "16 26 36 \n";
+
+      golden_string_p = "13 23 \n"
+                        "14 24 \n"
+                        "15 25 \n";
     }
 
     REQUIRE(test_string == golden_string);
     REQUIRE(test_string_v == golden_string);
-
-    if constexpr (std::is_floating_point<TestType>::value)
-    {
-      golden_string = "1.300000000000e+01 2.300000000000e+01 \n"
-                      "1.400000000000e+01 2.400000000000e+01 \n"
-                      "1.500000000000e+01 2.500000000000e+01 \n";
-    }
-    else
-    {
-      golden_string = "13 23 \n"
-                      "14 24 \n"
-                      "15 25 \n";
-    }
-
-    REQUIRE(test_string_v_p == golden_string);
+    REQUIRE(test_string_cv == golden_string);
+    REQUIRE(test_string_v_p == golden_string_p);
   }
 
   SECTION("matrix transform")
@@ -2750,40 +2868,45 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   SECTION("matrix maximum element")
   {
     // clang-format off
-    fk::matrix<TestType> const test {
+    fk::matrix<TestType> test {
      {1, 2, 3, 4},
      {5, 6, 11, 8},
     }; // clang-format on
-    fk::matrix<TestType, mem_type::const_view> const test_v(test);
+    fk::matrix<TestType, mem_type::view> const test_v(test);
+    fk::matrix<TestType, mem_type::const_view> const test_cv(test);
     fk::matrix<TestType, mem_type::const_view> const test_v_p(test, 0, 1, 1, 2);
 
     TestType const max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
     REQUIRE(*std::max_element(test_v.begin(), test_v.end()) == max);
+    REQUIRE(*std::max_element(test_cv.begin(), test_cv.end()) == max);
     REQUIRE(*std::max_element(test_v_p.begin(), test_v_p.end()) == max);
   }
 
   SECTION("matrix sum of elements")
   {
     // clang-format off
-    fk::matrix<TestType> const test {
+    fk::matrix<TestType> test {
      {1, 2, 3, 4},
      {5, 6, 7, 8},
     }; // clang-format on
-    fk::matrix<TestType, mem_type::const_view> const test_v(test);
+
+    fk::matrix<TestType, mem_type::view> const test_v(test);
+    fk::matrix<TestType, mem_type::const_view> const test_cv(test);
     fk::matrix<TestType, mem_type::const_view> const test_v_p(test, 0, 0, 1, 3);
 
     TestType const sum   = 36;
     TestType const sum_p = 9;
     REQUIRE(std::accumulate(test.begin(), test.end(), 0) == sum);
     REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0) == sum);
+    REQUIRE(std::accumulate(test_cv.begin(), test_cv.end(), 0) == sum);
     REQUIRE(std::accumulate(test_v_p.begin(), test_v_p.end(), 0) == sum_p);
   }
 
   SECTION("matrix ref counting")
   {
     // on construction, matrices have 0 views
-    fk::matrix<TestType> const test;
+    fk::matrix<TestType> test;
     REQUIRE(test.get_num_views() == 0);
     fk::matrix<TestType> const test_init({{1}});
     REQUIRE(test_init.get_num_views() == 0);
@@ -2795,7 +2918,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     REQUIRE(test_copy.get_num_views() == 0);
 
     // creating views increments view count
-    fk::matrix<TestType, mem_type::const_view> const test_view(test);
+    fk::matrix<TestType, mem_type::view> const test_view(test);
     REQUIRE(test.get_num_views() == 1);
     fk::matrix<TestType, mem_type::const_view> const test_view_2(test);
     REQUIRE(test.get_num_views() == 2);
@@ -2811,6 +2934,12 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
       REQUIRE(test.get_num_views() == 3);
     }
     REQUIRE(test.get_num_views() == 2);
+
+    // moving views does not affect the view count
+    fk::matrix<TestType, mem_type::const_view> test_view_3(test);
+    REQUIRE(test.get_num_views() == 3);
+    fk::matrix<TestType, mem_type::const_view> test_view_4(std::move(test_view_3);  
+    REQUIRE(test.get_num_views() == 3);
   }
 
 } // end fk::matrix utilities

@@ -2195,11 +2195,11 @@ fk::matrix<P, mem, resrc>::determinant() const
 {
   assert(nrows() == ncols());
 
-  matrix temp{*this}; // get temp copy to do LU
+  matrix<P, mem_type::owner> temp(*this); // get temp copy to do LU
   int *ipiv{new int[ncols()]};
   int info;
-  int n   = ncols();
-  int lda = stride();
+  int n   = temp.ncols();
+  int lda = temp.stride();
 
   lib_dispatch::getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
 
