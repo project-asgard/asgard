@@ -20,20 +20,14 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-// settings for time advance testing
-static auto constexpr num_steps          = 5;
-static auto constexpr workspace_limit_MB = 1000;
+int const num_steps          = 5;
+int const workspace_limit_MB = 1000;
 
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
                        bool const full_grid                            = false,
-                       std::vector<std::string> const &additional_args = {},
-                       double const eps_multiplier                     = 1e4,//)
-// eps multiplier determined empirically 11/19; lowest epsilon multiplier
-                       double const tol_factor                         = 1e4)
-// tol factor determined empirically 11/19; lowest tolerance
-// for which all current tests pass with the exception of fp2d
+                       std::vector<std::string> const &additional_args = {})
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
@@ -52,7 +46,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // can't run problem with fewer elements than ranks
   // this is asserted on in the distribution component
-  if (num_ranks > static_cast<int>(table.size()))
+  if (num_ranks < static_cast<int>(table.size()))
   {
     return;
   }
@@ -121,7 +115,10 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
 
-    relaxed_comparison(gold, host_space.x, eps_multiplier);
+    // determined empirically 11/19; lowest tolerance
+    // for which all current tests pass
+    auto const tol_scale = 1e4;
+    relaxed_comparison(gold, host_space.x, tol_scale);
   }
 }
 
@@ -156,7 +153,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 }
 TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
@@ -178,8 +176,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     int const level  = 2;
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     bool const full_grid = true;
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 
@@ -190,7 +188,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 }
 
@@ -214,7 +213,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
 }
 
@@ -254,10 +254,14 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     int const degree = 2;
     int const level  = 2;
 
+    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
     std::string const gold_base =
         "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
+
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
   }
 }
 
@@ -271,9 +275,13 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck1_4p1a_sg_l2_d2_t";
 
+    std::vector<std::string> const addtl_args = {"-c", std::to_string(0.01)};
     auto pde =
         make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
+
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args);
   }
 }
 
@@ -287,15 +295,14 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck2_complete_sg_l3_d3_t";
-    auto pde =
-        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
-    bool const full_grid                      = false;
     std::vector<std::string> const addtl_args = {
         "-c", to_string_with_precision(1e-10, 16)};
-    double tol_factor = 1e4; // FIXME why so high?
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
 
+    bool const full_grid = false;
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args, tol_factor);
+                      addtl_args);
   }
 }
 
@@ -321,7 +328,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   std::string const grid_str = full_grid ? "-f" : "";
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
-                    "-c", std::to_string(0.1), "--implicit", grid_str});
+                    "--implicit", grid_str});
 
   element_table const table(o, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);

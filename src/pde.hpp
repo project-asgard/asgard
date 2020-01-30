@@ -16,7 +16,6 @@
 #include "pde/pde_continuity3.hpp"
 #include "pde/pde_continuity6.hpp"
 #include "pde/pde_fokkerplanck1_4p1a.hpp"
-#include "pde/pde_fokkerplanck1_4p1b.hpp"
 #include "pde/pde_fokkerplanck1_4p2.hpp"
 #include "pde/pde_fokkerplanck1_4p3.hpp"
 #include "pde/pde_fokkerplanck1_4p4.hpp"
@@ -40,7 +39,6 @@ enum class PDE_opts
   continuity_3,
   continuity_6,
   fokkerplanck_1d_4p1a,
-  fokkerplanck_1d_4p1b,
   fokkerplanck_1d_4p2,
   fokkerplanck_1d_4p3,
   fokkerplanck_1d_4p4,
@@ -66,7 +64,6 @@ static pde_map_t const pde_mapping = {
     {"continuity_3", PDE_opts::continuity_3},
     {"continuity_6", PDE_opts::continuity_6},
     {"fokkerplanck_1d_4p1a", PDE_opts::fokkerplanck_1d_4p1a},
-    {"fokkerplanck_1d_4p1b", PDE_opts::fokkerplanck_1d_4p1b},
     {"fokkerplanck_1d_4p2", PDE_opts::fokkerplanck_1d_4p2},
     {"fokkerplanck_1d_4p3", PDE_opts::fokkerplanck_1d_4p3},
     {"fokkerplanck_1d_4p4", PDE_opts::fokkerplanck_1d_4p4},
@@ -102,8 +99,6 @@ make_PDE(PDE_opts choice, int const level = -1, int const degree = -1)
     return std::make_unique<PDE_continuity_6d<P>>(level, degree);
   case PDE_opts::fokkerplanck_1d_4p1a:
     return std::make_unique<PDE_fokkerplanck_1d_4p1a<P>>(level, degree);
-  case PDE_opts::fokkerplanck_1d_4p1b:
-    return std::make_unique<PDE_fokkerplanck_1d_4p1b<P>>(level, degree);
   case PDE_opts::fokkerplanck_1d_4p2:
     return std::make_unique<PDE_fokkerplanck_1d_4p2<P>>(level, degree);
   case PDE_opts::fokkerplanck_1d_4p3:
