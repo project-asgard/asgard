@@ -246,8 +246,9 @@ void test_gen_realspace_transform(PDE<P> const &pde,
     fk::matrix<P> const gold = fk::matrix<P>(
         read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
     // determined emprically 11/19
-    // FIXME these are high relative to other components...
-    auto const gen_eps_multiplier = std::is_same<float, P>::value ? 1e2 : 1e6;
+    // FIXME the double precision version is high relative to other
+    // components...
+    auto const gen_eps_multiplier = std::is_same<float, P>::value ? 1e2 : 1e7;
     relaxed_comparison(gold, transforms[i], gen_eps_multiplier);
   }
 }

@@ -74,10 +74,12 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
         TestType>(read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_10_neg1_1.dat"));
 
-    int const n                 = 10;
-    int const a                 = -1;
-    int const b                 = 1;
-    auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
+    int const n                = 10;
+    int const a                = -1;
+    int const b                = 1;
+    bool const use_degree_quad = true;
+    auto const [roots, weights] =
+        legendre_weights<TestType>(n, a, b, use_degree_quad);
     relaxed_comparison(roots, roots_gold, quadrature_eps_multiplier);
     relaxed_comparison(weights, weights_gold, quadrature_eps_multiplier);
   }
@@ -91,10 +93,12 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
         TestType>(read_matrix_from_txt_file(
         "../testing/generated-inputs/quadrature/lgwt_weights_32_neg5_2.dat"));
 
-    int const n                 = 32;
-    int const a                 = -5;
-    int const b                 = 2;
-    auto const [roots, weights] = legendre_weights<TestType>(n, a, b);
+    int const n                = 32;
+    int const a                = -5;
+    int const b                = 2;
+    bool const use_degree_quad = true;
+    auto const [roots, weights] =
+        legendre_weights<TestType>(n, a, b, use_degree_quad);
 
     relaxed_comparison(roots, roots_gold, quadrature_eps_multiplier);
     relaxed_comparison(weights, weights_gold, quadrature_eps_multiplier);

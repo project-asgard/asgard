@@ -103,7 +103,9 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
     fk::matrix<P> dimension_transform(deg_freedom_1d, deg_freedom_1d);
     /* create matrix of Legendre polynomial basis functions evaluated at the
      * roots */
-    auto const roots = legendre_weights<P>(d.get_degree(), -1, 1)[0];
+    bool const use_degree_quad = true;
+    auto const roots =
+        legendre_weights<P>(d.get_degree(), -1, 1, use_degree_quad)[0];
     /* normalized legendre transformation matrix. Column i is legendre
        polynomial of degree i. element (i, j) is polynomial evaluated at jth
        root of the highest degree polynomial */
@@ -217,10 +219,11 @@ combine_dimensions(int const degree, element_table const &table,
           degree > 1 ? (((id + 1) * degree) - 1) : index_start;
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
-    fk::vector<P> const partial_result =
-        kron_d(kron_list, kron_list.size()) * time_scale;
-    combined.set_subvector((i - start_element) * std::pow(degree, num_dims),
-                           partial_result);
+    int const start_index = (i - start_element) * std::pow(degree, num_dims);
+    int const stop_index  = start_index + std::pow(degree, num_dims) - 1;
+    fk::vector<P, mem_type::view> combined_view(combined, start_index,
+                                                stop_index);
+    combined_view = kron_d(kron_list, kron_list.size()) * time_scale;
   }
   return combined;
 }

@@ -64,15 +64,10 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
   int const degrees_freedom_1d = dim.get_degree() * num_points;
   fk::matrix<double> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
-  // set number of quatrature points
-  // FIXME should this be order dependent?
-  // FIXME is this a global quantity??
-  int const quad_num = 10;
-
   // get quadrature points and quadrature_weights.
   // we do the two-step store because we cannot have 'static' bindings
   static auto const legendre_values =
-      legendre_weights<double>(quad_num, -1.0, 1.0);
+      legendre_weights<double>(dim.get_degree(), -1.0, 1.0);
   auto const [quadrature_points, quadrature_weights] = legendre_values;
   auto const [legendre_poly_L, legendre_poly_R]      = [&]() {
     auto [lP_L, lPP_L] = legendre(fk::vector<double>{-1}, dim.get_degree());
