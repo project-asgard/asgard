@@ -63,5 +63,14 @@ View output in MATLAB
 ```
 hinfo = hdf5info('asgard_realspace.h5');
 dset = hdf5read(hinfo.GroupHierarchy.Datasets(1));
-semilogy(linspace(-1,1,length(dset)),dset)
+plot(dset)
 ```
+
+Additional options can be viewed using the help option
+```
+./asgard -h
+```
+
+For more details on options, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/program-options)
+
+For additional examples for executing existing PDEs, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/custom-pdes)
