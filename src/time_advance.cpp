@@ -113,10 +113,9 @@ scale_sources(PDE<P> const &pde,
 template<typename P>
 static void
 apply_A(PDE<P> const &pde, element_table const &elem_table,
-               element_subgrid const &grid,
-               std::vector<element_chunk> const &chunks,
-               host_workspace<P> &host_space, rank_workspace<P> &rank_space,
-               std::vector<batch_operands_set<P>> &batches)
+        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
+        host_workspace<P> &host_space, rank_workspace<P> &rank_space,
+        std::vector<batch_operands_set<P>> &batches)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
 
