@@ -1426,7 +1426,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           gold.clone_onto_device());
       fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
       fk::vector<TestType, mem_type::const_view, resource::device> const
-          view_cview(vect);
+          vect_cview(vect);
       REQUIRE(vect_view.data() == vect.data());
       REQUIRE(vect_cview.data() == vect.data());
       {
@@ -1483,8 +1483,9 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     {16.0, 26.0, 36.0},
   }; // clang-format on
 
-  fk::matrix<TestType> const gold_own(gold);
-  fk::matrix<TestType, mem_type::const_view> const gold_v(gold_own);
+  fk::matrix<TestType, mem_type::const_view> const gold_cv(gold);
+  fk::matrix<TestType> gold_own(gold);
+  fk::matrix<TestType, mem_type::view> const gold_v(gold_own);
 
   SECTION("default constructor")
   {
@@ -1518,7 +1519,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     }; // clang-format on
 
     // clang-format off
-    /* fk::matrix<TestType, mem_type::const_view> const test_v { // disabled
+    /* fk::matrix<TestType, mem_type::view> const test_v { // disabled
       {12, 22, 32},
       {13, 23, 33},
       {14, 24, 34},
@@ -1530,10 +1531,12 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
   }
   SECTION("copy construction")
   {
-    fk::matrix<TestType> test(gold);
-    fk::matrix<TestType> test_v(gold_v);
+    fk::matrix<TestType> const test(gold);
+    fk::matrix<TestType> const test_v(gold_v);
+    fk::matrix<TestType, mem_type::const_view> const test_cv(gold_cv);
     REQUIRE(test == gold);
     REQUIRE(test_v == gold);
+    REQUIRE(test_cv == gold);
   }
   SECTION("copy assignment")
   {
@@ -1544,23 +1547,30 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     fk::matrix<TestType> test_v(own);
     test_v = gold_v;
     REQUIRE(test_v == gold);
+    // disabled for const views
   }
   SECTION("converting copy construction")
   {
-    fk::matrix<int> testi(gold);
-    fk::matrix<int> testi_fv(gold_v);
+    fk::matrix<int> const testi(gold);
+    fk::matrix<int> const testi_v(gold_v);
+    fk::matrix<int> const testi_cv(gold_cv);
     REQUIRE(testi == goldi);
-    REQUIRE(testi_fv == goldi);
+    REQUIRE(testi_v == goldi);
+    REQUIRE(testi_cv == goldi);
 
-    fk::matrix<float> testf(gold);
-    fk::matrix<float> testf_fv(gold_v);
+    fk::matrix<float> const testf(gold);
+    fk::matrix<float> const testf_v(gold_v);
+    fk::matrix<float> const testf_cv(gold_cv);
     REQUIRE(testf == goldf);
-    REQUIRE(testf_fv == goldf);
+    REQUIRE(testf_v == goldf);
+    REQUIRE(testf_cv == goldf);
 
-    fk::matrix<double> testd(gold);
-    fk::matrix<double> testd_fv(gold_v);
+    fk::matrix<double> const testd(gold);
+    fk::matrix<double> const testd_v(gold_v);
+    fk::matrix<double> const testd_cv(gold_cv);
     REQUIRE(testd == goldd);
-    REQUIRE(testd_fv == goldd);
+    REQUIRE(testd_v == goldd);
+    REQUIRE(testd_cv == goldd);
   }
   SECTION("converting copy assignment")
   {
@@ -1570,45 +1580,42 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
 
     testi = gold;
     REQUIRE(testi == goldi);
-    testi = fk::matrix<int>(5, 3);
+    std::fill(testi.begin(), testi.end(), 0);
     testi = gold_v;
+    REQUIRE(testi == goldi);
+    std::fill(testi.begin(), testi.end(), 0);
+    testi = gold_cv;
     REQUIRE(testi == goldi);
 
     testi_v = gold;
     REQUIRE(testi_v == goldi);
-
-    for (int i = 0; i < testi_own.nrows(); ++i)
-    {
-      for (int j = 0; j < testi_own.ncols(); ++j)
-      {
-        testi_own(i, j) = 0;
-      }
-    }
-
+    std::fill(testi_own.begin(), testi_own.end(), 0);
     testi_v = gold_v;
+    REQUIRE(testi_v == goldi);
+    std::fill(testi_own.begin(), testi_own.end(), 0);
+    testi_v = gold_cv;
     REQUIRE(testi_v == goldi);
 
     fk::matrix<float> testf(5, 3);
     fk::matrix<float> testf_own(5, 3);
     fk::matrix<float, mem_type::view> testf_v(testf_own);
+
     testf = gold;
     REQUIRE(testf == goldf);
-    testf = fk::matrix<float>(5, 3);
+    std::fill(testf.begin(), testf.end(), 0);
     testf = gold_v;
+    REQUIRE(testf == goldf);
+    std::fill(testf.begin(), testf.end(), 0);
+    testf = gold_cv;
     REQUIRE(testf == goldf);
 
     testf_v = gold;
     REQUIRE(testf_v == goldf);
-
-    for (int i = 0; i < testf_own.nrows(); ++i)
-    {
-      for (int j = 0; j < testf_own.ncols(); ++j)
-      {
-        testf_own(i, j) = 0;
-      }
-    }
-
+    std::fill(testf_own.begin(), testf_own.end(), 0);
     testf_v = gold_v;
+    REQUIRE(testf_v == goldf);
+    std::fill(testf_own.begin(), testf_own.end(), 0);
+    testf_v = gold_cv;
     REQUIRE(testf_v == goldf);
 
     fk::matrix<double> testd(5, 3);
@@ -1617,22 +1624,20 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
 
     testd = gold;
     REQUIRE(testd == goldd);
-    testd = fk::matrix<double>(5, 3);
-
+    std::fill(testd.begin(), testd.end(), 0);
     testd = gold_v;
+    REQUIRE(testd == goldd);
+    std::fill(testd.begin(), testd.end(), 0);
+    testd = gold_cv;
     REQUIRE(testd == goldd);
 
     testd_v = gold;
     REQUIRE(testd_v == goldd);
-
-    for (int i = 0; i < testd_own.nrows(); ++i)
-    {
-      for (int j = 0; j < testd_own.ncols(); ++j)
-      {
-        testd_own(i, j) = 0;
-      }
-    }
+    std::fill(testd_own.begin(), testd_own.end(), 0);
     testd_v = gold_v;
+    REQUIRE(testd_v == goldd);
+    std::fill(testd_own.begin(), testd_own.end(), 0);
+    testd_v = gold_cv;
     REQUIRE(testd_v == goldd);
   }
   SECTION("move construction")
@@ -1656,18 +1661,24 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     }; // clang-format on
 
     fk::matrix<TestType, mem_type::view> moved_v(moved_own);
+    fk::matrix<TestType, mem_type::const_view> moved_cv(moved_own);
 
-    // FIXME what is this??
-    fk::matrix<TestType> test(
-        [](fk::matrix<TestType> in) -> fk::matrix<TestType> {
-          return in;
-        }(moved));
-    // fk::matrix test(std::move(moved));
-
-    fk::matrix<TestType, mem_type::view> test_v(std::move(moved_v));
-
+    TestType *const test_data = moved.data();
+    fk::matrix<TestType> const test(std::move(moved));
     REQUIRE(test == gold);
+    REQUIRE(test.data() == test_data);
+    REQUIRE(moved.data() == nullptr);
+
+    fk::matrix<TestType, mem_type::view> const test_v(std::move(moved_v));
     REQUIRE(test_v == gold);
+    REQUIRE(test_v.data() == moved_own.data());
+    REQUIRE(moved_v.data() == nullptr);
+
+    fk::matrix<TestType, mem_type::const_view> const test_cv(
+        std::move(moved_cv));
+    REQUIRE(test_cv == gold);
+    REQUIRE(test_cv.data() == moved_own.data());
+    REQUIRE(moved_cv.data() == nullptr);
   }
   SECTION("move assignment")
   {
@@ -1698,17 +1709,12 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
     test_v = std::move(moved_v);
     REQUIRE(test == gold);
     REQUIRE(test_v == gold);
+    // disabled for const views
   }
   SECTION("copy from fk::vector")
   {
     // clang-format off
-    std::vector<TestType> vstd
-      {12, 22, 32,
-       13, 23, 33,
-       14, 24, 34,
-       15, 25, 35,
-       16, 26, 36};
-    fk::vector<TestType> vfk
+    fk::vector<TestType> const vfk
       {12, 22, 32,
        13, 23, 33,
        14, 24, 34,
@@ -1716,21 +1722,9 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
        16, 26, 36};
     // clang-format on
 
-    // FIXME what is under test here? looks like also
-    // testing conversion to fk vect?
-
-    fk::matrix<TestType> teststd(5, 3);
-    teststd = fk::vector<TestType>{vstd};
-
+    fk::matrix<TestType> testfk(5, 3);
     fk::matrix<TestType> own(5, 3);
     fk::matrix<TestType, mem_type::view> test_v(own);
-    test_v = fk::vector<TestType>{vstd};
-
-    REQUIRE(teststd == gold);
-    REQUIRE(test_v == gold);
-
-    fk::matrix<TestType> testfk(5, 3);
-    own = testfk;
 
     testfk = vfk;
     test_v = vfk;
@@ -1739,6 +1733,25 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
   }
 
   SECTION("views constructor")
+  {
+    // default one
+    fk::matrix<TestType> base(gold);
+    fk::matrix<TestType, mem_type::view> const view(base);
+    REQUIRE(base == view);
+
+    // ranged
+    fk::matrix<TestType, mem_type::view> const view_2(base, 0, 2, 1, 2);
+    fk::matrix<TestType> const gold_partial_2 =
+        gold.extract_submatrix(0, 1, 3, 2);
+    REQUIRE(view_2 == gold_partial_2);
+
+    fk::matrix<TestType, mem_type::view> const view_3(base, 1, 1, 0, 2);
+    fk::matrix<TestType> const gold_partial_3 =
+        gold.extract_submatrix(1, 0, 1, 3);
+    REQUIRE(view_3 == gold_partial_3);
+  }
+
+  SECTION("const views constructor")
   {
     // default one
     fk::matrix<TestType> const base(gold);
@@ -1800,6 +1813,43 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
       REQUIRE(view == after_mod_v);
     }
     REQUIRE(base.get_num_views() == 1);
+    fk::matrix<TestType, mem_type::view> view_2(base, 1, 7);
+    REQUIRE(base.get_num_views() == 2);
+    fk::matrix<TestType, mem_type::view> const view_m(std::move(view_2));
+    REQUIRE(base.get_num_views() == 2);
+  }
+
+  SECTION("const views from vector constructor")
+  {
+    fk::vector<TestType> const base{0, 1, 2, 3, 4, 5, 6, 7};
+
+    REQUIRE(base.get_num_views() == 0);
+    fk::vector<TestType, mem_type::const_view> const view(base, 1, 7);
+    REQUIRE(base.get_num_views() == 1);
+    {
+      // create 2x3 matrix from last six elems in base
+      fk::matrix<TestType, mem_type::const_view> const from_owner(base, 2, 3,
+                                                                  2);
+      REQUIRE(base.get_num_views() == 2);
+      // create 2x2 matrix from middle of view
+      fk::matrix<TestType, mem_type::const_view> const from_view(view, 2, 2, 1);
+      REQUIRE(base.get_num_views() == 3);
+
+      // clang-format off
+      fk::matrix<TestType> const gold_initial   {{2, 4, 6},
+					         {3, 5, 7}};
+      fk::matrix<TestType> const gold_initial_v {{2, 4},
+					         {3, 5}};
+      // clang-format on
+
+      REQUIRE(from_owner == gold_initial);
+      REQUIRE(from_view == gold_initial_v);
+    }
+    REQUIRE(base.get_num_views() == 1);
+    fk::matrix<TestType, mem_type::const_view> view_2(base, 1, 7);
+    REQUIRE(base.get_num_views() == 2);
+    fk::matrix<TestType, mem_type::const_view> const view_m(std::move(view_2));
+    REQUIRE(base.get_num_views() == 2);
   }
 
 } // end fk::matrix constructors, copy/move
