@@ -1090,6 +1090,20 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // copy view
     {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.clone_onto_device());
+
+      fk::vector<TestType, mem_type::view, resource::device> const view_d(vect);
+      REQUIRE(vect.get_num_views() == 1);
+      fk::vector<TestType, mem_type::view, resource::device> const view_copy_d(
+          view_d);
+      REQUIRE(vect.get_num_views() == 2);
+      fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
+          view_copy_d.clone_onto_host());
+      REQUIRE(copy_h == gold);
+    }
+    // copy const view
+    {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
       fk::vector<TestType, mem_type::const_view, resource::device> const view_d(
@@ -1098,6 +1112,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::const_view, resource::device> const
           view_copy_d(view_d);
       REQUIRE(vect.get_num_views() == 2);
+
       fk::vector<TestType, mem_type::owner, resource::host> const copy_h(
           view_copy_d.clone_onto_host());
       REQUIRE(copy_h == gold);
@@ -1115,6 +1130,27 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
       REQUIRE(view_d.size() == 0);
+      REQUIRE(view_moved_d.data() == vect.data());
+      REQUIRE(vect.get_num_views() == 1);
+
+      fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
+          view_moved_d.clone_onto_host());
+      REQUIRE(moved_h == gold);
+    }
+
+    // move immutable view
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+          gold.clone_onto_device());
+
+      fk::vector<TestType, mem_type::const_view, resource::device> view_d(vect);
+      REQUIRE(vect.get_num_views() == 1);
+
+      fk::vector<TestType, mem_type::const_view, resource::device> view_moved_d(
+          std::move(view_d));
+      REQUIRE(view_d.data() == nullptr);
+      REQUIRE(view_d.size() == 0);
+      REQUIRE(view_moved_d.data() == vect.data());
       REQUIRE(vect.get_num_views() == 1);
 
       fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
@@ -1168,6 +1204,57 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // view device to owner host
     {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
+      vect_h.transfer_from(vect_view);
+      REQUIRE(vect_h == gold);
+    }
+
+    // view device to owner device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d = vect_view;
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          vect_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // view device to view host
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::host> vect_h(5);
+      fk::vector<TestType, mem_type::view, resource::host> vect_view_h(vect_h);
+      vect_view_h.transfer_from(vect_view);
+      REQUIRE(vect_view_h == gold);
+    }
+
+    // view device to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view_2(
+          vect_d);
+      vect_view_2 = vect_view;
+      fk::vector<TestType, mem_type::owner, resource::host> const vect_h(
+          vect_view_2.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // const view device to owner host
+    {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
       fk::vector<TestType, mem_type::const_view, resource::device> const
@@ -1177,7 +1264,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       REQUIRE(vect_h == gold);
     }
 
-    // view device to owner device
+    // const view device to owner device
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
@@ -1190,7 +1277,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       REQUIRE(vect_h == gold);
     }
 
-    // view device to view host
+    // const view device to view host
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
@@ -1202,7 +1289,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       REQUIRE(vect_view_h == gold);
     }
 
-    // view device to view device
+    // const view device to view device
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect(
           gold.clone_onto_device());
@@ -1238,6 +1325,30 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 
     // view host to owner device
     {
+      fk::vector<TestType, mem_type::owner, resource::host> vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      vect_d.transfer_from(vect_view);
+      fk::vector<TestType> const vect_h(vect_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // view host to view device
+    {
+      fk::vector<TestType, mem_type::owner, resource::host> vect(gold);
+      fk::vector<TestType, mem_type::view, resource::host> const vect_view(
+          vect);
+      fk::vector<TestType, mem_type::owner, resource::device> vect_d(5);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view_d(
+          vect_d);
+      vect_view_d.transfer_from(vect_view);
+      fk::vector<TestType> const vect_h(vect_view_d.clone_onto_host());
+      REQUIRE(vect_h == gold);
+    }
+
+    // const view host to owner device
+    {
       fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
       fk::vector<TestType, mem_type::const_view, resource::host> const
           vect_view(vect);
@@ -1247,7 +1358,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       REQUIRE(vect_h == gold);
     }
 
-    // view host to view device
+    // const view host to view device
     {
       fk::vector<TestType, mem_type::owner, resource::host> const vect(gold);
       fk::vector<TestType, mem_type::const_view, resource::host> const
@@ -1285,21 +1396,28 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
   {
     // ref counting on device
     {
-      fk::vector<TestType, mem_type::owner, resource::device> const vect(
+      fk::vector<TestType, mem_type::owner, resource::device> vect(
           gold.clone_onto_device());
       REQUIRE(vect.get_num_views() == 0);
       fk::vector<TestType, mem_type::const_view, resource::device> const
-          vect_view(vect);
+          vect_cview(vect);
       REQUIRE(vect.get_num_views() == 1);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
+      REQUIRE(vect.get_num_views() == 2);
+
       {
-        fk::vector<TestType, mem_type::const_view, resource::device> const
-            vect_view_2(vect);
-        REQUIRE(vect.get_num_views() == 2);
-        fk::vector<TestType, mem_type::const_view, resource::device> const
-            vect_view_3(vect_view);
+        fk::vector<TestType, mem_type::view, resource::device> const
+            vect_view_2(vect_view);
         REQUIRE(vect.get_num_views() == 3);
+        fk::vector<TestType, mem_type::const_view, resource::device> const
+            vect_cview_2(vect_cview);
+        REQUIRE(vect.get_num_views() == 4);
       }
-      REQUIRE(vect.get_num_views() == 1);
+      REQUIRE(vect.get_num_views() == 2);
+
+      fk::vector<TestType, mem_type::view, resource::device> const view_moved(
+          std::move(vect_view));
+      REQUIRE(vect.get_num_views() == 2);
     }
 
     // view semantics on device
@@ -1307,10 +1425,17 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::owner, resource::device> vect(
           gold.clone_onto_device());
       fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          view_cview(vect);
+      REQUIRE(vect_view.data() == vect.data());
+      REQUIRE(vect_cview.data() == vect.data());
       {
         fk::vector<TestType, mem_type::owner, resource::host> const copy(
             vect_view.clone_onto_host());
+        fk::vector<TestType, mem_type::owner, resource::host> const ccopy(
+            vect_cview.clone_onto_host());
         REQUIRE(copy == gold);
+        REQUIRE(ccopy == gold);
       }
       fk::vector<TestType, mem_type::owner, resource::host> const gold_2(
           {1, 2, 3, 4, 5});
