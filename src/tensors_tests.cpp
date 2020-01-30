@@ -697,17 +697,21 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
-  fk::vector<TestType, mem_type::const_view> const gold_v(
-      gold); // increases ref_count
+  fk::vector<TestType> gold_copy(gold);
+  fk::vector<TestType, mem_type::view> const gold_v(gold_copy);
+  fk::vector<TestType, mem_type::const_view> const gold_cv(gold);
+
   SECTION("size(): the number of elements")
   {
     REQUIRE(gold.size() == 5);
     REQUIRE(gold_v.size() == 5);
+    REQUIRE(gold_cv.size() == 5);
   }
   SECTION("data(): const addr to element")
   {
     REQUIRE(*gold.data(4) == 6);
     REQUIRE(*gold_v.data(4) == 6);
+    REQUIRE(*gold_cv.data(4) == 6);
   }
   SECTION("print out the values")
   {
@@ -715,16 +719,20 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     std::streambuf *old_cout_stream_buf = std::cout.rdbuf();
     std::ostringstream test_str;
     std::ostringstream test_str_v;
+    std::ostringstream test_str_cv;
 
     // generate the output (into test_str)
     std::cout.rdbuf(test_str.rdbuf());
     gold.print("golden vector");
     std::cout.rdbuf(test_str_v.rdbuf());
     gold_v.print("golden vector");
+    std::cout.rdbuf(test_str_cv.rdbuf());
+    gold_cv.print("golden vector");
 
     // restore cout destination
     std::cout.rdbuf(old_cout_stream_buf);
-    std::string golden_string, golden_string_v;
+
+    std::string golden_string, golden_string_v, golden_string_cv;
     if constexpr (std::is_floating_point<TestType>::value)
     {
       golden_string =
@@ -732,14 +740,17 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
           "4.0000e+00  5.0000e+00  6.0000e+00\n";
       golden_string_v = "golden vector(view)\n  2.0000e+00  3.0000e+00  "
                         "4.0000e+00  5.0000e+00  6.0000e+00\n";
+      golden_string_cv = "golden vector(const view)\n  2.0000e+00  3.0000e+00  "
+                         "4.0000e+00  5.0000e+00  6.0000e+00\n";
     }
     else
     {
       golden_string = "golden vector(owner, ref_count = 2)\n2 3 "
                       "4 5 6 \n";
-
       golden_string_v = "golden vector(view)\n2 3 "
                         "4 5 6 \n";
+      golden_string_cv = "golden vector(const view)\n2 3 "
+                         "4 5 6 \n";
     }
     REQUIRE(test_str.str() == golden_string);
     REQUIRE(test_str_v.str() == golden_string_v);
@@ -748,15 +759,24 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   {
     gold.dump_to_octave("test_out.dat");
     gold_v.dump_to_octave("test_out_v.dat");
+    gold_cv.dump_to_octave("test_out_cv.dat");
+
     std::ifstream data_stream("test_out.dat");
     std::ifstream data_stream_v("test_out_v.dat");
+    std::ifstream data_stream_cv("test_out_cv.dat");
+
     std::string const test_string((std::istreambuf_iterator<char>(data_stream)),
                                   std::istreambuf_iterator<char>());
     std::string const test_string_v(
         (std::istreambuf_iterator<char>(data_stream_v)),
         std::istreambuf_iterator<char>());
+    std::string const test_string_cv(
+        (std::istreambuf_iterator<char>(data_stream_cv)),
+        std::istreambuf_iterator<char>());
+
     std::remove("test_out.dat");
     std::remove("test_out_v.dat");
+    std::remove("test_out_cv.dat");
 
     std::string golden_string;
     if constexpr (std::is_floating_point<TestType>::value)
@@ -772,6 +792,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
     REQUIRE(test_string == golden_string);
     REQUIRE(test_string_v == golden_string);
+    REQUIRE(test_string_cv == golden_string);
   }
   SECTION("vector resize")
   {
@@ -837,6 +858,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     // gold_copy_v = gold_copy;
     // REQUIRE(gold_copy_v.concat(empty_v) == gold);
   }
+
   SECTION("vector set")
   {
     fk::vector<TestType> vector(5);
@@ -877,6 +899,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
                 .set_subvector(1, middle_v)
                 .set_subvector(4, end_v) == gold);
   }
+
   SECTION("vector extract")
   {
     fk::vector<TestType> const test_begin  = {2, 3, 4};
@@ -890,6 +913,10 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(test_begin == gold_v.extract(0, 2));
     REQUIRE(test_middle == gold_v.extract(2, 3));
     REQUIRE(test_end == gold_v.extract(3, 4));
+
+    REQUIRE(test_begin == gold_cv.extract(0, 2));
+    REQUIRE(test_middle == gold_cv.extract(2, 3));
+    REQUIRE(test_end == gold_cv.extract(3, 4));
   }
   SECTION("vector transform")
   {
@@ -908,26 +935,30 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
 
   SECTION("vector maximum element")
   {
-    fk::vector<TestType> const test{5, 6, 11, 8};
-    fk::vector<TestType, mem_type::const_view> const test_v(test);
+    fk::vector<TestType> test{5, 6, 11, 8};
+    fk::vector<TestType> test_v(test);
+    fk::vector<TestType, mem_type::const_view> const test_cv(test);
     TestType const max = 11;
     REQUIRE(*std::max_element(test.begin(), test.end()) == max);
     REQUIRE(*std::max_element(test_v.begin(), test_v.end()) == max);
+    REQUIRE(*std::max_element(test_cv.begin(), test_cv.end()) == max);
   }
 
   SECTION("vector sum of elements")
   {
-    fk::vector<TestType> const test{1, 2, 3, 4, 5, 6, 7, 8};
-    fk::vector<TestType, mem_type::const_view> const test_v(test);
+    fk::vector<TestType> test{1, 2, 3, 4, 5, 6, 7, 8};
+    fk::vector<TestType, mem_type::view> const test_v(test);
+    fk::vector<TestType, mem_type::const_view> const test_cv(test);
     TestType const sum = 36;
     REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == sum);
     REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0.0) == sum);
+    REQUIRE(std::accumulate(test_cv.begin(), test_cv.end(), 0.0) == sum);
   }
 
   SECTION("vector ref counting")
   {
     // on construction, vectors have 0 views
-    fk::vector<TestType> const test;
+    fk::vector<TestType> test;
     REQUIRE(test.get_num_views() == 0);
     fk::vector<TestType> const test_init({1});
     REQUIRE(test_init.get_num_views() == 0);
@@ -939,8 +970,10 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     REQUIRE(test_copy.get_num_views() == 0);
 
     // creating views increments view count
-    fk::vector<TestType, mem_type::const_view> const test_view(test);
+    fk::vector<TestType, mem_type::view> const test_view(test);
     REQUIRE(test.get_num_views() == 1);
+
+    // creating const views increments view count
     fk::vector<TestType, mem_type::const_view> const test_view_2(test);
     REQUIRE(test.get_num_views() == 2);
 

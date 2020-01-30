@@ -1310,8 +1310,12 @@ void fk::vector<P, mem, resrc>::print(std::string const label) const
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
               << ")" << '\n';
-  else
+  else if constexpr (mem == mem_type::view)
     std::cout << label << "(view)" << '\n';
+  else if constexpr (mem == mem_type::const_view)
+    std::cout << label << "(const view)" << '\n';
+  else
+    assert(false); // above cases should cover all implemented types
 
   if constexpr (std::is_floating_point<P>::value)
   {
@@ -2398,9 +2402,15 @@ void fk::matrix<P, mem, resrc>::print(std::string label) const
               << "outstanding views == " << std::to_string(get_num_views())
               << ")" << '\n';
 
-  else
+  else if constexpr (mem == mem_type::view)
     std::cout << label << "(view, "
               << "stride == " << std::to_string(stride()) << ")" << '\n';
+
+  else if constexpr (mem == mem_type::const_view)
+    std::cout << label << "(const view, "
+              << "stride == " << std::to_string(stride()) << ")" << '\n';
+  else
+    assert(false); // above cases cover all implemented mem types
 
   for (auto i = 0; i < nrows(); ++i)
   {
