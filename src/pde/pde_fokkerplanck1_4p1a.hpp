@@ -31,6 +31,9 @@
 //
 // q=df/fz  with homogeneous Dirichlet BC
 //
+// Options to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_4p1a -n 4801 -f -d 4 -l 5 -i -r 800
+// fluxes are varied: central, upwind and downwind
 // ---------------------------------------------------------------------------
 template<typename P>
 class PDE_fokkerplanck_1d_4p1a : public PDE<P>

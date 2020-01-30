@@ -62,11 +62,6 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // -- set coeffs
   generate_all_coefficients(pde);
- for(int i=0; i< pde.num_terms; ++i){
-   for(int j=0;j<pde.num_dims; j++){
-     pde.get_coefficients(i,j).clone_onto_host().print();
-   }
- }
 
   // -- generate initial condition vector.
   fk::vector<P> const initial_condition = [&pde, &table, &subgrid, degree]() {

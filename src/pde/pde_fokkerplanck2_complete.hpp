@@ -40,6 +40,8 @@
 //
 // termR1 == 1/p^2 d/dp p^2 gamma(p) p / tau f(p) * (1-z^2) * f(z)
 // termR2 == -1/(tau*gam(p)) f(p) * d/dz z(1-z^2) f(z)
+//
+// ./asgard -p fokkerplanck_2d_6p1 -n 81 -i -r 2 -d 3 -l 4 -f -c 1.0
 // ---------------------------------------------------------------------------
 
 template<typename P>

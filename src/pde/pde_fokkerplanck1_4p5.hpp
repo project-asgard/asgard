@@ -23,6 +23,8 @@
 //
 // df/dt == -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz) - R d/dz(z(1-z^2) f)
 //
+// Options to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_4p5 -n 384001 -f -d 4 -l 4 -i -r 64000
 // ---------------------------------------------------------------------------
 template<typename P>
 class PDE_fokkerplanck_1d_4p5 : public PDE<P>

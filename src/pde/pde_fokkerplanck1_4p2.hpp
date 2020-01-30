@@ -31,6 +31,8 @@
 //
 // q=df/fz  with homogeneous Dirichlet BC
 //
+// Options to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_4p2 -n 12801 -f -d 4 -l 5 -i -r 256
 // ---------------------------------------------------------------------------
 template<typename P>
 class PDE_fokkerplanck_1d_4p2 : public PDE<P>

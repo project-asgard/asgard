@@ -20,6 +20,9 @@
 // Problem 4.3 from the RE paper - radiation damping term
 // df/dt == -d/dz ( z(1-z^2)f )
 //
+// Options to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_4p3 -n 38401 -f -d 2 -l 8 -i -r 6400
+// Initial conditions are varied - case 4 only here
 // ---------------------------------------------------------------------------
 template<typename P>
 class PDE_fokkerplanck_1d_4p3 : public PDE<P>
