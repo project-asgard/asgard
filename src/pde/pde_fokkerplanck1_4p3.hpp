@@ -20,6 +20,10 @@
 // Problem 4.3 from the RE paper - radiation damping term
 // df/dt == -d/dz ( z(1-z^2)f )
 //
+// run parameters to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_4p3 -n 38401 -f -d 2 -l 8 -i -r 6400
+// cases 1 through 4 initial conditions are below (f0 - commented
+// out for cases that are not being run)
 // ---------------------------------------------------------------------------
 template<typename P>
 class PDE_fokkerplanck_1d_4p3 : public PDE<P>
@@ -62,12 +66,16 @@ private:
     return z * std::exp(-t) /
            std::sqrt(1 - (std::exp(-2 * t) - 1) * std::pow(z, 2));
   }
-  //static P f0(P const z)
-  //{
-  //  static P const sig   = 0.1;
+  
+  // case 1 initial condition
+  static P f0(P const z)
+  {
+    static P const sig   = 0.1;
 
-  //  return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
-  //}
+    return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
+  }
+  
+  // case 2 initial condition
   //static P f0(P const z)
   //{
   //  static P const sig   = 0.1;
@@ -75,6 +83,8 @@ private:
 
   //  return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2));
   //}
+  
+  // case 3 initial condition
   //static P f0(P const z)
   //{
   //  static P const sig   = 0.1;
@@ -82,15 +92,16 @@ private:
 
   //  return std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
   //}
-  
-  static P f0(P const z)
-  {
-    static P const sig   = 0.1;
-    static P const shift = 0.36;
+ 
+  // case 4 initial condition 
+  //static P f0(P const z)
+  //{
+  //  static P const sig   = 0.1;
+  //  static P const shift = 0.36;
 
-    return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
-           std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
-  }
+  //  return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
+  //         std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
+  //}
 
   static fk::vector<P>
   analytic_solution_dim0(fk::vector<P> const z, P const t = 0)

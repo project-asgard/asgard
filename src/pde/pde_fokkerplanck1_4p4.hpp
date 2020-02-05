@@ -22,6 +22,9 @@
 //
 // df/dt == -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz)
 //
+// run parameters to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_4p4 -n 384001 -f -d 4 -l 4 -i -r 64000
+// Two cases are run, one where E=2, one where E=4
 // ---------------------------------------------------------------------------
 template<typename P>
 class PDE_fokkerplanck_1d_4p4 : public PDE<P>
