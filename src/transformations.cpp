@@ -233,7 +233,15 @@ combine_dimensions(int const degree, element_table const &table,
     int const stop_index  = start_index + std::pow(degree, num_dims) - 1;
     fk::vector<P, mem_type::view> combined_view(combined, start_index,
                                                 stop_index);
+
     combined_view = kron_d(kron_list, kron_list.size()) * time_scale;
+
+    /* Captain! Test code */
+    /*
+    std::printf( "start: %d stop: %d combined after:\n", start_index, stop_index );
+    combined_view.print();
+    */
+    /* end test code */
   }
   return combined;
 }

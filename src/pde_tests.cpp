@@ -8,6 +8,68 @@
 // lowest epsilon multiplier for which component tests pass
 static auto const pde_eps_multiplier = 1e2;
 
+TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
+                   float)
+{
+  auto const pde             = make_PDE<TestType>(PDE_opts::diffusion_1, 3, 2);
+  std::string const base_dir = "../testing/generated-inputs/pde/diffusion_1_";
+  fk::vector<TestType> const x = {4.2};
+
+  SECTION("diffusion 1 initial condition functions")
+  {
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      TestType const gold = read_scalar_from_txt_file(
+          base_dir + "initial_dim" + std::to_string(i) + ".dat");
+
+      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
+      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    }
+  }
+
+  SECTION("diffusion 1 exact solution functions")
+  {
+    for (int i = 0; i < pde->num_dims; ++i)
+    {
+      TestType const gold = read_scalar_from_txt_file(
+          base_dir + "exact_dim" + std::to_string(i) + ".dat");
+      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
+      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    }
+    TestType const gold =
+        read_scalar_from_txt_file(base_dir + "exact_time.dat");
+    TestType const fx = pde->exact_time(x(0));
+    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+  }
+  SECTION("diffusion 1 source functions")
+  {
+    for (int i = 0; i < pde->num_sources; ++i)
+    {
+      std::string const source_string =
+          base_dir + "source" + std::to_string(i) + "_";
+      for (int j = 0; j < pde->num_dims; ++j)
+      {
+        std::string const full_path =
+            source_string + "dim" + std::to_string(j) + ".dat";
+        TestType const gold = read_scalar_from_txt_file(full_path);
+        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
+        relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+      }
+      TestType const gold =
+          read_scalar_from_txt_file(source_string + "time.dat");
+      TestType const fx = pde->sources[i].time_func(x(0));
+      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    }
+  }
+
+  SECTION("diffusion 1 dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
+  }
+}
+
 TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
                    float)
 {

@@ -48,26 +48,36 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
+  /* the call below calculates "source1" from matlab - line 32 time_advance.m */
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
+  /* Captain! line 69 in time_advance.m */
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
+  /* k1 is result_1 at this point */
   exchange_results(host_space.reduced_fx, host_space.result_1, elem_size, plan,
                    my_rank);
 
+  /* Captain! The next 2 lines correspond to line 70 in time_advance.m. host_space.x contains
+     y1 from matlab now */
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
   apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
+  /* Captain! line 33 time_advance.m */
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
+  /* Captain! line 71 time_advance.m - reduced_fx is output of apply_A and reduct results,
+     which is apply_A in matlab, then this adds source2 to it*/
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
   exchange_results(host_space.reduced_fx, host_space.result_2, elem_size, plan,
                    my_rank);
 
+  /* Captain! There's a lot of copying here... */
   fm::copy(host_space.x_orig, host_space.x);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
 
+  /* result_1 is k1, result_2 is k2 */
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
@@ -85,6 +95,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const scale_2 = dt * b2;
   P const scale_3 = dt * b3;
 
+  /* Captain! Line 76 */
   fm::axpy(host_space.result_1, host_space.x, scale_1);
   fm::axpy(host_space.result_2, host_space.x, scale_2);
   fm::axpy(host_space.result_3, host_space.x, scale_3);
@@ -130,6 +141,8 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const A_size    = elem_size * table.size();
 
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+  /* Captain! This corresponds to line 104 in time_advance.m I believe */
+  /* This is where you'll need to add in the boundary condition vector */
   host_space.x = host_space.x + host_space.scaled_source * dt;
 
   if (first_time || update_system)

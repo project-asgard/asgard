@@ -19,7 +19,8 @@ set (CMAKE_CXX_STANDARD_REQUIRED ON)
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
 # add compiler flags we always want to use
-add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-g" "-O3")
+# Captain!
+add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-g" ) #"-O3")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -102,6 +103,7 @@ endif()
 set (components
   basis
   batch
+  boundary_conditions
   coefficients
   connectivity
   distribution
@@ -139,6 +141,9 @@ endif ()
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
+
+target_link_libraries( boundary_conditions PRIVATE coefficients element_table transformations
+                       matlab_utilities fast_math )
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(batch PRIVATE OpenMP::OpenMP_CXX)
