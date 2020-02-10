@@ -40,6 +40,9 @@
 //
 // termR1 == 1/p^2 d/dp p^2 gamma(p) p / tau f(p) * (1-z^2) * f(z)
 // termR2 == -1/(tau*gam(p)) f(p) * d/dz z(1-z^2) f(z)
+// 
+// run parameters to match run-away electron paper
+// ./asgard -p fokkerplanck_1d_5p1 -n 8001 -f -d 4 -l 4 -i -r 160
 // ---------------------------------------------------------------------------
 
 template<typename P>
@@ -117,7 +120,6 @@ private:
       P val = 
       4.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
              std::exp(-std::pow(elem, 2) / std::pow(a, 2));
-             std::cout << "x " << elem << " val " << val <<std::endl;
              return val;
     });
 

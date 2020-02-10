@@ -117,14 +117,34 @@ private:
     ignore(t);
     fk::vector<P> ret(x.size());
 
-    std::transform(x.begin(), x.end(), ret.begin(), [](auto const elem) {
-      P const a = 2;
-      return 2.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
-             std::exp(-std::pow(elem, 2) / std::pow(a, 2));
+  // case a initial condition
+  std::transform(x.begin(), x.end(), ret.begin(), [](auto const elem) {
+      P const a = 3.0/2.0/std::pow(5.0,3);
+      if (elem >= 5.0) {
+        return a;
+      }
+      else {
+        return 0.0;
+      }
     });
 
     return ret;
   }
+
+  // case b initial condition
+  //static fk::vector<P> initial_condition_p(fk::vector<P> const x, P const t = 0)
+  //{
+  //  ignore(t);
+  //  fk::vector<P> ret(x.size());
+
+  //  std::transform(x.begin(), x.end(), ret.begin(), [](auto const elem) {
+  //    P const a = 2;
+  //    return 2.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
+  //           std::exp(-std::pow(elem, 2) / std::pow(a, 2));
+  //  });
+
+  //  return ret;
+  //}
 
   // initial conditionn in z
   static fk::vector<P> initial_condition_z(fk::vector<P> const x, P const t = 0)
