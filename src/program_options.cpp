@@ -19,6 +19,8 @@ options::options(int argc, char **argv)
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
+      clara::detail::Opt(implicit_method, "implicit_method")["-m"]["--method"](
+          "Integer indicator for which implicit method") |
       clara::detail::Opt(level, "level")["-l"]["--level"](
           "Hierarchical levels (resolution)") |
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
@@ -69,6 +71,11 @@ options::options(int argc, char **argv)
     std::cerr << "Number of timesteps must be a natural number" << '\n';
     valid = false;
   }
+  if (implicit_method < 0 || implicit_method > 1)
+  {
+    std::cerr << "Implicit method must be set to 0 or 1" << '\n';
+    valid = false;
+  }
 
   auto const choice = pde_mapping.find(selected_pde);
   if (choice == pde_mapping.end())
@@ -117,6 +124,7 @@ int options::get_degree() const { return degree; }
 int options::get_time_steps() const { return num_time_steps; }
 int options::get_write_frequency() const { return write_frequency; }
 bool options::using_implicit() const { return use_implicit_stepping; }
+int options::using_implicit_method() const { return implicit_method; }
 bool options::using_full_grid() const { return use_full_grid; }
 double options::get_cfl() const { return cfl; }
 PDE_opts options::get_selected_pde() const { return pde_choice; }

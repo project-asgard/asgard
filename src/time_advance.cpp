@@ -154,7 +154,8 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
-                           P const time, P const dt, bool update_system)
+                           P const time, P const dt, bool update_system,
+                           int method)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -168,34 +169,73 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const A_size    = elem_size * table.size();
 
   fm::copy(host_space.x, host_space.x_orig);
-  scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
-  host_space.x = host_space.x + host_space.scaled_source * dt;
 
-  if (first_time || update_system)
-  {
-    A.clear_and_resize(A_size, A_size);
-    for (auto const &chunk : chunks)
+  if(method == 0){
+    scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+    host_space.x = host_space.x + host_space.scaled_source * dt;
+  
+    if (first_time || update_system)
     {
-      build_system_matrix(pde, table, chunk, A);
-    }
-    // AA = I - dt*A;
-    for (int i = 0; i < A.nrows(); ++i)
-    {
-      for (int j = 0; j < A.ncols(); ++j)
+      A.clear_and_resize(A_size, A_size);
+      for (auto const &chunk : chunks)
       {
-        A(i, j) *= -dt;
+        build_system_matrix(pde, table, chunk, A);
       }
-      A(i, i) += 1.0;
-    }
+      // AA = I - dt*A;
+      for (int i = 0; i < A.nrows(); ++i)
+      {
+        for (int j = 0; j < A.ncols(); ++j)
+        {
+          A(i, j) *= -dt;
+        }
+        A(i, i) += 1.0;
+      }
 
-    if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
-      ipiv.resize(A.nrows());
-    fm::gesv(A, host_space.x, ipiv);
-    first_time = false;
+      if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+        ipiv.resize(A.nrows());
+      fm::gesv(A, host_space.x, ipiv);
+      first_time = false;
+    }
+    else
+    {
+      fm::getrs(A, host_space.x, ipiv);
+    }
   }
-  else
+  else if (method == 1)
   {
-    fm::getrs(A, host_space.x, ipiv);
+    scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
+    host_space.x = (host_space.x + host_space.x) + host_space.scaled_source * dt;
+    scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+    host_space.x = host_space.x + host_space.scaled_source * dt;
+  
+    if (first_time || update_system)
+    {
+      A.clear_and_resize(A_size, A_size);
+      for (auto const &chunk : chunks)
+      {
+        build_system_matrix(pde, table, chunk, A);
+      }
+      // AA = 2I - dt*A;
+      // b = b + dt*AMat*f0
+      for (int i = 0; i < A.nrows(); ++i)
+      {
+        for (int j = 0; j < A.ncols(); ++j)
+        {
+          host_space.x(i) = host_space.x(i) + A(i,j)*dt*host_space.x_orig(i);
+          A(i, j) *= -dt;
+        }
+        A(i, i) += 2.0;
+      }
+
+      if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+        ipiv.resize(A.nrows());
+      fm::gesv(A, host_space.x, ipiv);
+      first_time = false;
+    }
+    else
+    {
+      fm::getrs(A, host_space.x, ipiv);
+    }
   }
 }
 
@@ -223,7 +263,7 @@ implicit_time_advance(PDE<double> const &pde, element_table const &table,
                       host_workspace<double> &host_space,
                       std::vector<element_chunk> const &chunks,
                       double const time, double const dt,
-                      bool update_system = true);
+                      bool update_system = true, int method);
 
 template void
 implicit_time_advance(PDE<float> const &pde, element_table const &table,
@@ -231,4 +271,4 @@ implicit_time_advance(PDE<float> const &pde, element_table const &table,
                       host_workspace<float> &host_space,
                       std::vector<element_chunk> const &chunks,
                       float const time, float const dt,
-                      bool update_system = true);
+                      bool update_system = true, int method);

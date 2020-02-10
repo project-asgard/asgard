@@ -16,6 +16,7 @@ private:
   int write_frequency =
       0; // write wavelet space output every this many iterations
   bool use_implicit_stepping = false; // enable implicit(/explicit) stepping
+  int  implicit_method       = 0; // 0 is backward euler, 1 is crank-nicolson
   bool use_full_grid         = false; // enable full(/sparse) grid
   bool do_poisson            = false; // do poisson solve for electric field
   double cfl = 0.01; // the Courant-Friedrichs-Lewy (CFL) condition
@@ -40,6 +41,7 @@ public:
   int get_time_steps() const;
   int get_write_frequency() const;
   bool using_implicit() const;
+  int using_implicit_method() const;
   bool using_full_grid() const;
   double get_cfl() const;
   PDE_opts get_selected_pde() const;
