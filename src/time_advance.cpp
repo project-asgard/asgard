@@ -215,14 +215,15 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
       {
         build_system_matrix(pde, table, chunk, A);
       }
+      
       // AA = 2I - dt*A;
       // b = b + dt*AMat*f0
       for (int i = 0; i < A.nrows(); ++i)
       {
         for (int j = 0; j < A.ncols(); ++j)
         {
-          host_space.x(i) = host_space.x(i) + A(i,j)*dt*host_space.x_orig(i);
-          A(i, j) *= -dt;
+          host_space.x(i) = host_space.x(i) + A(i,j)*dt*host_space.x_orig(j);
+          A(i,j) *= -dt;
         }
         A(i, i) += 2.0;
       }
