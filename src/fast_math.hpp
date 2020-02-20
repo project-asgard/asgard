@@ -11,6 +11,18 @@ inline int two_raised_to(int exponent)
   return 1 << exponent;
 }
 
+template<typename P, mem_type mem, resource resrc>
+P nrm2(fk::vector<P, mem, resrc> const &x)
+{
+  if (x.size() == 0)
+  {
+    return 0.0
+  };
+  int n     = x.size();
+  int inc_x = 1;
+  return lib_dispatch::nrm2(&n, x.data(), inc_x);
+}
+
 // axpy - y += a*x
 template<typename P, mem_type mem, mem_type omem, resource resrc>
 fk::vector<P, mem, resrc> &

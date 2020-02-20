@@ -1,5 +1,6 @@
 #include "lib_dispatch.hpp"
 #include "build_info.hpp"
+#include <cmath>
 #include <iostream>
 #include <type_traits>
 
@@ -91,6 +92,57 @@ inline cublasOperation_t cublas_trans(char trans)
 
 namespace lib_dispatch
 {
+template<typename P>
+P nrm2(int *n, P *x, int *incx, resource const resrc)
+{
+  assert(x);
+  assert(incx && *incx >= 0);
+  assert(n && *n >= 0);
+
+  if (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    // no non-fp blas on device
+    assert(std::is_floating_point_v<P>);
+    P norm;
+    // function instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success =
+          cublasDnrm2(device.get_handle(), *n, x, *incx, &norm);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success =
+          cublasSnrm2(device.get_handle(), *n, x, *incx, &norm);
+      assert(success == 0);
+    }
+    return norm;
+#endif
+  }
+
+  // default execution on the host for any resource
+  if constexpr (std::is_same<P, double>::value)
+  {
+    return dnrm2_(n, x, incx);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    return snrm2_(n, x, incx);
+  }
+  else
+  {
+    auto sum_square = 0.0;
+    for (int i = 0; i < *n; ++i)
+    {
+      sum_square += std::pow(x[i * (*incx)], 2);
+    }
+    return std::sqrt(sum_square);
+  }
+}
+
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
@@ -851,6 +903,9 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
     assert(false);
   }
 }
+
+template float nrm2(int *n, float *x, int *incx, resource const resrc);
+template double nrm2(int *n, double *x, int *incx, resource const resrc);
 
 template void
 copy(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
