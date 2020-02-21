@@ -53,8 +53,8 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
         grid.row_start * static_cast<int>(std::pow(deg, dims));
     int const rank_stop =
         (grid.row_stop + 1) * static_cast<int>(std::pow(deg, dims)) - 1;
-    fk::vector<P, mem_type::view> const gold_partial(gold, rank_start,
-                                                     rank_stop);
+    fk::vector<P, mem_type::const_view> const gold_partial(gold, rank_start,
+                                                           rank_stop);
     fk::vector<P> const test_partial = combine_dimensions(
         deg, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, time);
     REQUIRE(test_partial == gold_partial);

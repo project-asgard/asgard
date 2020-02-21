@@ -45,11 +45,11 @@ TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
   int const ncols     = stop_col - start_col + 1;
   int const stride    = first.nrows();
 
-  fk::matrix<TestType, mem_type::view, resrc> const first_v(
+  fk::matrix<TestType, mem_type::const_view, resrc> const first_v(
       first, start_row, stop_row, start_col, stop_col);
-  fk::matrix<TestType, mem_type::view, resrc> const second_v(
+  fk::matrix<TestType, mem_type::const_view, resrc> const second_v(
       second, start_row, stop_row, start_col, stop_col);
-  fk::matrix<TestType, mem_type::view, resrc> const third_v(
+  fk::matrix<TestType, mem_type::const_view, resrc> const third_v(
       third, start_row, stop_row, start_col, stop_col);
 
   int const num_batch               = 3;
@@ -341,7 +341,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
         batch<P, resrc> builder(num_batch, nrows, ncols, stride, trans);
         for (int i = 0; i < num_batch; ++i)
         {
-          builder.assign_entry(fk::matrix<P, mem_type::view, resrc>(
+          builder.assign_entry(fk::matrix<P, mem_type::const_view, resrc>(
                                    mats[i], 0, nrows - 1, 0, ncols - 1),
                                i);
         }
@@ -357,7 +357,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   // check results. we only want the effective region of c,
   // i.e. not the padding region that extends to ldc
   auto const effect_c = [m, n](auto const c) {
-    return fk::matrix<P, mem_type::view>(c, 0, m - 1, 0, n - 1);
+    return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
   for (int i = 0; i < num_batch; ++i)
   {
@@ -537,7 +537,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
             vectors[1].push_back(y.clone_onto_device());
           }
 
-          fk::matrix<P, mem_type::view, resrc> const effective_a(
+          fk::matrix<P, mem_type::const_view, resrc> const effective_a(
               a_mats[i], 0, m - 1, 0, n - 1);
           fk::vector<P, mem_type::owner, resrc> gold(vectors[1].back());
           fm::gemv(effective_a, vectors[0].back(), gold, trans_a, alpha, beta);
@@ -554,7 +554,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
         batch<P, resrc> builder(num_batch, nrows, ncols, stride, trans);
         for (int i = 0; i < num_batch; ++i)
         {
-          builder.assign_entry(fk::matrix<P, mem_type::view, resrc>(
+          builder.assign_entry(fk::matrix<P, mem_type::const_view, resrc>(
                                    mats[i], 0, nrows - 1, 0, ncols - 1),
                                i);
         }
@@ -571,7 +571,8 @@ void test_batched_gemv(int const m, int const n, int const lda,
         for (int i = 0; i < num_batch; ++i)
         {
           builder.assign_entry(
-              fk::matrix<P, mem_type::view, resrc>(vects[i], nrows, 1), i);
+              fk::matrix<P, mem_type::const_view, resrc>(vects[i], nrows, 1),
+              i);
         }
         return builder;
       };
@@ -755,10 +756,11 @@ std::vector<P *> views_to_ptrs(std::vector<T> const &views)
 }
 template<typename P>
 void unsafe_kronmult(
-    std::vector<fk::matrix<P, mem_type::view, resource::device>> const &A,
-    fk::vector<P, mem_type::view, resource::device> const &x,
-    fk::vector<P, mem_type::view, resource::device> const &y,
-    std::vector<fk::vector<P, mem_type::view, resource::device>> const &work,
+    std::vector<fk::matrix<P, mem_type::const_view, resource::device>> const &A,
+    fk::vector<P, mem_type::const_view, resource::device> const &x,
+    fk::vector<P, mem_type::const_view, resource::device> const &y,
+    std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
+        &work,
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde)
 {
@@ -804,15 +806,15 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
 
   // create intermediate workspaces
   // and output vectors
-  fk::vector<P, mem_type::view, resource::device> const x_view(x);
-  fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
-                                                         num_terms);
-
-  fk::vector<P, mem_type::owner> gold(x_size * num_elems * num_terms);
 
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
   fk::vector<P, mem_type::owner, resource::device> work_own(
       x_size * num_elems * num_terms * num_workspaces);
+  fk::vector<P, mem_type::const_view, resource::device> const x_view(x);
+  fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
+                                                         num_terms);
+
+  fk::vector<P, mem_type::owner> gold(x_size * num_elems * num_terms);
 
   for (int i = 0; i < num_elems; ++i)
   {
@@ -825,34 +827,48 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
       int const y_index = x_size * kron_index;
       int const work_index =
           x_size * kron_index * std::min(pde.num_dims - 1, 2);
-      fk::vector<P, mem_type::view, resource::device> y_view(
+      fk::vector<P, mem_type::const_view, resource::device> const y_view(
           y_own, y_index, y_index + x_size - 1);
       fk::vector<P, mem_type::view> gold_view(gold, y_index,
                                               y_index + x_size - 1);
 
       // intermediate workspace
-      std::vector<fk::vector<P, mem_type::view, resource::device>> work_views(
-          num_workspaces, fk::vector<P, mem_type::view, resource::device>(
-                              work_own, work_index, work_index + x_size - 1));
-      if (num_workspaces == 2)
-      {
-        work_views[1] = fk::vector<P, mem_type::view, resource::device>(
-            work_own, work_index + x_size, work_index + x_size * 2 - 1);
-      }
+      std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
+          work_views = [&work_own, work_index, x_size, num_workspaces]() {
+            std::vector<fk::vector<P, mem_type::const_view, resource::device>>
+                builder;
+            builder.reserve(num_workspaces);
+            if (num_workspaces > 0)
+            {
+              builder.emplace_back(
+                  fk::vector<P, mem_type::const_view, resource::device>(
+                      work_own, work_index, work_index + x_size - 1));
+            }
+
+            if (num_workspaces == 2)
+            {
+              builder.emplace_back(
+                  fk::vector<P, mem_type::const_view, resource::device>(
+                      work_own, work_index + x_size,
+                      work_index + x_size * 2 - 1));
+            }
+            return builder;
+          }();
 
       // create A_views
-      std::vector<fk::matrix<P, mem_type::view, resource::device>> A_views;
-      std::vector<fk::matrix<P, mem_type::view>> A_views_h;
+      std::vector<fk::matrix<P, mem_type::const_view, resource::device>>
+          A_views;
+      std::vector<fk::matrix<P, mem_type::const_view>> A_views_h;
       for (int k = 0; k < pde.num_dims; ++k)
       {
         int const start_row = degree * i;
         int const stop_row  = degree * (i + 1) - 1;
         int const start_col = 0;
         int const stop_col  = degree - 1;
-        A_views.push_back(fk::matrix<P, mem_type::view, resource::device>(
+        A_views.push_back(fk::matrix<P, mem_type::const_view, resource::device>(
             A_mats[j * pde.num_dims + k], start_row, stop_row, start_col,
             stop_col));
-        A_views_h.push_back(fk::matrix<P, mem_type::view>(
+        A_views_h.push_back(fk::matrix<P, mem_type::const_view>(
             A_mats_h[j * pde.num_dims + k], start_row, stop_row, start_col,
             stop_col));
       }
@@ -1016,7 +1032,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }
 
   // determined emprically 11/19
-  auto const eps_multiplier = 1e4;
+  auto const eps_multiplier = std::is_same<float, P>::value ? 1e3 : 1e4;
   relaxed_comparison(gold, host_space.fx, eps_multiplier);
 }
 

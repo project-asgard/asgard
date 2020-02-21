@@ -406,9 +406,10 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
       cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));
       cfmwt.set_submatrix(
-          0, 0, fk::matrix<R, mem_type::view>(fmwt, 0, cn / 2 - 1, 0, cn - 1));
+          0, 0,
+          fk::matrix<R, mem_type::const_view>(fmwt, 0, cn / 2 - 1, 0, cn - 1));
       cfmwt.set_submatrix(cn / 2, 0,
-                          fk::matrix<R, mem_type::view>(
+                          fk::matrix<R, mem_type::const_view>(
                               fmwt, degree * max_level / 2,
                               degree * max_level / 2 + cn / 2 - 1, 0, cn - 1));
     }
@@ -441,13 +442,14 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
   fk::matrix<P> product(n_col, n_col);
 
   // section of fmwt used for first multiplication
-  fk::matrix<P, mem_type::view> const fmwt_sub1(fmwt, 0, row_end, 0, col_end);
+  fk::matrix<P, mem_type::const_view> const fmwt_sub1(fmwt, 0, row_end, 0,
+                                                      col_end);
 
   if (fmwt_left)
   {
     if (fmwt_trans)
     {
-      fk::matrix<P, mem_type::view> const coefficient_view(
+      fk::matrix<P, mem_type::const_view> const coefficient_view(
           coefficient_matrix, 0, row_end, 0, col_end);
       fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
                                                     col_end);
@@ -455,7 +457,7 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
     }
     else
     {
-      fk::matrix<P, mem_type::view> const coefficient_view(
+      fk::matrix<P, mem_type::const_view> const coefficient_view(
           coefficient_matrix, 0, col_end, 0, col_end);
       fk::matrix<P, mem_type::view> partial_product(product, 0, row_end, 0,
                                                     col_end);
@@ -466,17 +468,17 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
   {
     if (fmwt_trans)
     {
-      fk::matrix<P, mem_type::view> const coefficient_view(
+      fk::matrix<P, mem_type::const_view> const coefficient_view(
           coefficient_matrix, 0, col_end, 0, col_end);
       fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
                                                     row_end);
-      bool coeffs_trans = false;
+      bool const coeffs_trans = false;
       fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeffs_trans,
                fmwt_trans);
     }
     else
     {
-      fk::matrix<P, mem_type::view> const coefficient_view(
+      fk::matrix<P, mem_type::const_view> const coefficient_view(
           coefficient_matrix, 0, col_end, 0, row_end);
       fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
                                                     col_end);
@@ -495,8 +497,8 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
       row_end   = row_start + kdegree - 1;
       col_start = icell * isize;
       col_end   = col_start + isize - 1;
-      fk::matrix<P, mem_type::view> const fmwt_sub1(fmwt, row_start, row_end,
-                                                    col_start, col_end);
+      fk::matrix<P, mem_type::const_view> const fmwt_sub1(
+          fmwt, row_start, row_end, col_start, col_end);
       P const alpha          = 1.0;
       P const beta           = 1.0;
       bool const coeff_trans = false;
@@ -505,7 +507,7 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
       {
         if (fmwt_trans)
         {
-          fk::matrix<P, mem_type::view> const coefficient_view(
+          fk::matrix<P, mem_type::const_view> const coefficient_view(
               coefficient_matrix, row_start, row_end, 0, n_col - 1);
           fk::matrix<P, mem_type::view> partial_product(product, col_start,
                                                         col_end, 0, n_col - 1);
@@ -514,7 +516,7 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
         }
         else
         {
-          fk::matrix<P, mem_type::view> const coefficient_view(
+          fk::matrix<P, mem_type::const_view> const coefficient_view(
               coefficient_matrix, col_start, col_end, 0, n_col - 1);
           fk::matrix<P, mem_type::view> partial_product(product, row_start,
                                                         row_end, 0, n_col - 1);
@@ -526,7 +528,7 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
       {
         if (fmwt_trans)
         {
-          fk::matrix<P, mem_type::view> const coefficient_view(
+          fk::matrix<P, mem_type::const_view> const coefficient_view(
               coefficient_matrix, 0, n_col - 1, col_start, col_end);
           fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
                                                         row_start, row_end);
@@ -535,7 +537,7 @@ apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
         }
         else
         {
-          fk::matrix<P, mem_type::view> const coefficient_view(
+          fk::matrix<P, mem_type::const_view> const coefficient_view(
               coefficient_matrix, 0, n_col - 1, row_start, row_end);
           fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
                                                         col_start, col_end);

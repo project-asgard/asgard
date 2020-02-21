@@ -447,23 +447,23 @@ static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(segment_size > 0);
   if (message.message_dir == message_direction::send)
   {
-    int64_t const output_start =
+    auto const output_start =
         static_cast<int64_t>(my_grid.to_local_row(message.range.start)) *
         segment_size;
-    int64_t const output_end =
+    auto const output_end =
         static_cast<int64_t>(my_grid.to_local_row(message.range.stop) + 1) *
             segment_size -
         1;
-    int64_t const input_start =
+    auto const input_start =
         static_cast<int64_t>(my_grid.to_local_col(message.range.start)) *
         segment_size;
-    int64_t const input_end =
+    auto const input_end =
         static_cast<int64_t>(my_grid.to_local_col(message.range.stop) + 1) *
             segment_size -
         1;
 
-    fk::vector<P, mem_type::view> output_window(source, output_start,
-                                                output_end);
+    fk::vector<P, mem_type::const_view> const output_window(
+        source, output_start, output_end);
     fk::vector<P, mem_type::view> input_window(dest, input_start, input_end);
 
     fm::copy(output_window, input_window);
@@ -495,8 +495,8 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
             segment_size -
         1;
 
-    fk::vector<P, mem_type::view> const window(source, output_start,
-                                               output_end);
+    fk::vector<P, mem_type::const_view> const window(source, output_start,
+                                                     output_end);
 
     auto const success =
         MPI_Send((void *)window.data(), window.size(), mpi_type, message.target,

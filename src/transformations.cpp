@@ -169,8 +169,8 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
 
     /* get a matrix by kronecker producting the list together */
     fk::matrix<P> const kronecker_product = recursive_kron(kron_matrices);
-    fk::vector<P, mem_type::view> const x(wave_space, i * stride,
-                                          (i + 1) * stride - 1);
+    fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
+                                                (i + 1) * stride - 1);
     /* add it to the realspace vector */
     real_space = real_space + (kronecker_product * x);
   }
