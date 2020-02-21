@@ -16,7 +16,7 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
 {
   if (x.size() == 0)
   {
-    return 0.0
+    return 0.0;
   };
   int n     = x.size();
   int inc_x = 1;
