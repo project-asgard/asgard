@@ -97,7 +97,6 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
 std::vector<element_chunk>
 assign_elements(element_subgrid const &grid, int const num_chunks);
 
-
 // reduce an element chunk's results after batched gemm
 template<typename P>
 void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,

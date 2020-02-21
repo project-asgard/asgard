@@ -271,7 +271,6 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   return chunks;
 }
 
-
 template<typename P>
 void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
                   element_subgrid const &subgrid, element_chunk const &chunk)
@@ -299,9 +298,10 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
       return prev_elems;
     }();
 
-    fk::matrix<P, mem_type::const_view, resource::device> const reduction_matrix(
-        rank_space.reduction_space, elem_size, cols.size() * pde.num_terms,
-        prev_row_elems * elem_size * pde.num_terms);
+    fk::matrix<P, mem_type::const_view, resource::device> const
+        reduction_matrix(rank_space.reduction_space, elem_size,
+                         cols.size() * pde.num_terms,
+                         prev_row_elems * elem_size * pde.num_terms);
 
     int const reduction_row = subgrid.to_local_row(row);
     fk::vector<P, mem_type::view, resource::device> output_view(
@@ -310,7 +310,6 @@ void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
 
     fk::vector<P, mem_type::const_view, resource::device> const unit_view(
         rank_space.get_unit_vector(), 0, cols.size() * pde.num_terms - 1);
-
 
     P const alpha     = 1.0;
     P const beta      = 1.0;
@@ -337,4 +336,3 @@ reduce_chunk(PDE<float> const &pde, rank_workspace<float> &rank_space,
 template void
 reduce_chunk(PDE<double> const &pde, rank_workspace<double> &rank_space,
              element_subgrid const &subgrid, element_chunk const &chunk);
-
