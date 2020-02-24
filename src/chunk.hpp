@@ -35,7 +35,8 @@ template<typename P>
 class rank_workspace
 {
 public:
-  rank_workspace(PDE<P> const &pde, std::vector<element_chunk> const &chunks);
+  rank_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
+                 std::vector<element_chunk> const &chunks);
   fk::vector<P, mem_type::owner, resource::device> const &
   get_unit_vector() const;
 
@@ -96,23 +97,10 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
 std::vector<element_chunk>
 assign_elements(element_subgrid const &grid, int const num_chunks);
 
-// data management functions
-template<typename P>
-void copy_chunk_inputs(PDE<P> const &pde, element_subgrid const &grid,
-                       rank_workspace<P> &rank_space,
-                       host_workspace<P> const &host_space,
-                       element_chunk const &chunk);
-
-template<typename P>
-void copy_chunk_outputs(PDE<P> const &pde, element_subgrid const &grid,
-                        rank_workspace<P> const &rank_space,
-                        host_workspace<P> &host_space,
-                        element_chunk const &chunk);
-
 // reduce an element chunk's results after batched gemm
 template<typename P>
 void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
-                  element_chunk const &chunk);
+                  element_subgrid const &subgrid, element_chunk const &chunk);
 
 extern template int get_num_chunks(element_subgrid const &grid,
                                    PDE<float> const &pde,
@@ -121,34 +109,10 @@ extern template int get_num_chunks(element_subgrid const &grid,
                                    PDE<double> const &pde,
                                    int const rank_size_MB);
 
-extern template void copy_chunk_inputs(PDE<float> const &pde,
-                                       element_subgrid const &grid,
-                                       rank_workspace<float> &rank_space,
-                                       host_workspace<float> const &host_space,
-                                       element_chunk const &chunk);
-
-extern template void copy_chunk_inputs(PDE<double> const &pde,
-                                       element_subgrid const &grid,
-                                       rank_workspace<double> &rank_space,
-                                       host_workspace<double> const &host_space,
-                                       element_chunk const &chunk);
-
-extern template void copy_chunk_outputs(PDE<float> const &pde,
-                                        element_subgrid const &grid,
-                                        rank_workspace<float> const &rank_space,
-                                        host_workspace<float> &host_space,
-                                        element_chunk const &chunk);
+extern template void
+reduce_chunk(PDE<float> const &pde, rank_workspace<float> &rank_space,
+             element_subgrid const &subgrid, element_chunk const &chunk);
 
 extern template void
-copy_chunk_outputs(PDE<double> const &pde, element_subgrid const &grid,
-                   rank_workspace<double> const &rank_space,
-                   host_workspace<double> &host_space,
-                   element_chunk const &chunk);
-
-extern template void reduce_chunk(PDE<float> const &pde,
-                                  rank_workspace<float> &rank_space,
-                                  element_chunk const &chunk);
-
-extern template void reduce_chunk(PDE<double> const &pde,
-                                  rank_workspace<double> &rank_space,
-                                  element_chunk const &chunk);
+reduce_chunk(PDE<double> const &pde, rank_workspace<double> &rank_space,
+             element_subgrid const &subgrid, element_chunk const &chunk);

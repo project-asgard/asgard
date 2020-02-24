@@ -10,7 +10,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            rank_workspace<P> &rank_space,
-                           std::vector<element_chunk> chunks,
+                           std::vector<element_chunk> const &chunks,
                            distribution_plan const &plan, P const time,
                            P const dt)
 {
@@ -35,7 +35,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const elem_size         = element_segment_size(pde);
 
   // allocate batches
-
   // max number of elements in any chunk
   int const max_elems = num_elements_in_chunk(*std::max_element(
       chunks.begin(), chunks.end(),
@@ -118,14 +117,15 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
         std::vector<batch_operands_set<P>> &batches)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
+  fm::scal(static_cast<P>(0.0), rank_space.batch_output);
+
+  // copy inputs onto GPU
+  rank_space.batch_input.transfer_from(host_space.x);
 
   for (auto const &chunk : chunks)
   {
-    // copy in inputs
-    copy_chunk_inputs(pde, grid, rank_space, host_space, chunk);
-
     // build batches for this chunk
-    build_batches(pde, elem_table, rank_space, chunk, batches);
+    build_batches(pde, elem_table, rank_space, grid, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;
@@ -140,11 +140,11 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
     }
 
     // do the reduction
-    reduce_chunk(pde, rank_space, chunk);
-
-    // copy outputs back
-    copy_chunk_outputs(pde, grid, rank_space, host_space, chunk);
+    reduce_chunk(pde, rank_space, grid, chunk);
   }
+
+  // copy outputs back from GPU
+  host_space.fx.transfer_from(rank_space.batch_output);
 }
 
 // this function executes an implicit time step using the current solution
@@ -204,7 +204,7 @@ explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       host_workspace<double> &host_space,
                       rank_workspace<double> &rank_space,
-                      std::vector<element_chunk> chunks,
+                      std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, double const time,
                       double const dt);
 
@@ -213,7 +213,7 @@ explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
                       rank_workspace<float> &rank_space,
-                      std::vector<element_chunk> chunks,
+                      std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, float const time,
                       float const dt);
 

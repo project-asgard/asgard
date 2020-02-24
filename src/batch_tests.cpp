@@ -998,19 +998,18 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }();
 
   auto const chunks = assign_elements(subgrid, get_num_chunks(subgrid, pde));
-  rank_workspace<P> rank_space(pde, chunks);
+  rank_workspace<P> rank_space(pde, subgrid, chunks);
 
   auto const num_elems = elem_table.size() * elem_table.size();
   auto batches         = allocate_batches(pde, num_elems);
-  fm::scal(static_cast<P>(0.0), host_space.fx);
 
+  // copy in inputs
+
+  rank_space.batch_input.transfer_from(host_space.x);
   for (auto const &chunk : chunks)
   {
-    // copy in inputs
-    copy_chunk_inputs(pde, subgrid, rank_space, host_space, chunk);
-
     // build batches for this chunk
-    build_batches(pde, elem_table, rank_space, chunk, batches);
+    build_batches(pde, elem_table, rank_space, subgrid, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;
@@ -1025,11 +1024,9 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
     }
 
     // do the reduction
-    reduce_chunk(pde, rank_space, chunk);
-
-    // copy outputs back
-    copy_chunk_outputs(pde, subgrid, rank_space, host_space, chunk);
+    reduce_chunk(pde, rank_space, subgrid, chunk);
   }
+  host_space.fx.transfer_from(rank_space.batch_output);
 
   // determined emprically 11/19
   auto const eps_multiplier = std::is_same<float, P>::value ? 1e3 : 1e4;

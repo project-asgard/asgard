@@ -8,6 +8,7 @@
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp" // for views
+#include <limits.h>
 
 // object to store lists of operands for batched gemm/gemv.
 // utilized as the primary data structure for other functions
@@ -708,13 +709,14 @@ get_operator_col(PDE<P> const &pde, int const degree,
 template<typename P>
 void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    rank_workspace<P> const &workspace,
-                   element_chunk const &chunk,
+                   element_subgrid const &subgrid, element_chunk const &chunk,
                    std::vector<batch_operands_set<P>> &batches)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const x_size    = chunk.size();
+
+  int64_t const x_size = (subgrid.col_stop - subgrid.col_start + 1) * elem_size;
   assert(workspace.batch_input.size() >= x_size);
 
   int const elements_in_chunk = num_elements_in_chunk(chunk);
@@ -825,9 +827,7 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         }();
 
         // determine the index for the input vector
-        // j - connected start is the first connected element
-        // for this chunk
-        int const x_index = (j - connected.start) * elem_size;
+        int const x_index = subgrid.to_local_col(j) * elem_size;
 
         // x vector input to kronmult
         P *const x_ptr = workspace.batch_input.data() + x_index;
@@ -1008,16 +1008,16 @@ unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
                               std::vector<batch_operands_set<double>> &batches,
                               int const batch_offset, PDE<double> const &pde);
 
-template void build_batches(PDE<float> const &pde,
-                            element_table const &elem_table,
-                            rank_workspace<float> const &workspace,
-                            element_chunk const &chunk,
-                            std::vector<batch_operands_set<float>> &);
-template void build_batches(PDE<double> const &pde,
-                            element_table const &elem_table,
-                            rank_workspace<double> const &workspace,
-                            element_chunk const &chunk,
-                            std::vector<batch_operands_set<double>> &);
+template void
+build_batches(PDE<float> const &pde, element_table const &elem_table,
+              rank_workspace<float> const &workspace,
+              element_subgrid const &subgrid, element_chunk const &chunk,
+              std::vector<batch_operands_set<float>> &);
+template void
+build_batches(PDE<double> const &pde, element_table const &elem_table,
+              rank_workspace<double> const &workspace,
+              element_subgrid const &subgrid, element_chunk const &chunk,
+              std::vector<batch_operands_set<double>> &);
 
 template void
 build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
