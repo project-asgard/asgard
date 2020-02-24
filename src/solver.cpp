@@ -91,7 +91,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> x, fk::vector<P> const &b,
     return fm::norm2(residual);
   };
 
-  P const norm_r = compute_residual();
+  P const norm_r        = compute_residual();
   P const initial_error = norm_r / norm_b;
   if (initial_error < tolerance)
   {
@@ -110,14 +110,12 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> x, fk::vector<P> const &b,
     basis.update_col(0, residual * (1 / norm_r));
     fk::vector<P> s(n);
     s(0) = norm_r;
-    
-    for(int j = 0; j < restart; ++j) {
-	// FIXME need vector view from matrix row/column
-        fk::vector<P> w = A*basis.extract
 
-
+    for (int j = 0; j < restart; ++j)
+    {
+      // FIXME need vector view from matrix row/column
+      fk::vector<P> w = A * basis.extract
     }
-   
   }
 }
 

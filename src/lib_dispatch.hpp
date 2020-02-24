@@ -14,6 +14,14 @@ extern "C"
 {
   /*
      --------------------------------------------------------------------------
+     compute parameters for givens rotation
+     --------------------------------------------------------------------------
+  */
+  double drotg_(double *a, double *b, double *c, double *s);
+  float srotg_(float *a, float *b, float *c, float *s);
+
+  /*
+     --------------------------------------------------------------------------
      euclidean norm of vector
      --------------------------------------------------------------------------
   */
@@ -102,6 +110,9 @@ void initialize_libraries(int const local_rank);
 // -- precision/execution resource wrapper for blas --
 namespace lib_dispatch
 {
+
+template<typename P>
+void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
 
 template<typename P>
 P nrm2(int *n, P *x, int *incx, resource const resrc = resource::host);

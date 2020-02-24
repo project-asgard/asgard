@@ -93,6 +93,44 @@ inline cublasOperation_t cublas_trans(char trans)
 namespace lib_dispatch
 {
 template<typename P>
+void rotg(P *a, P *b, P *c, P *s, resource const resrc)
+{
+  assert(a && b && c && s);
+
+  // function doesn't make sense outside of FP context
+  assert(std::is_floating_point_v<P>);
+
+  if (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    // function instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDrotg(device.get_handle(), a, b, c, s);
+      assert(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasSrotg(device.get_handle(), a, b, c, s);
+      assert(success == 0);
+    }
+    return;
+#endif
+  }
+
+  // default execution on the host for any resource
+  if constexpr (std::is_same<P, double>::value)
+  {
+    return drotg_(a, b, c, s);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    return srotg_(a, b, c, s);
+  }
+}
+
+template<typename P>
 P nrm2(int *n, P *x, int *incx, resource const resrc)
 {
   assert(x);
