@@ -127,6 +127,17 @@ public:
   template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner);
 
+  // create vector view from matrix
+  // const view version
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
+           mem_type omem>
+  explicit vector(fk::matrix<P, omem, resrc> const &source, int const col_index,
+                  int const row_start, int const row_stop);
+  // modifiable view version
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
+  explicit vector(fk::matrix<P, omem, resrc> &source, int const col_index,
+                  int const row_start, int const row_stop);
+
   ~vector();
 
   // constructor/assignment (required to be same to same T==T)
@@ -314,6 +325,15 @@ private:
   explicit vector(fk::vector<P, mem_type::owner, resrc> const &vec,
                   int const start_index, int const stop_index,
                   bool const delegated);
+
+  // matrix view from vector owner constructors (both const/nonconst) delegate
+  // to this private constructor, also with a dummy variable
+  template<mem_type omem, mem_type m_ = mem,
+           typename = enable_for_all_views<m_>>
+  explicit vector(fk::matrix<P, omem, resrc> const &source,
+                  std::shared_ptr<int> source_ref_count, int const column_index,
+                  int const row_start, int const row_stop);
+
   P *data_;  //< pointer to elements
   int size_; //< dimension
   std::shared_ptr<int> ref_count_ = nullptr;
@@ -529,6 +549,23 @@ public:
 
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   int get_num_views() const;
+
+
+  // this is to allow specific other types to access the private ref counter of
+  // owners - specifically, we want to allow a vector<view> to be made from a
+  // matrix<owner/view>
+  std::shared_ptr<int>
+  get_ref_count(access_badge<vector<P, mem_type::view, resrc>> const)
+  {
+    return ref_count_;
+  }
+
+  std::shared_ptr<int> get_ref_count(
+      access_badge<vector<P, mem_type::const_view, resrc>> const) const
+  {
+    return ref_count_;
+  }
+
 
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
@@ -835,6 +872,27 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &a)
     : vector(a, 0, std::max(0, a.size() - 1), true)
+{}
+
+// create vector view of an existing matrix
+// const version - delegates to private constructor
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename, mem_type omem>
+fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
+                                  int const column_index, int const row_start,
+                                  int const row_stop)
+    : vector(source, source.get_ref_count({}), column_index, row_start,
+             row_stop)
+{}
+
+// modifiable view version - delegates to private constructor
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename, mem_type omem>
+fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
+                                  int const column_index, int const row_start,
+                                  int const row_stop)
+    : vector(source, source.get_ref_count({}), column_index, row_start,
+             row_stop)
 {}
 
 template<typename P, mem_type mem, resource resrc>
@@ -1468,6 +1526,31 @@ fk::vector<P, mem, resrc>::vector(
 
     data_ = vec.data_ + start_index;
     size_ = stop_index - start_index + 1;
+  }
+}
+
+// public const/nonconst vector view from matrix constructors delegate to
+// this private constructor
+template<typename P, mem_type mem, resource resrc>
+template<mem_type omem, mem_type, typename>
+fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
+                                  std::shared_ptr<int> source_ref_count,
+                                  int const column_index, int const row_start,
+                                  int const row_stop)
+    : ref_count_(source_ref_count)
+{
+  assert(column_index >= 0);
+  assert(column_index < source.ncols());
+  assert(row_start >= 0);
+  assert(row_start <= row_stop);
+  assert(row_stop < source.nrows());
+
+  data_ = nullptr;
+  size_ = row_stop - row_start + 1;
+
+  if (size_ > 0)
+  {
+    data_ = source.data(column_index * source.stride() + row_start);
   }
 }
 

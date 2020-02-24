@@ -69,7 +69,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> x, fk::vector<P> const &b,
 
   fk::vector<P> residual(b);
   auto const
-      compute_residual[&A, &x, &b, &residual, &precond, &precond_pivots, ]()
+      compute_residual[&A, &x, &b, &residual, &precond, &precond_pivots]()
   {
     static bool factored = false;
     bool const trans_A   = false;
