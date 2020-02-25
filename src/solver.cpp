@@ -108,14 +108,75 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> x, fk::vector<P> const &b,
     P const norm_r = compute_residual();
 
     basis.update_col(0, residual * (1 / norm_r));
+    // TODO what is s??
     fk::vector<P> s(n);
     s(0) = norm_r;
 
     for (int j = 0; j < restart; ++j)
     {
-      // FIXME need vector view from matrix row/column
-      fk::vector<P> w = A * basis.extract
-    }
+      fk::vector<P> new_basis =
+          A * fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows());
+      fm::getrs(precond, new_basis, precond_pivots);
+      for (int k = 0; k < j; ++k)
+      {
+        fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
+                                                             basis.nrows());
+        krylov_proj(k, i) = new_basis * basis_vect;
+        new_basis         = new_basis - basis_vect;
+      }
+      krylov_proj(i + 1, i) = fm::nrm2(new_basis);
+      basis.update_col(i + 1, new_basis * (1 / krylov_proj(i + 1, i)));
+
+      for (int k = 0; k < i - 1; ++k)
+      {
+        P const temp =
+            cosines(k) * krylov_proj(k, i) + sines(k) * krylov_proj(k + 1, i);
+        krylov_proj(k + 1, i) =
+            -sines(k) * krylov_proj(k, i) + cosines(k) * krylov_proj(k + 1, i);
+        krylov_proj(k, i) = temp;
+      }
+
+      // compute given's rotation
+      rotg(&krylov_proj(i, i), &krylov_proj(i + 1, i), cosines.data(i),
+           sines.data(i));
+
+      P const temp = cosines(i) * s(i);
+      s(i + 1)     = -sines(i) * s(i);
+      s(i)         = temp;
+
+      krylov_proj(i, i) =
+          consines(i) * krlov_proj(i, i) + sines(i) * krlov_proj(i + 1, i);
+      krylov_proj(i + 1, i) = 0.0;
+
+      P const error = std::abs(s(i + 1)) / norm_b;
+      if (error <= tolerance)
+      {
+        auto proj = krylov_proj.extract_submatrix(0, i, 0, i);
+        std::vector<int> pivots(i);
+        // TODO what is this
+        auto s_view = fk::vector<P, mem_type::view>(s, 0, m - 1);
+        fm::gesv(proj, s_view);
+        x = x +
+            (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows(), 0, i - 1) *
+             s_view);
+        break; // depart the inner iteration loop
+      }
+    } // end of inner iteration loop
+
+    if (error <= tolerance)
+      return error; // all done!
+
+    auto proj   = krylov_proj.extract_submatrix(0, restart, 0, restart);
+    auto s_view = fk::vector<P, mem_type::view>(s, 0, m - 1);
+    fm::gesv(proj, s_view);
+    x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows(), 0, i - 1) *
+             s_view);
+    P const norm_r_outer = compute_residual();
+    s(i + 1)             = norm_r_outer;
+    P const error        = norm_r_outer / norm_b;
+
+    if (error <= tolerance)
+      return error;
   }
 }
 
