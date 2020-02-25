@@ -550,7 +550,6 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   int get_num_views() const;
 
-
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a vector<view> to be made from a
   // matrix<owner/view>
@@ -565,7 +564,6 @@ public:
   {
     return ref_count_;
   }
-
 
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
