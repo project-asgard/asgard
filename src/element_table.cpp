@@ -1,5 +1,6 @@
 #include "element_table.hpp"
 
+#include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -16,7 +17,7 @@ element_table::element_table(options const program_opts, int const num_dims)
   bool const use_full_grid = program_opts.using_full_grid();
 
   assert(num_dims > 0);
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   // get permutation table for some num_dims, num_levels
   // each row of this table becomes a level tuple, and is the "level" component
@@ -98,7 +99,7 @@ element_table::get_cell_index_set(fk::vector<int> const level_tuple)
     fk::vector<int> v(level_tuple.size());
     std::transform(
         level_tuple.begin(), level_tuple.end(), v.begin(),
-        [](int level) { return two_raised_to(std::max(0, level - 1)); });
+        [](int level) { return fm::two_raised_to(std::max(0, level - 1)); });
     return v;
   }();
 

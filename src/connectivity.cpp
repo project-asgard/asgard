@@ -23,7 +23,7 @@ int get_1d_index(int const level, int const cell)
 // Build connectivity for single dimension
 fk::matrix<int> make_1d_connectivity(int const num_levels)
 {
-  assert(num_levels > 0);
+  assert(num_levels > 1);
 
   int const lev_squared = static_cast<int>(std::pow(2, num_levels));
   fk::matrix<int> grid(lev_squared, lev_squared);
@@ -40,9 +40,10 @@ fk::matrix<int> make_1d_connectivity(int const num_levels)
       int const other_end   = std::min(cell + 1, cell_boundary);
       fk::vector<int> other_cells(other_end - other_start + 1);
       std::iota(other_cells.begin(), other_cells.end(), other_start);
-      std::transform(
-          other_cells.begin(), other_cells.end(), other_cells.begin(),
-          [level](int &other_cell) { return get_1d_index(level, other_cell); });
+      std::transform(other_cells.begin(), other_cells.end(),
+                     other_cells.begin(), [level](int const &other_cell) {
+                       return get_1d_index(level, other_cell);
+                     });
 
       // connect diagonal
       for (int const &j : other_cells)

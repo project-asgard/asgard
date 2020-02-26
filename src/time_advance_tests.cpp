@@ -1,4 +1,5 @@
-
+#include "build_info.hpp"
+#include "chunk.hpp"
 #include "coefficients.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -7,1023 +8,428 @@
 #include "transformations.hpp"
 #include <numeric>
 #include <random>
+#include <sstream>
+
+struct distribution_test_init
+{
+  distribution_test_init() { initialize_distribution(); }
+  ~distribution_test_init() { finalize_distribution(); }
+};
+
+#ifdef ASGARD_USE_MPI
+static distribution_test_init const distrib_test_info;
+#endif
+
+// settings for time advance testing
+static auto constexpr num_steps          = 5;
+static auto constexpr workspace_limit_MB = 1000;
+
+template<typename P>
+void time_advance_test(int const level, int const degree, PDE<P> &pde,
+                       int const num_steps, std::string const filepath,
+                       bool const full_grid                            = false,
+                       std::vector<std::string> const &additional_args = {},
+                       double const eps_multiplier                     = 1e4)
+// eps multiplier determined empirically 11/19; lowest epsilon multiplier
+// for which all current tests pass with the exception of fp2d
+{
+  int const my_rank   = get_rank();
+  int const num_ranks = get_num_ranks();
+
+  std::vector<std::string> const args = [&additional_args, level, degree,
+                                         full_grid]() {
+    std::string const grid_str    = full_grid ? "-f" : "";
+    std::vector<std::string> args = {"-l", std::to_string(level), "-d",
+                                     std::to_string(degree), grid_str};
+    args.insert(args.end(), additional_args.begin(), additional_args.end());
+    return args;
+  }();
+  options const o = make_options(args);
+
+  element_table const table(o, pde.num_dims);
+
+  // can't run problem with fewer elements than ranks
+  // this is asserted on in the distribution component
+  if (num_ranks >= table.size())
+  {
+    return;
+  }
+
+  auto const plan    = get_plan(num_ranks, table);
+  auto const subgrid = plan.at(my_rank);
+
+  // -- set coeffs
+  generate_all_coefficients(pde);
+
+  // -- generate initial condition vector.
+  fk::vector<P> const initial_condition = [&pde, &table, &subgrid, degree]() {
+    std::vector<fk::vector<P>> initial_conditions;
+    for (dimension<P> const &dim : pde.get_dimensions())
+    {
+      initial_conditions.push_back(
+          forward_transform<P>(dim, dim.initial_condition));
+    }
+    return combine_dimensions(degree, table, subgrid.col_start,
+                              subgrid.col_stop, initial_conditions);
+  }();
+
+  // -- generate sources.
+  // these will be scaled later for time
+  std::vector<fk::vector<P>> const initial_sources = [&pde, &table, &subgrid,
+                                                      degree]() {
+    std::vector<fk::vector<P>> initial_sources;
+    for (source<P> const &source : pde.sources)
+    {
+      // gather contributions from each dim for this source, in wavelet space
+      std::vector<fk::vector<P>> initial_sources_dim;
+      for (int i = 0; i < pde.num_dims; ++i)
+      {
+        initial_sources_dim.push_back(forward_transform<P>(
+            pde.get_dimensions()[i], source.source_funcs[i]));
+      }
+      // combine those contributions to form the unscaled source vector
+      initial_sources.push_back(
+          combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
+                             initial_sources_dim));
+    }
+    return initial_sources;
+  }();
+
+  // -- prep workspace/chunks
+  host_workspace<P> host_space(pde, subgrid);
+  std::vector<element_chunk> const chunks = assign_elements(
+      subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
+  rank_workspace<P> rank_space(pde, subgrid, chunks);
+  host_space.x = initial_condition;
+
+  // -- time loop
+  P const dt = pde.get_dt() * o.get_cfl();
+
+  for (int i = 0; i < num_steps; ++i)
+  {
+    P const time = i * dt;
+    explicit_time_advance(pde, table, initial_sources, host_space, rank_space,
+                          chunks, plan, time, dt);
+    std::string const file_path = filepath + std::to_string(i) + ".dat";
+
+    int const degree       = pde.get_dimensions()[0].get_degree();
+    int const segment_size = static_cast<int>(std::pow(degree, pde.num_dims));
+    fk::vector<P> const gold =
+        fk::vector<P>(read_vector_from_txt_file(file_path))
+            .extract(subgrid.col_start * segment_size,
+                     (subgrid.col_stop + 1) * segment_size - 1);
+
+    relaxed_comparison(gold, host_space.x, eps_multiplier);
+  }
+}
+
 TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 
 {
-  int const test_steps = 5;
-
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
     int const level  = 2;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path =
-          "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t" +
-          std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
-
   SECTION("continuity1, level 2, degree 2, full grid")
   {
     int const degree = 2;
     int const level  = 2;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path =
-          "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t" +
-          std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    bool const full_grid = true;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
+
   SECTION("continuity1, level 4, degree 3, sparse grid")
   {
     int const degree = 3;
     int const level  = 4;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path =
-          "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t" +
-          std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
-
 TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
                    double)
-
 {
-  int const test_steps = 5;
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
     int const level  = 2;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path = "../testing/generated-inputs/"
-                                    "time_advance/continuity2_sg_l2_d2_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 
   SECTION("continuity2, level 2, degree 2, full grid")
   {
     int const degree = 2;
     int const level  = 2;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree), "-f"});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path = "../testing/generated-inputs/"
-                                    "time_advance/continuity2_fg_l2_d2_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    bool const full_grid = true;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
   }
+
   SECTION("continuity2, level 4, degree 3, sparse grid")
   {
     int const degree = 3;
     int const level  = 4;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path = "../testing/generated-inputs/time_advance/"
-                                    "continuity2_sg_l4_d3_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
 TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
                    double)
 {
-  int const test_steps = 5;
   SECTION("continuity3, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
     int const level  = 2;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path = "../testing/generated-inputs/"
-                                    "time_advance/continuity3_sg_l2_d2_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 
   SECTION("continuity3, level 4, degree 3, sparse grid")
   {
     int const degree = 3;
     int const level  = 4;
-
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    element_table const table(o, pde->num_dims);
-
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
-    }
-
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
-
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
-
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
-
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
-
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
-
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
-
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
-
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
-
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
-
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
-
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
-
-      std::string const file_path = "../testing/generated-inputs/time_advance/"
-                                    "continuity3_sg_l4_d3_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
-
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }
 
 TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
                    double)
 {
-  int const test_steps = 5;
-  SECTION("continuity6, level 2, degree 2, sparse grid")
+  SECTION("continuity6, level 2, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_1d_4p2, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/fokkerplanck1_4p2_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
     int const level  = 2;
 
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+}
 
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
+  {
+    int const degree            = 2;
+    int const level             = 2;
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_4p1a_sg_l2_d2_t";
 
-    element_table const table(o, pde->num_dims);
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
+    time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+}
 
-    // set coeffs
-    TestType const init_time = 0.0;
-    for (int i = 0; i < pde->num_dims; ++i)
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
+                   float, double)
+{
+  SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 3;
+
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck2_complete_sg_l3_d3_t";
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+    bool const full_grid                      = false;
+    std::vector<std::string> const addtl_args = {
+        "-c", to_string_with_precision(1e-10, 16)};
+    auto const eps_multiplier = 1e7; // FIXME why so high?
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      addtl_args, eps_multiplier);
+  }
+}
+
+template<typename P>
+void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
+                                int const num_steps, std::string const filepath,
+                                bool const full_grid = false)
+{
+  int const my_rank   = get_rank();
+  int const num_ranks = get_num_ranks();
+  if (num_ranks > 1)
+  {
+    // distributed implicit stepping not implemented
+    ignore(level);
+    ignore(degree);
+    ignore(pde);
+    ignore(num_steps);
+    ignore(filepath);
+    ignore(full_grid);
+    return;
+  }
+
+  std::string const grid_str = full_grid ? "-f" : "";
+  options const o =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
+                    "-c", std::to_string(0.01), "--implicit", grid_str});
+
+  element_table const table(o, pde.num_dims);
+  auto const plan    = get_plan(num_ranks, table);
+  auto const subgrid = plan.at(my_rank);
+
+  // -- set coeffs
+  generate_all_coefficients(pde);
+
+  // -- generate initial condition vector.
+  P const initial_scale = 1.0;
+  std::vector<fk::vector<P>> initial_conditions;
+  for (dimension<P> const &dim : pde.get_dimensions())
+  {
+    initial_conditions.push_back(
+        forward_transform<P>(dim, dim.initial_condition));
+  }
+  fk::vector<P> const initial_condition = combine_dimensions(
+      degree, table, subgrid.col_start, subgrid.col_stop, initial_conditions);
+
+  // -- generate sources.
+  // these will be scaled later for time
+  std::vector<fk::vector<P>> initial_sources;
+
+  for (source<P> const &source : pde.sources)
+  {
+    std::vector<fk::vector<P>> initial_sources_dim;
+    for (int i = 0; i < pde.num_dims; ++i)
     {
-      for (int j = 0; j < pde->num_terms; ++j)
-      {
-        auto term                     = pde->get_terms()[j][i];
-        dimension<TestType> const dim = pde->get_dimensions()[i];
-        fk::matrix<TestType> coeffs =
-            fk::matrix<TestType>(generate_coefficients(dim, term, init_time));
-        pde->set_coefficients(coeffs, j, i);
-      }
+      initial_sources_dim.push_back(forward_transform<P>(
+          pde.get_dimensions()[i], source.source_funcs[i]));
     }
 
-    // -- generate initial condition vector.
-    TestType const initial_scale = 1.0;
-    std::vector<fk::vector<TestType>> initial_conditions;
-    for (dimension<TestType> const &dim : pde->get_dimensions())
-    {
-      initial_conditions.push_back(
-          forward_transform<TestType>(dim, dim.initial_condition));
-    }
-    fk::vector<TestType> const initial_condition = combine_dimensions(
-        pde->get_dimensions()[0], table, initial_conditions, initial_scale);
-    // input vector x
-    int const elem_size =
-        std::pow(pde->get_dimensions()[0].get_degree(), pde->num_dims);
-    fk::vector<TestType> x(table.size() * elem_size);
-    x = initial_condition;
+    initial_sources.push_back(
+        combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
+                           initial_sources_dim, initial_scale));
+  }
 
-    // intermediate output spaces for batched gemm
-    fk::vector<TestType> y(x.size() * table.size() * pde->num_terms);
-    fk::vector<TestType> work(elem_size * table.size() * table.size() *
-                              pde->num_terms * (pde->num_dims - 1));
+  // -- prep workspace/chunks
+  host_workspace<P> host_space(pde, subgrid);
+  std::vector<element_chunk> const chunks = assign_elements(
+      subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
+  rank_workspace<P> rank_space(pde, subgrid, chunks);
+  host_space.x = initial_condition;
 
-    // output vector fx
-    fk::vector<TestType> fx(x.size());
+  // -- time loop
+  P const dt = pde.get_dt() * o.get_cfl();
 
-    // setup reduction vector
-    int const items_to_reduce              = pde->num_terms * table.size();
-    fk::vector<TestType> const unit_vector = [&] {
-      fk::vector<TestType> builder(items_to_reduce);
-      std::fill(builder.begin(), builder.end(), 1.0);
-      return builder;
-    }();
+  for (int i = 0; i < num_steps; ++i)
+  {
+    P const time = i * dt;
+    implicit_time_advance(pde, table, initial_sources, host_space, chunks, time,
+                          dt);
 
-    // call to build batches
-    std::vector<batch_operands_set<TestType>> const batches =
-        build_batches(*pde, table, x, y, work, unit_vector, fx);
+    std::string const file_path = filepath + std::to_string(i) + ".dat";
 
-    // -- generate sources.
-    // these will be scaled later for time
-    std::vector<fk::vector<TestType>> initial_sources;
+    fk::vector<P> const gold =
+        fk::vector<P>(read_vector_from_txt_file(file_path));
 
-    for (source<TestType> const &source : pde->sources)
-    {
-      std::vector<fk::vector<TestType>> initial_sources_dim;
-      for (int i = 0; i < pde->num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<TestType>(
-            pde->get_dimensions()[i], source.source_funcs[i]));
-      }
+    relaxed_comparison(gold, host_space.x);
+  }
+}
 
-      initial_sources.push_back(combine_dimensions(
-          pde->get_dimensions()[0], table, initial_sources_dim, initial_scale));
-    }
+TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
+                   float, double)
+{
+  SECTION("continuity1, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
 
-    // these vectors used for intermediate results in time advance
-    fk::vector<TestType> scaled_source(x.size());
-    fk::vector<TestType> x_orig(x.size());
-    std::vector<fk::vector<TestType>> workspace(3,
-                                                fk::vector<TestType>(x.size()));
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    auto const gold_base = "../testing/generated-inputs/time_advance/"
+                           "continuity1_implicit_l2_d2_t";
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
 
-    // -- time loop
-    TestType const dt = pde->get_dt() * o.get_cfl();
+  SECTION("continuity1, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
 
-    for (int i = 0; i < test_steps; ++i)
-    {
-      TestType const time = i * dt;
-      explicit_time_advance(*pde, x, x_orig, fx, scaled_source, initial_sources,
-                            workspace, batches, time, dt);
+    auto const gold_base = "../testing/generated-inputs/time_advance/"
+                           "continuity1_implicit_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+}
 
-      std::string const file_path = "../testing/generated-inputs/"
-                                    "time_advance/continuity6_sg_l2_d2_t" +
-                                    std::to_string(i) + ".dat";
-      fk::vector<TestType> const gold =
-          fk::vector<TestType>(read_vector_from_txt_file(file_path));
+TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
+                   float, double)
+{
+  SECTION("continuity2, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
 
-      fk::vector<TestType> const diff = gold - fx;
-      auto abs_compare                = [](TestType const a, TestType const b) {
-        return (std::abs(a) < std::abs(b));
-      };
-      TestType const result =
-          *std::max_element(diff.begin(), diff.end(), abs_compare);
-      TestType const tol = std::numeric_limits<TestType>::epsilon() * 1e3;
-      REQUIRE(result <= tol);
-    }
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+    auto const gold_base = "../testing/generated-inputs/time_advance/"
+                           "continuity2_implicit_l2_d2_t";
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+
+  SECTION("continuity2, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
+
+    auto const gold_base = "../testing/generated-inputs/time_advance/"
+                           "continuity2_implicit_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
 }

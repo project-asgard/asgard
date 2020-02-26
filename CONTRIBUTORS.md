@@ -20,5 +20,11 @@ B. Tyler McDaniel (University of Tennessee/Oak Ridge National Lab)
 Adam McDaniel (Oak Ridge National Lab)
 - Intern
 
-Lin Mu (Oak Ridge National Lab)
+Lin Mu (University of Georgia/Oak Ridge National Lab)
 - Method development
+
+Timothy Younkin (University of Tennessee/Oak Ridge National Lab)
+- Postdoc
+
+Harry Hughes (Oak Ridge National Lab)
+- Developer

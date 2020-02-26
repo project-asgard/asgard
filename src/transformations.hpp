@@ -1,6 +1,8 @@
 #pragma once
 
+#include "distribution.hpp"
 #include "element_table.hpp"
+#include "fast_math.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
@@ -10,40 +12,59 @@
 #include <vector>
 
 template<typename P>
+fk::matrix<P>
+recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
+               int const index = 0);
+
+template<typename P>
+std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
+
+template<typename P>
+std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
+
+template<typename P>
 fk::vector<P>
-combine_dimensions(dimension<P> const &, element_table const &,
+wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
+                     element_table const &table, int const memory_limit_MB);
+template<typename P>
+fk::vector<P>
+combine_dimensions(int const, element_table const &,
+                   std::vector<fk::vector<P>> const &, P const = 1.0);
+
+// get only the elements of the combined vector that fall within a specified
+// range
+template<typename P>
+fk::vector<P>
+combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
-fk::vector<P> forward_transform(dimension<P> const &dim, F function)
+fk::vector<P>
+forward_transform(dimension<P> const &dim, F function, P const t = 0)
 {
   int const num_levels = dim.get_level();
   int const degree     = dim.get_degree();
   P const domain_min   = dim.domain_min;
   P const domain_max   = dim.domain_max;
 
-  assert(num_levels > 0);
+  assert(num_levels > 1);
   assert(degree > 0);
   assert(domain_max > domain_min);
 
   // check to make sure the F function arg is a function type
   // that will accept a vector argument. we have a check for its
   // return below
-  static_assert(std::is_invocable_v<decltype(function), fk::vector<P>>);
+  static_assert(std::is_invocable_v<decltype(function), fk::vector<P>, P>);
 
   fk::matrix<P> const forward_trans(dim.get_to_basis_operator());
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
-  // we do the two-step store because we cannot have 'static' bindings
-  int const quadrature_num = 10;
-  static const auto legendre_values =
-      legendre_weights<P>(quadrature_num, -1, 1);
-  auto const [roots, weights] = legendre_values;
+  auto const [roots, weights] = legendre_weights<P>(degree, -1, 1);
 
   // get grid spacing.
   // hate this name TODO
-  int const n                  = two_raised_to(num_levels);
+  int const n                  = fm::two_raised_to(num_levels);
   int const degrees_freedom_1d = degree * n;
 
   // get the Legendre basis function evaluated at the Legendre-Gauss nodes   //
@@ -75,7 +96,7 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
     }();
 
     // get the f(v) initial condition at the quadrature points.
-    fk::vector<P> f_here = function(mapped_roots);
+    fk::vector<P> f_here = function(mapped_roots, t);
     // ensuring function returns vector of appropriate size
     assert(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
@@ -107,9 +128,30 @@ fk::vector<P> forward_transform(dimension<P> const &dim, F function)
   return transformed;
 }
 
+/* extern instantiations */
+extern template fk::matrix<double>
+recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
+               int const index);
+extern template fk::matrix<float>
+recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
+               int const index);
+
+extern template std::vector<fk::matrix<double>>
+gen_realspace_transform(PDE<double> const &pde);
+extern template std::vector<fk::matrix<float>>
+gen_realspace_transform(PDE<float> const &pde);
+
 extern template fk::vector<double>
-combine_dimensions(dimension<double> const &, element_table const &,
-                   std::vector<fk::vector<double>> const &, double const);
+wavelet_to_realspace(PDE<double> const &pde,
+                     fk::vector<double> const &wave_space,
+                     element_table const &table, int const max_mem_mb);
 extern template fk::vector<float>
-combine_dimensions(dimension<float> const &, element_table const &,
-                   std::vector<fk::vector<float>> const &, float const);
+wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
+                     element_table const &table, int const max_mem_mb);
+
+extern template fk::vector<double>
+combine_dimensions(int const, element_table const &, int const, int const,
+                   std::vector<fk::vector<double>> const &, double const = 1.0);
+extern template fk::vector<float>
+combine_dimensions(int const, element_table const &, int const, int const,
+                   std::vector<fk::vector<float>> const &, float const = 1.0);

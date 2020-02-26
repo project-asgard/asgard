@@ -1,4 +1,3 @@
-
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
 #include <array>
@@ -160,6 +159,32 @@ fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x)
   return solutions;
 }
 
+// norm( , 2) function, only for real vectors (2-norm)
+template<typename P>
+P l2_norm(fk::vector<P> const &vec)
+{
+  P accum     = 0;
+  int const N = vec.size();
+  for (auto i = 0; i < N; ++i)
+  {
+    accum += vec(i) * vec(i);
+  }
+  return std::sqrt(accum);
+}
+
+// norm( , 'inf') function, only for real vectors (infinity-norm)
+template<typename P>
+P inf_norm(fk::vector<P> const &vec)
+{
+  auto abs_compare = [](P const a, P const b) {
+    return (std::abs(a) < std::abs(b));
+  };
+
+  P const result =
+      std::abs(*std::max_element(vec.begin(), vec.end(), abs_compare));
+  return result;
+}
+
 //-----------------------------------------------------------------------------
 //
 // these binary files can be generated from matlab or octave with
@@ -177,10 +202,11 @@ fk::vector<double> read_vector_from_bin_file(std::string const &path)
   std::ifstream infile;
   infile.open(path, std::ios::in | std::ios::binary);
 
-  // read failed, return empty
+  // read failed
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::streampos bytes;
@@ -218,10 +244,11 @@ double read_scalar_from_txt_file(std::string const &path)
   std::ifstream infile;
   infile.open(path, std::ios::in);
 
-  // read failed, return empty
+  // read failed
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::string tmp_str;
@@ -262,7 +289,8 @@ fk::vector<double> read_vector_from_txt_file(std::string const &path)
   // read failed, return empty
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::string tmp_str;
@@ -325,10 +353,11 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   std::ifstream infile;
   infile.open(path, std::ios::in);
 
-  // read failed, return empty
+  // read failed
   if (!infile)
   {
-    return {};
+    std::cout << "ERROR: Unable to open file " << path << "\n";
+    assert(infile);
   }
 
   std::string tmp_str;
@@ -422,6 +451,24 @@ fk::matrix<int> meshgrid(int const start, int const length)
   return mesh;
 }
 
+template<typename P, mem_type mem>
+fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol)
+{
+  assert(nrow * ncol == mat.size());
+  fk::vector<P> X(mat);
+  fk::matrix<P> Xreshape(nrow, ncol);
+
+  for (int i = 0; i < ncol; i++)
+  {
+    for (int j = 0; j < nrow; j++)
+    {
+      int const count = i * nrow + j;
+      Xreshape(j, i)  = X(count);
+    }
+  }
+  return Xreshape;
+}
+
 // explicit instantiations
 template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
@@ -439,6 +486,11 @@ template int polyval(fk::vector<int> const p, int const x);
 template float polyval(fk::vector<float> const p, float const x);
 template double polyval(fk::vector<double> const p, double const x);
 
+template float l2_norm(fk::vector<float> const &vec);
+template double l2_norm(fk::vector<double> const &vec);
+template float inf_norm(fk::vector<float> const &vec);
+template double inf_norm(fk::vector<double> const &vec);
+
 template fk::vector<int>
 polyval(fk::vector<int> const p, fk::vector<int> const x);
 template fk::vector<float>
@@ -452,3 +504,10 @@ template fk::matrix<float>
 horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
 template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);
+
+template fk::matrix<double>
+reshape(fk::matrix<double> mat, int const nrow, int const ncol);
+template fk::matrix<float>
+reshape(fk::matrix<float> mat, int const nrow, int const ncol);
+template fk::matrix<int>
+reshape(fk::matrix<int> mat, int const nrow, int const ncol);

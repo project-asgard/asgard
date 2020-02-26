@@ -48,14 +48,17 @@ private:
   //
 
   // specify initial condition vector functions...
-  static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
 
   // specify exact solution vectors/time function...
-  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(2.0 * PI * x); });
@@ -67,8 +70,9 @@ private:
   // specify source functions...
 
   // source 0
-  static fk::vector<P> source_0_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(2.0 * PI * x); });
@@ -78,8 +82,9 @@ private:
   static P source_0_time(P const time) { return std::cos(time); }
 
   // source 1
-  static fk::vector<P> source_1_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -102,33 +107,33 @@ private:
     // suppress compiler warnings
     ignore(x);
     ignore(time);
-    return 1.0;
+    return -1.0;
   }
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -1.0,                         // domain min
-                   1.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   initial_condition_dim0,       // initial condition
-                   "x");                         // name
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim0, // initial condition
+                   "x");                   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
-  // define terms (1 in this case)
-  inline static term<P> const term0_dim0_ =
-      term<P>(coefficient_type::grad, // operator type
-              g_func_0,               // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "d_dx",                 // name
-              dim0_);                 // owning dim
+  inline static const partial_term<P> partial_term_0 = partial_term<P>(
+      coefficient_type::grad, g_func_0, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_};
+  // define terms (1 in this case)
+  inline static term<P> term0_dim0_ =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "d_dx",          // name
+              dim0_,           // owning dim
+              {partial_term_0});
+
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 
   inline static term_set<P> const terms_ = {terms0_};
 

@@ -1,7 +1,48 @@
 
+
 ###############################################################################
 ## External support
 ###############################################################################
+
+
+###############################################################################
+## Add git branch and abbreviated git commit hash to git.hpp header file
+###############################################################################
+# Get the latest abbreviated commit hash of the working branch
+# and force a cmake reconfigure
+include(contrib/GetGitRevisionDescription.cmake)
+get_git_head_revision(GIT_REFSPEC GIT_COMMIT_HASH)
+# Get the current working branch
+execute_process(
+  COMMAND git rev-parse --abbrev-ref HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_BRANCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Get the summary of the last commit
+execute_process(
+  COMMAND git log -n 1 --format="\\n  Date: %ad\\n      %s"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_SUMMARY
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Replace newlines with '\n\t' literal
+string(REGEX REPLACE "(\r?\n)+"
+       "\\\\n" GIT_COMMIT_SUMMARY
+       ${GIT_COMMIT_SUMMARY}
+)
+# Remove double quotes
+string(REGEX REPLACE "\""
+       "" GIT_COMMIT_SUMMARY
+       ${GIT_COMMIT_SUMMARY}
+)
+# Get the current date and time of build
+execute_process(
+  COMMAND date "+%A, %B %d %Y at %l:%M %P"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE BUILD_TIME
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
 ###############################################################################
 ## Blas/Lapack
@@ -29,33 +70,49 @@ if (NOT ASGARD_BUILD_OPENBLAS)
       PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
     if (LAPACK_LIB AND BLAS_LIB)
       set (LINALG_LIBS ${LAPACK_LIB} ${BLAS_LIB})
+      set (LINALG_LIBS_FOUND TRUE)
     endif ()
   endif ()
 
   # search for blas/lapack packages providing cmake/pkgconfig
-  if (NOT LINALG_LIBS)
+  if (NOT LINALG_LIBS_FOUND)
     find_package (LAPACK QUIET)
     find_package (BLAS QUIET)
-    if (LAPACK_FOUND)
     #if (LAPACK_FOUND AND BLAS_FOUND)
+    if (LAPACK_FOUND)
+      # CMake 3.16 fixed LAPACK and BLAS detection on Cray systems, and
+      # intentionally sets LAPACK_LIBRARIES and BLAS_LIBRARIES to empty
+      # strings, trusting that the compiler wrapper will link the correct
+      # library which supplies BLAS and LAPACK functions. If we try to append
+      # LAPACK_LIBRARIES and BLAS_LIBRARIES to LINALG_LIBS whenever
+      # LAPACK_FOUND is true, then LINALG_LIBS becomes itself an empty string
+      # on Cray systems, and as a result will build OpenBLAS (which we don't
+      # want).
+      # So indicate that it was found, but the libraries remain empty for CMake
+      set (LINALG_LIBS_FOUND TRUE)
       set (LINALG_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
     endif ()
   endif ()
 
   # search for blas/lapack libraries
-  if (NOT LINALG_LIBS)
+  if (NOT LINALG_LIBS_FOUND)
     find_library (LAPACK_LIB lapack openblas)
     find_library (BLAS_LIB blas openblas)
     if (LAPACK_LIB AND BLAS_LIB)
       set (LINALG_LIBS ${LAPACK_LIB} ${BLAS_LIB})
+      set (LINALG_LIBS_FOUND TRUE)
     endif()
   endif ()
 
-  message (STATUS "LINALG libraries found: ${LINALG_LIBS}")
+  if (LINALG_LIBS)
+    message (STATUS "LINALG libraries found: ${LINALG_LIBS}")
+  elseif (LINALG_LIBS_FOUND AND NOT LINALG_LIBS)
+    message (STATUS "LINALG libraries found, relying on compiler wrappers")
+  endif ()
 endif ()
 
 # if cmake couldn't find other blas/lapack, or the user asked to build openblas
-if (NOT LINALG_LIBS)
+if (NOT LINALG_LIBS_FOUND)
   # first check if it has already been built
   set (OpenBLAS_PATH ${CMAKE_SOURCE_DIR}/contrib/blas/openblas)
   find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib)
@@ -66,8 +123,21 @@ if (NOT LINALG_LIBS)
   else (NOT DEFINED LINALG_LIBS)
     message (STATUS "OpenBLAS not found. We'll build it from source.")
 
+    # OpenBLAS will build without Fortran, but it will silently neglect to build
+    # vital functions, so ensure we have Fortran to avoid this
+    include( CheckLanguage )
+    message( STATUS "Checking for Fortran compiler..." )
+    check_language(Fortran)
+    if(CMAKE_Fortran_COMPILER)
+      enable_language(Fortran)
+      message( STATUS "Fortran compiler found" )
+    else()
+      message( FATAL_ERROR "Fortran compiler missing - required to build OpenBLAS" )
+    endif()
+
     include (ExternalProject)
     ExternalProject_Add (openblas-ext
+      UPDATE_COMMAND ""
       PREFIX contrib/blas/openblas
       URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
       DOWNLOAD_NO_PROGRESS 1
@@ -77,6 +147,7 @@ if (NOT LINALG_LIBS)
       INSTALL_COMMAND make PREFIX=${OpenBLAS_PATH} install
     )
     set (build_OpenBLAS TRUE)
+    set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
   endif ()
 endif ()
 

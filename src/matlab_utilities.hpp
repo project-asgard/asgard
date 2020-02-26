@@ -1,5 +1,6 @@
 #pragma once
 
+#include "fast_math.hpp"
 #include "tensors.hpp"
 #include <algorithm>
 #include <functional>
@@ -65,6 +66,14 @@ P polyval(fk::vector<P> const p, P const x);
 template<typename P>
 fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
 
+// norm( , 2) function, only for real vectors (2-norm)
+template<typename P>
+P l2_norm(fk::vector<P> const &vec);
+
+// norm( , 'inf') function, only for real vectors (infinity-norm)
+template<typename P>
+P inf_norm(fk::vector<P> const &vec);
+
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>
 fk::vector<int> find(fk::vector<P> const vect, Func pred)
@@ -127,9 +136,6 @@ fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices);
 // limited subset of matbal meshgrid
 fk::matrix<int> meshgrid(int const start, int const length);
 
-// a non-matlab one-liner that had no better home - compute 2^arg
-inline int two_raised_to(int exponent) { return 1 << exponent; }
-
 // suppress implicit instantiations
 extern template fk::vector<float> linspace(float const start, float const end,
                                            unsigned int const num_elems = 100);
@@ -155,9 +161,24 @@ polyval(fk::vector<float> const p, fk::vector<float> const x);
 extern template fk::vector<double>
 polyval(fk::vector<double> const p, fk::vector<double> const x);
 
+extern template float l2_norm(fk::vector<float> const &vec);
+extern template double l2_norm(fk::vector<double> const &vec);
+extern template float inf_norm(fk::vector<float> const &vec);
+extern template double inf_norm(fk::vector<double> const &vec);
+
 extern template fk::matrix<int>
 horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);
 extern template fk::matrix<float>
 horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
 extern template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);
+
+template<typename P, mem_type mem>
+fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol);
+
+extern template fk::matrix<double>
+reshape(fk::matrix<double> mat, int const nrow, int const ncol);
+extern template fk::matrix<float>
+reshape(fk::matrix<float> mat, int const nrow, int const ncol);
+extern template fk::matrix<int>
+reshape(fk::matrix<int> mat, int const nrow, int const ncol);

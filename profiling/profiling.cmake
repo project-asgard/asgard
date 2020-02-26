@@ -50,6 +50,7 @@ if (NOT graphviz_PATH)
     message (STATUS "graphviz not found. building from source")
     include (ExternalProject)
     ExternalProject_Add (graphviz-ext
+      UPDATE_COMMAND ""
       PREFIX contrib/graphviz
       URL https://graphviz.gitlab.io/pub/graphviz/stable/SOURCES/graphviz.tar.gz
       DOWNLOAD_NO_PROGRESS 1
@@ -72,6 +73,7 @@ function (get_gperftools)
     message (STATUS "gperftools not found. building from source")
     include (ExternalProject)
     ExternalProject_Add (gperftools-ext
+      UPDATE_COMMAND ""
       PREFIX contrib/gperftools
       GIT_REPOSITORY https://github.com/gperftools/gperftools
       GIT_PROGRESS 1
@@ -135,6 +137,7 @@ if (ASGARD_PROFILE_GPROF)
       message (STATUS "gprof2dot not found. downloading")
       include (ExternalProject)
       ExternalProject_Add (gprof2dot-ext
+        UPDATE_COMMAND ""
         PREFIX contrib/gprof2dot
         URL https://raw.githubusercontent.com/jrfonseca/gprof2dot/master/gprof2dot.py
         DOWNLOAD_NO_PROGRESS 1
@@ -185,6 +188,7 @@ if (ASGARD_PROFILE_XRAY)
       message (STATUS "flamegraph not found. downloading")
       include (ExternalProject)
       ExternalProject_Add (flamegraph-ext
+        UPDATE_COMMAND ""
         SOURCE_DIR ${flamegraph_PATH}
         GIT_REPOSITORY https://github.com/brendangregg/FlameGraph
         GIT_PROGRESS 1
@@ -302,6 +306,7 @@ if (ASGARD_PROFILE_PERF)
     set (PROFILE_DEPS lperftools-ext)
     include (ExternalProject)
     ExternalProject_Add (lperftools-ext
+      UPDATE_COMMAND ""
       PREFIX contrib/lperftools
       GIT_REPOSITORY https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
       GIT_PROGRESS 1
@@ -370,6 +375,7 @@ if (ASGARD_PROFILE_VALGRIND)
       message (STATUS "VALGRIND not found. downloading")
       include (ExternalProject)
       ExternalProject_Add (valgrind-ext
+        UPDATE_COMMAND ""
         PREFIX contrib/valgrind
 	GIT_REPOSITORY http://repo.or.cz/valgrind.git
 	GIT_PROGRESS 1

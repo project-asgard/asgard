@@ -1,35 +1,24 @@
 #include "time_advance.hpp"
+#include "distribution.hpp"
+#include "element_table.hpp"
+#include "fast_math.hpp"
 
 // this function executes an explicit time step using the current solution
-// vector x. on exit, the next solution vector is stored in fx.
+// vector x. on exit, the next solution vector is stored in x.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
-                           fk::vector<P> &x_orig, fk::vector<P> &fx,
-                           fk::vector<P> &scaled_source,
+void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           std::vector<fk::vector<P>> &workspace,
-                           std::vector<batch_operands_set<P>> const &batches,
-                           P const time, P const dt)
+                           host_workspace<P> &host_space,
+                           rank_workspace<P> &rank_space,
+                           std::vector<element_chunk> const &chunks,
+                           distribution_plan const &plan, P const time,
+                           P const dt)
 {
-  assert(scaled_source.size() == x.size());
-  assert(x.size() == fx.size());
-  assert(x_orig.size() == x.size());
-  fk::copy(x, x_orig);
-
-  assert(workspace.size() == 3);
-  for (fk::vector<P> &vect : workspace)
-  {
-    assert(vect.size() == x.size());
-  }
   assert(time >= 0);
-
-  assert(static_cast<int>(batches.size()) == pde.num_dims + 1);
-  for (batch_operands_set<P> const &ops : batches)
-  {
-    assert(ops.size() == 3);
-  }
+  assert(dt > 0);
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
 
+  fm::copy(host_space.x, host_space.x_orig);
   // see
   // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Explicit_Runge%E2%80%93Kutta_methods
   P const a21 = 0.5;
@@ -41,39 +30,63 @@ void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
-  P const alpha = 1.0;
-  apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, scaled_source, time);
-  fk::axpy(alpha, scaled_source, fx);
-  fk::copy(fx, workspace[0]);
-  P const fx_scale_1 = a21 * dt;
-  fk::axpy(fx_scale_1, fx, x);
+  int const my_rank           = get_rank();
+  element_subgrid const &grid = plan.at(my_rank);
+  int const elem_size         = element_segment_size(pde);
 
-  apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, scaled_source, time + c2 * dt);
-  fk::axpy(alpha, scaled_source, fx);
-  fk::copy(fx, workspace[1]);
-  fk::copy(x_orig, x);
+  // allocate batches
+  // max number of elements in any chunk
+  int const max_elems = num_elements_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](element_chunk const &a, element_chunk const &b) {
+        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
+      }));
+  // allocate batches for that size
+  std::vector<batch_operands_set<P>> batches =
+      allocate_batches<P>(pde, max_elems);
+
+  apply_A(pde, table, grid, chunks, host_space, rank_space, batches);
+  reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
+  fm::axpy(host_space.scaled_source, host_space.reduced_fx);
+  exchange_results(host_space.reduced_fx, host_space.result_1, elem_size, plan,
+                   my_rank);
+
+  P const fx_scale_1 = a21 * dt;
+  fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
+
+  apply_A(pde, table, grid, chunks, host_space, rank_space, batches);
+  reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source,
+                time + c2 * dt);
+  fm::axpy(host_space.scaled_source, host_space.reduced_fx);
+  exchange_results(host_space.reduced_fx, host_space.result_2, elem_size, plan,
+                   my_rank);
+
+  fm::copy(host_space.x_orig, host_space.x);
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
-  fk::axpy(fx_scale_2a, workspace[0], x);
-  fk::axpy(fx_scale_2b, workspace[1], x);
 
-  apply_explicit(batches);
-  scale_sources(pde, unscaled_sources, scaled_source, time + c3 * dt);
-  fk::axpy(alpha, scaled_source, fx);
-  fk::copy(fx, workspace[2]);
+  fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
+  fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
-  P const scale_0 = dt * b1;
-  P const scale_1 = dt * b2;
-  P const scale_2 = dt * b3;
-  fk::scal(static_cast<P>(0.0), fx);
-  fk::copy(x_orig, x);
-  fk::axpy(scale_0, workspace[0], x);
-  fk::axpy(scale_1, workspace[1], x);
-  fk::axpy(scale_2, workspace[2], x);
+  apply_A(pde, table, grid, chunks, host_space, rank_space, batches);
+  reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source,
+                time + c3 * dt);
+  fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  fk::copy(x, fx);
+  exchange_results(host_space.reduced_fx, host_space.result_3, elem_size, plan,
+                   my_rank);
+
+  fm::copy(host_space.x_orig, host_space.x);
+  P const scale_1 = dt * b1;
+  P const scale_2 = dt * b2;
+  P const scale_3 = dt * b3;
+
+  fm::axpy(host_space.result_1, host_space.x, scale_1);
+  fm::axpy(host_space.result_2, host_space.x, scale_2);
+  fm::axpy(host_space.result_3, host_space.x, scale_3);
 }
 
 // scale source vectors for time
@@ -84,12 +97,12 @@ scale_sources(PDE<P> const &pde,
               fk::vector<P> &scaled_source, P const time)
 {
   // zero out final vect
-  fk::scal(static_cast<P>(0.0), scaled_source);
+  fm::scal(static_cast<P>(0.0), scaled_source);
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {
-    fk::axpy(pde.sources[i].time_func(time), unscaled_sources[i],
-             scaled_source);
+    fm::axpy(unscaled_sources[i], scaled_source,
+             pde.sources[i].time_func(time));
   }
   return scaled_source;
 }
@@ -97,41 +110,125 @@ scale_sources(PDE<P> const &pde,
 // apply the system matrix to the current solution vector using batched
 // gemm (explicit time advance).
 template<typename P>
-static void apply_explicit(std::vector<batch_operands_set<P>> const &batches)
+static void
+apply_A(PDE<P> const &pde, element_table const &elem_table,
+        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
+        host_workspace<P> &host_space, rank_workspace<P> &rank_space,
+        std::vector<batch_operands_set<P>> &batches)
 {
-  // batched gemm
-  P const alpha = 1.0;
-  P const beta  = 0.0;
-  for (int i = 0; i < static_cast<int>(batches.size()) - 1; ++i)
+  fm::scal(static_cast<P>(0.0), host_space.fx);
+  fm::scal(static_cast<P>(0.0), rank_space.batch_output);
+
+  // copy inputs onto GPU
+  rank_space.batch_input.transfer_from(host_space.x);
+
+  for (auto const &chunk : chunks)
   {
-    batch<P> const a = batches[i][0];
-    batch<P> const b = batches[i][1];
-    batch<P> const c = batches[i][2];
-    batched_gemm(a, b, c, alpha, beta);
+    // build batches for this chunk
+    build_batches(pde, elem_table, rank_space, grid, chunk, batches);
+
+    // do the gemms
+    P const alpha = 1.0;
+    P const beta  = 0.0;
+    for (int i = 0; i < pde.num_dims; ++i)
+    {
+      batch<P> const &a = batches[i][0];
+      batch<P> const &b = batches[i][1];
+      batch<P> const &c = batches[i][2];
+
+      batched_gemm(a, b, c, alpha, beta);
+    }
+
+    // do the reduction
+    reduce_chunk(pde, rank_space, grid, chunk);
   }
 
-  // reduce
-  batch<P> const r_a = batches[batches.size() - 1][0];
-  batch<P> const r_b = batches[batches.size() - 1][1];
-  batch<P> const r_c = batches[batches.size() - 1][2];
-  batched_gemv(r_a, r_b, r_c, alpha, beta);
+  // copy outputs back from GPU
+  host_space.fx.transfer_from(rank_space.batch_output);
+}
+
+// this function executes an implicit time step using the current solution
+// vector x. on exit, the next solution vector is stored in fx.
+template<typename P>
+void implicit_time_advance(PDE<P> const &pde, element_table const &table,
+                           std::vector<fk::vector<P>> const &unscaled_sources,
+                           host_workspace<P> &host_space,
+                           std::vector<element_chunk> const &chunks,
+                           P const time, P const dt, bool update_system)
+{
+  assert(time >= 0);
+  assert(dt > 0);
+  assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
+  static fk::matrix<P, mem_type::owner, resource::host> A;
+  static std::vector<int> ipiv;
+  static bool first_time = true;
+
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const A_size    = elem_size * table.size();
+
+  fm::copy(host_space.x, host_space.x_orig);
+  scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+  host_space.x = host_space.x + host_space.scaled_source * dt;
+
+  if (first_time || update_system)
+  {
+    A.clear_and_resize(A_size, A_size);
+    for (auto const &chunk : chunks)
+    {
+      build_system_matrix(pde, table, chunk, A);
+    }
+    // AA = I - dt*A;
+    for (int i = 0; i < A.nrows(); ++i)
+    {
+      for (int j = 0; j < A.ncols(); ++j)
+      {
+        A(i, j) *= -dt;
+      }
+      A(i, i) += 1.0;
+    }
+
+    if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+      ipiv.resize(A.nrows());
+    fm::gesv(A, host_space.x, ipiv);
+    first_time = false;
+  }
+  else
+  {
+    fm::getrs(A, host_space.x, ipiv);
+  }
 }
 
 template void
-explicit_time_advance(PDE<float> const &pde, fk::vector<float> &x,
-                      fk::vector<float> &x_orig, fk::vector<float> &fx,
-                      fk::vector<float> &scaled_source,
-                      std::vector<fk::vector<float>> const &unscaled_sources,
-                      std::vector<fk::vector<float>> &workspace,
-
-                      std::vector<batch_operands_set<float>> const &batches,
-                      float const time, float const dt);
+explicit_time_advance(PDE<double> const &pde, element_table const &table,
+                      std::vector<fk::vector<double>> const &unscaled_sources,
+                      host_workspace<double> &host_space,
+                      rank_workspace<double> &rank_space,
+                      std::vector<element_chunk> const &chunks,
+                      distribution_plan const &plan, double const time,
+                      double const dt);
 
 template void
-explicit_time_advance(PDE<double> const &pde, fk::vector<double> &x,
-                      fk::vector<double> &x_orig, fk::vector<double> &fx,
-                      fk::vector<double> &scaled_source,
+explicit_time_advance(PDE<float> const &pde, element_table const &table,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      host_workspace<float> &host_space,
+                      rank_workspace<float> &rank_space,
+                      std::vector<element_chunk> const &chunks,
+                      distribution_plan const &plan, float const time,
+                      float const dt);
+
+template void
+implicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
-                      std::vector<fk::vector<double>> &workspace,
-                      std::vector<batch_operands_set<double>> const &batches,
-                      double const time, double const dt);
+                      host_workspace<double> &host_space,
+                      std::vector<element_chunk> const &chunks,
+                      double const time, double const dt,
+                      bool update_system = true);
+
+template void
+implicit_time_advance(PDE<float> const &pde, element_table const &table,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      host_workspace<float> &host_space,
+                      std::vector<element_chunk> const &chunks,
+                      float const time, float const dt,
+                      bool update_system = true);

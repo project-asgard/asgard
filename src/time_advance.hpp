@@ -1,35 +1,59 @@
 #pragma once
 #include "batch.hpp"
+#include "chunk.hpp"
+#include "distribution.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 
 // this function executes a time step using the current solution
-// vector x. on exit, the next solution vector is stored in fx.
+// vector x (in host_space).
+// on exit, the next solution vector is stored in x.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde, fk::vector<P> &x,
-                           fk::vector<P> &x_orig, fk::vector<P> &fx,
-                           fk::vector<P> &scaled_source,
+void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           std::vector<fk::vector<P>> &workspace,
+                           host_workspace<P> &host_space,
+                           rank_workspace<P> &rank_space,
+                           std::vector<element_chunk> const &chunks,
+                           distribution_plan const &plan, P const time,
+                           P const dt);
 
-                           std::vector<batch_operands_set<P>> const &batches,
-                           P const time, P const dt);
-
-extern template void
-explicit_time_advance(PDE<float> const &pde, fk::vector<float> &x,
-                      fk::vector<float> &x_orig, fk::vector<float> &fx,
-                      fk::vector<float> &scaled_source,
-                      std::vector<fk::vector<float>> const &unscaled_sources,
-                      std::vector<fk::vector<float>> &workspace,
-
-                      std::vector<batch_operands_set<float>> const &batches,
-                      float const time, float const dt);
+template<typename P>
+void implicit_time_advance(PDE<P> const &pde, element_table const &table,
+                           std::vector<fk::vector<P>> const &unscaled_sources,
+                           host_workspace<P> &host_space,
+                           std::vector<element_chunk> const &chunks,
+                           P const time, P const dt, bool update_system = true);
 
 extern template void
-explicit_time_advance(PDE<double> const &pde, fk::vector<double> &x,
-                      fk::vector<double> &x_orig, fk::vector<double> &fx,
-                      fk::vector<double> &scaled_source,
+explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
-                      std::vector<fk::vector<double>> &workspace,
-                      std::vector<batch_operands_set<double>> const &batches,
-                      double const time, double const dt);
+                      host_workspace<double> &host_space,
+                      rank_workspace<double> &rank_space,
+                      std::vector<element_chunk> const &chunks,
+                      distribution_plan const &plan, double const time,
+                      double const dt);
+
+extern template void
+explicit_time_advance(PDE<float> const &pde, element_table const &table,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      host_workspace<float> &host_space,
+                      rank_workspace<float> &rank_space,
+                      std::vector<element_chunk> const &chunks,
+                      distribution_plan const &plan, float const time,
+                      float const dt);
+
+extern template void
+implicit_time_advance(PDE<double> const &pde, element_table const &table,
+                      std::vector<fk::vector<double>> const &unscaled_sources,
+                      host_workspace<double> &host_space,
+                      std::vector<element_chunk> const &chunks,
+                      double const time, double const dt,
+                      bool update_system = true);
+
+extern template void
+implicit_time_advance(PDE<float> const &pde, element_table const &table,
+                      std::vector<fk::vector<float>> const &unscaled_sources,
+                      host_workspace<float> &host_space,
+                      std::vector<element_chunk> const &chunks,
+                      float const time, float const dt,
+                      bool update_system = true);

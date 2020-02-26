@@ -2,8 +2,10 @@
 # typical build directories and artifacts
 build
 _build
-build2
+/build*/
 compile_commands.json
+**/__pycache__
+profiling/perf_predict/internal_data
 
 # ignore some of contrib
 contrib/blas/openblas
@@ -14,3 +16,5 @@ contrib/gperftools
 contrib/linux
 contrib/lperftools
 contrib/valgrind
+contrib/hdf5
+contrib/highfive

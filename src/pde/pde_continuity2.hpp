@@ -46,25 +46,31 @@ private:
   //
 
   // specify initial condition vector functions...
-  static fk::vector<P> initial_condition_dim0(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
-  static fk::vector<P> initial_condition_dim1(fk::vector<P> const x)
+  static fk::vector<P>
+  initial_condition_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(std::vector<P>(x.size(), 0.0));
   }
 
   // specify exact solution vectors/time function...
-  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
-  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x)
+  static fk::vector<P> exact_solution_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -76,16 +82,18 @@ private:
   // specify source functions...
 
   // source 0
-  static fk::vector<P> source_0_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_0_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_0_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -95,16 +103,18 @@ private:
   static P source_0_time(P const time) { return 2.0 * std::cos(2.0 * time); }
 
   // source 1
-  static fk::vector<P> source_1_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_1_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_1_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::cos(2.0 * PI * x); });
@@ -117,16 +127,18 @@ private:
   }
 
   // source 2
-  static fk::vector<P> source_2_dim0(fk::vector<P> const x)
+  static fk::vector<P> source_2_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(PI * x); });
     return fx;
   }
 
-  static fk::vector<P> source_2_dim1(fk::vector<P> const x)
+  static fk::vector<P> source_2_dim1(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
@@ -153,71 +165,91 @@ private:
     return 1.0;
   }
 
+  static P g_func_t0_d0(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return -1.0;
+  }
+
+  static P g_func_t1_d1(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return -1.0;
+  }
+
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -1.0,                         // domain min
-                   1.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   initial_condition_dim0,       // initial condition
-                   "x");                         // name
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim0, // initial condition
+                   "x");                   // name
 
   inline static dimension<P> const dim1_ =
-      dimension<P>(boundary_condition::periodic, // left boundary condition
-                   boundary_condition::periodic, // right boundary condition
-                   -2.0,                         // domain min
-                   2.0,                          // domain max
-                   2,                            // levels
-                   2,                            // degree
-                   initial_condition_dim1,       // initial condition
-                   "y");                         // name
+      dimension<P>(-2.0,                   // domain min
+                   2.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim1, // initial condition
+                   "y");                   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_, dim1_};
 
   // define terms
   // term 0
+  inline static const partial_term<P> partial_term_t0_d0 = partial_term<P>(
+      coefficient_type::grad, g_func_t0_d0, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term0_dim0_ =
-      term<P>(coefficient_type::grad, // operator type
-              g_func_identity,        // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "v_x.d_dx",             // name
-              dim0_);                 // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "v_x.d_dx",      // name
+              dim0_,           // owning dim
+              {partial_term_t0_d0});
+
+  inline static partial_term<P> const partial_term_t0_d1 = partial_term<P>(
+      coefficient_type::mass, g_func_identity, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_dim1_ =
-      term<P>(coefficient_type::mass, // operator type
-              g_func_identity,        // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "massY",                // name
-              dim1_);                 // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "massY",         // name
+              dim1_,           // owning dim
+              {partial_term_t0_d1});
 
-  inline static const std::vector<term<P>> terms0_ = {term0_dim0_, term0_dim1_};
+  inline static std::vector<term<P>> const terms0_ = {term0_dim0_, term0_dim1_};
 
   // term 1
+  inline static partial_term<P> const partial_term_t1_d0 = partial_term<P>(
+      coefficient_type::mass, g_func_identity, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
   inline static term<P> const term1_dim0_ =
-      term<P>(coefficient_type::mass, // operator type
-              g_func_identity,        // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "massX",                // name
-              dim0_);                 // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "massX",         // name
+              dim0_,           // owning dim
+              {partial_term_t1_d0});
+
+  inline static partial_term<P> const partial_term_t1_d1 = partial_term<P>(
+      coefficient_type::grad, g_func_t1_d1, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_dim1_ =
-      term<P>(coefficient_type::grad, // operator type
-              g_func_identity,        // construction function
-              false,                  // time-dependent
-              flux_type::central,     // flux type
-              fk::vector<P>(),        // additional data vector
-              "massY",                // name
-              dim1_);                 // owning dim
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "v_y.d_dy",      // name
+              dim1_,           // owning dim
+              {partial_term_t1_d1});
 
-  inline static const std::vector<term<P>> terms1_ = {term1_dim0_, term1_dim1_};
+  inline static std::vector<term<P>> const terms1_ = {term1_dim0_, term1_dim1_};
 
   inline static term_set<P> const terms_ = {terms0_, terms1_};
 
