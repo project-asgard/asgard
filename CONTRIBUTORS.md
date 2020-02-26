@@ -28,3 +28,6 @@ Timothy Younkin (University of Tennessee/Oak Ridge National Lab)
 
 Harry Hughes (Oak Ridge National Lab)
 - Developer
+
+Brian Friesen (Lawrence Berkeley National Lab)
+- NERSC performance consultant
