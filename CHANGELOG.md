@@ -1,18 +1,26 @@
 
 ## unscheduled features
 
-## v0.3.0 (TBD)
+## v0.3.0 (26 Feb 2020)
 
-- [ ] multi-node capability
-    - [ ] enable optional MPI build dependency
+- [x] multi-node capability (merged 24 Oct 2019)
+    - [x] enable optional MPI build dependency
+- [x] performance improvements
+    - [x] batching (ptrs, parallel)
+    - [x] tensors
+- [x] build improvements (cray, fortran)
+- [x] bugfixes
 
-## v0.2.0 (TBD)
+## v0.2.0 (not released)
 
 - [x] enable profiling via CMake (merged 01 May 2019)
-- [ ] single gpu capability for low-level code
-    - [ ] CMake CUDA language capability
-    - [ ] fk::tensors understand unattached memory
-    - [ ] blas on single gpu
+- [x] single gpu capability for low-level code (merged 10 Sep 2019)
+    - [x] CMake CUDA language capability (merged 03 Dec 2019)
+    - [x] fk::tensors understand unattached memory
+    - [x] blas on single gpu
+- [x] performance improvements
+    - [x] forward transform
+- [x] bugfixes
 
 ## v0.1.0 (20 Mar 2019)
 
