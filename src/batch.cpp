@@ -7,8 +7,8 @@
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
-#include <limits.h>
 #include "tensors.hpp"
+#include <limits.h>
 /*
 
 Problem relevant to batch_chain class:
@@ -51,7 +51,7 @@ size of the max of all rounds.
 */
 template<typename P, resource resrc>
 int calculate_workspace_length(
-    std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrices,
+    std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
     int const x_size)
 {
   int greatest = x_size;
@@ -59,7 +59,7 @@ int calculate_workspace_length(
   int c_prod   = 1;
 
   typename std::vector<
-      fk::matrix<P, mem_type::view, resrc>>::const_reverse_iterator iter;
+      fk::matrix<P, mem_type::const_view, resrc>>::const_reverse_iterator iter;
 
   for (iter = matrices.rbegin(); iter != matrices.rend(); ++iter)
   {
@@ -84,8 +84,8 @@ int calculate_workspace_length(
    the solution to the problem. */
 template<typename P, resource resrc>
 batch_chain<P, resrc>::batch_chain(
-    std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrices,
-    fk::vector<P, mem_type::view, resrc> const &x,
+    std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
+    fk::vector<P, mem_type::const_view, resrc> const &x,
     std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
     fk::vector<P, mem_type::view, resrc> &final_output)
 {
@@ -136,8 +136,8 @@ batch_chain<P, resrc>::batch_chain(
                          matrices.back().nrows(), false);
 
     /* assign the data to the batches */
-    fk::matrix<P, mem_type::view, resrc> input(x, matrices.back().ncols(), rows,
-                                               0);
+    fk::matrix<P, mem_type::const_view, resrc> input(x, matrices.back().ncols(),
+                                                     rows, 0);
 
     /* If there is only 1 iteration, write immediately to final_output */
     fk::vector<P, mem_type::view, resrc> destination(workspace[out]);
@@ -146,8 +146,7 @@ batch_chain<P, resrc>::batch_chain(
         matrices.back().nrows(), rows, 0);
 
     right.back().assign_entry(input, 0);
-    left.back().assign_entry(
-        fk::matrix<P, mem_type::view, resrc>(matrices.back()), 0);
+    left.back().assign_entry(matrices.back(), 0);
     product.back().assign_entry(output, 0);
 
     /* output and input space will switch roles for the next iteration */
@@ -192,8 +191,7 @@ batch_chain<P, resrc>::batch_chain(
           j * stride * matrices[i].nrows());
 
       left.back().assign_entry(input, j);
-      right.back().assign_entry(
-          fk::matrix<P, mem_type::view, resrc>(matrices[i]), j);
+      right.back().assign_entry(matrices[i], j);
       product.back().assign_entry(output, j);
     }
 
@@ -229,8 +227,7 @@ batch_chain<P, resrc>::batch_chain(
           j * stride * matrices.front().nrows());
 
       left.back().assign_entry(input, j);
-      right.back().assign_entry(
-          fk::matrix<P, mem_type::view, resrc>(matrices.front()), j);
+      right.back().assign_entry(matrices.front(), j);
       product.back().assign_entry(output, j);
     }
   }
@@ -251,7 +248,6 @@ void batch_chain<P, resrc>::execute_batch_chain()
 
   return;
 }
->>>>>>> Moved batch_chain to batch component
 
 // utilized as the primary data structure for other functions
 // within this component.
@@ -379,8 +375,9 @@ P *batch<P, resrc>::operator()(int const position) const
 // at the index indicated by position argument
 // cannot overwrite previous assignment
 template<typename P, resource resrc>
-void batch<P, resrc>::assign_entry(
-    fk::matrix<P, mem_type::const_view, resrc> const &a, int const position)
+template<mem_type mem>
+void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
+                                   int const position)
 {
   // make sure this matrix is the
   // same dimensions as others in batch
@@ -1271,22 +1268,22 @@ build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
                     element_chunk const &chunk, fk::matrix<float> &A);
 
 template int calculate_workspace_length<double, resource::device>(
-    std::vector<fk::matrix<double, mem_type::view, resource::device>> const
-        &matrices,
+    std::vector<fk::matrix<double, mem_type::const_view,
+                           resource::device>> const &matrices,
     int const x_size);
 
 template int calculate_workspace_length<double, resource::host>(
-    std::vector<fk::matrix<double, mem_type::view, resource::host>> const
+    std::vector<fk::matrix<double, mem_type::const_view, resource::host>> const
         &matrices,
     int const x_size);
 
 template int calculate_workspace_length<float, resource::device>(
-    std::vector<fk::matrix<float, mem_type::view, resource::device>> const
+    std::vector<fk::matrix<float, mem_type::const_view, resource::device>> const
         &matrices,
     int const x_size);
 
 template int calculate_workspace_length<float, resource::host>(
-    std::vector<fk::matrix<float, mem_type::view, resource::host>> const
+    std::vector<fk::matrix<float, mem_type::const_view, resource::host>> const
         &matrices,
     int const x_size);
 

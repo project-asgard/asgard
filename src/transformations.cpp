@@ -47,7 +47,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
  * sequence of matrices */
 template<typename P>
 int kron_matrix_MB(
-    std::vector<fk::matrix<P, mem_type::view>> const &kron_matrices)
+    std::vector<fk::matrix<P, mem_type::const_view>> const &kron_matrices)
 {
   long r = 1;
   long c = 1;
@@ -152,7 +152,7 @@ void wavelet_to_realspace(
 
   for (int i = 0; i < table.size(); i++)
   {
-    std::vector<fk::matrix<P, mem_type::view>> kron_matrices;
+    std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
     kron_matrices.reserve(pde.num_dims);
     fk::vector<int> const coords = table.get_coords(i);
 
@@ -160,7 +160,7 @@ void wavelet_to_realspace(
     {
       int const id     = get_1d_index(coords(j), coords(j + pde.num_dims));
       int const degree = pde.get_dimensions()[j].get_degree();
-      fk::matrix<P, mem_type::view> sub_matrix(
+      fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
           id * degree, (id + 1) * degree - 1);
       kron_matrices.push_back(sub_matrix);
@@ -171,7 +171,7 @@ void wavelet_to_realspace(
 
     /* create a view of a section of the wave space vector */
     fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
-                                          (i + 1) * stride - 1);
+                                                (i + 1) * stride - 1);
 
     chain.emplace_back(kron_matrices, x, workspace, real_space_accumulator);
   }

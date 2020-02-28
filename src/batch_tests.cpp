@@ -9,11 +9,11 @@
 
 template<typename P, resource resrc>
 void test_kron(
-    std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrices,
+    std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
     fk::vector<P, mem_type::owner, resrc> const &x,
     fk::vector<P, mem_type::owner, resource::host> const &correct)
 {
-  fk::vector<P, mem_type::view, resrc> const x_view(x);
+  fk::vector<P, mem_type::const_view, resrc> const x_view(x);
 
   int const workspace_len = calculate_workspace_length(matrices, x.size());
 
@@ -52,16 +52,16 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     fk::matrix<TestType> const e(10, 5);
     fk::matrix<TestType> const f(10, 5);
 
-    std::vector<fk::matrix<TestType, mem_type::view>> const matrices = {
-        fk::matrix<TestType, mem_type::view>(a),
-        fk::matrix<TestType, mem_type::view>(b),
-        fk::matrix<TestType, mem_type::view>(c),
-        fk::matrix<TestType, mem_type::view>(e),
-        fk::matrix<TestType, mem_type::view>(f)};
+    std::vector<fk::matrix<TestType, mem_type::const_view>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view>(a),
+        fk::matrix<TestType, mem_type::const_view>(b),
+        fk::matrix<TestType, mem_type::const_view>(c),
+        fk::matrix<TestType, mem_type::const_view>(e),
+        fk::matrix<TestType, mem_type::const_view>(f)};
 
     int const x_size = std::accumulate(
         matrices.begin(), matrices.end(), 1,
-        [](int const i, fk::matrix<TestType, mem_type::view> const &m) {
+        [](int const i, fk::matrix<TestType, mem_type::const_view> const &m) {
           return i * m.ncols();
         });
     int const correct_size = 1e5;
@@ -77,9 +77,10 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     fk::matrix<TestType, mem_type::owner, resource::device> const b = {{6, 7},
                                                                        {8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
-        matrices = {fk::matrix<TestType, mem_type::view, resource::device>(a),
-                    fk::matrix<TestType, mem_type::view, resource::device>(b)};
+    std::vector<fk::matrix<TestType, mem_type::const_view,
+                           resource::device>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view, resource::device>(a),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(b)};
 
     fk::vector<TestType, mem_type::owner, resource::device> const x = {10, 11,
                                                                        12, 13};
@@ -98,9 +99,10 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     fk::matrix<TestType, mem_type::owner, resource::host> const b = {{6, 7},
                                                                      {8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const
-        matrices = {fk::matrix<TestType, mem_type::view, resource::host>(a),
-                    fk::matrix<TestType, mem_type::view, resource::host>(b)};
+    std::vector<fk::matrix<TestType, mem_type::const_view,
+                           resource::host>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view, resource::host>(a),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(b)};
 
     fk::vector<TestType, mem_type::owner, resource::host> const x = {10, 11, 12,
                                                                      13};
@@ -134,23 +136,23 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     fk::matrix<TestType, mem_type::owner, resource::device> const m8 = {{3, 3},
                                                                         {3, 3}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
-        matrices = {fk::matrix<TestType, mem_type::view, resource::device>(m0),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m1),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m2),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m3),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m4),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m5),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m6),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m7),
-                    fk::matrix<TestType, mem_type::view, resource::device>(m8)};
+    std::vector<fk::matrix<TestType, mem_type::const_view,
+                           resource::device>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m0),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m1),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m2),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m3),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m4),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m5),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m6),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m7),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(m8)};
 
     int const x_size = std::accumulate(
         matrices.begin(), matrices.end(), 1,
         [](int const i,
-           fk::matrix<TestType, mem_type::view, resource::device> const &m) {
-          return i * m.ncols();
-        });
+           fk::matrix<TestType, mem_type::const_view, resource::device> const
+               &m) { return i * m.ncols(); });
 
     fk::vector<TestType, mem_type::owner, resource::host> const x(
         std::vector<TestType>(x_size, 1));
@@ -161,9 +163,8 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     int const y_size = std::accumulate(
         matrices.begin(), matrices.end(), 1,
         [](int const i,
-           fk::matrix<TestType, mem_type::view, resource::device> const &m) {
-          return i * m.nrows();
-        });
+           fk::matrix<TestType, mem_type::const_view, resource::device> const
+               &m) { return i * m.nrows(); });
 
     fk::vector<TestType> const correct(std::vector<TestType>(
         y_size, x_size * std::pow(2, matrices.size() - 1) * 3));
@@ -192,23 +193,23 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     fk::matrix<TestType, mem_type::owner, resource::host> const m8 = {{3, 3},
                                                                       {3, 3}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const
-        matrices = {fk::matrix<TestType, mem_type::view, resource::host>(m0),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m1),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m2),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m3),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m4),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m5),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m6),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m7),
-                    fk::matrix<TestType, mem_type::view, resource::host>(m8)};
+    std::vector<fk::matrix<TestType, mem_type::const_view,
+                           resource::host>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m0),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m1),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m2),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m3),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m4),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m5),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m6),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m7),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(m8)};
 
     int const x_size = std::accumulate(
         matrices.begin(), matrices.end(), 1,
         [](int const i,
-           fk::matrix<TestType, mem_type::view, resource::host> const &m) {
-          return i * m.ncols();
-        });
+           fk::matrix<TestType, mem_type::const_view, resource::host> const
+               &m) { return i * m.ncols(); });
 
     fk::vector<TestType, mem_type::owner, resource::host> const x(
         std::vector<TestType>(x_size, 1));
@@ -216,9 +217,8 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     int const y_size = std::accumulate(
         matrices.begin(), matrices.end(), 1,
         [](int const i,
-           fk::matrix<TestType, mem_type::view, resource::host> const &m) {
-          return i * m.nrows();
-        });
+           fk::matrix<TestType, mem_type::const_view, resource::host> const
+               &m) { return i * m.nrows(); });
 
     /* because the kron matrices consist of all 2s except for the last one,
        every value of the output matrix will be the equal: */
@@ -242,11 +242,12 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
     fk::matrix<TestType, mem_type::owner, resource::device> const d = {
         {7, 8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::device>> const
-        matrices = {fk::matrix<TestType, mem_type::view, resource::device>(a),
-                    fk::matrix<TestType, mem_type::view, resource::device>(b),
-                    fk::matrix<TestType, mem_type::view, resource::device>(c),
-                    fk::matrix<TestType, mem_type::view, resource::device>(d)};
+    std::vector<fk::matrix<TestType, mem_type::const_view,
+                           resource::device>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view, resource::device>(a),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(b),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(c),
+        fk::matrix<TestType, mem_type::const_view, resource::device>(d)};
 
     fk::vector<TestType, mem_type::owner, resource::device> const x = {
         1, 1, 1, 1, 1, 1, 1, 1, 1};
@@ -269,11 +270,12 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
 
     fk::matrix<TestType, mem_type::owner, resource::host> const d = {{7, 8, 9}};
 
-    std::vector<fk::matrix<TestType, mem_type::view, resource::host>> const
-        matrices = {fk::matrix<TestType, mem_type::view, resource::host>(a),
-                    fk::matrix<TestType, mem_type::view, resource::host>(b),
-                    fk::matrix<TestType, mem_type::view, resource::host>(c),
-                    fk::matrix<TestType, mem_type::view, resource::host>(d)};
+    std::vector<fk::matrix<TestType, mem_type::const_view,
+                           resource::host>> const matrices = {
+        fk::matrix<TestType, mem_type::const_view, resource::host>(a),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(b),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(c),
+        fk::matrix<TestType, mem_type::const_view, resource::host>(d)};
 
     fk::vector<TestType, mem_type::owner, resource::host> const x = {
         1, 1, 1, 1, 1, 1, 1, 1, 1};

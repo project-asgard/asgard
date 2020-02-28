@@ -154,6 +154,7 @@ transform_and_combine_dimensions(PDE<P> const &pde,
   return combine_dimensions(degree, table, start, stop, dimension_components);
 }
 
+template<typename P>
 inline int real_solution_size(PDE<P> const &pde)
 {
   /* determine the length of the realspace solution */

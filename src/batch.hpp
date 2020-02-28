@@ -28,8 +28,8 @@ public:
   bool operator==(batch<P, resrc> const &) const;
   P *operator()(int const) const;
 
-  void assign_entry(fk::matrix<P, mem_type::const_view, resrc> const &a,
-                    int const position);
+  template<mem_type mem>
+  void assign_entry(fk::matrix<P, mem, resrc> const &a, int const position);
   void assign_raw(P *const a, int const position);
   bool clear_entry(int const position);
 
@@ -92,10 +92,11 @@ class batch_chain
 {
 public:
   /* allocates batches and assigns data */
-  batch_chain(std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrices,
-              fk::vector<P, mem_type::view, resrc> const &x,
-              std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
-              fk::vector<P, mem_type::view, resrc> &final_output);
+  batch_chain(
+      std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
+      fk::vector<P, mem_type::const_view, resrc> const &x,
+      std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
+      fk::vector<P, mem_type::view, resrc> &final_output);
 
   void execute_batch_chain();
 
@@ -111,7 +112,7 @@ private:
  * for more details */
 template<typename P, resource resrc>
 int calculate_workspace_length(
-    std::vector<fk::matrix<P, mem_type::view, resrc>> const &matrices,
+    std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
     int const x_size);
 
 // execute a batched gemm given a, b, c batch lists
@@ -296,7 +297,7 @@ extern template class batch_chain<double, resource::device>;
 extern template class batch_chain<double, resource::host>;
 extern template class batch_chain<float, resource::device>;
 extern template class batch_chain<float, resource::host>;
-
+/*
 extern template int calculate_workspace_length(
     std::vector<fk::matrix<double, mem_type::view, resource::device>> const
         &matrices,
@@ -316,3 +317,4 @@ extern template int calculate_workspace_length(
     std::vector<fk::matrix<float, mem_type::view, resource::host>> const
         &matrices,
     int const x_size);
+*/
