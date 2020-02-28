@@ -20,7 +20,7 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
   };
   int n     = x.size();
   int inc_x = 1;
-  return lib_dispatch::nrm2(&n, x.data(), inc_x);
+  return lib_dispatch::nrm2(&n, x.data(), &inc_x);
 }
 
 // axpy - y += a*x

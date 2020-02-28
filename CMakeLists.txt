@@ -114,6 +114,7 @@ set (components
   permutations
   program_options
   quadrature
+  solver
   tensors
   time_advance
   transformations
@@ -185,6 +186,8 @@ target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 target_link_libraries (program_options PRIVATE clara distribution)
 
 target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
+
+target_link_libraries (solver PRIVATE distribution fast_math lib_dispatch tensors)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 if (ASGARD_USE_CUDA)
