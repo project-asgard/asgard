@@ -199,7 +199,8 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors INTERFACE element_table)
+target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors boundary_conditions
+                                    INTERFACE element_table)
 
 target_link_libraries (transformations
   PRIVATE batch connectivity distribution matlab_utilities pde program_options

@@ -123,6 +123,21 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   }
 }
 
+TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", float, double)
+{
+  SECTION("diffusion1, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level = 2;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_sg_l2_d2_t";
+
+    time_advance_test( level, degree, *pde, num_steps, gold_base, false );
+  }
+}
+/* Captain! Commented out */
+/*
 TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 {
@@ -464,3 +479,4 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                                full_grid, solve_opts::gmres, tol_factor);
   }
 }
+*/

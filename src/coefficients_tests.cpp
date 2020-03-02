@@ -33,6 +33,18 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
   }
 }
 
+TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
+{
+  int const level = 2;
+  int const degree = 2;
+
+  auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree );
+  std::string const gold_path =
+      "../testing/generated-inputs/coefficients/diffusion1/coefficients";
+
+  test_coefficients<TestType>(*pde, gold_path, true, 2e2);
+}
+
 TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
                    float)
 {
