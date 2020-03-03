@@ -243,6 +243,7 @@ int main(int argc, char **argv)
     else
     {
       // FIXME fold initial sources into host space
+
       explicit_time_advance(*pde, table, initial_sources, host_space, dev_space,
                             chunks, plan, time, dt);
     }

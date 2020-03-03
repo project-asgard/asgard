@@ -2,6 +2,7 @@
 #include "distribution.hpp"
 #include "element_table.hpp"
 #include "fast_math.hpp"
+#include "solver.hpp"
 
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in x.
@@ -46,8 +47,10 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
       allocate_batches<P>(pde, max_elems);
 
   apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
+
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
+  host_space.scaled_source.print("s0");
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
   exchange_results(host_space.reduced_fx, host_space.result_1, elem_size, plan,
                    my_rank);
@@ -101,6 +104,7 @@ scale_sources(PDE<P> const &pde,
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {
+    //(unscaled_sources[i] * pde.sources[i].time_func(time)).print(std::to_string(i));
     fm::axpy(unscaled_sources[i], scaled_source,
              pde.sources[i].time_func(time));
   }
@@ -129,34 +133,44 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   fm::copy(host_space.x, host_space.x_orig);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
+  host_space.scaled_source.print("source");
   host_space.x = host_space.x + host_space.scaled_source * dt;
 
-  if (first_time || update_system)
+  //  if (first_time || update_system)
+  //  {
+  A.clear_and_resize(A_size, A_size);
+  for (auto const &chunk : chunks)
   {
-    A.clear_and_resize(A_size, A_size);
-    for (auto const &chunk : chunks)
+    build_system_matrix(pde, table, chunk, A);
+  }
+  // AA = I - dt*A;
+  for (int i = 0; i < A.nrows(); ++i)
+  {
+    for (int j = 0; j < A.ncols(); ++j)
     {
-      build_system_matrix(pde, table, chunk, A);
+      A(i, j) *= -dt;
     }
-    // AA = I - dt*A;
-    for (int i = 0; i < A.nrows(); ++i)
-    {
-      for (int j = 0; j < A.ncols(); ++j)
-      {
-        A(i, j) *= -dt;
-      }
-      A(i, i) += 1.0;
-    }
+    A(i, i) += 1.0;
+  }
 
-    if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
-      ipiv.resize(A.nrows());
-    fm::gesv(A, host_space.x, ipiv);
-    first_time = false;
-  }
-  else
-  {
-    fm::getrs(A, host_space.x, ipiv);
-  }
+  //if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+  //  ipiv.resize(A.nrows());
+  //fm::gesv(A, host_space.x, ipiv);
+  // first_time = false;
+  //}
+
+  // else
+  //{
+  //  fm::getrs(A, host_space.x, ipiv);
+  //}
+  host_space.x.print();
+  P const tolerance  = 1e-8;
+  int const restart  = A.ncols();
+  int const max_iter = A.ncols();
+  fm::scal(static_cast<P>(0.0), host_space.result_1);
+  solver::simple_gmres(A, host_space.result_1, host_space.x, fk::matrix<P>(),
+                       restart, max_iter, tolerance);
+  fm::copy(host_space.result_1, host_space.x);
 }
 
 template void

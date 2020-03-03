@@ -122,11 +122,11 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    return drotg_(a, b, c, s);
+    drotg_(a, b, c, s);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return srotg_(a, b, c, s);
+    srotg_(a, b, c, s);
   }
 }
 
@@ -941,6 +941,10 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
     assert(false);
   }
 }
+
+template void rotg(float *, float *, float *, float *, resource const resrc);
+template void
+rotg(double *, double *, double *, double *, resource const resrc);
 
 template float nrm2(int *n, float *x, int *incx, resource const resrc);
 template double nrm2(int *n, double *x, int *incx, resource const resrc);

@@ -1,6 +1,8 @@
 #include "solver.hpp"
 #include "time_advance.hpp"
 
+namespace solver
+{
 template<typename P>
 P gmres(PDE<P> const &pde, element_table const &elem_table,
         distribution_plan const &plan, std::vector<element_chunk> const &chunks,
@@ -70,9 +72,8 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   }();
 
   fk::vector<P> residual(b);
-  auto const
-      compute_residual = [&A, &x, &b, &residual, &do_precond, &precond, &precond_pivots]()
-  {
+  auto const compute_residual = [&A, &x, &b, &residual, &do_precond, &precond,
+                                 &precond_pivots]() {
     static bool factored = false;
     bool const trans_A   = false;
     P const alpha        = -1.0;
@@ -93,8 +94,8 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     return fm::nrm2(residual);
   };
 
-  P const norm_r        = compute_residual();
-  P error = norm_r / norm_b;
+  P const norm_r = compute_residual();
+  P error        = norm_r / norm_b;
   if (error < tolerance)
   {
     return error;
@@ -117,12 +118,15 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     for (int j = 0; j < restart; ++j)
     {
       fk::vector<P> new_basis =
-          A * fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows());
-      fm::getrs(precond, new_basis, precond_pivots);
+          A * fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1);
+      if (do_precond)
+      {
+        fm::getrs(precond, new_basis, precond_pivots);
+      }
       for (int k = 0; k < j; ++k)
       {
         fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
-                                                             basis.nrows());
+                                                             basis.nrows()-1);
         krylov_proj(k, i) = new_basis * basis_vect;
         new_basis         = new_basis - basis_vect;
       }
@@ -139,8 +143,8 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       }
 
       // compute given's rotation
-      lib_dispatch::rotg(krylov_proj.data(i, i), krylov_proj.data(i + 1, i), cosines.data(i),
-           sines.data(i));
+      lib_dispatch::rotg(krylov_proj.data(i, i), krylov_proj.data(i + 1, i),
+                         cosines.data(i), sines.data(i));
 
       P const temp = cosines(i) * s(i);
       s(i + 1)     = -sines(i) * s(i);
@@ -153,13 +157,14 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       error = std::abs(s(i + 1)) / norm_b;
       if (error <= tolerance)
       {
-        auto const proj = fk::matrix<P, mem_type::view>(krylov_proj, 0, i-1, 0, i-1);
-        std::vector<int> pivots(i);
+        auto const proj =
+            fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
+        std::vector<int> pivots(i+1);
         // TODO what is this "s"
-        auto s_view = fk::vector<P, mem_type::view>(s, 0, restart - 1);
+        auto s_view = fk::vector<P, mem_type::view>(s, 0, i);
         fm::gesv(proj, s_view, pivots);
         x = x +
-            (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows(), 0, i - 1) *
+            (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows()-1, 0, i) *
              s_view);
         break; // depart the inner iteration loop
       }
@@ -176,11 +181,11 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
              s_view);
     P const norm_r_outer = compute_residual();
     s(i + 1)             = norm_r_outer;
-    error        = norm_r_outer / norm_b;
+    error                = norm_r_outer / norm_b;
 
     if (error <= tolerance)
       return error;
-  }
+  } // end outer iteration
 }
 
 template float
@@ -197,12 +202,14 @@ gmres(PDE<double> const &pde, element_table const &elem_table,
       std::vector<batch_operands_set<double>> &batches, double const dt,
       double const threshold, int const restart);
 
-template float
-simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
-             fk::vector<float> const &b, fk::matrix<float> const &M,
-             int const restart, int const max_iter, float const tolerance);
+template float simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
+                            fk::vector<float> const &b,
+                            fk::matrix<float> const &M, int const restart,
+                            int const max_iter, float const tolerance);
 
-template double
-simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
-             fk::vector<double> const &b, fk::matrix<double> const &M,
-             int const restart, int const max_iter, double const tolerance);
+template double simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
+                             fk::vector<double> const &b,
+                             fk::matrix<double> const &M, int const restart,
+                             int const max_iter, double const tolerance);
+
+} // namespace solver
