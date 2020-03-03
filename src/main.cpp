@@ -25,25 +25,6 @@
 using prec = double;
 int main(int argc, char **argv)
 {
-  /*fk::vector<float> not_const(1);
-  fk::vector<float> const im_const(1);
-
-  // pointer version - don't think we need this
-  fk::vector<float, mem_type::view>(not_const.get_pointer(), 0, 0);
-  // fk::vector<float, mem_type::const_view>(not_const.get_pointer());
-  // fk::vector<float, mem_type::view>(im_const.get_pointer());
-  fk::vector<float, mem_type::const_view>(im_const.get_pointer(), 0, 0);
-
-  // ref version
-  // the "false" here is just to distinguish function sig from existing impl.
-  fk::vector<float, mem_type::view>(not_const, 0, 0,
-                                    false); // mutable view from mutable owner
-  fk::vector<float, mem_type::const_view>(not_const, 0, 0, false);
-  // fk::vector<float, mem_type::view>(im_const, 0, 0, false); // doesn't
-  // compile - mutable view from const owner
-  fk::vector<float, mem_type::const_view>(
-      im_const, 0, 0, false); // this is ok - const view from mutable owner
-   */
   options opts(argc, argv);
   if (!opts.is_valid())
   {

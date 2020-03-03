@@ -374,10 +374,9 @@ public:
   matrix<P, mem, resrc> &operator=(matrix<P, mem, resrc> const &);
 
   // copy construct owner from view values
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  explicit matrix(matrix<P, mem_type::view, resrc> const &);
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  explicit matrix(matrix<P, mem_type::const_view, resrc> const &);
+  template<mem_type omem, mem_type m_ = mem, typename = enable_for_owner<m_>,
+           mem_type m__ = omem, typename = enable_for_all_views<m__>>
+  explicit matrix(matrix<P, omem, resrc> const &);
 
   // assignment owner <-> view
   template<mem_type omem, mem_type m_ = mem,
@@ -1685,28 +1684,8 @@ operator=(matrix<P, mem, resrc> const &a)
 // copy construct owner from view values
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(matrix<P, mem_type::view, resrc> const &a)
-    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
-      ref_count_{std::make_shared<int>(0)}
-{
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size()]();
-    std::copy(a.begin(), a.end(), begin());
-  }
-  else
-  {
-    allocate_device(data_, size());
-    copy_matrix_on_device(*this, a);
-  }
-}
-
-// copy construct owner from view, const view version
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(
-    matrix<P, mem_type::const_view, resrc> const &a)
+template<mem_type omem, mem_type, typename, mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(matrix<P, omem, resrc> const &a)
     : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
       ref_count_{std::make_shared<int>(0)}
 {
