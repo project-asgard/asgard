@@ -61,6 +61,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   assert(restart > 0);
   assert(restart <= n);
   assert(max_iter >= restart);
+  assert(max_iter <= n);
 
   P const norm_b = [&b]() {
     P const norm_b = fm::nrm2(b);
@@ -94,28 +95,36 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     return fm::nrm2(residual);
   };
 
+  auto const done = [](P const error, int const outer_iters,
+                       int const inner_iters) {
+    std::cout << "GMRES complete with error: " << error << '\n';
+    std::cout << outer_iters << " outer iterations, " << inner_iters
+              << " inner iterations\n";
+  };
+
   P const norm_r = compute_residual();
   P error        = norm_r / norm_b;
   if (error < tolerance)
   {
+    done(error, 0, 0);
     return error;
   }
 
-  fk::matrix<P> basis(n, restart);
+  fk::matrix<P> basis(n, restart + 1);
   fk::matrix<P> krylov_proj(restart + 1, restart);
-  fk::vector<P> sines(restart);
-  fk::vector<P> cosines(restart);
+  fk::vector<P> sines(restart + 1);
+  fk::vector<P> cosines(restart + 1);
 
-  for (int i = 0; i < max_iter; ++i)
+  for (int it = 0; it < max_iter; ++it)
   {
     P const norm_r = compute_residual();
 
     basis.update_col(0, residual * (1 / norm_r));
     // TODO what is s??
-    fk::vector<P> s(n);
-    s(0) = norm_r;
-
-    for (int j = 0; j < restart; ++j)
+    fk::vector<P> s(n + 1);
+    s(0)  = norm_r;
+    int i = 0;
+    for (; i < restart; ++i)
     {
       fk::vector<P> new_basis =
           A * fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1);
@@ -123,14 +132,15 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       {
         fm::getrs(precond, new_basis, precond_pivots);
       }
-      for (int k = 0; k < j; ++k)
+      for (int k = 0; k <= i; ++k)
       {
         fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
-                                                             basis.nrows()-1);
+                                                             basis.nrows() - 1);
         krylov_proj(k, i) = new_basis * basis_vect;
         new_basis         = new_basis - basis_vect;
       }
       krylov_proj(i + 1, i) = fm::nrm2(new_basis);
+
       basis.update_col(i + 1, new_basis * (1 / krylov_proj(i + 1, i)));
 
       for (int k = 0; k < i - 1; ++k)
@@ -158,33 +168,40 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       if (error <= tolerance)
       {
         auto const proj =
-            fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
-        std::vector<int> pivots(i+1);
+            fk::matrix<P, mem_type::view>(krylov_proj, 0, i - 1, 0, i - 1);
+        std::vector<int> pivots(i);
         // TODO what is this "s"
-        auto s_view = fk::vector<P, mem_type::view>(s, 0, i);
+        auto s_view = fk::vector<P, mem_type::view>(s, 0, i - 1);
         fm::gesv(proj, s_view, pivots);
-        x = x +
-            (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows()-1, 0, i) *
-             s_view);
+        x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
+                                               i - 1) *
+                 s_view);
         break; // depart the inner iteration loop
       }
     } // end of inner iteration loop
 
     if (error <= tolerance)
+    {
+      done(error, it, i);
       return error; // all done!
-
-    auto proj   = krylov_proj.extract_submatrix(0, restart, 0, restart);
-    auto s_view = fk::vector<P, mem_type::view>(s, 0, restart - 1);
-    std::vector<int> pivots(i);
+    }
+    auto const proj = fk::matrix<P, mem_type::view>(krylov_proj, 0, restart - 1,
+                                                    0, restart - 1);
+    auto s_view     = fk::vector<P, mem_type::view>(s, 0, restart - 1);
+    std::vector<int> pivots(restart);
     fm::gesv(proj, s_view, pivots);
-    x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows(), 0, i - 1) *
+    x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
+                                           restart - 1) *
              s_view);
-    P const norm_r_outer = compute_residual();
-    s(i + 1)             = norm_r_outer;
-    error                = norm_r_outer / norm_b;
+    P const norm_r_outer             = compute_residual();
+    s(std::min(s.size() - 1, i + 1)) = norm_r_outer;
+    error                            = norm_r_outer / norm_b;
 
     if (error <= tolerance)
+    {
+      done(error, it, i);
       return error;
+    }
   } // end outer iteration
 }
 

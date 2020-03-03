@@ -45,12 +45,10 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   // allocate batches for that size
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, max_elems);
-
+  
   apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
-
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
-  host_space.scaled_source.print("s0");
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
   exchange_results(host_space.reduced_fx, host_space.result_1, elem_size, plan,
                    my_rank);
@@ -104,7 +102,6 @@ scale_sources(PDE<P> const &pde,
   // scale and accumulate all sources
   for (int i = 0; i < pde.num_sources; ++i)
   {
-    //(unscaled_sources[i] * pde.sources[i].time_func(time)).print(std::to_string(i));
     fm::axpy(unscaled_sources[i], scaled_source,
              pde.sources[i].time_func(time));
   }
@@ -133,7 +130,6 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   fm::copy(host_space.x, host_space.x_orig);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
-  host_space.scaled_source.print("source");
   host_space.x = host_space.x + host_space.scaled_source * dt;
 
   //  if (first_time || update_system)
@@ -153,9 +149,9 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
     A(i, i) += 1.0;
   }
 
-  //if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+  // if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
   //  ipiv.resize(A.nrows());
-  //fm::gesv(A, host_space.x, ipiv);
+  // fm::gesv(A, host_space.x, ipiv);
   // first_time = false;
   //}
 
@@ -163,7 +159,6 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   //{
   //  fm::getrs(A, host_space.x, ipiv);
   //}
-  host_space.x.print();
   P const tolerance  = 1e-8;
   int const restart  = A.ncols();
   int const max_iter = A.ncols();

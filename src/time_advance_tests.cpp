@@ -125,9 +125,8 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   }
 }
 
-/*TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
+TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
-
 {
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
@@ -158,7 +157,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
-}*/
+}
 TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
                    double)
 {
@@ -171,7 +170,6 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
-/*
   SECTION("continuity2, level 2, degree 2, full grid")
   {
     int const degree = 2;
@@ -191,9 +189,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
         "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }*/
+  }
 }
-/*
 TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
                    double)
 {
@@ -435,4 +432,4 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
   }
-}*/
+}

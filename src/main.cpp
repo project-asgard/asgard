@@ -228,8 +228,9 @@ int main(int argc, char **argv)
 #endif
 
   // -- time loop
-  node_out() << "--- begin time loop ---" << '\n';
+
   prec const dt = pde->get_dt() * opts.get_cfl();
+  node_out() << "--- begin time loop w/ dt " << dt << " ---\n";
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
     prec const time = i * dt;
