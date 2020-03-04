@@ -1,8 +1,41 @@
+#pragma once
 #include "pde/pde_base.hpp"
 #include "element_table.hpp"
 #include "transformations.hpp"
 #include "matlab_utilities.hpp"
 #include "fast_math.hpp"
+
+template< typename P >
+class bc_timestepper
+{
+  public:
+
+    bc_timestepper( PDE< P > const &pde,
+                    element_table const &table, 
+                    int const start_element,
+                    int const stop_element,
+                    P const t_init = 0 );
+
+    fk::vector< P > advance( P const time ) const;
+
+    void print_left() const;
+
+    void print_right() const;
+
+  private:
+
+    std::vector< std::vector< std::vector< fk::vector< P > > > > left;
+
+    std::vector< std::vector< std::vector< fk::vector< P > > > > right;
+
+    P const t_init;
+
+    int const bc_size;
+
+    PDE< P > const &pde;
+
+    void print( std::vector< std::vector< std::vector< fk::vector< P > > > > const &v ) const;
+};
 
 template< typename P >
 fk::vector< P >

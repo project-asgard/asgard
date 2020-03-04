@@ -10,6 +10,7 @@
 template<typename P>
 void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
+                           bc_timestepper< P > const &bc_generator,
                            host_workspace<P> &host_space,
                            device_workspace<P> &dev_space,
                            std::vector<element_chunk> const &chunks,
@@ -54,7 +55,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
   /* Captain! Add in the boundary condition vector - entire vector case, no scaling */
-  fk::vector< P > bc0 = boundary_condition_vector< P >( pde, table, time );
+  //fk::vector< P > bc0 = boundary_condition_vector< P >( pde, table, time );
+  fk::vector< P > bc0 = bc_generator.advance( time );
   fm::axpy( bc0, host_space.reduced_fx );
   /* end new code */
 
@@ -72,7 +74,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
   /* Captain! New code Add in the boundary condition vector - entire vector case, no scaling */
-  fk::vector< P > bc1 = boundary_condition_vector< P >( pde, table, time + c2 * dt );
+  //fk::vector< P > bc1 = boundary_condition_vector< P >( pde, table, time + c2 * dt );
+  fk::vector< P > bc1 = bc_generator.advance( time + c2 * dt );
   fm::axpy( bc1, host_space.reduced_fx );
   /* end new code */
 
@@ -94,7 +97,8 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
   /* Captain! New code Add in the boundary condition vector - entire vector case, no scaling */
-  fk::vector< P > bc2 = boundary_condition_vector< P >( pde, table, time + c3 * dt );
+  //fk::vector< P > bc2 = boundary_condition_vector< P >( pde, table, time + c3 * dt );
+  fk::vector< P > bc2 = bc_generator.advance( time + c3 * dt );
   fm::axpy( bc2, host_space.reduced_fx );
   /* end new code */
   exchange_results(host_space.reduced_fx, host_space.result_3, elem_size, plan,
@@ -205,6 +209,7 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
 template void
 explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
+                      bc_timestepper< double > const &bc_generator,
                       host_workspace<double> &host_space,
                       device_workspace<double> &dev_space,
                       std::vector<element_chunk> const &chunks,
@@ -214,6 +219,7 @@ explicit_time_advance(PDE<double> const &pde, element_table const &table,
 template void
 explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
+                      bc_timestepper< float > const &bc_generator,
                       host_workspace<float> &host_space,
                       device_workspace<float> &dev_space,
                       std::vector<element_chunk> const &chunks,

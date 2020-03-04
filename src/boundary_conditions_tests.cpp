@@ -6,35 +6,32 @@
 template< typename P >
 void test_boundary_condition_vector( PDE< P > &pde, std::string gold_filename_prefix )
 {
-  /* generate hash table */
+  /* setup stuff */
   dimension<P> const &d = pde.get_dimensions()[0];
   int const level       = d.get_level();
 
   element_table table(make_options({"-l", std::to_string(level)}),
                       pde.num_dims);
 
-  /* Generate the hash table, FMWT matrices, and coefficient matrices */
   generate_all_coefficients< P >( pde );
 
-  /* Call the function and ensure the results are correct */
-  fk::vector< P > bc = boundary_condition_vector< P >( pde, table, 0 );
+  /* initialize bc vector at test_time */
+  P const test_time = 0;
 
-  /* Captain! Test code */
-  /*
-  std::printf( "bc vector:\n" );
-  for( int i = 0; i < bc.size(); ++i )
-  {
-    std::printf( "value %d: %lf\n", i+1, bc( i ) );
-  }
-  */
-  /* end test code */
+  fk::vector< P > bc_init =
+  boundary_condition_vector< P >( pde, table, test_time );
+
+  bc_timestepper< P > bc_generator( pde, table, 0, table.size() - 1 );
+
+  fk::vector< P > bc_advanced = bc_generator.advance( test_time );
+
   std::string const gold_filename = 
   gold_filename_prefix + "boundary_condition_vector.dat";
 
   fk::vector<P> const gold_bc_vector =
   fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
-  relaxed_comparison( gold_bc_vector, bc, 3e5 );
+  relaxed_comparison( gold_bc_vector, bc_advanced, 3e5 );
 
   return;
 }
@@ -126,6 +123,70 @@ void test_compute_boundary_condition( PDE<P> const &pde, std::string gold_filena
   return;
 }
 
+TEMPLATE_TEST_CASE("v0 --> v1", "", double, float)
+{
+  SECTION( "time split" )
+  {
+    /* setup stuff */
+    int const level  = 5;
+    int const degree = 5;
+    auto const pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+
+    element_table table(make_options({"-l", std::to_string(level)}),
+                        pde->num_dims);
+
+    generate_all_coefficients< TestType >( *pde );
+
+    /* initialize bc vector at test_time */
+    TestType const test_time = 0;
+
+    fk::vector< TestType > bc_init =
+    boundary_condition_vector< TestType >( *pde, table, test_time );
+
+    bc_timestepper< TestType > bc_generator( *pde, table, 0, table.size() - 1 );
+
+    fk::vector< TestType > bc_advanced = bc_generator.advance( test_time );
+
+    /* Captain! Same problem here */
+    relaxed_comparison( bc_init, bc_advanced, 1 );
+  }
+
+  SECTION( "element table split" )
+  {
+    /* setup stuff */
+    int const level  = 5;
+    int const degree = 5;
+    auto const pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+
+    element_table table(make_options({"-l", std::to_string(level)}),
+                        pde->num_dims);
+
+    generate_all_coefficients< TestType >( *pde );
+
+    /* initialize bc vector at test_time */
+    TestType const test_time = 0;
+
+    fk::vector< TestType > bc_init =
+    boundary_condition_vector< TestType >( *pde, table, test_time );
+
+    /* create a vector for the first half of that vector */
+    int index = 0;
+    for( int table_element = 0; table_element < table.size(); ++table_element )
+    {
+      bc_timestepper< TestType > bc_generator( *pde, table, table_element, table_element );
+      fk::vector< TestType > bc_advanced = bc_generator.advance( test_time );
+      
+      fk::vector< TestType, mem_type::view > const 
+      bc_section( bc_init, index, index + bc_advanced.size() - 1 );
+
+      /* Captain! This passes because everything is zero */
+      REQUIRE( bc_section == bc_advanced );
+
+      index += bc_advanced.size();
+    }
+  }
+}
+
 TEMPLATE_TEST_CASE("compute_boundary_conditions", "null category", double, float)
 {
   SECTION("diffusion_1 level 5 degree 5")
@@ -134,7 +195,6 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "null category", double, float
     int const degree = 5;
     auto const pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    /* Left name */
     std::string const gold_filename_prefix =
         "../testing/generated-inputs/"
         "compute_boundary_conditions/"
@@ -152,7 +212,6 @@ TEMPLATE_TEST_CASE( "boundary_conditions_vector", "null category", double, float
     int const degree = 5;
     auto const pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    /* Left name */
     std::string const gold_filename_prefix =
         "../testing/generated-inputs/"
         "boundary_condition_vector/"

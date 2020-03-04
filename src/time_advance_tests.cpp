@@ -29,7 +29,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
                        bool const full_grid                            = false,
                        std::vector<std::string> const &additional_args = {},
-                       double const eps_multiplier                     = 1e4)
+                       double const eps_multiplier                     = 3e6)
 // eps multiplier determined empirically 11/19; lowest epsilon multiplier
 // for which all current tests pass with the exception of fp2d
 {
@@ -95,6 +95,10 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
     return initial_sources;
   }();
 
+  /* generate boundary condition vectors */
+  /* these will be scaled later similarly to the source vectors */
+  bc_timestepper< P > bc_generator( pde, table, subgrid.row_start, subgrid.row_stop );
+
   // -- prep workspace/chunks
   int const workspace_MB_limit = 4000;
   host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
@@ -109,8 +113,10 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   for (int i = 0; i < num_steps; ++i)
   {
     P const time = i * dt;
-    explicit_time_advance(pde, table, initial_sources, host_space, dev_space,
+
+    explicit_time_advance(pde, table, initial_sources, bc_generator, host_space, dev_space,
                           chunks, plan, time, dt);
+
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
     int const degree       = pde.get_dimensions()[0].get_degree();
@@ -123,17 +129,66 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", float, double)
+TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double, float)
 {
-  SECTION("diffusion1, level 2, degree 2, sparse grid")
+  SECTION("diffusion1, explicit, sparse grid, level 2, degree 2")
   {
     int const degree = 2;
     int const level = 2;
+    bool const full_grid = false;
     auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
     std::string const gold_base = 
-    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_sg_l2_d2_t";
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_e_sg_l2_d2_t";
 
-    time_advance_test( level, degree, *pde, num_steps, gold_base, false );
+    time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid );
+  }
+
+  SECTION("diffusion1, explicit, full grid, level 2, degree 2")
+  {
+    int const degree = 2;
+    int const level = 2;
+    bool const full_grid = true;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_e_fg_l2_d2_t";
+
+    time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid );
+  }
+
+  SECTION("diffusion1, explicit, sparse grid, level 4, degree 4")
+  {
+    int const degree = 4;
+    int const level = 4;
+    bool const full_grid = false;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_e_sg_l4_d4_t";
+
+    time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid );
+  }
+
+  SECTION("diffusion1, explicit, full grid, level 4, degree 4")
+  {
+    int const degree = 4;
+    int const level = 4;
+    bool const full_grid = true;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_e_fg_l4_d4_t";
+
+    time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid );
+  }
+
+  SECTION("diffusion1, explicit, sparse grid, level 5, degree 5")
+  {
+    int const degree = 5;
+    int const level = 5;
+    bool const full_grid = false;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_e_sg_l5_d5_t";
+
+    time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid, {}, 5e9);
   }
 }
 /* Captain! Commented out */

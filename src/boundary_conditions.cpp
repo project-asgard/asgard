@@ -2,6 +2,201 @@
 #include <cstdio>
 
 template< typename P >
+bc_timestepper< P >::bc_timestepper( PDE< P > const &pde, element_table const &table,
+                                     int const start_element,
+                                     int const stop_element, P const t_init )
+  :
+  t_init( t_init ),
+  bc_size( ( stop_element - start_element + 1 ) * 
+           std::pow( pde.get_dimensions()[ 0 ].get_degree(), pde.num_dims ) ),
+  pde( pde )
+{
+  assert( bc_size > 0 );
+
+  term_set< P > const &terms_vec_vec = pde.get_terms();
+
+  std::vector< dimension< P > > const &dimensions = pde.get_dimensions();
+
+  for( int term_num = 0; term_num < terms_vec_vec.size(); ++term_num )
+  {
+    std::vector< term< P > > const &terms_vec = terms_vec_vec[ term_num ];
+
+    std::vector< std::vector< fk::vector< P > > > left_dim_pvecs;
+    std::vector< std::vector< fk::vector< P > > > right_dim_pvecs;
+
+    for( int dim_num = 0; dim_num < dimensions.size(); ++dim_num )
+    {
+      dimension< P > const &d = dimensions[ dim_num ];
+
+      term< P > const &t = terms_vec[ dim_num ];
+
+      std::vector< fk::vector< P > > left_pvecs;
+      std::vector< fk::vector< P > > right_pvecs;
+
+      std::vector< partial_term< P > > const &partial_terms = t.get_partial_terms();
+      for( int p_num = 0; p_num < partial_terms.size(); ++p_num )
+      {
+        partial_term< P > const &p_term = partial_terms[ p_num ];
+
+        if( p_term.left_homo == homogeneity::inhomogeneous )
+        {
+          fk::vector< P > trace_bc =
+          compute_left_boundary_condition( pde,
+                                           p_term.g_func,
+                                           t_init,
+                                           d.get_level(),
+                                           d.get_degree(),
+                                           d.domain_min,
+                                           d.domain_max,
+                                           p_term.left_bc_funcs[ dim_num ], 
+                                           p_term.left_bc_time_func );
+
+          std::vector< fk::vector< P > > p_term_left_bcs =
+          generate_partial_bcs( pde, dimensions, dim_num , p_term.left_bc_funcs, t_init,
+                                partial_terms, p_num, std::move( trace_bc ) );
+
+          fk::vector< P > combined = combine_dimensions( d.get_degree(),
+                                        table,
+                                        start_element,
+                                        stop_element,
+                                        p_term_left_bcs );
+
+          left_pvecs.emplace_back( std::move( combined ) );
+        }
+
+        if( p_term.right_homo == homogeneity::inhomogeneous )
+        {
+          fk::vector< P > trace_bc =
+          compute_right_boundary_condition(pde,
+                                           p_term.g_func,
+                                           t_init,
+                                           d.get_level(),
+                                           d.get_degree(),
+                                           d.domain_min,
+                                           d.domain_max,
+                                           p_term.right_bc_funcs[ dim_num ], 
+                                           p_term.right_bc_time_func );
+
+          std::vector< fk::vector< P > > p_term_right_bcs =
+          generate_partial_bcs( pde, dimensions, dim_num , p_term.right_bc_funcs, t_init,
+                                partial_terms, p_num, std::move( trace_bc ) );
+
+          fk::vector< P > combined = combine_dimensions( d.get_degree(),
+                                        table,
+                                        start_element,
+                                        stop_element,
+                                        p_term_right_bcs );
+
+          right_pvecs.emplace_back( std::move( combined ) );
+        }
+      }
+
+      left_dim_pvecs.emplace_back( std::move( left_pvecs ) );
+      right_dim_pvecs.emplace_back( std::move( right_pvecs ) );
+    }
+
+    left.emplace_back( std::move( left_dim_pvecs ) );
+    right.emplace_back( std::move( right_dim_pvecs ) );
+  }
+
+  return;
+}
+
+template< typename P >
+void 
+bc_timestepper< P >::print(
+std::vector< std::vector< std::vector< fk::vector< P > > > > const &v ) const
+{
+  term_set< P > const &terms_vec_vec = pde.get_terms();
+
+  std::vector< dimension< P > > const &dimensions = pde.get_dimensions();
+
+  std::printf( "terms_vec_vec.size(): %d\n", terms_vec_vec.size() );
+  for( int term_num = 0; term_num < terms_vec_vec.size(); ++term_num )
+  {
+    std::vector< term< P > > const &terms_vec = terms_vec_vec[ term_num ];
+    std::printf( "terms_vec.size(): %d\n", terms_vec.size() );
+
+    for( int dim_num = 0; dim_num < dimensions.size(); ++dim_num )
+    {
+      dimension< P > const &d = dimensions[ dim_num ];
+
+      term< P > const &t = terms_vec[ dim_num ];
+
+      std::vector< partial_term< P > > const &partial_terms = t.get_partial_terms();
+      std::printf( "pterm_vec.size(): %d\n", partial_terms.size() );
+
+      for( int p_num = 0; p_num < partial_terms.size(); ++p_num )
+      {
+        std::printf( "vector.size(): %d\n", v[term_num][dim_num][p_num].size() );
+      }
+    }
+  }
+}
+
+template< typename P >
+void
+bc_timestepper< P >::print_left() const
+{
+  std::printf( "left vector:\n" );
+  print( left );
+  std::cout << std::endl;
+}
+
+template< typename P >
+void
+bc_timestepper< P >::print_right() const
+{
+  std::printf( "right vector:\n" );
+  print( right );
+  std::cout << std::endl;
+}
+
+/* Captain! Will you need to evaluate at t_init - time? Do tests to experiment */
+template< typename P >
+fk::vector< P >
+bc_timestepper< P >::advance( P const time ) const
+{
+  fk::vector< P > bc( bc_size );
+
+  term_set< P > const &terms_vec_vec = pde.get_terms();
+
+  std::vector< dimension< P > > const &dimensions = pde.get_dimensions();
+
+  for( int term_num = 0; term_num < terms_vec_vec.size(); ++term_num )
+  {
+    std::vector< term< P > > const &terms_vec = terms_vec_vec[ term_num ];
+    for( int dim_num = 0; dim_num < dimensions.size(); ++dim_num )
+    {
+      dimension< P > const &d = dimensions[ dim_num ];
+
+      term< P > const &t = terms_vec[ dim_num ];
+
+      std::vector< partial_term< P > > const &partial_terms = t.get_partial_terms();
+      int left_index = 0;
+      int right_index = 0;
+      for( int p_num = 0; p_num < partial_terms.size(); ++p_num )
+      {
+        partial_term< P > const &p_term = partial_terms[ p_num ];
+
+        if( p_term.left_homo == homogeneity::inhomogeneous )
+        {
+          fm::axpy( left[term_num][dim_num][left_index++], bc, p_term.left_bc_time_func( time ) );
+        }
+
+        if( p_term.right_homo == homogeneity::inhomogeneous )
+        {
+          fm::axpy( right[term_num][dim_num][right_index++],
+                    bc, p_term.right_bc_time_func( time ) );
+        }
+      }
+    }
+  }
+
+  return bc;
+}
+
+template< typename P >
 std::vector< fk::vector< P > > 
 generate_partial_bcs( PDE< P > const &pde,
                       std::vector< dimension< P > > const &dimensions,
@@ -30,7 +225,6 @@ generate_partial_bcs( PDE< P > const &pde,
             fk::vector< P >( partial_bc_vecs.back() ), 
             partial_bc_vecs.back() );
 
-  /* Captain! This will not run with the current tests */
   if( p_index > 0 )
   {
     fk::matrix< P > chain = eye< P >( partial_terms[ 0 ].get_coefficients().nrows(),
@@ -51,20 +245,6 @@ generate_partial_bcs( PDE< P > const &pde,
                                                        time ) );
   }
 
-  /* Captain! Test code */
-  /*
-  std::printf( "partial vectors:\n");
-  for( auto f : partial_bc_vecs )
-  {
-    std::printf( "partial bc:\n");
-    for( int i = 0; i < f.size(); ++i )
-    {
-      std::printf("value: %d: %lf\n", i + 1, f( i ) );
-    }
-  }
-  */
-  /* End test code */
-
   return partial_bc_vecs;
 }
 
@@ -74,7 +254,6 @@ boundary_condition_vector( PDE< P > const &pde,
                            element_table const &table,
                            P const time )
 {
-  /* Open the file and feed params to compute_boundary_conditions */
   term_set< P > const &terms_vec_vec = pde.get_terms();
 
   std::vector< dimension< P > > const &dimensions = pde.get_dimensions();
@@ -166,7 +345,7 @@ compute_right_boundary_condition( PDE< P > const &pde,
                                   P const domain_min,
                                   P const domain_max,
                                   vector_func< P > const bc_func,
-                                  scalar_func<P> const time_func )
+                                  scalar_func<P> const time_func ) //Captain! delete time_func
 {
   P const domain_extent = domain_max - domain_min;
   assert( domain_extent > 0 );
@@ -345,3 +524,6 @@ generate_partial_bcs( PDE< float > const &pde,
                       std::vector< partial_term< float > > const &partial_terms,
                       int const p_index,
                       fk::vector< float > &&trace_bc );
+
+template class bc_timestepper< float >;
+template class bc_timestepper< double >;

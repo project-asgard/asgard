@@ -4,6 +4,7 @@
 #include "distribution.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
+#include "boundary_conditions.hpp"
 
 // this function executes a time step using the current solution
 // vector x (in host_space).
@@ -11,6 +12,7 @@
 template<typename P>
 void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
+                           bc_timestepper< P > const &bc_generator,
                            host_workspace<P> &host_space,
                            device_workspace<P> &dev_space,
                            std::vector<element_chunk> const &chunks,

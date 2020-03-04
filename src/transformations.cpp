@@ -235,14 +235,8 @@ combine_dimensions(int const degree, element_table const &table,
                                                 stop_index);
 
     combined_view = kron_d(kron_list, kron_list.size()) * time_scale;
-
-    /* Captain! Test code */
-    /*
-    std::printf( "start: %d stop: %d combined after:\n", start_index, stop_index );
-    combined_view.print();
-    */
-    /* end test code */
   }
+
   return combined;
 }
 

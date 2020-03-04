@@ -212,6 +212,7 @@ add_executable (asgard src/main.cpp)
 # link in components needed directly by main
 set (main_app_link_deps
   batch
+  boundary_conditions
   coefficients
   connectivity
   distribution

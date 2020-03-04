@@ -19,6 +19,7 @@
 #include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
+#include "boundary_conditions.hpp"
 #include <numeric>
 
 using prec = double;
@@ -120,6 +121,11 @@ int main(int argc, char **argv)
     }
     return initial_sources;
   }();
+
+  /* generate boundary condition vectors */
+  /* these will be scaled later similarly to the source vectors */
+  node_out() << "  generating: boundary condition vectors..." << '\n';
+  bc_timestepper< prec > bc_generator( *pde, table, subgrid.row_start, subgrid.row_stop );
 
   // -- generate analytic solution vector.
   node_out() << "  generating: analytic solution at t=0 ..." << '\n';
@@ -245,8 +251,8 @@ int main(int argc, char **argv)
     else
     {
       // FIXME fold initial sources into host space
-      explicit_time_advance(*pde, table, initial_sources, host_space, dev_space,
-                            chunks, plan, time, dt);
+      explicit_time_advance(*pde, table, initial_sources, bc_generator, host_space,
+                            dev_space, chunks, plan, time, dt);
     }
 
     // print root mean squared error from analytic solution
