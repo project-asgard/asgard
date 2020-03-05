@@ -757,6 +757,20 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
     fk::vector<int> const operator_row =
         get_operator_row(pde, degree, elem_indices);
 
+    // calculate number of elements in previous rows in chunk for later indexing
+    int const prev_row_elems = [i = i, &chunk] {
+      if (i == chunk.begin()->first)
+      {
+        return 0;
+      }
+      int prev_elems = 0;
+      for (int r = chunk.begin()->first; r < i; ++r)
+      {
+        prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
+      }
+      return prev_elems;
+    }();
+
     // loop over connected elements. for now, we assume
     // full connectivity
 #ifdef ASGARD_USE_OPENMP
@@ -779,18 +793,6 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
       {
         // term major y-space layout, followed by connected items, finally work
         // items.
-        int const prev_row_elems = [i = i, &chunk] {
-          if (i == chunk.begin()->first)
-          {
-            return 0;
-          }
-          int prev_elems = 0;
-          for (int r = chunk.begin()->first; r < i; ++r)
-          {
-            prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
-          }
-          return prev_elems;
-        }();
 
         int const total_prev_elems = prev_row_elems + j - connected.start;
         int const kron_index       = k + total_prev_elems * pde.num_terms;
