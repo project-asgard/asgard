@@ -400,7 +400,7 @@ allocate_batches(PDE<P> const &pde, int const num_elems)
 
 // resize batches for chunk
 template<typename P>
-inline void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
+void ready_batches(PDE<P> const &pde, element_chunk const &chunk,
                           std::vector<batch_operands_set<P>> &batches)
 {
   // FIXME when we allow varying degree by dimension, all
@@ -677,9 +677,9 @@ inline fk::vector<int> linearize(fk::vector<int> const &coords)
   return elem_indices;
 }
 
-template<typename P>
+template<typename P, mem_type mem>
 inline fk::vector<int> get_operator_row(PDE<P> const &pde, int const degree,
-                                        fk::vector<int> const &elem_indices)
+                                        fk::vector<int, mem> const &elem_indices)
 {
   fk::vector<int> op_row(pde.num_dims);
   for (int d = 0; d < pde.num_dims; ++d)
@@ -689,10 +689,10 @@ inline fk::vector<int> get_operator_row(PDE<P> const &pde, int const degree,
   return op_row;
 }
 
-template<typename P>
+template<typename P, mem_type mem>
 inline fk::vector<int>
 get_operator_col(PDE<P> const &pde, int const degree,
-                 fk::vector<int> const &connected_indices)
+                 fk::vector<int, mem> const &connected_indices)
 {
   fk::vector<int> op_col(pde.num_dims);
   for (int d = 0; d < pde.num_dims; ++d)
@@ -747,39 +747,40 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
     //
     // calculate from the level/cell indices for each
     // dimension
-    fk::vector<int> const coords = elem_table.get_coords(i);
-    assert(coords.size() == pde.num_dims * 2);
-    fk::vector<int> const elem_indices = linearize(coords);
-
+    fk::vector<int> const row_coords = elem_table.get_coords(i);
+    //assert(coords.size() == pde.num_dims * 2);
+    //fk::vector<int> const elem_indices = linearize(coords);
+    //fk::vector<int> const elem_indices
     // calculate the row portion of the
     // operator position used for this
     // element's gemm calls
-    fk::vector<int> const operator_row =
-        get_operator_row(pde, degree, elem_indices);
+    //fk::vector<int> const operator_row =
+    //    get_operator_row(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
-#endif
+//#ifdef ASGARD_USE_OPENMP
+//#pragma omp parallel for
+//#endif
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> const coords = elem_table.get_coords(j);
-      assert(coords.size() == pde.num_dims * 2);
-      fk::vector<int> const connected_indices = linearize(coords);
+      fk::vector<int> const col_coords = elem_table.get_coords(j);
+      //assert(coords.size() == pde.num_dims * 2);
+      //fk::vector<int> const connected_indices = linearize(coords);
 
       // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
-      fk::vector<int> const operator_col =
-          get_operator_col(pde, degree, connected_indices);
+      //fk::vector<int> const operator_col =
+      //    get_operator_col(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
       {
         // term major y-space layout, followed by connected items, finally work
         // items.
-        int const prev_row_elems = [i = i, &chunk] {
+        int const prev_row_elems = 0;
+	/*[i = i, &chunk] {
           if (i == chunk.begin()->first)
           {
             return 0;
@@ -790,7 +791,7 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
             prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
           }
           return prev_elems;
-        }();
+        }();*/
 
         int const total_prev_elems = prev_row_elems + j - connected.start;
         int const kron_index       = k + total_prev_elems * pde.num_terms;
@@ -802,29 +803,29 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         // work space, intermediate kron data
         int const work_index =
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
-        std::vector<P *> const work_ptrs = [&workspace, work_index,
-                                            num_workspaces, elem_size]() {
+        //std::vector<P *> const work_ptrs = [&workspace, work_index,
+          //                                  num_workspaces, elem_size]() {
           std::vector<P *> work_ptrs(num_workspaces);
           if (num_workspaces > 0)
             work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
           if (num_workspaces == 2)
             work_ptrs[1] =
                 workspace.batch_intermediate.data() + work_index + elem_size;
-          return work_ptrs;
-        }();
+      //    return work_ptrs;
+       // }();
 
         // operator views, windows into operator matrix
-        std::vector<P *> const operator_ptrs = [&pde, &operator_row,
-                                                &operator_col, k]() {
-          std::vector<P *> operator_ptrs;
+        //std::vector<P *> const operator_ptrs = [&pde, &operator_row,
+          //                                      &operator_col, k]() {
+          std::vector<P *> operator_ptrs(pde.num_dims);
           for (int d = pde.num_dims - 1; d >= 0; --d)
           {
-            operator_ptrs.push_back(
-                pde.get_coefficients(k, d).data() + operator_row(d) +
-                operator_col(d) * pde.get_coefficients(k, d).stride());
+            operator_ptrs[d] = 
+                pde.get_coefficients(k, d).data() + (row_coords(pde.num_dims+d)*degree) + //operator_row(d) +
+                (col_coords(pde.num_dims + d) * degree) * pde.get_coefficients(k, d).stride();
           }
-          return operator_ptrs;
-        }();
+          //return operator_ptrs;
+        //}();
 
         // determine the index for the input vector
         int const x_index = subgrid.to_local_col(j) * elem_size;
@@ -832,8 +833,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         // x vector input to kronmult
         P *const x_ptr = workspace.batch_input.data() + x_index;
 
-        unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs,
-                                      batches, kron_index, pde);
+        //unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs,
+          //                            batches, kron_index, pde);
       }
     }
   }

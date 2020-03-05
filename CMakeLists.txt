@@ -149,7 +149,7 @@ if (ASGARD_USE_MPI)
 endif ()
 
 target_link_libraries (element_table
-  PRIVATE permutations program_options tensors)
+  PRIVATE connectivity permutations program_options tensors)
 
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)

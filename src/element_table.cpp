@@ -1,5 +1,6 @@
 #include "element_table.hpp"
 
+#include "connectivity.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "program_options.hpp"
@@ -10,6 +11,15 @@
 #include <numeric>
 #include <vector>
 
+inline fk::vector<int> linearize(fk::vector<int> const &coords)
+{
+  fk::vector<int> elem_indices(coords.size() / 2);
+  for (int i = 0; i < elem_indices.size(); ++i)
+  {
+    elem_indices(i) = get_1d_index(coords(i), coords(i + elem_indices.size()));
+  }
+  return elem_indices;
+}
 // Construct forward and reverse element tables
 element_table::element_table(options const program_opts, int const num_dims)
 {
@@ -51,10 +61,12 @@ element_table::element_table(options const program_opts, int const num_dims)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       fk::vector<int> key = level_tuple;
       key.concat(cell_indices);
+      key.concat(linearize(key));
 
       forward_table[key] = index++;
       // note the matlab code has an option to append 1d cell indices to the
-      // reverse element table. //FIXME do we need to precompute or can we call
+      // reverse element table. 
+      // FIXME do we need to precompute or can we call
       // the 1d helper as needed?
       reverse_table.push_back(key);
     }
