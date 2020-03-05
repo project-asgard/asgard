@@ -128,6 +128,30 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
   return transformed;
 }
 
+template<typename P>
+inline fk::vector<P>
+transform_and_combine_dimensions(PDE<P> const &pde,
+                                 std::vector<vector_func<P>> const &v_functions,
+                                 element_table const &table, int const start,
+                                 int const stop, int const degree)
+{
+  assert(static_cast<int>(v_functions.size()) == pde.num_dims);
+  assert(start <= stop);
+  assert(stop < table.size());
+  assert(degree > 0);
+
+  std::vector<fk::vector<P>> dimension_components;
+  dimension_components.reserve(pde.num_dims);
+
+  for (int i = 0; i < pde.num_dims; ++i)
+  {
+    dimension_components.push_back(
+        forward_transform<P>(pde.get_dimensions()[i], v_functions[i]));
+  }
+
+  return combine_dimensions(degree, table, start, stop, dimension_components);
+}
+
 /* extern instantiations */
 extern template fk::matrix<double>
 recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,

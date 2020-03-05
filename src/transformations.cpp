@@ -8,7 +8,6 @@
 #include <climits>
 #include <cmath>
 #include <numeric>
-
 //
 // set the range specified by first and last,
 // starting with the supplied value and incrementing
