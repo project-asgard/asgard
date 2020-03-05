@@ -984,7 +984,8 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
 
   generate_all_coefficients(pde);
 
-  host_workspace<P> host_space(pde, subgrid);
+  int const workspace_MB_limit = 4000;
+  host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
   std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
 
   fk::vector<P> const gold = [&pde, &host_space, &gold_path]() {

@@ -106,9 +106,11 @@ rank_workspace<P>::get_unit_vector() const
 
 template<typename P>
 host_workspace<P>::host_workspace(PDE<P> const &pde,
-                                  element_subgrid const &grid)
+                                  element_subgrid const &grid,
+                                  int const memory_limit_MB)
 {
-  int elem_size          = element_segment_size(pde);
+  assert(memory_limit_MB > 0);
+  int const elem_size    = element_segment_size(pde);
   int64_t const col_size = elem_size * static_cast<int64_t>(grid.ncols());
   int64_t const row_size = elem_size * static_cast<int64_t>(grid.nrows());
   assert(col_size < INT_MAX);
@@ -121,6 +123,11 @@ host_workspace<P>::host_workspace(PDE<P> const &pde,
   result_1.resize(col_size);
   result_2.resize(col_size);
   result_3.resize(col_size);
+
+  /* we eventually need to make these checks consistent across realspace
+     transform and time advance */
+  /* size_MB() calculation relies on above members already being initialized */
+  assert(size_MB() <= static_cast<double>(memory_limit_MB));
 }
 
 // calculate how much workspace we need on device to compute a single connected

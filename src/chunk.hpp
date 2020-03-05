@@ -66,7 +66,8 @@ template<typename P>
 class host_workspace
 {
 public:
-  host_workspace(PDE<P> const &pde, element_subgrid const &grid);
+  host_workspace(PDE<P> const &pde, element_subgrid const &grid,
+                 int const memory_limit_MB);
   // working vectors for time advance (e.g. intermediate RK result vects,
   // source vector space)
   fk::vector<P> scaled_source;
