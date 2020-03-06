@@ -54,8 +54,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  /* Captain! Add in the boundary condition vector - entire vector case, no scaling */
-  //fk::vector< P > bc0 = boundary_condition_vector< P >( pde, table, time );
   fk::vector< P > bc0 = bc_generator.advance( time );
   fm::axpy( bc0, host_space.reduced_fx );
   /* end new code */
@@ -73,8 +71,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                 time + c2 * dt);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  /* Captain! New code Add in the boundary condition vector - entire vector case, no scaling */
-  //fk::vector< P > bc1 = boundary_condition_vector< P >( pde, table, time + c2 * dt );
   fk::vector< P > bc1 = bc_generator.advance( time + c2 * dt );
   fm::axpy( bc1, host_space.reduced_fx );
   /* end new code */
@@ -96,8 +92,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                 time + c3 * dt);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  /* Captain! New code Add in the boundary condition vector - entire vector case, no scaling */
-  //fk::vector< P > bc2 = boundary_condition_vector< P >( pde, table, time + c3 * dt );
   fk::vector< P > bc2 = bc_generator.advance( time + c3 * dt );
   fm::axpy( bc2, host_space.reduced_fx );
   /* end new code */
@@ -137,6 +131,7 @@ scale_sources(PDE<P> const &pde,
 template<typename P>
 void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
+                           bc_timestepper< P > const &bc_generator,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
                            P const time, P const dt, solve_opts const solver,
@@ -155,6 +150,10 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
   host_space.x = host_space.x + host_space.scaled_source * dt;
+
+  /* add the boundary condition */
+  fk::vector< P > bc0 = bc_generator.advance( time + dt );
+  fm::axpy( bc0, host_space.x, dt );
 
   if (first_time || update_system)
   {
@@ -186,6 +185,7 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
       ignore(ipiv);
       break;
     }
+
     first_time = false;
   } // end first time/update system
 
@@ -229,6 +229,7 @@ explicit_time_advance(PDE<float> const &pde, element_table const &table,
 template void
 implicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
+                      bc_timestepper< double > const &bc_generator,
                       host_workspace<double> &host_space,
                       std::vector<element_chunk> const &chunks,
                       double const time, double const dt,
@@ -237,6 +238,7 @@ implicit_time_advance(PDE<double> const &pde, element_table const &table,
 template void
 implicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
+                      bc_timestepper< float > const &bc_generator,
                       host_workspace<float> &host_space,
                       std::vector<element_chunk> const &chunks,
                       float const time, float const dt, solve_opts const solver,

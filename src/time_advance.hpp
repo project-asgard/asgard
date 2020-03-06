@@ -22,6 +22,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
 template<typename P>
 void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
+                           bc_timestepper< P > const &bc_generator,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
                            P const time, P const dt,

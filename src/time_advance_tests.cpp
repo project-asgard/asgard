@@ -191,8 +191,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double, float
     time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid, {}, 5e9);
   }
 }
-/* Captain! Commented out */
-/*
+
 TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 {
@@ -426,6 +425,10 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                            initial_sources_dim, initial_scale));
   }
 
+  /* generate boundary condition vectors */
+  /* these will be scaled later similarly to the source vectors */
+  bc_timestepper< P > bc_generator( pde, table, subgrid.row_start, subgrid.row_stop );
+
   // -- prep workspace/chunks
   int const workspace_MB_limit = 4000;
   host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
@@ -437,9 +440,15 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   // -- time loop
   P const dt = pde.get_dt() * o.get_cfl();
 
-  for (int i = 0; i < num_steps; ++i)
+  /* Captain! set to 1 timestep for debugging */
+  for (int i = 0; i < 1; ++i)
   {
     P const time = i * dt;
+<<<<<<< HEAD
+=======
+    implicit_time_advance(pde, table, initial_sources, bc_generator, host_space, chunks, time,
+                          dt);
+>>>>>>> working implicit time advance tests
 
     std::cout.setstate(std::ios_base::failbit);
     implicit_time_advance(pde, table, initial_sources, host_space, chunks, time,
@@ -450,7 +459,38 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
     fk::vector<P> const gold =
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
+<<<<<<< HEAD
     relaxed_comparison(gold, host_space.x, tolerance_factor);
+=======
+    relaxed_comparison( gold, host_space.x, eps_multiplier );
+  }
+}
+
+TEMPLATE_TEST_CASE( "implicit time advance - diffusion 1", "[time_advance]", double, float )
+{
+  SECTION( "diffusion1, implicit, sparse grid, level 2, degree 2" )
+  {
+    int const degree = 2;
+    int const level = 2;
+    bool const full_grid = false;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l2_d2_t";
+
+    implicit_time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid );
+  }
+
+  SECTION( "diffusion1, implicit, sparse grid, level 4, degree 4" )
+  {
+    int const degree = 4;
+    int const level = 4;
+    bool const full_grid = false;
+    auto pde = make_PDE< TestType >( PDE_opts::diffusion_1, level, degree );
+    std::string const gold_base = 
+    "../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l4_d4_t";
+
+    implicit_time_advance_test( level, degree, *pde, num_steps, gold_base, full_grid, 1e4 );
+>>>>>>> working implicit time advance tests
   }
 }
 
@@ -534,4 +574,3 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                                full_grid, solve_opts::gmres, tol_factor);
   }
 }
-*/
