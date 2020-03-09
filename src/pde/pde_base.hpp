@@ -147,14 +147,8 @@ enum class flux_type
 // do dimensions own terms? need dimension info in
 // term construction...
 
-/* encapsulates all boundary condition information for a partial term - decide whether to use
-   later */
-template< typename P >
-P null_scalar_func( P const p )
-{
-  return p;
-}
-
+/* encapsulates all boundary condition information for a partial term - decide
+   whether to use later */
 using g_func_type = std::function<double(double const, double const)>;
 
 template<typename P>
@@ -162,33 +156,32 @@ class partial_term
 {
 public:
 
-  double null_gfunc( double const x, double const t )
+  static double null_gfunc(double const x, double const t)
   {
     ignore(x);
     ignore(t);
     return 1.0;
   }
 
+  static P null_scalar_func(P const p) { return p; }
+
   partial_term(coefficient_type const coeff_type,
-               g_func_type const g_func = null_gfunc,
+               g_func_type const g_func       = null_gfunc,
                flux_type const flux           = flux_type::central,
                boundary_condition const left  = boundary_condition::neumann,
-               boundary_condition const right = boundary_condition::neumann, 
-               homogeneity const left_homo = homogeneity::homogeneous,
-               homogeneity const right_homo = homogeneity::homogeneous,
-               std::vector< vector_func< P > > const left_bc_funcs = {},
-               scalar_func< P > const left_bc_time_func = null_scalar_func<P>,
-               std::vector< vector_func< P > > const right_bc_funcs = {},
-               scalar_func< P > const right_bc_time_func = null_scalar_func<P> )
+               boundary_condition const right = boundary_condition::neumann,
+               homogeneity const left_homo    = homogeneity::homogeneous,
+               homogeneity const right_homo   = homogeneity::homogeneous,
+               std::vector<vector_func<P>> const left_bc_funcs = {},
+               scalar_func<P> const left_bc_time_func = null_scalar_func,
+               std::vector<vector_func<P>> const right_bc_funcs = {},
+               scalar_func<P> const right_bc_time_func = null_scalar_func)
 
       : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
-        right(right),
-      left_homo( left_homo ),
-      right_homo( right_homo ),
-      left_bc_funcs( left_bc_funcs ),
-      left_bc_time_func( left_bc_time_func ),
-      right_bc_funcs( right_bc_funcs ),
-      right_bc_time_func( right_bc_time_func )
+        right(right), left_homo(left_homo), right_homo(right_homo),
+        left_bc_funcs(left_bc_funcs), right_bc_funcs(right_bc_funcs),
+        left_bc_time_func(left_bc_time_func),
+        right_bc_time_func(right_bc_time_func)
   {}
 
   P get_flux_scale() const { return static_cast<P>(flux); };
@@ -203,7 +196,6 @@ public:
 
   boundary_condition const right;
 
-  /* Captain! New fields */
   homogeneity const left_homo;
   homogeneity const right_homo;
   std::vector<vector_func<P>> const left_bc_funcs;

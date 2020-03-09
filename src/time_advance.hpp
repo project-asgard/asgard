@@ -1,10 +1,10 @@
 #pragma once
 #include "batch.hpp"
+#include "boundary_conditions.hpp"
 #include "chunk.hpp"
 #include "distribution.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
-#include "boundary_conditions.hpp"
 
 // this function executes a time step using the current solution
 // vector x (in host_space).
@@ -12,7 +12,7 @@
 template<typename P>
 void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           bc_timestepper< P > const &bc_generator,
+                           bc_timestepper<P> const &bc_generator,
                            host_workspace<P> &host_space,
                            device_workspace<P> &dev_space,
                            std::vector<element_chunk> const &chunks,
@@ -22,7 +22,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
 template<typename P>
 void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
-                           bc_timestepper< P > const &bc_generator,
+                           bc_timestepper<P> const &bc_generator,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
                            P const time, P const dt,

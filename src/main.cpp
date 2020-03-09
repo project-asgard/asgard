@@ -14,12 +14,12 @@
 #include <mpi.h>
 #endif
 
+#include "boundary_conditions.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-#include "boundary_conditions.hpp"
 #include <numeric>
 
 using prec = double;
@@ -122,11 +122,6 @@ int main(int argc, char **argv)
     return initial_sources;
   }();
 
-  /* generate boundary condition vectors */
-  /* these will be scaled later similarly to the source vectors */
-  node_out() << "  generating: boundary condition vectors..." << '\n';
-  bc_timestepper< prec > bc_generator( *pde, table, subgrid.row_start, subgrid.row_stop );
-
   // -- generate analytic solution vector.
   node_out() << "  generating: analytic solution at t=0 ..." << '\n';
 
@@ -149,6 +144,12 @@ int main(int argc, char **argv)
   node_out() << "  generating: coefficient matrices..." << '\n';
 
   generate_all_coefficients<prec>(*pde);
+
+  /* generate boundary condition vectors */
+  /* these will be scaled later similarly to the source vectors */
+  node_out() << "  generating: boundary condition vectors..." << '\n';
+  bc_timestepper<prec> bc_generator(*pde, table, subgrid.row_start,
+                                    subgrid.row_stop);
 
   // this is to bail out for further profiling/development on the setup routines
   if (opts.get_time_steps() < 1)

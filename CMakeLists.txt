@@ -19,8 +19,7 @@ set (CMAKE_CXX_STANDARD_REQUIRED ON)
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
 # add compiler flags we always want to use
-# Captain!
-add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-g" ) #"-O3")
+add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-O3")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)

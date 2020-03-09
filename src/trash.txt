@@ -1,0 +1,69 @@
+rebase in progress; onto 7dca6e78
+You are currently rebasing branch 'feature/boundary_conditions' on '7dca6e78'.
+  (fix conflicts and then run "git rebase --continue")
+  (use "git rebase --skip" to skip this patch)
+  (use "git rebase --abort" to check out the original branch)
+
+Changes to be committed:
+  (use "git reset HEAD <file>..." to unstage)
+
+	modified:   ../CMakeLists.txt
+	modified:   boundary_conditions.cpp
+	modified:   boundary_conditions.hpp
+	modified:   boundary_conditions_tests.cpp
+	modified:   coefficients_tests.cpp
+	modified:   pde/pde_base.hpp
+	modified:   pde/pde_diffusion1.hpp
+	modified:   time_advance.hpp
+	new file:   ../testing/generated-inputs/boundary_condition_vector/diffusion1/boundary_condition_vector_l2_d2.dat
+	new file:   ../testing/generated-inputs/boundary_condition_vector/diffusion1/boundary_condition_vector_l4_d4.dat
+	renamed:    ../testing/generated-inputs/boundary_condition_vector/diffusion1/boundary_condition_vector.dat -> ../testing/generated-inputs/boundary_condition_vector/diffusion1/boundary_condition_vector_l5_d5.dat
+	modified:   ../testing/generated-inputs/coefficients/diffusion1/coefficients_l2_d2_1_1.dat
+	new file:   ../testing/generated-inputs/coefficients/diffusion1/coefficients_l4_d4_1_1.dat
+	modified:   ../testing/generated-inputs/coefficients/diffusion1/coefficients_l5_d5_1_1.dat
+	new file:   ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcL_d2_l2_t0_d0_p1.dat
+	new file:   ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcL_d4_l4_t0_d0_p1.dat
+	renamed:    ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcL_t0_d0_p1.dat -> ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcL_d5_l5_t0_d0_p1.dat
+	new file:   ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcR_d2_l2_t0_d0_p1.dat
+	new file:   ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcR_d4_l4_t0_d0_p1.dat
+	renamed:    ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcR_t0_d0_p1.dat -> ../testing/generated-inputs/compute_boundary_conditions/diffusion1/bcR_d5_l5_t0_d0_p1.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l2_d2_t0.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l2_d2_t1.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l2_d2_t2.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l2_d2_t3.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l2_d2_t4.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l4_d4_t0.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l4_d4_t1.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l4_d4_t2.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l4_d4_t3.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_fg_l4_d4_t4.dat
+	modified:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l2_d2_t0.dat
+	modified:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l2_d2_t1.dat
+	modified:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l2_d2_t2.dat
+	modified:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l2_d2_t3.dat
+	modified:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l2_d2_t4.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l4_d4_t0.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l4_d4_t1.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l4_d4_t2.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l4_d4_t3.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l4_d4_t4.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l5_d5_t0.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l5_d5_t1.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l5_d5_t2.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l5_d5_t3.dat
+	new file:   ../testing/generated-inputs/time_advance/diffusion1/diffusion1_i_sg_l5_d5_t4.dat
+	deleted:    ../trash.txt
+
+Unmerged paths:
+  (use "git reset HEAD <file>..." to unstage)
+  (use "git add <file>..." to mark resolution)
+
+	both modified:   main.cpp
+	both modified:   time_advance.cpp
+	both modified:   time_advance_tests.cpp
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	trash.txt
+

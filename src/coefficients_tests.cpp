@@ -35,14 +35,59 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
 
 TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 {
-  int const level = 2;
-  int const degree = 2;
+  SECTION("level 2, degree 2")
+  {
+    int const level  = 2;
+    int const degree = 2;
 
-  auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree );
-  std::string const gold_path =
-      "../testing/generated-inputs/coefficients/diffusion1/coefficients";
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_path =
+        "../testing/generated-inputs/coefficients/diffusion1/coefficients";
 
-  test_coefficients<TestType>(*pde, gold_path, true, 2e2);
+    double epsilons = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      epsilons = 1;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      epsilons = 1e3;
+
+    test_coefficients<TestType>(*pde, gold_path, true, epsilons);
+  }
+
+  SECTION("level 4, degree 4")
+  {
+    int const level  = 4;
+    int const degree = 4;
+
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_path =
+        "../testing/generated-inputs/coefficients/diffusion1/coefficients";
+
+    double epsilons = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      epsilons = 1;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      epsilons = 1e5;
+
+    test_coefficients<TestType>(*pde, gold_path, true, epsilons);
+  }
+
+  SECTION("level 5, degree 5")
+  {
+    int const level  = 5;
+    int const degree = 5;
+
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_path =
+        "../testing/generated-inputs/coefficients/diffusion1/coefficients";
+
+    double epsilons = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      epsilons = 1;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      epsilons = 1e7;
+
+    test_coefficients<TestType>(*pde, gold_path, true, epsilons);
+  }
 }
 
 TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,

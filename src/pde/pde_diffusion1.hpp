@@ -56,16 +56,13 @@ private:
       partial_term<P>(coefficient_type::grad, g_func_0, flux_type::upwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 
-  static fk::vector< P >
-  bc_func( fk::vector< P > const x, P const t )
+  static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
-    ignore( t );
+    ignore(t);
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const x_value) -> P {
-                     return std::cos(PI * x_value);
-                   });
+                   [](P const x_value) -> P { return std::cos(PI * x_value); });
 
     return fx;
   }
@@ -73,20 +70,15 @@ private:
   static P bc_time_func(P const t)
   {
     /* e^(-2 * pi^2 * t )*/
-    static double const p     = -2.0 * PI * PI;
+    static double const p = -2.0 * PI * PI;
     return std::exp(p * t);
   }
-  
 
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
       coefficient_type::grad, g_func_0, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::inhomogeneous,
-      homogeneity::inhomogeneous,
-      {bc_func},
-      bc_time_func,
-      {bc_func},
-      bc_time_func);
+      homogeneity::inhomogeneous, homogeneity::inhomogeneous, {bc_func},
+      bc_time_func, {bc_func}, bc_time_func);
 
   inline static term<P> const term_0 =
       term<P>(true,            // time-dependent
