@@ -15,7 +15,6 @@
 #endif
 
 #include "pde.hpp"
-#include "predict.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include "time_advance.hpp"
@@ -73,19 +72,6 @@ int main(int argc, char **argv)
   node_out() << "  full grid: " << opts.using_full_grid() << '\n';
   node_out() << "  CFL number: " << opts.get_cfl() << '\n';
   node_out() << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
-
-  // -- print out time and memory estimates based on profiling
-  std::pair<std::string, double> runtime_info = expected_time(
-      opts.get_selected_pde(), opts.get_level(), opts.get_degree());
-  node_out() << "Predicted compute time (seconds): " << runtime_info.second
-             << '\n';
-  node_out() << runtime_info.first << '\n';
-
-  std::pair<std::string, double> mem_usage_info = total_mem_usage(
-      opts.get_selected_pde(), opts.get_level(), opts.get_degree());
-  node_out() << "Predicted total mem usage (MB): " << mem_usage_info.second
-             << '\n';
-  node_out() << mem_usage_info.first << '\n';
 
   node_out() << "--- begin setup ---" << '\n';
 
