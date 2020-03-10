@@ -1,4 +1,5 @@
 #include "transformations.hpp"
+#include "batch.hpp"
 #include "connectivity.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
@@ -46,7 +47,7 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
  * sequence of matrices */
 template<typename P>
 int kron_matrix_MB(
-    std::vector<fk::matrix<P, mem_type::view>> const &kron_matrices)
+    std::vector<fk::matrix<P, mem_type::const_view>> const &kron_matrices)
 {
   long r = 1;
   long c = 1;
@@ -123,33 +124,35 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
 }
 
 template<typename P>
-fk::vector<P>
-wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
-                     element_table const &table, int const memory_limit_MB)
+void wavelet_to_realspace(
+    PDE<P> const &pde, fk::vector<P> const &wave_space,
+    element_table const &table, int const memory_limit_MB,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<P> &real_space)
 {
   assert(memory_limit_MB > 0);
 
   std::vector<dimension<P>> const &dims = pde.get_dimensions();
-  /* determine the length of the real-space vector */
-  int prod = 1;
-  for (int i = 0; i < static_cast<int>(dims.size()); i++)
-  {
-    prod *= (dims[i].get_degree() * std::pow(2, dims[i].get_level()));
-  }
 
-  fk::vector<P> real_space(prod);
+  std::vector<batch_chain<P, resource::host>> chain;
+
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
       gen_realspace_transform(pde);
+
   /* Assume the degree in the first dimension is equal across all the remaining
    */
   int const stride =
       std::pow(pde.get_dimensions()[0].get_degree(), dims.size());
 
+  fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
+  fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
+      accumulator);
+
   for (int i = 0; i < table.size(); i++)
   {
-    std::vector<fk::matrix<P, mem_type::view>> kron_matrices;
+    std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
     kron_matrices.reserve(pde.num_dims);
     fk::vector<int> const coords = table.get_coords(i);
 
@@ -157,7 +160,7 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
     {
       int const id     = get_1d_index(coords(j), coords(j + pde.num_dims));
       int const degree = pde.get_dimensions()[j].get_degree();
-      fk::matrix<P, mem_type::view> sub_matrix(
+      fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
           id * degree, (id + 1) * degree - 1);
       kron_matrices.push_back(sub_matrix);
@@ -166,15 +169,23 @@ wavelet_to_realspace(PDE<P> const &pde, fk::vector<P> const &wave_space,
     /* compute the amount of needed memory */
     assert(kron_matrix_MB(kron_matrices) <= memory_limit_MB);
 
-    /* get a matrix by kronecker producting the list together */
-    fk::matrix<P> const kronecker_product = recursive_kron(kron_matrices);
+    /* create a view of a section of the wave space vector */
     fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
                                                 (i + 1) * stride - 1);
-    /* add it to the realspace vector */
-    real_space = real_space + (kronecker_product * x);
+
+    chain.emplace_back(kron_matrices, x, workspace, real_space_accumulator);
   }
 
-  return real_space;
+  /* clear out the vector */
+  real_space.scale(0);
+
+  for (auto &link : chain)
+  {
+    link.execute_batch_chain();
+    real_space = real_space + real_space_accumulator;
+  }
+
+  return;
 }
 
 // FIXME this function will need to change once dimensions can have different
@@ -242,13 +253,17 @@ gen_realspace_transform(PDE<double> const &pde);
 template std::vector<fk::matrix<float>>
 gen_realspace_transform(PDE<float> const &pde);
 
-template fk::vector<double>
-wavelet_to_realspace(PDE<double> const &pde,
-                     fk::vector<double> const &wave_space,
-                     element_table const &table, int const memory_limit_MB);
-template fk::vector<float>
-wavelet_to_realspace(PDE<float> const &pde, fk::vector<float> const &wave_space,
-                     element_table const &table, int const memory_limit_MB);
+template void wavelet_to_realspace(
+    PDE<double> const &pde, fk::vector<double> const &wave_space,
+    element_table const &table, int const memory_limit_MB,
+    std::array<fk::vector<double, mem_type::view, resource::host>, 2>
+        &workspace,
+    fk::vector<double> &real_space);
+template void wavelet_to_realspace(
+    PDE<float> const &pde, fk::vector<float> const &wave_space,
+    element_table const &table, int const memory_limit_MB,
+    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<float> &real_space);
 
 template fk::vector<double>
 combine_dimensions(int const, element_table const &, int const, int const,

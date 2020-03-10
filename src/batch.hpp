@@ -5,6 +5,7 @@
 #include "pde/pde_base.hpp"
 #include "tensors.hpp"
 #include <array>
+#include <numeric>
 
 // wrapper around an array of pointers to matrices or
 // vectors for a call to batch gemm/gemv; i.e., the class
@@ -27,8 +28,8 @@ public:
   bool operator==(batch<P, resrc> const &) const;
   P *operator()(int const) const;
 
-  void assign_entry(fk::matrix<P, mem_type::const_view, resrc> const &a,
-                    int const position);
+  template<mem_type mem>
+  void assign_entry(fk::matrix<P, mem, resrc> const &a, int const position);
   void assign_raw(P *const a, int const position);
   bool clear_entry(int const position);
 
@@ -75,6 +76,44 @@ private:
   iterator begin() { return batch_; }
   iterator end() { return batch_ + num_entries(); }
 };
+
+/*
+
+Problem relevant to class batch_chain:
+
+given a vector "x" of length "x_size" and list of matrices of arbitrary
+dimension in "matrix": { m0, m1, ... , m_last }, calculate ( m0 kron m1 kron ...
+kron m_end ) * x
+
+*/
+
+template<typename P, resource resrc>
+class batch_chain
+{
+public:
+  /* allocates batches and assigns data */
+  batch_chain(
+      std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
+      fk::vector<P, mem_type::const_view, resrc> const &x,
+      std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
+      fk::vector<P, mem_type::view, resrc> &final_output);
+
+  void execute_batch_chain();
+
+private:
+  std::vector<batch<P, resrc>> left;
+
+  std::vector<batch<P, resrc>> right;
+
+  std::vector<batch<P, resrc>> product;
+};
+
+/* Calculates necessary workspace length for the Kron algorithm. See .cpp file
+ * for more details */
+template<typename P, resource resrc>
+int calculate_workspace_length(
+    std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
+    int const x_size);
 
 // execute a batched gemm given a, b, c batch lists
 template<typename P, resource resrc>
@@ -253,3 +292,29 @@ build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
 extern template void
 build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
                     element_chunk const &chunk, fk::matrix<float> &A);
+
+extern template class batch_chain<double, resource::device>;
+extern template class batch_chain<double, resource::host>;
+extern template class batch_chain<float, resource::device>;
+extern template class batch_chain<float, resource::host>;
+/*
+extern template int calculate_workspace_length(
+    std::vector<fk::matrix<double, mem_type::view, resource::device>> const
+        &matrices,
+    int const x_size);
+
+extern template int calculate_workspace_length(
+    std::vector<fk::matrix<double, mem_type::view, resource::host>> const
+        &matrices,
+    int const x_size);
+
+extern template int calculate_workspace_length(
+    std::vector<fk::matrix<float, mem_type::view, resource::device>> const
+        &matrices,
+    int const x_size);
+
+extern template int calculate_workspace_length(
+    std::vector<fk::matrix<float, mem_type::view, resource::host>> const
+        &matrices,
+    int const x_size);
+*/
