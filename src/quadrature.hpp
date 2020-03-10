@@ -25,17 +25,3 @@ template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(int const degree, int const lower_bound, int const upper_bound,
                  bool const use_degree_points = false);
-
-// suppress implicit instatiation
-extern template std::array<fk::matrix<float>, 2>
-legendre(fk::vector<float> const domain, int const degree,
-         legendre_normalization const norm);
-extern template std::array<fk::matrix<double>, 2>
-legendre(fk::vector<double> const domain, int const degree,
-         legendre_normalization const norm);
-extern template std::array<fk::vector<double>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound,
-                 bool const use_degree_points);
-extern template std::array<fk::vector<float>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound,
-                 bool const use_degree_points);

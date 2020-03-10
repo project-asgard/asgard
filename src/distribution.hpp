@@ -211,34 +211,3 @@ template<typename P>
 std::vector<P>
 gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                int const my_rank, int const element_segment_size);
-
-extern template void
-reduce_results(fk::vector<float> const &source, fk::vector<float> &dest,
-               distribution_plan const &plan, int const my_rank);
-extern template void
-reduce_results(fk::vector<double> const &source, fk::vector<double> &dest,
-               distribution_plan const &plan, int const my_rank);
-
-extern template void
-exchange_results(fk::vector<float> const &source, fk::vector<float> &dest,
-                 int const segment_size, distribution_plan const &plan,
-                 int const my_rank);
-extern template void
-exchange_results(fk::vector<double> const &source, fk::vector<double> &dest,
-                 int const segment_size, distribution_plan const &plan,
-                 int const my_rank);
-
-extern template std::array<fk::vector<float>, 2>
-gather_errors(float const root_mean_squared, float const relative);
-
-extern template std::array<fk::vector<double>, 2>
-gather_errors(double const root_mean_squared, double const relative);
-
-extern template std::vector<float>
-gather_results(fk::vector<float> const &my_results,
-               distribution_plan const &plan, int const my_rank,
-               int const element_segment_size);
-extern template std::vector<double>
-gather_results(fk::vector<double> const &my_results,
-               distribution_plan const &plan, int const my_rank,
-               int const element_segment_size);

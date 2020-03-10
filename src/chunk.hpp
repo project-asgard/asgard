@@ -102,18 +102,3 @@ assign_elements(element_subgrid const &grid, int const num_chunks);
 template<typename P>
 void reduce_chunk(PDE<P> const &pde, device_workspace<P> &dev_space,
                   element_subgrid const &subgrid, element_chunk const &chunk);
-
-extern template int get_num_chunks(element_subgrid const &grid,
-                                   PDE<float> const &pde,
-                                   int const rank_size_MB);
-extern template int get_num_chunks(element_subgrid const &grid,
-                                   PDE<double> const &pde,
-                                   int const rank_size_MB);
-
-extern template void
-reduce_chunk(PDE<float> const &pde, device_workspace<float> &dev_space,
-             element_subgrid const &subgrid, element_chunk const &chunk);
-
-extern template void
-reduce_chunk(PDE<double> const &pde, device_workspace<double> &dev_space,
-             element_subgrid const &subgrid, element_chunk const &chunk);
