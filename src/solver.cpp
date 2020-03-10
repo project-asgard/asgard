@@ -137,7 +137,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
         fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
                                                              basis.nrows() - 1);
         krylov_proj(k, i) = new_basis * basis_vect;
-        new_basis         = new_basis - basis_vect;
+        new_basis         = new_basis - (basis_vect * krylov_proj(k, i));
       }
       krylov_proj(i + 1, i) = fm::nrm2(new_basis);
 
