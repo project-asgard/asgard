@@ -32,11 +32,11 @@ double get_MB(uint64_t const num_elems)
 // the coefficient matrices, we need this space resident on whatever
 // accelerator we are using
 template<typename P>
-class rank_workspace
+class device_workspace
 {
 public:
-  rank_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
-                 std::vector<element_chunk> const &chunks);
+  device_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
+                   std::vector<element_chunk> const &chunks);
   fk::vector<P, mem_type::owner, resource::device> const &
   get_unit_vector() const;
 
@@ -100,7 +100,7 @@ assign_elements(element_subgrid const &grid, int const num_chunks);
 
 // reduce an element chunk's results after batched gemm
 template<typename P>
-void reduce_chunk(PDE<P> const &pde, rank_workspace<P> &rank_space,
+void reduce_chunk(PDE<P> const &pde, device_workspace<P> &dev_space,
                   element_subgrid const &subgrid, element_chunk const &chunk);
 
 extern template int get_num_chunks(element_subgrid const &grid,
@@ -111,9 +111,9 @@ extern template int get_num_chunks(element_subgrid const &grid,
                                    int const rank_size_MB);
 
 extern template void
-reduce_chunk(PDE<float> const &pde, rank_workspace<float> &rank_space,
+reduce_chunk(PDE<float> const &pde, device_workspace<float> &dev_space,
              element_subgrid const &subgrid, element_chunk const &chunk);
 
 extern template void
-reduce_chunk(PDE<double> const &pde, rank_workspace<double> &rank_space,
+reduce_chunk(PDE<double> const &pde, device_workspace<double> &dev_space,
              element_subgrid const &subgrid, element_chunk const &chunk);
