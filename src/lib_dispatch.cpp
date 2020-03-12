@@ -8,6 +8,10 @@
 #include <cuda_runtime.h>
 #endif
 
+#ifdef ASGARD_USE_OPENMP
+#include <omp.h>
+#endif
+
 auto const ignore = [](auto ignored) { (void)ignored; };
 struct device_handler
 {
@@ -680,7 +684,11 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   }
 
   // default execution on the host for any resource
-  for (int i = 0; i < *num_batch; ++i)
+  int end = *num_batch;
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
+  for (int i = 0; i < end; ++i)
   {
     gemm(transa, transb, m, n, k, alpha, a[i], lda, b[i], ldb, beta, c[i], ldc,
          resource::host);

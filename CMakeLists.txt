@@ -171,6 +171,10 @@ if (ASGARD_USE_CUDA)
   target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
 					     ${CUDA_CUBLAS_LIBRARIES})
 endif()
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
+   target_link_libraries(lib_dispatch PRIVATE OpenMP::OpenMP_CXX)
+endif ()
+
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
