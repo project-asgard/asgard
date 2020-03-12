@@ -65,8 +65,17 @@ if(FOUND_MKL GREATER_EQUAL 0)
   set(ASGARD_USE_MKL TRUE)
 endif()
 
+
 if(ASGARD_USE_OPENMP)
-  find_package(OpenMP REQUIRED)
+  find_package(OpenMP REQUIRED)  
+  if(ASGARD_USE_MKL)
+    add_compile_options ("-fopenmp")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+	message(FATAL_ERROR 
+	  "MKL and apple clang++ require conflicting 
+	  openmp flags - build configuration not supported")
+    endif()
+  endif()
 endif()
 
 if(ASGARD_USE_CUDA)
