@@ -34,7 +34,7 @@ TEST_CASE("options constructor/getters", "[options]")
     options o =
         make_options({"-p", pde_choice, "-l", std::to_string(level), "-d",
                       std::to_string(degree), "-w", std::to_string(write), "-r",
-                      std::to_string(realspace), "-f", "-i", "-s", "-c",
+                      std::to_string(realspace), "-f", "-i", "-e", "-c",
                       std::to_string(cfl)});
 
     REQUIRE(o.get_degree() == degree);

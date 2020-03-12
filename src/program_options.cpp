@@ -27,7 +27,7 @@ options::options(int argc, char **argv)
           "Number of iterations") |
       clara::detail::Opt(selected_pde, "selected_pde")["-p"]["--pde"](
           "PDE to solve; see options.hpp for list") |
-      clara::detail::Opt(do_poisson)["-s"]["--solve_poisson"](
+      clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
           "Do poisson solve for electric field") |
       clara::detail::Opt(write_frequency,
                          "write_frequency")["-w"]["--write_freq"](
