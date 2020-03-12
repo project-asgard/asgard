@@ -136,49 +136,5 @@ fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices);
 // limited subset of matbal meshgrid
 fk::matrix<int> meshgrid(int const start, int const length);
 
-// suppress implicit instantiations
-extern template fk::vector<float> linspace(float const start, float const end,
-                                           unsigned int const num_elems = 100);
-extern template fk::vector<double> linspace(double const start,
-                                            double const end,
-                                            unsigned int const num_elems = 100);
-
-extern template fk::matrix<int> eye(int const M = 1);
-extern template fk::matrix<float> eye(int const M = 1);
-extern template fk::matrix<double> eye(int const M = 1);
-extern template fk::matrix<int> eye(int const M, int const N);
-extern template fk::matrix<float> eye(int const M, int const N);
-extern template fk::matrix<double> eye(int const M, int const N);
-
-extern template int polyval(fk::vector<int> const p, int const x);
-extern template float polyval(fk::vector<float> const p, float const x);
-extern template double polyval(fk::vector<double> const p, double const x);
-
-extern template fk::vector<int>
-polyval(fk::vector<int> const p, fk::vector<int> const x);
-extern template fk::vector<float>
-polyval(fk::vector<float> const p, fk::vector<float> const x);
-extern template fk::vector<double>
-polyval(fk::vector<double> const p, fk::vector<double> const x);
-
-extern template float l2_norm(fk::vector<float> const &vec);
-extern template double l2_norm(fk::vector<double> const &vec);
-extern template float inf_norm(fk::vector<float> const &vec);
-extern template double inf_norm(fk::vector<double> const &vec);
-
-extern template fk::matrix<int>
-horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);
-extern template fk::matrix<float>
-horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
-extern template fk::matrix<double>
-horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);
-
 template<typename P, mem_type mem>
 fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol);
-
-extern template fk::matrix<double>
-reshape(fk::matrix<double> mat, int const nrow, int const ncol);
-extern template fk::matrix<float>
-reshape(fk::matrix<float> mat, int const nrow, int const ncol);
-extern template fk::matrix<int>
-reshape(fk::matrix<int> mat, int const nrow, int const ncol);
