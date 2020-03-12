@@ -12,7 +12,7 @@ template<typename P>
 void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
-                           rank_workspace<P> &rank_space,
+                           device_workspace<P> &dev_space,
                            std::vector<element_chunk> const &chunks,
                            distribution_plan const &plan, P const time,
                            P const dt);
@@ -28,7 +28,7 @@ extern template void
 explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       host_workspace<double> &host_space,
-                      rank_workspace<double> &rank_space,
+                      device_workspace<double> &dev_space,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, double const time,
                       double const dt);
@@ -37,7 +37,7 @@ extern template void
 explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
-                      rank_workspace<float> &rank_space,
+                      device_workspace<float> &dev_space,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, float const time,
                       float const dt);

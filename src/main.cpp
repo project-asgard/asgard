@@ -169,7 +169,7 @@ int main(int argc, char **argv)
   // - a couple GB for allocations not currently covered by the
   // workspace limit (including working batch).
 
-  // This limit is only for the rank workspace - the portion
+  // This limit is only for the device workspace - the portion
   // of our allocation that will be resident on an accelerator
   // if the code is built for that.
   //
@@ -183,7 +183,7 @@ int main(int argc, char **argv)
   host_workspace<prec> host_space(*pde, subgrid, default_workspace_cpu_MB);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
-  rank_workspace<prec> rank_space(*pde, plan.at(my_rank), chunks);
+  device_workspace<prec> dev_space(*pde, plan.at(my_rank), chunks);
 
   auto const get_MB = [&](int num_elems) {
     int64_t const bytes    = num_elems * sizeof(prec);
@@ -194,14 +194,14 @@ int main(int argc, char **argv)
   node_out() << "allocating workspace..." << '\n';
 
   node_out() << "input vector size (MB): "
-             << get_MB(rank_space.batch_input.size()) << '\n';
+             << get_MB(dev_space.batch_input.size()) << '\n';
   node_out() << "kronmult output space size (MB): "
-             << get_MB(rank_space.reduction_space.size()) << '\n';
+             << get_MB(dev_space.reduction_space.size()) << '\n';
   node_out() << "kronmult working space size (MB): "
-             << get_MB(rank_space.batch_intermediate.size()) << '\n';
+             << get_MB(dev_space.batch_intermediate.size()) << '\n';
   node_out() << "output vector size (MB): "
-             << get_MB(rank_space.batch_output.size()) << '\n';
-  auto const &unit_vect = rank_space.get_unit_vector();
+             << get_MB(dev_space.batch_output.size()) << '\n';
+  auto const &unit_vect = dev_space.get_unit_vector();
   node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
              << '\n';
 
@@ -257,8 +257,8 @@ int main(int argc, char **argv)
     else
     {
       // FIXME fold initial sources into host space
-      explicit_time_advance(*pde, table, initial_sources, host_space,
-                            rank_space, chunks, plan, time, dt);
+      explicit_time_advance(*pde, table, initial_sources, host_space, dev_space,
+                            chunks, plan, time, dt);
     }
 
     // print root mean squared error from analytic solution

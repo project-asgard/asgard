@@ -113,7 +113,7 @@ void size_check_subgrid(std::vector<element_chunk> const &chunks,
                         element_subgrid const &subgrid, PDE<P> const &pde,
                         int const limit_MB)
 {
-  rank_workspace const work(pde, subgrid, chunks);
+  device_workspace const work(pde, subgrid, chunks);
   P lower_bound                   = static_cast<P>(limit_MB * 0.49);
   P const upper_bound             = static_cast<P>(limit_MB * 1.01);
   P const workspace_size          = work.size_MB();
@@ -241,12 +241,12 @@ TEMPLATE_TEST_CASE("element chunk, continuity 6", "[chunk]", float, double)
 
 template<typename P>
 void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
-                      rank_workspace<P> const &rank_space)
+                      device_workspace<P> const &dev_space)
 {
   int const elem_size = element_segment_size(pde);
   auto const x_range  = columns_in_chunk(chunk);
 
-  fk::vector<P> total_sum(rank_space.batch_output.size());
+  fk::vector<P> total_sum(dev_space.batch_output.size());
   for (auto const &[row, cols] : chunk)
   {
     int const prev_row_elems = [i = row, &chunk] {
@@ -263,7 +263,7 @@ void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
     }();
     int const reduction_offset = prev_row_elems * pde.num_terms * elem_size;
     fk::matrix<P, mem_type::const_view, resource::device> const
-        reduction_matrix(rank_space.reduction_space, elem_size,
+        reduction_matrix(dev_space.reduction_space, elem_size,
                          (cols.stop - cols.start + 1) * pde.num_terms,
                          reduction_offset);
 
@@ -283,7 +283,7 @@ void verify_reduction(PDE<P> const &pde, element_chunk const &chunk,
     partial_sum = partial_sum + sum;
   }
 
-  fk::vector<P> const output_copy(rank_space.batch_output.clone_onto_host());
+  fk::vector<P> const output_copy(dev_space.batch_output.clone_onto_host());
   fk::vector<P> const diff = output_copy - total_sum;
   auto const abs_compare   = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
@@ -316,23 +316,23 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde)
     int const limit_MB = 1000;
     auto const chunks =
         assign_elements(grid, get_num_chunks(grid, pde, limit_MB));
-    rank_workspace<P> rank_space(pde, grid, chunks);
+    device_workspace<P> dev_space(pde, grid, chunks);
 
     std::random_device rd;
     std::mt19937 mersenne_engine(rd());
     std::uniform_real_distribution<P> dist(-3.0, 3.0);
-    fk::vector<P> reduction_h(rank_space.reduction_space.clone_onto_host());
+    fk::vector<P> reduction_h(dev_space.reduction_space.clone_onto_host());
     auto const gen = [&dist, &mersenne_engine]() {
       return dist(mersenne_engine);
     };
     std::generate(reduction_h.begin(), reduction_h.end(), gen);
-    rank_space.reduction_space.transfer_from(reduction_h);
+    dev_space.reduction_space.transfer_from(reduction_h);
 
     for (auto const &chunk : chunks)
     {
       // reduce and test
-      reduce_chunk(pde, rank_space, grid, chunk);
-      verify_reduction(pde, chunk, rank_space);
+      reduce_chunk(pde, dev_space, grid, chunk);
+      verify_reduction(pde, chunk, dev_space);
     }
   }
 }

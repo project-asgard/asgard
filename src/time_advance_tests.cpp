@@ -100,7 +100,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
-  rank_workspace<P> rank_space(pde, subgrid, chunks);
+  device_workspace<P> dev_space(pde, subgrid, chunks);
   host_space.x = initial_condition;
 
   // -- time loop
@@ -109,7 +109,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   for (int i = 0; i < num_steps; ++i)
   {
     P const time = i * dt;
-    explicit_time_advance(pde, table, initial_sources, host_space, rank_space,
+    explicit_time_advance(pde, table, initial_sources, host_space, dev_space,
                           chunks, plan, time, dt);
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -362,7 +362,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
-  rank_workspace<P> rank_space(pde, subgrid, chunks);
+  device_workspace<P> dev_space(pde, subgrid, chunks);
   host_space.x = initial_condition;
 
   // -- time loop

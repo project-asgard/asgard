@@ -9,7 +9,7 @@ template<typename P>
 void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
-                           rank_workspace<P> &rank_space,
+                           device_workspace<P> &dev_space,
                            std::vector<element_chunk> const &chunks,
                            distribution_plan const &plan, P const time,
                            P const dt)
@@ -45,7 +45,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, max_elems);
 
-  apply_A(pde, table, grid, chunks, host_space, rank_space, batches);
+  apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
@@ -55,7 +55,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
-  apply_A(pde, table, grid, chunks, host_space, rank_space, batches);
+  apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
@@ -70,7 +70,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
-  apply_A(pde, table, grid, chunks, host_space, rank_space, batches);
+  apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c3 * dt);
@@ -113,19 +113,19 @@ template<typename P>
 static void
 apply_A(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        host_workspace<P> &host_space, rank_workspace<P> &rank_space,
+        host_workspace<P> &host_space, device_workspace<P> &dev_space,
         std::vector<batch_operands_set<P>> &batches)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
-  fm::scal(static_cast<P>(0.0), rank_space.batch_output);
+  fm::scal(static_cast<P>(0.0), dev_space.batch_output);
 
   // copy inputs onto GPU
-  rank_space.batch_input.transfer_from(host_space.x);
+  dev_space.batch_input.transfer_from(host_space.x);
 
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
-    build_batches(pde, elem_table, rank_space, grid, chunk, batches);
+    build_batches(pde, elem_table, dev_space, grid, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;
@@ -140,11 +140,11 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
     }
 
     // do the reduction
-    reduce_chunk(pde, rank_space, grid, chunk);
+    reduce_chunk(pde, dev_space, grid, chunk);
   }
 
   // copy outputs back from GPU
-  host_space.fx.transfer_from(rank_space.batch_output);
+  host_space.fx.transfer_from(dev_space.batch_output);
 }
 
 // this function executes an implicit time step using the current solution
@@ -203,7 +203,7 @@ template void
 explicit_time_advance(PDE<double> const &pde, element_table const &table,
                       std::vector<fk::vector<double>> const &unscaled_sources,
                       host_workspace<double> &host_space,
-                      rank_workspace<double> &rank_space,
+                      device_workspace<double> &dev_space,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, double const time,
                       double const dt);
@@ -212,7 +212,7 @@ template void
 explicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
-                      rank_workspace<float> &rank_space,
+                      device_workspace<float> &dev_space,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, float const time,
                       float const dt);
