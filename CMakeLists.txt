@@ -67,7 +67,6 @@ endif()
 
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)
-  add_compile_options ("-fopenmp")
 endif()
 
 if(ASGARD_USE_CUDA)
