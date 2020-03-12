@@ -132,9 +132,8 @@ options::options(int argc, char **argv)
   }
   if (realspace_output_freq > 0)
   {
-    std::cerr
-        << "Distribution does not yet support realspace transform\n" valid =
-        false;
+    std::cerr << "Distribution does not yet support realspace transform\n";
+    valid = false;
   }
 #endif
 }
