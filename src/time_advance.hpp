@@ -22,7 +22,9 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
-                           P const time, P const dt, bool update_system = true);
+                           P const time, P const dt,
+                           solve_opts const solver  = solve_opts::direct,
+                           bool const update_system = true);
 
 // apply the system matrix to the current solution vector using batched
 // gemm.

@@ -115,7 +115,8 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
-                           P const time, P const dt, bool update_system)
+                           P const time, P const dt, solve_opts const solver,
+                           bool const update_system)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -128,44 +129,57 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
 
-  fm::copy(host_space.x, host_space.x_orig);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
   host_space.x = host_space.x + host_space.scaled_source * dt;
 
-  //  if (first_time || update_system)
-  //  {
-  A.clear_and_resize(A_size, A_size);
-  for (auto const &chunk : chunks)
+  if (first_time || update_system)
   {
-    build_system_matrix(pde, table, chunk, A);
-  }
-  // AA = I - dt*A;
-  for (int i = 0; i < A.nrows(); ++i)
-  {
-    for (int j = 0; j < A.ncols(); ++j)
+    A.clear_and_resize(A_size, A_size);
+    for (auto const &chunk : chunks)
     {
-      A(i, j) *= -dt;
+      build_system_matrix(pde, table, chunk, A);
     }
-    A(i, i) += 1.0;
+
+    // AA = I - dt*A;
+    for (int i = 0; i < A.nrows(); ++i)
+    {
+      for (int j = 0; j < A.ncols(); ++j)
+      {
+        A(i, j) *= -dt;
+      }
+      A(i, i) += 1.0;
+    }
+
+    switch (solver)
+    {
+    case solve_opts::direct:
+      if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+        ipiv.resize(A.nrows());
+      fm::gesv(A, host_space.x, ipiv);
+      return;
+      break;
+    case solve_opts::gmres:
+      ignore(ipiv);
+      break;
+    }
+    first_time = false;
+  } // end first time/update system
+
+  switch (solver)
+  {
+  case solve_opts::direct:
+    fm::getrs(A, host_space.x, ipiv);
+    break;
+  case solve_opts::gmres:
+    P const tolerance  = 1e-8;
+    int const restart  = A.ncols();
+    int const max_iter = A.ncols();
+    fm::scal(static_cast<P>(0.0), host_space.result_1);
+    solver::simple_gmres(A, host_space.result_1, host_space.x, fk::matrix<P>(),
+                         restart, max_iter, tolerance);
+    fm::copy(host_space.result_1, host_space.x);
+    break;
   }
-
-  // if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
-  //  ipiv.resize(A.nrows());
-  // fm::gesv(A, host_space.x, ipiv);
-  // first_time = false;
-  //}
-
-  // else
-  //{
-  //  fm::getrs(A, host_space.x, ipiv);
-  //}
-  P const tolerance  = 1e-8;
-  int const restart  = A.ncols();
-  int const max_iter = A.ncols();
-  fm::scal(static_cast<P>(0.0), host_space.result_1);
-  solver::simple_gmres(A, host_space.result_1, host_space.x, fk::matrix<P>(),
-                       restart, max_iter, tolerance);
-  fm::copy(host_space.result_1, host_space.x);
 }
 
 template void
@@ -192,12 +206,12 @@ implicit_time_advance(PDE<double> const &pde, element_table const &table,
                       host_workspace<double> &host_space,
                       std::vector<element_chunk> const &chunks,
                       double const time, double const dt,
-                      bool update_system = true);
+                      solve_opts const solver, bool const update_system);
 
 template void
 implicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
                       std::vector<element_chunk> const &chunks,
-                      float const time, float const dt,
-                      bool update_system = true);
+                      float const time, float const dt, solve_opts const solver,
+                      bool const update_system);

@@ -239,7 +239,8 @@ int main(int argc, char **argv)
     {
       bool const update_system = i == 0;
       implicit_time_advance(*pde, table, initial_sources, host_space, chunks,
-                            time, dt, update_system);
+                            time, dt, opts.get_selected_solver(),
+                            update_system);
     }
     else
     {

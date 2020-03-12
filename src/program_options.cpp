@@ -19,6 +19,8 @@ options::options(int argc, char **argv)
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
+      clara::detail::Opt(selected_solver, "selected_solver")["-s"]["--solver"](
+          "Solver to use (direct or gmres) for implicit advance") |
       clara::detail::Opt(level, "level")["-l"]["--level"](
           "Hierarchical levels (resolution)") |
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
@@ -88,11 +90,36 @@ options::options(int argc, char **argv)
     valid = false;
   }
 
+  if (use_implicit_stepping)
+  {
+    if (selected_solver == "none")
+    {
+      selected_solver = "direct";
+    }
+    auto const choice = solver_mapping.find(selected_solver);
+    if (choice == solver_mapping.end())
+    {
+      std::cerr << "Invalid solver choice; see options.hpp for valid choices\n";
+      valid = false;
+    }
+    else
+    {
+      solver = solver_mapping.at(selected_solver);
+    }
+  }
+  else // explicit time advance
+  {
+    if (selected_solver != "none")
+    {
+      std::cerr << "Must set implicit (-i) flag to select a solver\n";
+      valid = false;
+    }
+  }
+
 #ifdef ASGARD_USE_CUDA
   if (use_implicit_stepping)
   {
-    std::cerr << "GPU acceleration not implemented for implicit stepping"
-              << '\n';
+    std::cerr << "GPU acceleration not implemented for implicit stepping\n";
     valid = false;
   }
 #endif
@@ -100,14 +127,14 @@ options::options(int argc, char **argv)
 #ifdef ASGARD_USE_MPI
   if (use_implicit_stepping && get_num_ranks() > 1)
   {
-    std::cerr << "Distribution not implemented for implicit stepping" << '\n';
+    std::cerr << "Distribution not implemented for implicit stepping\n";
     valid = false;
   }
   if (realspace_output_freq > 0)
   {
-    std::cerr << "Distribution does not yet support realspace transform"
-              << '\n';
-    valid = false;
+    std::cerr
+        << "Distribution does not yet support realspace transform\n" valid =
+        false;
   }
 #endif
 }
@@ -124,7 +151,11 @@ std::string options::get_pde_string() const { return selected_pde; }
 bool options::is_valid() const { return valid; }
 bool options::do_poisson_solve() const { return do_poisson; }
 int options::get_realspace_output_freq() const { return realspace_output_freq; }
-
+solve_opts options::get_selected_solver() const
+{
+  assert(use_implicit_stepping); // meaningless for explicit stepping
+  return solver;
+}
 bool options::write_at_step(int const i) const
 {
   assert(i >= 0);
