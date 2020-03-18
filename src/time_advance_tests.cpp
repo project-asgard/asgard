@@ -130,6 +130,48 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   }
 }
 
+TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
+                   float)
+{
+  SECTION("diffusion2, explicit, sparse grid, level 2, degree 2")
+  {
+    int const degree     = 2;
+    int const level      = 2;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_e_sg_l2_d2_t";
+
+    double epsilons = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      epsilons = 1e1;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      epsilons = 1;
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
+                      epsilons);
+  }
+
+  SECTION("diffusion2, explicit, sparse grid, level 4, degree 4")
+  {
+    int const degree     = 4;
+    int const level      = 4;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_e_sg_l4_d4_t";
+
+    double epsilons = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      epsilons = 1e7;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      epsilons = 1e4;
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
+                      epsilons);
+  }
+}
+
 TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
                    float)
 {

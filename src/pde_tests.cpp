@@ -8,6 +8,66 @@
 // lowest epsilon multiplier for which component tests pass
 static auto const pde_eps_multiplier = 1e2;
 
+template<typename P>
+void test_initial_condition(PDE<P> const &pde, std::string const base_dir,
+                            P const test_val)
+{
+  fk::vector<P> const x = {test_val};
+
+  for (int i = 0; i < pde.num_dims; ++i)
+  {
+    P const gold = read_scalar_from_txt_file(base_dir + "initial_dim" +
+                                             std::to_string(i) + ".dat");
+
+    P const fx = pde.get_dimensions()[i].initial_condition(x, 0)(0);
+    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+  }
+}
+
+template<typename P>
+void test_exact_solution(PDE<P> const &pde, std::string const base_dir,
+                         P const test_val)
+{
+  fk::vector<P> const x = {test_val};
+
+  for (int i = 0; i < pde.num_dims; ++i)
+  {
+    P const gold = read_scalar_from_txt_file(base_dir + "exact_dim" +
+                                             std::to_string(i) + ".dat");
+    P const fx   = pde.exact_vector_funcs[i](x, 0)(0);
+    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+  }
+
+  P const gold = read_scalar_from_txt_file(base_dir + "exact_time.dat");
+  P const fx   = pde.exact_time(x(0));
+  relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+}
+
+TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
+                   float)
+{
+  auto const pde             = make_PDE<TestType>(PDE_opts::diffusion_2, 3, 2);
+  std::string const base_dir = "../testing/generated-inputs/pde/diffusion_2_";
+  fk::vector<TestType> const x = {4.2};
+
+  SECTION("diffusion 2 initial condition functions")
+  {
+    test_initial_condition<TestType>(*pde, base_dir, 4.2);
+  }
+
+  SECTION("diffusion 2 exact solution functions")
+  {
+    test_exact_solution<TestType>(*pde, base_dir, 4.2);
+  }
+
+  SECTION("diffusion 2 dt")
+  {
+    TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
+    TestType const dt   = pde->get_dt();
+    REQUIRE(dt == gold);
+  }
+}
+
 TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
                    float)
 {
@@ -17,30 +77,14 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
 
   SECTION("diffusion 1 initial condition functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat");
-
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_initial_condition<TestType>(*pde, base_dir, 4.2);
   }
 
   SECTION("diffusion 1 exact solution functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
-    TestType const gold =
-        read_scalar_from_txt_file(base_dir + "exact_time.dat");
-    TestType const fx = pde->exact_time(x(0));
-    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    test_exact_solution<TestType>(*pde, base_dir, 4.2);
   }
+
   SECTION("diffusion 1 source functions")
   {
     for (int i = 0; i < pde->num_sources; ++i)

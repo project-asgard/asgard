@@ -205,7 +205,7 @@ fk::vector<P> bc_timestepper<P>::compute_right_boundary_condition(
     assert(std::isfinite(g));
   }
 
-  /* Captain! Use the new upcoming vector-view of matrix column constructor to
+  /* Use the new upcoming vector-view of matrix column constructor to
    * avoid this copy */
   /* Currently in Tyler's gmres PR - not yet merged into develop */
   fk::vector<P> legendre_polys_at_value = fk::vector<P>(

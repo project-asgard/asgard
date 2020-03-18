@@ -52,9 +52,9 @@ private:
     return 1.0;
   }
 
-  inline static const partial_term<P> partial_term_0 =
-      partial_term<P>(coefficient_type::grad, g_func_0, flux_type::upwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static const partial_term<P> partial_term_0 = partial_term<P>(
+      coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::upwind,
+      boundary_condition::neumann, boundary_condition::neumann);
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
@@ -130,6 +130,7 @@ private:
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       exact_solution_0};
 
+  /* This is not used ever */
   inline static scalar_func<P> const exact_scalar_func_ = source_0_t;
 
   static P get_dt_(dimension<P> const &dim)

@@ -155,7 +155,6 @@ template<typename P>
 class partial_term
 {
 public:
-
   static double null_gfunc(double const x, double const t)
   {
     ignore(x);

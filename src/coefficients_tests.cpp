@@ -33,8 +33,65 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
   }
 }
 
+TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
+{
+  std::string const gold_path =
+      "../testing/generated-inputs/coefficients/diffusion2/coefficients";
+
+  SECTION("level 2, degree 2")
+  {
+    int const level  = 2;
+    int const degree = 2;
+
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    double error_acceptable = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      error_acceptable = 1e3;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      error_acceptable = 1e3;
+
+    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+  }
+
+  SECTION("level 4, degree 4")
+  {
+    int const level  = 4;
+    int const degree = 4;
+
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    double error_acceptable = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      error_acceptable = 1e5;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      error_acceptable = 1e5;
+
+    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+  }
+
+  SECTION("level 5, degree 5")
+  {
+    int const level  = 5;
+    int const degree = 5;
+
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    double error_acceptable = 0;
+    if constexpr (std::is_same<TestType, float>::value == true)
+      error_acceptable = 1e5;
+    else if constexpr (std::is_same<TestType, double>::value == true)
+      error_acceptable = 1e7;
+
+    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+  }
+}
+
 TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 {
+  std::string const gold_path =
+      "../testing/generated-inputs/coefficients/diffusion1/coefficients";
+
   SECTION("level 2, degree 2")
   {
     int const level  = 2;
@@ -46,11 +103,11 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 
     double epsilons = 0;
     if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1;
+      error_acceptable = 1e3;
     else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e3;
+      error_acceptable = 1e3;
 
-    test_coefficients<TestType>(*pde, gold_path, true, epsilons);
+    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
   }
 
   SECTION("level 4, degree 4")
@@ -64,11 +121,11 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 
     double epsilons = 0;
     if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1;
+      error_acceptable = 1e5;
     else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e5;
+      error_acceptable = 1e5;
 
-    test_coefficients<TestType>(*pde, gold_path, true, epsilons);
+    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
   }
 
   SECTION("level 5, degree 5")
@@ -82,11 +139,11 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 
     double epsilons = 0;
     if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1;
+      error_acceptable = 1e7;
     else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e7;
+      error_acceptable = 1e7;
 
-    test_coefficients<TestType>(*pde, gold_path, true, epsilons);
+    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
   }
 }
 
