@@ -148,8 +148,12 @@ int main(int argc, char **argv)
   /* generate boundary condition vectors */
   /* these will be scaled later similarly to the source vectors */
   node_out() << "  generating: boundary condition vectors..." << '\n';
-  bc_timestepper<prec> bc_generator(*pde, table, subgrid.row_start,
-                                    subgrid.row_stop);
+
+  std::vector<std::vector<std::vector<fk::vector<prec>>>> left_bc_parts;
+  std::vector<std::vector<std::vector<fk::vector<prec>>>> right_bc_parts;
+  boundary_conditions::init_bc_parts(*pde, table, subgrid.row_start,
+                                     subgrid.row_stop, left_bc_parts,
+                                     right_bc_parts);
 
   // this is to bail out for further profiling/development on the setup routines
   if (opts.get_time_steps() < 1)
@@ -245,15 +249,16 @@ int main(int argc, char **argv)
     if (opts.using_implicit())
     {
       bool const update_system = i == 0;
-      implicit_time_advance(*pde, table, initial_sources, host_space, chunks,
-                            time, dt, opts.get_selected_solver(),
-                            update_system);
+
+      implicit_time_advance(*pde, table, initial_sources, left_bc_parts,
+                            right_bc_parts, host_space, chunks, plan, time, dt, update_system);
     }
     else
     {
       // FIXME fold initial sources into host space
-      explicit_time_advance(*pde, table, initial_sources, bc_generator, host_space,
-                            dev_space, chunks, plan, time, dt);
+      explicit_time_advance(*pde, table, initial_sources, left_bc_parts,
+                            right_bc_parts, host_space, dev_space, chunks, plan,
+                            time, dt);
     }
 
     // print root mean squared error from analytic solution

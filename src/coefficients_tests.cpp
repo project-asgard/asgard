@@ -6,7 +6,8 @@
 
 template<typename P>
 void test_coefficients(PDE<P> &pde, std::string const gold_path,
-                       bool const rotate = true, P const eps_multiplier = 1e2)
+                       bool const rotate           = true,
+                       double const eps_multiplier = 1e2)
 {
   // FIXME assume uniform level and degree
   dimension<P> const &d           = pde.get_dimensions()[0];
@@ -45,13 +46,9 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
-    double error_acceptable = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      error_acceptable = 1e3;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      error_acceptable = 1e3;
+    double tol_factor = std::is_same<TestType, float>::value ? 1e3 : 1e3;
 
-    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+    test_coefficients<TestType>(*pde, gold_path, true, tol_factor);
   }
 
   SECTION("level 4, degree 4")
@@ -61,13 +58,9 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
-    double error_acceptable = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      error_acceptable = 1e5;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      error_acceptable = 1e5;
+    double tol_factor = std::is_same<TestType, float>::value ? 1e5 : 1e5;
 
-    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+    test_coefficients<TestType>(*pde, gold_path, true, tol_factor);
   }
 
   SECTION("level 5, degree 5")
@@ -77,13 +70,9 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
-    double error_acceptable = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      error_acceptable = 1e5;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      error_acceptable = 1e7;
+    double tol_factor = std::is_same<TestType, float>::value ? 1e5 : 1e7;
 
-    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+    test_coefficients<TestType>(*pde, gold_path, true, tol_factor);
   }
 }
 
@@ -101,13 +90,9 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
     std::string const gold_path =
         "../testing/generated-inputs/coefficients/diffusion1/coefficients";
 
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      error_acceptable = 1e3;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      error_acceptable = 1e3;
+    double tol_factor = std::is_same<TestType, float>::value ? 1e3 : 1e3;
 
-    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+    test_coefficients<TestType>(*pde, gold_path, true, tol_factor);
   }
 
   SECTION("level 4, degree 4")
@@ -119,13 +104,9 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
     std::string const gold_path =
         "../testing/generated-inputs/coefficients/diffusion1/coefficients";
 
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      error_acceptable = 1e5;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      error_acceptable = 1e5;
+    double tol_factor = std::is_same<TestType, float>::value ? 1e5 : 1e5;
 
-    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+    test_coefficients<TestType>(*pde, gold_path, true, tol_factor);
   }
 
   SECTION("level 5, degree 5")
@@ -137,13 +118,9 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
     std::string const gold_path =
         "../testing/generated-inputs/coefficients/diffusion1/coefficients";
 
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      error_acceptable = 1e7;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      error_acceptable = 1e7;
+    double tol_factor = std::is_same<TestType, float>::value ? 1e7 : 1e7;
 
-    test_coefficients<TestType>(*pde, gold_path, true, error_acceptable);
+    test_coefficients<TestType>(*pde, gold_path, true, tol_factor);
   }
 }
 
@@ -162,7 +139,7 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
       continuity1->get_coefficients(0, 0).clone_onto_host();
 
   // determined empirically 11/19
-  auto const eps_multiplier = 1e2;
+  double const eps_multiplier = 1e2;
   relaxed_comparison(gold, test, eps_multiplier);
 }
 
@@ -195,8 +172,8 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
   auto pde         = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/continuity3_coefficients";
-  bool const rotate             = true;
-  TestType const eps_multiplier = 1e3;
+  bool const rotate           = true;
+  double const eps_multiplier = 1e3;
   test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
 
@@ -210,7 +187,7 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
   bool const rotate = true;
 
   // determined empirically 11/19
-  TestType const eps_multiplier = 1e3;
+  double const eps_multiplier = 1e3;
   test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
 
@@ -222,7 +199,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck1_4p2_coefficients";
   bool const rotate = true;
-  TestType const eps_multiplier =
+  double const eps_multiplier =
       1e5; // FIXME seems pretty loose, empirically determined 11/19
   test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
@@ -282,7 +259,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck2_complete_coefficients";
   bool const rotate = true;
-  TestType const eps_multiplier =
+  double const eps_multiplier =
       5e6; // FIXME why so loose? empirically derived 11/19
   test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }
@@ -297,7 +274,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
 
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck2_complete_coefficients_norotate";
-  bool const rotate             = false;
-  TestType const eps_multiplier = 1e3; // derived empirically 11/19
+  bool const rotate           = false;
+  double const eps_multiplier = 1e3; // derived empirically 11/19
   test_coefficients(*pde, gold_path, rotate, eps_multiplier);
 }

@@ -29,7 +29,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
                        bool const full_grid                            = false,
                        std::vector<std::string> const &additional_args = {},
-                       double const eps_multiplier                     = 3e6)
+                       double const eps_multiplier                     = 1e4)
 // eps multiplier determined empirically 11/19; lowest epsilon multiplier
 // for which all current tests pass with the exception of fp2d
 {
@@ -97,8 +97,11 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   /* generate boundary condition vectors */
   /* these will be scaled later similarly to the source vectors */
-  bc_timestepper<P> bc_generator(pde, table, subgrid.row_start,
-                                 subgrid.row_stop);
+  std::vector<std::vector<std::vector<fk::vector<P>>>> left_bc_parts;
+  std::vector<std::vector<std::vector<fk::vector<P>>>> right_bc_parts;
+  boundary_conditions::init_bc_parts(pde, table, subgrid.row_start,
+                                     subgrid.row_stop, left_bc_parts,
+                                     right_bc_parts);
 
   // -- prep workspace/chunks
   int const workspace_MB_limit = 4000;
@@ -115,8 +118,9 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   {
     P const time = i * dt;
 
-    explicit_time_advance(pde, table, initial_sources, bc_generator, host_space, dev_space,
-                          chunks, plan, time, dt);
+    explicit_time_advance(pde, table, initial_sources, left_bc_parts,
+                          right_bc_parts, host_space, dev_space, chunks, plan,
+                          time, dt);
 
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -503,8 +507,11 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // generate boundary condition vectors
   // these will be scaled later similarly to the source vectors
-  bc_timestepper<P> bc_generator(pde, table, subgrid.row_start,
-                                 subgrid.row_stop);
+  std::vector<std::vector<std::vector<fk::vector<P>>>> left_bc_parts;
+  std::vector<std::vector<std::vector<fk::vector<P>>>> right_bc_parts;
+  boundary_conditions::init_bc_parts(pde, table, subgrid.row_start,
+                                     subgrid.row_stop, left_bc_parts,
+                                     right_bc_parts);
 
   // -- prep workspace/chunks
   int const workspace_MB_limit = 4000;
@@ -521,8 +528,8 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   {
     P const time = i * dt;
 
-    implicit_time_advance(pde, table, initial_sources, bc_generator, host_space, chunks, time,
-                          dt);
+    implicit_time_advance(pde, table, initial_sources, left_bc_parts,
+                          right_bc_parts, host_space, chunks, plan, time, dt);
 
     std::cout.setstate(std::ios_base::failbit);
     implicit_time_advance(pde, table, initial_sources, host_space, chunks, time,

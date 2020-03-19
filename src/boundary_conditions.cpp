@@ -1,16 +1,28 @@
 #include "boundary_conditions.hpp"
 #include <cstdio>
 
+/*
+
+outputs: left_bc_parts and right_bc_parts
+
+the fk::vectors contained in these are generated from the partial terms in the
+1D terms that are inside multi-dimensional terms in the PDE.
+
+These two outputs need only be calculated once and can then be used at any time
+value "t" to generate the complete boundary condition vector at time "t".
+
+*/
 template<typename P>
-bc_timestepper<P>::bc_timestepper(PDE<P> const &pde, element_table const &table,
-                                  int const start_element,
-                                  int const stop_element, P const t_init)
-    : t_init(t_init),
-      bc_size((stop_element - start_element + 1) *
-              std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims)),
-      pde(pde)
+void boundary_conditions::init_bc_parts(
+    PDE<P> const &pde, element_table const &table, int const start_element,
+    int const stop_element,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> &right_bc_parts,
+    P const t_init)
 {
-  assert(bc_size > 0);
+  assert((stop_element - start_element + 1) > 0);
+  assert(start_element <= stop_element);
+  assert(stop_element < table.size());
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
@@ -43,8 +55,7 @@ bc_timestepper<P>::bc_timestepper(PDE<P> const &pde, element_table const &table,
         if (p_term.left_homo == homogeneity::inhomogeneous)
         {
           fk::vector<P> trace_bc = compute_left_boundary_condition(
-              p_term.g_func, t_init, d.get_level(), d.get_degree(),
-              d.domain_min, d.domain_max, p_term.left_bc_funcs[dim_num]);
+              p_term.g_func, t_init, d, p_term.left_bc_funcs[dim_num]);
 
           std::vector<fk::vector<P>> p_term_left_bcs = generate_partial_bcs(
               dimensions, dim_num, p_term.left_bc_funcs, t_init, partial_terms,
@@ -60,8 +71,7 @@ bc_timestepper<P>::bc_timestepper(PDE<P> const &pde, element_table const &table,
         if (p_term.right_homo == homogeneity::inhomogeneous)
         {
           fk::vector<P> trace_bc = compute_right_boundary_condition(
-              p_term.g_func, t_init, d.get_level(), d.get_degree(),
-              d.domain_min, d.domain_max, p_term.right_bc_funcs[dim_num]);
+              p_term.g_func, t_init, d, p_term.right_bc_funcs[dim_num]);
 
           std::vector<fk::vector<P>> p_term_right_bcs = generate_partial_bcs(
               dimensions, dim_num, p_term.right_bc_funcs, t_init, partial_terms,
@@ -79,17 +89,23 @@ bc_timestepper<P>::bc_timestepper(PDE<P> const &pde, element_table const &table,
       right_dim_pvecs.emplace_back(std::move(right_pvecs));
     }
 
-    left.emplace_back(std::move(left_dim_pvecs));
-    right.emplace_back(std::move(right_dim_pvecs));
+    left_bc_parts.emplace_back(std::move(left_dim_pvecs));
+    right_bc_parts.emplace_back(std::move(right_dim_pvecs));
   }
 
   return;
 }
 
 template<typename P>
-fk::vector<P> bc_timestepper<P>::advance(P const time) const
+fk::vector<P> boundary_conditions::generate_bc(
+    std::vector<std::vector<std::vector<fk::vector<P>>>> const &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> const &right_bc_parts,
+    PDE<P> const &pde, int const start_element, int const stop_element,
+    P const time)
 {
-  fk::vector<P> bc(bc_size);
+  fk::vector<P> bc(
+      (stop_element - start_element + 1) *
+      std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims));
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
@@ -114,13 +130,13 @@ fk::vector<P> bc_timestepper<P>::advance(P const time) const
 
         if (p_term.left_homo == homogeneity::inhomogeneous)
         {
-          fm::axpy(left[term_num][dim_num][left_index++], bc,
+          fm::axpy(left_bc_parts[term_num][dim_num][left_index++], bc,
                    p_term.left_bc_time_func(time));
         }
 
         if (p_term.right_homo == homogeneity::inhomogeneous)
         {
-          fm::axpy(right[term_num][dim_num][right_index++], bc,
+          fm::axpy(right_bc_parts[term_num][dim_num][right_index++], bc,
                    p_term.right_bc_time_func(time));
         }
       }
@@ -131,7 +147,110 @@ fk::vector<P> bc_timestepper<P>::advance(P const time) const
 }
 
 template<typename P>
-std::vector<fk::vector<P>> bc_timestepper<P>::generate_partial_bcs(
+fk::vector<P> boundary_conditions::compute_left_boundary_condition(
+    g_func_type const g_func, P const time, dimension<P> const &dim,
+    vector_func<P> const bc_func)
+{
+  P const domain_min    = dim.domain_min;
+  P const domain_max    = dim.domain_max;
+  P const domain_extent = domain_max - domain_min;
+  assert(domain_extent > 0);
+
+  int const level  = dim.get_level();
+  int const degree = dim.get_degree();
+
+  P const total_cells = std::pow(2, level);
+
+  P const domain_per_cell = domain_extent / total_cells;
+
+  P const dof = degree * total_cells;
+
+  fk::vector<P> bc(dof);
+
+  P g = g_func(domain_min, time);
+  if (!std::isfinite(g))
+  {
+    P const small_dx = domain_per_cell * 1e-7;
+    g                = g_func(domain_min + small_dx, time);
+
+    /* If the above modification was not enough, the choice of g_function
+       should be re-evaluated */
+    assert(std::isfinite(g));
+  }
+
+  /* legendre() returns a 1D matrix - must be converted into a vector */
+  fk::vector<P> legendre_polys_at_value = fk::vector<P>(
+      legendre(fk::vector<P>{-1}, degree, legendre_normalization::lin)[0]);
+
+  P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
+                         bc_func(fk::vector<P>({domain_min}), time)(0) * g *
+                         -1.0;
+
+  legendre_polys_at_value.scale(scale_factor);
+
+  fk::vector<P, mem_type::view> destination_slice(bc, 0, degree - 1);
+
+  assert(destination_slice.size() == legendre_polys_at_value.size());
+
+  destination_slice = fk::vector<P>(legendre_polys_at_value);
+
+  return bc;
+}
+
+template<typename P>
+fk::vector<P> boundary_conditions::compute_right_boundary_condition(
+    g_func_type const g_func, P const time, dimension<P> const &dim,
+    vector_func<P> const bc_func)
+{
+  P const domain_min    = dim.domain_min;
+  P const domain_max    = dim.domain_max;
+  P const domain_extent = domain_max - domain_min;
+
+  assert(domain_extent > 0);
+
+  int const level  = dim.get_level();
+  int const degree = dim.get_degree();
+
+  P const total_cells = std::pow(2, level);
+
+  P const domain_per_cell = domain_extent / total_cells;
+
+  P const dof = degree * total_cells;
+
+  fk::vector<P> bc(dof);
+
+  P g = g_func(domain_max, time);
+  if (!std::isfinite(g))
+  {
+    P const small_dx = domain_per_cell * 1e-7;
+    g                = g_func(domain_max - small_dx, time);
+
+    /* If the above modification was not enough, the choice of g_function
+       should be re-evaluated */
+    assert(std::isfinite(g));
+  }
+
+  /* Captain! use the vector-view of matrix column constructor to avoid the copy
+   */
+  fk::vector<P> legendre_polys_at_value = fk::vector<P>(
+      legendre(fk::vector<P>{1}, degree, legendre_normalization::lin)[0]);
+
+  P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
+                         bc_func(fk::vector<P>({domain_max}), time)(0) * g;
+
+  legendre_polys_at_value.scale(scale_factor);
+
+  int const start_index = degree * (total_cells - 1);
+  int const stop_index  = degree * total_cells - 1;
+  fk::vector<P, mem_type::view> destination_slice(bc, start_index, stop_index);
+
+  destination_slice = fk::vector<P>(legendre_polys_at_value);
+
+  return bc;
+}
+
+template<typename P>
+std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs, P const time,
     std::vector<partial_term<P>> const &partial_terms, int const p_index,
@@ -178,101 +297,61 @@ std::vector<fk::vector<P>> bc_timestepper<P>::generate_partial_bcs(
   return partial_bc_vecs;
 }
 
-template<typename P>
-fk::vector<P> bc_timestepper<P>::compute_right_boundary_condition(
-    g_func_type const g_func, P const time, int level, int degree,
-    P const domain_min, P const domain_max, vector_func<P> const bc_func)
-{
-  P const domain_extent = domain_max - domain_min;
-  assert(domain_extent > 0);
-
-  P const total_cells = std::pow(2, level);
-
-  P const domain_per_cell = domain_extent / total_cells;
-
-  P const dof = degree * total_cells;
-
-  fk::vector<P> bc(dof);
-
-  P g = g_func(domain_max, time);
-  if (!std::isfinite(g))
-  {
-    P const small_dx = domain_per_cell * 1e-7;
-    g                = g_func(domain_max - small_dx, time);
-
-    /* If the above modification was not enough, the choice of g_function
-       should be re-evaluated */
-    assert(std::isfinite(g));
-  }
-
-  /* Use the new upcoming vector-view of matrix column constructor to
-   * avoid this copy */
-  /* Currently in Tyler's gmres PR - not yet merged into develop */
-  fk::vector<P> legendre_polys_at_value = fk::vector<P>(
-      legendre(fk::vector<P>{1}, degree, legendre_normalization::lin)[0]);
-
-  P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
-                         bc_func(fk::vector<P>({domain_max}), time)(0) * g;
-
-  legendre_polys_at_value.scale(scale_factor);
-
-  int const start_index = degree * (total_cells - 1);
-  int const stop_index  = degree * total_cells - 1;
-  fk::vector<P, mem_type::view> destination_slice(bc, start_index, stop_index);
-
-  assert(destination_slice.size() == legendre_polys_at_value.size());
-
-  destination_slice = fk::vector<P>(legendre_polys_at_value);
-
-  return bc;
-}
-
-template<typename P>
-fk::vector<P> bc_timestepper<P>::compute_left_boundary_condition(
-    g_func_type const g_func, P const time, int level, int degree,
-    P const domain_min, P const domain_max, vector_func<P> const bc_func)
-{
-  P const domain_extent = domain_max - domain_min;
-  assert(domain_extent > 0);
-
-  P const total_cells = std::pow(2, level);
-
-  P const domain_per_cell = domain_extent / total_cells;
-
-  P const dof = degree * total_cells;
-
-  fk::vector<P> bc(dof);
-
-  P g = g_func(domain_min, time);
-  if (!std::isfinite(g))
-  {
-    P const small_dx = domain_per_cell * 1e-7;
-    g                = g_func(domain_min + small_dx, time);
-
-    /* If the above modification was not enough, the choice of g_function
-       should be re-evaluated */
-    assert(std::isfinite(g));
-  }
-
-  P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
-                         bc_func(fk::vector<P>({domain_min}), time)(0) * g *
-                         -1.0;
-
-  /* legendre() returns a 1D matrix - must be converted into a vector */
-  fk::vector<P> legendre_polys_at_value = fk::vector<P>(
-      legendre(fk::vector<P>{-1}, degree, legendre_normalization::lin)[0]);
-
-  legendre_polys_at_value.scale(scale_factor);
-
-  fk::vector<P, mem_type::view> destination_slice(bc, 0, degree - 1);
-
-  assert(destination_slice.size() == legendre_polys_at_value.size());
-
-  destination_slice = fk::vector<P>(legendre_polys_at_value);
-
-  return bc;
-}
-
 /* explicit instantiations */
-template class bc_timestepper<float>;
-template class bc_timestepper<double>;
+template void boundary_conditions::init_bc_parts(
+    PDE<double> const &pde, element_table const &table, int const start_element,
+    int const stop_element,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> &right_bc_parts,
+    double const t_init = 0);
+
+template void boundary_conditions::init_bc_parts(
+    PDE<float> const &pde, element_table const &table, int const start_element,
+    int const stop_element,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> &right_bc_parts,
+    float const t_init = 0);
+
+template fk::vector<double> boundary_conditions::generate_bc(
+    std::vector<std::vector<std::vector<fk::vector<double>>>> const
+        &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> const
+        &right_bc_parts,
+    PDE<double> const &pde, int const start_element, int const stop_element,
+    double const time);
+template fk::vector<float> boundary_conditions::generate_bc(
+    std::vector<std::vector<std::vector<fk::vector<float>>>> const
+        &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> const
+        &right_bc_parts,
+    PDE<float> const &pde, int const start_element, int const stop_element,
+    float const time);
+template fk::vector<double>
+boundary_conditions::compute_left_boundary_condition(
+    g_func_type const g_func, double const time, dimension<double> const &dim,
+    vector_func<double> const bc_func);
+template fk::vector<float> boundary_conditions::compute_left_boundary_condition(
+    g_func_type const g_func, float const time, dimension<float> const &dim,
+    vector_func<float> const bc_func);
+
+template fk::vector<double>
+boundary_conditions::compute_right_boundary_condition(
+    g_func_type const g_func, double const time, dimension<double> const &dim,
+    vector_func<double> const bc_func);
+
+template fk::vector<float>
+boundary_conditions::compute_right_boundary_condition(
+    g_func_type const g_func, float const time, dimension<float> const &dim,
+    vector_func<float> const bc_func);
+template std::vector<fk::vector<double>>
+boundary_conditions::generate_partial_bcs(
+    std::vector<dimension<double>> const &dimensions, int const d_index,
+    std::vector<vector_func<double>> const &bc_funcs, double const time,
+    std::vector<partial_term<double>> const &partial_terms, int const p_index,
+    fk::vector<double> &&trace_bc);
+template std::vector<fk::vector<float>>
+boundary_conditions::generate_partial_bcs(
+    std::vector<dimension<float>> const &dimensions, int const d_index,
+    std::vector<vector_func<float>> const &bc_funcs, float const time,
+    std::vector<partial_term<float>> const &partial_terms, int const p_index,
+    fk::vector<float> &&trace_bc);

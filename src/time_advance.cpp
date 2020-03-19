@@ -9,14 +9,14 @@
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde, element_table const &table,
-                           std::vector<fk::vector<P>> const &unscaled_sources,
-                           bc_timestepper<P> const &bc_generator,
-                           host_workspace<P> &host_space,
-                           device_workspace<P> &dev_space,
-                           std::vector<element_chunk> const &chunks,
-                           distribution_plan const &plan, P const time,
-                           P const dt)
+void explicit_time_advance(
+    PDE<P> const &pde, element_table const &table,
+    std::vector<fk::vector<P>> const &unscaled_sources,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> const &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> const &right_bc_parts,
+    host_workspace<P> &host_space, device_workspace<P> &dev_space,
+    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
+    P const time, P const dt)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -51,15 +51,14 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
-  /* the call below calculates "source1" from matlab - line 32 time_advance.m */
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  fk::vector<P> bc0 = bc_generator.advance(time);
-  fm::axpy(bc0, host_space.reduced_fx);
-  /* end new code */
+  fk::vector<P> const bc0 = boundary_conditions::generate_bc(
+      left_bc_parts, right_bc_parts, pde, grid.row_start, grid.row_stop, time);
 
-  /* k1 is result_1 at this point */
+  fm::axpy(bc0, host_space.reduced_fx);
+
   exchange_results(host_space.reduced_fx, host_space.result_1, elem_size, plan,
                    my_rank);
 
@@ -72,9 +71,11 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                 time + c2 * dt);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  fk::vector<P> bc1 = bc_generator.advance(time + c2 * dt);
+  fk::vector<P> const bc1 = boundary_conditions::generate_bc(
+      left_bc_parts, right_bc_parts, pde, grid.row_start, grid.row_stop,
+      time + c2 * dt);
+
   fm::axpy(bc1, host_space.reduced_fx);
-  /* end new code */
 
   exchange_results(host_space.reduced_fx, host_space.result_2, elem_size, plan,
                    my_rank);
@@ -83,7 +84,6 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const fx_scale_2a = a31 * dt;
   P const fx_scale_2b = a32 * dt;
 
-  /* result_1 is k1, result_2 is k2 */
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
@@ -93,9 +93,11 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
                 time + c3 * dt);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
 
-  fk::vector<P> bc2 = bc_generator.advance(time + c3 * dt);
+  fk::vector<P> const bc2 = boundary_conditions::generate_bc(
+      left_bc_parts, right_bc_parts, pde, grid.row_start, grid.row_stop,
+      time + c3 * dt);
+
   fm::axpy(bc2, host_space.reduced_fx);
-  /* end new code */
   exchange_results(host_space.reduced_fx, host_space.result_3, elem_size, plan,
                    my_rank);
 
@@ -130,13 +132,13 @@ scale_sources(PDE<P> const &pde,
 // this function executes an implicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
-void implicit_time_advance(PDE<P> const &pde, element_table const &table,
-                           std::vector<fk::vector<P>> const &unscaled_sources,
-                           bc_timestepper<P> const &bc_generator,
-                           host_workspace<P> &host_space,
-                           std::vector<element_chunk> const &chunks,
-                           P const time, P const dt, solve_opts const solver,
-                           bool const update_system)
+void implicit_time_advance(
+    PDE<P> const &pde, element_table const &table,
+    std::vector<fk::vector<P>> const &unscaled_sources,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> const &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<P>>>> const &right_bc_parts,
+    host_workspace<P> &host_space, std::vector<element_chunk> const &chunks,
+    distribution_plan const &plan, P const time, P const dt, bool update_system)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -153,8 +155,13 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   host_space.x = host_space.x + host_space.scaled_source * dt;
 
   /* add the boundary condition */
-  fk::vector<P> bc0 = bc_generator.advance(time + dt);
-  fm::axpy(bc0, host_space.x, dt);
+  int const my_rank           = get_rank();
+  element_subgrid const &grid = plan.at(my_rank);
+
+  fk::vector<P> const bc = boundary_conditions::generate_bc(
+      left_bc_parts, right_bc_parts, pde, grid.row_start, grid.row_stop,
+      time + dt);
+  fm::axpy(bc, host_space.x, dt);
 
   if (first_time || update_system)
   {
@@ -207,40 +214,46 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   }
 }
 
-template void
-explicit_time_advance(PDE<double> const &pde, element_table const &table,
-                      std::vector<fk::vector<double>> const &unscaled_sources,
-                      bc_timestepper<double> const &bc_generator,
-                      host_workspace<double> &host_space,
-                      device_workspace<double> &dev_space,
-                      std::vector<element_chunk> const &chunks,
-                      distribution_plan const &plan, double const time,
-                      double const dt);
+template void explicit_time_advance(
+    PDE<double> const &pde, element_table const &table,
+    std::vector<fk::vector<double>> const &unscaled_sources,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> const
+        &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> const
+        &right_bc_parts,
+    host_workspace<double> &host_space, device_workspace<double> &dev_space,
+    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
+    double const time, double const dt);
 
-template void
-explicit_time_advance(PDE<float> const &pde, element_table const &table,
-                      std::vector<fk::vector<float>> const &unscaled_sources,
-                      bc_timestepper<float> const &bc_generator,
-                      host_workspace<float> &host_space,
-                      device_workspace<float> &dev_space,
-                      std::vector<element_chunk> const &chunks,
-                      distribution_plan const &plan, float const time,
-                      float const dt);
+template void explicit_time_advance(
+    PDE<float> const &pde, element_table const &table,
+    std::vector<fk::vector<float>> const &unscaled_sources,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> const
+        &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> const
+        &right_bc_parts,
+    host_workspace<float> &host_space, device_workspace<float> &dev_space,
+    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
+    float const time, float const dt);
 
-template void
-implicit_time_advance(PDE<double> const &pde, element_table const &table,
-                      std::vector<fk::vector<double>> const &unscaled_sources,
-                      bc_timestepper<double> const &bc_generator,
-                      host_workspace<double> &host_space,
-                      std::vector<element_chunk> const &chunks,
-                      double const time, double const dt,
-                      solve_opts const solver, bool const update_system);
+template void implicit_time_advance(
+    PDE<double> const &pde, element_table const &table,
+    std::vector<fk::vector<double>> const &unscaled_sources,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> const
+        &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<double>>>> const
+        &right_bc_parts,
+    host_workspace<double> &host_space,
+    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
+    double const time, double const dt, bool update_system = true);
 
-template void
-implicit_time_advance(PDE<float> const &pde, element_table const &table,
-                      std::vector<fk::vector<float>> const &unscaled_sources,
-                      bc_timestepper<float> const &bc_generator,
-                      host_workspace<float> &host_space,
-                      std::vector<element_chunk> const &chunks,
-                      float const time, float const dt, solve_opts const solver,
-                      bool const update_system);
+template void implicit_time_advance(
+    PDE<float> const &pde, element_table const &table,
+    std::vector<fk::vector<float>> const &unscaled_sources,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> const
+        &left_bc_parts,
+    std::vector<std::vector<std::vector<fk::vector<float>>>> const
+        &right_bc_parts,
+    host_workspace<float> &host_space, std::vector<element_chunk> const &chunks,
+    distribution_plan const &plan, float const time, float const dt,
+    bool update_system = true);
