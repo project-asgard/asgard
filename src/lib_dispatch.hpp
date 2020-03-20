@@ -110,7 +110,6 @@ void initialize_libraries(int const local_rank);
 // -- precision/execution resource wrapper for blas --
 namespace lib_dispatch
 {
-
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
 

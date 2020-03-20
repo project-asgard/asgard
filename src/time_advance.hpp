@@ -36,7 +36,7 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
         std::vector<batch_operands_set<P>> &batches)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
-  fm::scal(static_cast<P>(0.0), rank_space.batch_output);
+  fm::scal(static_cast<P>(0.0), dev_space.batch_output);
 
   // copy inputs onto GPU
   dev_space.batch_input.transfer_from(host_space.x);
