@@ -12,13 +12,30 @@ enum class resource
 // ==========================================================================
 extern "C"
 {
+  /*
+     --------------------------------------------------------------------------
+     compute parameters for givens rotation
+     --------------------------------------------------------------------------
+  */
+  double drotg_(double *a, double *b, double *c, double *s);
+  float srotg_(float *a, float *b, float *c, float *s);
+
+  /*
+     --------------------------------------------------------------------------
+     euclidean norm of vector
+     --------------------------------------------------------------------------
+  */
+  double dnrm2_(int *n, double *x, int *incx);
+  float snrm2_(int *n, float *x, int *incx);
+
   /* --------------------------------------------------------------------------
-     DCOPy copies a vector, x, to a vector, y.
+     copies a vector, x, to a vector, y.
      uses unrolled loops for increments equal to one.
      --------------------------------------------------------------------------
    */
   void dcopy_(int *n, double *x, int *incx, double *y, int *incy);
   void scopy_(int *n, float *x, int *incx, float *y, int *incy);
+
   // --------------------------------------------------------------------------
   // vector-vector multiply
   // d = x*y
@@ -93,6 +110,12 @@ void initialize_libraries(int const local_rank);
 // -- precision/execution resource wrapper for blas --
 namespace lib_dispatch
 {
+template<typename P>
+void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
+
+template<typename P>
+P nrm2(int *n, P *x, int *incx, resource const resrc = resource::host);
+
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy,
           resource const resrc = resource::host);

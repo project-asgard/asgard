@@ -4,6 +4,20 @@
 #include <map>
 #include <string>
 
+// implemented solvers for implicit stepping
+enum class solve_opts
+{
+  direct,
+  gmres
+};
+
+// map those choices to selection strings
+using solve_map_t                       = std::map<std::string, solve_opts>;
+static solve_map_t const solver_mapping = {
+    {"direct", solve_opts::direct},
+    {"gmres", solve_opts::gmres},
+};
+
 class options
 {
 private:
@@ -24,9 +38,13 @@ private:
 
   // default
   std::string selected_pde = "continuity_2";
-
   // pde to construct/evaluate
-  PDE_opts pde_choice;
+  PDE_opts pde_choice = PDE_opts::continuity_2;
+
+  // default
+  std::string selected_solver = "none";
+  // solver to use for implicit timestepping
+  solve_opts solver = solve_opts::direct;
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
@@ -49,4 +67,5 @@ public:
   int get_realspace_output_freq() const;
   bool write_at_step(int const i) const;
   bool transform_at_step(int const i) const;
+  solve_opts get_selected_solver() const;
 };

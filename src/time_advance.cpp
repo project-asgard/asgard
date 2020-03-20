@@ -2,6 +2,7 @@
 #include "distribution.hpp"
 #include "element_table.hpp"
 #include "fast_math.hpp"
+#include "solver.hpp"
 
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in x.
@@ -107,46 +108,6 @@ scale_sources(PDE<P> const &pde,
   return scaled_source;
 }
 
-// apply the system matrix to the current solution vector using batched
-// gemm (explicit time advance).
-template<typename P>
-static void
-apply_A(PDE<P> const &pde, element_table const &elem_table,
-        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        host_workspace<P> &host_space, device_workspace<P> &dev_space,
-        std::vector<batch_operands_set<P>> &batches)
-{
-  fm::scal(static_cast<P>(0.0), host_space.fx);
-  fm::scal(static_cast<P>(0.0), dev_space.batch_output);
-
-  // copy inputs onto GPU
-  dev_space.batch_input.transfer_from(host_space.x);
-
-  for (auto const &chunk : chunks)
-  {
-    // build batches for this chunk
-    build_batches(pde, elem_table, dev_space, grid, chunk, batches);
-
-    // do the gemms
-    P const alpha = 1.0;
-    P const beta  = 0.0;
-    for (int i = 0; i < pde.num_dims; ++i)
-    {
-      batch<P> const &a = batches[i][0];
-      batch<P> const &b = batches[i][1];
-      batch<P> const &c = batches[i][2];
-
-      batched_gemm(a, b, c, alpha, beta);
-    }
-
-    // do the reduction
-    reduce_chunk(pde, dev_space, grid, chunk);
-  }
-
-  // copy outputs back from GPU
-  host_space.fx.transfer_from(dev_space.batch_output);
-}
-
 // this function executes an implicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -154,7 +115,8 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
                            std::vector<fk::vector<P>> const &unscaled_sources,
                            host_workspace<P> &host_space,
                            std::vector<element_chunk> const &chunks,
-                           P const time, P const dt, bool update_system)
+                           P const time, P const dt, solve_opts const solver,
+                           bool const update_system)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -167,7 +129,6 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
 
-  fm::copy(host_space.x, host_space.x_orig);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time + dt);
   host_space.x = host_space.x + host_space.scaled_source * dt;
 
@@ -178,6 +139,7 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
     {
       build_system_matrix(pde, table, chunk, A);
     }
+
     // AA = I - dt*A;
     for (int i = 0; i < A.nrows(); ++i)
     {
@@ -188,14 +150,35 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
       A(i, i) += 1.0;
     }
 
-    if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
-      ipiv.resize(A.nrows());
-    fm::gesv(A, host_space.x, ipiv);
+    switch (solver)
+    {
+    case solve_opts::direct:
+      if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
+        ipiv.resize(A.nrows());
+      fm::gesv(A, host_space.x, ipiv);
+      return;
+      break;
+    case solve_opts::gmres:
+      ignore(ipiv);
+      break;
+    }
     first_time = false;
-  }
-  else
+  } // end first time/update system
+
+  switch (solver)
   {
+  case solve_opts::direct:
     fm::getrs(A, host_space.x, ipiv);
+    break;
+  case solve_opts::gmres:
+    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+    int const restart  = A.ncols();
+    int const max_iter = A.ncols();
+    fm::scal(static_cast<P>(0.0), host_space.result_1);
+    solver::simple_gmres(A, host_space.result_1, host_space.x, fk::matrix<P>(),
+                         restart, max_iter, tolerance);
+    fm::copy(host_space.result_1, host_space.x);
+    break;
   }
 }
 
@@ -223,12 +206,12 @@ implicit_time_advance(PDE<double> const &pde, element_table const &table,
                       host_workspace<double> &host_space,
                       std::vector<element_chunk> const &chunks,
                       double const time, double const dt,
-                      bool update_system = true);
+                      solve_opts const solver, bool const update_system);
 
 template void
 implicit_time_advance(PDE<float> const &pde, element_table const &table,
                       std::vector<fk::vector<float>> const &unscaled_sources,
                       host_workspace<float> &host_space,
                       std::vector<element_chunk> const &chunks,
-                      float const time, float const dt,
-                      bool update_system = true);
+                      float const time, float const dt, solve_opts const solver,
+                      bool const update_system);

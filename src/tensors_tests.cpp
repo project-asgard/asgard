@@ -1060,6 +1060,85 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
           copy.clone_onto_host());
       REQUIRE(vect_h == gold);
     }
+
+    SECTION("views from matrix constructor")
+    {
+      fk::matrix<TestType> base{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
+
+      fk::matrix<TestType, mem_type::view> view(base, 1, 2, 1, 2);
+      REQUIRE(base.get_num_views() == 1);
+
+      {
+        // create vector from first column in base
+        int const col     = 0;
+        int const r_start = 0;
+        int const r_end   = 2;
+        fk::vector<TestType, mem_type::view> from_owner(base, col, r_start,
+                                                        r_end);
+        REQUIRE(base.get_num_views() == 2);
+
+        // create vector from partial column in view
+        fk::vector<TestType, mem_type::view> from_view(view, 1, 1, 1);
+        REQUIRE(base.get_num_views() == 3);
+
+        fk::vector<TestType> const gold_initial{0, 3, 6};
+        fk::vector<TestType> const gold_initial_v{8};
+
+        REQUIRE(from_owner == gold_initial);
+        REQUIRE(from_view == gold_initial_v);
+
+        from_owner(1) = 8;
+        from_view(0)  = 15;
+
+        fk::matrix<TestType> const after_mod{{0, 1, 2}, {8, 4, 5}, {6, 7, 15}};
+
+        fk::matrix<TestType> const after_mod_v{{4, 5}, {7, 15}};
+
+        fk::vector<TestType> const gold_mod{0, 8, 6};
+        fk::vector<TestType> const gold_mod_v{15};
+
+        REQUIRE(from_owner == gold_mod);
+        REQUIRE(from_view == gold_mod_v);
+        REQUIRE(base == after_mod);
+        REQUIRE(view == after_mod_v);
+      }
+      REQUIRE(base.get_num_views() == 1);
+    }
+
+    SECTION("const views from vector constructor")
+    {
+      fk::vector<TestType> const base{0, 1, 2, 3, 4, 5, 6, 7};
+
+      REQUIRE(base.get_num_views() == 0);
+      fk::vector<TestType, mem_type::const_view> const view(base, 1, 7);
+      REQUIRE(base.get_num_views() == 1);
+      {
+        // create 2x3 matrix from last six elems in base
+        fk::matrix<TestType, mem_type::const_view> const from_owner(base, 2, 3,
+                                                                    2);
+        REQUIRE(base.get_num_views() == 2);
+        // create 2x2 matrix from middle of view
+        fk::matrix<TestType, mem_type::const_view> const from_view(view, 2, 2,
+                                                                   1);
+        REQUIRE(base.get_num_views() == 3);
+
+        // clang-format off
+      fk::matrix<TestType> const gold_initial   {{2, 4, 6},
+					         {3, 5, 7}};
+      fk::matrix<TestType> const gold_initial_v {{2, 4},
+					         {3, 5}};
+        // clang-format on
+
+        REQUIRE(from_owner == gold_initial);
+        REQUIRE(from_view == gold_initial_v);
+      }
+      REQUIRE(base.get_num_views() == 1);
+      fk::matrix<TestType, mem_type::const_view> view_2(base, 1, 7);
+      REQUIRE(base.get_num_views() == 2);
+      fk::matrix<TestType, mem_type::const_view> const view_m(
+          std::move(view_2));
+      REQUIRE(base.get_num_views() == 2);
+    }
   }
 
   SECTION("copy and move")
