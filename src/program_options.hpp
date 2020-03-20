@@ -38,14 +38,13 @@ private:
 
   // default
   std::string selected_pde = "continuity_2";
-
   // pde to construct/evaluate
-  PDE_opts pde_choice;
+  PDE_opts pde_choice = PDE_opts::continuity_2;
 
   // default
   std::string selected_solver = "none";
   // solver to use for implicit timestepping
-  solve_opts solver;
+  solve_opts solver = solve_opts::direct;
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;

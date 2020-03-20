@@ -9,6 +9,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
+  assert(tolerance >= std::numeric_limits<P>::epsilon());
   assert(A.nrows() == A.ncols());
   int const n = A.nrows();
   assert(b.size() == n);
@@ -31,16 +32,16 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 
   P const norm_b = [&b]() {
     P const norm_b = fm::nrm2(b);
-    if (norm_b > 0.0)
+    if (norm_b == 0.0)
     {
-      return norm_b;
+      return static_cast<P>(1.0);
     }
-    return static_cast<P>(1.0);
+    return norm_b;
   }();
 
   fk::vector<P> residual(b);
-  auto const compute_residual = [&A, &x, &b, &residual, &do_precond, &precond,
-                                 &precond_pivots]() {
+  auto const compute_residual = [&A, &x, &b, &norm_b, &residual, &do_precond,
+                                 &precond, &precond_pivots]() {
     static bool factored = false;
     bool const trans_A   = false;
     P const alpha        = -1.0;
@@ -81,19 +82,21 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   fk::vector<P> sines(restart + 1);
   fk::vector<P> cosines(restart + 1);
 
-  for (int it = 0; it < max_iter; ++it)
+  int it = 0;
+  int i  = 0;
+  for (; it < max_iter; ++it)
   {
     P const norm_r = compute_residual();
 
     basis.update_col(0, residual * (1 / norm_r));
     // TODO what is s??
     fk::vector<P> s(n + 1);
-    s(0)  = norm_r;
-    int i = 0;
-    for (; i < restart; ++i)
+    s(0) = norm_r;
+    for (i = 0; i < restart; ++i)
     {
       fk::vector<P> new_basis =
           A * fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1);
+
       if (do_precond)
       {
         fm::getrs(precond, new_basis, precond_pivots);
@@ -108,8 +111,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       krylov_proj(i + 1, i) = fm::nrm2(new_basis);
 
       basis.update_col(i + 1, new_basis * (1 / krylov_proj(i + 1, i)));
-
-      for (int k = 0; k < i - 1; ++k)
+      for (int k = 0; k <= i - 1; ++k)
       {
         P const temp =
             cosines(k) * krylov_proj(k, i) + sines(k) * krylov_proj(k + 1, i);
@@ -122,26 +124,23 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       lib_dispatch::rotg(krylov_proj.data(i, i), krylov_proj.data(i + 1, i),
                          cosines.data(i), sines.data(i));
 
-      P const temp = cosines(i) * s(i);
-      s(i + 1)     = -sines(i) * s(i);
-      s(i)         = temp;
-
-      krylov_proj(i, i) =
-          cosines(i) * krylov_proj(i, i) + sines(i) * krylov_proj(i + 1, i);
       krylov_proj(i + 1, i) = 0.0;
+      P const temp          = cosines(i) * s(i);
+      s(i + 1)              = -sines(i) * s(i);
+      s(i)                  = temp;
+      error                 = std::abs(s(i + 1)) / norm_b;
 
-      error = std::abs(s(i + 1)) / norm_b;
       if (error <= tolerance)
       {
         auto const proj =
-            fk::matrix<P, mem_type::view>(krylov_proj, 0, i - 1, 0, i - 1);
-        std::vector<int> pivots(i);
+            fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
+        std::vector<int> pivots(i + 1);
         // TODO what is this "s"
-        auto s_view = fk::vector<P, mem_type::view>(s, 0, i - 1);
+        auto s_view = fk::vector<P, mem_type::view>(s, 0, i);
         fm::gesv(proj, s_view, pivots);
-        x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
-                                               i - 1) *
-                 s_view);
+        x = x +
+            (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0, i) *
+             s_view);
         break; // depart the inner iteration loop
       }
     } // end of inner iteration loop
@@ -169,6 +168,8 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       return error;
     }
   } // end outer iteration
+
+  done(error, it, i);
   return error;
 }
 

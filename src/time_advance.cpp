@@ -171,7 +171,7 @@ void implicit_time_advance(PDE<P> const &pde, element_table const &table,
     fm::getrs(A, host_space.x, ipiv);
     break;
   case solve_opts::gmres:
-    P const tolerance  = 1e-8;
+    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     int const restart  = A.ncols();
     int const max_iter = A.ncols();
     fm::scal(static_cast<P>(0.0), host_space.result_1);

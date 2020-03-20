@@ -84,6 +84,14 @@ TEST_CASE("options constructor/getters", "[options]")
     REQUIRE(!o.is_valid());
   }
 
+  SECTION("out of range solver")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    options o = make_options({"asgard", "-s", "2 1337 4 u gg"});
+    std::cerr.clear();
+    REQUIRE(!o.is_valid());
+  }
+
   SECTION("negative level")
   {
     std::cerr.setstate(std::ios_base::failbit);

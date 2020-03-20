@@ -296,7 +296,9 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
 template<typename P>
 void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                 int const num_steps, std::string const filepath,
-                                bool const full_grid = false)
+                                bool const full_grid     = false,
+                                solve_opts const solver  = solve_opts::direct,
+                                P const tolerance_factor = 1e2)
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
@@ -306,6 +308,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
     ignore(level);
     ignore(degree);
     ignore(pde);
+    ignore(solver);
     ignore(num_steps);
     ignore(filepath);
     ignore(full_grid);
@@ -358,7 +361,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
-  device_workspace<P> dev_space(pde, subgrid, chunks);
+
   host_space.x = initial_condition;
 
   // -- time loop
@@ -367,20 +370,25 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   for (int i = 0; i < num_steps; ++i)
   {
     P const time = i * dt;
-    implicit_time_advance(pde, table, initial_sources, host_space, chunks, time,
-                          dt);
 
+    std::cout.setstate(std::ios_base::failbit);
+    implicit_time_advance(pde, table, initial_sources, host_space, chunks, time,
+                          dt, solver);
+    std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
     fk::vector<P> const gold =
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, host_space.x);
+    std::cout << fm::nrm2(gold - host_space.x) << '\n';
+    std::cout << fm::nrm2(gold) << '\n';
+    std::cout << fm::nrm2(host_space.x) << '\n';
+    relaxed_comparison(gold, host_space.x, tolerance_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
-                   float, double)
+                   double)
 {
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
@@ -402,6 +410,20 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
                            "continuity1_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+
+  SECTION("continuity1, level 4, degree 3, sparse grid, iterative")
+  {
+    int const degree     = 3;
+    int const level      = 4;
+    auto const gold_base = "../testing/generated-inputs/time_advance/"
+                           "continuity1_implicit_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+
+    bool const full_grid      = false;
+    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e10;
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, solve_opts::gmres, tol_factor);
   }
 }
 
@@ -429,5 +451,19 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+  }
+
+  SECTION("continuity2, level 4, degree 3, sparse grid, iterative")
+  {
+    int const degree = 3;
+    int const level  = 4;
+
+    auto const gold_base = "../testing/generated-inputs/time_advance/"
+                           "continuity2_implicit_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+    bool const full_grid      = false;
+    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e10;
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, solve_opts::gmres, tol_factor);
   }
 }
