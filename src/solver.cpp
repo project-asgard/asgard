@@ -80,9 +80,9 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     P const norm_r = compute_residual();
 
     basis.update_col(0, residual * (1 / norm_r));
-    // TODO what is s??
-    fk::vector<P> s(n + 1);
-    s(0) = norm_r;
+
+    fk::vector<P> krylov_sol(n + 1);
+    krylov_sol(0) = norm_r;
     for (i = 0; i < restart; ++i)
     {
       fk::vector<P> new_basis =
@@ -92,6 +92,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       {
         fm::getrs(precond, new_basis, precond_pivots);
       }
+
       for (int k = 0; k <= i; ++k)
       {
         fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
@@ -119,18 +120,18 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                          cosines.data(i), sines.data(i));
 
       krylov_proj(i + 1, i) = 0.0;
-      P const temp          = cosines(i) * s(i);
-      s(i + 1)              = -sines(i) * s(i);
-      s(i)                  = temp;
-      error                 = std::abs(s(i + 1)) / norm_b;
+      P const temp          = cosines(i) * krylov_sol(i);
+      krylov_sol(i + 1)     = -sines(i) * krylov_sol(i);
+      krylov_sol(i)         = temp;
+      error                 = std::abs(krylov_sol(i + 1)) / norm_b;
 
       if (error <= tolerance)
       {
         auto const proj =
             fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
         std::vector<int> pivots(i + 1);
-        // TODO what is this "s"
-        auto s_view = fk::vector<P, mem_type::view>(s, 0, i);
+
+        auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, i);
         fm::gesv(proj, s_view, pivots);
         x = x +
             (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0, i) *
@@ -146,15 +147,15 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     }
     auto const proj = fk::matrix<P, mem_type::view>(krylov_proj, 0, restart - 1,
                                                     0, restart - 1);
-    auto s_view     = fk::vector<P, mem_type::view>(s, 0, restart - 1);
+    auto s_view     = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
     std::vector<int> pivots(restart);
     fm::gesv(proj, s_view, pivots);
     x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
                                            restart - 1) *
              s_view);
-    P const norm_r_outer             = compute_residual();
-    s(std::min(s.size() - 1, i + 1)) = norm_r_outer;
-    error                            = norm_r_outer / norm_b;
+    P const norm_r_outer                               = compute_residual();
+    krylov_sol(std::min(krylov_sol.size() - 1, i + 1)) = norm_r_outer;
+    error                                              = norm_r_outer / norm_b;
 
     if (error <= tolerance)
     {
