@@ -8,6 +8,10 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
       {3.210305545769361e+00, 3.412141162288144e+00, 3.934494120167269e+00},
       {1.723479266939425e+00, 1.710451084172946e+00, 4.450671104482062e+00}};
 
+  fk::matrix<TestType> const precond{{3.383861628748717e+00, 0.0, 0.0},
+                                     {0.0, 3.412141162288144e+00, 0.0},
+                                     {0.0, 0.0, 4.450671104482062e+00}};
+
   fk::vector<TestType> const b_gold{
       2.084406360034887e-01, 6.444769305362776e-01, 3.687335330031937e-01};
 
@@ -24,10 +28,24 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    solver::simple_gmres(A_gold, test, b_gold, fk::matrix<TestType>(),
-                         A_gold.ncols(), A_gold.ncols(),
-                         std::numeric_limits<TestType>::epsilon());
+    TestType const error = solver::simple_gmres(
+        A_gold, test, b_gold, fk::matrix<TestType>(), A_gold.ncols(),
+        A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
+    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
+    REQUIRE(test == x_gold);
+  }
+
+  SECTION("test case 1, point jacobi preconditioned")
+  {
+    fk::vector<TestType> test(x_gold.size());
+
+    std::cout.setstate(std::ios_base::failbit);
+    TestType const error = solver::simple_gmres(
+        A_gold, test, b_gold, precond, A_gold.ncols(), A_gold.ncols(),
+        std::numeric_limits<TestType>::epsilon());
+    std::cout.clear();
+    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold);
   }
 
@@ -36,10 +54,23 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
     fk::vector<TestType> test(x_gold_2.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    solver::simple_gmres(A_gold, test, b_gold_2, fk::matrix<TestType>(),
-                         A_gold.ncols(), A_gold.ncols(),
-                         std::numeric_limits<TestType>::epsilon());
+    TestType const error = solver::simple_gmres(
+        A_gold, test, b_gold_2, fk::matrix<TestType>(), A_gold.ncols(),
+        A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
+    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
+    REQUIRE(test == x_gold_2);
+  }
+
+  SECTION("test case 2, point jacobi preconditioned")
+  {
+    fk::vector<TestType> test(x_gold_2.size());
+    std::cout.setstate(std::ios_base::failbit);
+    TestType const error = solver::simple_gmres(
+        A_gold, test, b_gold_2, precond, A_gold.ncols(), A_gold.ncols(),
+        std::numeric_limits<TestType>::epsilon());
+    std::cout.clear();
+    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold_2);
   }
 }

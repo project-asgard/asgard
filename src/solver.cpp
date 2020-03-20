@@ -16,14 +16,14 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   assert(x.size() == n);
 
   bool const do_precond = M.size() > 0;
-  std::vector<int> precond_pivots;
+  std::vector<int> precond_pivots(n);
   if (do_precond)
   {
     assert(M.ncols() == n);
     assert(M.nrows() == n);
-    precond_pivots.resize(n);
   }
   fk::matrix<P> precond(M);
+  bool precond_factored = false;
 
   assert(restart > 0);
   assert(restart <= n);
@@ -32,32 +32,23 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 
   P const norm_b = [&b]() {
     P const norm_b = fm::nrm2(b);
-    if (norm_b == 0.0)
-    {
-      return static_cast<P>(1.0);
-    }
-    return norm_b;
+    return (norm_b == 0.0) ? static_cast<P>(1.0) : norm_b;
   }();
 
   fk::vector<P> residual(b);
   auto const compute_residual = [&A, &x, &b, &norm_b, &residual, &do_precond,
-                                 &precond, &precond_pivots]() {
-    static bool factored = false;
-    bool const trans_A   = false;
-    P const alpha        = -1.0;
-    P const beta         = 1.0;
+                                 &precond, &precond_factored,
+                                 &precond_pivots]() {
+    bool const trans_A = false;
+    P const alpha      = -1.0;
+    P const beta       = 1.0;
+    residual           = b;
     fm::gemv(A, x, residual, trans_A, alpha, beta);
     if (do_precond)
     {
-      if (!factored)
-      {
-        fm::gesv(precond, residual, precond_pivots);
-        factored = true;
-      }
-      else
-      {
-        fm::getrs(precond, residual, precond_pivots);
-      }
+      precond_factored ? fm::getrs(precond, residual, precond_pivots)
+                       : fm::gesv(precond, residual, precond_pivots);
+      precond_factored = true;
     }
     return fm::nrm2(residual);
   };
@@ -106,7 +97,10 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
         fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
                                                              basis.nrows() - 1);
         krylov_proj(k, i) = new_basis * basis_vect;
-        new_basis         = new_basis - (basis_vect * krylov_proj(k, i));
+        krylov_proj.print("krylov");
+        new_basis.print("basis");
+        new_basis.print("basis_vect");
+        new_basis = new_basis - (basis_vect * krylov_proj(k, i));
       }
       krylov_proj(i + 1, i) = fm::nrm2(new_basis);
 
