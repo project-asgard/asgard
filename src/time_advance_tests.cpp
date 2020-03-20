@@ -380,9 +380,6 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
     fk::vector<P> const gold =
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
-    std::cout << fm::nrm2(gold - host_space.x) << '\n';
-    std::cout << fm::nrm2(gold) << '\n';
-    std::cout << fm::nrm2(host_space.x) << '\n';
     relaxed_comparison(gold, host_space.x, tolerance_factor);
   }
 }
@@ -421,7 +418,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
     bool const full_grid      = false;
-    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e10;
+    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
                                full_grid, solve_opts::gmres, tol_factor);
   }
@@ -462,7 +459,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                            "continuity2_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     bool const full_grid      = false;
-    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e10;
+    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
                                full_grid, solve_opts::gmres, tol_factor);
   }
