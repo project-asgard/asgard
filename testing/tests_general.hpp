@@ -6,12 +6,32 @@
 
 #pragma once
 
-#include "../src/pde.hpp"
-#include "../src/program_options.hpp"
+#include "src/pde.hpp"
+#include "src/program_options.hpp"
+#include "src/fast_math.hpp"
 #include "catch.hpp"
 #include <string>
 #include <utility>
 #include <vector>
+
+/* These functions implement: norm( v0 - v1 ) < tolerance * max( norm(v0), norm(v1) )*/
+template< typename P, mem_type mem  >
+void rmse_comparison( fk::vector< P, mem > const &v0,
+                           fk::vector< P, mem > const &v1, P const tolerance )
+{
+  P const diff_norm = fm::nrm2( v0 - v1 );
+  P const max_norm = std::max( fm::nrm2( v0 ), fm::nrm2( v1 ) );
+  REQUIRE( diff_norm < ( tolerance * max_norm * std::sqrt( v0.size() ) ) );
+}
+
+template< typename P, mem_type mem  >
+void rmse_comparison( fk::matrix< P, mem > const &m0,
+                           fk::matrix< P, mem > const &m1, P const tolerance )
+{
+  P const diff_norm = fm::frobenius( m0 - m1 );
+  P const max_norm = std::max( fm::frobenius( m0 ), fm::frobenius( m1 ) );
+  REQUIRE( diff_norm < ( tolerance * max_norm * std::sqrt( m0.size() ) ) );
+}
 
 // Someday I should come up with a more elegant solution here
 // https://github.com/catchorg/Catch2/blob/master/docs/assertions.md

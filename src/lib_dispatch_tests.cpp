@@ -941,19 +941,20 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   auto const effect_c = [m, n](auto const c) {
     return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
+
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+
   for (int i = 0; i < num_batch; ++i)
   {
     if constexpr (resrc == resource::host)
     {
-      REQUIRE(effect_c(matrices[2][i]) == effect_c(matrices[3][i]));
+      rmse_comparison(effect_c(matrices[2][i]), effect_c(matrices[3][i]),
+                      tol_factor);
     }
     else
     {
-      // determined empirically 11/19
-      auto const eps_multiplier = 1e3;
-      relaxed_comparison(effect_c(matrices[2][i].clone_onto_host()),
-                         effect_c(matrices[3][i].clone_onto_host()),
-                         eps_multiplier);
+      rmse_comparison(effect_c(matrices[2][i].clone_onto_host()),
+                      effect_c(matrices[3][i].clone_onto_host()), tol_factor);
     }
   }
 }
@@ -1056,8 +1057,9 @@ TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
 
 template<typename P, resource resrc = resource::host>
 void test_batched_gemv(int const m, int const n, int const lda,
-                       int const num_batch = 3, bool const trans_a = false,
-                       P const alpha = 1.0, P const beta = 0.0)
+                       P const tol_factor, int const num_batch = 3,
+                       bool const trans_a = false, P const alpha = 1.0,
+                       P const beta = 0.0)
 {
   assert(m > 0);
   assert(n > 0);
@@ -1163,12 +1165,12 @@ void test_batched_gemv(int const m, int const n, int const lda,
   {
     if constexpr (resrc == resource::host)
     {
-      REQUIRE(vectors[1][i] == vectors[2][i]);
+      rmse_comparison(vectors[1][i], vectors[2][i], tol_factor);
     }
     else
     {
-      REQUIRE(vectors[1][i].clone_onto_host() ==
-              vectors[2][i].clone_onto_host());
+      rmse_comparison(vectors[1][i].clone_onto_host(),
+                      vectors[2][i].clone_onto_host(), tol_factor);
     }
   }
 }
@@ -1178,13 +1180,15 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
                        (double, resource::host), (double, resource::device),
                        (float, resource::host), (float, resource::device))
 {
+  TestType const tol_factor = 1e-15;
+
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {
     int const m         = 8;
     int const n         = 4;
     int const lda       = m;
     int const num_batch = 4;
-    test_batched_gemv<TestType, resrc>(m, n, lda, num_batch);
+    test_batched_gemv<TestType, resrc>(m, n, lda, tol_factor, num_batch);
   }
 
   SECTION("batched gemv: trans, alpha = 1.0, beta = 0.0")
@@ -1194,7 +1198,8 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
     int const lda       = m + 1;
     int const num_batch = 2;
     bool const trans_a  = true;
-    test_batched_gemv<TestType, resrc>(m, n, lda, num_batch, trans_a);
+    test_batched_gemv<TestType, resrc>(m, n, lda, tol_factor, num_batch,
+                                       trans_a);
   }
 
   SECTION("batched gemv: no trans, test scaling")
@@ -1206,8 +1211,8 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
     bool const trans_a   = false;
     TestType const alpha = -2.0;
     TestType const beta  = -4.5;
-    test_batched_gemv<TestType, resrc>(m, n, lda, num_batch, trans_a, alpha,
-                                       beta);
+    test_batched_gemv<TestType, resrc>(m, n, lda, tol_factor, num_batch,
+                                       trans_a, alpha, beta);
   }
 }
 
@@ -1260,9 +1265,12 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
     lib_dispatch::gesv(&rows_A, &cols_B, A_copy.data(), &lda, ipiv.data(),
                        x.data(), &ldb, &info);
 
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+
     REQUIRE(info == 0);
-    relaxed_comparison(A_copy, LU_gold);
-    relaxed_comparison(x, X_gold);
+    rmse_comparison(A_copy, LU_gold, tol_factor);
+    rmse_comparison(x, X_gold, tol_factor);
 
     x          = B1_gold;
     char trans = 'N';
@@ -1270,6 +1278,6 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
                         ipiv.data(), x.data(), &ldb, &info);
 
     REQUIRE(info == 0);
-    relaxed_comparison(x, X1_gold);
+    rmse_comparison(x, X1_gold, tol_factor);
   };
 }

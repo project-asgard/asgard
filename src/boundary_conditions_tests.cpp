@@ -6,7 +6,7 @@
 template<typename P>
 void test_boundary_condition_vector(PDE<P> &pde,
                                     std::string const &gold_filename_prefix,
-                                    double const eps_multiplier)
+                                    P const tol_factor)
 {
   /* setup stuff */
   dimension<P> const &d = pde.get_dimensions()[0];
@@ -39,7 +39,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
   fk::vector<P> const gold_bc_vector =
       fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
-  relaxed_comparison(gold_bc_vector, bc_advanced, eps_multiplier);
+  rmse_comparison(gold_bc_vector, bc_advanced, tol_factor);
 
   return;
 }
@@ -47,7 +47,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
 template<typename P>
 void test_compute_boundary_condition(PDE<P> &pde,
                                      std::string gold_filename_prefix,
-                                     double const eps_multiplier)
+                                     P const tol_factor)
 {
   generate_all_coefficients<P>(pde);
 
@@ -101,7 +101,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
           fk::vector<P> const gold_left_bc_vector =
               fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
-          relaxed_comparison(gold_left_bc_vector, left_bc);
+          rmse_comparison(gold_left_bc_vector, left_bc, tol_factor);
         }
 
         if (p_term.right_homo == homogeneity::inhomogeneous)
@@ -123,7 +123,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
           fk::vector<P> const gold_right_bc_vector =
               fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
-          relaxed_comparison(gold_right_bc_vector, right_bc, eps_multiplier);
+          rmse_comparison(gold_right_bc_vector, right_bc, tol_factor);
         }
       }
     }
@@ -173,7 +173,10 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
             unscaled_parts_0[0], unscaled_parts_0[1], *pde, start_element,
             stop_element, test_time);
 
-    relaxed_comparison(bc_advanced_0, bc_advanced_1, 1);
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+
+    rmse_comparison(bc_advanced_0, bc_advanced_1, tol_factor);
   }
 
   /* Intead of calculating the entire boundary condition vector, calculate a
@@ -234,11 +237,8 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
                    double, float)
 {
-  double tol_factor = 0;
-  if constexpr (std::is_same<TestType, float>::value)
-    tol_factor = 1e1;
-  else if constexpr (std::is_same<TestType, double>::value)
-    tol_factor = 1e1;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
 
   SECTION("diffusion_1 level 2 degree 2")
   {
@@ -283,11 +283,8 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
 TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
                    float)
 {
-  double tol_factor = 0;
-  if constexpr (std::is_same<TestType, float>::value)
-    tol_factor = 1e4;
-  else if constexpr (std::is_same<TestType, double>::value)
-    tol_factor = 1e6;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-14 : 1e-7;
 
   SECTION("diffusion_1 level 2 degree 2")
   {

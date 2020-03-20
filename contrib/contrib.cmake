@@ -172,5 +172,6 @@ if (ASGARD_BUILD_TESTS)
   target_include_directories (Catch INTERFACE
     ${CMAKE_SOURCE_DIR}/testing
     ${CMAKE_SOURCE_DIR}/contrib/catch2/include
+    ${CMAKE_SOURCE_DIR}
   )
 endif ()
