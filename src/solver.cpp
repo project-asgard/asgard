@@ -36,9 +36,8 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   }();
 
   fk::vector<P> residual(b);
-  auto const compute_residual = [&A, &x, &b, &norm_b, &residual, &do_precond,
-                                 &precond, &precond_factored,
-                                 &precond_pivots]() {
+  auto const compute_residual = [&A, &x, &b, &residual, &do_precond, &precond,
+                                 &precond_factored, &precond_pivots]() {
     bool const trans_A = false;
     P const alpha      = -1.0;
     P const beta       = 1.0;
