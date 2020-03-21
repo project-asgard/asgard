@@ -35,6 +35,7 @@ void explicit_time_advance(PDE<P> const &pde, element_table const &table,
   element_subgrid const &grid = plan.at(my_rank);
   int const elem_size         = element_segment_size(pde);
 
+  // FIXME remove prealloc and clearing
   // allocate batches
   // max number of elements in any chunk
   int const max_elems = num_elements_in_chunk(*std::max_element(

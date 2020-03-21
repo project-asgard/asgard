@@ -261,6 +261,11 @@ batch<P, resrc>::batch(int const capacity, int const nrows, int const ncols,
   assert(nrows > 0);
   assert(ncols > 0);
   assert(stride > 0);
+
+  // FIXME removing separate allocation
+  // so, this needs to go along with assert checks
+  // on exec for nullptr
+  // essentially, RAII and this becomes unnecessary
   for (P *&ptr : (*this))
   {
     ptr = nullptr;

@@ -87,6 +87,9 @@ kron m_end ) * x
 
 */
 
+// FIXME add nontype template param - enum - single/multiple - and SFINAE
+// construction == allocation
+// kronmult to batch sets - fold into constructor I think
 template<typename P, resource resrc>
 class batch_chain
 {
