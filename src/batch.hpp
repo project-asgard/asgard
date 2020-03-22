@@ -118,6 +118,12 @@ public:
       std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
       fk::vector<P, mem_type::view, resrc> &final_output);
 
+  // time advance constructor
+  template<chain_method m_ = method, typename = enable_for_advance<m_>>
+  batch_chain(PDE<P> const &pde, element_table const &elem_table,
+              device_workspace<P> const &workspace,
+              element_subgrid const &subgrid, element_chunk const &chunk);
+
   void execute() const;
 
 private:

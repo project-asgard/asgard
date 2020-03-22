@@ -237,6 +237,15 @@ batch_chain<P, resrc, method>::batch_chain(
 }
 
 template<typename P, resource resrc, chain_method method>
+template<chain_method, typename>
+batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
+                                           element_table const &elem_table,
+                                           device_workspace<P> const &workspace,
+                                           element_subgrid const &subgrid,
+                                           element_chunk const &chunk)
+{}
+
+template<typename P, resource resrc, chain_method method>
 void batch_chain<P, resrc, method>::execute() const
 {
   assert(left.size() == right.size());
@@ -1302,3 +1311,59 @@ template class batch_chain<double, resource::device, chain_method::advance>;
 template class batch_chain<double, resource::host, chain_method::advance>;
 template class batch_chain<float, resource::device, chain_method::advance>;
 template class batch_chain<float, resource::host, chain_method::advance>;
+
+template batch_chain<float, resource::host, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<float, mem_type::const_view,
+                               resource::host>> const &matrices,
+        fk::vector<float, mem_type::const_view, resource::host> const &x,
+        std::array<fk::vector<float, mem_type::view, resource::host>, 2>
+            &workspace,
+        fk::vector<float, mem_type::view, resource::host> &final_output);
+
+template batch_chain<double, resource::host, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<double, mem_type::const_view,
+                               resource::host>> const &matrices,
+        fk::vector<double, mem_type::const_view, resource::host> const &x,
+        std::array<fk::vector<double, mem_type::view, resource::host>, 2>
+            &workspace,
+        fk::vector<double, mem_type::view, resource::host> &final_output);
+
+template batch_chain<float, resource::device, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<float, mem_type::const_view,
+                               resource::device>> const &matrices,
+        fk::vector<float, mem_type::const_view, resource::device> const &x,
+        std::array<fk::vector<float, mem_type::view, resource::device>, 2>
+            &workspace,
+        fk::vector<float, mem_type::view, resource::device> &final_output);
+
+template batch_chain<double, resource::device, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<double, mem_type::const_view,
+                               resource::device>> const &matrices,
+        fk::vector<double, mem_type::const_view, resource::device> const &x,
+        std::array<fk::vector<double, mem_type::view, resource::device>, 2>
+            &workspace,
+        fk::vector<double, mem_type::view, resource::device> &final_output);
+
+template batch_chain<float, resource::device, chain_method::advance>::
+    batch_chain(PDE<float> const &pde, element_table const &elem_table,
+                device_workspace<float> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
+
+template batch_chain<double, resource::device, chain_method::advance>::
+    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+                device_workspace<double> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
+
+template batch_chain<float, resource::host, chain_method::advance>::batch_chain(
+    PDE<float> const &pde, element_table const &elem_table,
+    host_workspace<float> const &workspace, element_subgrid const &subgrid,
+    element_chunk const &chunk);
+
+template batch_chain<double, resource::host, chain_method::advance>::
+    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+                host_workspace<double> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
