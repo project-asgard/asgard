@@ -90,18 +90,35 @@ kron m_end ) * x
 // FIXME add nontype template param - enum - single/multiple - and SFINAE
 // construction == allocation
 // kronmult to batch sets - fold into constructor I think
-template<typename P, resource resrc>
+
+// which of the kronecker-product based algorithms the batch chain supports
+enum class chain_method
+{
+  realspace, // for realspace transform
+  advance    // for time advance
+};
+
+template<chain_method method>
+using enable_for_realspace =
+    std::enable_if_t<method == chain_method::realspace>;
+
+template<chain_method method>
+using enable_for_advance = std::enable_if_t<method == chain_method::advance>;
+
+template<typename P, resource resrc,
+         chain_method method = chain_method::realspace>
 class batch_chain
 {
 public:
-  /* allocates batches and assigns data */
+  /* allocates batches and assigns data - realspace transform constructor */
+  template<chain_method m_ = method, typename = enable_for_realspace<m_>>
   batch_chain(
       std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
       fk::vector<P, mem_type::const_view, resrc> const &x,
       std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
       fk::vector<P, mem_type::view, resrc> &final_output);
 
-  void execute_batch_chain();
+  void execute() const;
 
 private:
   std::vector<batch<P, resrc>> left;

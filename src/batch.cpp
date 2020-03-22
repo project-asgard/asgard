@@ -82,8 +82,9 @@ int calculate_workspace_length(
    each stage is the output of the previous. The initial input is the vector
    "x". The output of each stage is a vector. The output of the final stage is
    the solution to the problem. */
-template<typename P, resource resrc>
-batch_chain<P, resrc>::batch_chain(
+template<typename P, resource resrc, chain_method method>
+template<chain_method, typename>
+batch_chain<P, resrc, method>::batch_chain(
     std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
     fk::vector<P, mem_type::const_view, resrc> const &x,
     std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
@@ -235,8 +236,8 @@ batch_chain<P, resrc>::batch_chain(
   return;
 }
 
-template<typename P, resource resrc>
-void batch_chain<P, resrc>::execute_batch_chain()
+template<typename P, resource resrc, chain_method method>
+void batch_chain<P, resrc, method>::execute() const
 {
   assert(left.size() == right.size());
   assert(right.size() == product.size());
@@ -1292,7 +1293,12 @@ template int calculate_workspace_length<float, resource::host>(
         &matrices,
     int const x_size);
 
-template class batch_chain<double, resource::device>;
-template class batch_chain<double, resource::host>;
-template class batch_chain<float, resource::device>;
-template class batch_chain<float, resource::host>;
+template class batch_chain<double, resource::device, chain_method::realspace>;
+template class batch_chain<double, resource::host, chain_method::realspace>;
+template class batch_chain<float, resource::device, chain_method::realspace>;
+template class batch_chain<float, resource::host, chain_method::realspace>;
+
+template class batch_chain<double, resource::device, chain_method::advance>;
+template class batch_chain<double, resource::host, chain_method::advance>;
+template class batch_chain<float, resource::device, chain_method::advance>;
+template class batch_chain<float, resource::host, chain_method::advance>;

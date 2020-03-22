@@ -26,8 +26,8 @@ void test_kron(
   fk::vector<P, mem_type::owner, resrc> real_space_owner(correct.size());
   fk::vector<P, mem_type::view, resrc> real_space(real_space_owner);
 
-  batch_chain<P, resrc> chain(matrices, x_view, workspace, real_space);
-  chain.execute_batch_chain();
+  batch_chain<P, resrc> const chain(matrices, x_view, workspace, real_space);
+  chain.execute();
 
   if constexpr (resrc == resource::device)
   {

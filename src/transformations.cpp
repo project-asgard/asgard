@@ -179,9 +179,9 @@ void wavelet_to_realspace(
   /* clear out the vector */
   real_space.scale(0);
 
-  for (auto &link : chain)
+  for (auto const &link : chain)
   {
-    link.execute_batch_chain();
+    link.execute();
     real_space = real_space + real_space_accumulator;
   }
 
