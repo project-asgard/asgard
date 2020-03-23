@@ -97,11 +97,9 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   /* generate boundary condition vectors */
   /* these will be scaled later similarly to the source vectors */
-  std::vector<std::vector<std::vector<fk::vector<P>>>> left_bc_parts;
-  std::vector<std::vector<std::vector<fk::vector<P>>>> right_bc_parts;
-  boundary_conditions::init_bc_parts(pde, table, subgrid.row_start,
-                                     subgrid.row_stop, left_bc_parts,
-                                     right_bc_parts);
+  std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
+      boundary_conditions::make_unscaled_bc_parts(pde, table, subgrid.row_start,
+                                                  subgrid.row_stop);
 
   // -- prep workspace/chunks
   int const workspace_MB_limit = 4000;
@@ -118,9 +116,8 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   {
     P const time = i * dt;
 
-    explicit_time_advance(pde, table, initial_sources, left_bc_parts,
-                          right_bc_parts, host_space, dev_space, chunks, plan,
-                          time, dt);
+    explicit_time_advance(pde, table, initial_sources, unscaled_parts,
+                          host_space, dev_space, chunks, plan, time, dt);
 
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -445,9 +442,9 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
 template<typename P>
 void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                 int const num_steps, std::string const filepath,
-                                bool const full_grid     = false,
-                                solve_opts const solver  = solve_opts::direct,
-                                P const tolerance_factor = 1e2)
+                                bool const full_grid          = false,
+                                double const tolerance_factor = 1e2,
+                                solve_opts const solver = solve_opts::direct)
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
@@ -507,11 +504,9 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // generate boundary condition vectors
   // these will be scaled later similarly to the source vectors
-  std::vector<std::vector<std::vector<fk::vector<P>>>> left_bc_parts;
-  std::vector<std::vector<std::vector<fk::vector<P>>>> right_bc_parts;
-  boundary_conditions::init_bc_parts(pde, table, subgrid.row_start,
-                                     subgrid.row_stop, left_bc_parts,
-                                     right_bc_parts);
+  std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
+      boundary_conditions::make_unscaled_bc_parts(pde, table, subgrid.row_start,
+                                                  subgrid.row_stop);
 
   // -- prep workspace/chunks
   int const workspace_MB_limit = 4000;
@@ -528,12 +523,9 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   {
     P const time = i * dt;
 
-    implicit_time_advance(pde, table, initial_sources, left_bc_parts,
-                          right_bc_parts, host_space, chunks, plan, time, dt);
-
     std::cout.setstate(std::ios_base::failbit);
-    implicit_time_advance(pde, table, initial_sources, host_space, chunks, time,
-                          dt, solver);
+    implicit_time_advance(pde, table, initial_sources, unscaled_parts,
+                          host_space, chunks, plan, time, dt, solver);
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -638,10 +630,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
                            "continuity1_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
-    bool const full_grid      = false;
-    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
+    bool const full_grid    = false;
+    double const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, solve_opts::gmres, tol_factor);
+                               full_grid, tol_factor, solve_opts::gmres);
   }
 }
 
@@ -682,6 +674,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     bool const full_grid      = false;
     TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, solve_opts::gmres, tol_factor);
+                               full_grid, tol_factor, solve_opts::gmres);
   }
 }

@@ -13,16 +13,19 @@ value "t" to generate the complete boundary condition vector at time "t".
 
 */
 template<typename P>
-void boundary_conditions::init_bc_parts(
-    PDE<P> const &pde, element_table const &table, int const start_element,
-    int const stop_element,
-    std::vector<std::vector<std::vector<fk::vector<P>>>> &left_bc_parts,
-    std::vector<std::vector<std::vector<fk::vector<P>>>> &right_bc_parts,
-    P const t_init)
+std::array<unscaled_bc_parts<P>, 2>
+boundary_conditions::make_unscaled_bc_parts(PDE<P> const &pde,
+                                            element_table const &table,
+                                            int const start_element,
+                                            int const stop_element,
+                                            P const t_init)
 {
-  assert((stop_element - start_element + 1) > 0);
-  assert(start_element <= stop_element);
+  assert(start_element >= 0);
   assert(stop_element < table.size());
+  assert(stop_element >= start_element);
+
+  unscaled_bc_parts<P> left_bc_parts;
+  unscaled_bc_parts<P> right_bc_parts;
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
@@ -93,15 +96,14 @@ void boundary_conditions::init_bc_parts(
     right_bc_parts.emplace_back(std::move(right_dim_pvecs));
   }
 
-  return;
+  return {left_bc_parts, right_bc_parts};
 }
 
 template<typename P>
-fk::vector<P> boundary_conditions::generate_bc(
-    std::vector<std::vector<std::vector<fk::vector<P>>>> const &left_bc_parts,
-    std::vector<std::vector<std::vector<fk::vector<P>>>> const &right_bc_parts,
-    PDE<P> const &pde, int const start_element, int const stop_element,
-    P const time)
+fk::vector<P> boundary_conditions::generate_scaled_bc(
+    unscaled_bc_parts<P> const &left_bc_parts,
+    unscaled_bc_parts<P> const &right_bc_parts, PDE<P> const &pde,
+    int const start_element, int const stop_element, P const time)
 {
   fk::vector<P> bc(
       (stop_element - start_element + 1) *
@@ -230,8 +232,6 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
     assert(std::isfinite(g));
   }
 
-  /* Captain! use the vector-view of matrix column constructor to avoid the copy
-   */
   fk::vector<P> legendre_polys_at_value = fk::vector<P>(
       legendre(fk::vector<P>{1}, degree, legendre_normalization::lin)[0]);
 
@@ -298,34 +298,28 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
 }
 
 /* explicit instantiations */
-template void boundary_conditions::init_bc_parts(
-    PDE<double> const &pde, element_table const &table, int const start_element,
-    int const stop_element,
-    std::vector<std::vector<std::vector<fk::vector<double>>>> &left_bc_parts,
-    std::vector<std::vector<std::vector<fk::vector<double>>>> &right_bc_parts,
-    double const t_init = 0);
+template std::array<unscaled_bc_parts<double>, 2>
+boundary_conditions::make_unscaled_bc_parts(PDE<double> const &pde,
+                                            element_table const &table,
+                                            int const start_element,
+                                            int const stop_element,
+                                            double const t_init = 0);
 
-template void boundary_conditions::init_bc_parts(
-    PDE<float> const &pde, element_table const &table, int const start_element,
-    int const stop_element,
-    std::vector<std::vector<std::vector<fk::vector<float>>>> &left_bc_parts,
-    std::vector<std::vector<std::vector<fk::vector<float>>>> &right_bc_parts,
-    float const t_init = 0);
+template std::array<unscaled_bc_parts<float>, 2>
+boundary_conditions::make_unscaled_bc_parts(PDE<float> const &pde,
+                                            element_table const &table,
+                                            int const start_element,
+                                            int const stop_element,
+                                            float const t_init = 0);
 
-template fk::vector<double> boundary_conditions::generate_bc(
-    std::vector<std::vector<std::vector<fk::vector<double>>>> const
-        &left_bc_parts,
-    std::vector<std::vector<std::vector<fk::vector<double>>>> const
-        &right_bc_parts,
-    PDE<double> const &pde, int const start_element, int const stop_element,
-    double const time);
-template fk::vector<float> boundary_conditions::generate_bc(
-    std::vector<std::vector<std::vector<fk::vector<float>>>> const
-        &left_bc_parts,
-    std::vector<std::vector<std::vector<fk::vector<float>>>> const
-        &right_bc_parts,
-    PDE<float> const &pde, int const start_element, int const stop_element,
-    float const time);
+template fk::vector<double> boundary_conditions::generate_scaled_bc(
+    unscaled_bc_parts<double> const &left_bc_parts,
+    unscaled_bc_parts<double> const &right_bc_parts, PDE<double> const &pde,
+    int const start_element, int const stop_element, double const time);
+template fk::vector<float> boundary_conditions::generate_scaled_bc(
+    unscaled_bc_parts<float> const &left_bc_parts,
+    unscaled_bc_parts<float> const &right_bc_parts, PDE<float> const &pde,
+    int const start_element, int const stop_element, float const time);
 template fk::vector<double>
 boundary_conditions::compute_left_boundary_condition(
     g_func_type const g_func, double const time, dimension<double> const &dim,

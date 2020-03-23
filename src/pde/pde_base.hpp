@@ -368,22 +368,22 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
-    for( auto tt : terms )
+    for (auto tt : terms)
     {
-      for( auto t : tt )
+      for (auto t : tt)
       {
-        std::vector< partial_term< P > > const &pterms = t.get_partial_terms();
-        for( auto p : pterms )
+        std::vector<partial_term<P>> const &pterms = t.get_partial_terms();
+        for (auto p : pterms)
         {
-          if( p.left_homo == homogeneity::homogeneous )
-          assert( static_cast<int>(p.left_bc_funcs.size()) == 0 );
-          else if( p.left_homo == homogeneity::inhomogeneous )
-          assert( static_cast<int>(p.left_bc_funcs.size()) == num_dims );
+          if (p.left_homo == homogeneity::homogeneous)
+            assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
+          else if (p.left_homo == homogeneity::inhomogeneous)
+            assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
 
-          if( p.right_homo == homogeneity::homogeneous )
-          assert( static_cast<int>(p.right_bc_funcs.size()) == 0 );
-          else if( p.right_homo == homogeneity::inhomogeneous )
-          assert( static_cast<int>(p.right_bc_funcs.size()) == num_dims );
+          if (p.right_homo == homogeneity::homogeneous)
+            assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
+          else if (p.right_homo == homogeneity::inhomogeneous)
+            assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
         }
       }
     }
