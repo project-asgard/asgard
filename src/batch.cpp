@@ -975,6 +975,9 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   ready_batches(pde, chunk, batches);
 
+  // here we map integers 0->chunk_size-1 to row_0->row_last in the chunk
+  // we could iterate over the chunk (which is a map rows->connected)
+  // but openmp requires traditional loop, not foreachs
   std::vector<int> const index_to_key = [&chunk]() {
     std::vector<int> builder;
     for (auto const &[i, connected] : chunk)
