@@ -3,11 +3,11 @@
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
-
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
+#include <chrono>
 #include <limits.h>
 /*
 
@@ -951,6 +951,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    element_subgrid const &subgrid, element_chunk const &chunk,
                    std::vector<batch_operands_set<P>> &batches)
 {
+  auto const start = std::chrono::high_resolution_clock::now();
+
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -1070,17 +1072,14 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         }();
 
         // operator views, windows into operator matrix
-        std::vector<P *> const operator_ptrs = [&pde, &operator_row,
-                                                &operator_col, k]() {
-          std::vector<P *> operator_ptrs;
-          for (int d = pde.num_dims - 1; d >= 0; --d)
-          {
-            operator_ptrs.push_back(
-                pde.get_coefficients(k, d).data() + operator_row(d) +
-                operator_col(d) * pde.get_coefficients(k, d).stride());
-          }
-          return operator_ptrs;
-        }();
+
+        std::vector<P *> operator_ptrs(pde.num_dims);
+        for (int d = pde.num_dims - 1; d >= 0; --d)
+        {
+          operator_ptrs[d] =
+              pde.get_coefficients(k, d).data() + operator_row(d) +
+              operator_col(d) * pde.get_coefficients(k, d).stride();
+        }
 
         // determine the index for the input vector
         int const x_index = subgrid.to_local_col(j) * elem_size;
@@ -1093,6 +1092,10 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
     }
   }
+  std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::high_resolution_clock::now() - start)
+                   .count()
+            << '\n';
 }
 
 // function to allocate and build implicit system.
