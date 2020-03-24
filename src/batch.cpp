@@ -975,13 +975,28 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   ready_batches(pde, chunk, batches);
 
-  // can't use structured binding; variables passed into outlined omp func
-  for (auto const &row_info : chunk)
+  std::vector<int> const index_to_key = [&chunk]() {
+    std::vector<int> builder;
+    for (auto const &[i, connected] : chunk)
+    {
+      builder.push_back(i);
+      ignore(connected);
+    }
+    return builder;
+  }();
+
+// loop over elements
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
+  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
+       ++chunk_num)
   {
     // i: row we are addressing in element grid
-    auto const i = row_info.first;
-    // connected: start/stop for this row
-    auto const connected = row_info.second;
+    int const i = index_to_key[chunk_num];
+    // connected: start/stop grid elements for this row
+    auto const connected = chunk.at(i);
+
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
@@ -1013,9 +1028,6 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
-#endif
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
