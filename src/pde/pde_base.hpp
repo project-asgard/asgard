@@ -45,6 +45,12 @@ enum class boundary_condition
   neumann
 };
 
+enum class homogeneity
+{
+  homogeneous,
+  inhomogeneous
+};
+
 // ---------------------------------------------------------------------------
 //
 // Dimension: holds all information for a single dimension in the pde
@@ -147,18 +153,32 @@ template<typename P>
 class partial_term
 {
 public:
+  static double null_gfunc(double const x, double const t)
+  {
+    ignore(x);
+    ignore(t);
+    return 1.0;
+  }
+
+  static P null_scalar_func(P const p) { return p; }
+
   partial_term(coefficient_type const coeff_type,
-               g_func_type const g_func =
-                   [](double const x, double const t) {
-                     ignore(x);
-                     ignore(t);
-                     return 1.0;
-                   },
+               g_func_type const g_func       = null_gfunc,
                flux_type const flux           = flux_type::central,
                boundary_condition const left  = boundary_condition::neumann,
-               boundary_condition const right = boundary_condition::neumann)
+               boundary_condition const right = boundary_condition::neumann,
+               homogeneity const left_homo    = homogeneity::homogeneous,
+               homogeneity const right_homo   = homogeneity::homogeneous,
+               std::vector<vector_func<P>> const left_bc_funcs = {},
+               scalar_func<P> const left_bc_time_func = null_scalar_func,
+               std::vector<vector_func<P>> const right_bc_funcs = {},
+               scalar_func<P> const right_bc_time_func = null_scalar_func)
+
       : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
-        right(right)
+        right(right), left_homo(left_homo), right_homo(right_homo),
+        left_bc_funcs(left_bc_funcs), right_bc_funcs(right_bc_funcs),
+        left_bc_time_func(left_bc_time_func),
+        right_bc_time_func(right_bc_time_func)
   {}
 
   P get_flux_scale() const { return static_cast<P>(flux); };
@@ -172,6 +192,13 @@ public:
   boundary_condition const left;
 
   boundary_condition const right;
+
+  homogeneity const left_homo;
+  homogeneity const right_homo;
+  std::vector<vector_func<P>> const left_bc_funcs;
+  std::vector<vector_func<P>> const right_bc_funcs;
+  scalar_func<P> const left_bc_time_func;
+  scalar_func<P> const right_bc_time_func;
 
   fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 
@@ -341,6 +368,26 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
+    for (auto tt : terms)
+    {
+      for (auto t : tt)
+      {
+        std::vector<partial_term<P>> const &pterms = t.get_partial_terms();
+        for (auto p : pterms)
+        {
+          if (p.left_homo == homogeneity::homogeneous)
+            assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
+          else if (p.left_homo == homogeneity::inhomogeneous)
+            assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
+
+          if (p.right_homo == homogeneity::homogeneous)
+            assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
+          else if (p.right_homo == homogeneity::inhomogeneous)
+            assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
+        }
+      }
+    }
+
     // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln)
     {
@@ -426,7 +473,7 @@ public:
     return dimensions_;
   }
 
-  term_set<P> const &get_terms() { return terms_; }
+  term_set<P> const &get_terms() const { return terms_; }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const

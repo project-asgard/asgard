@@ -1,5 +1,6 @@
 #pragma once
 #include "batch.hpp"
+#include "boundary_conditions.hpp"
 #include "chunk.hpp"
 #include "distribution.hpp"
 #include "program_options.hpp"
@@ -9,22 +10,22 @@
 // vector x (in host_space).
 // on exit, the next solution vector is stored in x.
 template<typename P>
-void explicit_time_advance(PDE<P> const &pde, element_table const &table,
-                           std::vector<fk::vector<P>> const &unscaled_sources,
-                           host_workspace<P> &host_space,
-                           device_workspace<P> &dev_space,
-                           std::vector<element_chunk> const &chunks,
-                           distribution_plan const &plan, P const time,
-                           P const dt);
+void explicit_time_advance(
+    PDE<P> const &pde, element_table const &table,
+    std::vector<fk::vector<P>> const &unscaled_sources,
+    std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+    host_workspace<P> &host_space, device_workspace<P> &dev_space,
+    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
+    P const time, P const dt);
 
 template<typename P>
-void implicit_time_advance(PDE<P> const &pde, element_table const &table,
-                           std::vector<fk::vector<P>> const &unscaled_sources,
-                           host_workspace<P> &host_space,
-                           std::vector<element_chunk> const &chunks,
-                           P const time, P const dt,
-                           solve_opts const solver  = solve_opts::direct,
-                           bool const update_system = true);
+void implicit_time_advance(
+    PDE<P> const &pde, element_table const &table,
+    std::vector<fk::vector<P>> const &unscaled_sources,
+    std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+    host_workspace<P> &host_space, std::vector<element_chunk> const &chunks,
+    distribution_plan const &plan, P const time, P const dt,
+    solve_opts const solver = solve_opts::direct, bool update_system = true);
 
 // apply the system matrix to the current solution vector using batched
 // gemm.

@@ -90,7 +90,7 @@ void relaxed_fp_comparison(P const first, P const second,
   REQUIRE_THAT(first, Catch::Matchers::WithinAbs(second, tol * scale_fac));
 }
 
-// compare two tensor types 
+// compare two tensor types
 // (specifically: templated containers with .data() access to backing container)
 // scaled for value magnitude
 // tol_fac can be used to adjust tolerance; this number is multipled by epsilon
