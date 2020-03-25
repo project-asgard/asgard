@@ -1072,15 +1072,17 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         }();
 
         // operator views, windows into operator matrix
-
-        std::vector<P *> operator_ptrs(pde.num_dims);
-        for (int d = pde.num_dims - 1; d >= 0; --d)
-        {
-          operator_ptrs[d] =
-              pde.get_coefficients(k, d).data() + operator_row(d) +
-              operator_col(d) * pde.get_coefficients(k, d).stride();
-        }
-
+        std::vector<P *> const operator_ptrs = [&pde, &operator_row,
+                                                &operator_col, k]() {
+          std::vector<P *> operator_ptrs(pde.num_dims);
+          for (int d = pde.num_dims - 1; d >= 0; --d)
+          {
+            operator_ptrs[d] =
+                pde.get_coefficients(k, d).data() + operator_row(d) +
+                operator_col(d) * pde.get_coefficients(k, d).stride();
+          }
+          return operator_ptrs;
+        }();
         // determine the index for the input vector
         int const x_index = subgrid.to_local_col(j) * elem_size;
 
