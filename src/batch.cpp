@@ -7,7 +7,9 @@
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
+#include <chrono>
 #include <limits.h>
+
 /*
 
 Problem relevant to batch_chain class:
@@ -964,6 +966,7 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    element_subgrid const &subgrid, element_chunk const &chunk,
                    std::vector<batch_operands_set<P>> &batches)
 {
+  auto const start = std::chrono::high_resolution_clock::now();
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -1004,7 +1007,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
 // loop over elements
 #ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
+  int const threads = omp_get_num_procs();
+#pragma omp parallel for num_threads(threads)
 #endif
   for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
        ++chunk_num)
