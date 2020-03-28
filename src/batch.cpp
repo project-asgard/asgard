@@ -7,7 +7,6 @@
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
-#include <chrono>
 #include <limits.h>
 
 /*
@@ -966,7 +965,6 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    element_subgrid const &subgrid, element_chunk const &chunk,
                    std::vector<batch_operands_set<P>> &batches)
 {
-  auto const start = std::chrono::high_resolution_clock::now();
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
