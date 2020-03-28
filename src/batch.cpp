@@ -3,11 +3,11 @@
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
-#include <chrono>
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
+#include <chrono>
 #include <limits.h>
 /*
 
@@ -951,7 +951,6 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    element_subgrid const &subgrid, element_chunk const &chunk,
                    std::vector<batch_operands_set<P>> &batches)
 {
-
   auto const start = std::chrono::high_resolution_clock::now();
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
@@ -1077,7 +1076,7 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
           std::vector<P *> operator_ptrs(pde.num_dims);
           for (int d = pde.num_dims - 1; d >= 0; --d)
           {
-            operator_ptrs[d] =
+            operator_ptrs[(pde.num_dims - 1) - d] =
                 pde.get_coefficients(k, d).data() + operator_row(d) +
                 operator_col(d) * pde.get_coefficients(k, d).stride();
           }
@@ -1094,9 +1093,10 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
     }
   }
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() - start)
-            .count() << '\n';
+  std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::high_resolution_clock::now() - start)
+                   .count()
+            << '\n';
 }
 
 // function to allocate and build implicit system.
