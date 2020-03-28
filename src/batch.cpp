@@ -1015,7 +1015,7 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
     int operator_row[max_dims];
     int operator_col[max_dims];
     P *workspace_ptrs[max_workspaces];
-    P *operator_ptrs[max_workspaces];
+    P *operator_ptrs[max_dims];
 
     // i: row we are addressing in element grid
     int const i = index_to_key[chunk_num];
