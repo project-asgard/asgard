@@ -72,7 +72,7 @@ int element_table::get_index(fk::vector<int> const coords) const
 }
 
 // reverse lookup - returns coordinates at a certain index
-fk::vector<int> element_table::get_coords(int const index) const
+fk::vector<int> const &element_table::get_coords(int const index) const
 {
   assert(index >= 0);
   assert(static_cast<size_t>(index) < reverse_table.size());

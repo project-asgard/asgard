@@ -774,7 +774,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   }
 
   // default execution on the host for any resource
-  int end = *num_batch;
+  int const end = *num_batch;
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
 #endif
