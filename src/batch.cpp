@@ -3,6 +3,7 @@
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
+#include <chrono>
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
@@ -950,6 +951,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    element_subgrid const &subgrid, element_chunk const &chunk,
                    std::vector<batch_operands_set<P>> &batches)
 {
+
+  auto const start = std::chrono::high_resolution_clock::now();
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -1091,6 +1094,9 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
       }
     }
   }
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - start)
+            .count() << '\n';
 }
 
 // function to allocate and build implicit system.
