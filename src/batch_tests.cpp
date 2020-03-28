@@ -1044,9 +1044,9 @@ void unsafe_kronmult(
     std::vector<batch_operands_set<P>> &batches, int const batch_offset,
     PDE<P> const &pde)
 {
-  unsafe_kronmult_to_batch_sets(views_to_ptrs<P>(A), x.data(), y.data(),
-                                views_to_ptrs<P>(work), batches, batch_offset,
-                                pde);
+  unsafe_kronmult_to_batch_sets(views_to_ptrs<P>(A).data(), x.data(), y.data(),
+                                views_to_ptrs<P>(work).data(), batches,
+                                batch_offset, pde);
 }
 
 template<typename P>

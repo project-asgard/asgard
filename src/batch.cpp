@@ -906,6 +906,8 @@ void unsafe_kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
 }
 
 // helper for calculating 1d indices for elements
+
+// performant (no-alloc) version
 inline void linearize(fk::vector<int> const &coords, int output[])
 {
   int const output_size = coords.size() / 2;
@@ -915,6 +917,20 @@ inline void linearize(fk::vector<int> const &coords, int output[])
   }
 }
 
+// "safe" version
+inline fk::vector<int> linearize(fk::vector<int> const &coords)
+{
+  fk::vector<int> linear(coords.size() / 2);
+  for (int i = 0; i < linear.size(); ++i)
+  {
+    linear(i) = get_1d_index(coords(i), coords(i + linear.size()));
+  }
+  return linear;
+}
+
+// convert linear coordinates into operator matrix indices
+
+// performant (no-alloc) version
 template<typename P>
 inline void
 linear_coords_to_indices(PDE<P> const &pde, int const degree, int coords[])
@@ -923,6 +939,20 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree, int coords[])
   {
     coords[d] = coords[d] * degree;
   }
+}
+
+// "safe" version
+template<typename P>
+inline fk::vector<int>
+linear_coords_to_indices(PDE<P> const &pde, int const degree,
+                         fk::vector<int> const &coords)
+{
+  fk::vector<int> indices(coords.size());
+  for (int d = 0; d < pde.num_dims; ++d)
+  {
+    indices(d) = coords(d) * degree;
+  }
+  return indices;
 }
 
 // function to build batch lists.
@@ -1130,7 +1160,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
     // operator position used for this
     // element's gemm calls
     fk::vector<int> const operator_row =
-        get_operator_row(pde, degree, elem_indices);
+        linear_coords_to_indices(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
@@ -1145,7 +1175,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
       // operator position used for this
       // element's gemm calls
       fk::vector<int> const operator_col =
-          get_operator_col(pde, degree, connected_indices);
+          linear_coords_to_indices(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
       {

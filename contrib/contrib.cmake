@@ -141,7 +141,7 @@ if (NOT LINALG_LIBS_FOUND)
       PREFIX contrib/blas/openblas
       URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
       DOWNLOAD_NO_PROGRESS 1
-      CONFIGURE_COMMAND ""
+      CONFIGURE_COMMAND "USE_OPENMP=1"
       BUILD_COMMAND make
       BUILD_IN_SOURCE 1
       INSTALL_COMMAND make PREFIX=${OpenBLAS_PATH} install
