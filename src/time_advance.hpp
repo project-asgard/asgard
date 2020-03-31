@@ -46,8 +46,8 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
-    timer::record.run(build_batches<P>, "build_batches", pde, elem_table,
-                      dev_space, grid, chunk, batches);
+    timer::record(build_batches<P>, "build_batches", pde, elem_table, dev_space,
+                  grid, chunk, batches);
 
     // do the gemms
     P const alpha = 1.0;
@@ -58,13 +58,12 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
       batch<P> const &b = batches[i][1];
       batch<P> const &c = batches[i][2];
 
-      timer::record.run(batched_gemm<P, resource::device>, "batched_gemm", a, b,
-                        c, alpha, beta);
+      timer::record(batched_gemm<P, resource::device>, "batched_gemm", a, b, c,
+                    alpha, beta);
     }
 
     // do the reduction
-    timer::record.run(reduce_chunk<P>, "reduce_chunk", pde, dev_space, grid,
-                      chunk);
+    timer::record(reduce_chunk<P>, "reduce_chunk", pde, dev_space, grid, chunk);
   }
 
   // copy outputs back from GPU

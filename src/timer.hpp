@@ -17,7 +17,7 @@ class recorder
 public:
   // wrap function call and record time spent, value return version
   template<typename F, typename... Args>
-  auto run(F &&f, std::string const identifier, Args &&... args) ->
+  auto operator()(F &&f, std::string const identifier, Args &&... args) ->
       typename std::enable_if<
           !std::is_same_v<decltype(f(std::forward<Args>(args)...)), void>,
           decltype(f(std::forward<Args>(args)...))>::type
@@ -33,7 +33,7 @@ public:
   }
 
   template<typename F, typename... Args>
-  auto run(F &&f, std::string const identifier, Args &&... args) ->
+  auto operator()(F &&f, std::string const identifier, Args &&... args) ->
       typename std::enable_if<
           std::is_same_v<decltype(f(std::forward<Args>(args)...)), void>,
           void>::type
@@ -65,7 +65,7 @@ private:
     id_to_times[key].push_back(time);
   }
 
-  // stores function identifier -> list of runtimes recorded
+  // stores function identifier -> list of operator()times recorded
   std::map<std::string, std::vector<double>> id_to_times;
 };
 extern recorder record;
