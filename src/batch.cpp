@@ -846,9 +846,6 @@ void unsafe_kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
   // this code will have to change...
   int const degree = pde.get_dimensions()[0].get_degree();
 
-  // check workspace sizes
-  // assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
-
   // we need an operand set for each dimension on entry
   assert(static_cast<int>(batches.size()) == pde.num_dims);
 
