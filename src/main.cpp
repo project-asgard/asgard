@@ -5,6 +5,7 @@
 #include "connectivity.hpp"
 #include "distribution.hpp"
 #include "element_table.hpp"
+#include "timer.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
@@ -248,15 +249,16 @@ int main(int argc, char **argv)
     {
       bool const update_system = i == 0;
 
-      implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                            host_space, chunks, plan, time, dt,
-                            opts.get_selected_solver(), update_system);
+      timer::record(implicit_time_advance<prec>, "implicit_time_advance", *pde,
+                    table, initial_sources, unscaled_parts, host_space, chunks,
+                    plan, time, dt, opts.get_selected_solver(), update_system);
     }
     else
     {
       // FIXME fold initial sources into host space
-      explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                            host_space, dev_space, chunks, plan, time, dt);
+      timer::record(explicit_time_advance<prec>, "explicit_time_advance", *pde,
+                    table, initial_sources, unscaled_parts, host_space,
+                    dev_space, chunks, plan, time, dt);
     }
 
     // print root mean squared error from analytic solution
@@ -321,6 +323,8 @@ int main(int argc, char **argv)
   // yet, but rank 0 holds the complete result after this call
   auto const final_result =
       gather_results(host_space.x, plan, my_rank, segment_size);
+
+  node_out() << timer::record.report() << '\n';
 
   finalize_distribution();
 

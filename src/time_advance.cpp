@@ -4,6 +4,7 @@
 #include "element_table.hpp"
 #include "fast_math.hpp"
 #include "solver.hpp"
+#include "timer.hpp"
 
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in x.
@@ -47,7 +48,8 @@ void explicit_time_advance(
   std::vector<batch_operands_set<P>> batches =
       allocate_batches<P>(pde, max_elems);
 
-  apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
+  timer::record(apply_A<P>, "apply_A", pde, table, grid, chunks, host_space,
+                dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
   fm::axpy(host_space.scaled_source, host_space.reduced_fx);
@@ -64,7 +66,8 @@ void explicit_time_advance(
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
-  apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
+  timer::record(apply_A<P>, "apply_A", pde, table, grid, chunks, host_space,
+                dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c2 * dt);
@@ -86,7 +89,8 @@ void explicit_time_advance(
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
-  apply_A(pde, table, grid, chunks, host_space, dev_space, batches);
+  timer::record(apply_A<P>, "apply_A", pde, table, grid, chunks, host_space,
+                dev_space, batches);
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
                 time + c3 * dt);

@@ -118,6 +118,7 @@ set (components
   solver
   tensors
   time_advance
+  timer
   transformations
 )
 if (ASGARD_IO_HIGHFIVE)
@@ -198,7 +199,7 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors boundary_conditions
+target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors timer boundary_conditions
                                     INTERFACE element_table)
 
 target_link_libraries (transformations
@@ -222,6 +223,7 @@ set (main_app_link_deps
   quadrature
   tensors
   time_advance
+  timer
   transformations
 )
 if (ASGARD_IO_HIGHFIVE)
