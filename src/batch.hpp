@@ -77,37 +77,53 @@ private:
   iterator end() { return batch_ + num_entries(); }
 };
 
-/*
+// which of the kronecker-product based algorithms the batch chain supports
+enum class chain_method
+{
+  realspace, // for realspace transform
+  advance    // for time advance
+};
 
-Problem relevant to class batch_chain:
+template<chain_method method>
+using enable_for_realspace =
+    std::enable_if_t<method == chain_method::realspace>;
 
-given a vector "x" of length "x_size" and list of matrices of arbitrary
-dimension in "matrix": { m0, m1, ... , m_last }, calculate ( m0 kron m1 kron ...
-kron m_end ) * x
+template<chain_method method>
+using enable_for_advance = std::enable_if_t<method == chain_method::advance>;
 
-*/
-
-template<typename P, resource resrc>
+// class that marshals pointers for batched gemm and calls into blas to execute.
+// realspace method enqueues all gemms for one kron(A1,...,AN)*x,
+// time advance method equeues gemms for many such krons
+template<typename P, resource resrc,
+         chain_method method = chain_method::realspace>
 class batch_chain
 {
 public:
-  /* allocates batches and assigns data */
+  // constructors allocate batches and assign data pointers
+  // realspace transform constructor
+  template<chain_method m_ = method, typename = enable_for_realspace<m_>>
   batch_chain(
       std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
       fk::vector<P, mem_type::const_view, resrc> const &x,
       std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
       fk::vector<P, mem_type::view, resrc> &final_output);
-
-  void execute_batch_chain();
+  // time advance constructor
+  template<chain_method m_ = method, typename = enable_for_advance<m_>>
+  batch_chain(PDE<P> const &pde, element_table const &elem_table,
+              device_workspace<P> const &workspace,
+              element_subgrid const &subgrid, element_chunk const &chunk);
+  void execute() const;
 
 private:
-  std::vector<batch<P, resrc>> left;
-
-  std::vector<batch<P, resrc>> right;
-
-  std::vector<batch<P, resrc>> product;
+  // A matrices for batched gemm
+  std::vector<batch<P, resrc>> left_;
+  // B matrices
+  std::vector<batch<P, resrc>> right_;
+  // C matrices
+  std::vector<batch<P, resrc>> product_;
 };
 
+// FIXME place in batch class as private method
 /* Calculates necessary workspace length for the Kron algorithm. See .cpp file
  * for more details */
 template<typename P, resource resrc>
@@ -115,6 +131,7 @@ int calculate_workspace_length(
     std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
     int const x_size);
 
+// FIXME remove
 // execute a batched gemm given a, b, c batch lists
 template<typename P, resource resrc>
 void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
@@ -137,6 +154,7 @@ struct matrix_size_set
       : rows_a(rows_a), cols_a(cols_a), rows_b(rows_b), cols_b(cols_b){};
 };
 
+// FIXME remove
 // alias for a set of batch operands
 // e.g., a, b, and c where a*b will be
 // stored into c

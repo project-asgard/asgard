@@ -82,8 +82,10 @@ int calculate_workspace_length(
    each stage is the output of the previous. The initial input is the vector
    "x". The output of each stage is a vector. The output of the final stage is
    the solution to the problem. */
-template<typename P, resource resrc>
-batch_chain<P, resrc>::batch_chain(
+
+template<typename P, resource resrc, chain_method method>
+template<chain_method, typename>
+batch_chain<P, resrc, method>::batch_chain(
     std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
     fk::vector<P, mem_type::const_view, resrc> const &x,
     std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
@@ -128,12 +130,12 @@ batch_chain<P, resrc>::batch_chain(
     /* define the sizes of the operands */
     int const rows = x.size() / matrices.back().ncols();
 
-    left.emplace_back(1, matrices.back().nrows(), matrices.back().ncols(),
-                      matrices.back().stride(), false);
-    right.emplace_back(1, matrices.back().ncols(), rows,
-                       matrices.back().ncols(), false);
-    product.emplace_back(1, matrices.back().nrows(), rows,
-                         matrices.back().nrows(), false);
+    left_.emplace_back(1, matrices.back().nrows(), matrices.back().ncols(),
+                       matrices.back().stride(), false);
+    right_.emplace_back(1, matrices.back().ncols(), rows,
+                        matrices.back().ncols(), false);
+    product_.emplace_back(1, matrices.back().nrows(), rows,
+                          matrices.back().nrows(), false);
 
     /* assign the data to the batches */
     fk::matrix<P, mem_type::const_view, resrc> input(x, matrices.back().ncols(),
@@ -145,9 +147,9 @@ batch_chain<P, resrc>::batch_chain(
         (matrices.size() > 1 ? destination : final_output),
         matrices.back().nrows(), rows, 0);
 
-    right.back().assign_entry(input, 0);
-    left.back().assign_entry(matrices.back(), 0);
-    product.back().assign_entry(output, 0);
+    right_.back().assign_entry(input, 0);
+    left_.back().assign_entry(matrices.back(), 0);
+    product_.back().assign_entry(output, 0);
 
     /* output and input space will switch roles for the next iteration */
     std::swap(in, out);
@@ -174,10 +176,10 @@ batch_chain<P, resrc>::batch_chain(
       that the input can be interpreted in column major format and that the
       output will be implicitly stored that way.
     */
-    left.emplace_back(n_gemms, stride, matrices[i].ncols(), stride, false);
-    right.emplace_back(n_gemms, matrices[i].nrows(), matrices[i].ncols(),
-                       matrices[i].stride(), true);
-    product.emplace_back(n_gemms, stride, matrices[i].nrows(), stride, false);
+    left_.emplace_back(n_gemms, stride, matrices[i].ncols(), stride, false);
+    right_.emplace_back(n_gemms, matrices[i].nrows(), matrices[i].ncols(),
+                        matrices[i].stride(), true);
+    product_.emplace_back(n_gemms, stride, matrices[i].nrows(), stride, false);
 
     /* assign actual data to the batches */
     for (int j = 0; j < n_gemms; ++j)
@@ -190,9 +192,9 @@ batch_chain<P, resrc>::batch_chain(
           workspace[out], stride, matrices[i].nrows(),
           j * stride * matrices[i].nrows());
 
-      left.back().assign_entry(input, j);
-      right.back().assign_entry(matrices[i], j);
-      product.back().assign_entry(output, j);
+      left_.back().assign_entry(input, j);
+      right_.back().assign_entry(matrices[i], j);
+      product_.back().assign_entry(output, j);
     }
 
     /* output and input space will switch roles for the next iteration */
@@ -209,12 +211,13 @@ batch_chain<P, resrc>::batch_chain(
   {
     int const n_gemms = v_size / stride / matrices.front().ncols();
 
-    left.emplace_back(n_gemms, stride, matrices.front().ncols(), stride, false);
-    right.emplace_back(n_gemms, matrices.front().nrows(),
-                       matrices.front().ncols(), matrices.front().stride(),
-                       true);
-    product.emplace_back(n_gemms, stride, matrices.front().nrows(), stride,
-                         false);
+    left_.emplace_back(n_gemms, stride, matrices.front().ncols(), stride,
+                       false);
+    right_.emplace_back(n_gemms, matrices.front().nrows(),
+                        matrices.front().ncols(), matrices.front().stride(),
+                        true);
+    product_.emplace_back(n_gemms, stride, matrices.front().nrows(), stride,
+                          false);
 
     for (int j = 0; j < n_gemms; ++j)
     {
@@ -226,17 +229,25 @@ batch_chain<P, resrc>::batch_chain(
           final_output, stride, matrices.front().nrows(),
           j * stride * matrices.front().nrows());
 
-      left.back().assign_entry(input, j);
-      right.back().assign_entry(matrices.front(), j);
-      product.back().assign_entry(output, j);
+      left_.back().assign_entry(input, j);
+      right_.back().assign_entry(matrices.front(), j);
+      product_.back().assign_entry(output, j);
     }
   }
 
   return;
 }
+template<typename P, resource resrc, chain_method method>
+template<chain_method, typename>
+batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
+                                           element_table const &elem_table,
+                                           device_workspace<P> const &workspace,
+                                           element_subgrid const &subgrid,
+                                           element_chunk const &chunk)
+{}
 
-template<typename P, resource resrc>
-void batch_chain<P, resrc>::execute_batch_chain()
+template<typename P, resource resrc, chain_method method>
+void batch_chain<P, resrc, method>::execute() const
 {
   assert(left.size() == right.size());
   assert(right.size() == product.size());
@@ -1313,7 +1324,68 @@ template int calculate_workspace_length<float, resource::host>(
         &matrices,
     int const x_size);
 
-template class batch_chain<double, resource::device>;
-template class batch_chain<double, resource::host>;
-template class batch_chain<float, resource::device>;
-template class batch_chain<float, resource::host>;
+template class batch_chain<double, resource::device, chain_method::realspace>;
+template class batch_chain<double, resource::host, chain_method::realspace>;
+template class batch_chain<float, resource::device, chain_method::realspace>;
+template class batch_chain<float, resource::host, chain_method::realspace>;
+
+template class batch_chain<double, resource::device, chain_method::advance>;
+template class batch_chain<double, resource::host, chain_method::advance>;
+template class batch_chain<float, resource::device, chain_method::advance>;
+template class batch_chain<float, resource::host, chain_method::advance>;
+
+template batch_chain<float, resource::host, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<float, mem_type::const_view,
+                               resource::host>> const &matrices,
+        fk::vector<float, mem_type::const_view, resource::host> const &x,
+        std::array<fk::vector<float, mem_type::view, resource::host>, 2>
+            &workspace,
+        fk::vector<float, mem_type::view, resource::host> &final_output);
+
+template batch_chain<double, resource::host, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<double, mem_type::const_view,
+                               resource::host>> const &matrices,
+        fk::vector<double, mem_type::const_view, resource::host> const &x,
+        std::array<fk::vector<double, mem_type::view, resource::host>, 2>
+            &workspace,
+        fk::vector<double, mem_type::view, resource::host> &final_output);
+
+template batch_chain<float, resource::device, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<float, mem_type::const_view,
+                               resource::device>> const &matrices,
+        fk::vector<float, mem_type::const_view, resource::device> const &x,
+        std::array<fk::vector<float, mem_type::view, resource::device>, 2>
+            &workspace,
+        fk::vector<float, mem_type::view, resource::device> &final_output);
+
+template batch_chain<double, resource::device, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<double, mem_type::const_view,
+                               resource::device>> const &matrices,
+        fk::vector<double, mem_type::const_view, resource::device> const &x,
+        std::array<fk::vector<double, mem_type::view, resource::device>, 2>
+            &workspace,
+        fk::vector<double, mem_type::view, resource::device> &final_output);
+
+template batch_chain<float, resource::device, chain_method::advance>::
+    batch_chain(PDE<float> const &pde, element_table const &elem_table,
+                device_workspace<float> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
+
+template batch_chain<double, resource::device, chain_method::advance>::
+    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+                device_workspace<double> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
+
+template batch_chain<float, resource::host, chain_method::advance>::batch_chain(
+    PDE<float> const &pde, element_table const &elem_table,
+    host_workspace<float> const &workspace, element_subgrid const &subgrid,
+    element_chunk const &chunk);
+
+template batch_chain<double, resource::host, chain_method::advance>::
+    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+                host_workspace<double> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
