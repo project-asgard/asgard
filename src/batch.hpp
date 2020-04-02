@@ -186,10 +186,11 @@ void kronmult_to_batch_sets(
 // in the view class incurs a prohibitive runtime cost when used
 // to batch millions (or billions) of GEMMs, e.g. for a 6d problem
 template<typename P>
-void unsafe_kronmult_to_batch_sets(std::vector<P *> const &A, P *const x,
-                                   P *const y, std::vector<P *> const &work,
+void unsafe_kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
+                                   P *const *const work,
                                    std::vector<batch_operands_set<P>> &batches,
                                    int const batch_offset, PDE<P> const &pde);
+
 template<typename P>
 void build_batches(PDE<P> const &pde, element_table const &elem_table,
                    device_workspace<P> const &workspace,

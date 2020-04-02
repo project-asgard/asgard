@@ -39,7 +39,7 @@ public:
   int get_index(fk::vector<int> const coords) const;
 
   // reverse lookup
-  fk::vector<int> get_coords(int const index) const;
+  fk::vector<int> const &get_coords(int const index) const;
 
   // returns the number of elements in table
   int size() const

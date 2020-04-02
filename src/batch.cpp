@@ -3,12 +3,12 @@
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
-
 #include "chunk.hpp"
 #include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 #include <limits.h>
+
 /*
 
 Problem relevant to batch_chain class:
@@ -837,17 +837,14 @@ void kronmult_to_batch_sets(
 
 // unsafe version; uses raw pointers rather than views
 template<typename P>
-void unsafe_kronmult_to_batch_sets(std::vector<P *> const &A, P *const x,
-                                   P *const y, std::vector<P *> const &work,
+void unsafe_kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
+                                   P *const *const work,
                                    std::vector<batch_operands_set<P>> &batches,
                                    int const batch_offset, PDE<P> const &pde)
 {
   // FIXME when we allow varying degree by dimension, all
   // this code will have to change...
   int const degree = pde.get_dimensions()[0].get_degree();
-
-  // check workspace sizes
-  assert(static_cast<int>(work.size()) == std::min(pde.num_dims - 1, 2));
 
   // we need an operand set for each dimension on entry
   assert(static_cast<int>(batches.size()) == pde.num_dims);
@@ -906,39 +903,53 @@ void unsafe_kronmult_to_batch_sets(std::vector<P *> const &A, P *const x,
 }
 
 // helper for calculating 1d indices for elements
+
+// performant (no-alloc) version
+inline void linearize(fk::vector<int> const &coords, int output[])
+{
+  int const output_size = coords.size() / 2;
+  for (int i = 0; i < output_size; ++i)
+  {
+    output[i] = get_1d_index(coords(i), coords(i + output_size));
+  }
+}
+
+// "safe" version
 inline fk::vector<int> linearize(fk::vector<int> const &coords)
 {
-  fk::vector<int> elem_indices(coords.size() / 2);
-  for (int i = 0; i < elem_indices.size(); ++i)
+  fk::vector<int> linear(coords.size() / 2);
+  for (int i = 0; i < linear.size(); ++i)
   {
-    elem_indices(i) = get_1d_index(coords(i), coords(i + elem_indices.size()));
+    linear(i) = get_1d_index(coords(i), coords(i + linear.size()));
   }
-  return elem_indices;
+  return linear;
 }
 
+// convert linear coordinates into operator matrix indices
+
+// performant (no-alloc) version
 template<typename P>
-inline fk::vector<int> get_operator_row(PDE<P> const &pde, int const degree,
-                                        fk::vector<int> const &elem_indices)
+inline void
+linear_coords_to_indices(PDE<P> const &pde, int const degree, int coords[])
 {
-  fk::vector<int> op_row(pde.num_dims);
   for (int d = 0; d < pde.num_dims; ++d)
   {
-    op_row(d) = elem_indices(d) * degree;
+    coords[d] = coords[d] * degree;
   }
-  return op_row;
 }
 
+// "safe" version
 template<typename P>
 inline fk::vector<int>
-get_operator_col(PDE<P> const &pde, int const degree,
-                 fk::vector<int> const &connected_indices)
+linear_coords_to_indices(PDE<P> const &pde, int const degree,
+                         fk::vector<int> const &coords)
 {
-  fk::vector<int> op_col(pde.num_dims);
+  fk::vector<int> indices(coords.size());
   for (int d = 0; d < pde.num_dims; ++d)
   {
-    op_col(d) = connected_indices(d) * degree;
+    indices(d) = coords(d) * degree;
   }
-  return op_col;
+  return indices;
 }
 
 // function to build batch lists.
@@ -955,7 +966,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
 
-  int64_t const x_size = (subgrid.col_stop - subgrid.col_start + 1) * elem_size;
+  auto const x_size = (subgrid.col_stop - subgrid.col_start + 1) *
+                      static_cast<int64_t>(elem_size);
   assert(workspace.batch_input.size() >= x_size);
 
   int const elements_in_chunk = num_elements_in_chunk(chunk);
@@ -975,26 +987,53 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
   ready_batches(pde, chunk, batches);
 
-  // can't use structured binding; variables passed into outlined omp func
-  for (auto const &row_info : chunk)
+  // here we map integers 0->chunk_size-1 to row_0->row_last in the chunk
+  // we could iterate over the chunk (which is a map rows->connected)
+  // but openmp requires traditional loop, not foreachs
+  std::vector<int> const index_to_key = [&chunk]() {
+    std::vector<int> builder;
+    for (auto const &[i, connected] : chunk)
+    {
+      builder.push_back(i);
+      ignore(connected);
+    }
+    return builder;
+  }();
+
+// loop over elements
+#ifdef ASGARD_USE_OPENMP
+  int const threads = omp_get_num_procs();
+#pragma omp parallel for num_threads(threads)
+#endif
+  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
+       ++chunk_num)
   {
+    // allocate on thread stack
+    static int constexpr max_dims       = 6;
+    static int constexpr max_workspaces = 2;
+    int operator_row[max_dims];
+    int operator_col[max_dims];
+    P *workspace_ptrs[max_workspaces];
+    P *operator_ptrs[max_dims];
+
     // i: row we are addressing in element grid
-    auto const i = row_info.first;
-    // connected: start/stop for this row
-    auto const connected = row_info.second;
+    int const i = index_to_key[chunk_num];
+    // connected: start/stop grid elements for this row
+    auto const connected = chunk.at(i);
+
     // first, get linearized indices for this element
     //
     // calculate from the level/cell indices for each
     // dimension
-    fk::vector<int> const coords = elem_table.get_coords(i);
+    fk::vector<int> const &coords = elem_table.get_coords(i);
     assert(coords.size() == pde.num_dims * 2);
-    fk::vector<int> const elem_indices = linearize(coords);
+
+    linearize(coords, operator_row);
 
     // calculate the row portion of the
     // operator position used for this
     // element's gemm calls
-    fk::vector<int> const operator_row =
-        get_operator_row(pde, degree, elem_indices);
+    linear_coords_to_indices(pde, degree, operator_row);
 
     // calculate number of elements in previous rows
     // for later indexing in term (k) loop
@@ -1013,21 +1052,18 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
-#endif
     for (int j = connected.start; j <= connected.stop; ++j)
     {
       // get linearized indices for this connected element
-      fk::vector<int> const coords = elem_table.get_coords(j);
+      fk::vector<int> const &coords = elem_table.get_coords(j);
       assert(coords.size() == pde.num_dims * 2);
-      fk::vector<int> const connected_indices = linearize(coords);
+
+      linearize(coords, operator_col);
 
       // calculate the col portion of the
       // operator position used for this
       // element's gemm calls
-      fk::vector<int> const operator_col =
-          get_operator_col(pde, degree, connected_indices);
+      linear_coords_to_indices(pde, degree, operator_col);
 
       for (int k = 0; k < pde.num_terms; ++k)
       {
@@ -1043,29 +1079,20 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         // work space, intermediate kron data
         int const work_index =
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
-        std::vector<P *> const work_ptrs = [&workspace, work_index,
-                                            num_workspaces, elem_size]() {
-          std::vector<P *> work_ptrs(num_workspaces);
-          if (num_workspaces > 0)
-            work_ptrs[0] = workspace.batch_intermediate.data() + work_index;
-          if (num_workspaces == 2)
-            work_ptrs[1] =
-                workspace.batch_intermediate.data() + work_index + elem_size;
-          return work_ptrs;
-        }();
 
-        // operator views, windows into operator matrix
-        std::vector<P *> const operator_ptrs = [&pde, &operator_row,
-                                                &operator_col, k]() {
-          std::vector<P *> operator_ptrs;
-          for (int d = pde.num_dims - 1; d >= 0; --d)
-          {
-            operator_ptrs.push_back(
-                pde.get_coefficients(k, d).data() + operator_row(d) +
-                operator_col(d) * pde.get_coefficients(k, d).stride());
-          }
-          return operator_ptrs;
-        }();
+        if (num_workspaces > 0)
+          workspace_ptrs[0] = workspace.batch_intermediate.data() + work_index;
+        if (num_workspaces == 2)
+          workspace_ptrs[1] =
+              workspace.batch_intermediate.data() + work_index + elem_size;
+
+        // index into operator matrices
+        for (int d = pde.num_dims - 1; d >= 0; --d)
+        {
+          operator_ptrs[(pde.num_dims - 1) - d] =
+              pde.get_coefficients(k, d).data() + operator_row[d] +
+              operator_col[d] * pde.get_coefficients(k, d).stride();
+        }
 
         // determine the index for the input vector
         int const x_index = subgrid.to_local_col(j) * elem_size;
@@ -1073,8 +1100,8 @@ void build_batches(PDE<P> const &pde, element_table const &elem_table,
         // x vector input to kronmult
         P *const x_ptr = workspace.batch_input.data() + x_index;
 
-        unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, work_ptrs,
-                                      batches, kron_index, pde);
+        unsafe_kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr,
+                                      workspace_ptrs, batches, kron_index, pde);
       }
     }
   }
@@ -1126,7 +1153,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
     // operator position used for this
     // element's gemm calls
     fk::vector<int> const operator_row =
-        get_operator_row(pde, degree, elem_indices);
+        linear_coords_to_indices(pde, degree, elem_indices);
 
     // loop over connected elements. for now, we assume
     // full connectivity
@@ -1141,7 +1168,7 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
       // operator position used for this
       // element's gemm calls
       fk::vector<int> const operator_col =
-          get_operator_col(pde, degree, connected_indices);
+          linear_coords_to_indices(pde, degree, connected_indices);
 
       for (int k = 0; k < pde.num_terms; ++k)
       {
@@ -1237,15 +1264,14 @@ template void kronmult_to_batch_sets(
     PDE<double> const &pde);
 
 template void
-unsafe_kronmult_to_batch_sets(std::vector<float *> const &A, float *const x,
-                              float *const y, std::vector<float *> const &work,
+unsafe_kronmult_to_batch_sets(float *const *const A, float *const x,
+                              float *const y, float *const *const work,
                               std::vector<batch_operands_set<float>> &batches,
                               int const batch_offset, PDE<float> const &pde);
 
 template void
-unsafe_kronmult_to_batch_sets(std::vector<double *> const &A, double *const x,
-                              double *const y,
-                              std::vector<double *> const &work,
+unsafe_kronmult_to_batch_sets(double *const *const A, double *const x,
+                              double *const y, double *const *const work,
                               std::vector<batch_operands_set<double>> &batches,
                               int const batch_offset, PDE<double> const &pde);
 
