@@ -89,6 +89,8 @@ TEST_CASE("test recorder")
 
   auto const &times = record.get_times(identifier);
 
+  double const tolerance = 1e2;
+
   SECTION("avg")
   {
     double sum = 0.0;
@@ -98,7 +100,7 @@ TEST_CASE("test recorder")
     }
     double const gold_average = sum / times.size();
     REQUIRE(avg == gold_average);
-    REQUIRE(avg_wrap == gold_average);
+    relaxed_comparison(avg_wrap, gold_average, tolerance);
   }
 
   SECTION("min/max")
@@ -114,8 +116,8 @@ TEST_CASE("test recorder")
 
     REQUIRE(min == gold_min);
     REQUIRE(max == gold_max);
-    REQUIRE(min_wrap == gold_min);
-    REQUIRE(max_wrap == gold_max);
+    relaxed_comparison(min_wrap, gold_min, tolerance);
+    relaxed_comparison(max_wrap, gold_max, tolerance);
   }
 
   SECTION("med")
@@ -127,7 +129,7 @@ TEST_CASE("test recorder")
                                 ? (time_copy[mid] + time_copy[mid - 1]) / 2
                                 : time_copy[mid];
     REQUIRE(med == gold_med);
-    REQUIRE(med_wrap == gold_med);
+    relaxed_comparison(med_wrap, gold_med, tolerance);
   }
 
   SECTION("count")
