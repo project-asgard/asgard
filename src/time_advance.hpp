@@ -34,8 +34,7 @@ template<typename P>
 static void
 apply_A(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        host_workspace<P> &host_space, device_workspace<P> &dev_space,
-        std::vector<batch_operands_set<P>> &batches)
+        host_workspace<P> &host_space, device_workspace<P> &dev_space)
 {
   fm::scal(static_cast<P>(0.0), host_space.fx);
   fm::scal(static_cast<P>(0.0), dev_space.batch_output);
@@ -46,23 +45,21 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
-    auto const build_id = timer::record.start("build_batches");
-    build_batches(pde, elem_table, dev_space, grid, chunk, batches);
-    timer::record.stop(build_id);
 
-    // do the gemms
-    P const alpha = 1.0;
-    P const beta  = 0.0;
-    for (int i = 0; i < pde.num_dims; ++i)
-    {
-      batch<P> const &a = batches[i][0];
-      batch<P> const &b = batches[i][1];
-      batch<P> const &c = batches[i][2];
 
-      auto const gemm_id = timer::record.start("batched_gemm");
-      batched_gemm(a, b, c, alpha, beta);
-      timer::record.stop(gemm_id);
-    }
+    auto const batch_id = timer::record.start("build_batches");
+    batch_chain<P, resource::device, chain_method::advance> const batches(
+        pde, elem_table, dev_space, grid, chunk);
+    timer::record.stop(batch_id);
+
+
+
+
+    // execute
+    auto const gemm_id = timer::record.start("batched_gemm");
+    batches.execute();
+    timer::record.stop(gemm_id);
+
 
     // do the reduction
     auto const reduce_id = timer::record.start("reduce_chunk");

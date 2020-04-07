@@ -77,6 +77,28 @@ private:
   iterator end() { return batch_ + num_entries(); }
 };
 
+// execute a batched gemm given a, b, c batch lists
+template<typename P, resource resrc>
+void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta);
+
+// execute a batched gemv given a, b, c batch lists
+template<typename P, resource resrc>
+void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
+                  batch<P, resrc> const &c, P const alpha, P const beta);
+
+// this could be named better - encode dimensions for a gemm
+struct matrix_size_set
+{
+  int const rows_a;
+  int const cols_a;
+  int const rows_b;
+  int const cols_b;
+  matrix_size_set(int const rows_a, int const cols_a, int const rows_b,
+                  int const cols_b)
+      : rows_a(rows_a), cols_a(cols_a), rows_b(rows_b), cols_b(cols_b){};
+};
+
 // which of the kronecker-product based algorithms the batch chain supports
 enum class chain_method
 {
@@ -115,6 +137,77 @@ public:
   void execute() const;
 
 private:
+  // compute gemm sizes for a given dimension for time advance batching
+  template<chain_method m_ = method, typename = enable_for_advance<m_>>
+  matrix_size_set
+  compute_dimensions(int const degree, int const num_dims, int const dimension)
+  {
+    assert(dimension >= 0);
+    assert(dimension < num_dims);
+    assert(num_dims > 0);
+    assert(degree > 0);
+    if (dimension == 0)
+    {
+      return matrix_size_set(degree, degree, degree,
+                             static_cast<int>(std::pow(degree, num_dims - 1)));
+    }
+    return matrix_size_set(static_cast<int>(std::pow(degree, dimension)),
+                           degree, degree, degree);
+  }
+
+  // compute how many gemms required for kronmult at a given PDE dimension for
+  // time advance batching
+  template<chain_method m_ = method, typename = enable_for_advance<m_>>
+  int compute_batch_size(int const degree, int const num_dims,
+                         int const dimension)
+  {
+    assert(dimension >= 0);
+    assert(dimension < num_dims);
+    assert(num_dims > 0);
+    assert(degree > 0);
+
+    if (dimension == 0 || dimension == num_dims - 1)
+    {
+      return 1;
+    }
+
+    return std::pow(degree, (num_dims - dimension - 1));
+  }
+
+  // calc workspace size for realspace batching, where dimensions of matrices
+  // not uniform
+  template<chain_method m_ = method, typename = enable_for_realspace<m_>>
+  int calculate_workspace_length(
+      std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
+      int const x_size)
+  {
+    int greatest = x_size;
+    int r_prod   = 1;
+    int c_prod   = 1;
+
+    typename std::vector<fk::matrix<P, mem_type::const_view,
+                                    resrc>>::const_reverse_iterator iter;
+
+    for (iter = matrices.rbegin(); iter != matrices.rend(); ++iter)
+    {
+      c_prod *= iter->ncols();
+      assert(c_prod > 0);
+
+      r_prod *= iter->nrows();
+
+      int const size = x_size / c_prod * r_prod;
+      if (size > greatest)
+        greatest = size;
+    }
+
+    return greatest;
+  }
+
+  template<chain_method m_ = method, typename = enable_for_advance<m_>>
+  void kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
+                              P *const *const work, int const batch_offset,
+                              PDE<P> const &pde);
+
   // A matrices for batched gemm
   std::vector<batch<P, resrc>> left_;
   // B matrices
@@ -123,98 +216,8 @@ private:
   std::vector<batch<P, resrc>> product_;
 };
 
-// FIXME place in batch class as private method
-/* Calculates necessary workspace length for the Kron algorithm. See .cpp file
- * for more details */
-template<typename P, resource resrc>
-int calculate_workspace_length(
-    std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
-    int const x_size);
-
-// FIXME remove
-// execute a batched gemm given a, b, c batch lists
-template<typename P, resource resrc>
-void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
-                  batch<P, resrc> const &c, P const alpha, P const beta);
-
-// execute a batched gemv given a, b, c batch lists
-template<typename P, resource resrc>
-void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
-                  batch<P, resrc> const &c, P const alpha, P const beta);
-
-// this could be named better
-struct matrix_size_set
-{
-  int const rows_a;
-  int const cols_a;
-  int const rows_b;
-  int const cols_b;
-  matrix_size_set(int const rows_a, int const cols_a, int const rows_b,
-                  int const cols_b)
-      : rows_a(rows_a), cols_a(cols_a), rows_b(rows_b), cols_b(cols_b){};
-};
-
-// FIXME remove
-// alias for a set of batch operands
-// e.g., a, b, and c where a*b will be
-// stored into c
-template<typename P>
-using batch_operands_set = std::vector<batch<P>>;
-
-// create empty batches w/ correct dims and settings
-// for batching
-// num_elems is the total number of connected elements
-// in the simulation; typically, size of element table squared
-template<typename P>
-std::vector<batch_operands_set<P>>
-allocate_batches(PDE<P> const &pde, int const num_elems);
-
-// given num_dims many square matrices of size degree by degree,
-// and a vector x of size degree^num_dims, and an output
-// vector y of the same size,
-// enqueue the parameters for the batched gemm operations
-// to perform the multiplication A*x=y, where
-// A is the tensor product of the input matrices.
-//
-// i.e., enqueue small gemms to perform A*x=y,
-// where A is tensor encoded and not explicitly formed.
-//
-// work array is the workspace for intermediate products for the gemms.
-// each element should be degree^num_dims in size.
-// the array must contain num_dims-1 such elements.
-//
-// the result of this function is that each a,b,c in each batch operand set,
-// for each dimension, are assigned values for the small gemms that will
-// do the arithmetic for a single connected element.
-template<typename P>
-void kronmult_to_batch_sets(
-    std::vector<fk::matrix<P, mem_type::const_view, resource::device>> const &A,
-    fk::vector<P, mem_type::const_view, resource::device> const &x,
-    fk::vector<P, mem_type::const_view, resource::device> const &y,
-    std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
-        &work,
-    std::vector<batch_operands_set<P>> &batches, int const batch_offset,
-    PDE<P> const &pde);
-
-// unsafe version of kronmult to batch sets function
-// conceptually performs the same operations, but works
-// with raw pointers rather than views.
-
-// we chose to implement this because the reference counting
-// in the view class incurs a prohibitive runtime cost when used
-// to batch millions (or billions) of GEMMs, e.g. for a 6d problem
-template<typename P>
-void unsafe_kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
-                                   P *const *const work,
-                                   std::vector<batch_operands_set<P>> &batches,
-                                   int const batch_offset, PDE<P> const &pde);
-
-template<typename P>
-void build_batches(PDE<P> const &pde, element_table const &elem_table,
-                   device_workspace<P> const &workspace,
-                   element_subgrid const &subgrid, element_chunk const &chunk,
-                   std::vector<batch_operands_set<P>> &batches);
-
+// function to build system matrix for implicit stepping
+// doesn't use batches, but does use many of the same helpers/structure
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
                          element_chunk const &chunk, fk::matrix<P> &A);
