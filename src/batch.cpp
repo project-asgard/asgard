@@ -226,7 +226,7 @@ batch<P, resrc> &batch<P, resrc>::clear_all()
 // execute a batched gemm given a, b, c batch lists
 // and other blas information
 // if we store info in the batch about where it is
-// resrcident, this could be an abstraction point
+// resident, this could be an abstraction point
 // for calling cpu/gpu blas etc.
 template<typename P, resource resrc>
 void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,

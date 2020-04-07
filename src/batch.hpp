@@ -99,6 +99,31 @@ struct matrix_size_set
       : rows_a(rows_a), cols_a(cols_a), rows_b(rows_b), cols_b(cols_b){};
 };
 
+
+// inline helper to calc workspace size for realspace batching, where dimensions of matrices
+// not uniform
+template<typename P, resource resrc>
+inline int calculate_workspace_length(
+      std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
+      int const x_size)
+  {
+    int greatest = x_size;
+    int r_prod   = 1;
+    int c_prod   = 1;
+    typename std::vector<fk::matrix<P, mem_type::const_view,
+                                    resrc>>::const_reverse_iterator iter;
+    for (iter = matrices.rbegin(); iter != matrices.rend(); ++iter)
+    {
+      c_prod *= iter->ncols();
+      assert(c_prod > 0);
+      r_prod *= iter->nrows();
+      int const size = x_size / c_prod * r_prod;
+      greatest = std::max(greatest, size);
+    }
+    return greatest;
+  }
+
+
 // which of the kronecker-product based algorithms the batch chain supports
 enum class chain_method
 {
@@ -172,35 +197,6 @@ private:
     }
 
     return std::pow(degree, (num_dims - dimension - 1));
-  }
-
-  // calc workspace size for realspace batching, where dimensions of matrices
-  // not uniform
-  template<chain_method m_ = method, typename = enable_for_realspace<m_>>
-  int calculate_workspace_length(
-      std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
-      int const x_size)
-  {
-    int greatest = x_size;
-    int r_prod   = 1;
-    int c_prod   = 1;
-
-    typename std::vector<fk::matrix<P, mem_type::const_view,
-                                    resrc>>::const_reverse_iterator iter;
-
-    for (iter = matrices.rbegin(); iter != matrices.rend(); ++iter)
-    {
-      c_prod *= iter->ncols();
-      assert(c_prod > 0);
-
-      r_prod *= iter->nrows();
-
-      int const size = x_size / c_prod * r_prod;
-      if (size > greatest)
-        greatest = size;
-    }
-
-    return greatest;
   }
 
   template<chain_method m_ = method, typename = enable_for_advance<m_>>
