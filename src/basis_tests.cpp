@@ -89,7 +89,7 @@ void test_operator_two_scale(int const levels, int const degree)
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  P const tol_factor = 1e-14;
+  P const tol_factor = 1e-13;
 
   rmse_comparison(gold, test, tol_factor);
 }

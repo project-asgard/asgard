@@ -20,8 +20,22 @@ void rmse_comparison( fk::vector< P, mem > const &v0,
                            fk::vector< P, mem > const &v1, P const tolerance )
 {
   P const diff_norm = fm::nrm2( v0 - v1 );
-  P const max_norm = std::max( fm::nrm2( v0 ), fm::nrm2( v1 ) );
-  REQUIRE( diff_norm < ( tolerance * max_norm * std::sqrt( v0.size() ) ) );
+
+  auto avg_element =
+  []( fk::vector< P, mem > const &v )-> P
+  {
+    P sum = 0;
+    for( P num : v )
+    {
+      sum += std::abs( num );
+    }
+
+    return sum / static_cast< P >( v.size() );
+  };
+
+  P const max_avg_element = std::max( avg_element( v0 ), avg_element( v1 ) );
+
+  REQUIRE( diff_norm < ( tolerance * max_avg_element * std::sqrt( v0.size() ) ) );
 }
 
 template< typename P, mem_type mem  >
@@ -29,8 +43,22 @@ void rmse_comparison( fk::matrix< P, mem > const &m0,
                            fk::matrix< P, mem > const &m1, P const tolerance )
 {
   P const diff_norm = fm::frobenius( m0 - m1 );
-  P const max_norm = std::max( fm::frobenius( m0 ), fm::frobenius( m1 ) );
-  REQUIRE( diff_norm < ( tolerance * max_norm * std::sqrt( m0.size() ) ) );
+
+  auto avg_element =
+  []( fk::matrix< P, mem > const &m )-> P
+  {
+    P sum = 0;
+    for( P num : m )
+    {
+      sum += std::abs( num );
+    }
+
+    return sum / static_cast< P >( m.size() );
+  };
+
+  P const max_avg_element = std::max( avg_element( m0 ), avg_element( m1 ) );
+
+  REQUIRE( diff_norm < ( tolerance * max_avg_element * std::sqrt( m0.size() ) ) );
 }
 
 // Someday I should come up with a more elegant solution here
