@@ -3538,3 +3538,50 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
     REQUIRE(mat_h == gold_view);
   }
 }
+
+TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", double, float)
+{
+  fk::matrix<TestType> const m_0 = {{0, 4, 8, 12, 16, 20, 24, 28},
+                                    {1, 5, 9, 13, 17, 21, 25, 29},
+                                    {2, 6, 10, 14, 18, 22, 26, 30},
+                                    {3, 7, 11, 15, 19, 23, 27, 31}};
+
+  fk::matrix<TestType> const m_1 = {
+      {0, 1, 2, 3},     {4, 5, 6, 7},     {8, 9, 10, 11},   {12, 13, 14, 15},
+      {16, 17, 18, 19}, {20, 21, 22, 23}, {24, 25, 26, 27}, {28, 29, 30, 31}};
+
+  fk::matrix<TestType> const m_2 = {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}};
+
+  fk::matrix<TestType> const m_3 = {{0}, {1}, {2}, {3}, {4},
+                                    {5}, {6}, {7}, {8}, {9}};
+
+  fk::matrix<TestType> const m_4 = {{0, 1, 2}, {3, 4, 5}};
+
+  fk::matrix<TestType> const m_5 = {{0, 3}, {1, 4}, {2, 5}};
+
+  fk::matrix<TestType> const m_6 = {
+      {0, 4, 8, 12}, {1, 5, 9, 13}, {2, 6, 10, 14}, {3, 7, 11, 15}};
+
+  fk::matrix<TestType> const m_7 = {
+      {0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15}};
+
+  auto correct_transpose =
+      [](fk::matrix<TestType> const &m,
+         fk::matrix<TestType> const &m_transposed) -> bool {
+    fk::matrix<TestType> m_copy(m);
+    m_copy.transpose();
+    return m_copy == m_transposed;
+  };
+
+  SECTION("in-place transpose")
+  {
+    REQUIRE(correct_transpose(m_1, m_0));
+    REQUIRE(correct_transpose(m_0, m_1));
+    REQUIRE(correct_transpose(m_4, m_5));
+    REQUIRE(correct_transpose(m_5, m_4));
+    REQUIRE(correct_transpose(m_2, m_3));
+    REQUIRE(correct_transpose(m_3, m_2));
+    REQUIRE(correct_transpose(m_6, m_7));
+    REQUIRE(correct_transpose(m_7, m_6));
+  }
+}

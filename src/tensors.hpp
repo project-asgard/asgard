@@ -478,6 +478,10 @@ public:
            resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem, resrc> &transpose();
 
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
+  matrix<P, mem, resrc> &ip_transpose();
+
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> kron(matrix<P, omem> const &) const;
 
@@ -2148,29 +2152,69 @@ operator*(matrix<P, omem> const &B) const
   return C;
 }
 
-//
-// Transpose a matrix (overwrites original)
-// @return  the transposed matrix
-//
-// FIXME could be worthwhile to optimize the matrix transpose
+/* in-place matrix transpose for column major data layout */
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, resource, typename>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transpose()
 {
-  matrix<P> temp(ncols(), nrows());
+  /* empty matrix */
+  if (size() == 0)
+    return *this;
 
-  for (auto j = 0; j < ncols(); ++j)
-    for (auto i = 0; i < nrows(); ++i)
-      temp(j, i) = (*this)(i, j);
+  /* vector pretending to be a matrix */
+  if (nrows_ == 1 || ncols_ == 1)
+  {
+    std::swap(nrows_, ncols_);
+    stride_ = nrows_;
+    return *this;
+  }
 
-  // inelegant manual "move assignment"
-  // unlike actual move assignment, need to delete the old pointer
-  nrows_  = temp.nrows();
-  ncols_  = temp.ncols();
-  stride_ = nrows();
-  delete[] data_;
-  data_      = temp.data();
-  temp.data_ = nullptr;
+  /* square matrix */
+  if (nrows_ == ncols_)
+  {
+    for (int r = 0; r < nrows_; ++r)
+    {
+      for (int c = 0; c < r; ++c)
+      {
+        std::swap(data_[c * nrows_ + r], data_[r * nrows_ + c]);
+      }
+    }
+    return *this;
+  }
+
+  /* spot for each element, true ~ visited, false ~ unvisited */
+  std::vector<bool> visited(size() - 2, false);
+
+  /* Given index "pos" in a linear array interpreted as a matrix of "nrows_"
+     rows, n_cols_ columns, and column-major data layout, return the linear
+     index position of the element in the matrix's transpose */
+  auto const remap_index = [this](int const pos) -> int {
+    int const row         = pos % nrows_;
+    int const col         = pos / nrows_;
+    int const destination = row * ncols_ + col;
+    return destination;
+  };
+
+  /* The first and last elements never change position and can be ignored */
+  for (int pos = 1; pos < size() - 1; ++pos)
+  {
+    if (visited[pos])
+      continue;
+
+    P save = data_[pos];
+
+    int next_pos = remap_index(pos);
+
+    while (!visited[next_pos])
+    {
+      std::swap(save, data_[next_pos]);
+      visited[next_pos] = true;
+      next_pos          = remap_index(next_pos);
+    }
+  }
+
+  std::swap(nrows_, ncols_);
+  stride_ = nrows_;
 
   return *this;
 }
