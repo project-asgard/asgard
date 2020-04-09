@@ -89,7 +89,7 @@ TEST_CASE("test recorder")
 
   auto const &times = record.get_times(identifier);
 
-  double const tolerance = 1e2;
+  double const tolerance = 1e4;
 
   SECTION("avg")
   {
