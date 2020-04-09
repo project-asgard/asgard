@@ -23,15 +23,14 @@ double shuffle_random(int const num_items)
 TEST_CASE("test recorder")
 {
   timer::recorder record;
-  int const items_to_gen            = 1000000;
-  int const iterations              = 10;
-  std::string const identifier      = "waste_time";
-  std::string const identifier_wrap = "waste_more";
+  int const items_to_gen       = 1000000;
+  int const iterations         = 10;
+  std::string const identifier = "waste_time";
   for (int i = 0; i < iterations; ++i)
   {
-    record.start(identifier_wrap);
-    double const val = record(shuffle_random, identifier, items_to_gen);
-    record.stop(identifier_wrap);
+    record.start(identifier);
+    double const val = shuffle_random(items_to_gen);
+    record.stop(identifier);
     assert(val > 0.0); // to avoid comp. warnings
   }
   std::string const report = record.report();
@@ -62,34 +61,7 @@ TEST_CASE("test recorder")
   int calls;
   s5 >> calls;
 
-  std::stringstream s1_w(report.substr(report.rfind("avg: ")));
-  s1_w >> s;
-  double avg_wrap;
-  s1_w >> avg_wrap;
-
-  std::stringstream s2_w(report.substr(report.rfind("min: ")));
-  s2_w >> s;
-  double min_wrap;
-  s2_w >> min_wrap;
-
-  std::stringstream s3_w(report.substr(report.rfind("max: ")));
-  s3_w >> s;
-  double max_wrap;
-  s3_w >> max_wrap;
-
-  std::stringstream s4_w(report.substr(report.rfind("med: ")));
-  s4_w >> s;
-  double med_wrap;
-  s4_w >> med_wrap;
-
-  std::stringstream s5_w(report.substr(report.rfind("calls: ")));
-  s5_w >> s;
-  int calls_wrap;
-  s5_w >> calls_wrap;
-
   auto const &times = record.get_times(identifier);
-
-  double const tolerance = 1e4;
 
   SECTION("avg")
   {
@@ -100,7 +72,6 @@ TEST_CASE("test recorder")
     }
     double const gold_average = sum / times.size();
     REQUIRE(avg == gold_average);
-    relaxed_fp_comparison(avg_wrap, gold_average, tolerance);
   }
 
   SECTION("min/max")
@@ -116,8 +87,6 @@ TEST_CASE("test recorder")
 
     REQUIRE(min == gold_min);
     REQUIRE(max == gold_max);
-    relaxed_fp_comparison(min_wrap, gold_min, tolerance);
-    relaxed_fp_comparison(max_wrap, gold_max, tolerance);
   }
 
   SECTION("med")
@@ -129,12 +98,7 @@ TEST_CASE("test recorder")
                                 ? (time_copy[mid] + time_copy[mid - 1]) / 2
                                 : time_copy[mid];
     REQUIRE(med == gold_med);
-    relaxed_fp_comparison(med_wrap, gold_med, tolerance);
   }
 
-  SECTION("count")
-  {
-    REQUIRE(calls == static_cast<int>(times.size()));
-    REQUIRE(calls_wrap == static_cast<int>(times.size()));
-  }
+  SECTION("count") { REQUIRE(calls == static_cast<int>(times.size())); }
 }
