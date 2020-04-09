@@ -7,7 +7,6 @@
 #include <numeric>
 #include <random>
 
-
 // FIXME
 template<typename P, resource resrc>
 void test_kron(

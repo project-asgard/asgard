@@ -37,7 +37,6 @@ void explicit_time_advance(
   element_subgrid const &grid = plan.at(my_rank);
   int const elem_size         = element_segment_size(pde);
 
-
   auto const apply_id = timer::record.start("apply_A");
   apply_A(pde, table, grid, chunks, host_space, dev_space);
   timer::record.stop(apply_id);
@@ -58,11 +57,9 @@ void explicit_time_advance(
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
-
   timer::record.start(apply_id);
   apply_A(pde, table, grid, chunks, host_space, dev_space);
   timer::record.stop(apply_id);
-
 
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,

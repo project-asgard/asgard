@@ -45,21 +45,15 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   for (auto const &chunk : chunks)
   {
     // build batches for this chunk
-
-
     auto const batch_id = timer::record.start("build_batches");
     batch_chain<P, resource::device, chain_method::advance> const batches(
         pde, elem_table, dev_space, grid, chunk);
     timer::record.stop(batch_id);
 
-
-
-
     // execute
     auto const gemm_id = timer::record.start("batched_gemm");
     batches.execute();
     timer::record.stop(gemm_id);
-
 
     // do the reduction
     auto const reduce_id = timer::record.start("reduce_chunk");
