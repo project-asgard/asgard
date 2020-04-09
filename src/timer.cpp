@@ -12,7 +12,7 @@ std::string recorder::report()
   std::ostringstream report;
   report << "\nperformance report, all times in ms...\n\n";
 
-  for (auto [id, times] : id_to_times)
+  for (auto [id, times] : id_to_times_)
   {
     auto const avg =
         std::accumulate(times.begin(), times.end(), 0.0) / times.size();
