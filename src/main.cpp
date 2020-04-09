@@ -179,28 +179,29 @@ int main(int argc, char **argv)
   host_workspace<prec> host_space(*pde, subgrid, default_workspace_cpu_MB);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
-  device_workspace<prec> dev_space(*pde, plan.at(my_rank), chunks);
 
-  auto const get_MB = [&](int num_elems) {
+  // FIXME print in static block when first chunk is performed
+  /*auto const get_MB = [&](int num_elems) {
     int64_t const bytes    = num_elems * sizeof(prec);
     double const megabytes = bytes * 1e-6;
     return megabytes;
   };
+*/
+  /*
+   node_out() << "allocating workspace..." << '\n';
 
-  node_out() << "allocating workspace..." << '\n';
-
-  node_out() << "input vector size (MB): "
-             << get_MB(dev_space.batch_input.size()) << '\n';
-  node_out() << "kronmult output space size (MB): "
-             << get_MB(dev_space.reduction_space.size()) << '\n';
-  node_out() << "kronmult working space size (MB): "
-             << get_MB(dev_space.batch_intermediate.size()) << '\n';
-  node_out() << "output vector size (MB): "
-             << get_MB(dev_space.batch_output.size()) << '\n';
-  auto const &unit_vect = dev_space.get_unit_vector();
-  node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
-             << '\n';
-
+   node_out() << "input vector size (MB): "
+              << get_MB(dev_space.batch_input.size()) << '\n';
+   node_out() << "kronmult output space size (MB): "
+              << get_MB(dev_space.reduction_space.size()) << '\n';
+   node_out() << "kronmult working space size (MB): "
+              << get_MB(dev_space.batch_intermediate.size()) << '\n';
+   node_out() << "output vector size (MB): "
+              << get_MB(dev_space.batch_output.size()) << '\n';
+   auto const &unit_vect = dev_space.get_unit_vector();
+   node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
+              << '\n';
+ */
   node_out() << "explicit time loop workspace size (host) (MB): "
              << host_space.size_MB() << '\n';
 
@@ -258,9 +259,11 @@ int main(int argc, char **argv)
     else
     {
       // FIXME fold initial sources into host space
+
       auto const &time_id = timer::record.start("explicit_time_advance");
       explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                            host_space, dev_space, chunks, plan, time, dt);
+                            host_space, chunks, plan, time, dt);
+
       timer::record.stop(time_id);
     }
 

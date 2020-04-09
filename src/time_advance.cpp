@@ -13,9 +13,8 @@ void explicit_time_advance(
     PDE<P> const &pde, element_table const &table,
     std::vector<fk::vector<P>> const &unscaled_sources,
     std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-    host_workspace<P> &host_space, device_workspace<P> &dev_space,
-    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
-    P const time, P const dt)
+    host_workspace<P> &host_space, std::vector<element_chunk> const &chunks,
+    distribution_plan const &plan, P const time, P const dt)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -37,9 +36,13 @@ void explicit_time_advance(
   element_subgrid const &grid = plan.at(my_rank);
   int const elem_size         = element_segment_size(pde);
 
-  auto const apply_id = timer::record.start("apply_A");
+<<<<<<< HEAD
+  auto const apply_id         = timer::record.start("apply_A");
   apply_A(pde, table, grid, chunks, host_space, dev_space);
   timer::record.stop(apply_id);
+=======
+  timer::record(apply_A<P>, "apply_A", pde, table, grid, chunks, host_space);
+>>>>>>> remove device workspace -> batch_workspace
 
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source, time);
@@ -57,9 +60,13 @@ void explicit_time_advance(
   P const fx_scale_1 = a21 * dt;
   fm::axpy(host_space.result_1, host_space.x, fx_scale_1);
 
+<<<<<<< HEAD
   timer::record.start(apply_id);
   apply_A(pde, table, grid, chunks, host_space, dev_space);
   timer::record.stop(apply_id);
+=======
+  timer::record(apply_A<P>, "apply_A", pde, table, grid, chunks, host_space);
+>>>>>>> remove device workspace -> batch_workspace
 
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
@@ -82,9 +89,13 @@ void explicit_time_advance(
   fm::axpy(host_space.result_1, host_space.x, fx_scale_2a);
   fm::axpy(host_space.result_2, host_space.x, fx_scale_2b);
 
+<<<<<<< HEAD
   timer::record.start(apply_id);
   apply_A(pde, table, grid, chunks, host_space, dev_space);
   timer::record.stop(apply_id);
+=======
+  timer::record(apply_A<P>, "apply_A", pde, table, grid, chunks, host_space);
+>>>>>>> remove device workspace -> batch_workspace
 
   reduce_results(host_space.fx, host_space.reduced_fx, plan, my_rank);
   scale_sources(pde, unscaled_sources, host_space.scaled_source,
@@ -216,7 +227,7 @@ template void explicit_time_advance(
     PDE<double> const &pde, element_table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    host_workspace<double> &host_space, device_workspace<double> &dev_space,
+    host_workspace<double> &host_space,
     std::vector<element_chunk> const &chunks, distribution_plan const &plan,
     double const time, double const dt);
 
@@ -224,9 +235,8 @@ template void explicit_time_advance(
     PDE<float> const &pde, element_table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    host_workspace<float> &host_space, device_workspace<float> &dev_space,
-    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
-    float const time, float const dt);
+    host_workspace<float> &host_space, std::vector<element_chunk> const &chunks,
+    distribution_plan const &plan, float const time, float const dt);
 
 template void implicit_time_advance(
     PDE<double> const &pde, element_table const &table,

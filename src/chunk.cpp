@@ -47,63 +47,6 @@ grid_limits rows_in_chunk(element_chunk const &g)
   return grid_limits(g.begin()->first, g.rbegin()->first);
 }
 
-// FIXME eventually, chunk will be removed as param and replaced with grid
-// for now, unit vector (reduction) and y (batch output) still chunk dependent
-template<typename P>
-device_workspace<P>::device_workspace(PDE<P> const &pde,
-                                      element_subgrid const &subgrid,
-                                      std::vector<element_chunk> const &chunks)
-{
-  int const elem_size = element_segment_size(pde);
-
-  // the size of the x vector needed for assigned subgrid
-  auto const x_size = static_cast<int64_t>(subgrid.ncols()) * elem_size;
-  assert(x_size < INT_MAX);
-  batch_input.resize(x_size);
-
-  // the size of the y vector for assigned subgrid
-  auto const y_size = static_cast<int64_t>(subgrid.nrows()) * elem_size;
-  assert(y_size < INT_MAX);
-  batch_output.resize(y_size);
-
-  // reduction space for kron outputs
-  int const max_total = num_elements_in_chunk(*std::max_element(
-      chunks.begin(), chunks.end(),
-      [](element_chunk const &a, element_chunk const &b) {
-        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
-      }));
-
-  reduction_space.resize(elem_size * max_total * pde.num_terms);
-
-  // intermediate workspaces for kron product.
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  batch_intermediate.resize(reduction_space.size() * num_workspaces);
-
-  // unit vector for reduction
-  auto const max_col_limits = columns_in_chunk(*std::max_element(
-      chunks.begin(), chunks.end(),
-      [](element_chunk const &a, element_chunk const &b) {
-        auto const cols_in_a = columns_in_chunk(a);
-        auto const cols_in_b = columns_in_chunk(b);
-        auto const num_a     = cols_in_a.stop - cols_in_a.start + 1;
-        auto const num_b     = cols_in_b.stop - cols_in_b.start + 1;
-        return num_a < num_b;
-      }));
-  auto const max_cols       = max_col_limits.size();
-
-  unit_vector_.resize(pde.num_terms * max_cols);
-  fk::vector<P, mem_type::owner, resource::host> unit_vect(unit_vector_.size());
-  std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
-  unit_vector_.transfer_from(unit_vect);
-}
-
-template<typename P>
-fk::vector<P, mem_type::owner, resource::device> const &
-device_workspace<P>::get_unit_vector() const
-{
-  return unit_vector_;
-}
-
 template<typename P>
 host_workspace<P>::host_workspace(PDE<P> const &pde,
                                   element_subgrid const &grid,
@@ -278,9 +221,13 @@ assign_elements(element_subgrid const &grid, int const num_chunks)
   return chunks;
 }
 
-template<typename P>
-void reduce_chunk(PDE<P> const &pde, device_workspace<P> &dev_space,
-                  element_subgrid const &subgrid, element_chunk const &chunk)
+template<typename P, resource resrc>
+fk::vector<P, mem_type::owner, resrc> const &
+reduce_chunk(PDE<P> const &pde,
+             fk::vector<P, mem_type::owner, resrc> const &reduction_space,
+             fk::vector<P, mem_type::owner, resrc> &output,
+             fk::vector<P, mem_type::owner, resrc> const &unit_vector,
+             element_subgrid const &subgrid, element_chunk const &chunk)
 {
   int const elem_size = element_segment_size(pde);
 
@@ -305,28 +252,25 @@ void reduce_chunk(PDE<P> const &pde, device_workspace<P> &dev_space,
       return prev_elems;
     }();
 
-    fk::matrix<P, mem_type::const_view, resource::device> const
-        reduction_matrix(dev_space.reduction_space, elem_size,
-                         cols.size() * pde.num_terms,
-                         prev_row_elems * elem_size * pde.num_terms);
+    fk::matrix<P, mem_type::const_view, resrc> const reduction_matrix(
+        reduction_space, elem_size, cols.size() * pde.num_terms,
+        prev_row_elems * elem_size * pde.num_terms);
 
     int const reduction_row = subgrid.to_local_row(row);
-    fk::vector<P, mem_type::view, resource::device> output_view(
-        dev_space.batch_output, reduction_row * elem_size,
+    fk::vector<P, mem_type::view, resrc> output_view(
+        output, reduction_row * elem_size,
         ((reduction_row + 1) * elem_size) - 1);
 
-    fk::vector<P, mem_type::const_view, resource::device> const unit_view(
-        dev_space.get_unit_vector(), 0, cols.size() * pde.num_terms - 1);
+    fk::vector<P, mem_type::const_view, resrc> const unit_view(
+        unit_vector, 0, cols.size() * pde.num_terms - 1);
 
     P const alpha     = 1.0;
     P const beta      = 1.0;
     bool const transA = false;
     fm::gemv(reduction_matrix, unit_view, output_view, transA, alpha, beta);
   }
+  return output;
 }
-
-template class device_workspace<float>;
-template class device_workspace<double>;
 
 template class host_workspace<float>;
 template class host_workspace<double>;
@@ -336,10 +280,34 @@ template int get_num_chunks(element_subgrid const &grid, PDE<float> const &pde,
 template int get_num_chunks(element_subgrid const &grid, PDE<double> const &pde,
                             int const rank_size_MB);
 
-template void
-reduce_chunk(PDE<float> const &pde, device_workspace<float> &dev_space,
-             element_subgrid const &subgrid, element_chunk const &chunk);
+template fk::vector<float, mem_type::owner, resource::host> const &reduce_chunk(
+    PDE<float> const &pde,
+    fk::vector<float, mem_type::owner, resource::host> const &reduction_space,
+    fk::vector<float, mem_type::owner, resource::host> &output,
+    fk::vector<float, mem_type::owner, resource::host> const &unit_vector,
+    element_subgrid const &subgrid, element_chunk const &chunk);
 
-template void
-reduce_chunk(PDE<double> const &pde, device_workspace<double> &dev_space,
-             element_subgrid const &subgrid, element_chunk const &chunk);
+template fk::vector<double, mem_type::owner, resource::host> const &
+reduce_chunk(
+    PDE<double> const &pde,
+    fk::vector<double, mem_type::owner, resource::host> const &reduction_space,
+    fk::vector<double, mem_type::owner, resource::host> &output,
+    fk::vector<double, mem_type::owner, resource::host> const &unit_vector,
+    element_subgrid const &subgrid, element_chunk const &chunk);
+
+template fk::vector<float, mem_type::owner, resource::device> const &
+reduce_chunk(
+    PDE<float> const &pde,
+    fk::vector<float, mem_type::owner, resource::device> const &reduction_space,
+    fk::vector<float, mem_type::owner, resource::device> &output,
+    fk::vector<float, mem_type::owner, resource::device> const &unit_vector,
+    element_subgrid const &subgrid, element_chunk const &chunk);
+
+template fk::vector<double, mem_type::owner, resource::device> const &
+reduce_chunk(
+    PDE<double> const &pde,
+    fk::vector<double, mem_type::owner, resource::device> const
+        &reduction_space,
+    fk::vector<double, mem_type::owner, resource::device> &output,
+    fk::vector<double, mem_type::owner, resource::device> const &unit_vector,
+    element_subgrid const &subgrid, element_chunk const &chunk);

@@ -21,12 +21,6 @@ batch<P, resrc>::batch(int const capacity, int const nrows, int const ncols,
   assert(nrows > 0);
   assert(ncols > 0);
   assert(stride > 0);
-
-  // FIXME
-  /*for (P *&ptr : (*this))
-  {
-    ptr = nullptr;
-  }*/
 }
 
 template<typename P, resource resrc>
@@ -570,14 +564,12 @@ batch_chain<P, resrc, method>::batch_chain(
 
 template<typename P, resource resrc, chain_method method>
 template<chain_method, typename>
-batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
-                                           element_table const &elem_table,
-                                           device_workspace<P> const &workspace,
-                                           element_subgrid const &subgrid,
-                                           element_chunk const &chunk)
+batch_chain<P, resrc, method>::batch_chain(
+    PDE<P> const &pde, element_table const &elem_table,
+    batch_workspace<P, resrc> const &workspace, element_subgrid const &subgrid,
+    element_chunk const &chunk)
 {
   // 1 -- allocate batches
-
   int const num_elems = num_elements_in_chunk(chunk);
 
   // FIXME code relies on uniform degree across dimensions
@@ -593,12 +585,12 @@ batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
   // same dimensions
   int const stride = pde.get_coefficients(0, 0).stride();
 
-  left_.emplace_back(std::move(
-      batch<P>(num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans)));
-  right_.emplace_back(std::move(
-      batch<P>(num_gemms, sizes.rows_b, sizes.cols_b, sizes.rows_b, do_trans)));
-  product_.emplace_back(std::move(
-      batch<P>(num_gemms, sizes.rows_a, sizes.cols_b, sizes.rows_a, false)));
+  left_.emplace_back(std::move(batch<P, resrc>(
+      num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans)));
+  right_.emplace_back(std::move(batch<P, resrc>(
+      num_gemms, sizes.rows_b, sizes.cols_b, sizes.rows_b, do_trans)));
+  product_.emplace_back(std::move(batch<P, resrc>(
+      num_gemms, sizes.rows_a, sizes.cols_b, sizes.rows_a, false)));
 
   // remaining batches
   for (int i = 1; i < pde.num_dims; ++i)
@@ -611,12 +603,12 @@ batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
 
     int const stride = pde.get_coefficients(0, i).stride();
 
-    left_.emplace_back(std::move(batch<P>(num_gemms, sizes.rows_a, sizes.cols_a,
-                                          sizes.rows_a, trans_a)));
-    right_.emplace_back(std::move(
-        batch<P>(num_gemms, sizes.rows_b, sizes.cols_b, stride, trans_b)));
-    product_.emplace_back(std::move(
-        batch<P>(num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a, false)));
+    left_.emplace_back(std::move(batch<P, resrc>(
+        num_gemms, sizes.rows_a, sizes.cols_a, sizes.rows_a, trans_a)));
+    right_.emplace_back(std::move(batch<P, resrc>(
+        num_gemms, sizes.rows_b, sizes.cols_b, stride, trans_b)));
+    product_.emplace_back(std::move(batch<P, resrc>(
+        num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a, false)));
   }
 
   // 2 -- populate
@@ -625,7 +617,7 @@ batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
 
   auto const x_size = (subgrid.col_stop - subgrid.col_start + 1) *
                       static_cast<int64_t>(elem_size);
-  assert(workspace.batch_input.size() >= x_size);
+  assert(workspace.input.size() >= x_size);
 
   int const elements_in_chunk = num_elements_in_chunk(chunk);
 
@@ -635,11 +627,13 @@ batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
 
   // intermediate workspaces for kron product.
   int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  assert(workspace.batch_intermediate.size() ==
+  assert(workspace.kron_intermediate.size() ==
          workspace.reduction_space.size() * num_workspaces);
 
   int const max_connected       = max_connected_in_chunk(chunk);
   int const max_items_to_reduce = pde.num_terms * max_connected;
+  std::cout << workspace.get_unit_vector().size() << '\n';
+  std::cout << max_items_to_reduce << '\n';
   assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
 
   // here we map integers 0->chunk_size-1 to row_0->row_last in the chunk
@@ -736,10 +730,10 @@ batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
             elem_size * kron_index * std::min(pde.num_dims - 1, 2);
 
         if (num_workspaces > 0)
-          workspace_ptrs[0] = workspace.batch_intermediate.data() + work_index;
+          workspace_ptrs[0] = workspace.kron_intermediate.data() + work_index;
         if (num_workspaces == 2)
           workspace_ptrs[1] =
-              workspace.batch_intermediate.data() + work_index + elem_size;
+              workspace.kron_intermediate.data() + work_index + elem_size;
 
         // index into operator matrices
         for (int d = pde.num_dims - 1; d >= 0; --d)
@@ -753,7 +747,7 @@ batch_chain<P, resrc, method>::batch_chain(PDE<P> const &pde,
         int const x_index = subgrid.to_local_col(j) * elem_size;
 
         // x vector input to kronmult
-        P *const x_ptr = workspace.batch_input.data() + x_index;
+        P *const x_ptr = workspace.input.data() + x_index;
 
         kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, workspace_ptrs,
                                kron_index, pde);
@@ -952,10 +946,78 @@ void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
   }
 }
 
+template<typename P, resource resrc>
+batch_workspace<P, resrc>::batch_workspace(
+    PDE<P> const &pde, element_subgrid const &subgrid,
+    std::vector<element_chunk> const &chunks)
+{
+  int const elem_size = element_segment_size(pde);
+
+  // the size of the x vector needed for assigned subgrid
+  auto const x_size = static_cast<int64_t>(subgrid.ncols()) * elem_size;
+  assert(x_size < INT_MAX);
+  input.resize(x_size);
+
+  // the size of the y vector for assigned subgrid
+  auto const y_size = static_cast<int64_t>(subgrid.nrows()) * elem_size;
+  assert(y_size < INT_MAX);
+  output.resize(y_size);
+
+  // reduction space for kron outputs
+  int const max_total = num_elements_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](element_chunk const &a, element_chunk const &b) {
+        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
+      }));
+
+  reduction_space.resize(elem_size * max_total * pde.num_terms);
+
+  // intermediate workspaces for kron product.
+  int const num_workspaces = std::min(pde.num_dims - 1, 2);
+  kron_intermediate.resize(reduction_space.size() * num_workspaces);
+
+  // unit vector for reduction
+  auto const max_col_limits = columns_in_chunk(*std::max_element(
+      chunks.begin(), chunks.end(),
+      [](element_chunk const &a, element_chunk const &b) {
+        auto const cols_in_a = columns_in_chunk(a);
+        auto const cols_in_b = columns_in_chunk(b);
+        auto const num_a     = cols_in_a.stop - cols_in_a.start + 1;
+        auto const num_b     = cols_in_b.stop - cols_in_b.start + 1;
+        return num_a < num_b;
+      }));
+
+  unit_vector_.resize(pde.num_terms * max_col_limits.size());
+  if constexpr (resrc == resource::host)
+  {
+    std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
+  }
+  else
+  {
+    fk::vector<P, mem_type::owner, resource::host> unit_vect(
+        unit_vector_.size());
+    std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
+    unit_vector_.transfer_from(unit_vect);
+  }
+}
+
+template<typename P, resource resrc>
+fk::vector<P, mem_type::owner, resrc> const &
+batch_workspace<P, resrc>::get_unit_vector() const
+{
+  return unit_vector_;
+}
+
 template class batch<float>;
 template class batch<double>;
 template class batch<float, resource::host>;
 template class batch<double, resource::host>;
+
+template class batch_workspace<float, resource::host>;
+template class batch_workspace<float, resource::device>;
+
+template class batch_workspace<double, resource::host>;
+template class batch_workspace<double, resource::device>;
 
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
@@ -1042,12 +1104,22 @@ template batch_chain<double, resource::device, chain_method::realspace>::
 
 template batch_chain<float, resource::device, chain_method::advance>::
     batch_chain(PDE<float> const &pde, element_table const &elem_table,
-                device_workspace<float> const &workspace,
+                batch_workspace<float, resource::device> const &workspace,
                 element_subgrid const &subgrid, element_chunk const &chunk);
 
 template batch_chain<double, resource::device, chain_method::advance>::
     batch_chain(PDE<double> const &pde, element_table const &elem_table,
-                device_workspace<double> const &workspace,
+                batch_workspace<double, resource::device> const &workspace,
+                element_subgrid const &subgrid, element_chunk const &chunk);
+
+template batch_chain<float, resource::host, chain_method::advance>::batch_chain(
+    PDE<float> const &pde, element_table const &elem_table,
+    batch_workspace<float, resource::host> const &workspace,
+    element_subgrid const &subgrid, element_chunk const &chunk);
+
+template batch_chain<double, resource::host, chain_method::advance>::
+    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+                batch_workspace<double, resource::host> const &workspace,
                 element_subgrid const &subgrid, element_chunk const &chunk);
 
 template void batch_chain<float, resource::device, chain_method::advance>::
@@ -1056,6 +1128,16 @@ template void batch_chain<float, resource::device, chain_method::advance>::
                            int const batch_offset, PDE<float> const &pde);
 
 template void batch_chain<double, resource::device, chain_method::advance>::
+    kronmult_to_batch_sets(double *const *const A, double *const x,
+                           double *const y, double *const *const work,
+                           int const batch_offset, PDE<double> const &pde);
+
+template void batch_chain<float, resource::host, chain_method::advance>::
+    kronmult_to_batch_sets(float *const *const A, float *const x,
+                           float *const y, float *const *const work,
+                           int const batch_offset, PDE<float> const &pde);
+
+template void batch_chain<double, resource::host, chain_method::advance>::
     kronmult_to_batch_sets(double *const *const A, double *const x,
                            double *const y, double *const *const work,
                            int const batch_offset, PDE<double> const &pde);

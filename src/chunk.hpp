@@ -1,4 +1,5 @@
 #pragma once
+
 #include "distribution.hpp"
 #include "element_table.hpp"
 #include "pde.hpp"
@@ -28,39 +29,8 @@ double get_MB(uint64_t const num_elems)
   return MB;
 }
 
-// workspace for the primary computation in time advance. along with
-// the coefficient matrices, we need this space resident on whatever
-// accelerator we are using
-template<typename P>
-class device_workspace
-{
-public:
-  device_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
-                   std::vector<element_chunk> const &chunks);
-  fk::vector<P, mem_type::owner, resource::device> const &
-  get_unit_vector() const;
-
-  // input, output, workspace for batched gemm/reduction
-  fk::vector<P, mem_type::owner, resource::device> batch_input;
-  fk::vector<P, mem_type::owner, resource::device> reduction_space;
-  fk::vector<P, mem_type::owner, resource::device> batch_intermediate;
-  fk::vector<P, mem_type::owner, resource::device> batch_output;
-  double size_MB() const
-  {
-    int64_t num_elems = batch_input.size() + reduction_space.size() +
-                        batch_intermediate.size() + batch_output.size() +
-                        unit_vector_.size();
-
-    double const bytes     = static_cast<double>(num_elems) * sizeof(P);
-    double const megabytes = bytes * 1e-6;
-    return megabytes;
-  };
-
-private:
-  fk::vector<P, mem_type::owner, resource::device> unit_vector_;
-};
-
-// larger, host-side memory space holding the assigned portion of input/output
+// FIXME going away
+// host-side memory space holding the assigned portion of input/output
 // vectors.
 template<typename P>
 class host_workspace
@@ -99,6 +69,10 @@ std::vector<element_chunk>
 assign_elements(element_subgrid const &grid, int const num_chunks);
 
 // reduce an element chunk's results after batched gemm
-template<typename P>
-void reduce_chunk(PDE<P> const &pde, device_workspace<P> &dev_space,
-                  element_subgrid const &subgrid, element_chunk const &chunk);
+template<typename P, resource resrc>
+fk::vector<P, mem_type::owner, resrc> const &
+reduce_chunk(PDE<P> const &pde,
+             fk::vector<P, mem_type::owner, resrc> const &reduction_space,
+             fk::vector<P, mem_type::owner, resrc> &output,
+             fk::vector<P, mem_type::owner, resrc> const &unit_vector,
+             element_subgrid const &subgrid, element_chunk const &chunk);

@@ -1,5 +1,4 @@
 #pragma once
-
 #include "chunk.hpp"
 #include "element_table.hpp"
 #include "pde/pde_base.hpp"
@@ -122,6 +121,38 @@ inline int calculate_workspace_length(
   return greatest;
 }
 
+// workspace for the primary computation in time advance. along with
+// the coefficient matrices, we need this space resident on whatever
+// accelerator we are using
+template<typename P, resource resrc>
+class batch_workspace
+{
+public:
+  batch_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
+                  std::vector<element_chunk> const &chunks);
+  fk::vector<P, mem_type::owner, resrc> const &get_unit_vector() const;
+
+  double size_MB() const
+  {
+    int64_t num_elems = input.size() + reduction_space.size() +
+                        kron_intermediate.size() + output.size() +
+                        unit_vector_.size();
+
+    double const bytes     = static_cast<double>(num_elems) * sizeof(P);
+    double const megabytes = bytes * 1e-6;
+    return megabytes;
+  };
+
+  // input, output, workspace for batched gemm/reduction
+  fk::vector<P, mem_type::owner, resrc> input;
+  fk::vector<P, mem_type::owner, resrc> reduction_space;
+  fk::vector<P, mem_type::owner, resrc> kron_intermediate;
+  fk::vector<P, mem_type::owner, resrc> output;
+
+private:
+  fk::vector<P, mem_type::owner, resrc> unit_vector_;
+};
+
 // which of the kronecker-product based algorithms the batch chain supports
 enum class chain_method
 {
@@ -155,7 +186,7 @@ public:
   // time advance constructor
   template<chain_method m_ = method, typename = enable_for_advance<m_>>
   batch_chain(PDE<P> const &pde, element_table const &elem_table,
-              device_workspace<P> const &workspace,
+              batch_workspace<P, resrc> const &workspace,
               element_subgrid const &subgrid, element_chunk const &chunk);
   void execute() const;
 
