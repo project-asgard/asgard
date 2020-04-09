@@ -23,7 +23,7 @@ public:
           decltype(f(std::forward<Args>(args)...))>::type
   {
     assert(!identifier.empty());
-    assert(id_to_start_.count(identifier == 0));
+    assert(id_to_start_.count(identifier) == 0);
     auto const beg = std::chrono::high_resolution_clock::now();
     auto const ret = std::forward<F>(f)(std::forward<Args>(args)...);
     auto const end = std::chrono::high_resolution_clock::now();
@@ -41,7 +41,7 @@ public:
           void>::type
   {
     assert(!identifier.empty());
-    assert(id_to_start_.count(identifier == 0));
+    assert(id_to_start_.count(identifier) == 0);
     auto const beg = std::chrono::high_resolution_clock::now();
     std::forward<F>(f)(std::forward<Args>(args)...);
     auto const end = std::chrono::high_resolution_clock::now();
