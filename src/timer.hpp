@@ -23,6 +23,7 @@ public:
           decltype(f(std::forward<Args>(args)...))>::type
   {
     assert(!identifier.empty());
+    assert(id_to_start_.count(identifier == 0));
     auto const beg = std::chrono::high_resolution_clock::now();
     auto const ret = std::forward<F>(f)(std::forward<Args>(args)...);
     auto const end = std::chrono::high_resolution_clock::now();
@@ -40,6 +41,7 @@ public:
           void>::type
   {
     assert(!identifier.empty());
+    assert(id_to_start_.count(identifier == 0));
     auto const beg = std::chrono::high_resolution_clock::now();
     std::forward<F>(f)(std::forward<Args>(args)...);
     auto const end = std::chrono::high_resolution_clock::now();
@@ -49,7 +51,7 @@ public:
     insert(identifier, dur);
   }
 
-  std::string start(std::string const identifier)
+  std::string const &start(std::string const &identifier)
   {
     assert(!identifier.empty());
     assert(id_to_start_.count(identifier) == 0);
@@ -57,7 +59,7 @@ public:
     return identifier;
   }
 
-  void stop(std::string const identifier)
+  void stop(std::string const &identifier)
   {
     assert(!identifier.empty());
     assert(id_to_start_.count(identifier) == 1);
@@ -74,7 +76,7 @@ public:
   std::string report();
 
   // get times for some key, mostly for testing for now
-  std::vector<double> const &get_times(std::string const id)
+  std::vector<double> const &get_times(std::string const &id)
   {
     assert(id_to_times_.count(id) == 1);
     return id_to_times_[id];
