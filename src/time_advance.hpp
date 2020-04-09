@@ -41,16 +41,11 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
 
   for (auto const &chunk : chunks)
   {
-<<<<<<< HEAD
-    // build batches for this chunk
-    auto const batch_id = timer::record.start("build_batches");
-=======
     // copy inputs onto GPU
     batch_space.input.transfer_from(host_space.x);
 
     // build batches for this chunk
-    auto const &batch_id = timer::record.start("build_batches");
->>>>>>> remove device workspace -> batch_workspace
+    auto const batch_id = timer::record.start("build_batches");
     batch_chain<P, resource::device, chain_method::advance> const batches(
         pde, elem_table, batch_space, grid, chunk);
     timer::record.stop(batch_id);
@@ -61,15 +56,10 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
     timer::record.stop(gemm_id);
 
     // do the reduction
-<<<<<<< HEAD
     auto const reduce_id = timer::record.start("reduce_chunk");
-    reduce_chunk(pde, dev_space, grid, chunk);
+    reduce_chunk(pde, batch_space.reduction_space, batch_space.output,
+                 batch_space.get_unit_vector(), grid, chunk);
     timer::record.stop(reduce_id);
-=======
-    timer::record(reduce_chunk<P, resource::device>, "reduce_chunk", pde,
-                  batch_space.reduction_space, batch_space.output,
-                  batch_space.get_unit_vector(), grid, chunk);
->>>>>>> remove device workspace -> batch_workspace
   }
 
   // copy outputs back from GPU
