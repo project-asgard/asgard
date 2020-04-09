@@ -249,16 +249,19 @@ int main(int argc, char **argv)
     {
       bool const update_system = i == 0;
 
-      timer::record(implicit_time_advance<prec>, "implicit_time_advance", *pde,
-                    table, initial_sources, unscaled_parts, host_space, chunks,
-                    plan, time, dt, opts.get_selected_solver(), update_system);
+      auto const time_id = timer::record.start("implicit_time_advance");
+      implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
+                            host_space, chunks, plan, time, dt,
+                            opts.get_selected_solver(), update_system);
+      timer::record.stop(time_id);
     }
     else
     {
       // FIXME fold initial sources into host space
-      timer::record(explicit_time_advance<prec>, "explicit_time_advance", *pde,
-                    table, initial_sources, unscaled_parts, host_space,
-                    dev_space, chunks, plan, time, dt);
+      auto const &time_id = timer::record.start("explicit_time_advance");
+      explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
+                            host_space, dev_space, chunks, plan, time, dt);
+      timer::record.stop(time_id);
     }
 
     // print root mean squared error from analytic solution

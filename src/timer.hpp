@@ -15,43 +15,7 @@ namespace timer
 class recorder
 {
 public:
-  // wrap function call and record time spent, value return version
-  template<typename F, typename... Args>
-  auto operator()(F &&f, std::string const identifier, Args &&... args) ->
-      typename std::enable_if<
-          !std::is_same_v<decltype(f(std::forward<Args>(args)...)), void>,
-          decltype(f(std::forward<Args>(args)...))>::type
-  {
-    assert(!identifier.empty());
-    assert(id_to_start_.count(identifier) == 0);
-    auto const beg = std::chrono::high_resolution_clock::now();
-    auto const ret = std::forward<F>(f)(std::forward<Args>(args)...);
-    auto const end = std::chrono::high_resolution_clock::now();
-    auto const dur =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - beg)
-            .count();
-    insert(identifier, dur);
-    return ret;
-  }
-
-  template<typename F, typename... Args>
-  auto operator()(F &&f, std::string const identifier, Args &&... args) ->
-      typename std::enable_if<
-          std::is_same_v<decltype(f(std::forward<Args>(args)...)), void>,
-          void>::type
-  {
-    assert(!identifier.empty());
-    assert(id_to_start_.count(identifier) == 0);
-    auto const beg = std::chrono::high_resolution_clock::now();
-    std::forward<F>(f)(std::forward<Args>(args)...);
-    auto const end = std::chrono::high_resolution_clock::now();
-    auto const dur =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - beg)
-            .count();
-    insert(identifier, dur);
-  }
-
-  std::string const &start(std::string const &identifier)
+  std::string const start(std::string const &identifier)
   {
     assert(!identifier.empty());
     assert(id_to_start_.count(identifier) == 0);
