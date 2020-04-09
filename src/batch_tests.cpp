@@ -7,7 +7,7 @@
 #include <numeric>
 #include <random>
 
-// FIXME
+// FIXME name etc.
 template<typename P, resource resrc>
 void test_kron(
     std::vector<fk::matrix<P, mem_type::const_view, resrc>> const &matrices,
@@ -27,8 +27,8 @@ void test_kron(
   fk::vector<P, mem_type::owner, resrc> real_space_owner(correct.size());
   fk::vector<P, mem_type::view, resrc> real_space(real_space_owner);
 
-  batch_chain<P, resrc> auto chain(matrices, x_view, workspace, real_space);
-  chain.execute_batch_chain();
+  batch_chain<P, resrc> chain(matrices, x_view, workspace, real_space);
+  chain.execute();
 
   if constexpr (resrc == resource::device)
   {
@@ -221,8 +221,8 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
            fk::matrix<TestType, mem_type::const_view, resource::host> const
                &m) { return i * m.nrows(); });
 
-    /* because the kron matrices consist of all 2s except for the last one,
-       every value of the output matrix will be the equal: */
+    // because the kron matrices consist of all 2s except for the last one,
+    //   every value of the output matrix will be the equal:
     fk::vector<TestType> const correct(std::vector<TestType>(
         y_size, x_size * (1 << (matrices.size() - 1)) * 3));
 
@@ -919,206 +919,6 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[batch]",
 }
 
 template<typename P>
-void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
-                            int const num_elems)
-{
-  // FIXME assume uniform level and degree
-  auto const dim_0 = pde.get_dimensions()[0];
-  int const degree = dim_0.get_degree();
-  int const level  = dim_0.get_level();
-
-  // first, create example coefficient matrices in the pde
-  int const dof = degree * std::pow(2, level);
-  std::vector<fk::matrix<P>> A_mats_h(num_terms * pde.num_dims,
-                                      fk::matrix<P>(dof, dof));
-
-  // create different matrices for each term/dim pairing
-  int start = 1;
-
-  std::vector<fk::matrix<P, mem_type::owner, resource::device>> A_mats;
-  for (fk::matrix<P> &mat : A_mats_h)
-  {
-    std::iota(mat.begin(), mat.end(), start);
-    start += dof;
-    A_mats.push_back(fk::matrix<P, mem_type::owner, resource::device>(
-        mat.clone_onto_device()));
-  }
-
-  // create input vector
-  int const x_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  fk::vector<P> x_h(x_size);
-  std::iota(x_h.begin(), x_h.end(), 1);
-  fk::vector<P, mem_type::owner, resource::device> const x(
-      x_h.clone_onto_device());
-
-  std::vector<batch_operands_set<P>> batches = allocate_batches(pde, num_elems);
-
-  // create intermediate workspaces
-  // and output vectors
-
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  fk::vector<P, mem_type::owner, resource::device> work_own(
-      x_size * num_elems * num_terms * num_workspaces);
-  fk::vector<P, mem_type::const_view, resource::device> const x_view(x);
-  fk::vector<P, mem_type::owner, resource::device> y_own(x_size * num_elems *
-                                                         num_terms);
-
-  fk::vector<P, mem_type::owner> gold(x_size * num_elems * num_terms);
-
-  for (int i = 0; i < num_elems; ++i)
-  {
-    for (int j = 0; j < pde.num_terms; ++j)
-    {
-      // linearize index
-      int const kron_index = i * num_terms + j;
-
-      // address y space
-      int const y_index = x_size * kron_index;
-      int const work_index =
-          x_size * kron_index * std::min(pde.num_dims - 1, 2);
-      fk::vector<P, mem_type::const_view, resource::device> const y_view(
-          y_own, y_index, y_index + x_size - 1);
-      fk::vector<P, mem_type::view> gold_view(gold, y_index,
-                                              y_index + x_size - 1);
-
-      // intermediate workspace
-      std::vector<fk::vector<P, mem_type::const_view, resource::device>> const
-          work_views = [&work_own, work_index, x_size, num_workspaces]() {
-            std::vector<fk::vector<P, mem_type::const_view, resource::device>>
-                builder;
-            builder.reserve(num_workspaces);
-            if (num_workspaces > 0)
-            {
-              builder.emplace_back(
-                  fk::vector<P, mem_type::const_view, resource::device>(
-                      work_own, work_index, work_index + x_size - 1));
-            }
-
-            if (num_workspaces == 2)
-            {
-              builder.emplace_back(
-                  fk::vector<P, mem_type::const_view, resource::device>(
-                      work_own, work_index + x_size,
-                      work_index + x_size * 2 - 1));
-            }
-            return builder;
-          }();
-
-      // create A_views
-      std::vector<fk::matrix<P, mem_type::const_view, resource::device>>
-          A_views;
-      std::vector<fk::matrix<P, mem_type::const_view>> A_views_h;
-      for (int k = 0; k < pde.num_dims; ++k)
-      {
-        int const start_row = degree * i;
-        int const stop_row  = degree * (i + 1) - 1;
-        int const start_col = 0;
-        int const stop_col  = degree - 1;
-        A_views.push_back(fk::matrix<P, mem_type::const_view, resource::device>(
-            A_mats[j * pde.num_dims + k], start_row, stop_row, start_col,
-            stop_col));
-        A_views_h.push_back(fk::matrix<P, mem_type::const_view>(
-            A_mats_h[j * pde.num_dims + k], start_row, stop_row, start_col,
-            stop_col));
-      }
-
-      int const batch_offset = kron_index;
-      if (safe_version)
-      {
-        kronmult_to_batch_sets(A_views, x_view, y_view, work_views, batches,
-                               batch_offset, pde);
-      }
-      else
-      {
-        unsafe_kronmult(A_views, x_view, y_view, work_views, batches,
-                        batch_offset, pde);
-      }
-
-      fk::matrix<P> gold_mat = {{1}};
-      for (int i = A_views_h.size() - 1; i >= 0; --i)
-      {
-        fk::matrix<P> const partial_result = gold_mat.kron(A_views_h[i]);
-        gold_mat.clear_and_resize(partial_result.nrows(),
-                                  partial_result.ncols()) = partial_result;
-      }
-      gold_view = gold_mat * x_h;
-    }
-  }
-
-  for (int k = 0; k < pde.num_dims; ++k)
-  {
-    batch<P> const a = batches[k][0];
-    batch<P> const b = batches[k][1];
-    batch<P> const c = batches[k][2];
-    P const alpha    = 1.0;
-    P const beta     = 0.0;
-    batched_gemm(a, b, c, alpha, beta);
-  }
-
-  fk::vector<P> const y_h(y_own.clone_onto_host());
-
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-6;
-
-  rmse_comparison(y_h, gold, tol_factor);
-}
-
-TEMPLATE_TEST_CASE_SIG("kronmult batching", "[batch]",
-                       ((typename TestType, bool do_safe), TestType, do_safe),
-                       (double, true), (double, false), (float, true),
-                       (float, false))
-{
-  SECTION("1 element, 1d, 1 term")
-  {
-    int const degree = 4;
-    int const level  = 2;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    int const num_terms = 1;
-    int const num_elems = 1;
-    test_kronmult_batching(*pde, num_terms, num_elems, do_safe);
-  }
-
-  SECTION("2 elements, 1d, 1 term")
-  {
-    int const degree = 4;
-    int const level  = 2;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    int const num_terms = 1;
-    int const num_elems = 2;
-    test_kronmult_batching(*pde, num_terms, num_elems, do_safe);
-  }
-
-  SECTION("2 elements, 2d, 2 terms")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    int const num_terms = 2;
-    int const num_elems = 2;
-    test_kronmult_batching(*pde, num_terms, num_elems, do_safe);
-  }
-
-  SECTION("1 element, 3d, 3 terms")
-  {
-    int const degree = 5;
-    int const level  = 2;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    int const num_terms = 3;
-    int const num_elems = 1;
-    test_kronmult_batching(*pde, num_terms, num_elems, do_safe);
-  }
-
-  SECTION("3 elements, 6d, 6 terms")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    int const num_terms = 6;
-    int const num_elems = 3;
-    test_kronmult_batching(*pde, num_terms, num_elems, do_safe);
-  }
-}
-
-template<typename P>
 void batch_builder_test(int const degree, int const level, PDE<P> &pde,
                         std::string const &gold_path = {},
                         bool const full_grid         = false)
@@ -1151,35 +951,24 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }();
 
   auto const chunks = assign_elements(subgrid, get_num_chunks(subgrid, pde));
-  device_workspace<P> dev_space(pde, subgrid, chunks);
-
-  auto const num_elems = elem_table.size() * elem_table.size();
-  auto batches         = allocate_batches(pde, num_elems);
+  batch_workspace<P, resource::device> batch_space(pde, subgrid, chunks);
 
   // copy in inputs
-
-  dev_space.batch_input.transfer_from(host_space.x);
+  batch_space.input.transfer_from(host_space.x);
   for (auto const &chunk : chunks)
   {
-    // build batches for this chunk
-    build_batches(pde, elem_table, dev_space, subgrid, chunk, batches);
+    // build batches
+    batch_chain<P, resource::device, chain_method::advance> const batches(
+        pde, elem_table, batch_space, subgrid, chunk);
 
-    // do the gemms
-    P const alpha = 1.0;
-    P const beta  = 0.0;
-    for (int i = 0; i < pde.num_dims; ++i)
-    {
-      batch<P> const &a = batches[i][0];
-      batch<P> const &b = batches[i][1];
-      batch<P> const &c = batches[i][2];
-
-      batched_gemm(a, b, c, alpha, beta);
-    }
+    // execute
+    batches.execute();
 
     // do the reduction
-    reduce_chunk(pde, dev_space, subgrid, chunk);
+    reduce_chunk(pde, batch_space.reduction_space, batch_space.output,
+                 batch_space.get_unit_vector(), subgrid, chunk);
   }
-  host_space.fx.transfer_from(dev_space.batch_output);
+  host_space.fx.transfer_from(batch_space.output);
 
   P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-5;
 

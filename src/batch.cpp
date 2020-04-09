@@ -12,12 +12,12 @@
 // utilized as the primary data structure for other functions
 // within this component.
 template<typename P, resource resrc>
-batch<P, resrc>::batch(int const capacity, int const nrows, int const ncols,
+batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
                        int const stride, bool const do_trans)
-    : capacity_(capacity), num_entries_(capacity), nrows_(nrows), ncols_(ncols),
-      stride_(stride), do_trans_(do_trans), batch_{new P *[capacity]()}
+    : num_entries_(num_entries), nrows_(nrows), ncols_(ncols), stride_(stride),
+      do_trans_(do_trans), batch_{new P *[num_entries]()}
 {
-  assert(capacity > 0);
+  assert(num_entries > 0);
   assert(nrows > 0);
   assert(ncols > 0);
   assert(stride > 0);
@@ -25,9 +25,9 @@ batch<P, resrc>::batch(int const capacity, int const nrows, int const ncols,
 
 template<typename P, resource resrc>
 batch<P, resrc>::batch(batch<P, resrc> const &other)
-    : capacity_(other.get_capacity()), num_entries_(other.num_entries()),
-      nrows_(other.nrows()), ncols_(other.ncols()), stride_(other.get_stride()),
-      do_trans_(other.get_trans()), batch_{new P *[other.get_capacity()]()}
+    : num_entries_(other.num_entries()), nrows_(other.nrows()),
+      ncols_(other.ncols()), stride_(other.get_stride()),
+      do_trans_(other.get_trans()), batch_{new P *[other.num_entries()]()}
 {
   std::memcpy(batch_, other.batch_, other.num_entries() * sizeof(P *));
 }
@@ -39,8 +39,7 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
   {
     return *this;
   }
-  assert(get_capacity() == other.get_capacity());
-  set_num_entries(other.num_entries());
+  assert(num_entries() == other.num_entries());
   assert(nrows() == other.nrows());
   assert(ncols() == other.ncols());
   assert(get_stride() == other.get_stride());
@@ -51,8 +50,8 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
 
 template<typename P, resource resrc>
 batch<P, resrc>::batch(batch<P, resrc> &&other)
-    : capacity_(other.get_capacity()), num_entries_(other.num_entries()),
-      nrows_(other.nrows()), ncols_(other.ncols()), stride_(other.get_stride()),
+    : num_entries_(other.num_entries()), nrows_(other.nrows()),
+      ncols_(other.ncols()), stride_(other.get_stride()),
       do_trans_(other.get_trans()), batch_{other.batch_}
 {
   other.batch_ = nullptr;
@@ -65,9 +64,8 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> &&other)
   {
     return *this;
   }
-  assert(get_capacity() == other.get_capacity());
-  set_num_entries(other.num_entries());
 
+  assert(num_entries() == other.num_entries());
   assert(nrows() == other.nrows());
   assert(ncols() == other.ncols());
   assert(get_stride() == other.get_stride());
@@ -152,10 +150,6 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
   assert(position >= 0);
   assert(position < num_entries());
 
-  // FIXME
-  // ensure nothing already assigned
-  // assert(!batch_[position]);
-
   batch_[position] = a.data();
 }
 
@@ -164,8 +158,6 @@ void batch<P, resrc>::assign_raw(P *const a, int const position)
 {
   assert(position >= 0);
   assert(position < num_entries());
-  // ensure nothing already assigned
-  assert(!batch_[position]);
   batch_[position] = a;
 }
 
@@ -632,8 +624,6 @@ batch_chain<P, resrc, method>::batch_chain(
 
   int const max_connected       = max_connected_in_chunk(chunk);
   int const max_items_to_reduce = pde.num_terms * max_connected;
-  std::cout << workspace.get_unit_vector().size() << '\n';
-  std::cout << max_items_to_reduce << '\n';
   assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
 
   // here we map integers 0->chunk_size-1 to row_0->row_last in the chunk
@@ -726,8 +716,8 @@ batch_chain<P, resrc, method>::batch_chain(
         P *const y_ptr    = workspace.reduction_space.data() + y_index;
 
         // work space, intermediate kron data
-        int const work_index =
-            elem_size * kron_index * std::min(pde.num_dims - 1, 2);
+        auto const work_index = static_cast<int64_t>(elem_size) * kron_index *
+                                std::min(pde.num_dims - 1, 2);
 
         if (num_workspaces > 0)
           workspace_ptrs[0] = workspace.kron_intermediate.data() + work_index;
@@ -839,7 +829,7 @@ void batch_chain<P, resrc, method>::kronmult_to_batch_sets(
                                    batch_offset * num_gemms + gemm);
 
       P *const work_ptr = work[dimension % 2] + offset * gemm;
-      right_[dimension].assign_raw(work_ptr, batch_offset * num_gemms + gemm);
+      product_[dimension].assign_raw(work_ptr, batch_offset * num_gemms + gemm);
     }
   }
 

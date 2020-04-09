@@ -274,6 +274,11 @@ if (ASGARD_BUILD_TESTS)
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
 
+    if ("${component}" STREQUAL "chunk")
+      target_link_libraries (chunk-tests PRIVATE batch)
+    endif ()
+
+
     if (ASGARD_USE_MPI)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
       if ("${component}" STREQUAL "distribution" OR

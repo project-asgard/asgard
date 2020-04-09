@@ -16,8 +16,8 @@ template<typename P,
 class batch
 {
 public:
-  batch(int const capacity, int const nrows, int const ncols, int const stride,
-        bool const do_trans);
+  batch(int const num_entries, int const nrows, int const ncols,
+        int const stride, bool const do_trans);
   batch(batch<P, resrc> const &other);
   batch &operator=(batch<P, resrc> const &other);
   batch(batch<P, resrc> &&other);
@@ -37,16 +37,7 @@ public:
   bool is_filled() const;
   batch &clear_all();
 
-  int get_capacity() const { return capacity_; }
-
   int num_entries() const { return num_entries_; }
-  batch &set_num_entries(int const new_num_entries)
-  {
-    assert(new_num_entries > 0);
-    assert(new_num_entries <= get_capacity());
-    num_entries_ = new_num_entries;
-    return *this;
-  }
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
   int get_stride() const { return stride_; }
@@ -59,8 +50,7 @@ public:
   const_iterator end() const { return batch_ + num_entries(); }
 
 private:
-  int const capacity_; // number of matrices/vectors this batch can hold
-  int num_entries_;    // number of matrices/vectors for this chunk
+  int const num_entries_; // number of matrices/vectors for this chunk
   int const nrows_;  // number of rows in matrices/size of vectors in this batch
   int const ncols_;  // number of cols in matrices (1 for vectors) in this batch
   int const stride_; // leading dimension passed into BLAS call for matrices;
@@ -191,6 +181,12 @@ public:
   void execute() const;
 
 private:
+  // enqueue gemms for one kronmult - time advance
+  template<chain_method m_ = method, typename = enable_for_advance<m_>>
+  void kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
+                              P *const *const work, int const batch_offset,
+                              PDE<P> const &pde);
+
   // compute gemm sizes for a given dimension for time advance batching
   template<chain_method m_ = method, typename = enable_for_advance<m_>>
   matrix_size_set
@@ -227,11 +223,6 @@ private:
 
     return std::pow(degree, (num_dims - dimension - 1));
   }
-
-  template<chain_method m_ = method, typename = enable_for_advance<m_>>
-  void kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
-                              P *const *const work, int const batch_offset,
-                              PDE<P> const &pde);
 
   // A matrices for batched gemm
   std::vector<batch<P, resrc>> left_;
