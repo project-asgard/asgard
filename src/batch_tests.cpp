@@ -640,7 +640,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-6;
 
   for (int i = 0; i < num_batch; ++i)
   {
@@ -865,7 +865,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
   batched_gemv(a_batch, x_batch, y_batch, alpha, beta);
 
-  P const tol_factor = 1e-15;
+  P const tol_factor = 1e-14;
   for (int i = 0; i < num_batch; ++i)
   {
     if constexpr (resrc == resource::host)
@@ -1188,7 +1188,7 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
 
   fk::vector<P> const y_h(y_own.clone_onto_host());
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-6;
 
   rmse_comparison(y_h, gold, tol_factor);
 }
@@ -1312,7 +1312,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }
   host_space.fx.transfer_from(dev_space.batch_output);
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-14 : 1e-7;
+  P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-5;
 
   rmse_comparison(gold, host_space.fx, tol_factor);
 }

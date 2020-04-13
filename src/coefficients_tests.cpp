@@ -39,11 +39,12 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/diffusion2/coefficients";
 
+  TestType const tol_factor = 1e-13;
+
   SECTION("level 2, degree 2")
   {
-    int const level           = 2;
-    int const degree          = 2;
-    TestType const tol_factor = 1e-15;
+    int const level  = 2;
+    int const degree = 2;
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
@@ -52,9 +53,8 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
 
   SECTION("level 4, degree 4")
   {
-    int const level           = 4;
-    int const degree          = 4;
-    TestType const tol_factor = 1e-14;
+    int const level  = 4;
+    int const degree = 4;
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
@@ -63,9 +63,8 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
 
   SECTION("level 5, degree 5")
   {
-    int const level           = 5;
-    int const degree          = 5;
-    TestType const tol_factor = 1e-14;
+    int const level  = 5;
+    int const degree = 5;
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
@@ -78,11 +77,12 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/diffusion1/coefficients";
 
+  TestType const tol_factor = 1e-13;
+
   SECTION("level 2, degree 2")
   {
-    int const level           = 2;
-    int const degree          = 2;
-    TestType const tol_factor = 1e-15;
+    int const level  = 2;
+    int const degree = 2;
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
     std::string const gold_path =
@@ -93,9 +93,8 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 
   SECTION("level 4, degree 4")
   {
-    int const level           = 4;
-    int const degree          = 4;
-    TestType const tol_factor = 1e-14;
+    int const level  = 4;
+    int const degree = 4;
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
     std::string const gold_path =
@@ -106,9 +105,8 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 
   SECTION("level 5, degree 5")
   {
-    int const level           = 5;
-    int const degree          = 5;
-    TestType const tol_factor = 1e-14;
+    int const level  = 5;
+    int const degree = 5;
 
     auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
     std::string const gold_path =
@@ -259,7 +257,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
                                 "fokkerplanck2_complete_coefficients";
   bool const rotate = true;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-12 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-12 : 1e-5;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -275,6 +273,6 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
                                 "fokkerplanck2_complete_coefficients_norotate";
   bool const rotate = false;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-12 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-12 : 1e-5;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }

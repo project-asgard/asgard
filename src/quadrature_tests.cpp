@@ -53,7 +53,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     auto const [poly, deriv] = legendre(in, degree);
 
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-14 : 1e-6;
+        std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
 
     rmse_comparison(poly, poly_gold, tol_factor);
     rmse_comparison(deriv, deriv_gold, tol_factor);

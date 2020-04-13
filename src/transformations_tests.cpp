@@ -206,7 +206,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
 TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-10 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-8 : 1e-2;
 
   SECTION("wavelet_to_realspace_1")
   {

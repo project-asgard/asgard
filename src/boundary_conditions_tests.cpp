@@ -238,7 +238,7 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
                    double, float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
 
   SECTION("diffusion_1 level 2 degree 2")
   {
@@ -284,7 +284,7 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
                    float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-10 : 1e-3;
 
   SECTION("diffusion_1 level 2 degree 2")
   {

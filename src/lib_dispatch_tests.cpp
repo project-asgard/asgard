@@ -942,7 +942,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
 
   for (int i = 0; i < num_batch; ++i)
   {
@@ -1180,7 +1180,7 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
                        (double, resource::host), (double, resource::device),
                        (float, resource::host), (float, resource::device))
 {
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = 1e-13;
 
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {
