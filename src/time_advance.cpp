@@ -48,6 +48,8 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c2  = 1.0 / 2.0;
   P const c3  = 1.0;
 
+  // FIXME eventually want to extract RK step into function
+  // -- RK step 1
   auto const apply_id = timer::record.start("apply_A");
   auto fx             = apply_A(pde, table, grid, chunks, x);
   timer::record.stop(apply_id);
@@ -63,17 +65,15 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   auto const bc0 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time);
-
   fm::axpy(bc0, reduced_fx);
 
   // FIXME I eventually want to return a vect here
   fk::vector<P> rk_1(x_orig.size());
   exchange_results(reduced_fx, rk_1, elem_size, plan, my_rank);
-
   P const rk_scale_1 = a21 * dt;
-
   fm::axpy(rk_1, x, rk_scale_1);
 
+  // -- RK step 2
   timer::record.start(apply_id);
   fx = apply_A(pde, table, grid, chunks, x);
   timer::record.stop(apply_id);
@@ -101,6 +101,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(rk_1, x, rk_scale_2a);
   fm::axpy(rk_2, x, rk_scale_2b);
 
+  // -- RK step 3
   timer::record.start(apply_id);
   fx = apply_A(pde, table, grid, chunks, x);
   timer::record.stop(apply_id);
@@ -120,6 +121,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fk::vector<P> rk_3(x_orig.size());
   exchange_results(reduced_fx, rk_3, elem_size, plan, my_rank);
 
+  // -- finish
   fm::copy(x_orig, x);
   P const scale_1 = dt * b1;
   P const scale_2 = dt * b2;
