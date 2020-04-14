@@ -64,7 +64,6 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
     auto const &unit_vect = batch_space.get_unit_vector();
     node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
                << '\n';
-    return true;
   });
 
   for (auto const &chunk : chunks)
