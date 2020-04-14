@@ -311,8 +311,6 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde)
   for (auto const &[rank, grid] : plan)
   {
     ignore(rank);
-    int const workspace_MB_limit = 4000;
-    host_workspace<P> host_space(pde, grid, workspace_MB_limit);
 
     int const limit_MB = 1000;
     auto const chunks =

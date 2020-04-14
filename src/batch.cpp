@@ -352,20 +352,21 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
   return indices;
 }
 
-// FIXME this needs trimming
 /*
 
-Problem relevant to batch_chain class:
+Problem solved by batch_chain class:
 
-given a vector "x" of length "x_size" and list of matrices of arbitrary
-dimension in "matrix": { m0, m1, ... , m_last }, calculate ( m0 kron m1 kron ...
-kron m_end ) * x
+perform one or many (A1 kron A2 ... kron An) * x via constructing pointer lists
+to small gemms and invoking BLAS
 
 */
 
 /*
-For a list of "n" matrices in "matrix" parameter, the Kron algorithm in this
-file will go through "n" rounds of batched matrix multiplications. The output of
+
+Realspace Transform
+
+For a list of "n" matrices in "matrix" parameter, this constructor
+will prepare "n" rounds of batched matrix multiplications. The output of
 each round becomes the input of the next round. Two workspaces are thus
 sufficient, if each of them is as large as the largest output from any round.
 This function calculates the largest output of any round.
@@ -385,21 +386,7 @@ Round 0 output size: b*d*f*g
 Round 1 output size: b*d*e*g
 Round 2 output size: b*c*e*g
 Round 3 ourput size: a*c*e*g
-
-Max space needed is maximum of the above sizes.
-
-Improvement idea: Each stage alternates between 2 workspaces,
-so the first workspace needs to be the maximum of round 0 and 2, while the other
-needs to be the max of round 1 and 3. As it stands now, each workspace is the
-size of the max of all rounds.
 */
-
-/* batch chain delineates the dataflow for the algorithm that implements the
-   particular problem described in the comment at the top of the file. The
-   algorithm proceeds in stages, with a stage for each matrix in the list. The
-   input for each stage is the output of the previous. The initial input is the
-   vector "x". The output of each stage is a vector. The output of the final
-   stage is the solution to the problem. */
 
 template<typename P, resource resrc, chain_method method>
 template<chain_method, typename>

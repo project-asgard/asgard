@@ -6,6 +6,7 @@
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include "timer.hpp"
+#include <mutex>
 
 // this function executes a time step using the current solution
 // vector x (in host_space).
@@ -32,6 +33,7 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
 
 // apply the system matrix to the current solution vector using batched
 // gemm.
+static std::once_flag print_flag;
 template<typename P>
 static fk::vector<P>
 apply_A(PDE<P> const &pde, element_table const &elem_table,
@@ -40,6 +42,30 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
 {
   fk::vector<P> fx(x.size());
   batch_workspace<P, resource::device> batch_space(pde, grid, chunks);
+
+  // print information about workspace size on first invocation
+  std::call_once(print_flag, [&batch_space] {
+    auto const get_MB = [&](int num_elems) {
+      int64_t const bytes    = num_elems * sizeof(P);
+      double const megabytes = bytes * 1e-6;
+      return megabytes;
+    };
+
+    node_out() << "batch workspace size..." << '\n';
+
+    node_out() << "input vector size (MB): " << get_MB(batch_space.input.size())
+               << '\n';
+    node_out() << "kronmult output space size (MB): "
+               << get_MB(batch_space.reduction_space.size()) << '\n';
+    node_out() << "kronmult working space size (MB): "
+               << get_MB(batch_space.kron_intermediate.size()) << '\n';
+    node_out() << "output vector size (MB): "
+               << get_MB(batch_space.output.size()) << '\n';
+    auto const &unit_vect = batch_space.get_unit_vector();
+    node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
+               << '\n';
+    return true;
+  });
 
   for (auto const &chunk : chunks)
   {

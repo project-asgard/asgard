@@ -51,6 +51,12 @@ enum class homogeneity
   inhomogeneous
 };
 
+// helper - single element size
+auto const element_segment_size = [](auto const &pde) {
+  int const degree = pde.get_dimensions()[0].get_degree();
+  return static_cast<int>(std::pow(degree, pde.num_dims));
+};
+
 // ---------------------------------------------------------------------------
 //
 // Dimension: holds all information for a single dimension in the pde

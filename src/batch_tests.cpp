@@ -936,16 +936,16 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
 
   generate_all_coefficients(pde);
 
-  int const workspace_MB_limit = 4000;
-  host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
-  std::fill(host_space.x.begin(), host_space.x.end(), 1.0);
+  auto const vector_size = elem_table.size() * std::pow(degree, pde.num_dims);
+  fk::vector<P> x(vector_size);
+  std::fill(x.begin(), x.end(), 1.0);
 
-  fk::vector<P> const gold = [&pde, &host_space, &gold_path]() {
+  fk::vector<P> const gold = [&pde, &x, &gold_path]() {
     if (pde.num_terms == 1 && pde.num_dims == 1)
     {
       fk::matrix<P> const &coefficient_matrix =
           pde.get_coefficients(0, 0).clone_onto_host();
-      return coefficient_matrix * host_space.x;
+      return coefficient_matrix * x;
     }
     return fk::vector<P>(read_vector_from_txt_file(gold_path));
   }();
@@ -954,7 +954,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   batch_workspace<P, resource::device> batch_space(pde, subgrid, chunks);
 
   // copy in inputs
-  batch_space.input.transfer_from(host_space.x);
+  batch_space.input.transfer_from(x);
   for (auto const &chunk : chunks)
   {
     // build batches
@@ -968,11 +968,11 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
     reduce_chunk(pde, batch_space.reduction_space, batch_space.output,
                  batch_space.get_unit_vector(), subgrid, chunk);
   }
-  host_space.fx.transfer_from(batch_space.output);
+  x.transfer_from(batch_space.output);
+
 
   P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-5;
-
-  rmse_comparison(gold, host_space.fx, tol_factor);
+  rmse_comparison(gold, x, tol_factor);
 }
 
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
