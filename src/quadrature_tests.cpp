@@ -4,10 +4,6 @@
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 
-// determined empirically 11/19
-// lowest epsilon multiplier for which component tests pass
-static auto const quadrature_eps_multiplier = 1e2;
-
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {
@@ -56,14 +52,20 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
     int const degree         = 5;
     auto const [poly, deriv] = legendre(in, degree);
 
-    relaxed_comparison(poly, poly_gold, quadrature_eps_multiplier);
-    relaxed_comparison(deriv, deriv_gold, quadrature_eps_multiplier);
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
+
+    rmse_comparison(poly, poly_gold, tol_factor);
+    rmse_comparison(deriv, deriv_gold, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
                    float)
 {
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+
   SECTION("legendre_weights(10, -1, 1)")
   {
     fk::matrix<TestType> const roots_gold =
@@ -80,8 +82,9 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     bool const use_degree_quad = true;
     auto const [roots, weights] =
         legendre_weights<TestType>(n, a, b, use_degree_quad);
-    relaxed_comparison(roots, roots_gold, quadrature_eps_multiplier);
-    relaxed_comparison(weights, weights_gold, quadrature_eps_multiplier);
+
+    rmse_comparison(roots, fk::vector<TestType>(roots_gold), tol_factor);
+    rmse_comparison(weights, fk::vector<TestType>(weights_gold), tol_factor);
   }
 
   SECTION("legendre_weights(32, -5, 2)")
@@ -100,7 +103,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
     auto const [roots, weights] =
         legendre_weights<TestType>(n, a, b, use_degree_quad);
 
-    relaxed_comparison(roots, roots_gold, quadrature_eps_multiplier);
-    relaxed_comparison(weights, weights_gold, quadrature_eps_multiplier);
+    rmse_comparison(roots, fk::vector<TestType>(roots_gold), tol_factor);
+    rmse_comparison(weights, fk::vector<TestType>(weights_gold), tol_factor);
   }
 }

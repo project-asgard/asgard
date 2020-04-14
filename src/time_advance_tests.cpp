@@ -27,23 +27,25 @@ static auto constexpr workspace_limit_MB = 1000;
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
-                       bool const full_grid                            = false,
-                       std::vector<std::string> const &additional_args = {},
-                       double const eps_multiplier                     = 1e4)
-// eps multiplier determined empirically 11/19; lowest epsilon multiplier
-// for which all current tests pass with the exception of fp2d
+                       bool const full_grid = false, P const tol_factor = 1e-10,
+                       double const cfl = 0.01)
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
 
-  std::vector<std::string> const args = [&additional_args, level, degree,
-                                         full_grid]() {
+  std::vector<std::string> const args = [level, degree, full_grid, cfl]() {
     std::string const grid_str    = full_grid ? "-f" : "";
-    std::vector<std::string> args = {"-l", std::to_string(level), "-d",
-                                     std::to_string(degree), grid_str};
-    args.insert(args.end(), additional_args.begin(), additional_args.end());
+    std::vector<std::string> args = {"-l",
+                                     std::to_string(level),
+                                     "-d",
+                                     std::to_string(degree),
+                                     grid_str,
+                                     "-c",
+                                     to_string_with_precision(cfl, 16)};
+
     return args;
   }();
+
   options const o = make_options(args);
 
   element_table const table(o, pde.num_dims);
@@ -127,324 +129,18 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-    relaxed_comparison(gold, host_space.x, eps_multiplier);
-  }
-}
 
-TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
-                   float)
-{
-  SECTION("diffusion2, explicit, sparse grid, level 2, degree 2")
-  {
-    int const degree     = 2;
-    int const level      = 2;
-    bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2/diffusion2_e_sg_l2_d2_t";
-
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e1;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-
-  SECTION("diffusion2, explicit, sparse grid, level 4, degree 4")
-  {
-    int const degree     = 4;
-    int const level      = 4;
-    bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2/diffusion2_e_sg_l4_d4_t";
-
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e7;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e4;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
-                   float)
-{
-  SECTION("diffusion1, explicit, sparse grid, level 2, degree 2")
-  {
-    int const degree     = 2;
-    int const level      = 2;
-    bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1/diffusion1_e_sg_l2_d2_t";
-
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e1;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-
-  SECTION("diffusion1, explicit, full grid, level 2, degree 2")
-  {
-    int const degree     = 2;
-    int const level      = 2;
-    bool const full_grid = true;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1/diffusion1_e_fg_l2_d2_t";
-
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e1;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-
-  SECTION("diffusion1, explicit, sparse grid, level 4, degree 4")
-  {
-    int const degree     = 4;
-    int const level      = 4;
-    bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1/diffusion1_e_sg_l4_d4_t";
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e7;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e4;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-
-  SECTION("diffusion1, explicit, full grid, level 4, degree 4")
-  {
-    int const degree     = 4;
-    int const level      = 4;
-    bool const full_grid = true;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1/diffusion1_e_fg_l4_d4_t";
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e7;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e4;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-
-  SECTION("diffusion1, explicit, sparse grid, level 5, degree 5")
-  {
-    int const degree     = 5;
-    int const level      = 5;
-    bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1/diffusion1_e_sg_l5_d5_t";
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e7;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e10;
-
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid, {},
-                      epsilons);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
-                   double)
-{
-  SECTION("continuity1, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-  SECTION("continuity1, level 2, degree 2, full grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    bool const full_grid = true;
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
-  }
-
-  SECTION("continuity1, level 4, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 4;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
-                   double)
-{
-  SECTION("continuity2, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-  SECTION("continuity2, level 2, degree 2, full grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    bool const full_grid = true;
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid);
-  }
-
-  SECTION("continuity2, level 4, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 4;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
-                   double)
-{
-  SECTION("continuity3, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-
-  SECTION("continuity3, level 4, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 4;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
-                   double)
-{
-  SECTION("continuity6, level 2, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t";
-    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
-                   float, double)
-{
-  SECTION("fokkerplanck_1d_4p2, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/fokkerplanck1_4p2_sg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
-                   float, double)
-{
-  SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
-  {
-    int const degree = 2;
-    int const level  = 2;
-
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
-    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
-                   float, double)
-{
-  SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
-  {
-    int const degree            = 2;
-    int const level             = 2;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p1a_sg_l2_d2_t";
-
-    auto pde =
-        make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
-    time_advance_test(level, degree, *pde, num_steps, gold_base);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
-                   float, double)
-{
-  SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
-  {
-    int const degree = 3;
-    int const level  = 3;
-
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_sg_l3_d3_t";
-    auto pde =
-        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
-    bool const full_grid                      = false;
-    std::vector<std::string> const addtl_args = {
-        "-c", to_string_with_precision(1e-10, 16)};
-    auto const eps_multiplier = 1e7; // FIXME why so high?
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      addtl_args, eps_multiplier);
+    rmse_comparison(gold, host_space.x, tol_factor);
   }
 }
 
 template<typename P>
 void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                 int const num_steps, std::string const filepath,
-                                bool const full_grid          = false,
-                                double const tolerance_factor = 1e2,
-                                solve_opts const solver = solve_opts::direct)
+                                bool const full_grid     = false,
+                                P const tolerance_factor = 1e-6,
+                                double const cfl         = 0.01,
+                                solve_opts const solver  = solve_opts::direct)
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
@@ -464,7 +160,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   std::string const grid_str = full_grid ? "-f" : "";
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
-                    "-c", std::to_string(0.01), "--implicit", grid_str});
+                    "-c", std::to_string(cfl), "--implicit", grid_str});
 
   element_table const table(o, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);
@@ -532,13 +228,329 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
     fk::vector<P> const gold =
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
-    relaxed_comparison(gold, host_space.x, tolerance_factor);
+    rmse_comparison(gold, host_space.x, tolerance_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
+                   float)
+{
+  TestType const cfl = 0.003;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
+  SECTION("diffusion2, explicit, sparse grid, level 2, degree 2")
+  {
+    int const degree     = 2;
+    int const level      = 2;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_e_sg_l2_d2_t";
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
+  }
+
+  SECTION("diffusion2, explicit, sparse grid, level 3, degree 3")
+  {
+    int const degree     = 3;
+    int const level      = 3;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_e_sg_l3_d3_t";
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
+  }
+
+  SECTION("diffusion2, explicit, sparse grid, level 4, degree 4")
+  {
+    int const degree     = 4;
+    int const level      = 4;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_e_sg_l4_d4_t";
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
+                   float)
+{
+  TestType const cfl = 0.003;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-4;
+
+  SECTION("diffusion1, explicit, sparse grid, level 2, degree 2")
+  {
+    int const degree     = 2;
+    int const level      = 2;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion1/diffusion1_e_sg_l2_d2_t";
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
+  }
+
+  SECTION("diffusion1, explicit, sparse grid, level 3, degree 3")
+  {
+    int const degree     = 3;
+    int const level      = 3;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion1/diffusion1_e_sg_l3_d3_t";
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
+  }
+
+  SECTION("diffusion1, explicit, sparse grid, level 4, degree 4")
+  {
+    int const degree     = 4;
+    int const level      = 4;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion1/diffusion1_e_sg_l4_d4_t";
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
+                   double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+  SECTION("continuity1, explicit, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+
+  SECTION("continuity1, explicit, level 2, degree 2, full grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    bool const full_grid = true;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+
+  SECTION("continuity1, explicit, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
+                   double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+  SECTION("continuity2, explicit, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+
+  SECTION("continuity2, explicit, level 2, degree 2, full grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+    bool const full_grid = true;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+
+  SECTION("continuity2, explicit, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
+                   double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+  SECTION("continuity3, explicit, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+
+  SECTION("continuity3, explicit, level 4, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 4;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
+                   double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
+  SECTION("continuity6, level 2, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t";
+    auto pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
+                   float, double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
+  SECTION("fokkerplanck_1d_4p2, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/fokkerplanck1_4p2_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p2, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
+                   float, double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
+  SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
+  {
+    int const degree = 2;
+    int const level  = 2;
+
+    std::string const gold_base =
+        "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
+    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p3, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
+                   float, double)
+{
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
+  SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
+  {
+    int const degree            = 2;
+    int const level             = 2;
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_4p1a_sg_l2_d2_t";
+
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_1d_4p1a, level, degree);
+    bool const full_grid = false;
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
+                   float, double)
+{
+  /* FIXME - these tolerances are way too high. Different parameters are likely
+     being used for gold data generation than here */
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-1 : 1e-1;
+
+  SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
+  {
+    int const degree = 3;
+    int const level  = 3;
+    double const cfl = 1e-10;
+
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck2_complete_sg_l3_d3_t";
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+    bool const full_grid = false;
+
+    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
+                      tol_factor, cfl);
   }
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
                    double, float)
 {
+  TestType const cfl = 0.003;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
   SECTION("diffusion1, implicit, sparse grid, level 2, degree 2")
   {
     int const degree     = 2;
@@ -548,14 +560,21 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_i_sg_l2_d2_t";
 
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e1;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1;
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor, cfl);
+  }
+
+  SECTION("diffusion1, implicit, sparse grid, level 3, degree 3")
+  {
+    int const degree     = 3;
+    int const level      = 3;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion1/diffusion1_i_sg_l3_d3_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, epsilons);
+                               full_grid, tol_factor, cfl);
   }
 
   SECTION("diffusion1, implicit, sparse grid, level 4, degree 4")
@@ -567,39 +586,66 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_i_sg_l4_d4_t";
 
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e3;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e1;
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor, cfl);
+  }
+}
+
+TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
+                   double, float)
+{
+  TestType const cfl = 0.003;
+
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
+  SECTION("diffusion2, implicit, sparse grid, level 2, degree 2")
+  {
+    int const degree     = 2;
+    int const level      = 2;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_i_sg_l2_d2_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, epsilons);
+                               full_grid, tol_factor, cfl);
   }
 
-  SECTION("diffusion1, implicit, sparse grid, level 5, degree 5")
+  SECTION("diffusion2, implicit, sparse grid, level 3, degree 3")
   {
-    int const degree     = 5;
-    int const level      = 5;
+    int const degree     = 3;
+    int const level      = 3;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1/diffusion1_i_sg_l5_d5_t";
-
-    double epsilons = 0;
-    if constexpr (std::is_same<TestType, float>::value == true)
-      epsilons = 1e3;
-    else if constexpr (std::is_same<TestType, double>::value == true)
-      epsilons = 1e1;
+                                  "diffusion2/diffusion2_i_sg_l3_d3_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, epsilons);
+                               full_grid, tol_factor, cfl);
+  }
+
+  SECTION("diffusion2, implicit, sparse grid, level 4, degree 4")
+  {
+    int const degree     = 4;
+    int const level      = 4;
+    bool const full_grid = false;
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2/diffusion2_i_sg_l4_d4_t";
+
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor, cfl);
   }
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
                    double)
 {
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+  bool const full_grid = false;
+
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -608,7 +654,9 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity1_implicit_l2_d2_t";
-    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
   }
 
   SECTION("continuity1, level 4, degree 3, sparse grid")
@@ -619,7 +667,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity1_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
   }
 
   SECTION("continuity1, level 4, degree 3, sparse grid, iterative")
@@ -628,18 +677,21 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     int const level      = 4;
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity1_implicit_l4_d3_t";
+    double const cfl = 0.01;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
-    bool const full_grid    = false;
-    double const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, solve_opts::gmres);
+                               full_grid, tol_factor, cfl, solve_opts::gmres);
   }
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                    float, double)
 {
+  bool const full_grid = false;
+
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -648,7 +700,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity2_implicit_l2_d2_t";
-    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
   }
 
   SECTION("continuity2, level 4, degree 3, sparse grid")
@@ -660,20 +713,22 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                            "continuity2_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
 
-    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base);
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
   }
 
   SECTION("continuity2, level 4, degree 3, sparse grid, iterative")
   {
     int const degree = 3;
     int const level  = 4;
+    double const cfl = 0.01;
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
 
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity2_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    bool const full_grid      = false;
-    TestType const tol_factor = std::is_same_v<TestType, float> ? 1e2 : 1e4;
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, solve_opts::gmres);
+                               full_grid, tol_factor, cfl, solve_opts::gmres);
   }
 }

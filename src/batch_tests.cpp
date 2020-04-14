@@ -639,21 +639,23 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   auto const effect_c = [m, n](auto const c) {
     return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
+
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-6;
+
   for (int i = 0; i < num_batch; ++i)
   {
     // we use random vals for tests - multiply eps by this amount
     // in comparisons to provide a wider tolerance, set 1/14
-    auto const eps_multiplier = 1e3;
     if constexpr (resrc == resource::host)
     {
-      relaxed_comparison(effect_c(matrices[2][i]), effect_c(matrices[3][i]),
-                         eps_multiplier);
+      rmse_comparison(effect_c(matrices[2][i]), effect_c(matrices[3][i]),
+                      tol_factor);
     }
+
     else
     {
-      relaxed_comparison(effect_c(matrices[2][i].clone_onto_host()),
-                         effect_c(matrices[3][i].clone_onto_host()),
-                         eps_multiplier);
+      rmse_comparison(effect_c(matrices[2][i].clone_onto_host()),
+                      effect_c(matrices[3][i].clone_onto_host()), tol_factor);
     }
   }
 }
@@ -863,19 +865,17 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
   batched_gemv(a_batch, x_batch, y_batch, alpha, beta);
 
+  P const tol_factor = 1e-14;
   for (int i = 0; i < num_batch; ++i)
   {
-    // we use random vals for tests - multiply eps by this amount
-    // in comparisons to provide a wider tolerance, set 1/14
-    auto const eps_multiplier = 1e3;
     if constexpr (resrc == resource::host)
     {
-      relaxed_comparison(vectors[1][i], vectors[2][i], eps_multiplier);
+      rmse_comparison(vectors[1][i], vectors[2][i], tol_factor);
     }
     else
     {
-      relaxed_comparison(vectors[1][i].clone_onto_host(),
-                         vectors[2][i].clone_onto_host(), eps_multiplier);
+      rmse_comparison(vectors[1][i].clone_onto_host(),
+                      vectors[2][i].clone_onto_host(), tol_factor);
     }
   }
 }
@@ -1187,7 +1187,10 @@ void test_kronmult_batching(PDE<P> const &pde, int const num_terms,
   }
 
   fk::vector<P> const y_h(y_own.clone_onto_host());
-  relaxed_comparison(y_h, gold);
+
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-6;
+
+  rmse_comparison(y_h, gold, tol_factor);
 }
 
 TEMPLATE_TEST_CASE_SIG("kronmult batching", "[batch]",
@@ -1309,9 +1312,9 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }
   host_space.fx.transfer_from(dev_space.batch_output);
 
-  // determined emprically 11/19
-  auto const eps_multiplier = std::is_same<float, P>::value ? 1e3 : 1e4;
-  relaxed_comparison(gold, host_space.fx, eps_multiplier);
+  P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-5;
+
+  rmse_comparison(gold, host_space.fx, tol_factor);
 }
 
 TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)

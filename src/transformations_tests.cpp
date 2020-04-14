@@ -99,7 +99,9 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
-  static auto constexpr fmwt_eps_multiplier = 1e3;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+
   SECTION("transform(2, 2, -1, 1, double)")
   {
     int const degree     = 2;
@@ -121,9 +123,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it);
 
-    // determined empirically 11/19
-    // lowest epsilon multiplier for which tests pass
-    relaxed_comparison(gold, test, fmwt_eps_multiplier);
+    rmse_comparison(gold, test, tol_factor);
   }
 
   SECTION("transform(3, 4, -2.0, 2.0, double plus)")
@@ -148,13 +148,14 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus);
 
-    relaxed_comparison(gold, test, fmwt_eps_multiplier);
+    rmse_comparison(gold, test, tol_factor);
   }
 }
 
 template<typename P>
 void test_wavelet_to_realspace(PDE<P> const &pde,
-                               std::string const &gold_filename)
+                               std::string const &gold_filename,
+                               P const tol_factor)
 {
   // memory limit for routines
   static int constexpr limit_MB = 4000;
@@ -168,7 +169,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
                       pde.num_dims);
 
   fk::vector<P> const wave_space = [&table, &pde, degree]() {
-    /* arbitrary function to transform from wavelet space to real space */
+    // arbitrary function to transform from wavelet space to real space
     auto const arbitrary_func = [](P const x) { return 2.0 * x; };
 
     auto const wave_space_size =
@@ -199,15 +200,14 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   fk::vector<P> const gold =
       fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
-  // determined empirically 11/19
-  // FIXME these are high relative to other components...
-  auto const backward_eps_multiplier =
-      std::is_same<float, P>::value ? 1e5 : 1e8;
-  relaxed_comparison(gold, real_space, backward_eps_multiplier);
+  rmse_comparison(gold, real_space, tol_factor);
 }
 
 TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
 {
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-8 : 1e-2;
+
   SECTION("wavelet_to_realspace_1")
   {
     int const level  = 8;
@@ -217,7 +217,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/wavelet_to_realspace/"
         "continuity_1/"
         "wavelet_to_realspace.dat";
-    test_wavelet_to_realspace(*pde, gold_filename);
+    test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 
   SECTION("wavelet_to_realspace_2")
@@ -229,7 +229,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/wavelet_to_realspace/"
         "continuity_2/"
         "wavelet_to_realspace.dat";
-    test_wavelet_to_realspace(*pde, gold_filename);
+    test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 
   SECTION("wavelet_to_realspace_3")
@@ -241,13 +241,14 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/wavelet_to_realspace/"
         "continuity_3/"
         "wavelet_to_realspace.dat";
-    test_wavelet_to_realspace(*pde, gold_filename);
+    test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 }
 
 template<typename P>
 void test_gen_realspace_transform(PDE<P> const &pde,
-                                  std::string const &gold_filename)
+                                  std::string const &gold_filename,
+                                  P const tol_factor)
 {
   std::vector<fk::matrix<P>> const transforms = gen_realspace_transform(pde);
 
@@ -255,17 +256,17 @@ void test_gen_realspace_transform(PDE<P> const &pde,
   {
     fk::matrix<P> const gold = fk::matrix<P>(
         read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
-    // determined emprically 11/19
-    // FIXME the double precision version is high relative to other
-    // components...
-    auto const gen_eps_multiplier = std::is_same<float, P>::value ? 1e2 : 1e7;
-    relaxed_comparison(gold, transforms[i], gen_eps_multiplier);
+
+    rmse_comparison(gold, transforms[i], tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
                    float)
 {
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-10 : 1e-6;
+
   SECTION("gen_realspace_transform_1")
   {
     int const level  = 8;
@@ -275,7 +276,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "continuity_1/"
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    test_gen_realspace_transform(*pde, gold_filename);
+    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 
   SECTION("gen_realspace_transform_2")
@@ -287,7 +288,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "continuity_2/"
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    test_gen_realspace_transform(*pde, gold_filename);
+    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 
   SECTION("gen_realspace_transform_3")
@@ -299,7 +300,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "continuity_3/"
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    test_gen_realspace_transform(*pde, gold_filename);
+    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 
   SECTION("gen_realspace_transform_6")
@@ -311,6 +312,6 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "continuity_6/"
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
-    test_gen_realspace_transform(*pde, gold_filename);
+    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 }

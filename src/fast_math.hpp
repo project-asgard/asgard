@@ -1,6 +1,7 @@
 #pragma once
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
+#include <numeric>
 
 namespace fm
 {
@@ -20,7 +21,63 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
   };
   int n     = x.size();
   int inc_x = 1;
-  return lib_dispatch::nrm2(&n, x.data(), &inc_x);
+  return lib_dispatch::nrm2(&n, x.data(), &inc_x, resrc);
+}
+
+/* Frobenius norm of owner matrix */
+template<typename P, resource resrc>
+P frobenius(fk::matrix<P, mem_type::owner, resrc> const &m)
+{
+  if (m.size() == 0)
+  {
+    return 0.0;
+  }
+
+  else if constexpr (std::is_floating_point<P>::value)
+  {
+    int n     = m.size();
+    int inc_x = 1;
+    return lib_dispatch::nrm2(&n, m.data(), &inc_x, resrc);
+  }
+
+  /* create a view of the matrix and pass it to the non-owner overload of the
+   * function */
+  else
+  {
+    fk::matrix<P, mem_type::const_view, resrc> const m_view(m);
+    frobenius(m_view);
+  }
+}
+
+/* with matrix views, contiguous raw data cannot be assumed - calculate manually
+ */
+template<typename P, mem_type mem, resource resrc, mem_type m_ = mem,
+         typename = enable_for_all_views<m_>>
+P frobenius(fk::matrix<P, mem, resrc> const &m)
+{
+  if (m.size() == 0)
+  {
+    return 0.0;
+  }
+
+  /* if the matrix is on the device, copy it to host */
+  else if constexpr (resrc == resource::device)
+  {
+    fk::matrix<P, mem_type::owner, resource::host> m_host = m.clone_onto_host();
+
+    return std::sqrt(std::accumulate(m_host.begin(), m_host.end(), 0,
+                                     [](P const sum_of_squares, P const value) {
+                                       return sum_of_squares + value * value;
+                                     }));
+  }
+
+  else if constexpr (resrc == resource::host)
+  {
+    return std::sqrt(std::accumulate(m.begin(), m.end(), 0,
+                                     [](P const sum_of_squares, P const value) {
+                                       return sum_of_squares + value * value;
+                                     }));
+  }
 }
 
 // axpy - y += a*x
