@@ -18,9 +18,9 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, P const time, P const dt)
 {
-  int const my_rank           = get_rank();
-  element_subgrid const &grid = plan.at(get_rank());
-  int const elem_size         = element_segment_size(pde);
+  int const my_rank   = get_rank();
+  auto const &grid    = plan.at(get_rank());
+  int const elem_size = element_segment_size(pde);
 
   // allocate workspace
   int64_t const col_size = elem_size * static_cast<int64_t>(grid.ncols());
@@ -52,14 +52,18 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c3  = 1.0;
 
   auto const apply_id = timer::record.start("apply_A");
-  fk::vector<P> fx1   = apply_A(pde, table, grid, chunks, fx);
+  auto fx1            = apply_A(pde, table, grid, chunks, fx);
   timer::record.stop(apply_id);
 
   reduce_results(fx1, reduced_fx, plan, my_rank);
-  fk::vector<P> scaled_source = scale_sources(pde, unscaled_sources, time);
-  fm::axpy(scaled_source, reduced_fx);
 
-  fk::vector<P> const bc0 = boundary_conditions::generate_scaled_bc(
+  if (!unscaled_sources.empty())
+  {
+    auto const scaled_source = scale_sources(pde, unscaled_sources, time);
+    fm::axpy(scaled_source, reduced_fx);
+  }
+
+  auto const bc0 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time);
 
@@ -71,12 +75,17 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(fx1, fx, fx_scale_1);
 
   timer::record.start(apply_id);
-  fk::vector<P> fx2 = apply_A(pde, table, grid, chunks, fx);
+  auto fx2 = apply_A(pde, table, grid, chunks, fx);
   timer::record.stop(apply_id);
 
   reduce_results(fx2, reduced_fx, plan, my_rank);
-  scaled_source = scale_sources(pde, unscaled_sources, time + c2 * dt);
-  fm::axpy(scaled_source, reduced_fx);
+
+  if (!unscaled_sources.empty())
+  {
+    auto const scaled_source =
+        scale_sources(pde, unscaled_sources, time + c2 * dt);
+    fm::axpy(scaled_source, reduced_fx);
+  }
 
   fk::vector<P> const bc1 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
@@ -94,14 +103,18 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fm::axpy(fx2, fx, fx_scale_2b);
 
   timer::record.start(apply_id);
-  fk::vector<P> fx3 = apply_A(pde, table, grid, chunks, fx);
+  auto fx3 = apply_A(pde, table, grid, chunks, fx);
   timer::record.stop(apply_id);
 
   reduce_results(fx3, reduced_fx, plan, my_rank);
-  scaled_source = scale_sources(pde, unscaled_sources, time + c3 * dt);
-  fm::axpy(scaled_source, reduced_fx);
 
-  fk::vector<P> const bc2 = boundary_conditions::generate_scaled_bc(
+  if (!unscaled_sources.empty())
+  {
+    auto const scaled_source =
+        scale_sources(pde, unscaled_sources, time + c3 * dt);
+    fm::axpy(scaled_source, reduced_fx);
+  }
+  auto const bc2 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + c3 * dt);
 
@@ -149,7 +162,7 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
                       fk::vector<P> const &x_orig,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, P const time, P const dt,
-                      solve_opts const solver, bool update_system)
+                      solve_opts const solver, bool const update_system)
 {
   assert(time >= 0);
   assert(dt > 0);
@@ -162,15 +175,15 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
 
-  fk::vector<P> scaled_source = scale_sources(pde, unscaled_sources, time + dt);
+  auto const scaled_source = scale_sources(pde, unscaled_sources, time + dt);
 
-  fk::vector<P> x = x_orig + scaled_source * dt;
+  auto x = x_orig + (scaled_source * dt);
 
   /* add the boundary condition */
-  int const my_rank           = get_rank();
-  element_subgrid const &grid = plan.at(my_rank);
+  int const my_rank = get_rank();
+  auto const &grid  = plan.at(my_rank);
 
-  fk::vector<P> const bc = boundary_conditions::generate_scaled_bc(
+  auto const bc = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + dt);
   fm::axpy(bc, x, dt);
@@ -213,6 +226,7 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
   {
   case solve_opts::direct:
     fm::getrs(A, x, ipiv);
+    return x;
     break;
   case solve_opts::gmres:
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -222,6 +236,7 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
     solver::simple_gmres(A, fx, x, fk::matrix<P>(), restart, max_iter,
                          tolerance);
     return fx;
+    break;
   }
   return x;
 }
@@ -247,7 +262,7 @@ template fk::vector<double> implicit_time_advance(
     fk::vector<double> const &host_space,
     std::vector<element_chunk> const &chunks, distribution_plan const &plan,
     double const time, double const dt, solve_opts const solver,
-    bool update_system = true);
+    bool const update_system);
 
 template fk::vector<float> implicit_time_advance(
     PDE<float> const &pde, element_table const &table,
@@ -255,4 +270,4 @@ template fk::vector<float> implicit_time_advance(
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
     fk::vector<float> const &x, std::vector<element_chunk> const &chunks,
     distribution_plan const &plan, float const time, float const dt,
-    solve_opts const solver, bool update_system = true);
+    solve_opts const solver, bool const update_system);

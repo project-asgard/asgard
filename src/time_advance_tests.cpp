@@ -45,7 +45,6 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
     return args;
   }();
-
   options const o = make_options(args);
 
   element_table const table(o, pde.num_dims);
@@ -104,22 +103,22 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
                                                   subgrid.row_stop);
 
   // -- prep workspace/chunks
-  int const workspace_MB_limit = 4000;
-  host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
+  int const workspace_limit_MB            = 4000;
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
-  host_space.x = initial_condition;
 
   // -- time loop
   P const dt = pde.get_dt() * o.get_cfl();
 
+  fk::vector<P> f_val(initial_condition);
   for (int i = 0; i < num_steps; ++i)
   {
     P const time = i * dt;
 
-    explicit_time_advance(pde, table, initial_sources, unscaled_parts,
-                          host_space, chunks, plan, time, dt);
-
+    std::cout.setstate(std::ios_base::failbit);
+    f_val = explicit_time_advance(pde, table, initial_sources, unscaled_parts,
+                                  f_val, chunks, plan, time, dt);
+    std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
     int const degree       = pde.get_dimensions()[0].get_degree();
@@ -128,8 +127,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
-
-    rmse_comparison(gold, host_space.x, tol_factor);
+    rmse_comparison(gold, f_val, tol_factor);
   }
 }
 
@@ -204,12 +202,11 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                                   subgrid.row_stop);
 
   // -- prep workspace/chunks
-  int const workspace_MB_limit = 4000;
-  host_workspace<P> host_space(pde, subgrid, workspace_MB_limit);
+  int const workspace_limit_MB            = 4000;
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(subgrid, pde, workspace_limit_MB));
 
-  host_space.x = initial_condition;
+  fk::vector<P> f_val(initial_condition);
 
   // -- time loop
   P const dt = pde.get_dt() * o.get_cfl();
@@ -219,15 +216,15 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
     P const time = i * dt;
 
     std::cout.setstate(std::ios_base::failbit);
-    implicit_time_advance(pde, table, initial_sources, unscaled_parts,
-                          host_space, chunks, plan, time, dt, solver);
+    f_val = implicit_time_advance(pde, table, initial_sources, unscaled_parts,
+                                  f_val, chunks, plan, time, dt, solver);
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
     fk::vector<P> const gold =
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
-    rmse_comparison(gold, host_space.x, tolerance_factor);
+    rmse_comparison(gold, f_val, tolerance_factor);
   }
 }
 
