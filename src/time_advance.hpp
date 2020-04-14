@@ -40,7 +40,6 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &grid, std::vector<element_chunk> const &chunks,
         fk::vector<P> const &x)
 {
-  fk::vector<P> fx(x.size());
   batch_workspace<P, resource::device> batch_space(pde, grid, chunks);
 
   // print information about workspace size on first invocation
@@ -90,6 +89,5 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   }
 
   // copy outputs back from GPU
-  fx.transfer_from(batch_space.output);
-  return fx;
+  return batch_space.output.clone_onto_host();
 }

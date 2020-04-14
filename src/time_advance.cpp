@@ -14,7 +14,7 @@ fk::vector<P>
 explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x,
+                      fk::vector<P> const &x_orig,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, P const time, P const dt)
 {
@@ -22,17 +22,14 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   auto const &grid    = plan.at(get_rank());
   int const elem_size = element_segment_size(pde);
 
-  // allocate workspace
   int64_t const col_size = elem_size * static_cast<int64_t>(grid.ncols());
-  assert(x.size() == col_size);
+  assert(x_orig.size() == col_size);
   int64_t const row_size = elem_size * static_cast<int64_t>(grid.nrows());
   assert(col_size < INT_MAX);
   assert(row_size < INT_MAX);
-
+  // time advance working vectors
   // input vector for apply_A
-  fk::vector<P> fx(col_size);
-  fm::copy(x, fx);
-
+  fk::vector<P> x(x_orig);
   // a buffer for reducing across subgrid row
   fk::vector<P> reduced_fx(row_size);
 
@@ -52,10 +49,10 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   P const c3  = 1.0;
 
   auto const apply_id = timer::record.start("apply_A");
-  auto fx1            = apply_A(pde, table, grid, chunks, fx);
+  auto fx             = apply_A(pde, table, grid, chunks, x);
   timer::record.stop(apply_id);
 
-  reduce_results(fx1, reduced_fx, plan, my_rank);
+  reduce_results(fx, reduced_fx, plan, my_rank);
 
   if (!unscaled_sources.empty())
   {
@@ -69,16 +66,18 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   fm::axpy(bc0, reduced_fx);
 
-  exchange_results(reduced_fx, fx1, elem_size, plan, my_rank);
+  // FIXME I eventually want to return a vect here
+  fk::vector<P> rk_1(x_orig.size());
+  exchange_results(reduced_fx, rk_1, elem_size, plan, my_rank);
 
-  P const fx_scale_1 = a21 * dt;
-  fm::axpy(fx1, fx, fx_scale_1);
+  P const rk_scale_1 = a21 * dt;
+
+  fm::axpy(rk_1, x, rk_scale_1);
 
   timer::record.start(apply_id);
-  auto fx2 = apply_A(pde, table, grid, chunks, fx);
+  fx = apply_A(pde, table, grid, chunks, x);
   timer::record.stop(apply_id);
-
-  reduce_results(fx2, reduced_fx, plan, my_rank);
+  reduce_results(fx, reduced_fx, plan, my_rank);
 
   if (!unscaled_sources.empty())
   {
@@ -90,23 +89,22 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   fk::vector<P> const bc1 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + c2 * dt);
-
   fm::axpy(bc1, reduced_fx);
 
-  exchange_results(reduced_fx, fx2, elem_size, plan, my_rank);
+  fk::vector<P> rk_2(x_orig.size());
+  exchange_results(reduced_fx, rk_2, elem_size, plan, my_rank);
 
-  fm::copy(x, fx);
-  P const fx_scale_2a = a31 * dt;
-  P const fx_scale_2b = a32 * dt;
+  fm::copy(x_orig, x);
+  P const rk_scale_2a = a31 * dt;
+  P const rk_scale_2b = a32 * dt;
 
-  fm::axpy(fx1, fx, fx_scale_2a);
-  fm::axpy(fx2, fx, fx_scale_2b);
+  fm::axpy(rk_1, x, rk_scale_2a);
+  fm::axpy(rk_2, x, rk_scale_2b);
 
   timer::record.start(apply_id);
-  auto fx3 = apply_A(pde, table, grid, chunks, fx);
+  fx = apply_A(pde, table, grid, chunks, x);
   timer::record.stop(apply_id);
-
-  reduce_results(fx3, reduced_fx, plan, my_rank);
+  reduce_results(fx, reduced_fx, plan, my_rank);
 
   if (!unscaled_sources.empty())
   {
@@ -117,20 +115,21 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   auto const bc2 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + c3 * dt);
-
   fm::axpy(bc2, reduced_fx);
-  exchange_results(reduced_fx, fx3, elem_size, plan, my_rank);
 
-  fm::copy(x, fx);
+  fk::vector<P> rk_3(x_orig.size());
+  exchange_results(reduced_fx, rk_3, elem_size, plan, my_rank);
+
+  fm::copy(x_orig, x);
   P const scale_1 = dt * b1;
   P const scale_2 = dt * b2;
   P const scale_3 = dt * b3;
 
-  fm::axpy(fx1, fx, scale_1);
-  fm::axpy(fx2, fx, scale_2);
-  fm::axpy(fx3, fx, scale_3);
+  fm::axpy(rk_1, x, scale_1);
+  fm::axpy(rk_2, x, scale_2);
+  fm::axpy(rk_3, x, scale_3);
 
-  return fx;
+  return x;
 }
 
 // scale source vectors for time
