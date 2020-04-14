@@ -175,9 +175,12 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
 
-  auto const scaled_source = scale_sources(pde, unscaled_sources, time + dt);
-
-  auto x = x_orig + (scaled_source * dt);
+  fk::vector<P> x(x_orig);
+  if (!unscaled_sources.empty())
+  {
+    auto const scaled_source = scale_sources(pde, unscaled_sources, time + dt);
+    fm::axpy(scaled_source, x, dt);
+  }
 
   /* add the boundary condition */
   int const my_rank = get_rank();
