@@ -11,38 +11,40 @@
 // vector x (in host_space).
 // on exit, the next solution vector is stored in x.
 template<typename P>
-void explicit_time_advance(
-    PDE<P> const &pde, element_table const &table,
-    std::vector<fk::vector<P>> const &unscaled_sources,
-    std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-    host_workspace<P> &host_space, std::vector<element_chunk> const &chunks,
-    distribution_plan const &plan, P const time, P const dt);
+fk::vector<P>
+explicit_time_advance(PDE<P> const &pde, element_table const &table,
+                      std::vector<fk::vector<P>> const &unscaled_sources,
+                      std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                      fk::vector<P> const &x,
+                      std::vector<element_chunk> const &chunks,
+                      distribution_plan const &plan, P const time, P const dt);
 
 template<typename P>
-void implicit_time_advance(
-    PDE<P> const &pde, element_table const &table,
-    std::vector<fk::vector<P>> const &unscaled_sources,
-    std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-    host_workspace<P> &host_space, std::vector<element_chunk> const &chunks,
-    distribution_plan const &plan, P const time, P const dt,
-    solve_opts const solver = solve_opts::direct, bool update_system = true);
+fk::vector<P>
+implicit_time_advance(PDE<P> const &pde, element_table const &table,
+                      std::vector<fk::vector<P>> const &unscaled_sources,
+                      std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                      fk::vector<P> const &x,
+                      std::vector<element_chunk> const &chunks,
+                      distribution_plan const &plan, P const time, P const dt,
+                      solve_opts const solver = solve_opts::direct,
+                      bool update_system      = true);
 
 // apply the system matrix to the current solution vector using batched
 // gemm.
 template<typename P>
-static void
+static fk::vector<P>
 apply_A(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        host_workspace<P> &host_space)
+        fk::vector<P> const &x)
 {
+  fk::vector<P> fx(x.size());
   batch_workspace<P, resource::device> batch_space(pde, grid, chunks);
-  fm::scal(static_cast<P>(0.0), host_space.fx);
-  fm::scal(static_cast<P>(0.0), batch_space.output);
 
   for (auto const &chunk : chunks)
   {
     // copy inputs onto GPU
-    batch_space.input.transfer_from(host_space.x);
+    batch_space.input.transfer_from(x);
 
     // build batches for this chunk
     auto const batch_id = timer::record.start("build_batches");
@@ -63,5 +65,6 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
   }
 
   // copy outputs back from GPU
-  host_space.fx.transfer_from(batch_space.output);
+  fx.transfer_from(batch_space.output);
+  return fx;
 }

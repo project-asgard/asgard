@@ -176,7 +176,6 @@ int main(int argc, char **argv)
   /* RAM on fusiont5 */
   static int const default_workspace_cpu_MB = 187000;
 
-  host_workspace<prec> host_space(*pde, subgrid, default_workspace_cpu_MB);
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
 
@@ -202,10 +201,8 @@ int main(int argc, char **argv)
    node_out() << "reduction vector size (MB): " << get_MB(unit_vect.size())
               << '\n';
  */
-  node_out() << "explicit time loop workspace size (host) (MB): "
-             << host_space.size_MB() << '\n';
-
-  host_space.x = initial_condition;
+  // node_out() << "explicit time loop workspace size (host) (MB): "
+  //         << host_space.size_MB() << '\n';
 
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
@@ -240,6 +237,7 @@ int main(int argc, char **argv)
 
   // -- time loop
 
+  fk::vector<prec> f_val(initial_condition);
   prec const dt = pde->get_dt() * opts.get_cfl();
   node_out() << "--- begin time loop w/ dt " << dt << " ---\n";
   for (int i = 0; i < opts.get_time_steps(); ++i)
@@ -251,18 +249,19 @@ int main(int argc, char **argv)
       bool const update_system = i == 0;
 
       auto const time_id = timer::record.start("implicit_time_advance");
-      implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                            host_space, chunks, plan, time, dt,
-                            opts.get_selected_solver(), update_system);
+      f_val              = implicit_time_advance(
+          *pde, table, initial_sources, unscaled_parts, f_val, chunks, plan,
+          time, dt, opts.get_selected_solver(), update_system);
       timer::record.stop(time_id);
     }
     else
     {
-      // FIXME fold initial sources into host space
-
+      // FIXME fold initial sources/unscaled parts into pde object
+      // after pde spec/pde split
       auto const &time_id = timer::record.start("explicit_time_advance");
-      explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                            host_space, chunks, plan, time, dt);
+      f_val =
+          explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
+                                f_val, chunks, plan, time, dt);
 
       timer::record.stop(time_id);
     }
@@ -274,7 +273,7 @@ int main(int argc, char **argv)
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = host_space.x - analytic_solution_t;
+      fk::vector<prec> const diff = f_val - analytic_solution_t;
       prec const RMSE             = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
@@ -301,15 +300,14 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.write_at_step(i))
     {
-      update_output_file(output_dataset, host_space.x);
+      update_output_file(output_dataset, f_val);
     }
 
     /* transform from wavelet space to real space */
     if (opts.transform_at_step(i))
     {
-      wavelet_to_realspace<prec>(*pde, host_space.x, table,
-                                 default_workspace_cpu_MB, tmp_workspace,
-                                 real_space);
+      wavelet_to_realspace<prec>(*pde, f_val, table, default_workspace_cpu_MB,
+                                 tmp_workspace, real_space);
 
       update_output_file(output_dataset_real, real_space,
                          realspace_output_name);
@@ -327,8 +325,7 @@ int main(int argc, char **argv)
 
   // gather results from all ranks. not currently writing the result anywhere
   // yet, but rank 0 holds the complete result after this call
-  auto const final_result =
-      gather_results(host_space.x, plan, my_rank, segment_size);
+  auto const final_result = gather_results(f_val, plan, my_rank, segment_size);
 
   node_out() << timer::record.report() << '\n';
 
