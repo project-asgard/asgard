@@ -644,8 +644,6 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
   for (int i = 0; i < num_batch; ++i)
   {
-    // we use random vals for tests - multiply eps by this amount
-    // in comparisons to provide a wider tolerance, set 1/14
     if constexpr (resrc == resource::host)
     {
       rmse_comparison(effect_c(matrices[2][i]), effect_c(matrices[3][i]),
@@ -872,6 +870,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
     {
       rmse_comparison(vectors[1][i], vectors[2][i], tol_factor);
     }
+
     else
     {
       rmse_comparison(vectors[1][i].clone_onto_host(),

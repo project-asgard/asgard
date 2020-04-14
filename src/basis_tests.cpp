@@ -6,7 +6,7 @@
 #include <random>
 
 template<typename P>
-void test_multiwavelet_gen(int const degree)
+void test_multiwavelet_gen(int const degree, P const tol_factor)
 {
   std::string const out_base =
       "../testing/generated-inputs/transformations/multiwavelet_" +
@@ -56,8 +56,6 @@ void test_multiwavelet_gen(int const degree)
   fk::matrix<P> const phi_co =
       fk::matrix<P>(read_matrix_from_txt_file(phi_string));
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-14 : 1e-5;
-
   rmse_comparison(h0, m_h0, tol_factor);
   rmse_comparison(h1, m_h1, tol_factor);
   rmse_comparison(g0, m_g0, tol_factor);
@@ -68,16 +66,31 @@ void test_multiwavelet_gen(int const degree)
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+
   SECTION("Multiwavelet generation, degree = 1")
   {
     int const degree = 1;
-    test_multiwavelet_gen<TestType>(degree);
+    test_multiwavelet_gen<TestType>(degree, tol_factor);
+  }
+
+  SECTION("Multiwavelet generation, degree = 2")
+  {
+    int const degree = 2;
+    test_multiwavelet_gen<TestType>(degree, tol_factor);
   }
 
   SECTION("Multiwavelet generation, degree = 3")
   {
     int const degree = 3;
-    test_multiwavelet_gen<TestType>(degree);
+    test_multiwavelet_gen<TestType>(degree, tol_factor);
+  }
+
+  SECTION("Multiwavelet generation, degree = 4")
+  {
+    int const degree = 4;
+    test_multiwavelet_gen<TestType>(degree, tol_factor);
   }
 }
 
@@ -89,7 +102,7 @@ void test_operator_two_scale(int const levels, int const degree)
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  P const tol_factor = 1e-13;
+  P const tol_factor = 1e-14;
 
   rmse_comparison(gold, test, tol_factor);
 }
@@ -135,7 +148,7 @@ void test_apply_fmwt(int const levels, int const degree)
 {
   int const degrees_freedom = degree * pow(2, levels);
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+  P tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());

@@ -9,10 +9,6 @@
 #include <cuda_runtime.h>
 #endif
 
-#ifdef ASGARD_USE_OPENMP
-#include <omp.h>
-#endif
-
 auto const ignore = [](auto ignored) { (void)ignored; };
 struct device_handler
 {
