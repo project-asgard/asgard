@@ -175,3 +175,14 @@ if (ASGARD_BUILD_TESTS)
     ${CMAKE_SOURCE_DIR}
   )
 endif ()
+
+
+
+###############################################################################
+## E.D.'s kronmult library
+#
+# link to Ed D'Azevedo's kronmult library, or download/build if not present
+#
+###############################################################################
+
+find_library(kronlib libfoo.a PATHS /home/user)
