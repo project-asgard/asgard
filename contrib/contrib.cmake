@@ -185,4 +185,32 @@ endif ()
 #
 ###############################################################################
 
-find_library(kronlib libfoo.a PATHS /home/user)
+set(KRON_PATH ${CMAKE_SOURCE_DIR}/contrib/kronmult/src/kronmult-ext)
+find_library(KRON_LIB kron PATHS ${KRON_PATH}/lib)
+
+if(NOT KRON_LIB)
+    message("-- kronmult library not found - dl and build from src")
+    
+    set(INC_PATH ${KRON_PATH}/make.inc.cpu)
+  
+    if(ASGARD_USE_CUDA)
+       message("-- build with CUDA support")
+       set(INC_PATH ${KRON_PATH}/make.inc.gpu)
+    else()
+       message("-- build without CUDA support")
+    endif()
+
+    include (ExternalProject)
+    ExternalProject_Add (kronmult-ext
+      UPDATE_COMMAND ""
+      PREFIX ${CMAKE_SOURCE_DIR}/contrib/kronmult
+      URL https://github.com/project-asgard/kronmult/archive/v0.1.tar.gz
+      DOWNLOAD_NO_PROGRESS 1
+      CONFIGURE_COMMAND cp ${INC_PATH} ${KRON_PATH}/make.inc
+      BUILD_COMMAND make all
+      BUILD_IN_SOURCE 1
+      INSTALL_COMMAND ""
+    )
+
+endif()
+
