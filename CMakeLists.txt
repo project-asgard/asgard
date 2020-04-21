@@ -89,6 +89,8 @@ if(ASGARD_USE_MPI)
   include_directories(${MPI_CXX_INCLUDE_DIRS})
 endif()
 
+include_directories(${KRON_PATH})
+
 ###############################################################################
 ## Building asgard
 #
@@ -172,6 +174,10 @@ target_link_libraries (fast_math
 
 target_link_libraries(kronmult PRIVATE ${KRON_LIB})
 target_include_directories(kronmult PRIVATE ${KRON_PATH})
+if (ASGARD_USE_OPENMP)
+   target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
+endif ()
+  
 
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
@@ -257,6 +263,9 @@ configure_file(
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
+if (ASGARD_USE_OPENMP)
+   target_link_libraries(asgard PRIVATE OpenMP::OpenMP_CXX)
+endif ()
 
 ###############################################################################
 ## Testing asgard
