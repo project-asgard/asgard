@@ -1966,7 +1966,7 @@ operator=(fk::vector<P, omem> const &v)
 }
 
 //
-// matrix subscript operator - row-major ordering
+// matrix subscript operator - (row, col)
 // see c++faq:
 // https://isocpp.org/wiki/faq/operator-overloading#matrix-subscript-op
 //

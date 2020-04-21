@@ -211,3 +211,13 @@ template<typename P>
 std::vector<P>
 gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                int const my_rank, int const element_segment_size);
+
+// helper func
+template<typename P>
+double get_MB(int64_t const num_elems)
+{
+  assert(num_elems > 0);
+  double const bytes = num_elems * sizeof(P);
+  double const MB    = bytes * 1e-6;
+  return MB;
+}
