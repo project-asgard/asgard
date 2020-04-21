@@ -142,6 +142,8 @@ if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
 endif ()
 
+add_dependencies(kronmult kronmult-ext)
+
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)

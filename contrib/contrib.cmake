@@ -204,13 +204,15 @@ if(NOT KRON_LIB)
     ExternalProject_Add (kronmult-ext
       UPDATE_COMMAND ""
       PREFIX ${CMAKE_SOURCE_DIR}/contrib/kronmult
-      URL https://github.com/project-asgard/kronmult/archive/v0.1.2.tar.gz
+      URL https://github.com/project-asgard/kronmult/archive/0.1.2.tar.gz
       DOWNLOAD_NO_PROGRESS 1
       CONFIGURE_COMMAND cp ${KRON_INC_PATH} ${KRON_PATH}/make.inc
       BUILD_COMMAND make all
       BUILD_IN_SOURCE 1
       INSTALL_COMMAND ""
     )
+
 set (KRON_LIB "-L${KRON_PATH}/lib -Wl,-rpath,${KRON_PATH}/lib/ -lkron")
+
 endif()
 

@@ -224,9 +224,9 @@ execute(PDE<P> const &pde, element_table const &elem_table,
       get_indices(col_coords, operator_col, degree);
 
       // also prepare x_window all terms will use
-      // auto const x_start = my_subgrid.to_local_col(j) * deg_to_dim;
-      // fk::vector<P, mem_type::const_view, resource::device> x_window(
-      // x, x_start, x_start + deg_to_dim - 1);
+      auto const x_start = my_subgrid.to_local_col(j) * deg_to_dim;
+      fk::vector<P, mem_type::const_view, resource::device> x_window(
+          x, x_start, x_start + deg_to_dim - 1);
 
       for (auto t = 0; t < pde.num_terms; ++t)
       {
@@ -238,22 +238,23 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         auto const operator_start = num_kron * degree * degree * pde.num_dims;
 
         // stage inputs FIXME may eventually have to remove views
-        auto const x_start = element_x.data(num_kron * deg_to_dim);
-        int n              = deg_to_dim;
-        int one            = 1; // sigh
+        // auto const x_start = element_x.data(num_kron * deg_to_dim);
+        // int n              = deg_to_dim;
+        // int one            = 1; // sigh
 
-        copy_matrix_on_device(x.data(my_subgrid.to_local_col(j) * deg_to_dim),
-                              n, x_start, n, n, 1);
+        // copy_matrix_on_device(x.data(my_subgrid.to_local_col(j) *
+        // deg_to_dim),
+        //                      n, x_start, n, n, 1);
         // lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(j) *
         // deg_to_dim),
         //                 &one, x_start, &one);
 
-        // fk::vector<P, mem_type::view, resource::device> my_x(
-        //   element_x, num_kron * deg_to_dim, (num_kron + 1) * deg_to_dim - 1);
-        // my_x                 = x_window;
-        // input_ptrs[num_kron] = my_x.data();
+        fk::vector<P, mem_type::view, resource::device> my_x(
+            element_x, num_kron * deg_to_dim, (num_kron + 1) * deg_to_dim - 1);
+        my_x                 = x_window;
+        input_ptrs[num_kron] = my_x.data();
 
-        input_ptrs[num_kron] = x_start;
+        // input_ptrs[num_kron] = x_start;
         // stage work/output
         work_ptrs[num_kron] = element_work.data(num_kron * deg_to_dim);
         output_ptrs[num_kron] =
@@ -262,20 +263,18 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         // stage operators FIXME may eventually have to remove views
         for (auto d = 0; d < pde.num_dims; ++d)
         {
-          auto const &coeff = pde.get_coefficients(t, d);
-          copy_matrix_on_device(
-              coeff.data(operator_row[d], operator_col[d]), coeff.stride(),
-              operators.data(degree * degree * d), degree, degree, degree);
-          /*fk::matrix<P, mem_type::const_view, resource::device> const
+          // auto const &coeff = pde.get_coefficients(t, d);
+          // copy_matrix_on_device(
+          //    coeff.data(operator_row[d], operator_col[d]), coeff.stride(),
+          //    operators.data(degree * degree * d), degree, degree, degree);
+          fk::matrix<P, mem_type::const_view, resource::device> const
               coefficient_window(pde.get_coefficients(t, d), operator_row[d],
                                  operator_row[d] + degree - 1, operator_col[d],
                                  operator_col[d] + degree - 1);
           fk::matrix<P, mem_type::view, resource::device> my_A(
-              operators, degree, degree, operator_start + degree * degree *
-          d);//(pde.num_dims - 1 - d));
+              operators, degree, degree, operator_start + degree * degree * d);
 
           my_A = coefficient_window;
-        */
         }
       }
     }
