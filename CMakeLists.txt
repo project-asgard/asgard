@@ -110,6 +110,7 @@ set (components
   element_table
   fast_math
   chunk
+  kronmult
   lib_dispatch
   matlab_utilities
   pde
@@ -169,6 +170,9 @@ target_link_libraries (element_table
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
 
+target_link_libraries(kronmult PRIVATE ${KRON_LIB})
+target_include_directories(kronmult PRIVATE ${KRON_PATH})
+
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
 endif ()
@@ -200,7 +204,7 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors timer boundary_conditions
+target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver tensors timer boundary_conditions
                                     INTERFACE element_table)
 
 target_link_libraries (transformations
