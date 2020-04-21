@@ -24,11 +24,8 @@
 #include "timer.hpp"
 #include <limits.h>
 
-
 namespace kronmult
 {
-static std::once_flag print_flag;
-
 // helper - calculate element coordinates -> operator matrix indices
 inline void
 get_indices(fk::vector<int> const &coords, int indices[], int const degree)
@@ -52,7 +49,6 @@ void call_kronmult(int const n, P const operators[], P *x_ptrs[],
                    P *output_ptrs[], P *work_ptrs[], int const num_krons,
                    int const num_dims)
 {
-
 #ifdef USE_GPU
   {
     int constexpr warpsize    = 32;
@@ -132,23 +128,22 @@ void call_kronmult(int const n, P const operators[], P *x_ptrs[],
 
 // helper - copy between device matrices
 template<typename P>
-static void
-copy_matrix_on_device(P const * const source, int const source_lda, P* const dest, int const dest_lda, int const nrows, int const ncols) 
+static void copy_matrix_on_device(P const *const source, int const source_lda,
+                                  P *const dest, int const dest_lda,
+                                  int const nrows, int const ncols)
 {
-
 #ifdef ASGARD_USE_CUDA
   auto const success =
-      cudaMemcpy2D(dest, dest_lda * sizeof(P), source,
-                   source_lda * sizeof(P), nrows * sizeof(P),
-                   ncols, cudaMemcpyDeviceToDevice);
+      cudaMemcpy2D(dest, dest_lda * sizeof(P), source, source_lda * sizeof(P),
+                   nrows * sizeof(P), ncols, cudaMemcpyDeviceToDevice);
   assert(success == 0);
 #else
-  for(int i = 0; i < nrows; ++i) {
-
-	for(int j = 0; j < ncols; ++j) {
-		dest[i + j*dest_lda] = source[i + j*source_lda];
-
-        }
+  for (int i = 0; i < nrows; ++i)
+  {
+    for (int j = 0; j < ncols; ++j)
+    {
+      dest[i + j * dest_lda] = source[i + j * source_lda];
+    }
   }
 #endif
 }
@@ -158,7 +153,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &my_subgrid,
         fk::vector<P, mem_type::owner, resource::device> const &x)
 {
+  static std::once_flag print_flag;
+
   auto const num_elements = my_subgrid.size();
+
   // FIXME code relies on uniform degree across dimensions
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -206,7 +204,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   std::vector<P *> output_ptrs(total_kronmults);
 
 // loop over assigned elements, staging inputs and operators
-#pragma omp parallel for 
+#pragma omp parallel for
   for (auto i = my_subgrid.row_start; i <= my_subgrid.row_stop; ++i)
   {
     // calculate and store operator row indices for this element
@@ -217,10 +215,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
     assert(row_coords.size() == pde.num_dims * 2);
     get_indices(row_coords, operator_row, degree);
 
-    auto const x_start = my_subgrid.to_local_col(i);
-    fk::vector<P, mem_type::const_view, resource::device> x_window(
-        x, x_start * deg_to_dim, (x_start + 1) * deg_to_dim - 1);
-
     for (auto j = my_subgrid.col_start; j <= my_subgrid.col_stop; ++j)
     {
       // calculate and store operator col indices for this element
@@ -229,43 +223,59 @@ execute(PDE<P> const &pde, element_table const &elem_table,
       assert(col_coords.size() == pde.num_dims * 2);
       get_indices(col_coords, operator_col, degree);
 
+      // also prepare x_window all terms will use
+      // auto const x_start = my_subgrid.to_local_col(j) * deg_to_dim;
+      // fk::vector<P, mem_type::const_view, resource::device> x_window(
+      // x, x_start, x_start + deg_to_dim - 1);
+
       for (auto t = 0; t < pde.num_terms; ++t)
       {
         // get preallocated vector positions for this kronmult
         auto const num_kron =
             (i - my_subgrid.row_start) * my_subgrid.ncols() * pde.num_terms +
             (j - my_subgrid.col_start) * pde.num_terms + t;
-	
-        auto const operator_start = num_kron*degree*degree*pde.num_dims;
+
+        auto const operator_start = num_kron * degree * degree * pde.num_dims;
+
         // stage inputs FIXME may eventually have to remove views
-	//auto const x_start = element_x.data(num_kron * deg_to_dim);
-	//int n = deg_to_dim;
-        //int one = 1; //sigh
-        //lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(i)), &one, x_start, &one);  
-        fk::vector<P, mem_type::view, resource::device> my_x(
-            element_x, num_kron * deg_to_dim, (num_kron + 1) * deg_to_dim - 1);
-        my_x                 = x_window;
-        input_ptrs[num_kron] = my_x.data(); 
-        //input_ptrs[num_kron] = x_start;
+        auto const x_start = element_x.data(num_kron * deg_to_dim);
+        int n              = deg_to_dim;
+        int one            = 1; // sigh
+
+        copy_matrix_on_device(x.data(my_subgrid.to_local_col(j) * deg_to_dim),
+                              n, x_start, n, n, 1);
+        // lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(j) *
+        // deg_to_dim),
+        //                 &one, x_start, &one);
+
+        // fk::vector<P, mem_type::view, resource::device> my_x(
+        //   element_x, num_kron * deg_to_dim, (num_kron + 1) * deg_to_dim - 1);
+        // my_x                 = x_window;
+        // input_ptrs[num_kron] = my_x.data();
+
+        input_ptrs[num_kron] = x_start;
         // stage work/output
         work_ptrs[num_kron] = element_work.data(num_kron * deg_to_dim);
         output_ptrs[num_kron] =
-            output.data(my_subgrid.to_local_col(j) * deg_to_dim);
+            output.data(my_subgrid.to_local_row(i) * deg_to_dim);
 
         // stage operators FIXME may eventually have to remove views
         for (auto d = 0; d < pde.num_dims; ++d)
         {
-
-          /*auto const& coeff = pde.get_coefficients(t,d);
-          copy_matrix_on_device(coeff.data(operator_row[d], operator_col[d]), coeff.stride(), 
-          			operators.data(degree*degree*d), degree, degree, degree);*/
-          fk::matrix<P, mem_type::const_view, resource::device> const
+          auto const &coeff = pde.get_coefficients(t, d);
+          copy_matrix_on_device(
+              coeff.data(operator_row[d], operator_col[d]), coeff.stride(),
+              operators.data(degree * degree * d), degree, degree, degree);
+          /*fk::matrix<P, mem_type::const_view, resource::device> const
               coefficient_window(pde.get_coefficients(t, d), operator_row[d],
                                  operator_row[d] + degree - 1, operator_col[d],
                                  operator_col[d] + degree - 1);
-         fk::matrix<P, mem_type::view, resource::device> my_A(
-              operators, degree, degree, operator_start + degree * degree * d);
+          fk::matrix<P, mem_type::view, resource::device> my_A(
+              operators, degree, degree, operator_start + degree * degree *
+          d);//(pde.num_dims - 1 - d));
+
           my_A = coefficient_window;
+        */
         }
       }
     }

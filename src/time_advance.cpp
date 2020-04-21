@@ -52,6 +52,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   // -- RK step 1
   auto const apply_id = timer::record.start("apply_A");
   auto fx             = apply_A(pde, table, grid, chunks, x);
+
   timer::record.stop(apply_id);
 
   reduce_results(fx, reduced_fx, plan, my_rank);
@@ -245,7 +246,6 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
   return x;
 }
 
-
 // apply the system matrix to the current solution vector using batched
 // gemm.
 static std::once_flag print_flag;
@@ -255,9 +255,9 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &grid, std::vector<element_chunk> const &chunks,
         fk::vector<P> const &x)
 {
-//  batch_workspace<P, resource::device> batch_space(pde, grid, chunks);
-
 #if 0
+
+  batch_workspace<P, resource::device> batch_space(pde, grid, chunks);
   // print information about workspace size on first invocation
   std::call_once(print_flag, [&batch_space] {
     auto const get_MB = [&](int num_elems) {
@@ -318,7 +318,6 @@ apply_A(PDE<P> const &pde, element_table const &elem_table,
 #endif
 }
 
-
 template fk::vector<double> explicit_time_advance(
     PDE<double> const &pde, element_table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
@@ -349,7 +348,6 @@ template fk::vector<float> implicit_time_advance(
     fk::vector<float> const &x, std::vector<element_chunk> const &chunks,
     distribution_plan const &plan, float const time, float const dt,
     solve_opts const solver, bool const update_system);
-
 
 template fk::vector<float>
 apply_A(PDE<float> const &pde, element_table const &elem_table,
