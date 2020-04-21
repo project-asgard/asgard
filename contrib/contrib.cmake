@@ -191,11 +191,11 @@ find_library(KRON_LIB kron PATHS ${KRON_PATH}/lib)
 if(NOT KRON_LIB)
     message("-- kronmult library not found - dl and build from src")
     
-    set(INC_PATH ${KRON_PATH}/make.inc.cpu)
+    set(KRON_INC_PATH ${KRON_PATH}/make.inc.cpu)
   
     if(ASGARD_USE_CUDA)
        message("-- build with CUDA support")
-       set(INC_PATH ${KRON_PATH}/make.inc.gpu)
+       set(KRON_INC_PATH ${KRON_PATH}/make.inc.gpu)
     else()
        message("-- build without CUDA support")
     endif()
@@ -204,13 +204,13 @@ if(NOT KRON_LIB)
     ExternalProject_Add (kronmult-ext
       UPDATE_COMMAND ""
       PREFIX ${CMAKE_SOURCE_DIR}/contrib/kronmult
-      URL https://github.com/project-asgard/kronmult/archive/v0.1.tar.gz
+      URL https://github.com/project-asgard/kronmult/archive/v0.1.2.tar.gz
       DOWNLOAD_NO_PROGRESS 1
-      CONFIGURE_COMMAND cp ${INC_PATH} ${KRON_PATH}/make.inc
+      CONFIGURE_COMMAND cp ${KRON_INC_PATH} ${KRON_PATH}/make.inc
       BUILD_COMMAND make all
       BUILD_IN_SOURCE 1
       INSTALL_COMMAND ""
     )
-
+set (KRON_LIB "-L${KRON_PATH}/lib -Wl,-rpath,${KRON_PATH}/lib/ -lkron")
 endif()
 
