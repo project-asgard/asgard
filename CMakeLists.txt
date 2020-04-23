@@ -1,4 +1,5 @@
 cmake_minimum_required (VERSION 3.13) # remove cray check below when >= 3.16
+
 project (asgard
   VERSION 0.3.0
   LANGUAGES CXX
@@ -19,7 +20,7 @@ set (CMAKE_CXX_STANDARD_REQUIRED ON)
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
 # add compiler flags we always want to use
-add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-O3" "-g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -O3 -g")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -82,14 +83,15 @@ endif()
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
   include_directories(${CUDA_INCLUDE_DIRS})
+  enable_language(CUDA)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch sm_60 -g --ptxas-options=-O3")
+  set_source_files_properties( src/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
 endif()
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
   include_directories(${MPI_CXX_INCLUDE_DIRS})
 endif()
-
-include_directories(${KRON_PATH})
 
 ###############################################################################
 ## Building asgard
@@ -113,6 +115,7 @@ set (components
   fast_math
   chunk
   kronmult
+  kronmult_cuda
   lib_dispatch
   matlab_utilities
   pde
@@ -142,7 +145,9 @@ if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
 endif ()
 
-add_dependencies(kronmult kronmult-ext)
+if (build_kron)
+  add_dependencies (kronmult_cuda kronmult-ext)
+endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
@@ -174,12 +179,24 @@ target_link_libraries (element_table
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
 
-target_link_libraries(kronmult PRIVATE ${KRON_LIB})
-target_include_directories(kronmult PRIVATE ${KRON_PATH})
+target_link_libraries(kronmult PRIVATE kronmult_cuda)
+
 if (ASGARD_USE_OPENMP)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
-  
+
+target_include_directories(kronmult_cuda PRIVATE ${KRON_PATH})
+target_link_libraries(kronmult_cuda PRIVATE ${KRON_LIB})
+
+if (ASGARD_USE_CUDA)
+   set_property(TARGET kronmult_cuda
+                PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+endif()
+if(APPLE AND ASGARD_USE_GPU)
+   set_property(TARGET kronmult_cuda
+                PROPERTY
+                BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+endif ()	# whew
 
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)

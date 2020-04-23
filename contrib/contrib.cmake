@@ -213,7 +213,8 @@ if(NOT KRON_LIB)
       INSTALL_COMMAND ""
     )
 
-set (KRON_LIB "-L${KRON_PATH} -Wl,-rpath,${KRON_PATH} -lkron")
+    set (build_kron TRUE)
+    set (KRON_LIB "-L${KRON_PATH} -lkron")
 
 endif()
 

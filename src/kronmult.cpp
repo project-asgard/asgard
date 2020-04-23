@@ -1,12 +1,5 @@
 #include "kronmult.hpp"
-
-// TODO tidy these includes
-#include "kronmult1_pbatched.hpp"
-#include "kronmult2_pbatched.hpp"
-#include "kronmult3_pbatched.hpp"
-#include "kronmult4_pbatched.hpp"
-#include "kronmult5_pbatched.hpp"
-#include "kronmult6_pbatched.hpp"
+#include "kronmult_cuda.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda_runtime.h>
@@ -37,93 +30,6 @@ get_indices(fk::vector<int> const &coords, int indices[], int const degree)
   {
     indices[i] = get_1d_index(coords(i), coords(i + indices_size)) * degree;
   }
-}
-
-// helper - call the right kronmult
-// --------------------------------------------
-// note  the input memory referenced by x_ptrs will be over-written
-// --------------------------------------------
-
-template<typename P>
-void call_kronmult(int const n, P const operators[], P *x_ptrs[],
-                   P *output_ptrs[], P *work_ptrs[], int const num_krons,
-                   int const num_dims)
-{
-#ifdef USE_GPU
-  {
-    int constexpr warpsize    = 32;
-    int constexpr nwarps      = 8;
-    int constexpr num_threads = nwarps * warpsize;
-    switch (num_dims)
-    {
-    case 1:
-      kronmult1_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 2:
-      kronmult2_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 3:
-      kronmult3_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 4:
-      kronmult4_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 5:
-      kronmult5_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 6:
-      kronmult6_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    default:
-      assert(false);
-    };
-
-    // -------------------------------------------
-    // note important to wait for kernel to finish
-    // -------------------------------------------
-    cudaError_t const istat = cudaDeviceSynchronize();
-    assert(istat == cudaSuccess);
-  }
-#else
-
-  {
-    switch (num_dims)
-    {
-    case 1:
-      kronmult1_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
-                            num_krons);
-      break;
-    case 2:
-      kronmult2_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
-                            num_krons);
-      break;
-    case 3:
-      kronmult3_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
-                            num_krons);
-      break;
-    case 4:
-      kronmult4_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
-                            num_krons);
-      break;
-    case 5:
-      kronmult5_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
-                            num_krons);
-      break;
-    case 6:
-      kronmult6_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
-                            num_krons);
-      break;
-    default:
-      assert(false);
-    };
-  }
-#endif
 }
 
 // helper - copy between device matrices
