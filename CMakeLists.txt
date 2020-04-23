@@ -265,10 +265,6 @@ configure_file(
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
-if (ASGARD_USE_OPENMP)
-   target_link_libraries(asgard PRIVATE OpenMP::OpenMP_CXX)
-endif ()
-
 ###############################################################################
 ## Testing asgard
 #
