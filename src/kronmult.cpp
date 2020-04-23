@@ -32,27 +32,6 @@ get_indices(fk::vector<int> const &coords, int indices[], int const degree)
   }
 }
 
-// helper - copy between device matrices
-template<typename P>
-static void copy_matrix_on_device(P const *const source, int const source_lda,
-                                  P *const dest, int const dest_lda,
-                                  int const nrows, int const ncols)
-{
-#ifdef ASGARD_USE_CUDA
-  auto const success =
-      cudaMemcpy2D(dest, dest_lda * sizeof(P), source, source_lda * sizeof(P),
-                   nrows * sizeof(P), ncols, cudaMemcpyDeviceToDevice);
-  assert(success == 0);
-#else
-  for (int i = 0; i < nrows; ++i)
-  {
-    for (int j = 0; j < ncols; ++j)
-    {
-      dest[i + j * dest_lda] = source[i + j * source_lda];
-    }
-  }
-#endif
-}
 template<typename P>
 fk::vector<P, mem_type::owner, resource::device>
 execute(PDE<P> const &pde, element_table const &elem_table,
@@ -69,15 +48,12 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   // size of input/working space for kronmults - need 2
   auto const workspace_size = num_elements * deg_to_dim * pde.num_terms;
-  // size of small deg*deg matrices for kronmults
-  auto const operator_size =
-      num_elements * std::pow(degree, 2) * pde.num_dims * pde.num_terms;
+
   // size of output
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
 
   // for now, our vectors are indexed with a 32 bit int
   assert(workspace_size < INT_MAX);
-  assert(operator_size < INT_MAX);
   assert(output_size < INT_MAX);
 
   std::call_once(print_flag, [&pde, workspace_size, operator_size,
@@ -87,18 +63,14 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
                   pde.num_terms * pde.num_dims);
     node_out() << "kron workspace size..." << '\n';
-    node_out() << "coefficient size (existing allocation)..."
+    node_out() << "coefficient size (MB, existing allocation): "
                << coefficients_size_MB << '\n';
     node_out() << "workspace allocation (MB): " << get_MB<P>(workspace_size * 2)
                << '\n';
-    node_out() << "operator staging allocation (MB): "
-               << get_MB<P>(operator_size) << '\n';
-
     node_out() << "output allocation (MB): " << get_MB<P>(output_size) << '\n';
   });
 
   // FIXME all of below will be default init'd to 0
-  fk::vector<P, mem_type::owner, resource::device> operators(operator_size);
   fk::vector<P, mem_type::owner, resource::device> element_x(workspace_size);
   fk::vector<P, mem_type::owner, resource::device> element_work(workspace_size);
   fk::vector<P, mem_type::owner, resource::device> output(output_size);
@@ -142,24 +114,14 @@ execute(PDE<P> const &pde, element_table const &elem_table,
             (i - my_subgrid.row_start) * my_subgrid.ncols() * pde.num_terms +
             (j - my_subgrid.col_start) * pde.num_terms + t;
 
-        // stage inputs FIXME may eventually have to remove views
-        // auto const x_start = element_x.data(num_kron * deg_to_dim);
-        // int n              = deg_to_dim;
-        // int one            = 1; // sigh
+        // stage inputs
+        auto const x_start = element_x.data(num_kron * deg_to_dim);
+        int n              = deg_to_dim;
+        int one            = 1; // sigh
+        lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(j) * deg_to_dim),
+                           &one, x_start, &one);
+        input_ptrs[num_kron] = x_start;
 
-        // copy_matrix_on_device(x.data(my_subgrid.to_local_col(j) *
-        // deg_to_dim),
-        //                      n, x_start, n, n, 1);
-        // lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(j) *
-        // deg_to_dim),
-        //                 &one, x_start, &one);
-
-        fk::vector<P, mem_type::view, resource::device> my_x(
-            element_x, num_kron * deg_to_dim, (num_kron + 1) * deg_to_dim - 1);
-        my_x                 = x_window;
-        input_ptrs[num_kron] = my_x.data();
-
-        // input_ptrs[num_kron] = x_start;
         // stage work/output
         work_ptrs[num_kron] = element_work.data(num_kron * deg_to_dim);
         output_ptrs[num_kron] =
@@ -167,23 +129,13 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
         P *const operator_start =
             operators.data(num_kron * degree * degree * pde.num_dims);
-        // stage operators FIXME may eventually have to remove views
+
+        // stage operators
         for (auto d = 0; d < pde.num_dims; ++d)
         {
           auto const &coeff = pde.get_coefficients(t, d);
-          copy_matrix_on_device(
-              coeff.data(operator_row[d], operator_col[d]), coeff.stride(),
-              &operator_start[degree * degree * d], degree, degree, degree);
           operator_ptrs[num_batch + d] =
               coeff.data(operator_row[d], operator_col[d]);
-          // fk::matrix<P, mem_type::const_view, resource::device> const
-          //  coefficient_window(pde.get_coefficients(t, d), operator_row[d],
-          //                      operator_row[d] + degree - 1, operator_col[d],
-          //                      operator_col[d] + degree - 1);
-          // fk::matrix<P, mem_type::view, resource::device> my_A(
-          //  operators, degree, degree, operator_start + degree * degree * d);
-
-          // my_A = coefficient_window;
         }
       }
     }
