@@ -17,16 +17,16 @@
 // note  the input memory referenced by x_ptrs will be over-written
 // --------------------------------------------
 template<typename P>
-void call_kronmult(int const n, P const operators[], P *x_ptrs[],
-                   P *output_ptrs[], P *work_ptrs[], int const num_krons,
+void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
+                   P *operator_ptrs[], int const lda, int const num_krons,
                    int const num_dims)
 {
 #ifdef ASGARD_USE_CUDA
-  {    
-    P ** x_d;
-    P ** work_d;
-    P ** output_d;
-    P * operators_d;
+  {
+    P **x_d;
+    P **work_d;
+    P **output_d;
+    P **operators_d;
     auto const list_size = num_krons * sizeof(P *);
 
     auto stat = cudaMalloc((void **)&x_d, list_size);
@@ -35,7 +35,8 @@ void call_kronmult(int const n, P const operators[], P *x_ptrs[],
     assert(stat == 0);
     stat = cudaMalloc((void **)&output_d, list_size);
     assert(stat == 0);
-    stat = cudaMalloc((void **)&operators_d, sizeof(P*));
+    stat = cudaMalloc((void **)&operators_d, list_size * num_dims);
+    assert(stat == 0);
 
     stat = cudaMemcpy(x_d, x_ptrs, list_size, cudaMemcpyHostToDevice);
     assert(stat == 0);
@@ -43,38 +44,39 @@ void call_kronmult(int const n, P const operators[], P *x_ptrs[],
     assert(stat == 0);
     stat = cudaMemcpy(output_d, output_ptrs, list_size, cudaMemcpyHostToDevice);
     assert(stat == 0);
-    stat = cudaMemcpy(operators_d, operators, sizeof(P*), cudaMemcpyHostToDevice);
+    stat = cudaMemcpy(operators_d, operators, list_size * num_dims,
+                      cudaMemcpyHostToDevice);
     assert(stat == 0);
 
     int constexpr warpsize    = 32;
     int constexpr nwarps      = 8;
     int constexpr num_threads = nwarps * warpsize;
-    
+
     switch (num_dims)
     {
     case 1:
       kronmult1_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, x_d, output_d, work_d, num_krons);
+          n, lda, operators_d, x_d, output_d, work_d, num_krons);
       break;
     case 2:
       kronmult2_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, x_d, output_d, work_d, num_krons);
+          n, lda, operators_d, x_d, output_d, work_d, num_krons);
       break;
     case 3:
       kronmult3_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, x_d, output_d, work_d, num_krons);
+          n, lda, operators_d, x_d, output_d, work_d, num_krons);
       break;
     case 4:
       kronmult4_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, x_d, output_d, work_d, num_krons);
+          n, lda, operators_d, x_d, output_d, work_d, num_krons);
       break;
     case 5:
       kronmult5_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, x_d, output_d, work_d, num_krons);
+          n, lda, operators_d, x_d, output_d, work_d, num_krons);
       break;
     case 6:
       kronmult6_pbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, x_d, output_d, work_d, num_krons);
+          n, lda, operators_d, x_d, output_d, work_d, num_krons);
       break;
     default:
       assert(false);
@@ -122,12 +124,12 @@ void call_kronmult(int const n, P const operators[], P *x_ptrs[],
 #endif
 }
 
-template
-void call_kronmult(int const n, float const operators[], float *x_ptrs[],
-                   float *output_ptrs[], float *work_ptrs[], int const num_krons,
-                   int const num_dims);
+template void call_kronmult(int const n, float const operators[],
+                            float *x_ptrs[], float *output_ptrs[],
+                            float *work_ptrs[], int const num_krons,
+                            int const num_dims);
 
-template
-void call_kronmult(int const n, double const operators[], double *x_ptrs[],
-                   double *output_ptrs[], double *work_ptrs[], int const num_krons,
-                   int const num_dims);
+template void call_kronmult(int const n, double const operators[],
+                            double *x_ptrs[], double *output_ptrs[],
+                            double *work_ptrs[], int const num_krons,
+                            int const num_dims);

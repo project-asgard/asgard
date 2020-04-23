@@ -108,6 +108,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   std::vector<P *> input_ptrs(total_kronmults);
   std::vector<P *> work_ptrs(total_kronmults);
   std::vector<P *> output_ptrs(total_kronmults);
+  std::vector<P *> operator_ptrs(total_kronmults * pde.num_dims);
 
 // loop over assigned elements, staging inputs and operators
 #pragma omp parallel for
@@ -141,8 +142,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
             (i - my_subgrid.row_start) * my_subgrid.ncols() * pde.num_terms +
             (j - my_subgrid.col_start) * pde.num_terms + t;
 
-        auto const operator_start = num_kron * degree * degree * pde.num_dims;
-
         // stage inputs FIXME may eventually have to remove views
         // auto const x_start = element_x.data(num_kron * deg_to_dim);
         // int n              = deg_to_dim;
@@ -166,29 +165,36 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         output_ptrs[num_kron] =
             output.data(my_subgrid.to_local_row(i) * deg_to_dim);
 
+        P *const operator_start =
+            operators.data(num_kron * degree * degree * pde.num_dims);
         // stage operators FIXME may eventually have to remove views
         for (auto d = 0; d < pde.num_dims; ++d)
         {
-          // auto const &coeff = pde.get_coefficients(t, d);
-          // copy_matrix_on_device(
-          //    coeff.data(operator_row[d], operator_col[d]), coeff.stride(),
-          //    operators.data(degree * degree * d), degree, degree, degree);
-          fk::matrix<P, mem_type::const_view, resource::device> const
-              coefficient_window(pde.get_coefficients(t, d), operator_row[d],
-                                 operator_row[d] + degree - 1, operator_col[d],
-                                 operator_col[d] + degree - 1);
-          fk::matrix<P, mem_type::view, resource::device> my_A(
-              operators, degree, degree, operator_start + degree * degree * d);
+          auto const &coeff = pde.get_coefficients(t, d);
+          copy_matrix_on_device(
+              coeff.data(operator_row[d], operator_col[d]), coeff.stride(),
+              &operator_start[degree * degree * d], degree, degree, degree);
+          operator_ptrs[num_batch + d] =
+              coeff.data(operator_row[d], operator_col[d]);
+          // fk::matrix<P, mem_type::const_view, resource::device> const
+          //  coefficient_window(pde.get_coefficients(t, d), operator_row[d],
+          //                      operator_row[d] + degree - 1, operator_col[d],
+          //                      operator_col[d] + degree - 1);
+          // fk::matrix<P, mem_type::view, resource::device> my_A(
+          //  operators, degree, degree, operator_start + degree * degree * d);
 
-          my_A = coefficient_window;
+          // my_A = coefficient_window;
         }
       }
     }
   }
 
+  // FIXME assume all operators same size
+  auto const lda = pde.get_coefficients(0, 0)
+                       .stride(); // leading dimension of coefficient matrices
   timer::record.start("kronmult");
-  call_kronmult(degree, operators.data(), input_ptrs.data(), output_ptrs.data(),
-                work_ptrs.data(), total_kronmults, pde.num_dims);
+  call_kronmult(degree, input_ptrs.data(), output_ptrs.data(), work_ptrs.data(),
+                operator_ptrs.data(), lda, total_kronmults, pde.num_dims);
 
   timer::record.stop("kronmult");
   return output;
