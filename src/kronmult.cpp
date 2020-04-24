@@ -56,7 +56,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   assert(workspace_size < INT_MAX);
   assert(output_size < INT_MAX);
 
-  std::call_once(print_flag, [&pde, workspace_size, operator_size,
+  std::call_once(print_flag, [&pde, workspace_size, 
                               output_size] {
     // FIXME assumes (with everything else) that coefficients are equally sized
     auto const coefficients_size_MB =
@@ -127,14 +127,11 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         output_ptrs[num_kron] =
             output.data(my_subgrid.to_local_row(i) * deg_to_dim);
 
-        P *const operator_start =
-            operators.data(num_kron * degree * degree * pde.num_dims);
-
         // stage operators
         for (auto d = 0; d < pde.num_dims; ++d)
         {
           auto const &coeff = pde.get_coefficients(t, d);
-          operator_ptrs[num_batch + d] =
+          operator_ptrs[num_kron + d] =
               coeff.data(operator_row[d], operator_col[d]);
         }
       }

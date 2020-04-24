@@ -5,12 +5,12 @@
 #ifdef ASGARD_USE_CUDA
 #define USE_GPU
 #endif
-#include "kronmult1_pbatched.hpp"
-#include "kronmult2_pbatched.hpp"
-#include "kronmult3_pbatched.hpp"
-#include "kronmult4_pbatched.hpp"
-#include "kronmult5_pbatched.hpp"
-#include "kronmult6_pbatched.hpp"
+#include "kronmult1_xbatched.hpp"
+#include "kronmult2_xbatched.hpp"
+#include "kronmult3_xbatched.hpp"
+#include "kronmult4_xbatched.hpp"
+#include "kronmult5_xbatched.hpp"
+#include "kronmult6_xbatched.hpp"
 
 // helper - call the right kronmult
 // --------------------------------------------
@@ -18,7 +18,7 @@
 // --------------------------------------------
 template<typename P>
 void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
-                   P *operator_ptrs[], int const lda, int const num_krons,
+                   P const * const operator_ptrs[], int const lda, int const num_krons,
                    int const num_dims)
 {
 #ifdef ASGARD_USE_CUDA
@@ -44,7 +44,7 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     assert(stat == 0);
     stat = cudaMemcpy(output_d, output_ptrs, list_size, cudaMemcpyHostToDevice);
     assert(stat == 0);
-    stat = cudaMemcpy(operators_d, operators, list_size * num_dims,
+    stat = cudaMemcpy(operators_d, operator_ptrs, list_size * num_dims,
                       cudaMemcpyHostToDevice);
     assert(stat == 0);
 
@@ -55,28 +55,28 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     switch (num_dims)
     {
     case 1:
-      kronmult1_pbatched<P><<<num_krons, num_threads>>>(
-          n, lda, operators_d, x_d, output_d, work_d, num_krons);
+      kronmult1_xbatched<P><<<num_krons, num_threads>>>(
+          n, operators_d, lda, x_d, output_d, work_d, num_krons);
       break;
     case 2:
-      kronmult2_pbatched<P><<<num_krons, num_threads>>>(
-          n, lda, operators_d, x_d, output_d, work_d, num_krons);
+      kronmult2_xbatched<P><<<num_krons, num_threads>>>(
+          n, operators_d, lda, x_d, output_d, work_d, num_krons);
       break;
     case 3:
-      kronmult3_pbatched<P><<<num_krons, num_threads>>>(
-          n, lda, operators_d, x_d, output_d, work_d, num_krons);
+      kronmult3_xbatched<P><<<num_krons, num_threads>>>(
+          n, operators_d, lda, x_d, output_d, work_d, num_krons);
       break;
     case 4:
-      kronmult4_pbatched<P><<<num_krons, num_threads>>>(
-          n, lda, operators_d, x_d, output_d, work_d, num_krons);
+      kronmult4_xbatched<P><<<num_krons, num_threads>>>(
+          n, operators_d, lda, x_d, output_d, work_d, num_krons);
       break;
     case 5:
-      kronmult5_pbatched<P><<<num_krons, num_threads>>>(
-          n, lda, operators_d, x_d, output_d, work_d, num_krons);
+      kronmult5_xbatched<P><<<num_krons, num_threads>>>(
+          n, operators_d, lda, x_d, output_d, work_d, num_krons);
       break;
     case 6:
-      kronmult6_pbatched<P><<<num_krons, num_threads>>>(
-          n, lda, operators_d, x_d, output_d, work_d, num_krons);
+      kronmult6_xbatched<P><<<num_krons, num_threads>>>(
+          n, operators_d, lda, x_d, output_d, work_d, num_krons);
       break;
     default:
       assert(false);
@@ -94,27 +94,27 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     switch (num_dims)
     {
     case 1:
-      kronmult1_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
+      kronmult1_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
                             num_krons);
       break;
     case 2:
-      kronmult2_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
+      kronmult2_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
                             num_krons);
       break;
     case 3:
-      kronmult3_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
+      kronmult3_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
                             num_krons);
       break;
     case 4:
-      kronmult4_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
+      kronmult4_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
                             num_krons);
       break;
     case 5:
-      kronmult5_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
+      kronmult5_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
                             num_krons);
       break;
     case 6:
-      kronmult6_pbatched<P>(n, operators, x_ptrs, output_ptrs, work_ptrs,
+      kronmult6_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
                             num_krons);
       break;
     default:
@@ -124,12 +124,12 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 #endif
 }
 
-template void call_kronmult(int const n, float const operators[],
-                            float *x_ptrs[], float *output_ptrs[],
-                            float *work_ptrs[], int const num_krons,
-                            int const num_dims);
+template
+void call_kronmult(int const n, float *x_ptrs[], float *output_ptrs[], float *work_ptrs[],
+                   float const * const operator_ptrs[], int const lda, int const num_krons,
+                   int const num_dims);
 
-template void call_kronmult(int const n, double const operators[],
-                            double *x_ptrs[], double *output_ptrs[],
-                            double *work_ptrs[], int const num_krons,
-                            int const num_dims);
+template
+void call_kronmult(int const n, double *x_ptrs[], double *output_ptrs[], double *work_ptrs[],
+                   double const * const operator_ptrs[], int const lda, int const num_krons,
+                   int const num_dims);
