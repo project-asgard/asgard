@@ -186,7 +186,7 @@ if (ASGARD_USE_OPENMP)
 endif ()
 
 target_include_directories(kronmult_cuda PRIVATE ${KRON_PATH})
-target_link_libraries(kronmult_cuda PRIVATE ${KRON_LIB})
+target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX ${KRON_LIB})
 
 if (ASGARD_USE_CUDA)
    set_property(TARGET kronmult_cuda
