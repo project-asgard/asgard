@@ -32,6 +32,20 @@ get_indices(fk::vector<int> const &coords, int indices[], int const degree)
   }
 }
 
+// helper - copy on device memory
+template<typename P>
+inline void
+copy_on_device(P *const dest, P const *const source, int const num_elems)
+{
+#ifdef ASGARD_USE_CUDA
+  auto const success =
+      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
+  assert(success == 0);
+#else
+  std::copy(source, source + num_elems, dest);
+#endif
+}
+
 template<typename P>
 fk::vector<P, mem_type::owner, resource::device>
 execute(PDE<P> const &pde, element_table const &elem_table,
@@ -86,6 +100,11 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 #pragma omp parallel for
   for (auto i = my_subgrid.row_start; i <= my_subgrid.row_stop; ++i)
   {
+
+    // stage x vector in writable regions for each element
+    auto const dest = element_x.data(i*x.size());
+    copy_on_device(dest, x.data(), x.size());
+
     // calculate and store operator row indices for this element
     static int constexpr max_dims = 6;
     assert(pde.num_dims < max_dims);
@@ -103,9 +122,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
       get_indices(col_coords, operator_col, degree);
 
       // also prepare x_window all terms will use
-      auto const x_start = my_subgrid.to_local_col(j) * deg_to_dim;
-      fk::vector<P, mem_type::const_view, resource::device> x_window(
-          x, x_start, x_start + deg_to_dim - 1);
+      //auto const x_start = my_subgrid.to_local_col(j) * deg_to_dim;
+      //fk::vector<P, mem_type::const_view, resource::device> x_window(
+      //    x, x_start, x_start + deg_to_dim - 1);
+      auto const x_start = element_x.data(i * x.size() + j*deg_to_dim);
 
       for (auto t = 0; t < pde.num_terms; ++t)
       {
@@ -115,11 +135,11 @@ execute(PDE<P> const &pde, element_table const &elem_table,
             (j - my_subgrid.col_start) * pde.num_terms + t;
 
         // stage inputs
-        auto const x_start = element_x.data(num_kron * deg_to_dim);
-        int n              = deg_to_dim;
-        int one            = 1; // sigh
-        lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(j) * deg_to_dim),
-                           &one, x_start, &one);
+        //auto const x_start = element_x.data(num_kron * deg_to_dim);
+        //int n              = deg_to_dim;
+        //int one            = 1; // sigh
+        //lib_dispatch::copy(&n, x.data(my_subgrid.to_local_col(j) * deg_to_dim),
+          //                 &one, x_start, &one);
         input_ptrs[num_kron] = x_start;
 
         // stage work/output
@@ -128,10 +148,11 @@ execute(PDE<P> const &pde, element_table const &elem_table,
             output.data(my_subgrid.to_local_row(i) * deg_to_dim);
 
         // stage operators
+        auto const operator_start = num_kron * pde.num_dims;
         for (auto d = 0; d < pde.num_dims; ++d)
         {
           auto const &coeff = pde.get_coefficients(t, d);
-          operator_ptrs[num_kron + d] =
+          operator_ptrs[operator_start  + d] =
               coeff.data(operator_row[d], operator_col[d]);
         }
       }
