@@ -50,7 +50,6 @@ endif()
 if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
-
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
@@ -80,12 +79,15 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
+# build component to interface with Ed's kronmult lib
+add_library(kronmult_cuda SHARED src/kronmult_cuda.cpp)
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
   include_directories(${CUDA_INCLUDE_DIRS})
   enable_language(CUDA)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch sm_60 -g --ptxas-options=-O3")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch sm_70 -g --ptxas-options=-O3")
   set_source_files_properties( src/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
 endif()
 
 if(ASGARD_USE_MPI)
@@ -115,7 +117,6 @@ set (components
   fast_math
   chunk
   kronmult
-  kronmult_cuda
   lib_dispatch
   matlab_utilities
   pde
@@ -153,7 +154,7 @@ target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
 
-target_link_libraries( boundary_conditions PRIVATE coefficients element_table transformations
+target_link_libraries (boundary_conditions PRIVATE coefficients element_table transformations
                        matlab_utilities fast_math )
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -186,17 +187,7 @@ if (ASGARD_USE_OPENMP)
 endif ()
 
 target_include_directories(kronmult_cuda PRIVATE ${KRON_PATH})
-target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX ${KRON_LIB})
-
-if (ASGARD_USE_CUDA)
-   set_property(TARGET kronmult_cuda
-                PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-endif()
-if(APPLE AND ASGARD_USE_GPU)
-   set_property(TARGET kronmult_cuda
-                PROPERTY
-                BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-endif ()	# whew
+target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX PUBLIC ${KRON_LIB})
 
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
@@ -248,6 +239,7 @@ set (main_app_link_deps
   distribution
   element_table
   matlab_utilities
+  kronmult_cuda
   pde
   program_options
   quadrature
