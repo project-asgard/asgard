@@ -87,8 +87,8 @@ if(ASGARD_USE_CUDA)
   enable_language(CUDA)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch sm_70 -g --ptxas-options=-O3")
   set_source_files_properties( src/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
-  target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
 endif()
+target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
@@ -239,7 +239,6 @@ set (main_app_link_deps
   distribution
   element_table
   matlab_utilities
-  kronmult_cuda
   pde
   program_options
   quadrature
