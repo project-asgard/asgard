@@ -31,10 +31,3 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
                       distribution_plan const &plan, P const time, P const dt,
                       solve_opts const solver  = solve_opts::direct,
                       bool const update_system = true);
-
-// FIXME may go away...
-template<typename P>
-fk::vector<P>
-apply_A(PDE<P> const &pde, element_table const &elem_table,
-        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        fk::vector<P> const &x);

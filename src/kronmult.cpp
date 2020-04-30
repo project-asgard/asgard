@@ -33,25 +33,11 @@ get_indices(fk::vector<int> const &coords, int indices[], int const degree)
   }
 }
 
-// helper - copy on device memory
 template<typename P>
-inline void
-copy_on_device(P *const dest, P const *const source, int const num_elems)
-{
-#ifdef ASGARD_USE_CUDA
-  auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
-  assert(success == 0);
-#else
-  std::copy(source, source + num_elems, dest);
-#endif
-}
-
-template<typename P>
-fk::vector<P, mem_type::owner, resource::device>
+fk::vector<P, mem_type::owner, resource::host>
 execute(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &my_subgrid,
-        fk::vector<P, mem_type::owner, resource::device> const &x)
+        fk::vector<P, mem_type::owner, resource::host> const &x)
 {
   static std::once_flag print_flag;
 
@@ -84,13 +70,26 @@ execute(PDE<P> const &pde, element_table const &elem_table,
     node_out() << "output allocation (MB): " << get_MB<P>(output_size) << '\n';
   });
 
-  auto const element_x = static_cast<P*>(std::malloc(workspace_size * sizeof(P))); 
-  auto const element_work = static_cast<P*>(std::malloc(workspace_size * sizeof(P)));
-  //auto const output = static_cast<P*>(std::malloc(output_size * sizeof(P)));
-  //fk::vector<P, mem_type::owner, resource::device> element_x(workspace_size);
-  //fk::vector<P, mem_type::owner, resource::device> element_work(workspace_size);
+  P *element_x;
+  P *element_work;
+  fk::allocate_device(element_x, workspace_size);
+  fk::allocate_device(element_work, workspace_size);
+
+  // build x workspace with the desired pattern on CPU
+  auto const stage_x =
+      static_cast<P *>(std::malloc(workspace_size * sizeof(P)));
+  // stage x vector in writable regions for each element
+  for (auto i = 0; i < my_subgrid.nrows() * pde.num_terms; ++i)
+  {
+    std::copy(x.begin(), x.end(), stage_x + i * x.size());
+  }
+  // now, single copy to GPU
+  fk::copy_to_device(element_x, stage_x, workspace_size);
+  std::free(stage_x);
+
   fk::vector<P, mem_type::owner, resource::device> output(output_size);
 
+  // loop over assigned elements, staging inputs and operators
   auto const total_kronmults = num_elements * pde.num_terms;
 
   std::vector<P *> input_ptrs(total_kronmults);
@@ -98,16 +97,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   std::vector<P *> output_ptrs(total_kronmults);
   std::vector<P *> operator_ptrs(total_kronmults * pde.num_dims);
 
-
-    // stage x vector in writable regions for each element
-   for(auto i = 0; i < my_subgrid.nrows() * pde.num_terms; ++i) {
-    		//auto const dest = element_x.data(i * x.size());
-    	       auto const dest = element_x + i * x.size();	
-               copy_on_device(dest, x.data(), x.size());
-
-	}
-
-// loop over assigned elements, staging inputs and operators
 #pragma omp parallel for
   for (auto i = my_subgrid.row_start; i <= my_subgrid.row_stop; ++i)
   {
@@ -127,11 +116,13 @@ execute(PDE<P> const &pde, element_table const &elem_table,
       assert(col_coords.size() == pde.num_dims * 2);
       get_indices(col_coords, operator_col, degree);
 
-      //auto const x_start = element_x.data(my_subgrid.to_local_row(i) * pde.num_terms * x.size() 
-					  // + my_subgrid.to_local_col(j) * deg_to_dim);
-  
-      auto const x_start = element_x + (my_subgrid.to_local_row(i) * pde.num_terms * x.size() +
-				        my_subgrid.to_local_col(j) * deg_to_dim);
+      // auto const x_start = element_x.data(my_subgrid.to_local_row(i) *
+      // pde.num_terms * x.size()
+      // + my_subgrid.to_local_col(j) * deg_to_dim);
+
+      auto const x_start =
+          element_x + (my_subgrid.to_local_row(i) * pde.num_terms * x.size() +
+                       my_subgrid.to_local_col(j) * deg_to_dim);
       for (auto t = 0; t < pde.num_terms; ++t)
       {
         // get preallocated vector positions for this kronmult
@@ -140,14 +131,14 @@ execute(PDE<P> const &pde, element_table const &elem_table,
             my_subgrid.to_local_col(j) * pde.num_terms + t;
 
         // point to inputs
-        input_ptrs[num_kron] = x_start + t*x.size();
+        input_ptrs[num_kron] = x_start + t * x.size();
         // point to work/output
-        work_ptrs[num_kron] = 
-            //element_work.data(num_kron * deg_to_dim);
+        work_ptrs[num_kron] =
+            // element_work.data(num_kron * deg_to_dim);
             element_work + num_kron * deg_to_dim;
         output_ptrs[num_kron] =
-             output.data(my_subgrid.to_local_row(i) * deg_to_dim);
-             //output + (my_subgrid.to_local_row(i) * deg_to_dim);
+            output.data(my_subgrid.to_local_row(i) * deg_to_dim);
+        // output + (my_subgrid.to_local_row(i) * deg_to_dim);
         // point to operators
         auto const operator_start = num_kron * pde.num_dims;
         for (auto d = 0; d < pde.num_dims; ++d)
@@ -167,17 +158,21 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   call_kronmult(degree, input_ptrs.data(), output_ptrs.data(), work_ptrs.data(),
                 operator_ptrs.data(), lda, total_kronmults, pde.num_dims);
   timer::record.stop("kronmult");
-  return output;
+
+  fk::delete_device(element_x);
+  fk::delete_device(element_work);
+
+  return output.clone_onto_host();
 }
 
-template fk::vector<float, mem_type::owner, resource::device>
+template fk::vector<float, mem_type::owner, resource::host>
 execute(PDE<float> const &pde, element_table const &elem_table,
         element_subgrid const &my_subgrid,
-        fk::vector<float, mem_type::owner, resource::device> const &x);
+        fk::vector<float, mem_type::owner, resource::host> const &x);
 
-template fk::vector<double, mem_type::owner, resource::device>
+template fk::vector<double, mem_type::owner, resource::host>
 execute(PDE<double> const &pde, element_table const &elem_table,
         element_subgrid const &my_subgrid,
-        fk::vector<double, mem_type::owner, resource::device> const &x);
+        fk::vector<double, mem_type::owner, resource::host> const &x);
 
 } // namespace kronmult

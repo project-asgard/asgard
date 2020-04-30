@@ -626,7 +626,7 @@ private:
 //-----------------------------------------------------------------------------
 
 template<typename P>
-static void allocate_device(P *&ptr, int const num_elems)
+inline void allocate_device(P *&ptr, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
@@ -638,7 +638,7 @@ static void allocate_device(P *&ptr, int const num_elems)
 #endif
 }
 template<typename P>
-static void delete_device(P *const ptr)
+inline void delete_device(P *const ptr)
 {
 #ifdef ASGARD_USE_CUDA
   cudaFree(ptr);
@@ -648,7 +648,7 @@ static void delete_device(P *const ptr)
 }
 
 template<typename P>
-static void
+inline void
 copy_on_device(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
@@ -661,7 +661,7 @@ copy_on_device(P *const dest, P const *const source, int const num_elems)
 }
 
 template<typename P>
-static void
+inline void
 copy_to_device(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
@@ -674,7 +674,7 @@ copy_to_device(P *const dest, P const *const source, int const num_elems)
 }
 
 template<typename P>
-static void
+inline void
 copy_to_host(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
@@ -687,7 +687,7 @@ copy_to_host(P *const dest, P const *const source, int const num_elems)
 }
 
 template<typename P, mem_type mem, mem_type omem>
-static void
+inline void
 copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
                       fk::matrix<P, omem, resource::device> const &source)
 {
@@ -707,7 +707,7 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
 
 template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
          typename = disable_for_const_view<m_>>
-static void
+inline void
 copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
                       fk::matrix<P, omem, resource::host> const &source)
 {
@@ -726,7 +726,7 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
 
 template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
          typename = disable_for_const_view<m_>>
-static void
+inline void
 copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
                     fk::matrix<P, omem, resource::device> const &source)
 {

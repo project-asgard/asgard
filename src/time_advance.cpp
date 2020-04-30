@@ -18,15 +18,16 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, P const time, P const dt)
 {
-  int const my_rank   = get_rank();
-  auto const &grid    = plan.at(get_rank());
-  int const elem_size = element_segment_size(pde);
+  auto const my_rank   = get_rank();
+  auto const &grid     = plan.at(get_rank());
+  auto const elem_size = element_segment_size(pde);
 
-  int64_t const col_size = elem_size * static_cast<int64_t>(grid.ncols());
+  auto const col_size = elem_size * static_cast<int64_t>(grid.ncols());
   assert(x_orig.size() == col_size);
-  int64_t const row_size = elem_size * static_cast<int64_t>(grid.nrows());
+  auto const row_size = elem_size * static_cast<int64_t>(grid.nrows());
   assert(col_size < INT_MAX);
   assert(row_size < INT_MAX);
+
   // time advance working vectors
   // input vector for apply_A
   fk::vector<P> x(x_orig);
@@ -51,8 +52,8 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = timer::record.start("apply_A");
-  auto fx             = apply_A(pde, table, grid, chunks, x);
-
+  auto fx             = kronmult::execute(pde, table, grid, x);
+  auto fx             = kronmult::execute(pde, table, grid, x);
   timer::record.stop(apply_id);
 
   reduce_results(fx, reduced_fx, plan, my_rank);
@@ -76,7 +77,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   // -- RK step 2
   timer::record.start(apply_id);
-  fx = apply_A(pde, table, grid, chunks, x);
+  fx = kronmult::execute(pde, table, grid, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -104,7 +105,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   // -- RK step 3
   timer::record.start(apply_id);
-  fx = apply_A(pde, table, grid, chunks, x);
+  fx = kronmult::execute(pde, table, grid, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -246,22 +247,6 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
   return x;
 }
 
-// apply the system matrix to the current solution vector using batched
-// gemm.
-// FIXME will disappear after I complete kronmult
-template<typename P>
-fk::vector<P>
-apply_A(PDE<P> const &pde, element_table const &elem_table,
-        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        fk::vector<P> const &x)
-{
-  fk::vector<P, mem_type::owner, resource::device> const x_d(
-      x.clone_onto_device());
-  fk::vector<P, mem_type::owner, resource::device> const fx_d =
-      kronmult::execute(pde, elem_table, grid, x_d);
-  return fx_d.clone_onto_host();
-}
-
 template fk::vector<double> explicit_time_advance(
     PDE<double> const &pde, element_table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
@@ -292,13 +277,3 @@ template fk::vector<float> implicit_time_advance(
     fk::vector<float> const &x, std::vector<element_chunk> const &chunks,
     distribution_plan const &plan, float const time, float const dt,
     solve_opts const solver, bool const update_system);
-
-template fk::vector<float>
-apply_A(PDE<float> const &pde, element_table const &elem_table,
-        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        fk::vector<float> const &x);
-
-template fk::vector<double>
-apply_A(PDE<double> const &pde, element_table const &elem_table,
-        element_subgrid const &grid, std::vector<element_chunk> const &chunks,
-        fk::vector<double> const &x);

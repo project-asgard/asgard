@@ -13,8 +13,8 @@
 namespace kronmult
 {
 template<typename P>
-fk::vector<P, mem_type::owner, resource::device>
+fk::vector<P, mem_type::owner, resource::host>
 execute(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &my_subgrid,
-        fk::vector<P, mem_type::owner, resource::device> const &x);
+        fk::vector<P, mem_type::owner, resource::host> const &x);
 }

@@ -1,9 +1,4 @@
 #pragma once
-
-#include "batch.hpp"
-#include "chunk.hpp"
-#include "distribution.hpp"
-#include "pde.hpp"
 #include "tensors.hpp"
 
 namespace solver
