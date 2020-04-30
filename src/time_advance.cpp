@@ -51,8 +51,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
-  auto const apply_id = timer::record.start("apply_A");
-  auto fx             = kronmult::execute(pde, table, grid, x);
+  auto const apply_id = timer::record.start("kronmult_setup");
   auto fx             = kronmult::execute(pde, table, grid, x);
   timer::record.stop(apply_id);
 

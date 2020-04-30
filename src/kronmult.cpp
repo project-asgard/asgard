@@ -76,16 +76,19 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   fk::allocate_device(element_work, workspace_size);
 
   // build x workspace with the desired pattern on CPU
-  auto const stage_x =
-      static_cast<P *>(std::malloc(workspace_size * sizeof(P)));
+ // auto const stage_x =
+ //     static_cast<P *>(std::malloc(workspace_size * sizeof(P)));
   // stage x vector in writable regions for each element
+  //#pragma omp parallel for
+  
+  fk::vector<P, mem_type::owner, resource::device> const x_d(x.clone_onto_device());
   for (auto i = 0; i < my_subgrid.nrows() * pde.num_terms; ++i)
   {
-    std::copy(x.begin(), x.end(), stage_x + i * x.size());
+     fk::copy_on_device(element_x + i * x_d.size(), x_d.data(), x_d.size());
   }
   // now, single copy to GPU
-  fk::copy_to_device(element_x, stage_x, workspace_size);
-  std::free(stage_x);
+  //fk::copy_to_device(element_x, stage_x, workspace_size);
+  //std::free(stage_x);
 
   fk::vector<P, mem_type::owner, resource::device> output(output_size);
 
