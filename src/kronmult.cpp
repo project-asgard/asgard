@@ -100,7 +100,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   {
     // calculate and store operator row indices for this element
     static int constexpr max_dims = 6;
-    assert(pde.num_dims < max_dims);
+    assert(pde.num_dims <= max_dims);
     int operator_row[max_dims];
     fk::vector<int> const &row_coords = elem_table.get_coords(i);
     assert(row_coords.size() == pde.num_dims * 2);
