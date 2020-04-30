@@ -18,6 +18,9 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, P const time, P const dt)
 {
+  // FIXME for now, until I chunk in kronmult
+  ignore(chunks);
+
   auto const my_rank   = get_rank();
   auto const &grid     = plan.at(get_rank());
   auto const elem_size = element_segment_size(pde);
