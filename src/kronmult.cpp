@@ -75,20 +75,13 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   fk::allocate_device(element_x, workspace_size);
   fk::allocate_device(element_work, workspace_size);
 
-  // build x workspace with the desired pattern on CPU
- // auto const stage_x =
- //     static_cast<P *>(std::malloc(workspace_size * sizeof(P)));
   // stage x vector in writable regions for each element
-  //#pragma omp parallel for
-  
-  fk::vector<P, mem_type::owner, resource::device> const x_d(x.clone_onto_device());
+  fk::vector<P, mem_type::owner, resource::device> const x_d(
+      x.clone_onto_device());
   for (auto i = 0; i < my_subgrid.nrows() * pde.num_terms; ++i)
   {
-     fk::copy_on_device(element_x + i * x_d.size(), x_d.data(), x_d.size());
+    fk::copy_on_device(element_x + i * x_d.size(), x_d.data(), x_d.size());
   }
-  // now, single copy to GPU
-  //fk::copy_to_device(element_x, stage_x, workspace_size);
-  //std::free(stage_x);
 
   fk::vector<P, mem_type::owner, resource::device> output(output_size);
 
@@ -100,7 +93,9 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   std::vector<P *> output_ptrs(total_kronmults);
   std::vector<P *> operator_ptrs(total_kronmults * pde.num_dims);
 
+#ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
+#endif
   for (auto i = my_subgrid.row_start; i <= my_subgrid.row_stop; ++i)
   {
     // calculate and store operator row indices for this element
@@ -119,13 +114,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
       assert(col_coords.size() == pde.num_dims * 2);
       get_indices(col_coords, operator_col, degree);
 
-      // auto const x_start = element_x.data(my_subgrid.to_local_row(i) *
-      // pde.num_terms * x.size()
-      // + my_subgrid.to_local_col(j) * deg_to_dim);
-
       auto const x_start =
           element_x + (my_subgrid.to_local_row(i) * pde.num_terms * x.size() +
                        my_subgrid.to_local_col(j) * deg_to_dim);
+
       for (auto t = 0; t < pde.num_terms; ++t)
       {
         // get preallocated vector positions for this kronmult
@@ -135,13 +127,12 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
         // point to inputs
         input_ptrs[num_kron] = x_start + t * x.size();
+
         // point to work/output
-        work_ptrs[num_kron] =
-            // element_work.data(num_kron * deg_to_dim);
-            element_work + num_kron * deg_to_dim;
+        work_ptrs[num_kron] = element_work + num_kron * deg_to_dim;
         output_ptrs[num_kron] =
             output.data(my_subgrid.to_local_row(i) * deg_to_dim);
-        // output + (my_subgrid.to_local_row(i) * deg_to_dim);
+
         // point to operators
         auto const operator_start = num_kron * pde.num_dims;
         for (auto d = 0; d < pde.num_dims; ++d)
