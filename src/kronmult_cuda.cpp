@@ -26,7 +26,7 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     P **x_d;
     P **work_d;
     P **output_d;
-    P **operators_d;
+    P const **operators_d;
     auto const list_size = num_krons * sizeof(P *);
 
     auto stat = cudaMalloc((void **)&x_d, list_size);
@@ -87,6 +87,15 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     // -------------------------------------------
     cudaError_t const istat = cudaDeviceSynchronize();
     assert(istat == cudaSuccess);
+
+    stat = cudaFree(x_d);
+    assert(stat == 0);
+    stat = cudaFree(operators_d);
+    assert(stat == 0);
+    stat = cudaFree(output_d);
+    assert(stat == 0);
+    stat = cudaFree(work_d);
+    assert(stat == 0);
   }
 #else
 

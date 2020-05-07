@@ -17,9 +17,8 @@ fk::vector<P>
 explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x,
-                      std::vector<element_chunk> const &chunks,
-                      distribution_plan const &plan, P const time, P const dt);
+                      fk::vector<P> const &x, distribution_plan const &plan,
+                      int const workspace_size_MB, P const time, P const dt);
 
 template<typename P>
 fk::vector<P>
@@ -27,7 +26,10 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x,
+
                       std::vector<element_chunk> const &chunks,
-                      distribution_plan const &plan, P const time, P const dt,
+                      distribution_plan const &plan,
+
+                      P const time, P const dt,
                       solve_opts const solver  = solve_opts::direct,
                       bool const update_system = true);

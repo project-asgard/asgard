@@ -12,9 +12,18 @@
 
 namespace kronmult
 {
+// conceptually private, exposed for testing
+template<typename P>
+std::vector<element_subgrid>
+decompose(PDE<P> const &pde, element_subgrid const &my_subgrid,
+          int const workspace_size_MB);
+
+// execute one subgrid by breaking into smaller subgrids to
+// fit workspace limit MB
 template<typename P>
 fk::vector<P, mem_type::owner, resource::host>
 execute(PDE<P> const &pde, element_table const &elem_table,
-        element_subgrid const &my_subgrid,
+        element_subgrid const &my_subgrid, int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x);
-}
+
+} // namespace kronmult

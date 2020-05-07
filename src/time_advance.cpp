@@ -15,12 +15,9 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
-                      std::vector<element_chunk> const &chunks,
-                      distribution_plan const &plan, P const time, P const dt)
+                      distribution_plan const &plan,
+                      int const workspace_size_MB, P const time, P const dt)
 {
-  // FIXME for now, until I chunk in kronmult
-  ignore(chunks);
-
   auto const my_rank   = get_rank();
   auto const &grid     = plan.at(get_rank());
   auto const elem_size = element_segment_size(pde);
@@ -55,7 +52,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = timer::record.start("kronmult_setup");
-  auto fx             = kronmult::execute(pde, table, grid, x);
+  auto fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
 
   reduce_results(fx, reduced_fx, plan, my_rank);
@@ -79,7 +76,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   // -- RK step 2
   timer::record.start(apply_id);
-  fx = kronmult::execute(pde, table, grid, x);
+  fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -107,7 +104,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   // -- RK step 3
   timer::record.start(apply_id);
-  fx = kronmult::execute(pde, table, grid, x);
+  fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -253,15 +250,15 @@ template fk::vector<double> explicit_time_advance(
     PDE<double> const &pde, element_table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    fk::vector<double> const &x, std::vector<element_chunk> const &chunks,
-    distribution_plan const &plan, double const time, double const dt);
+    fk::vector<double> const &x, distribution_plan const &plan,
+    int const workspace_size_MB, double const time, double const dt);
 
 template fk::vector<float> explicit_time_advance(
     PDE<float> const &pde, element_table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    fk::vector<float> const &x, std::vector<element_chunk> const &chunks,
-    distribution_plan const &plan, float const time, float const dt);
+    fk::vector<float> const &x, distribution_plan const &plan,
+    int const workspace_size_MB, float const time, float const dt);
 
 template fk::vector<double> implicit_time_advance(
     PDE<double> const &pde, element_table const &table,
