@@ -174,7 +174,7 @@ int main(int argc, char **argv)
   // if the code is built for that.
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 2500;
+  static int const default_workspace_MB = 10000;
 
   // FIXME currently used to check realspace transform only
   /* RAM on fusiont5 */
