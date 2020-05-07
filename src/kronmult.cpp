@@ -248,10 +248,14 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // FIXME assume all operators same size
   auto const lda = pde.get_coefficients(0, 0)
                        .stride(); // leading dimension of coefficient matrices
+
+  double const flops = pde.num_dims * 2.0 *
+                       (std::pow(degree, pde.num_dims + 1)) * total_kronmults;
+
   timer::record.start("kronmult");
   call_kronmult(degree, input_ptrs.data(), output_ptrs.data(), work_ptrs.data(),
                 operator_ptrs.data(), lda, total_kronmults, pde.num_dims);
-  timer::record.stop("kronmult");
+  timer::record.stop("kronmult", flops);
 
   fk::delete_device(element_x);
   fk::delete_device(element_work);

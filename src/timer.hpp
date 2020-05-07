@@ -23,17 +23,30 @@ public:
     return identifier;
   }
 
-  void stop(std::string const &identifier)
+  void stop(std::string const &identifier, double const flops = -1)
   {
     assert(!identifier.empty());
     assert(id_to_start_.count(identifier) == 1);
     auto const beg = id_to_start_[identifier];
     auto const end = std::chrono::high_resolution_clock::now();
     auto const dur =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - beg)
+        std::chrono::duration_cast<std::chrono::microseconds>(end - beg)
             .count();
+
     id_to_start_.erase(identifier);
-    insert(identifier, dur);
+    insert(id_to_times_, identifier, dur * 1e-3); // to ms
+
+    if (flops != -1)
+    {
+      assert(flops > 0);
+      auto const gflops = flops / 1e9;
+      assert(dur > 0.0);
+      auto const gflops_per_sec =
+          gflops / (static_cast<double>(dur) * 1e-6); // to seconds
+
+      insert(id_to_flops_, identifier, gflops_per_sec);
+      assert(id_to_times_.count(identifier) == id_to_flops_.count(identifier));
+    }
   }
 
   // get performance report for recorded functions
@@ -48,14 +61,18 @@ public:
 
 private:
   // little helper for creating a new list if no values exist for key
-  void insert(std::string const &key, double const time)
+  void insert(std::map<std::string, std::vector<double>> &mapping,
+              std::string const &key, double const time)
   {
-    id_to_times_.try_emplace(key, std::vector<double>());
-    id_to_times_[key].push_back(time);
+    mapping.try_emplace(key, std::vector<double>());
+    mapping[key].push_back(time);
   }
 
-  // stores function identifier -> list of operator()times recorded
+  // stores function identifier -> list of times recorded
   std::map<std::string, std::vector<double>> id_to_times_;
+
+  // stores function identifier -> list of flops recorded
+  std::map<std::string, std::vector<double>> id_to_flops_;
 
   std::map<std::string,
            std::chrono::time_point<std::chrono::high_resolution_clock>>
