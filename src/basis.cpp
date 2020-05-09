@@ -85,13 +85,13 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // Roots and weights of Legendre polynomials on (-1,0), (0,1), and (-1,1)
   // we do the two-step store because we cannot have 'static' bindings
   auto const [roots_neg1to0, weights_neg1to0] = legendre_weights<P>(
-      degree, static_cast<int>(neg1), static_cast<int>(zero));
+      degree, neg1, zero);
 
   auto const [roots_0to1, weights_0to1] = legendre_weights<P>(
-      degree, static_cast<int>(zero), static_cast<int>(one));
+      degree, zero, one);
 
   auto const [roots_neg1to1, weights_neg1to1] = legendre_weights<P>(
-      degree, static_cast<int>(neg1), static_cast<int>(one));
+      degree, neg1, one);
 
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until c++20)

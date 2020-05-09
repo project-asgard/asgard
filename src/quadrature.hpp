@@ -23,5 +23,5 @@ legendre(fk::vector<P> const domain, int const degree,
 // otherwise, use max(10, degree + 1)
 template<typename P>
 std::array<fk::vector<P>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+legendre_weights(int const degree, P const lower_bound, P const upper_bound,
                  bool const use_degree_points = false);

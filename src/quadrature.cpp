@@ -157,7 +157,7 @@ legendre(fk::vector<P> const domain, int const degree,
 // return[0] are the x_roots, return[1] are the weights
 template<typename P>
 std::array<fk::vector<P>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+legendre_weights(int const degree, P const lower_bound, P const upper_bound,
                  bool const use_degree_points)
 {
   assert(degree > 0);
@@ -365,8 +365,8 @@ legendre(fk::vector<double> const domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+legendre_weights(int const degree, float const lower_bound, float const upper_bound,
                  bool const use_degree_points);
 template std::array<fk::vector<double>, 2>
-legendre_weights(int const degree, int const lower_bound, int const upper_bound,
+legendre_weights(int const degree, double const lower_bound, double const upper_bound,
                  bool const use_degree_points);

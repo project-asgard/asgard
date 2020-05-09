@@ -518,16 +518,16 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
   /* FIXME - these tolerances are way too high. Different parameters are likely
      being used for gold data generation than here */
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-1 : 1e-1;
+      std::is_same<TestType, double>::value ? 1e-9 : 1e-4;
 
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {
+    int const level  = 2;
     int const degree = 3;
-    int const level  = 3;
     double const cfl = 1e-10;
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_sg_l3_d3_t";
+                                  "fokkerplanck2_complete_e_sg_l2_d3_t";
     auto pde =
         make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
     bool const full_grid = false;

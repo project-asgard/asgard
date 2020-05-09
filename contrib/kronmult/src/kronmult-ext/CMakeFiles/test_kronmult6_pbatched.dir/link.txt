@@ -1,0 +1,1 @@
+/usr/bin/g++   CMakeFiles/test_kronmult6_pbatched.dir/test_kronmult6_pbatched.cpp.o -o test_kronmult6_pbatched  -Wl,-rpath,/home/4hh/asgard/contrib/kronmult/src/kronmult-ext libkron.so  -L"/usr/local/cuda-10.2/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-10.2/targets/x86_64-linux/lib" -lcudadevrt -lcudart_static -lrt -lpthread -ldl

@@ -1,0 +1,1 @@
+/usr/bin/g++   CMakeFiles/kgemm_nn_test.dir/test_kgemm_nn_batched.cpp.o -o kgemm_nn_test  -Wl,-rpath,/home/4hh/asgard/contrib/kronmult/src/kronmult-ext libkron.so  -L"/usr/local/cuda-10.2/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-10.2/targets/x86_64-linux/lib" -lcudadevrt -lcudart_static -lrt -lpthread -ldl

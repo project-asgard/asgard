@@ -364,19 +364,29 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
 TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
                    double, float)
 {
-  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete);
+  int const level = 4;
+  int const degree = 4;
+
+  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree );
   std::string const base_dir =
       "../testing/generated-inputs/pde/fokkerplanck2_complete_";
-  fk::vector<TestType> const x = {0.5};
+  fk::vector<TestType> const x = { 4.2, 3, 0.5, 0.42, 0.042 };
+
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
 
   SECTION("fokkerplanck2_complete initial condition functions")
   {
     for (int i = 0; i < pde->num_dims; ++i)
     {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+      /* And handle the case where the "vector" is just 1 - or handle dimensions separately */
+      /* Probably better to just handle each dimension separately */
+      fk::vector< TestType > const gold( read_vector_from_txt_file(
+          base_dir + "initial_dim" + std::to_string(i) + ".dat") );
+
+      fk::vector< TestType > const fx = pde->get_dimensions()[i].initial_condition(x, 0);
+
+      rmse_comparison( fx, gold, tol_factor );
     }
   }
 

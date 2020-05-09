@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "../tensors.hpp"
+#include "../quadrature.hpp"
 #include "pde_base.hpp"
 
 // ---------------------------------------------------------------------------
@@ -81,9 +82,9 @@ private:
 
   static P constexpr nuEE     = 1;
   static P constexpr vT       = 1;
-  static P constexpr delta    = 0.042;
-  static P constexpr Z        = 1;
-  static P constexpr E        = 0.0025;
+  static P constexpr delta    = 0.3;
+  static P constexpr Z        = 5;
+  static P constexpr E        = 0.4;
   static P constexpr tau      = 1e5;
   static auto constexpr gamma = [](P p) {
     return std::sqrt(1 + std::pow(delta * p, 2));
@@ -115,13 +116,57 @@ private:
   static fk::vector<P> initial_condition_p(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    fk::vector<P> ret(x.size());
 
-    std::transform(x.begin(), x.end(), ret.begin(), [](auto const elem) {
-      P const a = 2;
-      return 2.0 / (std::sqrt(M_PI) * std::pow(a, 3)) *
-             std::exp(-std::pow(elem, 2) / std::pow(a, 2));
-    });
+    P N = 1000.0;
+    P h = 20.0 / N;
+    P Q = 0;
+
+    auto function =
+    [] ( fk::vector< P > const &p ) -> fk::vector< P >
+    {
+      fk::vector< P > transformed( p );
+      std::transform( p.begin(), p.end(), transformed.begin(),
+                      []( P const p_elem )-> P
+                      {
+                        return std::exp( -2 / std::pow( delta, 2 ) * 
+                                         std::sqrt( 1 + std::pow( delta, 2 ) * 
+                                                    std::pow( p_elem, 2 ) ) );
+                      }
+                    );
+
+     return transformed;
+    };
+
+    for( int i = 0; i < N; ++i )
+    {
+      P const x_0 = i * h;
+      P const x_1 = ( i + 1 ) * h;
+
+      /* Matlab uses 20 points - even though this is probably not the degree,
+         putting 20 for the degree argument and "true" for use_degree_points forces consistency */
+      std::array< fk::vector< P >, 2 > rw =
+      legendre_weights<P>( 20, x_0, x_1, true );
+
+      fk::vector< P > transformed = function( rw[ 0 ] );
+
+      std::transform( rw[ 0 ].begin(), rw[ 0 ].end(), transformed.begin(), transformed.begin(),
+                      []( P const root, P const t_elem ) -> P
+                      {
+                        return std::pow( root, 2 ) * t_elem;
+                      });
+
+      std::transform( rw[ 1 ].begin(), rw[ 1 ].end(), transformed.begin(), transformed.begin(), 
+                      []( P const weight, P const t_elem )-> P
+                      {
+                        return weight * t_elem;
+                      });
+
+      Q += std::accumulate( transformed.begin(), transformed.end(), 0.0 );
+    }
+
+    fk::vector<P> ret = function( x );
+
+    ret.scale( 1 / ( 2 * Q ) );
 
     return ret;
   }
