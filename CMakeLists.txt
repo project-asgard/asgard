@@ -53,12 +53,6 @@ endif()
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
-# sets OpenBLAS_PATH and LINALG_LIBS
-include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
-# sets PROFILE_DEPS and PROFILE_LIBS
-include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
-# sets HighFive_FOUND
-include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
 string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
 set(ASGARD_USE_MKL FALSE)
@@ -66,16 +60,19 @@ if(FOUND_MKL GREATER_EQUAL 0)
   set(ASGARD_USE_MKL TRUE)
 endif()
 
+# sets OpenBLAS_PATH and LINALG_LIBS
+include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
+# sets PROFILE_DEPS and PROFILE_LIBS
+include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
+# sets HighFive_FOUND
+include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)  
-  if(ASGARD_USE_MKL)
-    add_compile_options ("-fopenmp")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	message(FATAL_ERROR 
 	  "MKL and apple clang++ require conflicting 
 	  openmp flags - build configuration not supported")
-    endif()
   endif()
 endif()
 
@@ -136,6 +133,9 @@ endif ()
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
   target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
+  if(ASGARD_USE_MKL)
+    target_compile_options (${component} PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+  endif()
 endforeach ()
 
 if (build_hdf5)
