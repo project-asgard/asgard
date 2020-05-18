@@ -54,11 +54,6 @@ endif()
 ## Pull in external support as needed
 ###############################################################################
 
-string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
-set(ASGARD_USE_MKL FALSE)
-if(FOUND_MKL GREATER_EQUAL 0)
-  set(ASGARD_USE_MKL TRUE)
-endif()
 
 # sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
@@ -67,12 +62,21 @@ include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
 
+string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
+set(ASGARD_USE_MKL FALSE)
+if(FOUND_MKL GREATER_EQUAL 0)
+  set(ASGARD_USE_MKL TRUE)
+endif()
+
+
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)  
+  if(ASGARD_USE_MKL)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	message(FATAL_ERROR 
 	  "MKL and apple clang++ require conflicting 
 	  openmp flags - build configuration not supported")
+    endif()
   endif()
 endif()
 
@@ -85,7 +89,11 @@ if(ASGARD_USE_CUDA)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch sm_70 -g --ptxas-options=-O3")
   set_source_files_properties( src/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
 endif()
-target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories (kronmult_cuda PRIVATE ${KRON_PATH} ${CMAKE_BINARY_DIR})
+if(ASGARD_USE_MKL)
+  target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+endif()
+
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
@@ -182,12 +190,15 @@ target_link_libraries (fast_math
 
 target_link_libraries(kronmult PRIVATE kronmult_cuda)
 
-if (ASGARD_USE_OPENMP)
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-target_include_directories(kronmult_cuda PRIVATE ${KRON_PATH})
-target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX PUBLIC ${KRON_LIB})
+target_link_libraries(kronmult_cuda PUBLIC ${KRON_LIB})
+
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
+   target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
+endif ()
 
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
