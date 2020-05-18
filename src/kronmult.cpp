@@ -156,6 +156,16 @@ inline void allocate_device(P *&ptr, int const num_elems)
 #endif
 }
 
+template<typename P>
+inline void free_device(P *&ptr)
+{
+#ifdef ASGARD_USE_CUDA
+  cudaFree(ptr);
+#else
+  delete[] ptr;
+#endif
+}
+
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
@@ -271,12 +281,14 @@ execute(PDE<P> const &pde, element_table const &elem_table,
                 total_kronmults, pde.num_dims);
   timer::record.stop("kronmult", flops);
 
-  fk::delete_device(element_x);
-  fk::delete_device(element_work);
+  free_device(element_x);
+  free_device(element_work);
+
   free(input_ptrs);
   free(operator_ptrs);
   free(work_ptrs);
   free(output_ptrs);
+
   return fx;
 }
 
