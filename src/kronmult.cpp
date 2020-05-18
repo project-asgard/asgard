@@ -144,7 +144,7 @@ get_indices(fk::vector<int> const &coords, int indices[], int const degree)
   }
 }
 
-//helper, allocate memory WITHOUT init
+// helper, allocate memory WITHOUT init
 template<typename P>
 inline void allocate_device(P *&ptr, int const num_elems)
 {
@@ -156,7 +156,6 @@ inline void allocate_device(P *&ptr, int const num_elems)
 #endif
 }
 
-
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
@@ -165,8 +164,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx)
 {
-
-	timer::record.start("nonpart") ;   
   static std::once_flag print_flag;
 
   // FIXME code relies on uniform degree across dimensions
@@ -193,7 +190,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   allocate_device(element_x, workspace_size);
   allocate_device(element_work, workspace_size);
 
-  // stage x vector in writable regions for each element  
+  // stage x vector in writable regions for each element
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -205,15 +202,11 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // loop over assigned elements, staging inputs and operators
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
-  P** input_ptrs = new P*[total_kronmults];
-  P** work_ptrs = new P*[total_kronmults];
-  P** output_ptrs = new P*[total_kronmults];
-  P** operator_ptrs = new P*[total_kronmults * pde.num_dims];
+  P **input_ptrs    = new P *[total_kronmults];
+  P **work_ptrs     = new P *[total_kronmults];
+  P **output_ptrs   = new P *[total_kronmults];
+  P **operator_ptrs = new P *[total_kronmults * pde.num_dims];
 
-
-	timer::record.stop("nonpart") ;   
-
-	timer::record.start("part") ;   
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -273,10 +266,9 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   double const flops = pde.num_dims * 2.0 *
                        (std::pow(degree, pde.num_dims + 1)) * total_kronmults;
 
-	timer::record.stop("part") ;   
   timer::record.start("kronmult");
-  call_kronmult(degree, input_ptrs, output_ptrs, work_ptrs,
-                operator_ptrs, lda, total_kronmults, pde.num_dims);
+  call_kronmult(degree, input_ptrs, output_ptrs, work_ptrs, operator_ptrs, lda,
+                total_kronmults, pde.num_dims);
   timer::record.stop("kronmult", flops);
 
   fk::delete_device(element_x);
