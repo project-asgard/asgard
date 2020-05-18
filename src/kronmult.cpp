@@ -144,6 +144,19 @@ get_indices(fk::vector<int> const &coords, int indices[], int const degree)
   }
 }
 
+//helper, allocate memory WITHOUT init
+template<typename P>
+inline void allocate_device(P *&ptr, int const num_elems)
+{
+#ifdef ASGARD_USE_CUDA
+  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
+  assert(success == 0);
+#else
+  ptr = new P[num_elems];
+#endif
+}
+
+
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
@@ -152,6 +165,8 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx)
 {
+
+	timer::record.start("nonpart") ;   
   static std::once_flag print_flag;
 
   // FIXME code relies on uniform degree across dimensions
@@ -175,10 +190,13 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   P *element_x;
   P *element_work;
-  fk::allocate_device(element_x, workspace_size);
-  fk::allocate_device(element_work, workspace_size);
+  allocate_device(element_x, workspace_size);
+  allocate_device(element_work, workspace_size);
 
-  // stage x vector in writable regions for each element
+  // stage x vector in writable regions for each element  
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
   for (auto i = 0; i < my_subgrid.nrows() * pde.num_terms; ++i)
   {
     fk::copy_on_device(element_x + i * x.size(), x.data(), x.size());
@@ -187,12 +205,15 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // loop over assigned elements, staging inputs and operators
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
-  // FIXME these are calloc'd, unnecessary
-  std::vector<P *> input_ptrs(total_kronmults);
-  std::vector<P *> work_ptrs(total_kronmults);
-  std::vector<P *> output_ptrs(total_kronmults);
-  std::vector<P *> operator_ptrs(total_kronmults * pde.num_dims);
+  P** input_ptrs = new P*[total_kronmults];
+  P** work_ptrs = new P*[total_kronmults];
+  P** output_ptrs = new P*[total_kronmults];
+  P** operator_ptrs = new P*[total_kronmults * pde.num_dims];
 
+
+	timer::record.stop("nonpart") ;   
+
+	timer::record.start("part") ;   
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -252,14 +273,18 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   double const flops = pde.num_dims * 2.0 *
                        (std::pow(degree, pde.num_dims + 1)) * total_kronmults;
 
+	timer::record.stop("part") ;   
   timer::record.start("kronmult");
-  call_kronmult(degree, input_ptrs.data(), output_ptrs.data(), work_ptrs.data(),
-                operator_ptrs.data(), lda, total_kronmults, pde.num_dims);
+  call_kronmult(degree, input_ptrs, output_ptrs, work_ptrs,
+                operator_ptrs, lda, total_kronmults, pde.num_dims);
   timer::record.stop("kronmult", flops);
 
   fk::delete_device(element_x);
   fk::delete_device(element_work);
-
+  free(input_ptrs);
+  free(operator_ptrs);
+  free(work_ptrs);
+  free(output_ptrs);
   return fx;
 }
 
