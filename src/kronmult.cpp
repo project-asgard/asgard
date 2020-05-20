@@ -1,5 +1,5 @@
 #include "kronmult.hpp"
-#include "kronmult_cuda.hpp"
+#include "device/kronmult_cuda.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda_runtime.h>
@@ -212,10 +212,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // loop over assigned elements, staging inputs and operators
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
-  P **input_ptrs    = new P *[total_kronmults];
-  P **work_ptrs     = new P *[total_kronmults];
-  P **output_ptrs   = new P *[total_kronmults];
-  P **operator_ptrs = new P *[total_kronmults * pde.num_dims];
+  P **const input_ptrs    = new P *[total_kronmults];
+  P **const work_ptrs     = new P *[total_kronmults];
+  P **const output_ptrs   = new P *[total_kronmults];
+  P **const operator_ptrs = new P *[total_kronmults * pde.num_dims];
 
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for

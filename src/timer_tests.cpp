@@ -19,7 +19,7 @@ double shuffle_random(int const num_items)
   std::shuffle(items.begin(), items.end(), mersenne_engine);
   return items[0];
 }
-
+auto constexpr tol = 1e2;
 TEST_CASE("test recorder")
 {
   timer::recorder record;
@@ -71,7 +71,7 @@ TEST_CASE("test recorder")
       sum += time;
     }
     double const gold_average = sum / times.size();
-    REQUIRE(avg == gold_average);
+    relaxed_fp_comparison(avg, gold_average, tol);
   }
 
   SECTION("min/max")
@@ -85,8 +85,8 @@ TEST_CASE("test recorder")
       gold_max = time > gold_max ? time : gold_max;
     }
 
-    REQUIRE(min == gold_min);
-    REQUIRE(max == gold_max);
+    relaxed_fp_comparison(max, gold_max, tol);
+    relaxed_fp_comparison(min, gold_min, tol);
   }
 
   SECTION("med")
@@ -97,7 +97,7 @@ TEST_CASE("test recorder")
     double const gold_med = (time_copy.size() % 2 == 0)
                                 ? (time_copy[mid] + time_copy[mid - 1]) / 2
                                 : time_copy[mid];
-    REQUIRE(med == gold_med);
+    relaxed_fp_comparison(med, gold_med, tol);
   }
 
   SECTION("count") { REQUIRE(calls == static_cast<int>(times.size())); }
