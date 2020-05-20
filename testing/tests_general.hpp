@@ -10,6 +10,7 @@
 #include "src/fast_math.hpp"
 #include "src/pde.hpp"
 #include "src/program_options.hpp"
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
