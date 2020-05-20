@@ -322,15 +322,17 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());
-
+  std::cout << x.size() << '\n';
   for (auto const grid : grids)
   {
+    int const col_start = my_subgrid.to_local_col(grid.col_start);
+    int const col_end   = my_subgrid.to_local_col(grid.col_stop);
+    int const row_start = my_subgrid.to_local_row(grid.row_start);
+    int const row_end   = my_subgrid.to_local_row(grid.row_stop);
     fk::vector<P, mem_type::const_view, resource::device> const x_dev_grid(
-        x_dev, grid.col_start * deg_to_dim,
-        (grid.col_stop + 1) * deg_to_dim - 1);
+        x_dev, col_start * deg_to_dim, (col_end + 1) * deg_to_dim - 1);
     fk::vector<P, mem_type::view, resource::device> fx_dev_grid(
-        fx_dev, grid.row_start * deg_to_dim,
-        (grid.row_stop + 1) * deg_to_dim - 1);
+        fx_dev, row_start * deg_to_dim, (row_end + 1) * deg_to_dim - 1);
     fx_dev_grid =
         kronmult::execute(pde, elem_table, grid, x_dev_grid, fx_dev_grid);
   }

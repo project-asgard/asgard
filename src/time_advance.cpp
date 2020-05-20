@@ -54,7 +54,6 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
   auto const apply_id = timer::record.start("kronmult_setup");
   auto fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
-
   reduce_results(fx, reduced_fx, plan, my_rank);
 
   if (!unscaled_sources.empty())
