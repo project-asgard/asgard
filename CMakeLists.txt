@@ -80,7 +80,6 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # build component to interface with Ed's kronmult lib
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
@@ -95,7 +94,8 @@ target_include_directories (kronmult_cuda PRIVATE ${KRON_PATH} ${CMAKE_BINARY_DI
 if(ASGARD_USE_MKL)
   target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
 endif()
-
+set(CMAKE_INSTALL_RPATH ${KRON_PATH})
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
