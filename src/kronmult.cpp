@@ -284,10 +284,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   free_device(element_x);
   free_device(element_work);
 
-  free(input_ptrs);
-  free(operator_ptrs);
-  free(work_ptrs);
-  free(output_ptrs);
+  delete[] input_ptrs;
+  delete[] operator_ptrs;
+  delete[] work_ptrs;
+  delete[] output_ptrs;
 
   return fx;
 }

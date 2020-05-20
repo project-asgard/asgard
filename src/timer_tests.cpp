@@ -19,11 +19,11 @@ double shuffle_random(int const num_items)
   std::shuffle(items.begin(), items.end(), mersenne_engine);
   return items[0];
 }
-auto constexpr tol = 1e2;
+auto constexpr tol = 1e3;
 TEST_CASE("test recorder")
 {
   timer::recorder record;
-  int const items_to_gen       = 1000000;
+  int const items_to_gen       = 100000;
   int const iterations         = 10;
   std::string const identifier = "waste_time";
   for (int i = 0; i < iterations; ++i)
