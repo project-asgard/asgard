@@ -80,6 +80,8 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # build component to interface with Ed's kronmult lib
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_CUDA)
@@ -293,7 +295,7 @@ if (ASGARD_BUILD_TESTS)
 
   # Define ctest tests and their executables
   add_library (tests_general testing/tests_general.cpp)
-  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
+  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options )
   target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
