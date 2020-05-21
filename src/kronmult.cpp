@@ -322,7 +322,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());
-  std::cout << x.size() << '\n';
   for (auto const grid : grids)
   {
     int const col_start = my_subgrid.to_local_col(grid.col_start);
