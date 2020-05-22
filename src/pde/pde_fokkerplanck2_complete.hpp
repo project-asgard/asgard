@@ -11,8 +11,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "../pde_base.hpp"
 #include "../tensors.hpp"
-#include "pde_base.hpp"
 
 // ---------------------------------------------------------------------------
 // Full PDE from the 2D runaway electron paper

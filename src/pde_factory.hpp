@@ -10,7 +10,6 @@
 #include <typeinfo>
 #include <vector>
 
-#include "pde/pde_base.hpp"
 #include "pde/pde_continuity1.hpp"
 #include "pde/pde_continuity2.hpp"
 #include "pde/pde_continuity3.hpp"
@@ -23,6 +22,7 @@
 #include "pde/pde_fokkerplanck1_4p4.hpp"
 #include "pde/pde_fokkerplanck1_4p5.hpp"
 #include "pde/pde_fokkerplanck2_complete.hpp"
+#include "pde_base.hpp"
 #include "tensors.hpp"
 
 //

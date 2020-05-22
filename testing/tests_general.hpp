@@ -8,7 +8,7 @@
 
 #include "catch.hpp"
 #include "src/fast_math.hpp"
-#include "src/pde.hpp"
+#include "src/pde_factory.hpp"
 #include "src/program_options.hpp"
 #include <string>
 #include <utility>

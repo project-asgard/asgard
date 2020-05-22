@@ -1,7 +1,7 @@
 #pragma once
 #include "chunk.hpp"
 #include "element_table.hpp"
-#include "pde/pde_base.hpp"
+#include "pde_base.hpp"
 #include "tensors.hpp"
 #include <array>
 #include <numeric>

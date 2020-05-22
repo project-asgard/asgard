@@ -1,6 +1,5 @@
 #include "batch.hpp"
 #include "chunk.hpp"
-#include "coefficients.hpp"
 #include "fast_math.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
@@ -933,8 +932,6 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   int const my_rank   = 0;
   auto const plan     = get_plan(num_ranks, elem_table);
   auto const subgrid  = plan.at(my_rank);
-
-  generate_all_coefficients(pde);
 
   auto const vector_size = elem_table.size() * std::pow(degree, pde.num_dims);
   fk::vector<P> x(vector_size);

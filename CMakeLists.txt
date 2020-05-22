@@ -103,7 +103,6 @@ set (components
   basis
   batch
   boundary_conditions
-  coefficients
   connectivity
   distribution
   element_table
@@ -111,7 +110,8 @@ set (components
   chunk
   lib_dispatch
   matlab_utilities
-  pde
+  pde_factory
+  pde_base
   permutations
   program_options
   quadrature
@@ -140,22 +140,23 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
+target_link_libraries (batch PRIVATE lib_dispatch pde_base connectivity chunk element_table tensors)
 
-target_link_libraries( boundary_conditions PRIVATE coefficients element_table transformations
+target_link_libraries( boundary_conditions PRIVATE pde_base element_table transformations
                        matlab_utilities fast_math )
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(batch PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-target_link_libraries (coefficients
-  PRIVATE pde matlab_utilities quadrature tensors transformations)
+#Captain! Filter out libraries that do not need to be linked in
+target_link_libraries (pde_base
+  PRIVATE matlab_utilities quadrature tensors transformations)
 
 target_link_libraries (connectivity
   PRIVATE element_table matlab_utilities permutations tensors)
 
-target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
+target_link_libraries(chunk PRIVATE distribution element_table fast_math pde_base)
 
 target_link_libraries(distribution PRIVATE element_table lib_dispatch)
 if (ASGARD_USE_MPI)
@@ -184,7 +185,7 @@ endif ()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
-target_link_libraries (pde PRIVATE basis matlab_utilities tensors)
+target_link_libraries (pde_factory PRIVATE basis matlab_utilities pde_base tensors)
 
 target_link_libraries (permutations PRIVATE matlab_utilities tensors)
 
@@ -199,11 +200,11 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors timer boundary_conditions
+target_link_libraries (time_advance PRIVATE batch fast_math pde_factory solver tensors timer boundary_conditions
                                     INTERFACE element_table)
 
 target_link_libraries (transformations
-  PRIVATE batch connectivity distribution matlab_utilities pde program_options
+  PRIVATE batch connectivity distribution matlab_utilities program_options
   quadrature tensors)
 
 # define the main application and its linking
@@ -213,12 +214,11 @@ add_executable (asgard src/main.cpp)
 set (main_app_link_deps
   batch
   boundary_conditions
-  coefficients
   connectivity
   distribution
   element_table
   matlab_utilities
-  pde
+  pde_factory
   program_options
   quadrature
   tensors
@@ -262,22 +262,16 @@ if (ASGARD_BUILD_TESTS)
 
   # Define ctest tests and their executables
   add_library (tests_general testing/tests_general.cpp)
-  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
+  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde_factory program_options)
   target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
   foreach (component IN LISTS components)
+    # FIXME
+    # Ensure ${component}_tests.cpp exists
+    if( EXISTS "${CMAKE_SOURCE_DIR}/src/${component}_tests.cpp" )
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
-    # FIXME
-    if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
-      target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
-    endif ()
-
-    if ("${component}" STREQUAL "chunk")
-      target_link_libraries (chunk-tests PRIVATE batch)
-    endif ()
-
 
     if (ASGARD_USE_MPI)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
@@ -300,6 +294,15 @@ if (ASGARD_BUILD_TESTS)
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+    endif()
+    if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
+      target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
+    endif ()
+
+    if ("${component}" STREQUAL "chunk")
+      target_link_libraries (chunk-tests PRIVATE batch)
+    endif ()
+
   endforeach ()
 
 else ()

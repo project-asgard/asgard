@@ -1,5 +1,5 @@
 #include "matlab_utilities.hpp"
-#include "pde.hpp"
+#include "pde_factory.hpp"
 #include "tests_general.hpp"
 #include "transformations.hpp"
 #include <numeric>

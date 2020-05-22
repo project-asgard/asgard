@@ -11,10 +11,10 @@
 #include <typeinfo>
 #include <vector>
 
-#include "../basis.hpp"
-#include "../fast_math.hpp"
-#include "../matlab_utilities.hpp"
-#include "../tensors.hpp"
+#include "basis.hpp"
+#include "fast_math.hpp"
+#include "matlab_utilities.hpp"
+#include "tensors.hpp"
 
 //
 // This file contains all of the interface and object definitions for our
@@ -359,107 +359,8 @@ public:
       std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
       scalar_func<P> const exact_time, dt_func<P> const get_dt,
-      bool const do_poisson_solve = false, bool const has_analytic_soln = false)
-      : num_dims(num_dims), num_sources(num_sources), num_terms(num_terms),
-        sources(sources), exact_vector_funcs(exact_vector_funcs),
-        exact_time(exact_time), do_poisson_solve(do_poisson_solve),
-        has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
-        terms_(terms)
-  {
-    assert(num_dims > 0);
-    assert(num_sources >= 0);
-    assert(num_terms > 0);
-
-    assert(dimensions.size() == static_cast<unsigned>(num_dims));
-    assert(terms.size() == static_cast<unsigned>(num_terms));
-    assert(sources.size() == static_cast<unsigned>(num_sources));
-
-    for (auto tt : terms)
-    {
-      for (auto t : tt)
-      {
-        std::vector<partial_term<P>> const &pterms = t.get_partial_terms();
-        for (auto p : pterms)
-        {
-          if (p.left_homo == homogeneity::homogeneous)
-            assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
-          else if (p.left_homo == homogeneity::inhomogeneous)
-            assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
-
-          if (p.right_homo == homogeneity::homogeneous)
-            assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
-          else if (p.right_homo == homogeneity::inhomogeneous)
-            assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
-        }
-      }
-    }
-
-    // ensure analytic solution functions were provided if this flag is set
-    if (has_analytic_soln)
-    {
-      assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
-    }
-
-    // check all terms
-    for (std::vector<term<P>> const &term_list : terms_)
-    {
-      assert(term_list.size() == static_cast<unsigned>(num_dims));
-
-      for (term<P> const &term_1D : term_list)
-      {
-        assert(term_1D.get_partial_terms().size() > 0);
-      }
-    }
-
-    // modify for appropriate level/degree
-    // if default lev/degree not used
-    if (num_levels != -1 || degree != -1)
-    {
-      // FIXME eventually independent levels for each dim will be
-      // supported
-      for (dimension<P> &d : dimensions_)
-      {
-        if (num_levels != -1)
-        {
-          assert(num_levels > 1);
-          d.set_level(num_levels);
-        }
-        if (degree != -1)
-        {
-          assert(degree > 0);
-          d.set_degree(degree);
-        }
-      }
-
-      for (std::vector<term<P>> &term_list : terms_)
-      {
-        // positive, bounded size - safe compare
-        for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
-        {
-          term_list[i].set_data(dimensions_[i], fk::vector<P>());
-          term_list[i].set_coefficients(
-              dimensions_[i],
-              eye<P>(term_list[i].degrees_freedom(dimensions_[i])));
-        }
-      }
-    }
-    // check all dimensions
-    for (dimension<P> const d : dimensions_)
-    {
-      assert(d.get_degree() > 0);
-      assert(d.get_level() > 1);
-      assert(d.domain_max > d.domain_min);
-    }
-
-    // check all sources
-    for (source<P> const s : this->sources)
-    {
-      assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
-    }
-
-    // set the dt
-    dt_ = get_dt(dimensions_[0]);
-  }
+      bool const do_poisson_solve  = false,
+      bool const has_analytic_soln = false);
 
   // public but const data.
   int const num_dims;
@@ -515,7 +416,14 @@ public:
 
   P get_dt() const { return dt_; };
 
+  void regenerate_coefficients(P const time = 0.0, bool const rotate = true);
+
 private:
+  fk::matrix<double>
+  generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
+                        partial_term<P> const &pterm, P const time = 0.0,
+                        bool const rotate = true);
+
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
   P dt_;

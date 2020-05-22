@@ -1,7 +1,6 @@
 #include "build_info.hpp"
 #include "chunk.hpp"
-#include "coefficients.hpp"
-#include "pde.hpp"
+#include "pde_factory.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include "time_advance.hpp"
@@ -57,9 +56,6 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
-
-  // -- set coeffs
-  generate_all_coefficients(pde);
 
   // -- generate initial condition vector.
   fk::vector<P> const initial_condition = [&pde, &table, &subgrid, degree]() {
@@ -161,9 +157,6 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   element_table const table(o, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
-
-  // -- set coeffs
-  generate_all_coefficients(pde);
 
   // -- generate initial condition vector.
   P const initial_scale = 1.0;

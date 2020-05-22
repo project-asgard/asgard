@@ -2,6 +2,7 @@
 #include "build_info.hpp"
 #include "clara.hpp"
 #include "distribution.hpp"
+#include "pde_factory.hpp"
 #include <iostream>
 
 options::options(int argc, char **argv)

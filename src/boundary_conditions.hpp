@@ -2,7 +2,7 @@
 #include "element_table.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
-#include "pde/pde_base.hpp"
+#include "pde_base.hpp"
 #include "transformations.hpp"
 
 template<typename P>

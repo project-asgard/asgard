@@ -1,5 +1,5 @@
 #pragma once
-#include "pde_base.hpp"
+#include "../pde_base.hpp"
 
 template<typename P>
 class PDE_diffusion_2d : public PDE<P>

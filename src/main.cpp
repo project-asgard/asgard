@@ -1,7 +1,6 @@
 #include "batch.hpp"
 #include "build_info.hpp"
 #include "chunk.hpp"
-#include "coefficients.hpp"
 #include "connectivity.hpp"
 #include "distribution.hpp"
 #include "element_table.hpp"
@@ -16,7 +15,7 @@
 #endif
 
 #include "boundary_conditions.hpp"
-#include "pde.hpp"
+#include "pde_factory.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include "time_advance.hpp"
@@ -139,12 +138,6 @@ int main(int argc, char **argv)
       return fk::vector<prec>();
     }
   }();
-
-  // -- generate and store coefficient matrices.
-
-  node_out() << "  generating: coefficient matrices..." << '\n';
-
-  generate_all_coefficients<prec>(*pde);
 
   /* generate boundary condition vectors */
   /* these will be scaled later similarly to the source vectors */

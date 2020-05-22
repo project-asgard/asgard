@@ -1,60 +1,52 @@
-#include "coefficients.hpp"
-
+#include "pde_base.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
-#include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
 #include "transformations.hpp"
 #include <numeric>
 
-/* generate coefficient matrices for each 1D term in each dimension and
-   underlying partial term coefficients matrices */
 template<typename P>
-void generate_all_coefficients(PDE<P> &pde, P const time, bool const rotate)
+void PDE<P>::regenerate_coefficients(P const time, bool const rotate)
 {
-  for (int i = 0; i < pde.num_dims; ++i)
+  for (int i = 0; i < num_dims; ++i)
   {
-    dimension<P> const &dim = pde.get_dimensions()[i];
+    dimension<P> const &dim = get_dimensions()[i];
 
-    for (int j = 0; j < pde.num_terms; ++j)
+    for (int j = 0; j < num_terms; ++j)
     {
-      term<P> const &term_1D = pde.get_terms()[j][i];
+      term<P> const &term_1D = get_terms()[j][i];
 
       std::vector<partial_term<P>> const &partial_terms =
           term_1D.get_partial_terms();
 
       /* generate the first partial term */
-      fk::matrix<double> term_coeff = generate_coefficients<P>(
-          dim, term_1D, partial_terms[0], time, rotate);
+      fk::matrix<double> term_coeff =
+          generate_coefficients(dim, term_1D, partial_terms[0], time, rotate);
 
       /* set the partial term's coefficient matrix */
-      pde.set_partial_coefficients(j, i, 0, fk::matrix<P>(term_coeff));
+      set_partial_coefficients(j, i, 0, fk::matrix<P>(term_coeff));
 
       for (int k = 1; k < static_cast<int>(partial_terms.size()); ++k)
       {
-        fk::matrix<double> partial_term_coeff = generate_coefficients<P>(
-            dim, term_1D, partial_terms[k], time, rotate);
+        fk::matrix<double> partial_term_coeff =
+            generate_coefficients(dim, term_1D, partial_terms[k], time, rotate);
 
         term_coeff = term_coeff * partial_term_coeff;
 
-        pde.set_partial_coefficients(j, i, k,
-                                     fk::matrix<P>(partial_term_coeff));
+        set_partial_coefficients(j, i, k, fk::matrix<P>(partial_term_coeff));
       }
 
-      pde.set_coefficients(fk::matrix<P>(term_coeff), j, i);
+      set_coefficients(fk::matrix<P>(term_coeff), j, i);
     }
   }
 }
-// construct 1D coefficient matrix - new conventions
-// this routine returns a 2D array representing an operator coefficient
-// matrix for a single dimension (1D). Each term in a PDE requires D many
-// coefficient matricies
+
 template<typename P>
 fk::matrix<double>
-generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
-                      partial_term<P> const &pterm, P const time,
-                      bool const rotate)
+PDE<P>::generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
+                              partial_term<P> const &pterm, P const time,
+                              bool const rotate)
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
@@ -387,22 +379,118 @@ generate_coefficients(dimension<P> const &dim, term<P> const &term_1D,
   return coefficients;
 }
 
-template fk::matrix<double>
-generate_coefficients<float>(dimension<float> const &dim,
-                             term<float> const &term_1D,
-                             partial_term<float> const &pterm, float const time,
-                             bool const rotate);
+template<typename P>
+PDE<P>::PDE(int const num_levels, int const degree, int const num_dims,
+            int const num_sources, int const num_terms,
+            std::vector<dimension<P>> const dimensions, term_set<P> const terms,
+            std::vector<source<P>> const sources,
+            std::vector<vector_func<P>> const exact_vector_funcs,
+            scalar_func<P> const exact_time, dt_func<P> const get_dt,
+            bool const do_poisson_solve, bool const has_analytic_soln)
+    : num_dims(num_dims), num_sources(num_sources), num_terms(num_terms),
+      sources(sources), exact_vector_funcs(exact_vector_funcs),
+      exact_time(exact_time), do_poisson_solve(do_poisson_solve),
+      has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
+      terms_(terms)
+{
+  assert(num_dims > 0);
+  assert(num_sources >= 0);
+  assert(num_terms > 0);
 
-template fk::matrix<double>
-generate_coefficients<double>(dimension<double> const &dim,
-                              term<double> const &term_1D,
-                              partial_term<double> const &pterm,
-                              double const time, bool const rotate);
+  assert(dimensions.size() == static_cast<unsigned>(num_dims));
+  assert(terms.size() == static_cast<unsigned>(num_terms));
+  assert(sources.size() == static_cast<unsigned>(num_sources));
 
-template void generate_all_coefficients<float>(PDE<float> &pde,
-                                               float const time,
-                                               bool const rotate);
+  for (auto tt : terms)
+  {
+    for (auto t : tt)
+    {
+      std::vector<partial_term<P>> const &pterms = t.get_partial_terms();
+      for (auto p : pterms)
+      {
+        if (p.left_homo == homogeneity::homogeneous)
+          assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
+        else if (p.left_homo == homogeneity::inhomogeneous)
+          assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
 
-template void generate_all_coefficients<double>(PDE<double> &pde,
-                                                double const time,
-                                                bool const rotate);
+        if (p.right_homo == homogeneity::homogeneous)
+          assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
+        else if (p.right_homo == homogeneity::inhomogeneous)
+          assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
+      }
+    }
+  }
+
+  // ensure analytic solution functions were provided if this flag is set
+  if (has_analytic_soln)
+  {
+    assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
+  }
+
+  // check all terms
+  for (std::vector<term<P>> const &term_list : terms_)
+  {
+    assert(term_list.size() == static_cast<unsigned>(num_dims));
+
+    for (term<P> const &term_1D : term_list)
+    {
+      assert(term_1D.get_partial_terms().size() > 0);
+    }
+  }
+
+  // modify for appropriate level/degree
+  // if default lev/degree not used
+  if (num_levels != -1 || degree != -1)
+  {
+    // FIXME eventually independent levels for each dim will be
+    // supported
+    for (dimension<P> &d : dimensions_)
+    {
+      if (num_levels != -1)
+      {
+        assert(num_levels > 1);
+        d.set_level(num_levels);
+      }
+      if (degree != -1)
+      {
+        assert(degree > 0);
+        d.set_degree(degree);
+      }
+    }
+
+    for (std::vector<term<P>> &term_list : terms_)
+    {
+      // positive, bounded size - safe compare
+      for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
+      {
+        term_list[i].set_data(dimensions_[i], fk::vector<P>());
+        term_list[i].set_coefficients(
+            dimensions_[i],
+            eye<P>(term_list[i].degrees_freedom(dimensions_[i])));
+      }
+    }
+  }
+  // check all dimensions
+  for (dimension<P> const d : dimensions_)
+  {
+    assert(d.get_degree() > 0);
+    assert(d.get_level() > 1);
+    assert(d.domain_max > d.domain_min);
+  }
+
+  // check all sources
+  for (source<P> const s : this->sources)
+  {
+    assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
+  }
+
+  // set the dt
+  dt_ = get_dt(dimensions_[0]);
+
+  /* generate coefficients based on default parameters */
+  regenerate_coefficients();
+}
+
+/* Explicit instantiations */
+template class PDE<float>;
+template class PDE<double>;

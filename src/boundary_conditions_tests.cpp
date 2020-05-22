@@ -1,5 +1,4 @@
 #include "boundary_conditions.hpp"
-#include "coefficients.hpp"
 #include "element_table.hpp"
 #include "tests_general.hpp"
 
@@ -15,8 +14,6 @@ void test_boundary_condition_vector(PDE<P> &pde,
 
   element_table table(make_options({"-l", std::to_string(level)}),
                       pde.num_dims);
-
-  generate_all_coefficients<P>(pde);
 
   /* initialize bc vector at test_time */
   P const test_time = 0;
@@ -49,8 +46,6 @@ void test_compute_boundary_condition(PDE<P> &pde,
                                      std::string gold_filename_prefix,
                                      P const tol_factor)
 {
-  generate_all_coefficients<P>(pde);
-
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
   std::vector<dimension<P>> const &dimensions = pde.get_dimensions();
@@ -148,8 +143,6 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     element_table table(make_options({"-l", std::to_string(level)}),
                         pde->num_dims);
 
-    generate_all_coefficients<TestType>(*pde);
-
     /* initialize bc vector at test_time */
     TestType const test_time = 5;
     int const start_element  = 0;
@@ -190,8 +183,6 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 
     element_table table(make_options({"-l", std::to_string(level)}),
                         pde->num_dims);
-
-    generate_all_coefficients<TestType>(*pde);
 
     /* initialize bc vector at test_time */
     TestType const test_time = 0;

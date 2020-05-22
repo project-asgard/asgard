@@ -3,7 +3,6 @@
 #include "distribution.hpp"
 #include "element_table.hpp"
 #include "fast_math.hpp"
-#include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
 #include <algorithm>

@@ -1,8 +1,9 @@
 #pragma once
 
-#include "pde.hpp"
 #include <map>
 #include <string>
+
+#include "pde_factory.hpp"
 
 // implemented solvers for implicit stepping
 enum class solve_opts

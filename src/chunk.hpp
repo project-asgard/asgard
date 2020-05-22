@@ -2,7 +2,6 @@
 
 #include "distribution.hpp"
 #include "element_table.hpp"
-#include "pde.hpp"
 #include "tensors.hpp"
 
 using element_chunk = std::map<int, grid_limits>;
