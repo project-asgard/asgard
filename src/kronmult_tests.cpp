@@ -4,8 +4,16 @@
 #include "kronmult.hpp"
 #include "tests_general.hpp"
 
-// for these tests, pde just encodes the level and degree and
-// holds the stored mock coefficient matrices
+struct distribution_test_init
+{
+  distribution_test_init() { initialize_distribution(); }
+  ~distribution_test_init() { finalize_distribution(); }
+};
+
+#ifdef ASGARD_USE_MPI
+static distribution_test_init const distrib_test_info;
+#endif
+
 template<typename P>
 void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
 {
