@@ -82,7 +82,7 @@ inline int get_num_subgrids(PDE<P> const &pde, element_subgrid const &grid,
 
 // helper - break subgrid into smaller subgrids to fit into DRAM
 template<typename P>
-std::vector<element_subgrid>
+inline std::vector<element_subgrid>
 decompose(PDE<P> const &pde, element_subgrid const &my_subgrid,
           int const workspace_size_MB)
 {
@@ -91,6 +91,7 @@ decompose(PDE<P> const &pde, element_subgrid const &my_subgrid,
   // min number subgrids
   auto const num_subgrids =
       get_num_subgrids(pde, my_subgrid, workspace_size_MB);
+
   if (num_subgrids == 1)
   {
     return std::vector<element_subgrid>{my_subgrid};

@@ -191,7 +191,7 @@ target_link_libraries (element_table
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
 
-target_link_libraries(kronmult PRIVATE kronmult_cuda)
+target_link_libraries(kronmult PRIVATE batch connectivity kronmult_cuda timer)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)

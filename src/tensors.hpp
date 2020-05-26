@@ -2222,7 +2222,7 @@ fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transpose()
 // @return the product
 //
 // FIXME this is NOT optimized.
-// we will use the batch gemm method
+// we will use the other methods
 // for performance-critical (large)
 // krons
 template<typename P, mem_type mem, resource resrc>
