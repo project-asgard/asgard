@@ -9,3 +9,4 @@
 #cmakedefine ASGARD_USE_CUDA
 #cmakedefine ASGARD_USE_OPENMP
 #cmakedefine ASGARD_USE_MPI
+#cmakedefine ASGARD_USE_DOUBLE_PREC

@@ -23,7 +23,12 @@
 #include "transformations.hpp"
 #include <numeric>
 
+#ifdef ASGARD_USE_DOUBLE_PREC
 using prec = double;
+#else
+using prec = float;
+#endif
+
 int main(int argc, char **argv)
 {
   options opts(argc, argv);
