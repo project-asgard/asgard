@@ -2430,12 +2430,13 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       fk::matrix<TestType, mem_type::view> const in_v(in);
       fk::matrix<TestType, mem_type::const_view> const in_cv(in);
 
-      Catch::StringMaker<TestType>::precision = 15;
-
-      REQUIRE(in.determinant() == Approx(-0.020200));
-      REQUIRE(in_v.determinant() == Approx(-0.020200));
-      REQUIRE(in_cv.determinant() == Approx(-0.020200));
-      REQUIRE(in_v_p.determinant() == Approx(-0.020200));
+      TestType const gold = -0.020200;
+      TestType const tol_factor =
+          std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+      relaxed_fp_comparison(in.determinant(), gold, tol_factor);
+      relaxed_fp_comparison(in_v.determinant(), gold, tol_factor);
+      relaxed_fp_comparison(in_cv.determinant(), gold, tol_factor);
+      relaxed_fp_comparison(in_v_p.determinant(), gold, tol_factor);
 
       // we haven't implemented a determinant routine for integral types; as
       // with inversion, code won't compile if this routine is invoked on a

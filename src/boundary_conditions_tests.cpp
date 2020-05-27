@@ -135,6 +135,10 @@ void test_compute_boundary_condition(PDE<P> &pde,
 TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
                    float)
 {
+  // empirically determined 5/27 BTM
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+
   /* intead of recalculating the boundary condition vectors at each timestep,
      calculate for the
      first and scale by multiplicative factors to at time + t */
@@ -172,9 +176,6 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
         boundary_conditions::generate_scaled_bc(
             unscaled_parts_0[0], unscaled_parts_0[1], *pde, start_element,
             stop_element, test_time);
-
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
 
     rmse_comparison(bc_advanced_0, bc_advanced_1, tol_factor);
   }
@@ -227,7 +228,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);
 
-      REQUIRE(bc_section == bc_advanced);
+      rmse_comparison(bc_section, bc_advanced, tol_factor);
 
       index += bc_advanced.size();
     }
