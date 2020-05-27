@@ -135,10 +135,6 @@ void test_compute_boundary_condition(PDE<P> &pde,
 TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
                    float)
 {
-  // empirically determined 5/27 BTM
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
-
   /* intead of recalculating the boundary condition vectors at each timestep,
      calculate for the
      first and scale by multiplicative factors to at time + t */
@@ -159,24 +155,27 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const start_element  = 0;
     int const stop_element   = table.size() - 1;
 
-    std::array<unscaled_bc_parts<TestType>, 2> unscaled_parts_1 =
+    std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_1 =
         boundary_conditions::make_unscaled_bc_parts(*pde, table, start_element,
                                                     stop_element, test_time);
 
-    fk::vector<TestType> bc_advanced_1 =
+    fk::vector<TestType> const bc_advanced_1 =
         boundary_conditions::generate_scaled_bc(
             unscaled_parts_1[0], unscaled_parts_1[1], *pde, start_element,
             stop_element, test_time);
 
-    std::array<unscaled_bc_parts<TestType>, 2> unscaled_parts_0 =
+    std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
         boundary_conditions::make_unscaled_bc_parts(*pde, table, start_element,
                                                     stop_element);
 
-    fk::vector<TestType> bc_advanced_0 =
+    fk::vector<TestType> const bc_advanced_0 =
         boundary_conditions::generate_scaled_bc(
             unscaled_parts_0[0], unscaled_parts_0[1], *pde, start_element,
             stop_element, test_time);
 
+    // empirically determined 5/27 BTM
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
     rmse_comparison(bc_advanced_0, bc_advanced_1, tol_factor);
   }
 
@@ -200,27 +199,24 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const start_element_0 = 0;
     int const stop_element_0  = table.size() - 1;
 
-    std::array<unscaled_bc_parts<TestType>, 2> unscaled_parts_0 =
+    std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
         boundary_conditions::make_unscaled_bc_parts(
             *pde, table, start_element_0, stop_element_0, test_time);
 
-    fk::vector<TestType> bc_init = boundary_conditions::generate_scaled_bc(
-        unscaled_parts_0[0], unscaled_parts_0[1], *pde, start_element_0,
-        stop_element_0, test_time);
+    fk::vector<TestType> const bc_init =
+        boundary_conditions::generate_scaled_bc(
+            unscaled_parts_0[0], unscaled_parts_0[1], *pde, start_element_0,
+            stop_element_0, test_time);
 
     /* create a vector for the first half of that vector */
     int index = 0;
     for (int table_element = 0; table_element < table.size(); ++table_element)
     {
-      std::vector<std::vector<std::vector<fk::vector<TestType>>>> left_bc_parts;
-      std::vector<std::vector<std::vector<fk::vector<TestType>>>>
-          right_bc_parts;
-
-      std::array<unscaled_bc_parts<TestType>, 2> unscaled_parts =
+      std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts =
           boundary_conditions::make_unscaled_bc_parts(
               *pde, table, table_element, table_element);
 
-      fk::vector<TestType> bc_advanced =
+      fk::vector<TestType> const bc_advanced =
           boundary_conditions::generate_scaled_bc(
               unscaled_parts[0], unscaled_parts[1], *pde, table_element,
               table_element, test_time);
@@ -228,6 +224,9 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);
 
+      // empirically determined 5/27 BTM
+      TestType const tol_factor =
+          std::is_same<TestType, double>::value ? 1e-15 : 1e-3;
       rmse_comparison(bc_section, bc_advanced, tol_factor);
 
       index += bc_advanced.size();

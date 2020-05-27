@@ -2430,9 +2430,8 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       fk::matrix<TestType, mem_type::view> const in_v(in);
       fk::matrix<TestType, mem_type::const_view> const in_cv(in);
 
-      TestType const gold = -0.020200;
-      TestType const tol_factor =
-          std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+      TestType const gold       = -0.020200;
+      TestType const tol_factor = 1e2;
       relaxed_fp_comparison(in.determinant(), gold, tol_factor);
       relaxed_fp_comparison(in_v.determinant(), gold, tol_factor);
       relaxed_fp_comparison(in_cv.determinant(), gold, tol_factor);
