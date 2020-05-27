@@ -213,6 +213,17 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // loop over assigned elements, staging inputs and operators
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
+  P** input_ptrs;
+  P** work_ptrs;
+  P** output_ptrs;
+  P** operator_ptrs;
+  allocate_device(input_ptrs, total_kronmults);
+  allocate_device(work_ptrs, total_kronmults);
+  allocate_device(output_ptrs, total_kronmults);
+  allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
+
+ 
+
   P **const input_ptrs    = new P *[total_kronmults];
   P **const work_ptrs     = new P *[total_kronmults];
   P **const output_ptrs   = new P *[total_kronmults];
