@@ -16,13 +16,13 @@
 
 /* These functions implement: norm( v0 - v1 ) < tolerance * max( norm(v0),
  * norm(v1) )*/
-template<typename P, mem_type mem>
-void rmse_comparison(fk::vector<P, mem> const &v0, fk::vector<P, mem> const &v1,
-                     P const tolerance)
+template<typename P, mem_type mem, mem_type omem>
+void rmse_comparison(fk::vector<P, mem> const &v0,
+                     fk::vector<P, omem> const &v1, P const tolerance)
 {
   P const diff_norm = fm::nrm2(v0 - v1);
 
-  auto const avg_element = [](fk::vector<P, mem> const &v) -> P {
+  auto const avg_element = [](auto const &v) -> P {
     P sum = 0;
     for (P const num : v)
     {
@@ -37,13 +37,13 @@ void rmse_comparison(fk::vector<P, mem> const &v0, fk::vector<P, mem> const &v1,
   REQUIRE(diff_norm < (tolerance * max_avg_element * std::sqrt(v0.size())));
 }
 
-template<typename P, mem_type mem>
-void rmse_comparison(fk::matrix<P, mem> const &m0, fk::matrix<P, mem> const &m1,
-                     P const tolerance)
+template<typename P, mem_type mem, mem_type omem>
+void rmse_comparison(fk::matrix<P, mem> const &m0,
+                     fk::matrix<P, omem> const &m1, P const tolerance)
 {
   P const diff_norm = fm::frobenius(m0 - m1);
 
-  auto const avg_element = [](fk::matrix<P, mem> const &m) -> P {
+  auto const avg_element = [](auto const &m) -> P {
     P sum = 0;
     for (P const num : m)
     {
