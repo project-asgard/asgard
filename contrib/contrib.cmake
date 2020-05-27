@@ -206,7 +206,7 @@ if(NOT KRON_LIB)
     ExternalProject_Add (kronmult-ext
       UPDATE_COMMAND ""
       PREFIX ${CMAKE_SOURCE_DIR}/contrib/kronmult
-      URL https://github.com/project-asgard/kronmult/archive/v1.0.tar.gz
+      URL https://github.com/project-asgard/kronmult/archive/v1.1.tar.gz
       DOWNLOAD_NO_PROGRESS 1
       CMAKE_ARGS ${KRON_ARGS}
       BUILD_IN_SOURCE 1
@@ -214,11 +214,7 @@ if(NOT KRON_LIB)
     )
 
     set (build_kron TRUE)
-    if(ASGARD_USE_CUDA)
-      set(KRON_LIB "-L${KRON_PATH} -Xlinker=rpath,${KRON_PATH} -lkron")
-    else() 
-      set (KRON_LIB "-L${KRON_PATH} -Wl,-rpath,${KRON_PATH} -lkron")
-    endif()
+    set (KRON_LIB "-L${KRON_PATH} -lkron")
 
 endif()
 
