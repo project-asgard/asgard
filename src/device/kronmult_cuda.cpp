@@ -27,41 +27,40 @@ inline int get_1d_index(int const level, int const cell)
 
 // helper - calculate element coordinates -> operator matrix indices
 inline void
-get_indices(int * const * coords, int indices[], int const degree)
+get_indices(int const * const coords, int indices[], int const degree, int const num_dims)
 {
   assert(degree > 0);
 
-  int const indices_size = coords.size() / 2;
-  for (int i = 0; i < indices_size; ++i)
+  for (int i = 0; i < num_dims; ++i)
   {
-    indices[i] = get_1d_index(coords[i], coords[i + indices_size]) * degree;
+    indices[i] = get_1d_index(coords[i], coords[i + num_dims]) * degree;
   }
 }
 
 // build batch lists for kronmult from simple
 // arrays. built on device if cuda-enabled.
+template<typename P>
 void prepare_kronmult(int const * const flattened_table, 
 		     P * const * const operators, 
 		     int const operator_lda,
-		     P const * const element_x,
-		     P const * const element_work,
-		     P const * const fx,
-		     P const **const operator_ptrs, P const **const work_ptrs,
-		     P const ** const input_ptrs, P const ** const output_ptrs,  
+		     P * const element_x,
+		     P * const element_work,
+		     P * const fx,
+		     P **const operator_ptrs, P  **const work_ptrs,
+		     P **const input_ptrs, P  ** const output_ptrs,  
                      int const degree,
-		     int const num_krons, 
 		     int const num_terms, 
 		     int const num_dims,
 		     int const elem_row_start, int const elem_row_stop,
 		     int const elem_col_start, int const elem_col_stop) { 
 
 auto const num_cols = elem_col_stop - elem_col_start + 1;
-auto const num_rows = elem_row_stop - elem_row_start + 1;
-auto const coord_size = num_dims * 2;
 auto const deg_to_dim = static_cast<int>(pow((double)degree, (double)num_dims));
+auto const x_size = num_cols * deg_to_dim;
+auto const coord_size = num_dims * 2;
 
 #ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
 #endif
   for (auto i = elem_row_start; i <= elem_row_stop; ++i)
   {
@@ -72,16 +71,16 @@ auto const deg_to_dim = static_cast<int>(pow((double)degree, (double)num_dims));
       assert(num_dims <= max_dims);
       int operator_row[max_dims];
       int const * const row_coords = flattened_table + coord_size * i;
-      get_indices(row_coords, operator_row, degree);
+      get_indices(row_coords, operator_row, degree, num_dims);
 
 
       // calculate and store operator col indices for this element
       int operator_col[max_dims];
       int const * const col_coords = flattened_table + coord_size * j;
-      get_indices(col_coords, operator_col, degree);
+      get_indices(col_coords, operator_col, degree, num_dims);
 
       auto const x_start =
-          element_x + ((i-elem_row_start) * num_terms * x.size() +
+          element_x + ((i-elem_row_start) * num_terms * x_size +
                        (j-elem_col_start) * deg_to_dim);
 
       for (auto t = 0; t < num_terms; ++t)
@@ -93,7 +92,7 @@ auto const deg_to_dim = static_cast<int>(pow((double)degree, (double)num_dims));
             (j-elem_col_start) * num_terms + t;
 
         // point to inputs
-        input_ptrs[num_kron] = x_start + t * x.size();
+        input_ptrs[num_kron] = x_start + t * x_size;
 
         // point to work/output
         work_ptrs[num_kron] = element_work + num_kron * deg_to_dim;
@@ -102,9 +101,9 @@ auto const deg_to_dim = static_cast<int>(pow((double)degree, (double)num_dims));
 
         // point to operators
         auto const operator_start = num_kron * num_dims;
-        for (auto d = 0; d < pde.num_dims; ++d)
+        for (auto d = 0; d < num_dims; ++d)
         {
-          P const* const coeff = operators[t][d];
+          P * const coeff = operators[t * num_dims + d];
           operator_ptrs[operator_start + d] =
               coeff + operator_row[d] + operator_col[d]*operator_lda;
         }
@@ -131,7 +130,7 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     P **output_d;
     P const **operators_d;
     auto const list_size = num_krons * sizeof(P *);
-    std::cout << ((list_size *3) + list_size*num_dims) << '\n';
+
     auto stat = cudaMalloc((void **)&x_d, list_size);
     assert(stat == 0);
     stat = cudaMalloc((void **)&work_d, list_size);
@@ -235,6 +234,37 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
   }
 #endif
 }
+
+template
+void prepare_kronmult(int const * const flattened_table, 
+		     float  * const * const operators, 
+		     int const operator_lda,
+		     float * const element_x,
+		     float * const element_work,
+		     float * const fx,
+		     float **const operator_ptrs, float  **const work_ptrs,
+		     float ** const input_ptrs, float  ** const output_ptrs,  
+                     int const degree,
+		     int const num_terms, 
+		     int const num_dims,
+		     int const elem_row_start, int const elem_row_stop,
+		     int const elem_col_start, int const elem_col_stop);
+
+template
+void prepare_kronmult(int const * const flattened_table, 
+		     double * const * const operators, 
+		     int const operator_lda,
+		     double  * const element_x,
+		     double  * const element_work,
+		     double  * const fx,
+		     double **const operator_ptrs, double  **const work_ptrs,
+		     double ** const input_ptrs, double  ** const output_ptrs,  
+                     int const degree,
+		     int const num_terms, 
+		     int const num_dims,
+		     int const elem_row_start, int const elem_row_stop,
+		     int const elem_col_start, int const elem_col_stop);
+
 
 template void call_kronmult(int const n, float *x_ptrs[], float *output_ptrs[],
                             float *work_ptrs[],

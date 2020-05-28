@@ -210,80 +210,44 @@ execute(PDE<P> const &pde, element_table const &elem_table,
     fk::copy_on_device(element_x + i * x.size(), x.data(), x.size());
   }
 
-  // loop over assigned elements, staging inputs and operators
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
-  P** input_ptrs;
-  P** work_ptrs;
-  P** output_ptrs;
-  P** operator_ptrs;
+  // list building kernel needs simple arrays/pointers, can't compile our
+  // objects
+  P **input_ptrs;
+  P **work_ptrs;
+  P **output_ptrs;
+  P **operator_ptrs;
   allocate_device(input_ptrs, total_kronmults);
   allocate_device(work_ptrs, total_kronmults);
   allocate_device(output_ptrs, total_kronmults);
   allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
- 
-
-  P **const input_ptrs    = new P *[total_kronmults];
-  P **const work_ptrs     = new P *[total_kronmults];
-  P **const output_ptrs   = new P *[total_kronmults];
-  P **const operator_ptrs = new P *[total_kronmults * pde.num_dims];
-
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
-#endif
-  for (auto i = my_subgrid.row_start; i <= my_subgrid.row_stop; ++i)
-  {
-    // calculate and store operator row indices for this element
-    static int constexpr max_dims = 6;
-    assert(pde.num_dims <= max_dims);
-    int operator_row[max_dims];
-    fk::vector<int> const &row_coords = elem_table.get_coords(i);
-    assert(row_coords.size() == pde.num_dims * 2);
-    get_indices(row_coords, operator_row, degree);
-
-    for (auto j = my_subgrid.col_start; j <= my_subgrid.col_stop; ++j)
+  std::vector<P *> const operators = [&pde] {
+    std::vector<P *> builder(pde.num_terms * pde.num_dims);
+    for (int i = 0; i < pde.num_terms; ++i)
     {
-      // calculate and store operator col indices for this element
-      int operator_col[max_dims];
-      fk::vector<int> const &col_coords = elem_table.get_coords(j);
-      assert(col_coords.size() == pde.num_dims * 2);
-      get_indices(col_coords, operator_col, degree);
-
-      auto const x_start =
-          element_x + (my_subgrid.to_local_row(i) * pde.num_terms * x.size() +
-                       my_subgrid.to_local_col(j) * deg_to_dim);
-
-      for (auto t = 0; t < pde.num_terms; ++t)
+      for (int j = 0; j < pde.num_dims; ++j)
       {
-        // get preallocated vector positions for this kronmult
-        auto const num_kron =
-            my_subgrid.to_local_row(i) * my_subgrid.ncols() * pde.num_terms +
-            my_subgrid.to_local_col(j) * pde.num_terms + t;
-
-        // point to inputs
-        input_ptrs[num_kron] = x_start + t * x.size();
-
-        // point to work/output
-        work_ptrs[num_kron] = element_work + num_kron * deg_to_dim;
-        output_ptrs[num_kron] =
-            fx.data(my_subgrid.to_local_row(i) * deg_to_dim);
-
-        // point to operators
-        auto const operator_start = num_kron * pde.num_dims;
-        for (auto d = 0; d < pde.num_dims; ++d)
-        {
-          auto const &coeff = pde.get_coefficients(t, d);
-          operator_ptrs[operator_start + d] =
-              coeff.data(operator_row[d], operator_col[d]);
-        }
+        builder[i * pde.num_dims + j] = pde.get_coefficients(i, j).data();
       }
     }
-  }
+    return builder;
+  }();
 
   // FIXME assume all operators same size
   auto const lda = pde.get_coefficients(0, 0)
                        .stride(); // leading dimension of coefficient matrices
+
+  // prepare lists for kronmult, on device if cuda is enabled
+
+  timer::record.start("kronmult_build");
+  prepare_kronmult(elem_table.get_device_table().data(), operators.data(), lda,
+                   element_x, element_work, fx.data(), operator_ptrs, work_ptrs,
+                   input_ptrs, output_ptrs, degree, pde.num_terms, pde.num_dims,
+                   my_subgrid.row_start, my_subgrid.row_stop,
+                   my_subgrid.col_start, my_subgrid.col_stop);
+  timer::record.stop("kronmult_build");
 
   double const flops = pde.num_dims * 2.0 *
                        (std::pow(degree, pde.num_dims + 1)) * total_kronmults;
@@ -296,10 +260,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   free_device(element_x);
   free_device(element_work);
 
-  delete[] input_ptrs;
-  delete[] operator_ptrs;
-  delete[] work_ptrs;
-  delete[] output_ptrs;
+  free_device(input_ptrs);
+  free_device(operator_ptrs);
+  free_device(work_ptrs);
+  free_device(output_ptrs);
 
   return fx;
 }
