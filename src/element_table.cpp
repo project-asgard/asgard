@@ -32,8 +32,10 @@ element_table::element_table(options const program_opts, int const num_dims)
   // to explore the thread-safety of our tables / build a thread-safe
   // table to see any benefit. -TM
 
-  // build the element tables (forward and reverse)
+  // build the element tables (forward and reverse) and setup device table
   int index = 0;
+
+  fk::vector<int> dev_table_builder;
   for (int row = 0; row < perm_table.nrows(); ++row)
   {
     // get the level tuple to work on
@@ -52,14 +54,20 @@ element_table::element_table(options const program_opts, int const num_dims)
       fk::vector<int> key = level_tuple;
       key.concat(cell_indices);
 
-      forward_table[key] = index++;
+      // assign into flattened device table builder
+      dev_table_builder.concat(key);
+
+      forward_table_[key] = index++;
+
       // note the matlab code has an option to append 1d cell indices to the
       // reverse element table. //FIXME do we need to precompute or can we call
       // the 1d helper as needed?
-      reverse_table.push_back(key);
+      reverse_table_.push_back(key);
     }
   }
-  assert(forward_table.size() == reverse_table.size());
+  assert(forward_table_.size() == reverse_table_.size());
+  reverse_table_d_.resize(dev_table_builder.size())
+      .transfer_from(dev_table_builder);
 }
 
 // forward lookup - returns the non-negative index of an element's
@@ -68,15 +76,15 @@ int element_table::get_index(fk::vector<int> const coords) const
 {
   assert(coords.size() > 0);
   // purposely not catching std::out_of_range so that program will die
-  return forward_table.at(coords);
+  return forward_table_.at(coords);
 }
 
 // reverse lookup - returns coordinates at a certain index
 fk::vector<int> const &element_table::get_coords(int const index) const
 {
   assert(index >= 0);
-  assert(static_cast<size_t>(index) < reverse_table.size());
-  return reverse_table[index];
+  assert(static_cast<size_t>(index) < reverse_table_.size());
+  return reverse_table_[index];
 }
 
 // Static construction helper

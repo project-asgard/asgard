@@ -41,11 +41,18 @@ public:
   // reverse lookup
   fk::vector<int> const &get_coords(int const index) const;
 
+  // get ref to flattened reverse table
+  fk::vector<int, mem_type::owner, resource::device> const &
+  get_device_table() const
+  {
+    return reverse_table_d_;
+  }
+
   // returns the number of elements in table
   int size() const
   {
-    assert(forward_table.size() == reverse_table.size());
-    return forward_table.size();
+    assert(forward_table_.size() == reverse_table_.size());
+    return forward_table_.size();
   }
 
   // Static construction helper
@@ -54,7 +61,9 @@ public:
 
 private:
   // a map keyed on the element coordinates
-  std::map<fk::vector<int>, int> forward_table;
+  std::map<fk::vector<int>, int> forward_table_;
   // given an integer index, give me back the element coordinates
-  std::vector<fk::vector<int>> reverse_table;
+  std::vector<fk::vector<int>> reverse_table_;
+  // a flattened reverse table staged for on-device kron list building
+  fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
 };
