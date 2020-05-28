@@ -28,8 +28,20 @@ std::string recorder::report()
             ? (*std::max_element(times.begin(), middle_it) + *middle_it) / 2
             : *middle_it;
 
+    std::string const avg_flops = [this, id = id]() {
+      if (id_to_flops_.count(id) > 0)
+      {
+        auto const flops = id_to_flops_[id];
+        auto const avg =
+            std::accumulate(flops.begin(), flops.end(), 0.0) / flops.size();
+        return " avg gflops: " + std::to_string(avg);
+      }
+      return std::string("");
+    }();
+
     report << id << " - avg: " << avg << " min: " << min << " max: " << max
-           << " med: " << med << " calls: " << times.size() << '\n';
+           << " med: " << med << avg_flops << " calls: " << times.size()
+           << '\n';
   }
   return report.str();
 }

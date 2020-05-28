@@ -85,12 +85,10 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
   double const space_per_elem = get_element_size_MB(pde);
 
   // determine size of assigned x and y vectors
-  int const elem_size = element_segment_size(pde);
-  auto const num_x_elems =
-      static_cast<uint64_t>(grid.col_stop - grid.col_start + 1) * elem_size;
+  int const elem_size    = element_segment_size(pde);
+  auto const num_x_elems = static_cast<int64_t>(grid.nrows()) * elem_size;
   assert(num_x_elems < INT_MAX);
-  auto const num_y_elems =
-      static_cast<uint64_t>(grid.row_stop - grid.row_start + 1) * elem_size;
+  auto const num_y_elems = static_cast<int64_t>(grid.ncols()) * elem_size;
   assert(num_y_elems < INT_MAX);
   double const xy_space_MB = get_MB<P>(num_y_elems + num_x_elems);
 
@@ -106,7 +104,7 @@ int get_num_chunks(element_subgrid const &grid, PDE<P> const &pde,
   // computation for identity coefficients later, we will need to do this more
   // carefully
   int const coefficients_size_MB = static_cast<int>(std::ceil(
-      get_MB<P>(static_cast<uint64_t>(pde.get_coefficients(0, 0).size()) *
+      get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
                 pde.num_terms * pde.num_dims)));
 
   // make sure the coefficient matrices/xy vectors aren't leaving us without

@@ -1,4 +1,5 @@
 cmake_minimum_required (VERSION 3.13) # remove cray check below when >= 3.16
+
 project (asgard
   VERSION 0.3.0
   LANGUAGES CXX
@@ -19,7 +20,7 @@ set (CMAKE_CXX_STANDARD_REQUIRED ON)
 message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
 # add compiler flags we always want to use
-add_compile_options ("-Wall" "-Wextra" "-Wpedantic" "-O3" "-g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -O3 -g")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -49,10 +50,11 @@ endif()
 if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
-
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
+
+
 # sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets PROFILE_DEPS and PROFILE_LIBS
@@ -70,7 +72,6 @@ endif()
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)  
   if(ASGARD_USE_MKL)
-    add_compile_options ("-fopenmp")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	message(FATAL_ERROR 
 	  "MKL and apple clang++ require conflicting 
@@ -79,10 +80,29 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
+set(CMAKE_INSTALL_RPATH ${KRON_PATH})
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# build component to interface with Ed's kronmult lib
+add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
   include_directories(${CUDA_INCLUDE_DIRS})
+  enable_language(CUDA)
+  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g --ptxas-options=-O3")
+  set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+else()
+ # set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS ")
 endif()
+target_include_directories (kronmult_cuda PRIVATE ${KRON_PATH} ${CMAKE_BINARY_DIR})
+if(ASGARD_USE_MKL)
+  if(ASGARD_USE_CUDA)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
+  else()
+    target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+  endif()
+endif()
+
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
@@ -110,6 +130,7 @@ set (components
   element_table
   fast_math
   chunk
+  kronmult
   lib_dispatch
   matlab_utilities
   pde
@@ -129,6 +150,9 @@ endif ()
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
   target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
+  if(ASGARD_USE_MKL)
+    target_compile_options (${component} PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+  endif()
 endforeach ()
 
 if (build_hdf5)
@@ -139,11 +163,15 @@ if (build_OpenBLAS)
   add_dependencies (tensors openblas-ext)
 endif ()
 
+if (build_kron)
+  add_dependencies (kronmult_cuda kronmult-ext)
+endif ()
+
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
 target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
 
-target_link_libraries( boundary_conditions PRIVATE coefficients element_table transformations
+target_link_libraries (boundary_conditions PRIVATE coefficients element_table transformations
                        matlab_utilities fast_math )
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -168,6 +196,18 @@ target_link_libraries (element_table
 
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
+
+target_link_libraries(kronmult PRIVATE batch connectivity kronmult_cuda timer)
+
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
+   target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
+endif ()
+
+target_link_libraries(kronmult_cuda PUBLIC ${KRON_LIB})
+
+if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
+   target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
+endif ()
 
 if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
@@ -200,7 +240,7 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde solver tensors timer boundary_conditions
+target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver tensors timer boundary_conditions
                                     INTERFACE element_table)
 
 target_link_libraries (transformations
@@ -253,7 +293,6 @@ configure_file(
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
-
 ###############################################################################
 ## Testing asgard
 #
@@ -263,7 +302,7 @@ if (ASGARD_BUILD_TESTS)
 
   # Define ctest tests and their executables
   add_library (tests_general testing/tests_general.cpp)
-  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options)
+  target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options )
   target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)

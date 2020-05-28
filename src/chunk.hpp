@@ -7,15 +7,6 @@
 
 using element_chunk = std::map<int, grid_limits>;
 
-template<typename P>
-double get_MB(uint64_t const num_elems)
-{
-  assert(num_elems > 0);
-  double const bytes = num_elems * sizeof(P);
-  double const MB    = bytes * 1e-6;
-  return MB;
-}
-
 // convenience functions when working with element chunks
 int num_elements_in_chunk(element_chunk const &g);
 int max_connected_in_chunk(element_chunk const &g);

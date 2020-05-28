@@ -647,7 +647,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     assert(*lwork == (*n) * (*n));
     ignore(lwork);
 
-    P **A_d;
+    P const **A_d;
     P **work_d;
     auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
     assert(stat == 0);
@@ -720,8 +720,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     // no non-fp blas on device
     assert(std::is_floating_point_v<P>);
 
-    P **a_d;
-    P **b_d;
+    P const **a_d;
+    P const **b_d;
     P **c_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
@@ -816,8 +816,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     int ldb = gemm_k;
     int ldc = gemm_m;
 
-    P **a_d;
-    P **x_d;
+    P const **a_d;
+    P const **x_d;
     P **y_d;
     size_t const list_size = *num_batch * sizeof(P *);
 

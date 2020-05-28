@@ -1,4 +1,5 @@
 #include "batch.hpp"
+
 #include "build_info.hpp"
 #include "chunk.hpp"
 #include "coefficients.hpp"
@@ -164,7 +165,6 @@ int main(int argc, char **argv)
     return 0;
 
   node_out() << "--- begin time loop staging ---" << '\n';
-  // -- allocate/setup for batch gemm
 
   // Our default device workspace size is 10GB - 12 GB DRAM on TitanV
   // - a couple GB for allocations not currently covered by the
@@ -181,6 +181,7 @@ int main(int argc, char **argv)
   /* RAM on fusiont5 */
   static int const default_workspace_cpu_MB = 187000;
 
+  // FIXME DELETE --
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
 
@@ -241,7 +242,7 @@ int main(int argc, char **argv)
       auto const &time_id = timer::record.start("explicit_time_advance");
       f_val =
           explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, chunks, plan, time, dt);
+                                f_val, plan, default_workspace_MB, time, dt);
 
       timer::record.stop(time_id);
     }

@@ -1,5 +1,5 @@
 #include "solver.hpp"
-#include "time_advance.hpp"
+#include "fast_math.hpp"
 
 namespace solver
 {
