@@ -13,7 +13,6 @@
 #include <mutex>
 #include <vector>
 
-#include "connectivity.hpp"
 #include "lib_dispatch.hpp"
 #include "timer.hpp"
 #include <limits.h>
@@ -130,19 +129,6 @@ decompose(PDE<P> const &pde, element_subgrid const &my_subgrid,
     }
   }
   return grids;
-}
-
-// helper - calculate element coordinates -> operator matrix indices
-inline void
-get_indices(fk::vector<int> const &coords, int indices[], int const degree)
-{
-  assert(degree > 0);
-
-  int const indices_size = coords.size() / 2;
-  for (int i = 0; i < indices_size; ++i)
-  {
-    indices[i] = get_1d_index(coords(i), coords(i + indices_size)) * degree;
-  }
 }
 
 // helper, allocate memory WITHOUT init

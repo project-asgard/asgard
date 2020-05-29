@@ -41,13 +41,13 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   assert(gridDim.y == 1);
   assert(gridDim.z == 1);
 
-  auto const id          = blockIdx.x * blockDim.x + threadIdx.x;
-  auto const num_threads = blockDim.x * gridDim.x;
+  auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
   auto const start       = id;
   auto const increment   = num_threads;
   auto const stop        = num_elems * num_copies;
 
-  for (auto i = start; i < stop; i += increment)
+  for (int64_t i = start; i < stop; i += increment)
   {
     workspace[i] = x[i % num_elems];
   }
@@ -74,6 +74,9 @@ template<typename P>
 void stage_inputs_kronmult(P const *const x, P *const workspace,
                            int const num_elems, int const num_copies)
 {
+  assert(num_elems > 0);
+  assert(num_copies > 0);
+
 #ifdef ASGARD_USE_CUDA
 
   auto constexpr warp_size   = 32;
@@ -136,7 +139,7 @@ prepare_kronmult_kernel(int const *const flattened_table,
 
   auto const deg_to_dim = static_cast<int>(pow((float)degree, (float)num_dims));
 
-  auto const x_size     = num_cols * deg_to_dim;
+  auto const x_size     = static_cast<int64_t>(num_cols) * deg_to_dim;
   auto const coord_size = num_dims * 2;
   auto const num_elems  = static_cast<int64_t>(num_cols) * num_rows;
 
@@ -147,8 +150,8 @@ prepare_kronmult_kernel(int const *const flattened_table,
   assert(gridDim.y == 1);
   assert(gridDim.z == 1);
 
-  auto const id          = blockIdx.x * blockDim.x + threadIdx.x;
-  auto const num_threads = blockDim.x * gridDim.x;
+  auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
   auto const start       = id;
   auto const increment   = num_threads;
 
@@ -162,7 +165,7 @@ prepare_kronmult_kernel(int const *const flattened_table,
 #pragma omp parallel for
 #endif
 #endif
-  for (auto i = start; i < num_elems; i += increment)
+  for (int64_t i = start; i < num_elems; i += increment)
   {
     auto const row = i / num_cols + elem_row_start;
     auto const col = i % num_cols + elem_col_start;
