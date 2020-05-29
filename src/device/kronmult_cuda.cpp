@@ -1,6 +1,6 @@
 #include "kronmult_cuda.hpp"
 #include "build_info.hpp"
-
+#include <iostream>
 #ifdef ASGARD_USE_CUDA
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -82,7 +82,7 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
   auto constexpr warp_size   = 32;
   auto constexpr num_warps   = 8;
   auto constexpr num_threads = num_warps * warp_size;
-  auto const num_blocks      = num_copies / num_threads + 1;
+  auto const num_blocks      = (num_copies / num_threads) + 1;
 
   stage_inputs_kronmult_kernel<P>
       <<<num_blocks, num_threads>>>(x, workspace, num_elems, num_copies);
@@ -136,8 +136,9 @@ prepare_kronmult_kernel(int const *const flattened_table,
 {
   auto const num_cols = elem_col_stop - elem_col_start + 1;
   auto const num_rows = elem_row_stop - elem_row_start + 1;
-  auto const deg_to_dim =
-      static_cast<int>(pow((double)degree, (double)num_dims));
+
+  auto const deg_to_dim = static_cast<int>(pow((float)degree, (float)num_dims));
+
   auto const x_size     = num_cols * deg_to_dim;
   auto const coord_size = num_dims * 2;
   auto const num_elems  = static_cast<int64_t>(num_cols) * num_rows;
