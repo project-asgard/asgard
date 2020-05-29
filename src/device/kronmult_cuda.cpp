@@ -5,6 +5,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #define USE_GPU
+#endif
+// todo merge
+#ifdef ASGARD_USE_CUDA
 #define GLOBAL_FUNCTION __global__
 #define SYNCTHREADS __syncthreads()
 #define SHARED_MEMORY __shared__
@@ -18,10 +21,6 @@
 #define HOST_FUNCTION
 #endif
 
-#ifdef ASGARD_USE_OPENMP
-#include <omp.h>
-#endif
-
 #include "kronmult1_xbatched.hpp"
 #include "kronmult2_xbatched.hpp"
 #include "kronmult3_xbatched.hpp"
@@ -29,9 +28,15 @@
 #include "kronmult5_xbatched.hpp"
 #include "kronmult6_xbatched.hpp"
 
+#ifdef ASGARD_USE_OPENMP
+#include <omp.h>
+#endif
+
+
+
 // helper - given a cell and level coordinate, return a 1-dimensional index
 DEVICE_FUNCTION
-int get_1d_index(int const level, int const cell)
+inline int get_1d_index(int const level, int const cell)
 
 {
   assert(level >= 0);
