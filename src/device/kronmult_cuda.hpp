@@ -1,6 +1,10 @@
 #pragma once
 
 template<typename P>
+void stage_inputs_kronmult(P const *const x, P *const workspace,
+                           int const num_elems, int const num_copies);
+
+template<typename P>
 void prepare_kronmult(int const *const flattened_table,
                       P *const *const operators, int const operator_lda,
                       P *const element_x, P *const element_work, P *const fx,

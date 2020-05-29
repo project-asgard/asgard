@@ -32,6 +32,68 @@
 #include <omp.h>
 #endif
 
+template<typename P>
+GLOBAL_FUNCTION void
+stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
+                             int const num_elems, int const num_copies)
+{
+#ifdef ASGARD_USE_CUDA
+
+  assert(blockIdx.y == 0);
+  assert(blockIdx.z == 0);
+  assert(gridDim.y == 1);
+  assert(gridDim.z == 1);
+
+  auto const id          = blockIdx.x * blockDim.x + threadIdx.x;
+  auto const num_threads = blockDim.x * gridDim.x;
+  auto const start       = id;
+  auto const increment   = num_threads;
+  auto const stop        = num_elems * num_copies;
+
+  for (auto i = start; i < stop; i += increment)
+  {
+    workspace[i] = x[i % num_elems];
+  }
+
+#else
+
+  auto const start     = 0;
+  auto const increment = 1;
+  auto const stop      = num_copies;
+
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
+  for (auto i = start; i < stop; i += increment)
+  {
+    auto const dest = workspace + i * num_elems;
+    std::copy(x, x + num_elems, dest);
+  }
+
+#endif
+}
+
+template<typename P>
+void stage_inputs_kronmult(P const *const x, P *const workspace,
+                           int const num_elems, int const num_copies)
+{
+#ifdef ASGARD_USE_CUDA
+
+  auto constexpr warp_size   = 32;
+  auto constexpr num_warps   = 8;
+  auto constexpr num_threads = num_warps * warp_size;
+  auto const num_blocks      = num_copies / num_threads + 1;
+
+  stage_inputs_kronmult_kernel<P>
+      <<<num_blocks, num_threads>>>(x, workspace, num_elems, num_copies);
+
+  auto const stat = cudaDeviceSynchronize();
+  assert(stat == cudaSuccess);
+#else
+  stage_inputs_kronmult_kernel(x, workspace, num_elems, num_copies);
+#endif
+}
+
 // helper - given a cell and level coordinate, return a 1-dimensional index
 DEVICE_FUNCTION
 inline int get_1d_index(int const level, int const cell)
@@ -171,7 +233,7 @@ void prepare_kronmult(int const *const flattened_table,
   auto const num_krons =
       static_cast<int64_t>(elem_col_stop - elem_col_start + 1) *
       (elem_row_stop - elem_row_start + 1);
-  auto const num_blocks = num_krons / num_threads;
+  auto const num_blocks = (num_krons / num_threads) + 1;
   prepare_kronmult_kernel<P><<<num_blocks, num_threads>>>(
       flattened_table, operators, operator_lda, element_x, element_work, fx,
       operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
@@ -272,6 +334,14 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
   }
 #endif
 }
+
+template void stage_inputs_kronmult(float const *const x,
+                                    float *const workspace, int const num_elems,
+                                    int const num_copies);
+
+template void stage_inputs_kronmult(double const *const x,
+                                    double *const workspace,
+                                    int const num_elems, int const num_copies);
 
 template void prepare_kronmult(
     int const *const flattened_table, float *const *const operators,

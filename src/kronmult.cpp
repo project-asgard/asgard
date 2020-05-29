@@ -175,8 +175,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx)
 {
-  
-  timer::record.start("kronmult_preamble");
   static std::once_flag print_flag;
 
   // FIXME code relies on uniform degree across dimensions
@@ -198,8 +196,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
                << '\n';
   });
 
-  timer::record.stop("kronmult_preamble");
-
   timer::record.start("kronmult_stage");
   P *element_x;
   P *element_work;
@@ -207,16 +203,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   allocate_device(element_work, workspace_size);
 
   // stage x vector in writable regions for each element
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for
-#endif
-  for (auto i = 0; i < my_subgrid.nrows() * pde.num_terms; ++i)
-  {
-    fk::copy_on_device(element_x + i * x.size(), x.data(), x.size());
-  }
+  auto const num_copies = my_subgrid.nrows() * pde.num_terms;
+  stage_inputs_kronmult(x.data(), element_x, x.size(), num_copies);
   timer::record.stop("kronmult_stage");
-  
-  timer::record.start("kronmult_flatten");
+
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
   // list building kernel needs simple arrays/pointers, can't compile our
@@ -242,19 +232,19 @@ execute(PDE<P> const &pde, element_table const &elem_table,
     return builder;
   }();
 
-  fk::vector<P*, mem_type::owner, resource::device> const operators_d(operators.clone_onto_device());
+  fk::vector<P *, mem_type::owner, resource::device> const operators_d(
+      operators.clone_onto_device());
 
-  timer::record.stop("kronmult_flatten");
   // FIXME assume all operators same size
   auto const lda = pde.get_coefficients(0, 0)
                        .stride(); // leading dimension of coefficient matrices
 
   // prepare lists for kronmult, on device if cuda is enabled
   timer::record.start("kronmult_build");
-  prepare_kronmult(elem_table.get_device_table().data(), operators_d.data(), lda,
-                   element_x, element_work, fx.data(), operator_ptrs, work_ptrs,
-                   input_ptrs, output_ptrs, degree, pde.num_terms, pde.num_dims,
-                   my_subgrid.row_start, my_subgrid.row_stop,
+  prepare_kronmult(elem_table.get_device_table().data(), operators_d.data(),
+                   lda, element_x, element_work, fx.data(), operator_ptrs,
+                   work_ptrs, input_ptrs, output_ptrs, degree, pde.num_terms,
+                   pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
                    my_subgrid.col_start, my_subgrid.col_stop);
   timer::record.stop("kronmult_build");
 
