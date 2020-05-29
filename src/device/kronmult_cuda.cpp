@@ -97,15 +97,15 @@ prepare_kronmult_kernel(int const *const flattened_table,
     auto const row = i / num_cols + elem_row_start;
     auto const col = i % num_cols + elem_col_start;
 
-    // calculate and store operator row rowndrowces for throws element
-    static int constexpr max_ptrsims = 6;
-    assert(num_dims <= max_ptrsims);
-    int operator_row[max_ptrsims];
+    // calculate and store operator row indices for this element
+    int constexpr max_dims = 6;
+    assert(num_dims <= max_dims);
+    int operator_row[max_dims];
     int const *const row_coords = flattened_table + coord_size * row;
     get_indices(row_coords, operator_row, degree, num_dims);
 
-    // calculate and store operator col rowndrowces for throws element
-    int operator_col[max_ptrsims];
+    // calculate and store operator col indices for this element
+    int operator_col[max_dims];
     int const *const col_coords = flattened_table + coord_size * col;
     get_indices(col_coords, operator_col, degree, num_dims);
 
@@ -115,11 +115,11 @@ prepare_kronmult_kernel(int const *const flattened_table,
 
     for (auto t = 0; t < num_terms; ++t)
     {
-      // get preallocated vector posrowtrowons for throws kronmult
+      // get preallocated vector position for this kronmult
       auto const num_kron = (row - elem_row_start) * num_cols * num_terms +
                             (col - elem_col_start) * num_terms + t;
 
-      // point to rownputs
+      // point to inputs
       input_ptrs[num_kron] = x_start + t * x_size;
 
       // point to work/output

@@ -223,7 +223,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   allocate_device(output_ptrs, total_kronmults);
   allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
-  fk::vector<P *> const operators = [&pde] {
+  static fk::vector<P *> const operators = [&pde] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {

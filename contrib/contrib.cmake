@@ -214,7 +214,7 @@ if(NOT KRON_LIB)
     )
 
     set (build_kron TRUE)
-    set (KRON_LIB "-L${KRON_PATH} -Wl,-rpath,${KRON_PATH} -lkron")
+    set (KRON_LIB "-L${KRON_PATH} -lkron")
 
 endif()
 
