@@ -41,7 +41,7 @@ TEMPLATE_TEST_CASE("staging kernel", "[kronmult_cuda]", float, double)
     test_kronmult_staging<TestType>(num_elems, num_copies);
   }
 
-  SECTION("1001 elems, 1 copies");
+  SECTION("1001 elems, 1 copies")
   {
     auto const num_elems  = 1001;
     auto const num_copies = 1;
