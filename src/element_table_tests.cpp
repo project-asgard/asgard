@@ -12,6 +12,7 @@ void test_element_table(int const levels, int const dims,
   options const o = make_options({"-l", std::to_string(levels), grid_str});
 
   element_table const t(o, dims);
+  fk::vector<int> const dev_table(t.get_device_table().clone_onto_host());
   auto const gold = fk::matrix<int>(read_matrix_from_txt_file(gold_filename));
   for (int i = 0; i < static_cast<int>(t.size()); ++i)
   {
@@ -19,6 +20,9 @@ void test_element_table(int const levels, int const dims,
         gold.extract_submatrix(i, 0, 1, gold.ncols());
     REQUIRE(t.get_coords(i) == gold_coords);
     REQUIRE(t.get_index(gold_coords) == i);
+    fk::vector<int, mem_type::const_view> const dev_coords(
+        dev_table, i * dims * 2, (i + 1) * dims * 2 - 1);
+    REQUIRE(dev_coords == gold_coords);
   }
 }
 
