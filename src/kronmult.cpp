@@ -131,28 +131,6 @@ decompose(PDE<P> const &pde, element_subgrid const &my_subgrid,
   return grids;
 }
 
-// helper, allocate memory WITHOUT init
-template<typename P>
-inline void allocate_device(P *&ptr, int const num_elems)
-{
-#ifdef ASGARD_USE_CUDA
-  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  assert(success == 0);
-#else
-  ptr = new P[num_elems];
-#endif
-}
-
-template<typename P>
-inline void free_device(P *&ptr)
-{
-#ifdef ASGARD_USE_CUDA
-  cudaFree(ptr);
-#else
-  delete[] ptr;
-#endif
-}
-
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
@@ -185,8 +163,8 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   timer::record.start("kronmult_stage");
   P *element_x;
   P *element_work;
-  allocate_device(element_x, workspace_size);
-  allocate_device(element_work, workspace_size);
+  fk::allocate_device(element_x, workspace_size);
+  fk::allocate_device(element_work, workspace_size);
 
   // stage x vector in writable regions for each element
   auto const num_copies = my_subgrid.nrows() * pde.num_terms;
@@ -201,10 +179,10 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   P **work_ptrs;
   P **output_ptrs;
   P **operator_ptrs;
-  allocate_device(input_ptrs, total_kronmults);
-  allocate_device(work_ptrs, total_kronmults);
-  allocate_device(output_ptrs, total_kronmults);
-  allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
+  fk::allocate_device(input_ptrs, total_kronmults);
+  fk::allocate_device(work_ptrs, total_kronmults);
+  fk::allocate_device(output_ptrs, total_kronmults);
+  fk::allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
   fk::vector<P *> const operators = [&pde] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
@@ -242,13 +220,13 @@ execute(PDE<P> const &pde, element_table const &elem_table,
                 total_kronmults, pde.num_dims);
   timer::record.stop("kronmult", flops);
 
-  free_device(element_x);
-  free_device(element_work);
+  fk::delete_device(element_x);
+  fk::delete_device(element_work);
 
-  free_device(input_ptrs);
-  free_device(operator_ptrs);
-  free_device(work_ptrs);
-  free_device(output_ptrs);
+  fk::delete_device(input_ptrs);
+  fk::delete_device(operator_ptrs);
+  fk::delete_device(work_ptrs);
+  fk::delete_device(output_ptrs);
 
   return fx;
 }

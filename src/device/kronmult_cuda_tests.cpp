@@ -68,18 +68,6 @@ TEMPLATE_TEST_CASE("staging kernel", "[kronmult_cuda]", float, double)
 // sanity check, ensures lists elements are all assigned
 // and in correct range
 
-// helper, allocate memory WITHOUT init
-template<typename P>
-inline void allocate_device(P *&ptr, int const num_elems)
-{
-#ifdef ASGARD_USE_CUDA
-  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  assert(success == 0);
-#else
-  ptr = new P[num_elems];
-#endif
-}
-
 template<typename P>
 void test_kronmult_build(PDE<P> const &pde)
 {
@@ -96,18 +84,18 @@ void test_kronmult_build(PDE<P> const &pde)
   P *element_x;
   P *element_work;
   auto const workspace_size = my_subgrid.size() * deg_to_dim * pde.num_terms;
-  allocate_device(element_x, workspace_size);
-  allocate_device(element_work, workspace_size);
+  fk::allocate_device(element_x, workspace_size);
+  fk::allocate_device(element_work, workspace_size);
 
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
   P **input_ptrs;
   P **work_ptrs;
   P **output_ptrs;
   P **operator_ptrs;
-  allocate_device(input_ptrs, total_kronmults);
-  allocate_device(work_ptrs, total_kronmults);
-  allocate_device(output_ptrs, total_kronmults);
-  allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
+  fk::allocate_device(input_ptrs, total_kronmults);
+  fk::allocate_device(work_ptrs, total_kronmults);
+  fk::allocate_device(output_ptrs, total_kronmults);
+  fk::allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
   fk::vector<P *> const operators = [&pde] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
@@ -139,18 +127,12 @@ void test_kronmult_build(PDE<P> const &pde)
   P **const work_ptrs_h     = new P *[total_kronmults];
   P **const output_ptrs_h   = new P *[total_kronmults];
   P **const operator_ptrs_h = new P *[total_kronmults * pde.num_dims];
-  auto stat                 = cudaMemcpy(input_ptrs_h, input_ptrs,
-                         total_kronmults * sizeof(P *), cudaMemcpyDeviceToHost);
-  assert(stat == 0);
-  stat = cudaMemcpy(work_ptrs_h, work_ptrs, total_kronmults * sizeof(P *),
-                    cudaMemcpyDeviceToHost);
-  assert(stat == 0);
-  stat = cudaMemcpy(output_ptrs_h, output_ptrs, total_kronmults * sizeof(P *),
-                    cudaMemcpyDeviceToHost);
-  assert(stat == 0);
-  stat = cudaMemcpy(operator_ptrs_h, operator_ptrs,
-                    total_kronmults * pde.num_dims * sizeof(P *),
-                    cudaMemcpyDeviceToHost);
+
+  fk::copy_to_host(input_ptrs_h, input_ptrs, total_kronmults);
+  fk::copy_to_host(work_ptrs_h, work_ptrs, total_kronmults);
+  fk::copy_to_host(output_ptrs_h, output_ptrs, total_kronmults);
+  fk::copy_to_host(operator_ptrs_h, operator_ptrs,
+                   total_kronmults * pde.num_dims);
 
   auto const in_range = [](auto const ptr, auto const start, auto const end) {
     return (ptr >= start && ptr <= end);
@@ -185,13 +167,13 @@ void test_kronmult_build(PDE<P> const &pde)
     }
   }
 
-  cudaFree(element_x);
-  cudaFree(element_work);
+  fk::delete_device(element_x);
+  fk::delete_device(element_work);
 
-  cudaFree(input_ptrs);
-  cudaFree(work_ptrs);
-  cudaFree(output_ptrs);
-  cudaFree(operator_ptrs);
+  fk::delete_device(input_ptrs);
+  fk::delete_device(work_ptrs);
+  fk::delete_device(output_ptrs);
+  fk::delete_device(operator_ptrs);
 
   delete[] input_ptrs_h;
   delete[] work_ptrs_h;
