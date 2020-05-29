@@ -1,13 +1,10 @@
 #include "kronmult_cuda.hpp"
 #include "build_info.hpp"
-#include <iostream>
+
 #ifdef ASGARD_USE_CUDA
 #include <cuda.h>
 #include <cuda_runtime.h>
 #define USE_GPU
-#endif
-// todo merge
-#ifdef ASGARD_USE_CUDA
 #define GLOBAL_FUNCTION __global__
 #define SYNCTHREADS __syncthreads()
 #define SHARED_MEMORY __shared__
@@ -106,7 +103,7 @@ inline int get_1d_index(int const level, int const cell)
   {
     return 0;
   }
-  return static_cast<int>(pow((double)2, (double)(level - 1))) + cell;
+  return static_cast<int>(pow((float)2, (float)(level - 1))) + cell;
 }
 
 // helper - calculate element coordinates -> operator matrix indices
@@ -224,10 +221,24 @@ void prepare_kronmult(int const *const flattened_table,
                       int const elem_row_start, int const elem_row_stop,
                       int const elem_col_start, int const elem_col_stop)
 {
-  // TODO asserts
+  assert(elem_col_stop >= elem_col_start);
+  assert(elem_row_stop >= elem_row_start);
+  assert(elem_row_start >= 0);
+  assert(elem_row_stop >= 0);
+  assert(degree > 0);
+  assert(num_terms > 0);
+  assert(num_dims > 0);
+  assert(flattened_table);
+  assert(operators);
+  assert(operator_lda > 0);
+  assert(element_x);
+  assert(element_work);
+  assert(operator_ptrs);
+  assert(work_ptrs);
+  assert(input_ptrs);
+  assert(output_ptrs);
 
 #ifdef ASGARD_USE_CUDA
-
   auto constexpr warp_size   = 32;
   auto constexpr num_warps   = 8;
   auto constexpr num_threads = num_warps * warp_size;
