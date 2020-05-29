@@ -223,17 +223,19 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   allocate_device(output_ptrs, total_kronmults);
   allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
-  std::vector<P *> const operators = [&pde] {
-    std::vector<P *> builder(pde.num_terms * pde.num_dims);
+  fk::vector<P *> const operators = [&pde] {
+    fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {
       for (int j = 0; j < pde.num_dims; ++j)
       {
-        builder[i * pde.num_dims + j] = pde.get_coefficients(i, j).data();
+        builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
       }
     }
     return builder;
   }();
+
+  fk::vector<P*, mem_type::owner, resource::device> const operators_d(operators.clone_onto_device());
 
   // FIXME assume all operators same size
   auto const lda = pde.get_coefficients(0, 0)
@@ -242,7 +244,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // prepare lists for kronmult, on device if cuda is enabled
 
   timer::record.start("kronmult_build");
-  prepare_kronmult(elem_table.get_device_table().data(), operators.data(), lda,
+  prepare_kronmult(elem_table.get_device_table().data(), operators_d.data(), lda,
                    element_x, element_work, fx.data(), operator_ptrs, work_ptrs,
                    input_ptrs, output_ptrs, degree, pde.num_terms, pde.num_dims,
                    my_subgrid.row_start, my_subgrid.row_stop,

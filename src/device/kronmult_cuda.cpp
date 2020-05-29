@@ -30,7 +30,9 @@
 #include "kronmult6_xbatched.hpp"
 
 // helper - given a cell and level coordinate, return a 1-dimensional index
-inline int get_1d_index(int const level, int const cell)
+DEVICE_FUNCTION
+int get_1d_index(int const level, int const cell)
+
 {
   assert(level >= 0);
   assert(cell >= 0);
@@ -43,6 +45,7 @@ inline int get_1d_index(int const level, int const cell)
 }
 
 // helper - calculate element coordinates -> operator matrix indices
+DEVICE_FUNCTION
 void get_indices(int const *const coords, int indices[], int const degree,
                  int const num_dims)
 {
@@ -65,7 +68,75 @@ prepare_kronmult_kernel(int const *const flattened_table,
                         int const num_dims, int const elem_row_start,
                         int const elem_row_stop, int const elem_col_start,
                         int const elem_col_stop)
-{}
+{
+  auto const num_cols = elem_col_stop - elem_col_start + 1;
+  auto const num_rows = elem_row_stop - elem_row_start + 1;
+  auto const deg_to_dim =
+      static_cast<int>(pow((double)degree, (double)num_dims));
+  auto const x_size     = num_cols * deg_to_dim;
+  auto const coord_size = num_dims * 2;
+  auto const num_elems  = static_cast<int64_t>(num_cols) * num_rows;
+
+#ifdef ASGARD_USE_CUDA
+  auto const start     = blockIdx.x;
+  auto const increment = gridDim.x;
+  assert(gridDim.y == 1);
+  assert(gridDim.z == 1);
+#else
+  auto const start     = 0;
+  auto const increment = 1;
+#endif
+
+#ifndef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_OPENMP
+#pragma omp parallel for
+#endif
+#endif
+  for (auto i = start; i < num_elems; i += increment)
+  {
+    auto const row = i / num_cols + elem_row_start;
+    auto const col = i % num_cols + elem_col_start;
+
+    // calculate and store operator row rowndrowces for throws element
+    static int constexpr max_ptrsims = 6;
+    assert(num_dims <= max_ptrsims);
+    int operator_row[max_ptrsims];
+    int const *const row_coords = flattened_table + coord_size * row;
+    get_indices(row_coords, operator_row, degree, num_dims);
+
+    // calculate and store operator col rowndrowces for throws element
+    int operator_col[max_ptrsims];
+    int const *const col_coords = flattened_table + coord_size * col;
+    get_indices(col_coords, operator_col, degree, num_dims);
+
+    auto const x_start =
+        element_x + ((row - elem_row_start) * num_terms * x_size +
+                     (col - elem_col_start) * deg_to_dim);
+
+    for (auto t = 0; t < num_terms; ++t)
+    {
+      // get preallocated vector posrowtrowons for throws kronmult
+      auto const num_kron = (row - elem_row_start) * num_cols * num_terms +
+                            (col - elem_col_start) * num_terms + t;
+
+      // point to rownputs
+      input_ptrs[num_kron] = x_start + t * x_size;
+
+      // point to work/output
+      work_ptrs[num_kron]   = element_work + num_kron * deg_to_dim;
+      output_ptrs[num_kron] = fx + (row - elem_row_start) * deg_to_dim;
+
+      // point to operators
+      auto const operator_start = num_kron * num_dims;
+      for (auto d = 0; d < num_dims; ++d)
+      {
+        P *const coeff = operators[t * num_dims + d];
+        operator_ptrs[operator_start + d] =
+            coeff + operator_row[d] + operator_col[d] * operator_lda;
+      }
+    }
+  }
+}
 
 // build batch lists for kronmult from simple
 // arrays. built on device if cuda-enabled.
@@ -79,64 +150,29 @@ void prepare_kronmult(int const *const flattened_table,
                       int const elem_row_start, int const elem_row_stop,
                       int const elem_col_start, int const elem_col_stop)
 {
-  // HERE, either determine thread layout and launch kernel,
-  // or invoke as function.
+  // TODO asserts
 
-  // BELOW, include in kernel
+#ifdef ASGARD_USE_CUDA
 
-  auto const num_cols = elem_col_stop - elem_col_start + 1;
-  auto const deg_to_dim =
-      static_cast<int>(pow((double)degree, (double)num_dims));
-  auto const x_size     = num_cols * deg_to_dim;
-  auto const coord_size = num_dims * 2;
+  auto constexpr warp_size   = 32;
+  auto constexpr num_warps   = 8;
+  auto constexpr num_threads = num_warps * warp_size;
+  auto const num_krons =
+      static_cast<int64_t>(elem_col_stop - elem_col_start + 1) *
+      (elem_row_stop - elem_row_start + 1) * num_terms;
+  prepare_kronmult_kernel<P><<<num_krons, num_threads>>>(
+      flattened_table, operators, operator_lda, element_x, element_work, fx,
+      operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
+      num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
+  auto const stat = cudaDeviceSynchronize();
+  assert(stat == cudaSuccess);
+#else
+  prepare_kronmult_kernel(
+      flattened_table, operators, operator_lda, element_x, element_work, fx,
+      operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
+      num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
 
-#ifdef ASGARD_USE_OPENMP
-#pragma omp parallel for collapse(2)
 #endif
-  for (auto i = elem_row_start; i <= elem_row_stop; ++i)
-  {
-    for (auto j = elem_col_start; j <= elem_col_stop; ++j)
-    {
-      // calculate and store operator row indices for this element
-      static int constexpr max_dims = 6;
-      assert(num_dims <= max_dims);
-      int operator_row[max_dims];
-      int const *const row_coords = flattened_table + coord_size * i;
-      get_indices(row_coords, operator_row, degree, num_dims);
-
-      // calculate and store operator col indices for this element
-      int operator_col[max_dims];
-      int const *const col_coords = flattened_table + coord_size * j;
-      get_indices(col_coords, operator_col, degree, num_dims);
-
-      auto const x_start =
-          element_x + ((i - elem_row_start) * num_terms * x_size +
-                       (j - elem_col_start) * deg_to_dim);
-
-      for (auto t = 0; t < num_terms; ++t)
-      {
-        // get preallocated vector positions for this kronmult
-        auto const num_kron = (i - elem_row_start) * num_cols * num_terms +
-                              (j - elem_col_start) * num_terms + t;
-
-        // point to inputs
-        input_ptrs[num_kron] = x_start + t * x_size;
-
-        // point to work/output
-        work_ptrs[num_kron]   = element_work + num_kron * deg_to_dim;
-        output_ptrs[num_kron] = fx + (i - elem_row_start) * deg_to_dim;
-
-        // point to operators
-        auto const operator_start = num_kron * num_dims;
-        for (auto d = 0; d < num_dims; ++d)
-        {
-          P *const coeff = operators[t * num_dims + d];
-          operator_ptrs[operator_start + d] =
-              coeff + operator_row[d] + operator_col[d] * operator_lda;
-        }
-      }
-    }
-  }
 }
 
 // call kronmult as function or kernel invocation
@@ -150,31 +186,6 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 {
 #ifdef ASGARD_USE_CUDA
   {
-    P **x_d;
-    P **work_d;
-    P **output_d;
-    P const **operators_d;
-    auto const list_size = num_krons * sizeof(P *);
-
-    auto stat = cudaMalloc((void **)&x_d, list_size);
-    assert(stat == 0);
-    stat = cudaMalloc((void **)&work_d, list_size);
-    assert(stat == 0);
-    stat = cudaMalloc((void **)&output_d, list_size);
-    assert(stat == 0);
-    stat = cudaMalloc((void **)&operators_d, list_size * num_dims);
-    assert(stat == 0);
-
-    stat = cudaMemcpy(x_d, x_ptrs, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
-    stat = cudaMemcpy(work_d, work_ptrs, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
-    stat = cudaMemcpy(output_d, output_ptrs, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
-    stat = cudaMemcpy(operators_d, operator_ptrs, list_size * num_dims,
-                      cudaMemcpyHostToDevice);
-    assert(stat == 0);
-
     int constexpr warpsize    = 32;
     int constexpr nwarps      = 8;
     int constexpr num_threads = nwarps * warpsize;
@@ -183,27 +194,27 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     {
     case 1:
       kronmult1_xbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, lda, x_d, output_d, work_d, num_krons);
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 2:
       kronmult2_xbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, lda, x_d, output_d, work_d, num_krons);
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 3:
       kronmult3_xbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, lda, x_d, output_d, work_d, num_krons);
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 4:
       kronmult4_xbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, lda, x_d, output_d, work_d, num_krons);
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 5:
       kronmult5_xbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, lda, x_d, output_d, work_d, num_krons);
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 6:
       kronmult6_xbatched<P><<<num_krons, num_threads>>>(
-          n, operators_d, lda, x_d, output_d, work_d, num_krons);
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     default:
       assert(false);
@@ -212,17 +223,8 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     // -------------------------------------------
     // note important to wait for kernel to finish
     // -------------------------------------------
-    cudaError_t const istat = cudaDeviceSynchronize();
-    assert(istat == cudaSuccess);
-
-    stat = cudaFree(x_d);
-    assert(stat == 0);
-    stat = cudaFree(operators_d);
-    assert(stat == 0);
-    stat = cudaFree(output_d);
-    assert(stat == 0);
-    stat = cudaFree(work_d);
-    assert(stat == 0);
+    auto const stat = cudaDeviceSynchronize();
+    assert(stat == cudaSuccess);
   }
 #else
 
