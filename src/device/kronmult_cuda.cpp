@@ -107,9 +107,10 @@ prepare_kronmult_kernel(int const *const flattened_table,
     auto const row = i / num_cols + elem_row_start;
     auto const col = i % num_cols + elem_col_start;
 
-    // calculate and store operator row indices for this element
     int constexpr max_dims = 6;
     assert(num_dims <= max_dims);
+
+    // calculate and store operator row indices for this element
     int operator_row[max_dims];
     int const *const row_coords = flattened_table + coord_size * row;
     get_indices(row_coords, operator_row, degree, num_dims);
@@ -169,8 +170,9 @@ void prepare_kronmult(int const *const flattened_table,
   auto constexpr num_threads = num_warps * warp_size;
   auto const num_krons =
       static_cast<int64_t>(elem_col_stop - elem_col_start + 1) *
-      (elem_row_stop - elem_row_start + 1) * num_terms;
-  prepare_kronmult_kernel<P><<<num_krons, num_threads>>>(
+      (elem_row_stop - elem_row_start + 1);
+  auto const num_blocks = num_krons / num_threads;
+  prepare_kronmult_kernel<P><<<num_blocks, num_threads>>>(
       flattened_table, operators, operator_lda, element_x, element_work, fx,
       operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
       num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
@@ -181,7 +183,6 @@ void prepare_kronmult(int const *const flattened_table,
       flattened_table, operators, operator_lda, element_x, element_work, fx,
       operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
       num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
-
 #endif
 }
 
