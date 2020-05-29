@@ -32,8 +32,6 @@
 #include <omp.h>
 #endif
 
-
-
 // helper - given a cell and level coordinate, return a 1-dimensional index
 DEVICE_FUNCTION
 inline int get_1d_index(int const level, int const cell)
@@ -83,10 +81,17 @@ prepare_kronmult_kernel(int const *const flattened_table,
   auto const num_elems  = static_cast<int64_t>(num_cols) * num_rows;
 
 #ifdef ASGARD_USE_CUDA
-  auto const start     = blockIdx.x;
-  auto const increment = gridDim.x;
+
+  assert(blockIdx.y == 0);
+  assert(blockIdx.z == 0);
   assert(gridDim.y == 1);
   assert(gridDim.z == 1);
+
+  auto const id          = blockIdx.x * blockDim.x + threadIdx.x;
+  auto const num_threads = blockDim.x * gridDim.x;
+  auto const start       = id;
+  auto const increment   = num_threads;
+
 #else
   auto const start     = 0;
   auto const increment = 1;

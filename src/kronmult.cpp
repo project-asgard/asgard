@@ -223,7 +223,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   allocate_device(output_ptrs, total_kronmults);
   allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
-  static fk::vector<P *> const operators = [&pde] {
+  fk::vector<P *> const operators = [&pde] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {
@@ -242,7 +242,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
                        .stride(); // leading dimension of coefficient matrices
 
   // prepare lists for kronmult, on device if cuda is enabled
-
   timer::record.start("kronmult_build");
   prepare_kronmult(elem_table.get_device_table().data(), operators_d.data(), lda,
                    element_x, element_work, fx.data(), operator_ptrs, work_ptrs,
