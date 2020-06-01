@@ -673,21 +673,21 @@ wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
     fm::gemm(g0, h_tmp, g_view);
 
     fk::matrix<P, mem_type::view> g_view_2(g_mat, 0, degree - 1, ncols_h,
-                                           g_mat.ncols() - 1);
+                                           ncols_h * 2 - 1);
     fm::gemm(g1, h_tmp, g_view_2);
 
     fm::gemm(h0, h_tmp, h_view);
 
     fk::matrix<P, mem_type::view> h_view_2(h_mat, 0, degree - 1, ncols_h,
-                                           h_mat.ncols() - 1);
+                                           ncols_h * 2 - 1);
     fm::gemm(h1, h_tmp, h_view_2);
 
     fk::matrix<P, mem_type::const_view> const g_block(g_mat, 0, degree - 1, 0,
-                                                      block_ncols);
+                                                      block_ncols - 1);
     dense_blocks_[j * 2 + 1].clear_and_resize(degree, block_ncols) = g_block;
 
     fk::matrix<P, mem_type::const_view> const h_block(h_mat, 0, degree - 1, 0,
-                                                      block_ncols);
+                                                      block_ncols - 1);
     dense_blocks_[j * 2].clear_and_resize(degree, block_ncols) = h_block;
   }
 }
