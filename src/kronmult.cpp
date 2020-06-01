@@ -163,8 +163,9 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   timer::record.start("kronmult_stage");
   P *element_x;
   P *element_work;
-  fk::allocate_device(element_x, workspace_size);
-  fk::allocate_device(element_work, workspace_size);
+  bool const initialize = false;
+  fk::allocate_device(element_x, workspace_size, initialize);
+  fk::allocate_device(element_work, workspace_size, initialize);
 
   // stage x vector in writable regions for each element
   auto const num_copies = my_subgrid.nrows() * pde.num_terms;
@@ -179,10 +180,11 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   P **work_ptrs;
   P **output_ptrs;
   P **operator_ptrs;
-  fk::allocate_device(input_ptrs, total_kronmults);
-  fk::allocate_device(work_ptrs, total_kronmults);
-  fk::allocate_device(output_ptrs, total_kronmults);
-  fk::allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
+  fk::allocate_device(input_ptrs, total_kronmults, initialize);
+  fk::allocate_device(work_ptrs, total_kronmults, initialize);
+  fk::allocate_device(output_ptrs, total_kronmults, initialize);
+  fk::allocate_device(operator_ptrs, total_kronmults * pde.num_dims,
+                      initialize);
 
   fk::vector<P *> const operators = [&pde] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
