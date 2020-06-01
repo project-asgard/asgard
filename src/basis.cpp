@@ -640,10 +640,56 @@ namespace basis
 {
 template<typename P>
 wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
-    : max_level_(max_level)
+    : dense_blocks_(max_level * 2), max_level_(max_level)
 {
   assert(max_level > 1);
   assert(degree > 0);
+
+  // this is to get around unused warnings
+  // because can't unpack only some args w structured binding (until c++20)
+  auto const ignore = [](auto ignored) { (void)ignored; };
+  auto const [h0, h1, g0, g1, phi_co, scale_co] =
+      generate_multi_wavelets<P>(degree);
+  ignore(phi_co);
+  ignore(scale_co);
+
+  int const fmwt_size = degree * fm::two_raised_to(max_level_);
+
+  fk::matrix<P> g_mat(degree, fmwt_size);
+  fk::matrix<P> h_mat = fk::matrix<P>(degree, fmwt_size)
+                            .set_submatrix(0, 0, eye<P>(degree, degree));
+
+  for (int j = max_level - 1; j >= 0; --j)
+  {
+    int const num_cells   = fm::two_raised_to(j);
+    int const block_ncols = fmwt_size / num_cells;
+    int const ncols_h     = block_ncols / 2;
+
+    fk::matrix<P> h_tmp(degree, ncols_h);
+    fk::matrix<P, mem_type::view> h_view(h_mat, 0, degree - 1, 0, ncols_h - 1);
+    h_tmp = h_view;
+
+    fk::matrix<P, mem_type::view> g_view(g_mat, 0, degree - 1, 0, ncols_h - 1);
+    fm::gemm(g0, h_tmp, g_view);
+
+    fk::matrix<P, mem_type::view> g_view_2(g_mat, 0, degree - 1, ncols_h,
+                                           g_mat.ncols() - 1);
+    fm::gemm(g1, h_tmp, g_view_2);
+
+    fm::gemm(h0, h_tmp, h_view);
+
+    fk::matrix<P, mem_type::view> h_view_2(h_mat, 0, degree - 1, ncols_h,
+                                           h_mat.ncols() - 1);
+    fm::gemm(h1, h_tmp, h_view_2);
+
+    fk::matrix<P, mem_type::const_view> const g_block(g_mat, 0, degree - 1, 0,
+                                                      block_ncols);
+    dense_blocks_[j * 2 + 1].clear_and_resize(degree, block_ncols) = g_block;
+
+    fk::matrix<P, mem_type::const_view> const h_block(h_mat, 0, degree - 1, 0,
+                                                      block_ncols);
+    dense_blocks_[j * 2].clear_and_resize(degree, block_ncols) = h_block;
+  }
 }
 
 template<typename P>
