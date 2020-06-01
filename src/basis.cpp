@@ -635,3 +635,27 @@ template fk::matrix<float>
 apply_right_fmwt_transposed(fk::matrix<float> const &fmwt,
                             fk::matrix<float> const &coefficient_matrix,
                             int const kdeg, int const num_levels);
+
+namespace basis
+{
+template<typename P>
+wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
+    : max_level_(max_level)
+{
+  assert(max_level > 1);
+  assert(degree > 0);
+}
+
+template<typename P>
+P wavelet_transform<P>::get_value(int const level, int const row, int const col)
+{
+  assert(level > 0);
+  assert(level <= max_level_);
+  assert(row > 0); // FIXME stricter
+  assert(col > 0);
+  return 0.0;
+}
+
+template class wavelet_transform<float>;
+template class wavelet_transform<double>;
+} // namespace basis
