@@ -625,15 +625,26 @@ private:
 //-----------------------------------------------------------------------------
 
 template<typename P>
-inline void allocate_device(P *&ptr, int const num_elems)
+inline void
+allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 {
 #ifdef ASGARD_USE_CUDA
   auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
   assert(success == 0);
-  success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
-  assert(success == 0);
+  if (initialize)
+  {
+    success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
+    assert(success == 0);
+  }
 #else
-  ptr = new P[num_elems]();
+  if (initialize)
+  {
+    ptr = new P[num_elems]();
+  }
+  else
+  {
+    ptr = new P[num_elems];
+  }
 #endif
 }
 template<typename P>
