@@ -106,7 +106,7 @@ inline int get_1d_index(int const level, int const cell)
   {
     return 0;
   }
-  return static_cast<int>(pow((float)2, (float)(level - 1))) + cell;
+  return static_cast<int>(pow((float)2, (float)(level - 1)) + 0.1) + cell;
 }
 
 // helper - calculate element coordinates -> operator matrix indices
@@ -137,7 +137,8 @@ prepare_kronmult_kernel(int const *const flattened_table,
   auto const num_cols = elem_col_stop - elem_col_start + 1;
   auto const num_rows = elem_row_stop - elem_row_start + 1;
 
-  auto const deg_to_dim = static_cast<int>(pow((float)degree, (float)num_dims));
+  auto const deg_to_dim =
+      static_cast<int>(pow((float)degree, (float)num_dims) + 0.1);
 
   auto const x_size     = static_cast<int64_t>(num_cols) * deg_to_dim;
   auto const coord_size = num_dims * 2;
