@@ -742,9 +742,8 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
       fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
                                              coefficients.nrows() - 1, 0,
                                              coefficients.ncols() - 1);
+
       fm::gemm(first_block, B, C, do_trans);
-      // Y(col1:col2,1:ncolX) = Fmat(1:nrowF,1:ncolF)' * X(
-      // ip:ip},1:ncolX);
     }
     else
     {
@@ -753,9 +752,8 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
           coefficients.ncols() - 1);
       fk::matrix<P, mem_type::view, resrc> C(transformed, 0, degree - 1, 0,
                                              coefficients.ncols() - 1);
+
       fm::gemm(first_block, B, C, do_trans);
-      // Y(ip:ip},1:ncolX) = Fmat(1:nrowF,1:ncolF) * X(
-      // col1:col2,1:ncolX);
     }
   }
   else
@@ -767,9 +765,8 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
           coefficients.ncols() - 1);
       fk::matrix<P, mem_type::view, resrc> C(
           transformed, 0, coefficients.nrows() - 1, 0, degree - 1);
+
       fm::gemm(A, first_block, C, false, do_trans);
-      // Y(1:nrowX,ip:ip}) = X(1:nrowX, col1:col2) *
-      // Fmat(1:nrowF,1:ncolF)';
     }
     else
     {
@@ -778,9 +775,8 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
       fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
                                              coefficients.nrows() - 1, 0,
                                              coefficients.ncols() - 1);
+
       fm::gemm(A, first_block, C, false, do_trans);
-      // Y(1:nrowX,col1:col2) = X(1:nrowX, ip:ip}) *
-      // Fmat(1:nrowF,1:ncolF);
     }
   }
 
@@ -815,9 +811,6 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
               coefficients.ncols() - 1);
 
           fm::gemm(current_block, B, C, do_trans, false, alpha, beta);
-          //  Y(col1:col2,1:ncolX) = Y(col1:col2,1:ncolX) + ...
-          //                       Fmat(1:nrowF,1:ncolF)' * X(
-          //                       ip:ipend,1:ncolX);
         }
         else
         {
@@ -826,9 +819,8 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
                                                  coefficients.ncols() - 1);
           fk::matrix<P, mem_type::const_view, resrc> const B(
               coefficients, cell_start, cell_end, 0, coefficients.ncols() - 1);
+
           fm::gemm(current_block, B, C, do_trans, false, alpha, beta);
-          // Y(ip:ipend,1:ncolX) = Y(ip:ipend,1:ncolX) + ...
-          // Fmat(1:nrowF,1:ncolF) * X( col1:col2,1:ncolX);
         }
       }
       else
@@ -841,8 +833,6 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
           fk::matrix<P, mem_type::const_view, resrc> const A(
               coefficients, 0, coefficients.nrows() - 1, cell_start, cell_end);
           fm::gemm(A, current_block, C, false, do_trans, alpha, beta);
-          // Y(1:nrowX,ip:ipend) = Y(1:nrowX,ip:ipend) + ...
-          // X(1:nrowX, col1:col2) * Fmat(1:nrowF,1:ncolF)';
         }
         else
         {
@@ -851,12 +841,10 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
           fk::matrix<P, mem_type::const_view, resrc> const A(
               coefficients, 0, coefficients.nrows() - 1, degree_start,
               degree_end);
+
           fm::gemm(A, current_block, C, false, do_trans, alpha, beta);
-          // Y(1:nrowX,col1:col2) = Y(1:nrowX,col1:col2) + ...
-          // X(1:nrowX, ip:ipend) * Fmat(1:nrowF,1:ncolF);
         }
       }
-
       degree_start = degree_end + 1;
     }
   }
