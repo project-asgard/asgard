@@ -638,9 +638,10 @@ apply_right_fmwt_transposed(fk::matrix<float> const &fmwt,
 
 namespace basis
 {
-template<typename P>
-wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
-    : dense_blocks_(max_level * 2), max_level_(max_level)
+template<typename P, resource resrc>
+wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
+                                               int const degree)
+    : dense_blocks_(max_level * 2), max_level_(max_level), degree_(degree)
 {
   assert(max_level > 1);
   assert(degree > 0);
@@ -654,6 +655,8 @@ wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
   ignore(scale_co);
 
   int const fmwt_size = degree * fm::two_raised_to(max_level_);
+
+  std::vector<fk::matrix<P>> block_builder(max_level * 2);
 
   fk::matrix<P> g_mat(degree, fmwt_size);
   fk::matrix<P> h_mat = fk::matrix<P>(degree, fmwt_size)
@@ -684,25 +687,51 @@ wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
 
     fk::matrix<P, mem_type::const_view> const g_block(g_mat, 0, degree - 1, 0,
                                                       block_ncols - 1);
-    dense_blocks_[j * 2 + 1].clear_and_resize(degree, block_ncols) = g_block;
+    block_builder[j * 2 + 1].clear_and_resize(degree, block_ncols) = g_block;
 
     fk::matrix<P, mem_type::const_view> const h_block(h_mat, 0, degree - 1, 0,
                                                       block_ncols - 1);
-    dense_blocks_[j * 2].clear_and_resize(degree, block_ncols) = h_block;
+    block_builder[j * 2].clear_and_resize(degree, block_ncols) = h_block;
+  }
+
+  assert(block_builder.size() == dense_blocks_.size());
+  for (auto i = 0; i < static_cast<int>(block_builder.size()); ++i)
+  {
+    if constexpr (resrc == resource::host)
+    {
+      dense_blocks_[i].clear_and_resize(block_builder[i].nrows(),
+                                        block_builder[i].ncols()) =
+          block_builder[i];
+    }
+    else
+    {
+      dense_blocks_[i]
+          .clear_and_resize(block_builder[i].nrows(), block_builder[i].ncols())
+          .transfer_from(block_builder[i]);
+    }
   }
 }
 
-template<typename P>
-P wavelet_transform<P>::get_value(int const level, int const row,
-                                  int const col) const
+template<typename P, resource resrc>
+fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
+    fk::matrix<P, mem_type::owner, resrc> const &coefficients, int const level,
+    basis::side const transform_side,
+    basis::transpose const transform_trans) const
 {
-  assert(level > 0);
-  assert(level <= max_level_);
-  assert(row > 0); // FIXME stricter
-  assert(col > 0);
-  return 0.0;
+  assert(level > 1);
+  assert(level < max_level_);
+  auto const coeffs_size = fm::two_raised_to(level) * degree_;
+  assert(coefficients.size() == coeffs_size);
+
+  fk::matrix<P, mem_type::owner, resrc> transformed(coefficients.nrows(),
+                                                    coefficients.ncols());
+  // first, coarsest level
+
+  return coefficients;
 }
 
-template class wavelet_transform<float>;
-template class wavelet_transform<double>;
+template class wavelet_transform<float, resource::host>;
+template class wavelet_transform<double, resource::host>;
+template class wavelet_transform<float, resource::device>;
+template class wavelet_transform<double, resource::device>;
 } // namespace basis

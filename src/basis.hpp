@@ -35,27 +35,45 @@ apply_right_fmwt_transposed(fk::matrix<P> const &fmwt,
 // FIXME add above to namespace
 namespace basis
 {
-template<typename P>
+enum class side
+{
+  left,
+  right
+};
+enum class transpose
+{
+  no_trans,
+  trans
+};
+
+template<typename P, resource resrc>
 class wavelet_transform
 {
 public:
   wavelet_transform(int const max_level, int const degree);
 
-  // given a level, and the row/col number, retrieve the value occupying
-  // position (row, col) in the transform operator for that level.
-  P get_value(int const level, int const i, int const j) const;
+  // apply the fmwt matrix to coefficients
+  fk::matrix<P, mem_type::owner, resrc>
+  apply(fk::matrix<P, mem_type::owner, resrc> const &coefficients,
+        int const level, basis::side const transform_side,
+        basis::transpose const transform_trans) const;
 
   // exposed for testing
-  std::vector<fk::matrix<P>> const &get_blocks() const { return dense_blocks_; }
+  std::vector<fk::matrix<P, mem_type::owner, resrc>> const &get_blocks() const
+  {
+    return dense_blocks_;
+  }
 
 private:
   // dense regions of the transform operator. store all for every level up to
   // max_level. each level contains all dense_blocks_ from lower levels, except
   // for one level-unique block. blocks are stored as (unique blocks for levels
   // 0 -> max_level | max level blocks)
-  std::vector<fk::matrix<P>> dense_blocks_; // FIXME may eventually change to
-                                            // vector of views of larger matrix
+  std::vector<fk::matrix<P, mem_type::owner, resrc>>
+      dense_blocks_; // FIXME may eventually change to
+                     // vector of views of larger matrix
   int const max_level_;
+  int const degree_;
 };
 
 } // namespace basis

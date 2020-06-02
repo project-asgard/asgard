@@ -202,12 +202,12 @@ TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
   }
 }
 
-template<typename P>
+template<typename P, resource resrc>
 void test_fmwt_block_generation(int const level, int const degree)
 {
   P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-14;
 
-  basis::wavelet_transform<P> const forward_transform(level, degree);
+  basis::wavelet_transform<P, resrc> const forward_transform(level, degree);
 
   auto const &blocks = forward_transform.get_blocks();
 
@@ -220,7 +220,14 @@ void test_fmwt_block_generation(int const level, int const degree)
         std::to_string(i + 1) + ".dat";
     auto const gold   = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
     auto const &block = blocks[(i - 1) * 2 + 1];
-    rmse_comparison(gold, block, tol);
+    if constexpr (resrc == resource::host)
+    {
+      rmse_comparison(gold, block, tol);
+    }
+    else
+    {
+      rmse_comparison(gold, block.clone_onto_host(), tol);
+    }
   }
 
   // check even/level unique blocks
@@ -232,50 +239,57 @@ void test_fmwt_block_generation(int const level, int const degree)
         "1.dat";
     auto const gold   = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
     auto const &block = blocks[i];
-    rmse_comparison(gold, block, tol);
+    if constexpr (resrc == resource::host)
+    {
+      rmse_comparison(gold, block, tol);
+    }
+    else
+    {
+      rmse_comparison(gold, block.clone_onto_host(), tol);
+    }
   }
 }
 
-TEMPLATE_TEST_CASE("wavelet constructor", "[basis]", float, double)
+TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
+
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
 {
   SECTION("level 2 degree 2")
   {
     auto const degree = 2;
     auto const levels = 2;
-    test_fmwt_block_generation<TestType>(levels, degree);
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-
   SECTION("level 2 degree 5")
   {
     auto const degree = 5;
     auto const levels = 2;
-    test_fmwt_block_generation<TestType>(levels, degree);
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-
   SECTION("level 5 degree 2")
   {
     auto const degree = 2;
     auto const levels = 5;
-    test_fmwt_block_generation<TestType>(levels, degree);
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-
   SECTION("level 5 degree 5")
   {
     auto const degree = 5;
     auto const levels = 5;
-    test_fmwt_block_generation<TestType>(levels, degree);
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
   SECTION("level 12 degree 2")
   {
     auto const degree = 2;
     auto const levels = 12;
-    test_fmwt_block_generation<TestType>(levels, degree);
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-
   SECTION("level 12 degree 5")
   {
     auto const degree = 5;
     auto const levels = 12;
-    test_fmwt_block_generation<TestType>(levels, degree);
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
 }
