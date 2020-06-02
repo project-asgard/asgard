@@ -693,7 +693,8 @@ wavelet_transform<P>::wavelet_transform(int const max_level, int const degree)
 }
 
 template<typename P>
-P wavelet_transform<P>::get_value(int const level, int const row, int const col)
+P wavelet_transform<P>::get_value(int const level, int const row,
+                                  int const col) const
 {
   assert(level > 0);
   assert(level <= max_level_);

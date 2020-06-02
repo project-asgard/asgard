@@ -43,7 +43,10 @@ public:
 
   // given a level, and the row/col number, retrieve the value occupying
   // position (row, col) in the transform operator for that level.
-  P get_value(int const level, int const i, int const j);
+  P get_value(int const level, int const i, int const j) const;
+
+  // exposed for testing
+  std::vector<fk::matrix<P>> const &get_blocks() const { return dense_blocks_; }
 
 private:
   // dense regions of the transform operator. store all for every level up to
