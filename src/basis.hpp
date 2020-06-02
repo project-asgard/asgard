@@ -64,6 +64,9 @@ public:
     return dense_blocks_;
   }
 
+  int const max_level;
+  int const degree;
+
 private:
   // dense regions of the transform operator. store all for every level up to
   // max_level. each level contains all dense_blocks_ from lower levels, except
@@ -72,8 +75,6 @@ private:
   std::vector<fk::matrix<P, mem_type::owner, resrc>>
       dense_blocks_; // FIXME may eventually change to
                      // vector of views of larger matrix
-  int const max_level_;
-  int const degree_;
 };
 
 } // namespace basis

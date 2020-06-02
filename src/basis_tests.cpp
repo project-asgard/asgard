@@ -293,3 +293,137 @@ TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
     test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
 }
+
+// tests transform across all supported levels
+template<typename P, resource resrc>
+void test_fmwt_application(
+    basis::wavelet_transform<P, resrc> const &forward_transform)
+{
+  P constexpr tol = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+
+  std::random_device rd;
+  std::mt19937 mersenne_engine(rd());
+  std::uniform_real_distribution<P> dist(-2.0, 2.0);
+  auto const gen = [&dist, &mersenne_engine]() {
+    return dist(mersenne_engine);
+  };
+
+  for (auto level = 2; level <= forward_transform.max_level; ++level)
+  {
+    auto const degrees_freedom =
+        fm::two_raised_to(level) * forward_transform.degree;
+    auto const to_transform = [&gen, degrees_freedom]() {
+      fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
+      std::generate(matrix.begin(), matrix.end(), gen);
+      return matrix;
+    }();
+
+    auto const fmwt = operator_two_scale<P>(forward_transform.degree, level);
+    auto const fmwt_transpose = fk::matrix<P>(fmwt).transpose();
+
+    auto const left_gold        = fmwt * to_transform;
+    auto const right_gold       = to_transform * fmwt;
+    auto const left_trans_gold  = fmwt_transpose * to_transform;
+    auto const right_trans_gold = to_transform * fmwt_transpose;
+
+    if constexpr (resrc == resource::host)
+    {
+      auto const left_test = forward_transform.apply(
+          to_transform, level, basis::side::left, basis::transpose::no_trans);
+      auto const right_test = forward_transform.apply(
+          to_transform, level, basis::side::right, basis::transpose::no_trans);
+      auto const left_trans_test = forward_transform.apply(
+          to_transform, level, basis::side::left, basis::transpose::trans);
+      auto const right_trans_test = forward_transform.apply(
+          to_transform, level, basis::side::right, basis::transpose::trans);
+
+      rmse_comparison(left_test, left_gold, tol);
+      rmse_comparison(right_test, right_gold, tol);
+      rmse_comparison(left_trans_test, left_trans_gold, tol);
+      rmse_comparison(right_trans_test, right_trans_gold, tol);
+    }
+    else
+    {
+      auto const transform_d = to_transform.clone_onto_device();
+      auto const left_test   = forward_transform
+                                 .apply(transform_d, level, basis::side::left,
+                                        basis::transpose::no_trans)
+                                 .clone_onto_host();
+      auto const right_test = forward_transform
+                                  .apply(transform_d, level, basis::side::right,
+                                         basis::transpose::no_trans)
+                                  .clone_onto_host();
+      auto const left_trans_test =
+          forward_transform
+              .apply(transform_d, level, basis::side::left,
+                     basis::transpose::trans)
+              .clone_onto_host();
+      auto const right_trans_test =
+          forward_transform
+              .apply(transform_d, level, basis::side::right,
+                     basis::transpose::trans)
+              .clone_onto_host();
+      rmse_comparison(left_test, left_gold, tol);
+      rmse_comparison(right_test, right_gold, tol);
+      rmse_comparison(left_trans_test, left_trans_gold, tol);
+      rmse_comparison(right_trans_test, right_trans_gold, tol);
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE_SIG("wavelet transform", "[basis]",
+
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
+{
+  SECTION("level 2 degree 2")
+  {
+    auto const degree = 2;
+    auto const levels = 2;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 2 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 2;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 5 degree 3")
+  {
+    auto const degree = 3;
+    auto const levels = 5;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 5 degree 6")
+  {
+    auto const degree = 6;
+    auto const levels = 5;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+
+  SECTION("level 8 degree 4")
+  {
+    auto const degree = 4;
+    auto const levels = 8;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 8 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 8;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+}

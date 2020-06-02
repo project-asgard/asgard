@@ -635,26 +635,26 @@ template fk::matrix<float>
 apply_right_fmwt_transposed(fk::matrix<float> const &fmwt,
                             fk::matrix<float> const &coefficient_matrix,
                             int const kdeg, int const num_levels);
-
 namespace basis
 {
 template<typename P, resource resrc>
 wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
                                                int const degree)
-    : dense_blocks_(max_level * 2), max_level_(max_level), degree_(degree)
+    : max_level(max_level), degree(degree), dense_blocks_(max_level * 2)
 {
   assert(max_level > 1);
   assert(degree > 0);
 
   // this is to get around unused warnings
-  // because can't unpack only some args w structured binding (until c++20)
+  // because can't unpack only some args w structured binding (until
+  // c++20)
   auto const ignore = [](auto ignored) { (void)ignored; };
   auto const [h0, h1, g0, g1, phi_co, scale_co] =
       generate_multi_wavelets<P>(degree);
   ignore(phi_co);
   ignore(scale_co);
 
-  int const fmwt_size = degree * fm::two_raised_to(max_level_);
+  int const fmwt_size = degree * fm::two_raised_to(max_level);
 
   std::vector<fk::matrix<P>> block_builder(max_level * 2);
 
@@ -662,6 +662,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
   fk::matrix<P> h_mat = fk::matrix<P>(degree, fmwt_size)
                             .set_submatrix(0, 0, eye<P>(degree, degree));
 
+  // main loop - build the blocks with small gemms
   for (int j = max_level - 1; j >= 0; --j)
   {
     int const num_cells   = fm::two_raised_to(j);
@@ -694,6 +695,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
     block_builder[j * 2].clear_and_resize(degree, block_ncols) = h_block;
   }
 
+  // copy to device if necessary
   assert(block_builder.size() == dense_blocks_.size());
   for (auto i = 0; i < static_cast<int>(block_builder.size()); ++i)
   {
@@ -719,15 +721,147 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     basis::transpose const transform_trans) const
 {
   assert(level > 1);
-  assert(level < max_level_);
-  auto const coeffs_size = fm::two_raised_to(level) * degree_;
-  assert(coefficients.size() == coeffs_size);
+  assert(level <= max_level);
+  auto const coeffs_size = fm::two_raised_to(level) * degree;
+  assert(coefficients.nrows() == coeffs_size);
+  assert(coefficients.nrows() == coefficients.ncols());
 
   fk::matrix<P, mem_type::owner, resrc> transformed(coefficients.nrows(),
                                                     coefficients.ncols());
   // first, coarsest level
+  auto const do_trans =
+      transform_trans == basis::transpose::trans ? true : false;
+  auto const &first_block = dense_blocks_[(max_level - level) * 2];
 
-  return coefficients;
+  if (transform_side == basis::side::left)
+  {
+    if (transform_trans == basis::transpose::trans)
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const B(
+          coefficients, 0, degree - 1, 0, coefficients.ncols() - 1);
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
+                                             coefficients.nrows() - 1, 0,
+                                             coefficients.ncols() - 1);
+      fm::gemm(first_block, B, C, do_trans);
+      // Y(col1:col2,1:ncolX) = Fmat(1:nrowF,1:ncolF)' * X(
+      // ip:ip},1:ncolX);
+    }
+    else
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const B(
+          coefficients, 0, coefficients.nrows() - 1, 0,
+          coefficients.ncols() - 1);
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0, degree - 1, 0,
+                                             coefficients.ncols() - 1);
+      fm::gemm(first_block, B, C, do_trans);
+      // Y(ip:ip},1:ncolX) = Fmat(1:nrowF,1:ncolF) * X(
+      // col1:col2,1:ncolX);
+    }
+  }
+  else
+  {
+    if (transform_trans == basis::transpose::trans)
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const A(
+          coefficients, 0, coefficients.nrows() - 1, 0,
+          coefficients.ncols() - 1);
+      fk::matrix<P, mem_type::view, resrc> C(
+          transformed, 0, coefficients.nrows() - 1, 0, degree - 1);
+      fm::gemm(A, first_block, C, false, do_trans);
+      // Y(1:nrowX,ip:ip}) = X(1:nrowX, col1:col2) *
+      // Fmat(1:nrowF,1:ncolF)';
+    }
+    else
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const A(
+          coefficients, 0, coefficients.nrows() - 1, 0, degree - 1);
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
+                                             coefficients.nrows() - 1, 0,
+                                             coefficients.ncols() - 1);
+      fm::gemm(A, first_block, C, false, do_trans);
+      // Y(1:nrowX,col1:col2) = X(1:nrowX, ip:ip}) *
+      // Fmat(1:nrowF,1:ncolF);
+    }
+  }
+
+  // remaining levels
+  auto const block_offset = (max_level - level) * 2 + 1;
+  auto degree_start       = degree;
+
+  for (auto i = 0; i < level; ++i)
+  {
+    auto const num_cells = fm::two_raised_to(i);
+    auto const cell_size = coeffs_size / num_cells;
+
+    auto const &current_block = dense_blocks_[block_offset + i * 2];
+
+    P const alpha = 1.0;
+    P const beta  = 1.0;
+
+    for (auto j = 0; j < num_cells; ++j)
+    {
+      auto const cell_start = j * cell_size; // +1?
+      auto const cell_end   = cell_start + cell_size - 1;
+      auto const degree_end = degree_start + degree - 1;
+
+      if (transform_side == basis::side::left)
+      {
+        if (transform_trans == basis::transpose::trans)
+        {
+          fk::matrix<P, mem_type::view, resrc> C(
+              transformed, cell_start, cell_end, 0, coefficients.ncols() - 1);
+          fk::matrix<P, mem_type::const_view, resrc> const B(
+              coefficients, degree_start, degree_end, 0,
+              coefficients.ncols() - 1);
+
+          fm::gemm(current_block, B, C, do_trans, false, alpha, beta);
+          //  Y(col1:col2,1:ncolX) = Y(col1:col2,1:ncolX) + ...
+          //                       Fmat(1:nrowF,1:ncolF)' * X(
+          //                       ip:ipend,1:ncolX);
+        }
+        else
+        {
+          fk::matrix<P, mem_type::view, resrc> C(transformed, degree_start,
+                                                 degree_end, 0,
+                                                 coefficients.ncols() - 1);
+          fk::matrix<P, mem_type::const_view, resrc> const B(
+              coefficients, cell_start, cell_end, 0, coefficients.ncols() - 1);
+          fm::gemm(current_block, B, C, do_trans, false, alpha, beta);
+          // Y(ip:ipend,1:ncolX) = Y(ip:ipend,1:ncolX) + ...
+          // Fmat(1:nrowF,1:ncolF) * X( col1:col2,1:ncolX);
+        }
+      }
+      else
+      {
+        if (transform_trans == basis::transpose::trans)
+        {
+          fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
+                                                 coefficients.nrows() - 1,
+                                                 degree_start, degree_end);
+          fk::matrix<P, mem_type::const_view, resrc> const A(
+              coefficients, 0, coefficients.nrows() - 1, cell_start, cell_end);
+          fm::gemm(A, current_block, C, false, do_trans, alpha, beta);
+          // Y(1:nrowX,ip:ipend) = Y(1:nrowX,ip:ipend) + ...
+          // X(1:nrowX, col1:col2) * Fmat(1:nrowF,1:ncolF)';
+        }
+        else
+        {
+          fk::matrix<P, mem_type::view, resrc> C(
+              transformed, 0, coefficients.nrows() - 1, cell_start, cell_end);
+          fk::matrix<P, mem_type::const_view, resrc> const A(
+              coefficients, 0, coefficients.nrows() - 1, degree_start,
+              degree_end);
+          fm::gemm(A, current_block, C, false, do_trans, alpha, beta);
+          // Y(1:nrowX,col1:col2) = Y(1:nrowX,col1:col2) + ...
+          // X(1:nrowX, ip:ipend) * Fmat(1:nrowF,1:ncolF);
+        }
+      }
+
+      degree_start = degree_end + 1;
+    }
+  }
+
+  return transformed;
 }
 
 template class wavelet_transform<float, resource::host>;
