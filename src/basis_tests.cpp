@@ -299,7 +299,7 @@ template<typename P, resource resrc>
 void test_fmwt_application(
     basis::wavelet_transform<P, resrc> const &forward_transform)
 {
-  P constexpr tol = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+  P constexpr tol = std::is_same<P, double>::value ? 1e-15 : 1e-5;
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());
