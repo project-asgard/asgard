@@ -1481,8 +1481,11 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
       fk::vector<TestType, mem_type::const_view, resource::device> const
           vect_cview(vect);
       REQUIRE(vect.get_num_views() == 1);
-      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          vect_cview2(vect_cview);
       REQUIRE(vect.get_num_views() == 2);
+      fk::vector<TestType, mem_type::view, resource::device> vect_view(vect);
+      REQUIRE(vect.get_num_views() == 3);
 
       {
         fk::vector<TestType, mem_type::view, resource::device> const

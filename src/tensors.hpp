@@ -112,19 +112,23 @@ public:
            resource r_ = resrc, typename = enable_for_host<r_>>
   vector(fk::matrix<P> const &);
 
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> &vec,
-                  int const start_index, int const stop_index);
-  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> const &vec,
-                  int const start_index, int const stop_index);
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
+           mem_type om_ = omem, typename = disable_for_const_view<om_>>
+  explicit vector(fk::vector<P, omem, resrc> &vec, int const start_index,
+                  int const stop_index);
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
+           mem_type omem>
+  explicit vector(fk::vector<P, omem, resrc> const &vec, int const start_index,
+                  int const stop_index);
 
   // overloads for default case - whole vector
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> &owner);
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
+           mem_type om_ = omem, typename = disable_for_const_view<om_>>
+  explicit vector(fk::vector<P, omem, resrc> &owner);
 
-  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> const &owner);
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
+           mem_type omem>
+  explicit vector(fk::vector<P, omem, resrc> const &owner);
 
   // create vector view from matrix
   // const view version
@@ -133,7 +137,8 @@ public:
   explicit vector(fk::matrix<P, omem, resrc> const &source, int const col_index,
                   int const row_start, int const row_stop);
   // modifiable view version
-  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
+           mem_type om_ = omem, typename = disable_for_const_view<om_>>
   explicit vector(fk::matrix<P, omem, resrc> &source, int const col_index,
                   int const row_start, int const row_stop);
 
@@ -320,10 +325,10 @@ public:
 private:
   // const/nonconst view constructors delegate to this private constructor
   // delegated is a dummy variable to enable resolution
-  template<mem_type m_ = mem, typename = enable_for_all_views<m_>>
-  explicit vector(fk::vector<P, mem_type::owner, resrc> const &vec,
-                  int const start_index, int const stop_index,
-                  bool const delegated);
+  template<mem_type m_ = mem, typename = enable_for_all_views<m_>,
+           mem_type omem>
+  explicit vector(fk::vector<P, omem, resrc> const &vec, int const start_index,
+                  int const stop_index, bool const delegated);
 
   // matrix view from vector owner constructors (both const/nonconst) delegate
   // to this private constructor, also with a dummy variable
@@ -357,23 +362,25 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
   matrix(std::initializer_list<std::initializer_list<P>> list);
 
-  // create const view from owner
-  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner,
-                  int const start_row, int const stop_row, int const start_col,
-                  int const stop_col);
-  // create modifiable view from owner
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
-                  int const start_row, int const stop_row, int const start_col,
-                  int const stop_col);
+  // create const view
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
+           mem_type omem>
+  explicit matrix(fk::matrix<P, omem, resrc> const &owner, int const start_row,
+                  int const stop_row, int const start_col, int const stop_col);
+  // create modifiable view
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
+           mem_type om_ = omem, typename = disable_for_const_view<om_>>
+  explicit matrix(fk::matrix<P, omem, resrc> &owner, int const start_row,
+                  int const stop_row, int const start_col, int const stop_col);
 
   // overloads for default case - whole matrix
-  template<mem_type m_ = mem, typename = enable_for_const_view<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner);
+  template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
+           mem_type omem>
+  explicit matrix(fk::matrix<P, omem, resrc> const &owner);
 
-  template<mem_type m_ = mem, typename = enable_for_view<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner, resrc> &owner);
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
+           mem_type om_ = omem, typename = disable_for_const_view<om_>>
+  explicit matrix(fk::matrix<P, omem, resrc> &owner);
 
   // create matrix view from vector
   // const view version
@@ -382,7 +389,8 @@ public:
   explicit matrix(fk::vector<P, omem, resrc> const &source, int const num_rows,
                   int const num_cols, int const start_index = 0);
   // modifiable view version
-  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem>
+  template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
+           mem_type om_ = omem, typename = disable_for_const_view<om_>>
   explicit matrix(fk::vector<P, omem, resrc> &source, int const num_rows,
                   int const num_cols, int const start_index = 0);
 
@@ -596,10 +604,11 @@ public:
 private:
   // matrix view constructors (both const/nonconst) delegate to this private
   // constructor delegated is a dummy variable to assist in overload resolution
-  template<mem_type m_ = mem, typename = enable_for_all_views<m_>>
-  explicit matrix(fk::matrix<P, mem_type::owner, resrc> const &owner,
-                  int const start_row, int const stop_row, int const start_col,
-                  int const stop_col, bool const delegated);
+  template<mem_type m_ = mem, typename = enable_for_all_views<m_>,
+           mem_type omem>
+  explicit matrix(fk::matrix<P, omem, resrc> const &owner, int const start_row,
+                  int const stop_row, int const start_col, int const stop_col,
+                  bool const delegated);
 
   // matrix view from vector owner constructors (both const/nonconst) delegate
   // to this private constructor, also with a dummy variable
@@ -854,18 +863,17 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P> const &mat)
 // vector view constructor given a start and stop index
 // modifiable view version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &vec,
+template<mem_type, typename, mem_type omem, mem_type, typename>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> &vec,
                                   int const start_index, int const stop_index)
     : vector(vec, start_index, stop_index, true)
 {}
 
 // const view version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(
-    fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
-    int const stop_index)
+template<mem_type, typename, mem_type omem>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &vec,
+                                  int const start_index, int const stop_index)
     : vector(vec, start_index, stop_index, true)
 {}
 
@@ -873,16 +881,15 @@ fk::vector<P, mem, resrc>::vector(
 // of viewing the entire owner
 // const view version
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(
-    fk::vector<P, mem_type::owner, resrc> const &a)
+template<mem_type, typename, mem_type omem>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &a)
     : vector(a, 0, std::max(0, a.size() - 1), true)
 {}
 
 // modifiable view version
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(fk::vector<P, mem_type::owner, resrc> &a)
+template<mem_type, typename, mem_type omem, mem_type, typename>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> &a)
     : vector(a, 0, std::max(0, a.size() - 1), true)
 {}
 
@@ -899,7 +906,7 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
 
 // modifiable view version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, mem_type omem>
+template<mem_type, typename, mem_type omem, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
                                   int const column_index, int const row_start,
                                   int const row_stop)
@@ -1520,10 +1527,10 @@ int fk::vector<P, mem, resrc>::get_num_views() const
 
 // const/nonconst view constructors delegate to this private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(
-    fk::vector<P, mem_type::owner, resrc> const &vec, int const start_index,
-    int const stop_index, bool const delegated)
+template<mem_type, typename, mem_type omem>
+fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &vec,
+                                  int const start_index, int const stop_index,
+                                  bool const delegated)
     : ref_count_{vec.ref_count_}
 {
   // ignore dummy argument to avoid compiler warnings
@@ -1638,18 +1645,18 @@ fk::matrix<P, mem, resrc>::matrix(
 // create view from owner - const view version
 // delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(
-    fk::matrix<P, mem_type::owner, resrc> const &owner, int const start_row,
-    int const stop_row, int const start_col, int const stop_col)
+template<mem_type, typename, mem_type omem>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
+                                  int const start_row, int const stop_row,
+                                  int const start_col, int const stop_col)
     : matrix(owner, start_row, stop_row, start_col, stop_col, true)
 {}
 
 // create view from owner - modifiable view version
 // delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
+template<mem_type, typename, mem_type omem, mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> &owner,
                                   int const start_row, int const stop_row,
                                   int const start_col, int const stop_col)
     : matrix(owner, start_row, stop_row, start_col, stop_col, true)
@@ -1657,16 +1664,15 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner,
 
 // overload for default case - whole matrix
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(
-    fk::matrix<P, mem_type::owner, resrc> const &owner)
+template<mem_type, typename, mem_type omem>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner)
     : matrix(owner, 0, std::max(0, owner.nrows() - 1), 0,
              std::max(0, owner.ncols() - 1), true)
 {}
 
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, mem_type::owner, resrc> &owner)
+template<mem_type, typename, mem_type omem, mem_type, typename>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> &owner)
     : matrix(owner, 0, std::max(0, owner.nrows() - 1), 0,
              std::max(0, owner.ncols() - 1), true)
 {}
@@ -1684,7 +1690,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
 // create matrix view of existing vector
 // modifiable view version - delegates to private constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, mem_type omem>
+template<mem_type, typename, mem_type omem, mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
@@ -2575,11 +2581,11 @@ int fk::matrix<P, mem, resrc>::get_num_views() const
 // public const/nonconst view constructors delegate to this private
 // constructor
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(
-    fk::matrix<P, mem_type::owner, resrc> const &owner, int const start_row,
-    int const stop_row, int const start_col, int const stop_col,
-    bool const delegated)
+template<mem_type, typename, mem_type omem>
+fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
+                                  int const start_row, int const stop_row,
+                                  int const start_col, int const stop_col,
+                                  bool const delegated)
     : ref_count_(owner.ref_count_)
 {
   ignore(delegated);
