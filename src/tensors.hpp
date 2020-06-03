@@ -2607,7 +2607,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
     data_   = owner.data(start_row, start_col);
     nrows_  = view_rows;
     ncols_  = view_cols;
-    stride_ = owner.nrows();
+    stride_ = owner.stride();
   }
 }
 
