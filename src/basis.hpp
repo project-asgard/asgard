@@ -59,6 +59,13 @@ public:
         basis::side const transform_side,
         basis::transpose const transform_trans) const;
 
+  // helper to apply fmwt to vectors
+  template<mem_type omem>
+  fk::vector<P, mem_type::owner, resrc>
+  apply(fk::vector<P, omem, resrc> const &coefficients, int const level,
+        basis::side const transform_side,
+        basis::transpose const transform_trans) const;
+
   // exposed for testing
   std::vector<fk::matrix<P, mem_type::owner, resrc>> const &get_blocks() const
   {

@@ -318,6 +318,12 @@ void test_fmwt_application(
       return matrix;
     }();
 
+    auto const to_transform_v = [&gen, degrees_freedom]() {
+      fk::vector<P> vector(degrees_freedom);
+      std::generate(vector.begin(), vector.end(), gen);
+      return vector;
+    }();
+
     auto const fmwt = operator_two_scale<P>(forward_transform.degree, level);
     auto const fmwt_transpose = fk::matrix<P>(fmwt).transpose();
 
@@ -325,6 +331,11 @@ void test_fmwt_application(
     auto const right_gold       = to_transform * fmwt;
     auto const left_trans_gold  = fmwt_transpose * to_transform;
     auto const right_trans_gold = to_transform * fmwt_transpose;
+
+    auto const left_gold_v        = fmwt * to_transform_v;
+    auto const right_gold_v       = to_transform_v * fmwt;
+    auto const left_trans_gold_v  = fmwt_transpose * to_transform_v;
+    auto const right_trans_gold_v = to_transform_v * fmwt_transpose;
 
     if constexpr (resrc == resource::host)
     {
@@ -337,10 +348,25 @@ void test_fmwt_application(
       auto const right_trans_test = forward_transform.apply(
           to_transform, level, basis::side::right, basis::transpose::trans);
 
+      auto const left_test_v = forward_transform.apply(
+          to_transform_v, level, basis::side::left, basis::transpose::no_trans);
+      auto const right_test_v =
+          forward_transform.apply(to_transform_v, level, basis::side::right,
+                                  basis::transpose::no_trans);
+      auto const left_trans_test_v = forward_transform.apply(
+          to_transform_v, level, basis::side::left, basis::transpose::trans);
+      auto const right_trans_test_v = forward_transform.apply(
+          to_transform_v, level, basis::side::right, basis::transpose::trans);
+
       rmse_comparison(left_test, left_gold, tol);
       rmse_comparison(right_test, right_gold, tol);
       rmse_comparison(left_trans_test, left_trans_gold, tol);
       rmse_comparison(right_trans_test, right_trans_gold, tol);
+
+      rmse_comparison(left_test_v, left_gold_v, tol);
+      rmse_comparison(right_test_v, right_gold_v, tol);
+      rmse_comparison(left_trans_test_v, left_trans_gold_v, tol);
+      rmse_comparison(right_trans_test_v, right_trans_gold_v, tol);
     }
     else
     {
@@ -363,10 +389,38 @@ void test_fmwt_application(
               .apply(transform_d, level, basis::side::right,
                      basis::transpose::trans)
               .clone_onto_host();
+
+      auto const transform_dv = to_transform_v.clone_onto_device();
+      auto const left_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::left,
+                     basis::transpose::no_trans)
+              .clone_onto_host();
+      auto const right_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::right,
+                     basis::transpose::no_trans)
+              .clone_onto_host();
+      auto const left_trans_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::left,
+                     basis::transpose::trans)
+              .clone_onto_host();
+      auto const right_trans_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::right,
+                     basis::transpose::trans)
+              .clone_onto_host();
+
       rmse_comparison(left_test, left_gold, tol);
       rmse_comparison(right_test, right_gold, tol);
       rmse_comparison(left_trans_test, left_trans_gold, tol);
       rmse_comparison(right_trans_test, right_trans_gold, tol);
+
+      rmse_comparison(left_test_dv, left_gold_v, tol);
+      rmse_comparison(right_test_dv, right_gold_v, tol);
+      rmse_comparison(left_trans_test_dv, left_trans_gold_v, tol);
+      rmse_comparison(right_trans_test_dv, right_trans_gold_v, tol);
     }
   }
 }
