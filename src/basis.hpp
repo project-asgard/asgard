@@ -53,9 +53,10 @@ public:
   wavelet_transform(int const max_level, int const degree);
 
   // apply the fmwt matrix to coefficients
+  template<mem_type omem>
   fk::matrix<P, mem_type::owner, resrc>
-  apply(fk::matrix<P, mem_type::owner, resrc> const &coefficients,
-        int const level, basis::side const transform_side,
+  apply(fk::matrix<P, omem, resrc> const &coefficients, int const level,
+        basis::side const transform_side,
         basis::transpose const transform_trans) const;
 
   // exposed for testing

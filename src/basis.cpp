@@ -715,19 +715,30 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
 }
 
 template<typename P, resource resrc>
+template<mem_type omem>
 fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
-    fk::matrix<P, mem_type::owner, resrc> const &coefficients, int const level,
+    fk::matrix<P, omem, resrc> const &coefficients, int const level,
     basis::side const transform_side,
     basis::transpose const transform_trans) const
 {
   assert(level > 1);
   assert(level <= max_level);
-  auto const coeffs_size = fm::two_raised_to(level) * degree;
-  assert(coefficients.nrows() == coeffs_size);
-  assert(coefficients.nrows() == coefficients.ncols());
+  auto const op_size = fm::two_raised_to(level) * degree;
 
-  fk::matrix<P, mem_type::owner, resrc> transformed(coefficients.nrows(),
-                                                    coefficients.ncols());
+  if (transform_side == basis::side::right)
+  {
+    assert(coefficients.ncols() == op_size);
+  }
+  else
+  {
+    assert(coefficients.nrows() == op_size);
+  }
+
+  int const rows_y =
+      transform_side == basis::side::left ? op_size : coefficients.nrows();
+  int const cols_y =
+      transform_side == basis::side::left ? coefficients.nrows() : op_size;
+  fk::matrix<P, mem_type::owner, resrc> transformed(rows_y, cols_y);
   // first, coarsest level
   auto const do_trans =
       transform_trans == basis::transpose::trans ? true : false;
@@ -739,8 +750,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     {
       fk::matrix<P, mem_type::const_view, resrc> const B(
           coefficients, 0, degree - 1, 0, coefficients.ncols() - 1);
-      fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
-                                             coefficients.nrows() - 1, 0,
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0, op_size - 1, 0,
                                              coefficients.ncols() - 1);
 
       fm::gemm(first_block, B, C, do_trans);
@@ -748,8 +758,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     else
     {
       fk::matrix<P, mem_type::const_view, resrc> const B(
-          coefficients, 0, coefficients.nrows() - 1, 0,
-          coefficients.ncols() - 1);
+          coefficients, 0, op_size - 1, 0, coefficients.ncols() - 1);
       fk::matrix<P, mem_type::view, resrc> C(transformed, 0, degree - 1, 0,
                                              coefficients.ncols() - 1);
 
@@ -761,8 +770,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     if (transform_trans == basis::transpose::trans)
     {
       fk::matrix<P, mem_type::const_view, resrc> const A(
-          coefficients, 0, coefficients.nrows() - 1, 0,
-          coefficients.ncols() - 1);
+          coefficients, 0, coefficients.nrows() - 1, 0, op_size - 1);
       fk::matrix<P, mem_type::view, resrc> C(
           transformed, 0, coefficients.nrows() - 1, 0, degree - 1);
 
@@ -772,9 +780,8 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     {
       fk::matrix<P, mem_type::const_view, resrc> const A(
           coefficients, 0, coefficients.nrows() - 1, 0, degree - 1);
-      fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
-                                             coefficients.nrows() - 1, 0,
-                                             coefficients.ncols() - 1);
+      fk::matrix<P, mem_type::view, resrc> C(
+          transformed, 0, coefficients.nrows() - 1, 0, op_size - 1);
 
       fm::gemm(A, first_block, C, false, do_trans);
     }
@@ -787,7 +794,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
   for (auto i = 0; i < level; ++i)
   {
     auto const num_cells = fm::two_raised_to(i);
-    auto const cell_size = coeffs_size / num_cells;
+    auto const cell_size = op_size / num_cells;
 
     auto const &current_block = dense_blocks_[block_offset + i * 2];
 
@@ -856,4 +863,72 @@ template class wavelet_transform<float, resource::host>;
 template class wavelet_transform<double, resource::host>;
 template class wavelet_transform<float, resource::device>;
 template class wavelet_transform<double, resource::device>;
+
+
+
+
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::matrix<double, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::matrix<float, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::device>
+wavelet_transform<double, resource::device>::apply(
+    fk::matrix<double, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::matrix<double, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::matrix<float, mem_type::const_view, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::device>
+wavelet_transform<double, resource::device>::apply(
+    fk::matrix<double, mem_type::const_view, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+
 } // namespace basis
