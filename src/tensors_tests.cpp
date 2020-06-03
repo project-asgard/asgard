@@ -68,6 +68,12 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     fk::vector<TestType> const test_2(mat_2);
     // fk::vector<TestType, mem_type::view> test_2_v(mat_2); // disabled
     REQUIRE(test_2 == gold_2);
+
+    // enable on device...
+    fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
+        mat.clone_onto_device());
+    fk::vector<TestType, mem_type::owner, resource::device> const vect_d(mat_d);
+    REQUIRE(vect_d.clone_onto_host() == gold);
   }
 
   SECTION("construct view from owner")
