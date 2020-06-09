@@ -224,7 +224,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
           bc_init, index, index + bc_advanced.size() - 1);
 
       TestType const tol_factor =
-          std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
+          std::is_same<TestType, double>::value ? 1e-17 : 1e-5;
       rmse_comparison(bc_section, bc_advanced, tol_factor);
 
       index += bc_advanced.size();
