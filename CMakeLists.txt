@@ -246,7 +246,7 @@ target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver 
                                     INTERFACE element_table)
 
 target_link_libraries (transformations
-  PRIVATE batch connectivity distribution matlab_utilities pde program_options
+  PRIVATE basis batch connectivity distribution matlab_utilities pde program_options
   quadrature tensors)
 
 # define the main application and its linking

@@ -934,7 +934,8 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   auto const plan     = get_plan(num_ranks, elem_table);
   auto const subgrid  = plan.at(my_rank);
 
-  generate_all_coefficients(pde);
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  generate_all_coefficients(pde, transformer);
 
   auto const vector_size = elem_table.size() * std::pow(degree, pde.num_dims);
   fk::vector<P> x(vector_size);

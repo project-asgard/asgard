@@ -28,9 +28,8 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
   options const o = make_options(args);
   element_table const table(o, pde.num_dims);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
-
-  // setup mock coefficients
-  generate_all_coefficients(pde);
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  generate_all_coefficients(pde, transformer);
 
   // setup x vector
   std::random_device rd;

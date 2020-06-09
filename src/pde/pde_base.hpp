@@ -79,49 +79,30 @@ public:
             std::string const name)
 
       : domain_min(domain_min), domain_max(domain_max),
-        initial_condition(initial_condition), name(name), degree_(degree)
+        initial_condition(initial_condition), name(name)
   {
     set_level(level);
+    set_degree(degree);
   }
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
-  fk::matrix<double> const &get_to_basis_operator() const
-  {
-    return to_basis_operator_;
-  }
-  fk::matrix<double> const &get_from_basis_operator() const
-  {
-    return from_basis_operator_;
-  }
 
 private:
   void set_level(int level)
   {
     assert(level > 1);
     level_         = level;
-    int const dofs = degree_ * fm::two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dofs, dofs) =
-        operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dofs, dofs) =
-        fk::matrix<double>(to_basis_operator_).transpose();
   }
 
   void set_degree(int degree)
   {
     assert(degree > 0);
     degree_        = degree;
-    int const dofs = degree_ * fm::two_raised_to(level_);
-    to_basis_operator_.clear_and_resize(dofs, dofs) =
-        operator_two_scale<double>(degree_, level_);
-    from_basis_operator_.clear_and_resize(dofs, dofs) =
-        fk::matrix<double>(to_basis_operator_).transpose();
   }
 
   int level_;
   int degree_;
-  fk::matrix<double> to_basis_operator_;
-  fk::matrix<double> from_basis_operator_;
 
   friend class PDE<P>;
 };

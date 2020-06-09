@@ -8,13 +8,14 @@
 template<typename P>
 using unscaled_bc_parts = std::vector<std::vector<std::vector<fk::vector<P>>>>;
 
+// FIXME refactor this component
 namespace boundary_conditions
 {
 template<typename P>
-std::array<unscaled_bc_parts<P>, 2>
-make_unscaled_bc_parts(PDE<P> const &pde, element_table const &table,
-                       int const start_element, int const stop_element,
-                       P const t_init = 0);
+std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
+    PDE<P> const &pde, element_table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const start_element, int const stop_element, P const t_init = 0);
 
 template<typename P>
 fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
@@ -35,11 +36,11 @@ compute_right_boundary_condition(g_func_type const g_func, P const time,
                                  vector_func<P> const bc_func);
 
 template<typename P>
-std::vector<fk::vector<P>>
-generate_partial_bcs(std::vector<dimension<P>> const &dimensions,
-                     int const d_index,
-                     std::vector<vector_func<P>> const &bc_funcs, P const time,
-                     std::vector<partial_term<P>> const &partial_terms,
-                     int const p_index, fk::vector<P> &&trace_bc);
+std::vector<fk::vector<P>> generate_partial_bcs(
+    std::vector<dimension<P>> const &dimensions, int const d_index,
+    std::vector<vector_func<P>> const &bc_funcs,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    P const time, std::vector<partial_term<P>> const &partial_terms,
+    int const p_index, fk::vector<P> &&trace_bc);
 
 } // namespace boundary_conditions

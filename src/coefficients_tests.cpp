@@ -16,7 +16,9 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
                                     "_d" + std::to_string(degree) + "_";
 
   P const time = 1.0;
-  generate_all_coefficients(pde, time, rotate);
+
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  generate_all_coefficients(pde, transformer, time, rotate);
 
   for (int t = 0; t < pde.num_terms; ++t)
   {

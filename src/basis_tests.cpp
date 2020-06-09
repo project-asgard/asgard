@@ -66,7 +66,8 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
 
   SECTION("Multiwavelet generation, degree = 1")
   {
@@ -101,7 +102,7 @@ void test_operator_two_scale(int const levels, int const degree)
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  P const tol_factor = std::is_same_v<P, double> ? 1e-13 : 1e-8;
+  P const tol_factor = 1e-14;
 
   rmse_comparison(gold, test, tol_factor);
 }
@@ -139,66 +140,6 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
     int const degree = 2;
     int const levels = 6;
     test_operator_two_scale<TestType>(levels, degree);
-  }
-}
-
-template<typename P>
-void test_apply_fmwt(int const levels, int const degree)
-{
-  int const degrees_freedom = degree * pow(2, levels);
-
-  P tol_factor = std::is_same<P, double>::value ? 1e-14 : 1e-5;
-
-  std::random_device rd;
-  std::mt19937 mersenne_engine(rd());
-  std::uniform_real_distribution<P> dist(-2.0, 2.0);
-  auto const gen = [&dist, &mersenne_engine]() {
-    return dist(mersenne_engine);
-  };
-  fk::matrix<P> const to_transform = [&gen, degrees_freedom]() {
-    fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
-    std::generate(matrix.begin(), matrix.end(), gen);
-    return matrix;
-  }();
-
-  fk::matrix<P> const fmwt = operator_two_scale<P>(degree, levels);
-
-  auto const left_gold = fmwt * to_transform;
-  auto const left_test = apply_left_fmwt<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(left_test, left_gold, tol_factor);
-
-  fk::matrix<P> const fmwt_transpose  = fk::matrix<P>(fmwt).transpose();
-  fk::matrix<P> const left_trans_gold = fmwt_transpose * to_transform;
-  auto const left_trans_test =
-      apply_left_fmwt_transposed<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(left_trans_test, left_trans_gold, tol_factor);
-
-  auto const right_gold = to_transform * fmwt;
-  auto const right_test =
-      apply_right_fmwt<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(right_test, right_gold, tol_factor);
-
-  auto const right_trans_gold = to_transform * fmwt_transpose;
-  auto const right_trans_test =
-      apply_right_fmwt_transposed<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(right_trans_test, right_trans_gold, tol_factor);
-}
-
-TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
-{
-  // compare optimized apply fmwt against full matrix multiplication
-  SECTION("degree=2 levels=2")
-  {
-    int const degree = 2;
-    int const levels = 2;
-    test_apply_fmwt<TestType>(levels, degree);
-  }
-
-  SECTION("degree=4, levels=5")
-  {
-    int degree = 4;
-    int levels = 5;
-    test_apply_fmwt<TestType>(levels, degree);
   }
 }
 

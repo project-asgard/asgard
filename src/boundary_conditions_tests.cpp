@@ -16,7 +16,8 @@ void test_boundary_condition_vector(PDE<P> &pde,
   element_table table(make_options({"-l", std::to_string(level)}),
                       pde.num_dims);
 
-  generate_all_coefficients<P>(pde);
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  generate_all_coefficients<P>(pde, transformer);
 
   /* initialize bc vector at test_time */
   P const test_time = 0;
@@ -25,8 +26,8 @@ void test_boundary_condition_vector(PDE<P> &pde,
   int const stop_element  = table.size() - 1;
 
   std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
-      boundary_conditions::make_unscaled_bc_parts(pde, table, start_element,
-                                                  stop_element);
+      boundary_conditions::make_unscaled_bc_parts(pde, table, transformer,
+                                                  start_element, stop_element);
 
   fk::vector<P> bc_advanced = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, start_element, stop_element,
@@ -49,7 +50,12 @@ void test_compute_boundary_condition(PDE<P> &pde,
                                      std::string gold_filename_prefix,
                                      P const tol_factor)
 {
-  generate_all_coefficients<P>(pde);
+  dimension<P> const &d = pde.get_dimensions()[0];
+  int const level       = d.get_level();
+  int const degree      = d.get_degree();
+
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  generate_all_coefficients<P>(pde, transformer);
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
@@ -148,7 +154,9 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     element_table table(make_options({"-l", std::to_string(level)}),
                         pde->num_dims);
 
-    generate_all_coefficients<TestType>(*pde);
+    basis::wavelet_transform<TestType, resource::host> const transformer(
+        level, degree);
+    generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */
     TestType const test_time = 5;
@@ -156,8 +164,8 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const stop_element   = table.size() - 1;
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_1 =
-        boundary_conditions::make_unscaled_bc_parts(*pde, table, start_element,
-                                                    stop_element, test_time);
+        boundary_conditions::make_unscaled_bc_parts(
+            *pde, table, transformer, start_element, stop_element, test_time);
 
     fk::vector<TestType> const bc_advanced_1 =
         boundary_conditions::generate_scaled_bc(
@@ -165,8 +173,8 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
             stop_element, test_time);
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
-        boundary_conditions::make_unscaled_bc_parts(*pde, table, start_element,
-                                                    stop_element);
+        boundary_conditions::make_unscaled_bc_parts(
+            *pde, table, transformer, start_element, stop_element);
 
     fk::vector<TestType> const bc_advanced_0 =
         boundary_conditions::generate_scaled_bc(
@@ -190,7 +198,9 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     element_table table(make_options({"-l", std::to_string(level)}),
                         pde->num_dims);
 
-    generate_all_coefficients<TestType>(*pde);
+    basis::wavelet_transform<TestType, resource::host> const transformer(
+        level, degree);
+    generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */
     TestType const test_time = 0;
@@ -199,8 +209,9 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const stop_element_0  = table.size() - 1;
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
-        boundary_conditions::make_unscaled_bc_parts(
-            *pde, table, start_element_0, stop_element_0, test_time);
+        boundary_conditions::make_unscaled_bc_parts(*pde, table, transformer,
+                                                    start_element_0,
+                                                    stop_element_0, test_time);
 
     fk::vector<TestType> const bc_init =
         boundary_conditions::generate_scaled_bc(
@@ -213,7 +224,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     {
       std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts =
           boundary_conditions::make_unscaled_bc_parts(
-              *pde, table, table_element, table_element);
+              *pde, table, transformer, table_element, table_element);
 
       fk::vector<TestType> const bc_advanced =
           boundary_conditions::generate_scaled_bc(
