@@ -230,7 +230,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 {
   TestType const cfl = 0.003;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
 
   SECTION("diffusion2, explicit, sparse grid, level 2, degree 2")
   {
@@ -277,7 +277,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
 {
   TestType const cfl = 0.003;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-4;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
 
   SECTION("diffusion1, explicit, sparse grid, level 2, degree 2")
   {
@@ -323,7 +323,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
   SECTION("continuity1, explicit, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -365,7 +365,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-17 : 1e-7;
   SECTION("continuity2, explicit, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -407,7 +407,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
   SECTION("continuity3, explicit, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -437,7 +437,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
   SECTION("continuity6, level 2, degree 3, sparse grid")
   {
@@ -456,7 +456,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
                    float, double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
 
   SECTION("fokkerplanck_1d_4p2, level 2, degree 2, sparse grid")
   {
@@ -475,7 +475,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
                    float, double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
   SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
   {
@@ -495,7 +495,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
                    float, double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
   SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
   {
@@ -518,7 +518,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
   /* FIXME - these tolerances are way too high. Different parameters are likely
      being used for gold data generation than here */
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-1 : 1e-1;
+      std::is_same<TestType, double>::value ? 1e-6 : 1e-4;
 
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {
@@ -542,7 +542,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 {
   TestType const cfl = 0.003;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
 
   SECTION("diffusion1, implicit, sparse grid, level 2, degree 2")
   {
@@ -590,7 +590,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
   TestType const cfl = 0.003;
 
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
 
   SECTION("diffusion2, implicit, sparse grid, level 2, degree 2")
   {
@@ -636,7 +636,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
   bool const full_grid = false;
 
   SECTION("continuity1, level 2, degree 2, sparse grid")
@@ -684,7 +684,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
   bool const full_grid = false;
 
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -716,7 +716,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     int const level  = 4;
     double const cfl = 0.01;
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
+        std::is_same<TestType, double>::value ? 1e-14 : 1e-7;
 
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity2_implicit_l4_d3_t";

@@ -864,7 +864,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
   batched_gemv(a_batch, x_batch, y_batch, alpha, beta);
 
-  P const tol_factor = 1e-14;
+  P const tol_factor = 1e-17;
   for (int i = 0; i < num_batch; ++i)
   {
     if constexpr (resrc == resource::host)

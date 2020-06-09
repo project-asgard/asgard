@@ -942,17 +942,15 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
-
   for (int i = 0; i < num_batch; ++i)
   {
     if constexpr (resrc == resource::host)
     {
-      rmse_comparison(effect_c(matrices[2][i]), effect_c(matrices[3][i]),
-                      tol_factor);
+      REQUIRE(effect_c(matrices[2][i]) == effect_c(matrices[3][i]));
     }
     else
     {
+      P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
       rmse_comparison(effect_c(matrices[2][i].clone_onto_host()),
                       effect_c(matrices[3][i].clone_onto_host()), tol_factor);
     }
@@ -1165,7 +1163,8 @@ void test_batched_gemv(int const m, int const n, int const lda,
   {
     if constexpr (resrc == resource::host)
     {
-      rmse_comparison(vectors[1][i], vectors[2][i], tol_factor);
+      ignore(tol_factor);
+      REQUIRE(vectors[1][i] == vectors[2][i]);
     }
     else
     {
@@ -1180,7 +1179,7 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
                        (double, resource::host), (double, resource::device),
                        (float, resource::host), (float, resource::device))
 {
-  TestType const tol_factor = 1e-13;
+  TestType const tol_factor = 1e-18;
 
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {
@@ -1266,7 +1265,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
                        x.data(), &ldb, &info);
 
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+        std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
     REQUIRE(info == 0);
     rmse_comparison(A_copy, LU_gold, tol_factor);

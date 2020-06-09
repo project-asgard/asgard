@@ -66,8 +66,7 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
 
   SECTION("Multiwavelet generation, degree = 1")
   {
@@ -102,7 +101,7 @@ void test_operator_two_scale(int const levels, int const degree)
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  P const tol_factor = 1e-14;
+  P const tol_factor = std::is_same_v<P, double> ? 1e-13 : 1e-8;
 
   rmse_comparison(gold, test, tol_factor);
 }
@@ -148,7 +147,7 @@ void test_apply_fmwt(int const levels, int const degree)
 {
   int const degrees_freedom = degree * pow(2, levels);
 
-  P tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+  P tol_factor = std::is_same<P, double>::value ? 1e-14 : 1e-5;
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());

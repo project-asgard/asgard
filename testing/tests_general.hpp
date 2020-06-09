@@ -21,43 +21,35 @@ template<typename P, mem_type mem, mem_type omem>
 void rmse_comparison(fk::vector<P, mem> const &v0,
                      fk::vector<P, omem> const &v1, P const tolerance)
 {
-  P const diff_norm = fm::nrm2(v0 - v1);
+  auto const diff_norm = fm::nrm2(v0 - v1);
 
-  auto const avg_element = [](auto const &v) -> P {
-    P sum = 0;
-    for (P const num : v)
-    {
-      sum += num;
-    }
-
-    return sum / static_cast<P>(v.size());
+  auto const abs_compare = [](auto const a, auto const b) {
+    return (std::abs(a) < std::abs(b));
   };
 
-  P const max_avg_element =
-      std::max(static_cast<P>(1.0), std::max(avg_element(v0), avg_element(v1)));
-  REQUIRE(diff_norm < (tolerance * max_avg_element * std::sqrt(v0.size())));
+  auto const max = std::max(
+      static_cast<P>(1.0),
+      std::max(std::abs(*std::max_element(v0.begin(), v0.end(), abs_compare)),
+               std::abs(*std::max_element(v1.begin(), v1.end(), abs_compare))));
+
+  REQUIRE((diff_norm / max) < (tolerance * std::sqrt(v0.size())));
 }
 
 template<typename P, mem_type mem, mem_type omem>
 void rmse_comparison(fk::matrix<P, mem> const &m0,
                      fk::matrix<P, omem> const &m1, P const tolerance)
 {
-  P const diff_norm = fm::frobenius(m0 - m1);
+  auto const diff_norm = fm::frobenius(m0 - m1);
 
-  auto const avg_element = [](auto const &m) -> P {
-    P sum = 0;
-    for (P const num : m)
-    {
-      sum += std::abs(num);
-    }
-
-    return sum / static_cast<P>(m.size());
+  auto const abs_compare = [](auto const a, auto const b) {
+    return (std::abs(a) < std::abs(b));
   };
+  auto const max = std::max(
+      static_cast<P>(1.0),
+      std::max(std::abs(*std::max_element(m0.begin(), m0.end(), abs_compare)),
+               std::abs(*std::max_element(m1.begin(), m1.end(), abs_compare))));
 
-  P const max_avg_element =
-      std::max(static_cast<P>(1.0), std::max(avg_element(m0), avg_element(m1)));
-
-  REQUIRE(diff_norm < (tolerance * max_avg_element * std::sqrt(m0.size())));
+  REQUIRE((diff_norm / max) < (tolerance * std::sqrt(m0.size())));
 }
 
 // Someday I should come up with a more elegant solution here
