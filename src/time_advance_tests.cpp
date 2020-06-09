@@ -495,7 +495,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
                    float, double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
 
   SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
   {
