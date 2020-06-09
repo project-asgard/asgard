@@ -523,8 +523,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
 {
   /* FIXME - these tolerances are way too high. Different parameters are likely
      being used for gold data generation than here */
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-6 : 1e-4;
+  TestType const tol_factor = std::is_same<TestType, double>::value ? 1e-6 : 1;
 
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {

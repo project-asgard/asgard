@@ -41,7 +41,7 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/diffusion2/coefficients";
 
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-15 : 1e-4;
 
   SECTION("level 2, degree 2")
   {
@@ -79,7 +79,7 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/diffusion1/coefficients";
 
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-15 : 1e-4;
 
   SECTION("level 2, degree 2")
   {
@@ -125,7 +125,7 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/continuity1/coefficients";
 
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-15 : 1e-6;
 
   test_coefficients<TestType>(*pde, gold_path, tol_factor);
 }
@@ -138,7 +138,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/continuity2_coefficients";
 
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-15 : 1e-6;
 
   test_coefficients(*pde, gold_path, tol_factor);
 }
@@ -152,7 +152,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms - norotate", "[coefficients]", double,
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "continuity3_coefficients_norotate";
   bool const rotate         = false;
-  TestType const tol_factor = 1e-16;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-16 : 1e-6;
 
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
@@ -165,7 +165,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/continuity3_coefficients";
   bool const rotate         = true;
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-15 : 1e-5;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -178,7 +178,7 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
       "../testing/generated-inputs/coefficients/continuity6_coefficients";
   bool const rotate = true;
 
-  TestType const tol_factor = 1e-15;
+  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-15 : 1e-5;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -191,7 +191,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms", "[coefficients]", double, float)
                                 "fokkerplanck1_4p2_coefficients";
   bool const rotate = true;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -205,7 +205,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p2 terms - norotate", "[coefficients]",
                                 "fokkerplanck1_4p2_coefficients_norotate";
   bool const rotate = false;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-4;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -218,7 +218,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
                                 "fokkerplanck1_4p3_coefficients";
   bool const rotate = false;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -231,7 +231,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
                                 "fokkerplanck1_4p4_coefficients";
   bool const rotate = false;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -244,7 +244,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
                                 "fokkerplanck1_4p5_coefficients";
   bool const rotate = false;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -259,7 +259,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
                                 "fokkerplanck2_complete_coefficients";
   bool const rotate = true;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-13 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-13 : 1e-3;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
@@ -275,6 +275,6 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
                                 "fokkerplanck2_complete_coefficients_norotate";
   bool const rotate = false;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
