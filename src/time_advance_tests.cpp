@@ -277,7 +277,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
 {
   TestType const cfl = 0.003;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-4;
 
   SECTION("diffusion1, explicit, sparse grid, level 2, degree 2")
   {

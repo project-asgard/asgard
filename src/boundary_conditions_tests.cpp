@@ -223,7 +223,9 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);
 
-      REQUIRE(bc_section == bc_advanced);
+      TestType const tol_factor =
+          std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
+      rmse_comparison(bc_section, bc_advanced, tol_factor);
 
       index += bc_advanced.size();
     }
