@@ -92,6 +92,7 @@ int main(int argc, char **argv)
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
              << '\n';
 
+  node_out() << "  generating: basis operator..." << '\n';
   basis::wavelet_transform<prec, resource::host> const transformer(
       opts.get_max_level(), opts.get_degree());
 

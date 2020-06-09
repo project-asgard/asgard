@@ -1,5 +1,5 @@
 #include "basis.hpp"
-
+#include "distribution.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
@@ -490,7 +490,15 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
     block_builder[j * 2].clear_and_resize(degree, block_ncols) = h_block;
   }
 
+  // how much space are we using?
+  auto const num_elems = std::accumulate(
+      block_builder.begin(), block_builder.end(), 0,
+      [](int const sum, auto const matrix) { return sum + matrix.size(); });
+
+  node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
+             << '\n';
   // copy to device if necessary
+
   assert(block_builder.size() == dense_blocks_.size());
   for (auto i = 0; i < static_cast<int>(block_builder.size()); ++i)
   {
