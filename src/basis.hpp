@@ -13,25 +13,6 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree);
 template<typename P>
 fk::matrix<P> operator_two_scale(int const degree, int const num_levels);
 
-template<typename P>
-fk::matrix<P> apply_left_fmwt(fk::matrix<P> const &fmwt,
-                              fk::matrix<P> const &coefficient_matrix,
-                              int const kdeg, int const num_levels);
-template<typename P>
-fk::matrix<P>
-apply_left_fmwt_transposed(fk::matrix<P> const &fmwt,
-                           fk::matrix<P> const &coefficient_matrix,
-                           int const kdeg, int const num_levels);
-template<typename P>
-fk::matrix<P> apply_right_fmwt(fk::matrix<P> const &fmwt,
-                               fk::matrix<P> const &coefficient_matrix,
-                               int const kdeg, int const num_levels);
-template<typename P>
-fk::matrix<P>
-apply_right_fmwt_transposed(fk::matrix<P> const &fmwt,
-                            fk::matrix<P> const &coefficient_matrix,
-                            int const kdeg, int const num_levels);
-
 // FIXME add above to namespace
 namespace basis
 {
@@ -59,7 +40,7 @@ public:
         basis::side const transform_side,
         basis::transpose const transform_trans) const;
 
-  // helper to apply fmwt to vectors
+  // shim to apply fmwt to vectors
   template<mem_type omem>
   fk::vector<P, mem_type::owner, resrc>
   apply(fk::vector<P, omem, resrc> const &coefficients, int const level,

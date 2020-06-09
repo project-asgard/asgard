@@ -52,6 +52,7 @@ TEST_CASE("options constructor/getters", "[options]")
   {
     int const def_level          = -1;
     int const def_degree         = -1;
+    int const def_max_level      = 12;
     int const def_num_steps      = 10;
     int const def_write_freq     = 0;
     int const def_realspace_freq = 0;
@@ -65,6 +66,7 @@ TEST_CASE("options constructor/getters", "[options]")
 
     REQUIRE(o.get_degree() == def_degree);
     REQUIRE(o.get_level() == def_level);
+    REQUIRE(o.get_max_level() == def_max_level);
     REQUIRE(o.get_time_steps() == def_num_steps);
     REQUIRE(o.get_write_frequency() == def_write_freq);
     REQUIRE(o.get_realspace_output_freq() == def_realspace_freq);
@@ -104,6 +106,14 @@ TEST_CASE("options constructor/getters", "[options]")
   {
     std::cerr.setstate(std::ios_base::failbit);
     options o = make_options({"asgard", "-d=-2"});
+    std::cerr.clear();
+    REQUIRE(!o.is_valid());
+  }
+
+  SECTION("max level < starting level")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    options o = make_options({"asgard", "-l=3", "-m=2"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }

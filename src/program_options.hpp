@@ -24,8 +24,9 @@ private:
   // FIXME level and degree are unique to dimensions, will
   // need to support inputting level and degree per dimensions
   // in future
-  int level  = -1; // resolution. -1 loads default in pde
-  int degree = -1; // deg of legendre basis polys. -1 loads default in pde
+  int level     = -1; // resolution. -1 loads default in pde
+  int degree    = -1; // deg of legendre basis polys. -1 loads default in pde
+  int max_level = 12; // max adaptivity level for any given dimension.
   int num_time_steps = 10; // number of time loop iterations
   int write_frequency =
       0; // write wavelet space output every this many iterations
@@ -55,6 +56,7 @@ public:
   void update_level(int const level) { this->level = level; }
   int get_degree() const;
   void update_degree(int const degree) { this->degree = degree; }
+  int get_max_level() const;
   int get_time_steps() const;
   int get_write_frequency() const;
   bool using_implicit() const;
