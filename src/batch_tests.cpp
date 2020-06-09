@@ -971,7 +971,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   }
   x.transfer_from(batch_space.output);
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-5;
+  P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-4;
   rmse_comparison(gold, x, tol_factor);
 }
 
