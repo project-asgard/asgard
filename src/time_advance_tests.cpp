@@ -124,6 +124,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path))
             .extract(subgrid.col_start * segment_size,
                      (subgrid.col_stop + 1) * segment_size - 1);
+
     rmse_comparison(gold, f_val, tol_factor);
   }
 }
@@ -512,28 +513,63 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
   }
 }
 
+/* Explicit time advance is not a fruitful approach to this problem */
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
                    float, double)
 {
   /* FIXME - these tolerances are way too high. Different parameters are likely
      being used for gold data generation than here */
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-9 : 1e-4;
-
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {
-    int const level  = 2;
+    int const level  = 3;
     int const degree = 3;
-    double const cfl = 1e-10;
+
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-13 : 1e-4;
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_e_sg_l2_d3_t";
+                                  "fokkerplanck2_complete_implicit_sg_l3_d3_t";
+
     auto pde =
         make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
     bool const full_grid = false;
 
-    time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
+  }
+
+  SECTION("fokkerplanck_2d_complete, level 4, degree 3, sparse grid")
+  {
+    int const level  = 4;
+    int const degree = 3;
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+    bool const full_grid = false;
+
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-11 : 1e1;
+
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck2_complete_implicit_sg_l4_d3_t";
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
+  }
+
+  SECTION("fokkerplanck_2d_complete, level 5, degree 3, sparse grid")
+  {
+    int const level  = 5;
+    int const degree = 3;
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+    bool const full_grid = false;
+
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-11 : 1e1;
+
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck2_complete_implicit_sg_l5_d3_t";
+    implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
+                               full_grid, tol_factor);
   }
 }
 

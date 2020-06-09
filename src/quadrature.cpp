@@ -365,8 +365,8 @@ legendre(fk::vector<double> const domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
-legendre_weights(int const degree, float const lower_bound, float const upper_bound,
-                 bool const use_degree_points);
+legendre_weights(int const degree, float const lower_bound,
+                 float const upper_bound, bool const use_degree_points);
 template std::array<fk::vector<double>, 2>
-legendre_weights(int const degree, double const lower_bound, double const upper_bound,
-                 bool const use_degree_points);
+legendre_weights(int const degree, double const lower_bound,
+                 double const upper_bound, bool const use_degree_points);

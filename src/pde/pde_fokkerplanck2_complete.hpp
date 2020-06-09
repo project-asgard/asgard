@@ -11,8 +11,8 @@
 #include <typeinfo>
 #include <vector>
 
-#include "../tensors.hpp"
 #include "../quadrature.hpp"
+#include "../tensors.hpp"
 #include "pde_base.hpp"
 
 // ---------------------------------------------------------------------------
@@ -121,52 +121,46 @@ private:
     P h = 20.0 / N;
     P Q = 0;
 
-    auto function =
-    [] ( fk::vector< P > const &p ) -> fk::vector< P >
-    {
-      fk::vector< P > transformed( p );
-      std::transform( p.begin(), p.end(), transformed.begin(),
-                      []( P const p_elem )-> P
-                      {
-                        return std::exp( -2 / std::pow( delta, 2 ) * 
-                                         std::sqrt( 1 + std::pow( delta, 2 ) * 
-                                                    std::pow( p_elem, 2 ) ) );
-                      }
-                    );
+    auto function = [](fk::vector<P> const &p) -> fk::vector<P> {
+      fk::vector<P> transformed(p);
+      std::transform(p.begin(), p.end(), transformed.begin(),
+                     [](P const p_elem) -> P {
+                       return std::exp(-2 / std::pow(delta, 2) *
+                                       std::sqrt(1 + std::pow(delta, 2) *
+                                                         std::pow(p_elem, 2)));
+                     });
 
-     return transformed;
+      return transformed;
     };
 
-    for( int i = 0; i < N; ++i )
+    for (int i = 0; i < N; ++i)
     {
       P const x_0 = i * h;
-      P const x_1 = ( i + 1 ) * h;
+      P const x_1 = (i + 1) * h;
 
       /* Matlab uses 20 points - even though this is probably not the degree,
-         putting 20 for the degree argument and "true" for use_degree_points forces consistency */
-      std::array< fk::vector< P >, 2 > rw =
-      legendre_weights<P>( 20, x_0, x_1, true );
+         putting 20 for the degree argument and "true" for use_degree_points
+         forces consistency */
+      std::array<fk::vector<P>, 2> rw = legendre_weights<P>(20, x_0, x_1, true);
 
-      fk::vector< P > transformed = function( rw[ 0 ] );
+      fk::vector<P> transformed = function(rw[0]);
 
-      std::transform( rw[ 0 ].begin(), rw[ 0 ].end(), transformed.begin(), transformed.begin(),
-                      []( P const root, P const t_elem ) -> P
-                      {
-                        return std::pow( root, 2 ) * t_elem;
-                      });
+      std::transform(rw[0].begin(), rw[0].end(), transformed.begin(),
+                     transformed.begin(),
+                     [](P const root, P const t_elem) -> P {
+                       return std::pow(root, 2) * t_elem;
+                     });
 
-      std::transform( rw[ 1 ].begin(), rw[ 1 ].end(), transformed.begin(), transformed.begin(), 
-                      []( P const weight, P const t_elem )-> P
-                      {
-                        return weight * t_elem;
-                      });
+      std::transform(
+          rw[1].begin(), rw[1].end(), transformed.begin(), transformed.begin(),
+          [](P const weight, P const t_elem) -> P { return weight * t_elem; });
 
-      Q += std::accumulate( transformed.begin(), transformed.end(), 0.0 );
+      Q += std::accumulate(transformed.begin(), transformed.end(), 0.0);
     }
 
-    fk::vector<P> ret = function( x );
+    fk::vector<P> ret = function(x);
 
-    ret.scale( 1 / ( 2 * Q ) );
+    ret.scale(1 / (2 * Q));
 
     return ret;
   }
@@ -181,18 +175,23 @@ private:
   }
 
   // p dimension
+  inline static P const p_domain_min = 0;
+  inline static P const p_domain_max = 20;
+
   inline static dimension<P> const dim_p =
-      dimension<P>(0.0,                 // domain min
-                   10.0,                // domain max
+      dimension<P>(p_domain_min,        // domain min
+                   p_domain_max,        // domain max
                    2,                   // levels
                    2,                   // degree
                    initial_condition_p, // initial condition
                    "p");                // name
 
   // z dimension
+  inline static P const z_domain_min = -1;
+  inline static P const z_domain_max = 1;
   inline static dimension<P> const dim_z =
-      dimension<P>(-1.0,                // domain min
-                   +1.0,                // domain max
+      dimension<P>(z_domain_min,        // domain min
+                   z_domain_max,        // domain max
                    2,                   // levels
                    2,                   // degree
                    initial_condition_z, // initial condition
@@ -258,10 +257,10 @@ private:
       partial_term<P>(coefficient_type::mass, c1_g1);
   inline static partial_term<P> const c1_pterm2 = partial_term<P>(
       coefficient_type::grad, c1_g2, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::neumann);
-  inline static partial_term<P> const c1_pterm3 = partial_term<P>(
-      coefficient_type::grad, c1_g3, flux_type::downwind,
-      boundary_condition::neumann, boundary_condition::dirichlet);
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  inline static partial_term<P> const c1_pterm3 =
+      partial_term<P>(coefficient_type::grad, c1_g3, flux_type::downwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const c1_term_p =
@@ -295,9 +294,9 @@ private:
   // 1. create partial_terms
   inline static partial_term<P> const c2_pterm1 =
       partial_term<P>(coefficient_type::mass, c2_g1);
-  inline static partial_term<P> const c2_pterm2 = partial_term<P>(
-      coefficient_type::grad, c2_g2, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::dirichlet);
+  inline static partial_term<P> const c2_pterm2 =
+      partial_term<P>(coefficient_type::grad, c2_g2, flux_type::downwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const c2_term_p =
@@ -374,7 +373,7 @@ private:
   static P e1_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return -E * x;
+    return -1 * x;
   }
   static P e1_g2(P const x, P const time = 0)
   {
@@ -385,7 +384,7 @@ private:
   static P e1_g3(P const x, P const time = 0)
   {
     ignore(time);
-    return std::pow(x, 2);
+    return E * std::pow(x, 2);
   }
 
   // 1. create partial_terms
@@ -393,9 +392,9 @@ private:
       partial_term<P>(coefficient_type::mass, e1_g1);
   inline static partial_term<P> const e1_pterm2 =
       partial_term<P>(coefficient_type::mass, e1_g2);
-  inline static partial_term<P> const e1_pterm3 = partial_term<P>(
-      coefficient_type::grad, e1_g3, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::dirichlet);
+  inline static partial_term<P> const e1_pterm3 =
+      partial_term<P>(coefficient_type::grad, e1_g3, flux_type::central,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const e1_term_p =
@@ -422,19 +421,19 @@ private:
   static P e2_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return -E * x;
+    return -1 / x;
   }
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return 1.0 - std::pow(x, 2);
+    return E * (1.0 - std::pow(x, 2));
   }
 
   // 1. create partial_terms
   inline static partial_term<P> const e2_pterm1 =
       partial_term<P>(coefficient_type::mass, e2_g1);
   inline static partial_term<P> const e2_pterm2 =
-      partial_term<P>(coefficient_type::grad, e2_g2, flux_type::central,
+      partial_term<P>(coefficient_type::grad, e2_g2, flux_type::upwind,
                       boundary_condition::neumann, boundary_condition::neumann);
 
   // 2. combine partial terms into single dimension term
@@ -485,9 +484,9 @@ private:
   // 1. create partial_terms
   inline static partial_term<P> const r1_pterm1 =
       partial_term<P>(coefficient_type::mass, r1_g1);
-  inline static partial_term<P> const r1_pterm2 = partial_term<P>(
-      coefficient_type::grad, r1_g2, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::dirichlet);
+  inline static partial_term<P> const r1_pterm2 =
+      partial_term<P>(coefficient_type::grad, r1_g2, flux_type::upwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
   inline static partial_term<P> const r1_pterm3 =
       partial_term<P>(coefficient_type::mass, r1_g3);
 
