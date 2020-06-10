@@ -100,7 +100,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
 
   SECTION("transform(2, 2, -1, 1, double)")
   {
@@ -206,7 +206,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
 TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-8 : 1e-2;
+      std::is_same<TestType, double>::value ? 1e-11 : 1e-6;
 
   SECTION("wavelet_to_realspace_1")
   {
@@ -265,7 +265,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
                    float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-10 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-12 : 1e-7;
 
   SECTION("gen_realspace_transform_1")
   {

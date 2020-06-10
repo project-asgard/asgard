@@ -173,9 +173,8 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
             unscaled_parts_0[0], unscaled_parts_0[1], *pde, start_element,
             stop_element, test_time);
 
-    // empirically determined 5/27 BTM
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+        std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
     rmse_comparison(bc_advanced_0, bc_advanced_1, tol_factor);
   }
 
@@ -224,9 +223,8 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);
 
-      // empirically determined 5/27 BTM
       TestType const tol_factor =
-          std::is_same<TestType, double>::value ? 1e-15 : 1e-3;
+          std::is_same<TestType, double>::value ? 1e-17 : 1e-4;
       rmse_comparison(bc_section, bc_advanced, tol_factor);
 
       index += bc_advanced.size();
@@ -284,7 +282,7 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
                    float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-10 : 1e-3;
+      std::is_same<TestType, double>::value ? 1e-13 : 1e-6;
 
   SECTION("diffusion_1 level 2 degree 2")
   {

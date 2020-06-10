@@ -4,8 +4,6 @@
 #include "tests_general.hpp"
 #include <vector>
 
-// determined empirically 11/19
-// lowest epsilon multiplier for which component tests pass
 static auto const pde_eps_multiplier = 1e2;
 
 template<typename P>

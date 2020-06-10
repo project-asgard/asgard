@@ -96,7 +96,7 @@ int main(int argc, char **argv)
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(get_rank());
 
-  // -- generate initial condition vector.
+  // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
 
   fk::vector<prec> const initial_condition = [&pde, &table, &subgrid,
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
         *pde, v_functions, table, subgrid.col_start, subgrid.col_stop, degree);
   }();
 
-  // -- generate source vectors.
+  // -- generate source vectors
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
   node_out() << "  generating: source vectors..." << '\n';

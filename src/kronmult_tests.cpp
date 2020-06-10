@@ -75,9 +75,8 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
 
 TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
 {
-  // determined empirically 5/26
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-13 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
 
   SECTION("1d")
   {
@@ -109,9 +108,8 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
 
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
 {
-  // determined empirically 5/26
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-12 : 1e-4;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
 
   SECTION("2d")
   {

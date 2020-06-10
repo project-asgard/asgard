@@ -40,9 +40,11 @@ public:
     {
       assert(flops > 0);
       auto const gflops = flops / 1e9;
-      assert(dur > 0.0);
+      assert(dur >= 0.0);
+
       auto const gflops_per_sec =
-          gflops / (static_cast<double>(dur) * 1e-6); // to seconds
+          dur == 0.0 ? std::numeric_limits<double>::infinity()
+                     : gflops / (static_cast<double>(dur) * 1e-6); // to seconds
 
       insert(id_to_flops_, identifier, gflops_per_sec);
       assert(id_to_times_.count(identifier) == id_to_flops_.count(identifier));
