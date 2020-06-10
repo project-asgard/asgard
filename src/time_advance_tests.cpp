@@ -443,7 +443,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
 
   SECTION("continuity6, level 2, degree 3, sparse grid")
   {
