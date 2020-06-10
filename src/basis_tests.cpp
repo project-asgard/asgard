@@ -1,9 +1,20 @@
+#include "distribution.hpp"
 #include "matlab_utilities.hpp"
 #include "pde.hpp"
 #include "tests_general.hpp"
 #include "transformations.hpp"
 #include <numeric>
 #include <random>
+
+struct distribution_test_init
+{
+  distribution_test_init() { initialize_distribution(); }
+  ~distribution_test_init() { finalize_distribution(); }
+};
+
+#ifdef asgard_use_mpi
+static distribution_test_init const distrib_test_info;
+#endif
 
 template<typename P>
 void test_multiwavelet_gen(int const degree, P const tol_factor)
