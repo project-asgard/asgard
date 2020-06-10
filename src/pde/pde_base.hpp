@@ -92,13 +92,13 @@ private:
   void set_level(int level)
   {
     assert(level > 1);
-    level_         = level;
+    level_ = level;
   }
 
   void set_degree(int degree)
   {
     assert(degree > 0);
-    degree_        = degree;
+    degree_ = degree;
   }
 
   int level_;
