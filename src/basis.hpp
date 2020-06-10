@@ -13,21 +13,58 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree);
 template<typename P>
 fk::matrix<P> operator_two_scale(int const degree, int const num_levels);
 
-template<typename P>
-fk::matrix<P> apply_left_fmwt(fk::matrix<P> const &fmwt,
-                              fk::matrix<P> const &coefficient_matrix,
-                              int const kdeg, int const num_levels);
-template<typename P>
-fk::matrix<P>
-apply_left_fmwt_transposed(fk::matrix<P> const &fmwt,
-                           fk::matrix<P> const &coefficient_matrix,
-                           int const kdeg, int const num_levels);
-template<typename P>
-fk::matrix<P> apply_right_fmwt(fk::matrix<P> const &fmwt,
-                               fk::matrix<P> const &coefficient_matrix,
-                               int const kdeg, int const num_levels);
-template<typename P>
-fk::matrix<P>
-apply_right_fmwt_transposed(fk::matrix<P> const &fmwt,
-                            fk::matrix<P> const &coefficient_matrix,
-                            int const kdeg, int const num_levels);
+// FIXME add above to namespace
+namespace basis
+{
+enum class side
+{
+  left,
+  right
+};
+enum class transpose
+{
+  no_trans,
+  trans
+};
+
+template<typename P, resource resrc>
+class wavelet_transform
+{
+public:
+  wavelet_transform(int const max_level, int const degree,
+                    bool const quiet = true);
+
+  // apply the fmwt matrix to coefficients
+  template<mem_type omem>
+  fk::matrix<P, mem_type::owner, resrc>
+  apply(fk::matrix<P, omem, resrc> const &coefficients, int const level,
+        basis::side const transform_side,
+        basis::transpose const transform_trans) const;
+
+  // shim to apply fmwt to vectors
+  template<mem_type omem>
+  fk::vector<P, mem_type::owner, resrc>
+  apply(fk::vector<P, omem, resrc> const &coefficients, int const level,
+        basis::side const transform_side,
+        basis::transpose const transform_trans) const;
+
+  // exposed for testing
+  std::vector<fk::matrix<P, mem_type::owner, resrc>> const &get_blocks() const
+  {
+    return dense_blocks_;
+  }
+
+  int const max_level;
+  int const degree;
+
+private:
+  // dense regions of the transform operator. store all for every level up to
+  // max_level. each level contains all dense_blocks_ from lower levels, except
+  // for one level-unique block. blocks are stored as (unique blocks for levels
+  // 0 -> max_level | max level blocks)
+  std::vector<fk::matrix<P, mem_type::owner, resrc>>
+      dense_blocks_; // FIXME may eventually change to
+                     // vector of views of larger matrix
+};
+
+} // namespace basis

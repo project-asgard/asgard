@@ -17,32 +17,36 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
                int const index = 0);
 
 template<typename P>
-std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
-
-template<typename P>
-std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde);
+std::vector<fk::matrix<P>> gen_realspace_transform(
+    PDE<P> const &pde,
+    basis::wavelet_transform<P, resource::host> const &transformer);
 
 template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
-    element_table const &table, int const memory_limit_MB,
+    element_table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space);
+
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
-// get only the elements of the combined vector that fall within a specified
-// range
+// overload - get only the elements of the combined vector that fall within a
+// specified range
 template<typename P>
 fk::vector<P>
 combine_dimensions(int const, element_table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
-fk::vector<P>
-forward_transform(dimension<P> const &dim, F function, P const t = 0)
+fk::vector<P> forward_transform(
+    dimension<P> const &dim, F function,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    P const t = 0)
 {
   int const num_levels = dim.get_level();
   int const degree     = dim.get_degree();
@@ -50,6 +54,7 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
   P const domain_max   = dim.domain_max;
 
   assert(num_levels > 1);
+  assert(num_levels <= transformer.max_level);
   assert(degree > 0);
   assert(domain_max > domain_min);
 
@@ -57,8 +62,6 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
   // that will accept a vector argument. we have a check for its
   // return below
   static_assert(std::is_invocable_v<decltype(function), fk::vector<P>, P>);
-
-  fk::matrix<P> const forward_trans(dim.get_to_basis_operator());
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
@@ -112,7 +115,9 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
   transformed = transformed * (normalize / 2.0);
 
   // transfer to multi-DG bases
-  transformed = forward_trans * transformed;
+  transformed =
+      transformer.apply(transformed, dim.get_level(), basis::side::left,
+                        basis::transpose::no_trans);
 
   // zero out near-zero values resulting from transform to wavelet space
   std::transform(transformed.begin(), transformed.end(), transformed.begin(),
@@ -131,11 +136,11 @@ forward_transform(dimension<P> const &dim, F function, P const t = 0)
 }
 
 template<typename P>
-inline fk::vector<P>
-transform_and_combine_dimensions(PDE<P> const &pde,
-                                 std::vector<vector_func<P>> const &v_functions,
-                                 element_table const &table, int const start,
-                                 int const stop, int const degree)
+inline fk::vector<P> transform_and_combine_dimensions(
+    PDE<P> const &pde, std::vector<vector_func<P>> const &v_functions,
+    element_table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const start, int const stop, int const degree)
 {
   assert(static_cast<int>(v_functions.size()) == pde.num_dims);
   assert(start <= stop);
@@ -147,8 +152,8 @@ transform_and_combine_dimensions(PDE<P> const &pde,
 
   for (int i = 0; i < pde.num_dims; ++i)
   {
-    dimension_components.push_back(
-        forward_transform<P>(pde.get_dimensions()[i], v_functions[i]));
+    dimension_components.push_back(forward_transform<P>(
+        pde.get_dimensions()[i], v_functions[i], transformer));
   }
 
   return combine_dimensions(degree, table, start, stop, dimension_components);

@@ -86,7 +86,9 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 /* given a pde, for each dimension create a matrix where the columns are
    legendre basis functions evaluated at the roots */
 template<typename P>
-std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
+std::vector<fk::matrix<P>> gen_realspace_transform(
+    PDE<P> const &pde,
+    basis::wavelet_transform<P, resource::host> const &transformer)
 {
   /* contains a basis matrix for each dimension */
   std::vector<fk::matrix<P>> real_space_transform;
@@ -117,8 +119,9 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
       int const diagonal_pos = d.get_degree() * j;
       dimension_transform.set_submatrix(diagonal_pos, diagonal_pos, basis);
     }
-    real_space_transform.push_back(dimension_transform *
-                                   fk::matrix<P>(d.get_from_basis_operator()));
+    real_space_transform.push_back(transformer.apply(dimension_transform, level,
+                                                     basis::side::right,
+                                                     basis::transpose::trans));
   }
   return real_space_transform;
 }
@@ -126,7 +129,9 @@ std::vector<fk::matrix<P>> gen_realspace_transform(PDE<P> const &pde)
 template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
-    element_table const &table, int const memory_limit_MB,
+    element_table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space)
 {
@@ -139,7 +144,7 @@ void wavelet_to_realspace(
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(pde);
+      gen_realspace_transform(pde, transformer);
 
   /* Assume the degree in the first dimension is equal across all the remaining
    */
@@ -249,21 +254,27 @@ template fk::matrix<float>
 recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
                int const index);
 
-template std::vector<fk::matrix<double>>
-gen_realspace_transform(PDE<double> const &pde);
+template std::vector<fk::matrix<double>> gen_realspace_transform(
+    PDE<double> const &pde,
+    basis::wavelet_transform<double, resource::host> const &transformer);
 
-template std::vector<fk::matrix<float>>
-gen_realspace_transform(PDE<float> const &pde);
+template std::vector<fk::matrix<float>> gen_realspace_transform(
+    PDE<float> const &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
 
 template void wavelet_to_realspace(
     PDE<double> const &pde, fk::vector<double> const &wave_space,
-    element_table const &table, int const memory_limit_MB,
+    element_table const &table,
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    int const memory_limit_MB,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
     fk::vector<double> &real_space);
 template void wavelet_to_realspace(
     PDE<float> const &pde, fk::vector<float> const &wave_space,
-    element_table const &table, int const memory_limit_MB,
+    element_table const &table,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    int const memory_limit_MB,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<float> &real_space);
 

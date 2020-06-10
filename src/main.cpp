@@ -92,6 +92,11 @@ int main(int argc, char **argv)
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
              << '\n';
 
+  node_out() << "  generating: basis operator..." << '\n';
+  bool const quiet = false;
+  basis::wavelet_transform<prec, resource::host> const transformer(
+      opts.get_max_level(), opts.get_degree(), quiet);
+
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(get_rank());
@@ -99,8 +104,8 @@ int main(int argc, char **argv)
   // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
 
-  fk::vector<prec> const initial_condition = [&pde, &table, &subgrid,
-                                              degree]() {
+  fk::vector<prec> const initial_condition = [&pde, &table, &transformer,
+                                              &subgrid, degree]() {
     std::vector<vector_func<prec>> v_functions;
 
     for (dimension<prec> const &dim : pde->get_dimensions())
@@ -108,37 +113,38 @@ int main(int argc, char **argv)
       v_functions.push_back(dim.initial_condition);
     }
 
-    return transform_and_combine_dimensions(
-        *pde, v_functions, table, subgrid.col_start, subgrid.col_stop, degree);
+    return transform_and_combine_dimensions(*pde, v_functions, table,
+                                            transformer, subgrid.col_start,
+                                            subgrid.col_stop, degree);
   }();
 
   // -- generate source vectors
   // these will be scaled later according to the simulation time applied
   // with their own time-scaling functions
   node_out() << "  generating: source vectors..." << '\n';
-  std::vector<fk::vector<prec>> const initial_sources = [&pde, &table, &subgrid,
-                                                         degree]() {
-    std::vector<fk::vector<prec>> initial_sources;
+  std::vector<fk::vector<prec>> const initial_sources =
+      [&pde, &table, &transformer, &subgrid, degree]() {
+        std::vector<fk::vector<prec>> initial_sources;
 
-    for (source<prec> const &source : pde->sources)
-    {
-      initial_sources.push_back(transform_and_combine_dimensions(
-          *pde, source.source_funcs, table, subgrid.row_start, subgrid.row_stop,
-          degree));
-    }
-    return initial_sources;
-  }();
+        for (source<prec> const &source : pde->sources)
+        {
+          initial_sources.push_back(transform_and_combine_dimensions(
+              *pde, source.source_funcs, table, transformer, subgrid.row_start,
+              subgrid.row_stop, degree));
+        }
+        return initial_sources;
+      }();
 
   // -- generate analytic solution vector.
   node_out() << "  generating: analytic solution at t=0 ..." << '\n';
 
-  fk::vector<prec> const analytic_solution = [&pde, &table, &subgrid,
-                                              degree]() {
+  fk::vector<prec> const analytic_solution = [&pde, &table, &transformer,
+                                              &subgrid, degree]() {
     if (pde->has_analytic_soln)
     {
-      return transform_and_combine_dimensions(*pde, pde->exact_vector_funcs,
-                                              table, subgrid.col_start,
-                                              subgrid.col_stop, degree);
+      return transform_and_combine_dimensions(
+          *pde, pde->exact_vector_funcs, table, transformer, subgrid.col_start,
+          subgrid.col_stop, degree);
     }
     else
     {
@@ -149,8 +155,7 @@ int main(int argc, char **argv)
   // -- generate and store coefficient matrices.
 
   node_out() << "  generating: coefficient matrices..." << '\n';
-
-  generate_all_coefficients<prec>(*pde);
+  generate_all_coefficients<prec>(*pde, transformer);
 
   /* generate boundary condition vectors */
   /* these will be scaled later similarly to the source vectors */
@@ -158,7 +163,7 @@ int main(int argc, char **argv)
 
   std::array<unscaled_bc_parts<prec>, 2> unscaled_parts =
       boundary_conditions::make_unscaled_bc_parts(
-          *pde, table, subgrid.row_start, subgrid.row_stop);
+          *pde, table, transformer, subgrid.row_start, subgrid.row_stop);
 
   // this is to bail out for further profiling/development on the setup routines
   if (opts.get_time_steps() < 1)

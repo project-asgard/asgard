@@ -1,9 +1,20 @@
+#include "distribution.hpp"
 #include "matlab_utilities.hpp"
 #include "pde.hpp"
 #include "tests_general.hpp"
 #include "transformations.hpp"
 #include <numeric>
 #include <random>
+
+struct distribution_test_init
+{
+  distribution_test_init() { initialize_distribution(); }
+  ~distribution_test_init() { finalize_distribution(); }
+};
+
+#ifdef ASGARD_USE_MPI
+static distribution_test_init const distrib_test_info;
+#endif
 
 template<typename P>
 void test_multiwavelet_gen(int const degree, P const tol_factor)
@@ -66,7 +77,8 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
 
   SECTION("Multiwavelet generation, degree = 1")
   {
@@ -101,7 +113,7 @@ void test_operator_two_scale(int const levels, int const degree)
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  P const tol_factor = std::is_same_v<P, double> ? 1e-13 : 1e-8;
+  P const tol_factor = 1e-14;
 
   rmse_comparison(gold, test, tol_factor);
 }
@@ -142,12 +154,105 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
   }
 }
 
-template<typename P>
-void test_apply_fmwt(int const levels, int const degree)
+template<typename P, resource resrc>
+void test_fmwt_block_generation(int const level, int const degree)
 {
-  int const degrees_freedom = degree * pow(2, levels);
+  P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-14;
 
-  P tol_factor = std::is_same<P, double>::value ? 1e-14 : 1e-5;
+  std::cerr.setstate(std::ios_base::failbit);
+  basis::wavelet_transform<P, resrc> const forward_transform(level, degree);
+
+  auto const &blocks = forward_transform.get_blocks();
+
+  // check odd/non-level unique blocks
+  for (auto i = 1; i < level + 1; ++i)
+  {
+    std::string const gold_str =
+        "../testing/generated-inputs/basis/transform_blocks_l" +
+        std::to_string(level) + "_d" + std::to_string(degree) + "_" +
+        std::to_string(i + 1) + ".dat";
+    auto const gold   = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
+    auto const &block = blocks[(i - 1) * 2 + 1];
+    if constexpr (resrc == resource::host)
+    {
+      rmse_comparison(gold, block, tol);
+    }
+    else
+    {
+      rmse_comparison(gold, block.clone_onto_host(), tol);
+    }
+  }
+
+  // check even/level unique blocks
+  for (auto i = 0; i < 2 * level; i += 2)
+  {
+    std::string const gold_str =
+        "../testing/generated-inputs/basis/transform_blocks_l" +
+        std::to_string((level - i / 2)) + "_d" + std::to_string(degree) + "_" +
+        "1.dat";
+    auto const gold   = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
+    auto const &block = blocks[i];
+    if constexpr (resrc == resource::host)
+    {
+      rmse_comparison(gold, block, tol);
+    }
+    else
+    {
+      rmse_comparison(gold, block.clone_onto_host(), tol);
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
+
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
+{
+  SECTION("level 2 degree 2")
+  {
+    auto const degree = 2;
+    auto const levels = 2;
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 2 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 2;
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 5 degree 2")
+  {
+    auto const degree = 2;
+    auto const levels = 5;
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 5 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 5;
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 12 degree 2")
+  {
+    auto const degree = 2;
+    auto const levels = 12;
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 12 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 12;
+    test_fmwt_block_generation<TestType, resrc>(levels, degree);
+  }
+}
+
+// tests transform across all supported levels
+template<typename P, resource resrc>
+void test_fmwt_application(
+    basis::wavelet_transform<P, resrc> const &forward_transform)
+{
+  P constexpr tol = std::is_same<P, double>::value ? 1e-15 : 1e-5;
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());
@@ -155,49 +260,177 @@ void test_apply_fmwt(int const levels, int const degree)
   auto const gen = [&dist, &mersenne_engine]() {
     return dist(mersenne_engine);
   };
-  fk::matrix<P> const to_transform = [&gen, degrees_freedom]() {
-    fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
-    std::generate(matrix.begin(), matrix.end(), gen);
-    return matrix;
-  }();
 
-  fk::matrix<P> const fmwt = operator_two_scale<P>(degree, levels);
+  for (auto level = 2; level <= forward_transform.max_level; ++level)
+  {
+    auto const degrees_freedom =
+        fm::two_raised_to(level) * forward_transform.degree;
+    auto const to_transform = [&gen, degrees_freedom]() {
+      fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
+      std::generate(matrix.begin(), matrix.end(), gen);
+      return matrix;
+    }();
 
-  auto const left_gold = fmwt * to_transform;
-  auto const left_test = apply_left_fmwt<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(left_test, left_gold, tol_factor);
+    auto const to_transform_v = [&gen, degrees_freedom]() {
+      fk::vector<P> vector(degrees_freedom);
+      std::generate(vector.begin(), vector.end(), gen);
+      return vector;
+    }();
 
-  fk::matrix<P> const fmwt_transpose  = fk::matrix<P>(fmwt).transpose();
-  fk::matrix<P> const left_trans_gold = fmwt_transpose * to_transform;
-  auto const left_trans_test =
-      apply_left_fmwt_transposed<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(left_trans_test, left_trans_gold, tol_factor);
+    auto const fmwt = operator_two_scale<P>(forward_transform.degree, level);
+    auto const fmwt_transpose = fk::matrix<P>(fmwt).transpose();
 
-  auto const right_gold = to_transform * fmwt;
-  auto const right_test =
-      apply_right_fmwt<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(right_test, right_gold, tol_factor);
+    auto const left_gold        = fmwt * to_transform;
+    auto const right_gold       = to_transform * fmwt;
+    auto const left_trans_gold  = fmwt_transpose * to_transform;
+    auto const right_trans_gold = to_transform * fmwt_transpose;
 
-  auto const right_trans_gold = to_transform * fmwt_transpose;
-  auto const right_trans_test =
-      apply_right_fmwt_transposed<P>(fmwt, to_transform, degree, levels);
-  rmse_comparison(right_trans_test, right_trans_gold, tol_factor);
+    auto const left_gold_v        = fmwt * to_transform_v;
+    auto const right_gold_v       = to_transform_v * fmwt;
+    auto const left_trans_gold_v  = fmwt_transpose * to_transform_v;
+    auto const right_trans_gold_v = to_transform_v * fmwt_transpose;
+
+    if constexpr (resrc == resource::host)
+    {
+      auto const left_test = forward_transform.apply(
+          to_transform, level, basis::side::left, basis::transpose::no_trans);
+      auto const right_test = forward_transform.apply(
+          to_transform, level, basis::side::right, basis::transpose::no_trans);
+      auto const left_trans_test = forward_transform.apply(
+          to_transform, level, basis::side::left, basis::transpose::trans);
+      auto const right_trans_test = forward_transform.apply(
+          to_transform, level, basis::side::right, basis::transpose::trans);
+
+      auto const left_test_v = forward_transform.apply(
+          to_transform_v, level, basis::side::left, basis::transpose::no_trans);
+      auto const right_test_v =
+          forward_transform.apply(to_transform_v, level, basis::side::right,
+                                  basis::transpose::no_trans);
+      auto const left_trans_test_v = forward_transform.apply(
+          to_transform_v, level, basis::side::left, basis::transpose::trans);
+      auto const right_trans_test_v = forward_transform.apply(
+          to_transform_v, level, basis::side::right, basis::transpose::trans);
+
+      rmse_comparison(left_test, left_gold, tol);
+      rmse_comparison(right_test, right_gold, tol);
+      rmse_comparison(left_trans_test, left_trans_gold, tol);
+      rmse_comparison(right_trans_test, right_trans_gold, tol);
+
+      rmse_comparison(left_test_v, left_gold_v, tol);
+      rmse_comparison(right_test_v, right_gold_v, tol);
+      rmse_comparison(left_trans_test_v, left_trans_gold_v, tol);
+      rmse_comparison(right_trans_test_v, right_trans_gold_v, tol);
+    }
+    else
+    {
+      auto const transform_d = to_transform.clone_onto_device();
+      auto const left_test   = forward_transform
+                                 .apply(transform_d, level, basis::side::left,
+                                        basis::transpose::no_trans)
+                                 .clone_onto_host();
+      auto const right_test = forward_transform
+                                  .apply(transform_d, level, basis::side::right,
+                                         basis::transpose::no_trans)
+                                  .clone_onto_host();
+      auto const left_trans_test =
+          forward_transform
+              .apply(transform_d, level, basis::side::left,
+                     basis::transpose::trans)
+              .clone_onto_host();
+      auto const right_trans_test =
+          forward_transform
+              .apply(transform_d, level, basis::side::right,
+                     basis::transpose::trans)
+              .clone_onto_host();
+
+      auto const transform_dv = to_transform_v.clone_onto_device();
+      auto const left_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::left,
+                     basis::transpose::no_trans)
+              .clone_onto_host();
+      auto const right_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::right,
+                     basis::transpose::no_trans)
+              .clone_onto_host();
+      auto const left_trans_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::left,
+                     basis::transpose::trans)
+              .clone_onto_host();
+      auto const right_trans_test_dv =
+          forward_transform
+              .apply(transform_dv, level, basis::side::right,
+                     basis::transpose::trans)
+              .clone_onto_host();
+
+      rmse_comparison(left_test, left_gold, tol);
+      rmse_comparison(right_test, right_gold, tol);
+      rmse_comparison(left_trans_test, left_trans_gold, tol);
+      rmse_comparison(right_trans_test, right_trans_gold, tol);
+
+      rmse_comparison(left_test_dv, left_gold_v, tol);
+      rmse_comparison(right_test_dv, right_gold_v, tol);
+      rmse_comparison(left_trans_test_dv, left_trans_gold_v, tol);
+      rmse_comparison(right_trans_test_dv, right_trans_gold_v, tol);
+    }
+  }
 }
 
-TEMPLATE_TEST_CASE("apply_fmwt", "[apply_fmwt]", double, float)
+TEMPLATE_TEST_CASE_SIG("wavelet transform", "[basis]",
+
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       (double, resource::host), (double, resource::device),
+                       (float, resource::host), (float, resource::device))
 {
-  // compare optimized apply fmwt against full matrix multiplication
-  SECTION("degree=2 levels=2")
+  SECTION("level 2 degree 2")
   {
-    int const degree = 2;
-    int const levels = 2;
-    test_apply_fmwt<TestType>(levels, degree);
+    auto const degree = 2;
+    auto const levels = 2;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 2 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 2;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 5 degree 3")
+  {
+    auto const degree = 3;
+    auto const levels = 5;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 5 degree 6")
+  {
+    auto const degree = 6;
+    auto const levels = 5;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
   }
 
-  SECTION("degree=4, levels=5")
+  SECTION("level 8 degree 4")
   {
-    int degree = 4;
-    int levels = 5;
-    test_apply_fmwt<TestType>(levels, degree);
+    auto const degree = 4;
+    auto const levels = 8;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
+  }
+  SECTION("level 8 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 8;
+    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
+                                                                      degree);
+    test_fmwt_application<TestType, resrc>(forward_transform);
   }
 }

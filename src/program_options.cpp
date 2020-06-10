@@ -23,6 +23,8 @@ options::options(int argc, char **argv)
           "Solver to use (direct or gmres) for implicit advance") |
       clara::detail::Opt(level, "level")["-l"]["--level"](
           "Hierarchical levels (resolution)") |
+      clara::detail::Opt(level, "max level")["-m"]["--max_level"](
+          "Maximum hierarchical levels (resolution) for adaptivity") |
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
           "Number of iterations") |
       clara::detail::Opt(selected_pde, "selected_pde")["-p"]["--pde"](
@@ -64,6 +66,11 @@ options::options(int argc, char **argv)
   if (level < 2 && level != -1)
   {
     std::cerr << "Level must be greater than one" << '\n';
+    valid = false;
+  }
+  if (max_level < level)
+  {
+    std::cerr << "Maximum level must be greater than starting level" << '\n';
     valid = false;
   }
   if (num_time_steps < 1)
@@ -140,6 +147,7 @@ options::options(int argc, char **argv)
 
 int options::get_level() const { return level; }
 int options::get_degree() const { return degree; }
+int options::get_max_level() const { return max_level; }
 int options::get_time_steps() const { return num_time_steps; }
 int options::get_write_frequency() const { return write_frequency; }
 bool options::using_implicit() const { return use_implicit_stepping; }

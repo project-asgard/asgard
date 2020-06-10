@@ -1,5 +1,5 @@
 #include "basis.hpp"
-
+#include "distribution.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
@@ -420,176 +420,6 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
-/*
- * the general implementation of apply_fmwt(). Users access it through the
- * helpers at the bottom of the file (and as defined in the header file)
- */
-template<typename P>
-fk::matrix<P>
-apply_fmwt(fk::matrix<P> const &fmwt, fk::matrix<P> const &coefficient_matrix,
-           int const kdegree, int const num_levels, bool const fmwt_left,
-           bool const fmwt_trans)
-{
-  assert(num_levels > 1);
-  assert(kdegree > 0);
-
-  int const n_col = kdegree * pow(2, num_levels);
-  int row_start   = 0;
-  int row_end     = 2 * kdegree - 1;
-  int col_start   = 0;
-  int col_end     = n_col - 1;
-
-  fk::matrix<P> product(n_col, n_col);
-
-  // section of fmwt used for first multiplication
-  fk::matrix<P, mem_type::const_view> const fmwt_sub1(fmwt, 0, row_end, 0,
-                                                      col_end);
-
-  if (fmwt_left)
-  {
-    if (fmwt_trans)
-    {
-      fk::matrix<P, mem_type::const_view> const coefficient_view(
-          coefficient_matrix, 0, row_end, 0, col_end);
-      fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
-                                                    col_end);
-      fm::gemm(fmwt_sub1, coefficient_view, partial_product, fmwt_trans);
-    }
-    else
-    {
-      fk::matrix<P, mem_type::const_view> const coefficient_view(
-          coefficient_matrix, 0, col_end, 0, col_end);
-      fk::matrix<P, mem_type::view> partial_product(product, 0, row_end, 0,
-                                                    col_end);
-      fm::gemm(fmwt_sub1, coefficient_view, partial_product);
-    }
-  }
-  else
-  {
-    if (fmwt_trans)
-    {
-      fk::matrix<P, mem_type::const_view> const coefficient_view(
-          coefficient_matrix, 0, col_end, 0, col_end);
-      fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
-                                                    row_end);
-      bool const coeffs_trans = false;
-      fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeffs_trans,
-               fmwt_trans);
-    }
-    else
-    {
-      fk::matrix<P, mem_type::const_view> const coefficient_view(
-          coefficient_matrix, 0, col_end, 0, row_end);
-      fk::matrix<P, mem_type::view> partial_product(product, 0, col_end, 0,
-                                                    col_end);
-      fm::gemm(coefficient_view, fmwt_sub1, partial_product);
-    }
-  }
-
-  row_start = 2 * kdegree;
-  for (int i_lev = 1; i_lev < num_levels; i_lev++)
-  {
-    int ncells = pow(2, i_lev);
-    int isize  = n_col / ncells;
-
-    for (int icell = 0; icell < ncells; icell++)
-    {
-      row_end   = row_start + kdegree - 1;
-      col_start = icell * isize;
-      col_end   = col_start + isize - 1;
-      fk::matrix<P, mem_type::const_view> const fmwt_sub1(
-          fmwt, row_start, row_end, col_start, col_end);
-      P const alpha          = 1.0;
-      P const beta           = 1.0;
-      bool const coeff_trans = false;
-
-      if (fmwt_left)
-      {
-        if (fmwt_trans)
-        {
-          fk::matrix<P, mem_type::const_view> const coefficient_view(
-              coefficient_matrix, row_start, row_end, 0, n_col - 1);
-          fk::matrix<P, mem_type::view> partial_product(product, col_start,
-                                                        col_end, 0, n_col - 1);
-          fm::gemm(fmwt_sub1, coefficient_view, partial_product, fmwt_trans,
-                   coeff_trans, alpha, beta);
-        }
-        else
-        {
-          fk::matrix<P, mem_type::const_view> const coefficient_view(
-              coefficient_matrix, col_start, col_end, 0, n_col - 1);
-          fk::matrix<P, mem_type::view> partial_product(product, row_start,
-                                                        row_end, 0, n_col - 1);
-          fm::gemm(fmwt_sub1, coefficient_view, partial_product, fmwt_trans,
-                   coeff_trans, alpha, beta);
-        }
-      }
-      else
-      {
-        if (fmwt_trans)
-        {
-          fk::matrix<P, mem_type::const_view> const coefficient_view(
-              coefficient_matrix, 0, n_col - 1, col_start, col_end);
-          fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
-                                                        row_start, row_end);
-          fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeff_trans,
-                   fmwt_trans, alpha, beta);
-        }
-        else
-        {
-          fk::matrix<P, mem_type::const_view> const coefficient_view(
-              coefficient_matrix, 0, n_col - 1, row_start, row_end);
-          fk::matrix<P, mem_type::view> partial_product(product, 0, n_col - 1,
-                                                        col_start, col_end);
-          fm::gemm(coefficient_view, fmwt_sub1, partial_product, coeff_trans,
-                   fmwt_trans, alpha, beta);
-        }
-      }
-      row_start = row_end + 1;
-    }
-  }
-
-  return product;
-}
-
-/*
- * These are the user-facing functions for apply_fmwt()
- */
-template<typename P>
-fk::matrix<P> apply_left_fmwt(fk::matrix<P> const &fmwt,
-                              fk::matrix<P> const &coefficient_matrix,
-                              int const kdegree, int const num_levels)
-{
-  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, true, false);
-}
-
-template<typename P>
-fk::matrix<P> apply_right_fmwt(fk::matrix<P> const &fmwt,
-                               fk::matrix<P> const &coefficient_matrix,
-                               int const kdegree, int const num_levels)
-{
-  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, false,
-                    false);
-}
-
-template<typename P>
-fk::matrix<P>
-apply_left_fmwt_transposed(fk::matrix<P> const &fmwt,
-                           fk::matrix<P> const &coefficient_matrix,
-                           int const kdegree, int const num_levels)
-{
-  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, true, true);
-}
-
-template<typename P>
-fk::matrix<P>
-apply_right_fmwt_transposed(fk::matrix<P> const &fmwt,
-                            fk::matrix<P> const &coefficient_matrix,
-                            int const kdegree, int const num_levels)
-{
-  return apply_fmwt(fmwt, coefficient_matrix, kdegree, num_levels, false, true);
-}
-
 template std::array<fk::matrix<double>, 6>
 generate_multi_wavelets(int const degree);
 template std::array<fk::matrix<float>, 6>
@@ -600,38 +430,344 @@ operator_two_scale(int const degree, int const num_levels);
 template fk::matrix<float>
 operator_two_scale(int const degree, int const num_levels);
 
-template fk::matrix<double>
-apply_left_fmwt(fk::matrix<double> const &fmwt,
-                fk::matrix<double> const &coefficient_matrix, int const kdeg,
-                int const num_levels);
-template fk::matrix<float>
-apply_left_fmwt(fk::matrix<float> const &fmwt,
-                fk::matrix<float> const &coefficient_matrix, int const kdeg,
-                int const num_levels);
+namespace basis
+{
+template<typename P, resource resrc>
+wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
+                                               int const degree,
+                                               bool const quiet)
+    : max_level(max_level), degree(degree), dense_blocks_(max_level * 2)
+{
+  assert(max_level > 1);
+  assert(degree > 0);
 
-template fk::matrix<double>
-apply_left_fmwt_transposed(fk::matrix<double> const &fmwt,
-                           fk::matrix<double> const &coefficient_matrix,
-                           int const kdeg, int const num_levels);
-template fk::matrix<float>
-apply_left_fmwt_transposed(fk::matrix<float> const &fmwt,
-                           fk::matrix<float> const &coefficient_matrix,
-                           int const kdeg, int const num_levels);
+  // this is to get around unused warnings
+  // because can't unpack only some args w structured binding (until
+  // c++20)
+  auto const ignore = [](auto ignored) { (void)ignored; };
+  auto const [h0, h1, g0, g1, phi_co, scale_co] =
+      generate_multi_wavelets<P>(degree);
+  ignore(phi_co);
+  ignore(scale_co);
 
-template fk::matrix<double>
-apply_right_fmwt(fk::matrix<double> const &fmwt,
-                 fk::matrix<double> const &coefficient_matrix, int const kdeg,
-                 int const num_levels);
-template fk::matrix<float>
-apply_right_fmwt(fk::matrix<float> const &fmwt,
-                 fk::matrix<float> const &coefficient_matrix, int const kdeg,
-                 int const num_levels);
+  int const fmwt_size = degree * fm::two_raised_to(max_level);
 
-template fk::matrix<double>
-apply_right_fmwt_transposed(fk::matrix<double> const &fmwt,
-                            fk::matrix<double> const &coefficient_matrix,
-                            int const kdeg, int const num_levels);
-template fk::matrix<float>
-apply_right_fmwt_transposed(fk::matrix<float> const &fmwt,
-                            fk::matrix<float> const &coefficient_matrix,
-                            int const kdeg, int const num_levels);
+  std::vector<fk::matrix<P>> block_builder(max_level * 2);
+
+  fk::matrix<P> g_mat(degree, fmwt_size);
+  fk::matrix<P> h_mat = fk::matrix<P>(degree, fmwt_size)
+                            .set_submatrix(0, 0, eye<P>(degree, degree));
+
+  // main loop - build the blocks with small gemms
+  for (int j = max_level - 1; j >= 0; --j)
+  {
+    int const num_cells   = fm::two_raised_to(j);
+    int const block_ncols = fmwt_size / num_cells;
+    int const ncols_h     = block_ncols / 2;
+
+    fk::matrix<P> h_tmp(degree, ncols_h);
+    fk::matrix<P, mem_type::view> h_view(h_mat, 0, degree - 1, 0, ncols_h - 1);
+    h_tmp = h_view;
+
+    fk::matrix<P, mem_type::view> g_view(g_mat, 0, degree - 1, 0, ncols_h - 1);
+    fm::gemm(g0, h_tmp, g_view);
+
+    fk::matrix<P, mem_type::view> g_view_2(g_mat, 0, degree - 1, ncols_h,
+                                           ncols_h * 2 - 1);
+    fm::gemm(g1, h_tmp, g_view_2);
+
+    fm::gemm(h0, h_tmp, h_view);
+
+    fk::matrix<P, mem_type::view> h_view_2(h_mat, 0, degree - 1, ncols_h,
+                                           ncols_h * 2 - 1);
+    fm::gemm(h1, h_tmp, h_view_2);
+
+    fk::matrix<P, mem_type::const_view> const g_block(g_mat, 0, degree - 1, 0,
+                                                      block_ncols - 1);
+    block_builder[j * 2 + 1].clear_and_resize(degree, block_ncols) = g_block;
+
+    fk::matrix<P, mem_type::const_view> const h_block(h_mat, 0, degree - 1, 0,
+                                                      block_ncols - 1);
+    block_builder[j * 2].clear_and_resize(degree, block_ncols) = h_block;
+  }
+
+  // how much space are we using?
+  auto const num_elems = std::accumulate(
+      block_builder.begin(), block_builder.end(), 0,
+      [](int const sum, auto const matrix) { return sum + matrix.size(); });
+
+  if (!quiet)
+    node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
+               << '\n';
+
+  // copy to device if necessary
+  assert(block_builder.size() == dense_blocks_.size());
+  for (auto i = 0; i < static_cast<int>(block_builder.size()); ++i)
+  {
+    if constexpr (resrc == resource::host)
+    {
+      dense_blocks_[i].clear_and_resize(block_builder[i].nrows(),
+                                        block_builder[i].ncols()) =
+          block_builder[i];
+    }
+    else
+    {
+      dense_blocks_[i]
+          .clear_and_resize(block_builder[i].nrows(), block_builder[i].ncols())
+          .transfer_from(block_builder[i]);
+    }
+  }
+}
+
+template<typename P, resource resrc>
+template<mem_type omem>
+fk::vector<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
+    fk::vector<P, omem, resrc> const &coefficients, int const level,
+    basis::side const transform_side,
+    basis::transpose const transform_trans) const
+{
+  assert(level > 1);
+  assert(level <= max_level);
+
+  auto const ncols =
+      transform_side == basis::side::right ? coefficients.size() : 1;
+  auto const nrows =
+      transform_side == basis::side::right ? 1 : coefficients.size();
+  auto const as_matrix = apply(
+      fk::matrix<P, mem_type::const_view, resrc>(coefficients, nrows, ncols, 0),
+      level, transform_side, transform_trans);
+  return fk::vector<P, mem_type::owner, resrc>(as_matrix);
+}
+template<typename P, resource resrc>
+template<mem_type omem>
+fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
+    fk::matrix<P, omem, resrc> const &coefficients, int const level,
+    basis::side const transform_side,
+    basis::transpose const transform_trans) const
+{
+  assert(level > 1);
+  assert(level <= max_level);
+  auto const op_size = fm::two_raised_to(level) * degree;
+
+  if (transform_side == basis::side::right)
+  {
+    assert(coefficients.ncols() == op_size);
+  }
+  else
+  {
+    assert(coefficients.nrows() == op_size);
+  }
+
+  int const rows_y =
+      transform_side == basis::side::left ? op_size : coefficients.nrows();
+  int const cols_y =
+      transform_side == basis::side::left ? coefficients.ncols() : op_size;
+  fk::matrix<P, mem_type::owner, resrc> transformed(rows_y, cols_y);
+
+  // first, coarsest level
+  auto const do_trans =
+      transform_trans == basis::transpose::trans ? true : false;
+  auto const &first_block = dense_blocks_[(max_level - level) * 2];
+
+  if (transform_side == basis::side::left)
+  {
+    if (transform_trans == basis::transpose::trans)
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const B(
+          coefficients, 0, degree - 1, 0, coefficients.ncols() - 1);
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0, op_size - 1, 0,
+                                             coefficients.ncols() - 1);
+
+      fm::gemm(first_block, B, C, do_trans);
+    }
+    else
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const B(
+          coefficients, 0, op_size - 1, 0, coefficients.ncols() - 1);
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0, degree - 1, 0,
+                                             coefficients.ncols() - 1);
+
+      fm::gemm(first_block, B, C, do_trans);
+    }
+  }
+  else
+  {
+    if (transform_trans == basis::transpose::trans)
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const A(
+          coefficients, 0, coefficients.nrows() - 1, 0, op_size - 1);
+      fk::matrix<P, mem_type::view, resrc> C(
+          transformed, 0, coefficients.nrows() - 1, 0, degree - 1);
+
+      fm::gemm(A, first_block, C, false, do_trans);
+    }
+    else
+    {
+      fk::matrix<P, mem_type::const_view, resrc> const A(
+          coefficients, 0, coefficients.nrows() - 1, 0, degree - 1);
+      fk::matrix<P, mem_type::view, resrc> C(
+          transformed, 0, coefficients.nrows() - 1, 0, op_size - 1);
+
+      fm::gemm(A, first_block, C, false, do_trans);
+    }
+  }
+
+  // remaining levels
+  auto const block_offset = (max_level - level) * 2 + 1;
+  auto degree_start       = degree;
+
+  for (auto i = 0; i < level; ++i)
+  {
+    auto const num_cells = fm::two_raised_to(i);
+    auto const cell_size = op_size / num_cells;
+
+    auto const &current_block = dense_blocks_[block_offset + i * 2];
+
+    P const alpha = 1.0;
+    P const beta  = 1.0;
+
+    for (auto j = 0; j < num_cells; ++j)
+    {
+      auto const cell_start = j * cell_size; // +1?
+      auto const cell_end   = cell_start + cell_size - 1;
+      auto const degree_end = degree_start + degree - 1;
+
+      if (transform_side == basis::side::left)
+      {
+        if (transform_trans == basis::transpose::trans)
+        {
+          fk::matrix<P, mem_type::view, resrc> C(
+              transformed, cell_start, cell_end, 0, coefficients.ncols() - 1);
+          fk::matrix<P, mem_type::const_view, resrc> const B(
+              coefficients, degree_start, degree_end, 0,
+              coefficients.ncols() - 1);
+
+          fm::gemm(current_block, B, C, do_trans, false, alpha, beta);
+        }
+        else
+        {
+          fk::matrix<P, mem_type::view, resrc> C(transformed, degree_start,
+                                                 degree_end, 0,
+                                                 coefficients.ncols() - 1);
+          fk::matrix<P, mem_type::const_view, resrc> const B(
+              coefficients, cell_start, cell_end, 0, coefficients.ncols() - 1);
+
+          fm::gemm(current_block, B, C, do_trans, false, alpha, beta);
+        }
+      }
+      else
+      {
+        if (transform_trans == basis::transpose::trans)
+        {
+          fk::matrix<P, mem_type::view, resrc> C(transformed, 0,
+                                                 coefficients.nrows() - 1,
+                                                 degree_start, degree_end);
+          fk::matrix<P, mem_type::const_view, resrc> const A(
+              coefficients, 0, coefficients.nrows() - 1, cell_start, cell_end);
+          fm::gemm(A, current_block, C, false, do_trans, alpha, beta);
+        }
+        else
+        {
+          fk::matrix<P, mem_type::view, resrc> C(
+              transformed, 0, coefficients.nrows() - 1, cell_start, cell_end);
+          fk::matrix<P, mem_type::const_view, resrc> const A(
+              coefficients, 0, coefficients.nrows() - 1, degree_start,
+              degree_end);
+
+          fm::gemm(A, current_block, C, false, do_trans, alpha, beta);
+        }
+      }
+      degree_start = degree_end + 1;
+    }
+  }
+
+  return transformed;
+}
+
+template class wavelet_transform<float, resource::host>;
+template class wavelet_transform<double, resource::host>;
+template class wavelet_transform<float, resource::device>;
+template class wavelet_transform<double, resource::device>;
+
+template fk::vector<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::vector<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::vector<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::vector<double, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::vector<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::vector<float, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::vector<double, mem_type::owner, resource::device>
+wavelet_transform<double, resource::device>::apply(
+    fk::vector<double, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::vector<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::vector<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::vector<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::vector<float, mem_type::const_view, resource::device> const
+        &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::device>
+wavelet_transform<double, resource::device>::apply(
+    fk::matrix<double, mem_type::const_view, resource::device> const
+        &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::matrix<double, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::matrix<float, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<double, mem_type::owner, resource::device>
+wavelet_transform<double, resource::device>::apply(
+    fk::matrix<double, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::matrix<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::matrix<float, mem_type::const_view, resource::device> const
+        &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+} // namespace basis

@@ -59,15 +59,18 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   auto const subgrid = plan.at(my_rank);
 
   // -- set coeffs
-  generate_all_coefficients(pde);
+
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  generate_all_coefficients(pde, transformer);
 
   // -- generate initial condition vector.
-  fk::vector<P> const initial_condition = [&pde, &table, &subgrid, degree]() {
+  fk::vector<P> const initial_condition = [&pde, &table, &transformer, &subgrid,
+                                           degree]() {
     std::vector<fk::vector<P>> initial_conditions;
     for (dimension<P> const &dim : pde.get_dimensions())
     {
       initial_conditions.push_back(
-          forward_transform<P>(dim, dim.initial_condition));
+          forward_transform<P>(dim, dim.initial_condition, transformer));
     }
     return combine_dimensions(degree, table, subgrid.col_start,
                               subgrid.col_stop, initial_conditions);
@@ -75,31 +78,32 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
 
   // -- generate sources.
   // these will be scaled later for time
-  std::vector<fk::vector<P>> const initial_sources = [&pde, &table, &subgrid,
-                                                      degree]() {
-    std::vector<fk::vector<P>> initial_sources;
-    for (source<P> const &source : pde.sources)
-    {
-      // gather contributions from each dim for this source, in wavelet space
-      std::vector<fk::vector<P>> initial_sources_dim;
-      for (int i = 0; i < pde.num_dims; ++i)
-      {
-        initial_sources_dim.push_back(forward_transform<P>(
-            pde.get_dimensions()[i], source.source_funcs[i]));
-      }
-      // combine those contributions to form the unscaled source vector
-      initial_sources.push_back(
-          combine_dimensions(degree, table, subgrid.row_start, subgrid.row_stop,
-                             initial_sources_dim));
-    }
-    return initial_sources;
-  }();
+  std::vector<fk::vector<P>> const initial_sources =
+      [&pde, &table, &transformer, &subgrid, degree]() {
+        std::vector<fk::vector<P>> initial_sources;
+        for (source<P> const &source : pde.sources)
+        {
+          // gather contributions from each dim for this source, in wavelet
+          // space
+          std::vector<fk::vector<P>> initial_sources_dim;
+          for (int i = 0; i < pde.num_dims; ++i)
+          {
+            initial_sources_dim.push_back(forward_transform<P>(
+                pde.get_dimensions()[i], source.source_funcs[i], transformer));
+          }
+          // combine those contributions to form the unscaled source vector
+          initial_sources.push_back(
+              combine_dimensions(degree, table, subgrid.row_start,
+                                 subgrid.row_stop, initial_sources_dim));
+        }
+        return initial_sources;
+      }();
 
   /* generate boundary condition vectors */
   /* these will be scaled later similarly to the source vectors */
   std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
-      boundary_conditions::make_unscaled_bc_parts(pde, table, subgrid.row_start,
-                                                  subgrid.row_stop);
+      boundary_conditions::make_unscaled_bc_parts(
+          pde, table, transformer, subgrid.row_start, subgrid.row_stop);
 
   // -- prep workspace/chunks
   int const workspace_limit_MB = 4000;
@@ -160,8 +164,10 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
 
+  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+
   // -- set coeffs
-  generate_all_coefficients(pde);
+  generate_all_coefficients(pde, transformer);
 
   // -- generate initial condition vector.
   P const initial_scale = 1.0;
@@ -169,7 +175,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   for (dimension<P> const &dim : pde.get_dimensions())
   {
     initial_conditions.push_back(
-        forward_transform<P>(dim, dim.initial_condition));
+        forward_transform<P>(dim, dim.initial_condition, transformer));
   }
   fk::vector<P> const initial_condition = combine_dimensions(
       degree, table, subgrid.col_start, subgrid.col_stop, initial_conditions);
@@ -184,7 +190,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
     for (int i = 0; i < pde.num_dims; ++i)
     {
       initial_sources_dim.push_back(forward_transform<P>(
-          pde.get_dimensions()[i], source.source_funcs[i]));
+          pde.get_dimensions()[i], source.source_funcs[i], transformer));
     }
 
     initial_sources.push_back(
@@ -195,8 +201,8 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   // generate boundary condition vectors
   // these will be scaled later similarly to the source vectors
   std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
-      boundary_conditions::make_unscaled_bc_parts(pde, table, subgrid.row_start,
-                                                  subgrid.row_stop);
+      boundary_conditions::make_unscaled_bc_parts(
+          pde, table, transformer, subgrid.row_start, subgrid.row_stop);
 
   // -- prep workspace/chunks
   int const workspace_limit_MB            = 4000;
@@ -323,7 +329,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-17 : 1e-7;
   SECTION("continuity1, explicit, level 2, degree 2, sparse grid")
   {
     int const degree = 2;
@@ -437,7 +443,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
                    double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
 
   SECTION("continuity6, level 2, degree 3, sparse grid")
   {
@@ -495,7 +501,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
                    float, double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
 
   SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
   {
@@ -517,8 +523,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
 {
   /* FIXME - these tolerances are way too high. Different parameters are likely
      being used for gold data generation than here */
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-6 : 1e-4;
+  TestType const tol_factor = std::is_same<TestType, double>::value ? 1e-6 : 1;
 
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {

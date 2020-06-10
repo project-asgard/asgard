@@ -108,9 +108,9 @@ public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   vector(std::vector<P> const &);
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
-  vector(fk::matrix<P> const &);
+
+  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  vector(fk::matrix<P, mem_type::owner, resrc> const &);
 
   template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
            mem_type om_ = omem, typename = disable_for_const_view<om_>>
@@ -330,7 +330,7 @@ private:
   explicit vector(fk::vector<P, omem, resrc> const &vec, int const start_index,
                   int const stop_index, bool const delegated);
 
-  // matrix view from vector owner constructors (both const/nonconst) delegate
+  // vector view from matrix constructors (both const/nonconst) delegate
   // to this private constructor, also with a dummy variable
   template<mem_type omem, mem_type m_ = mem,
            typename = enable_for_all_views<m_>>
@@ -840,22 +840,39 @@ fk::vector<P, mem, resrc>::vector(std::vector<P> const &v)
 // of the matrix into a single vector
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, resource, typename>
-fk::vector<P, mem, resrc>::vector(fk::matrix<P> const &mat)
-    : data_{new P[mat.size()]}, ref_count_{std::make_shared<int>(0)}
+template<mem_type, typename>
+fk::vector<P, mem, resrc>::vector(
+    fk::matrix<P, mem_type::owner, resrc> const &mat)
+    : ref_count_{std::make_shared<int>(0)}
 {
   size_ = mat.size();
   if ((*this).size() == 0)
   {
-    delete[] data_;
+    if constexpr (resrc == resource::host)
+    {
+      delete[] data_;
+    }
+    else
+    {
+      delete_device(data_);
+    }
     data_ = nullptr;
   }
   else
   {
-    int i = 0;
-    for (auto const &elem : mat)
+    if constexpr (resrc == resource::host)
     {
-      (*this)(i++) = elem;
+      data_ = new P[mat.size()]();
+      int i = 0;
+      for (auto const &elem : mat)
+      {
+        (*this)(i++) = elem;
+      }
+    }
+    else
+    {
+      allocate_device(data_, size_);
+      copy_on_device(data_, mat.data(), mat.size());
     }
   }
 }
