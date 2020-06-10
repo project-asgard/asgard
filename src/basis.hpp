@@ -31,7 +31,8 @@ template<typename P, resource resrc>
 class wavelet_transform
 {
 public:
-  wavelet_transform(int const max_level, int const degree);
+  wavelet_transform(int const max_level, int const degree,
+                    bool const quiet = true);
 
   // apply the fmwt matrix to coefficients
   template<mem_type omem>

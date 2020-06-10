@@ -159,6 +159,7 @@ void test_fmwt_block_generation(int const level, int const degree)
 {
   P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-14;
 
+  std::cerr.setstate(std::ios_base::failbit);
   basis::wavelet_transform<P, resrc> const forward_transform(level, degree);
 
   auto const &blocks = forward_transform.get_blocks();

@@ -434,7 +434,8 @@ namespace basis
 {
 template<typename P, resource resrc>
 wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
-                                               int const degree)
+                                               int const degree,
+                                               bool const quiet)
     : max_level(max_level), degree(degree), dense_blocks_(max_level * 2)
 {
   assert(max_level > 1);
@@ -495,10 +496,11 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
       block_builder.begin(), block_builder.end(), 0,
       [](int const sum, auto const matrix) { return sum + matrix.size(); });
 
-  node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
-             << '\n';
-  // copy to device if necessary
+  if (!quiet)
+    node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
+               << '\n';
 
+  // copy to device if necessary
   assert(block_builder.size() == dense_blocks_.size());
   for (auto i = 0; i < static_cast<int>(block_builder.size()); ++i)
   {
