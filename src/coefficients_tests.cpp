@@ -246,6 +246,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
   test_coefficients(*pde, gold_path, tol_factor, rotate);
 }
 
+/* Captain! */
 TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
                    float)
 {
