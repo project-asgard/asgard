@@ -91,7 +91,8 @@ std::unique_ptr<PDE<P>> make_PDE(options const &opts)
 template<typename P>
 std::unique_ptr<PDE<P>>
 make_PDE(PDE_opts const pde_choice, int const level = options::NO_USER_VALUE,
-         int const degree = options::NO_USER_VALUE)
+         int const degree = options::NO_USER_VALUE,
+         double const cfl = options::DEFAULT_CFL)
 {
-  return make_PDE<P>(options(pde_choice, level, degree));
+  return make_PDE<P>(options(pde_choice, level, degree, cfl));
 }

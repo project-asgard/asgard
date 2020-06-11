@@ -78,9 +78,9 @@ public:
   options(int argc, char **argv);
 
   // construct from provided values - for testing
-  options(PDE_opts const pde_choice, int const level, int const degree)
-      : level(level), degree(degree), cfl(DEFAULT_CFL),
-        pde_choice(pde_choice){};
+  options(PDE_opts const pde_choice, int const level, int const degree,
+          double const cfl)
+      : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
   int get_level() const;
   void update_level(int const level) { this->level = level; }

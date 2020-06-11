@@ -54,7 +54,6 @@ options::options(int argc, char **argv)
   }
 
   // Validation...
-
   if (cfl != NO_USER_VALUE_FP)
   {
     if (cfl <= 0.0)
