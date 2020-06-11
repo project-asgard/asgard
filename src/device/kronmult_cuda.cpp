@@ -41,15 +41,18 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   assert(gridDim.y == 1);
   assert(gridDim.z == 1);
 
+  auto const vector_size = std::is_same<P, double>::value ? 2 : 4;
+  
+  //using vector_type = std::is_same<P, double>::value ? double2* : float4*;
   auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
-  auto const start       = id;
-  auto const increment   = num_threads;
-  auto const stop        = num_elems * num_copies;
-
+  auto const start       = static_cast<int64_t>(id) * vector_size;
+  auto const increment   = static_cast<int64_t>(num_threads) * vector_size;
+  auto const stop        = static_cast<int64_t>(num_elems) * num_copies;
+   
   for (int64_t i = start; i < stop; i += increment)
   {
-    workspace[i] = x[i % num_elems];
+    reinterpret_cast<double2*>(workspace)[i] = reinterpret_cast<double2 const *>(x)[i % num_elems];
   }
 
 #else
