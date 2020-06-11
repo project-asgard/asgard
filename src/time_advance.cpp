@@ -16,13 +16,13 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
                       distribution_plan const &plan,
-                      int const workspace_size_MB, P const time, P const dt)
+                      int const workspace_size_MB, P const time)
 {
   auto const my_rank   = get_rank();
   auto const &grid     = plan.at(get_rank());
   auto const elem_size = element_segment_size(pde);
-
-  auto const col_size = elem_size * static_cast<int64_t>(grid.ncols());
+  auto const dt        = pde.get_dt();
+  auto const col_size  = elem_size * static_cast<int64_t>(grid.ncols());
   assert(x_orig.size() == col_size);
   auto const row_size = elem_size * static_cast<int64_t>(grid.nrows());
   assert(col_size < INT_MAX);
@@ -162,16 +162,17 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
                       std::vector<element_chunk> const &chunks,
-                      distribution_plan const &plan, P const time, P const dt,
+                      distribution_plan const &plan, P const time,
                       solve_opts const solver, bool const update_system)
 {
   assert(time >= 0);
-  assert(dt > 0);
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
+
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
   static bool first_time = true;
 
+  auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * table.size();
@@ -250,14 +251,14 @@ template fk::vector<double> explicit_time_advance(
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
     fk::vector<double> const &x, distribution_plan const &plan,
-    int const workspace_size_MB, double const time, double const dt);
+    int const workspace_size_MB, double const time);
 
 template fk::vector<float> explicit_time_advance(
     PDE<float> const &pde, element_table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
     fk::vector<float> const &x, distribution_plan const &plan,
-    int const workspace_size_MB, float const time, float const dt);
+    int const workspace_size_MB, float const time);
 
 template fk::vector<double> implicit_time_advance(
     PDE<double> const &pde, element_table const &table,
@@ -265,13 +266,12 @@ template fk::vector<double> implicit_time_advance(
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
     fk::vector<double> const &host_space,
     std::vector<element_chunk> const &chunks, distribution_plan const &plan,
-    double const time, double const dt, solve_opts const solver,
-    bool const update_system);
+    double const time, solve_opts const solver, bool const update_system);
 
 template fk::vector<float> implicit_time_advance(
     PDE<float> const &pde, element_table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
     fk::vector<float> const &x, std::vector<element_chunk> const &chunks,
-    distribution_plan const &plan, float const time, float const dt,
-    solve_opts const solver, bool const update_system);
+    distribution_plan const &plan, float const time, solve_opts const solver,
+    bool const update_system);

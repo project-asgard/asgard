@@ -109,16 +109,15 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   int const workspace_limit_MB = 4000;
 
   // -- time loop
-  P const dt = pde.get_dt() * o.get_cfl();
 
   fk::vector<P> f_val(initial_condition);
   for (int i = 0; i < num_steps; ++i)
   {
-    P const time = i * dt;
+    P const time = i * pde.get_dt();
 
     std::cout.setstate(std::ios_base::failbit);
     f_val = explicit_time_advance(pde, table, initial_sources, unscaled_parts,
-                                  f_val, plan, workspace_limit_MB, time, dt);
+                                  f_val, plan, workspace_limit_MB, time);
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -212,15 +211,13 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   fk::vector<P> f_val(initial_condition);
 
   // -- time loop
-  P const dt = pde.get_dt() * o.get_cfl();
-
   for (int i = 0; i < num_steps; ++i)
   {
-    P const time = i * dt;
+    P const time = i * pde.get_dt();
 
     std::cout.setstate(std::ios_base::failbit);
     f_val = implicit_time_advance(pde, table, initial_sources, unscaled_parts,
-                                  f_val, chunks, plan, time, dt, solver);
+                                  f_val, chunks, plan, time, solver);
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 

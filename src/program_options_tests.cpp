@@ -60,6 +60,7 @@ TEST_CASE("options constructor/getters", "[options]")
     bool const def_full_grid     = false;
     bool const def_poisson       = false;
     double const def_cfl         = 0.01;
+    double const def_dt          = std::numeric_limits<double>::min();
     PDE_opts const def_pde       = PDE_opts::continuity_2;
 
     options o = make_options({});
@@ -75,6 +76,7 @@ TEST_CASE("options constructor/getters", "[options]")
     REQUIRE(o.do_poisson_solve() == def_poisson);
     REQUIRE(o.get_cfl() == def_cfl);
     REQUIRE(o.get_selected_pde() == def_pde);
+    REQUIRE(o.get_dt() == def_dt);
     REQUIRE(o.is_valid());
   }
 
@@ -122,6 +124,21 @@ TEST_CASE("options constructor/getters", "[options]")
   {
     std::cerr.setstate(std::ios_base::failbit);
     options o = make_options({"asgard", "-c=-2.0"});
+    std::cerr.clear();
+    REQUIRE(!o.is_valid());
+  }
+
+  SECTION("non positive dt")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    options o = make_options({"asgard", "-t=-0.0"});
+    std::cerr.clear();
+    REQUIRE(!o.is_valid());
+  }
+  SECTION("providing both dt and cfl")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    options o = make_options({"asgard", "-t=-1.0", "-c=0.5"});
     std::cerr.clear();
     REQUIRE(!o.is_valid());
   }

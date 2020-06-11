@@ -5,6 +5,7 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -15,7 +16,7 @@
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
 #include "../tensors.hpp"
-
+#include "../program_options.hpp"
 //
 // This file contains all of the interface and object definitions for our
 // representation of a PDE
@@ -334,7 +335,7 @@ template<typename P>
 class PDE
 {
 public:
-  PDE(int const num_levels, int const degree, int const num_dims,
+  PDE(options const & opts, int const num_dims,
       int const num_sources, int const num_terms,
       std::vector<dimension<P>> const dimensions, term_set<P> const terms,
       std::vector<source<P>> const sources,
@@ -354,6 +355,9 @@ public:
     assert(dimensions.size() == static_cast<unsigned>(num_dims));
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
+    
+    auto const degree = opts.get_degree();
+    auto const num_levels = opts.get_level();
 
     for (auto tt : terms)
     {
@@ -394,18 +398,18 @@ public:
 
     // modify for appropriate level/degree
     // if default lev/degree not used
-    if (num_levels != -1 || degree != -1)
+    if (num_levels != options::NO_USER_VALUE || degree != options::NO_USER_VALUE)
     {
       // FIXME eventually independent levels for each dim will be
       // supported
       for (dimension<P> &d : dimensions_)
       {
-        if (num_levels != -1)
+        if (num_levels != options::NO_USER_VALUE)
         {
           assert(num_levels > 1);
           d.set_level(num_levels);
         }
-        if (degree != -1)
+        if (degree != options::NO_USER_VALUE)
         {
           assert(degree > 0);
           d.set_degree(degree);
@@ -439,7 +443,11 @@ public:
     }
 
     // set the dt
-    dt_ = get_dt(dimensions_[0]);
+    if(opts.get_dt() == options::NO_USER_VALUE_FP) {
+       dt_ = get_dt(dimensions_[0]) * opts.get_cfl();
+    } else {
+       dt_ = opts.get_dt();
+    }
   }
 
   // public but const data.
@@ -495,6 +503,11 @@ public:
   }
 
   P get_dt() const { return dt_; };
+  
+  void set_dt(P const dt) { 
+    aasert(dt > 0.0); 
+    dt_ = dt;
+  }
 
 private:
   std::vector<dimension<P>> dimensions_;

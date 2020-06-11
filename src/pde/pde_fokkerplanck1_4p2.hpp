@@ -36,8 +36,8 @@ template<typename P>
 class PDE_fokkerplanck_1d_4p2 : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_1d_4p2(int const num_levels = -1, int const degree = -1)
-      : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
+  PDE_fokkerplanck_1d_4p2(options const & opts)
+      : PDE<P>(opts, num_dims_, num_sources_, num_terms_,
                dimensions_, terms_, sources_, exact_vector_funcs_,
                exact_scalar_func_, get_dt_, do_poisson_solve_,
                has_analytic_soln_)
