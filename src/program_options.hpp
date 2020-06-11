@@ -99,8 +99,8 @@ public:
   bool do_poisson_solve() const;
   bool is_valid() const;
   int get_realspace_output_freq() const;
-  bool write_at_step(int const i) const;
-  bool transform_at_step(int const i) const;
+  bool should_output_wavelet(int const i) const;
+  bool should_output_realspace(int const i) const;
   solve_opts get_selected_solver() const;
 
 private:
@@ -136,4 +136,7 @@ private:
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
+
+  // helper for output writing
+  bool write_at_step(int const i, int const freq) const;
 };

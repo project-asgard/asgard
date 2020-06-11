@@ -112,9 +112,26 @@ options::options(int argc, char **argv)
 
   if (realspace_output_freq < 0 || write_frequency < 0)
   {
-    std::cerr << "Frequencies must be non-negative: " << '\n';
+    std::cerr << "Write frequencies must be non-negative" << '\n';
     valid = false;
   }
+
+  if (realspace_output_freq > num_time_steps ||
+      write_frequency > num_time_steps)
+  {
+    std::cerr << "Requested a write frequency > number of steps - no output "
+                 "will be produced"
+              << '\n';
+    valid = false;
+  }
+
+#ifndef ASGARD_IO_HIGHFIVE
+  if (realspace_output_freq > 0 || write_frequency > 0)
+  {
+    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to write output" << '\n';
+    valid = false;
+  }
+#endif
 
   if (use_implicit_stepping)
   {
@@ -183,32 +200,33 @@ solve_opts options::get_selected_solver() const
   assert(use_implicit_stepping); // meaningless for explicit stepping
   return solver;
 }
-bool options::write_at_step(int const i) const
+
+bool options::write_at_step(int const i, int const freq) const
 {
   assert(i >= 0);
+  assert(freq >= 0);
 
-  if (write_frequency == 0)
+  if (freq == 0)
   {
     return false;
   }
-  if (i % write_frequency == 0)
+  if (freq == 1)
+  {
+    return true;
+  }
+  if ((i + 1) % freq == 0)
   {
     return true;
   }
   return false;
 }
 
-bool options::transform_at_step(int const i) const
+bool options::should_output_wavelet(int const i) const
 {
-  assert(i >= 0);
+  return write_at_step(i, write_frequency);
+}
 
-  if (realspace_output_freq == 0)
-  {
-    return false;
-  }
-  if (i % realspace_output_freq == 0)
-  {
-    return true;
-  }
-  return false;
+bool options::should_output_realspace(int const i) const
+{
+  return write_at_step(i, realspace_output_freq);
 }

@@ -283,13 +283,13 @@ int main(int argc, char **argv)
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
-    if (opts.write_at_step(i))
+    if (opts.should_output_wavelet(i))
     {
       update_output_file(output_dataset, f_val);
     }
 
     /* transform from wavelet space to real space */
-    if (opts.transform_at_step(i))
+    if (opts.should_output_realspace(i))
     {
       wavelet_to_realspace<prec>(*pde, f_val, table, default_workspace_cpu_MB,
                                  tmp_workspace, real_space);
