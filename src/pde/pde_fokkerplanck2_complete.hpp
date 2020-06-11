@@ -46,11 +46,10 @@ template<typename P>
 class PDE_fokkerplanck_2d_complete : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_2d_complete(int const num_levels = -1, int const degree = -1)
-      : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
-               dimensions_, terms_, sources_, exact_vector_funcs_,
-               exact_scalar_func_, get_dt_, do_poisson_solve_,
-               has_analytic_soln_)
+  PDE_fokkerplanck_2d_complete(options const &opts)
+      : PDE<P>(opts, num_dims_, num_sources_, num_terms_, dimensions_, terms_,
+               sources_, exact_vector_funcs_, exact_scalar_func_, get_dt_,
+               do_poisson_solve_, has_analytic_soln_)
   {}
 
 private:

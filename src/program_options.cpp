@@ -12,7 +12,8 @@ options::options(int argc, char **argv)
   auto cli =
       clara::detail::Help(show_help) |
       clara::detail::Opt(cfl, "cfl")["-c"]["--cfl"](
-          "the Courant-Friedrichs-Lewy (CFL) condition") |
+          "The Courant-Friedrichs-Lewy (CFL) condition") |
+      clara::detail::Opt(dt, "dt")["-t"]["--dt"]("Size of time steps") |
       clara::detail::Opt(degree, "degree")["-d"]["--degree"](
           "Terms in legendre basis polynomials") |
       clara::detail::Opt(use_full_grid)["-f"]["--full_grid"](
@@ -53,17 +54,30 @@ options::options(int argc, char **argv)
   }
 
   // Validation...
-  if (cfl <= 0.0)
+  if (cfl != NO_USER_VALUE_FP)
   {
-    std::cerr << "CFL must be positive" << '\n';
-    valid = false;
+    if (cfl <= 0.0)
+    {
+      std::cerr << "CFL must be positive" << '\n';
+      valid = false;
+    }
+    if (dt != NO_USER_VALUE_FP)
+    {
+      std::cerr << "CFL and explicit dt options are mutually exclusive" << '\n';
+      valid = false;
+    }
   }
-  if (degree < 1 && degree != -1)
+  else
+  {
+    cfl = DEFAULT_CFL;
+  }
+
+  if (degree < 1 && degree != NO_USER_VALUE)
   {
     std::cerr << "Degree must be a natural number" << '\n';
     valid = false;
   }
-  if (level < 2 && level != -1)
+  if (level < 2 && level != NO_USER_VALUE)
   {
     std::cerr << "Level must be greater than one" << '\n';
     valid = false;
@@ -71,6 +85,11 @@ options::options(int argc, char **argv)
   if (max_level < level)
   {
     std::cerr << "Maximum level must be greater than starting level" << '\n';
+    valid = false;
+  }
+  if (dt != NO_USER_VALUE_FP && dt <= 0.0)
+  {
+    std::cerr << "Provided dt must be positive" << '\n';
     valid = false;
   }
   if (num_time_steps < 1)
@@ -93,9 +112,26 @@ options::options(int argc, char **argv)
 
   if (realspace_output_freq < 0 || write_frequency < 0)
   {
-    std::cerr << "Frequencies must be non-negative: " << '\n';
+    std::cerr << "Write frequencies must be non-negative" << '\n';
     valid = false;
   }
+
+  if (realspace_output_freq > num_time_steps ||
+      write_frequency > num_time_steps)
+  {
+    std::cerr << "Requested a write frequency > number of steps - no output "
+                 "will be produced"
+              << '\n';
+    valid = false;
+  }
+
+#ifndef ASGARD_IO_HIGHFIVE
+  if (realspace_output_freq > 0 || write_frequency > 0)
+  {
+    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to write output" << '\n';
+    valid = false;
+  }
+#endif
 
   if (use_implicit_stepping)
   {
@@ -153,6 +189,7 @@ int options::get_write_frequency() const { return write_frequency; }
 bool options::using_implicit() const { return use_implicit_stepping; }
 bool options::using_full_grid() const { return use_full_grid; }
 double options::get_cfl() const { return cfl; }
+double options::get_dt() const { return dt; }
 PDE_opts options::get_selected_pde() const { return pde_choice; }
 std::string options::get_pde_string() const { return selected_pde; }
 bool options::is_valid() const { return valid; }
@@ -163,32 +200,33 @@ solve_opts options::get_selected_solver() const
   assert(use_implicit_stepping); // meaningless for explicit stepping
   return solver;
 }
-bool options::write_at_step(int const i) const
+
+bool options::write_at_step(int const i, int const freq) const
 {
   assert(i >= 0);
+  assert(freq >= 0);
 
-  if (write_frequency == 0)
+  if (freq == 0)
   {
     return false;
   }
-  if (i % write_frequency == 0)
+  if (freq == 1)
+  {
+    return true;
+  }
+  if ((i + 1) % freq == 0)
   {
     return true;
   }
   return false;
 }
 
-bool options::transform_at_step(int const i) const
+bool options::should_output_wavelet(int const i) const
 {
-  assert(i >= 0);
+  return write_at_step(i, write_frequency);
+}
 
-  if (realspace_output_freq == 0)
-  {
-    return false;
-  }
-  if (i % realspace_output_freq == 0)
-  {
-    return true;
-  }
-  return false;
+bool options::should_output_realspace(int const i) const
+{
+  return write_at_step(i, realspace_output_freq);
 }

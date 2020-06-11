@@ -5,11 +5,10 @@ template<typename P>
 class PDE_diffusion_2d : public PDE<P>
 {
 public:
-  PDE_diffusion_2d(int const num_levels = -1, int const degree = -1)
-      : PDE<P>(num_levels, degree, num_dims_, num_sources_, num_terms_,
-               dimensions_, terms_, sources_, exact_vector_funcs_,
-               exact_scalar_func_, get_dt_, do_poisson_solve_,
-               has_analytic_soln_)
+  PDE_diffusion_2d(options const &opts)
+      : PDE<P>(opts, num_dims_, num_sources_, num_terms_, dimensions_, terms_,
+               sources_, exact_vector_funcs_, exact_scalar_func_, get_dt_,
+               do_poisson_solve_, has_analytic_soln_)
   {}
 
 private:

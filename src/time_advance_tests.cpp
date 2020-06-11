@@ -26,21 +26,15 @@ static auto constexpr num_steps = 5;
 template<typename P>
 void time_advance_test(int const level, int const degree, PDE<P> &pde,
                        int const num_steps, std::string const filepath,
-                       bool const full_grid = false, P const tol_factor = 1e-10,
-                       double const cfl = 0.01)
+                       bool const full_grid = false, P const tol_factor = 1e-10)
 {
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
 
-  std::vector<std::string> const args = [level, degree, full_grid, cfl]() {
+  std::vector<std::string> const args = [level, degree, full_grid]() {
     std::string const grid_str    = full_grid ? "-f" : "";
-    std::vector<std::string> args = {"-l",
-                                     std::to_string(level),
-                                     "-d",
-                                     std::to_string(degree),
-                                     grid_str,
-                                     "-c",
-                                     to_string_with_precision(cfl, 16)};
+    std::vector<std::string> args = {"-l", std::to_string(level), "-d",
+                                     std::to_string(degree), grid_str};
 
     return args;
   }();
@@ -59,7 +53,6 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   auto const subgrid = plan.at(my_rank);
 
   // -- set coeffs
-
   basis::wavelet_transform<P, resource::host> const transformer(level, degree);
   generate_all_coefficients(pde, transformer);
 
@@ -109,16 +102,15 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   int const workspace_limit_MB = 4000;
 
   // -- time loop
-  P const dt = pde.get_dt() * o.get_cfl();
 
   fk::vector<P> f_val(initial_condition);
   for (int i = 0; i < num_steps; ++i)
   {
-    P const time = i * dt;
+    P const time = i * pde.get_dt();
 
     std::cout.setstate(std::ios_base::failbit);
     f_val = explicit_time_advance(pde, table, initial_sources, unscaled_parts,
-                                  f_val, plan, workspace_limit_MB, time, dt);
+                                  f_val, plan, workspace_limit_MB, time);
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -137,7 +129,6 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
                                 int const num_steps, std::string const filepath,
                                 bool const full_grid     = false,
                                 P const tolerance_factor = 1e-6,
-                                double const cfl         = 0.01,
                                 solve_opts const solver  = solve_opts::direct)
 {
   int const my_rank   = get_rank();
@@ -158,7 +149,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   std::string const grid_str = full_grid ? "-f" : "";
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
-                    "-c", std::to_string(cfl), "--implicit", grid_str});
+                    "--implicit", grid_str});
 
   element_table const table(o, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);
@@ -212,15 +203,13 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
   fk::vector<P> f_val(initial_condition);
 
   // -- time loop
-  P const dt = pde.get_dt() * o.get_cfl();
-
   for (int i = 0; i < num_steps; ++i)
   {
-    P const time = i * dt;
+    P const time = i * pde.get_dt();
 
     std::cout.setstate(std::ios_base::failbit);
     f_val = implicit_time_advance(pde, table, initial_sources, unscaled_parts,
-                                  f_val, chunks, plan, time, dt, solver);
+                                  f_val, chunks, plan, time, solver);
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
 
@@ -243,12 +232,12 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const degree     = 2;
     int const level      = 2;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2/diffusion2_e_sg_l2_d2_t";
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 
   SECTION("diffusion2, explicit, sparse grid, level 3, degree 3")
@@ -256,12 +245,12 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const degree     = 3;
     int const level      = 3;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2/diffusion2_e_sg_l3_d3_t";
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 
   SECTION("diffusion2, explicit, sparse grid, level 4, degree 4")
@@ -269,12 +258,12 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const degree     = 4;
     int const level      = 4;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2/diffusion2_e_sg_l4_d4_t";
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 }
 
@@ -290,12 +279,12 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
     int const degree     = 2;
     int const level      = 2;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_e_sg_l2_d2_t";
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 
   SECTION("diffusion1, explicit, sparse grid, level 3, degree 3")
@@ -303,12 +292,12 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
     int const degree     = 3;
     int const level      = 3;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_e_sg_l3_d3_t";
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 
   SECTION("diffusion1, explicit, sparse grid, level 4, degree 4")
@@ -316,12 +305,12 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
     int const degree     = 4;
     int const level      = 4;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_e_sg_l4_d4_t";
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 }
 
@@ -533,12 +522,12 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck2_complete_sg_l3_d3_t";
-    auto pde =
-        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level,
+                                  degree, cfl);
     bool const full_grid = false;
 
     time_advance_test(level, degree, *pde, num_steps, gold_base, full_grid,
-                      tol_factor, cfl);
+                      tol_factor);
   }
 }
 
@@ -554,12 +543,12 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     int const degree     = 2;
     int const level      = 2;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_i_sg_l2_d2_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl);
+                               full_grid, tol_factor);
   }
 
   SECTION("diffusion1, implicit, sparse grid, level 3, degree 3")
@@ -567,12 +556,12 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     int const degree     = 3;
     int const level      = 3;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_i_sg_l3_d3_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl);
+                               full_grid, tol_factor);
   }
 
   SECTION("diffusion1, implicit, sparse grid, level 4, degree 4")
@@ -580,12 +569,12 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     int const degree     = 4;
     int const level      = 4;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1/diffusion1_i_sg_l4_d4_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl);
+                               full_grid, tol_factor);
   }
 }
 
@@ -602,12 +591,12 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     int const degree     = 2;
     int const level      = 2;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2/diffusion2_i_sg_l2_d2_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl);
+                               full_grid, tol_factor);
   }
 
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 3")
@@ -615,12 +604,12 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     int const degree     = 3;
     int const level      = 3;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2/diffusion2_i_sg_l3_d3_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl);
+                               full_grid, tol_factor);
   }
 
   SECTION("diffusion2, implicit, sparse grid, level 4, degree 4")
@@ -628,12 +617,12 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     int const degree     = 4;
     int const level      = 4;
     bool const full_grid = false;
-    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto pde = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree, cfl);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2/diffusion2_i_sg_l4_d4_t";
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl);
+                               full_grid, tol_factor);
   }
 }
 
@@ -675,11 +664,11 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     int const level      = 4;
     auto const gold_base = "../testing/generated-inputs/time_advance/"
                            "continuity1_implicit_l4_d3_t";
-    double const cfl = 0.01;
+
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl, solve_opts::gmres);
+                               full_grid, tol_factor, solve_opts::gmres);
   }
 }
 
@@ -719,7 +708,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
   {
     int const degree = 3;
     int const level  = 4;
-    double const cfl = 0.01;
+
     TestType const tol_factor =
         std::is_same<TestType, double>::value ? 1e-14 : 1e-7;
 
@@ -727,6 +716,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                            "continuity2_implicit_l4_d3_t";
     auto pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     implicit_time_advance_test(level, degree, *pde, num_steps, gold_base,
-                               full_grid, tol_factor, cfl, solve_opts::gmres);
+                               full_grid, tol_factor, solve_opts::gmres);
   }
 }

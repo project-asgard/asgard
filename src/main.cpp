@@ -56,13 +56,13 @@ int main(int argc, char **argv)
 
   // -- parse user input and generate pde
   node_out() << "generating: pde..." << '\n';
-  auto pde = make_PDE<prec>(opts.get_selected_pde(), opts.get_level(),
-                            opts.get_degree());
+  auto pde = make_PDE<prec>(opts);
 
   // sync up options object in case pde defaults were loaded
   // assume uniform level and degree across dimensions
   opts.update_level(pde->get_dimensions()[0].get_level());
   opts.update_degree(pde->get_dimensions()[0].get_degree());
+  opts.update_dt(pde->get_dt());
 
   // do this only once to avoid confusion
   // if we ever do go to p-adaptivity (variable degree) we can change it then
@@ -224,20 +224,19 @@ int main(int argc, char **argv)
   // -- time loop
 
   fk::vector<prec> f_val(initial_condition);
-  prec const dt = pde->get_dt() * opts.get_cfl();
-  node_out() << "--- begin time loop w/ dt " << dt << " ---\n";
+  node_out() << "--- begin time loop w/ dt " << pde->get_dt() << " ---\n";
   for (int i = 0; i < opts.get_time_steps(); ++i)
   {
-    prec const time = i * dt;
+    prec const time = i * pde->get_dt();
 
     if (opts.using_implicit())
     {
       bool const update_system = i == 0;
 
       auto const time_id = timer::record.start("implicit_time_advance");
-      f_val              = implicit_time_advance(
-          *pde, table, initial_sources, unscaled_parts, f_val, chunks, plan,
-          time, dt, opts.get_selected_solver(), update_system);
+      f_val              = implicit_time_advance(*pde, table, initial_sources,
+                                    unscaled_parts, f_val, chunks, plan, time,
+                                    opts.get_selected_solver(), update_system);
       timer::record.stop(time_id);
     }
     else
@@ -247,7 +246,7 @@ int main(int argc, char **argv)
       auto const &time_id = timer::record.start("explicit_time_advance");
       f_val =
           explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, default_workspace_MB, time, dt);
+                                f_val, plan, default_workspace_MB, time);
 
       timer::record.stop(time_id);
     }
@@ -255,7 +254,7 @@ int main(int argc, char **argv)
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
-      prec const time_multiplier = pde->exact_time((i + 1) * dt);
+      prec const time_multiplier = pde->exact_time((i + 1) * pde->get_dt());
 
       fk::vector<prec> const analytic_solution_t =
           analytic_solution * time_multiplier;
@@ -284,13 +283,13 @@ int main(int argc, char **argv)
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
-    if (opts.write_at_step(i))
+    if (opts.should_output_wavelet(i))
     {
       update_output_file(output_dataset, f_val);
     }
 
     /* transform from wavelet space to real space */
-    if (opts.transform_at_step(i))
+    if (opts.should_output_realspace(i))
     {
       wavelet_to_realspace<prec>(*pde, f_val, table, default_workspace_cpu_MB,
                                  tmp_workspace, real_space);
