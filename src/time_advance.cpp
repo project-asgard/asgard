@@ -194,6 +194,8 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
 
   if (first_time || update_system)
   {
+    first_time = false;
+
     A.clear_and_resize(A_size, A_size);
     for (auto const &chunk : chunks)
     {
@@ -222,8 +224,6 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
       ignore(ipiv);
       break;
     }
-
-    first_time = false;
   } // end first time/update system
 
   switch (solver)
