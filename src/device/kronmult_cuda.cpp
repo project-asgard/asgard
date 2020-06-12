@@ -73,7 +73,7 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
     vector_read(workspace, x, i, i % x_length);
   }
 
-  int const leftovers = total_elems % vector_size;
+  auto const leftovers = total_elems % vector_size;
   if (id == 0 && leftovers)
   {
     for (auto i = total_elems - leftovers - 1; i < leftovers; ++i)
