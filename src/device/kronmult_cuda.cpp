@@ -34,8 +34,9 @@ DEVICE_FUNCTION
 inline void vector_read(float *const dest, float const *const source,
                         int64_t const dest_offset, int64_t source_offset)
 {
-  reinterpret_cast<float4 *>(dest)[dest_offset] =
-      reinterpret_cast<float4 const *>(source)[source_offset];
+  // see note below - could do a float 4 here if we think it through
+  reinterpret_cast<float2 *>(dest)[dest_offset] =
+      reinterpret_cast<float2 const *>(source)[source_offset];
 }
 
 DEVICE_FUNCTION
@@ -59,7 +60,9 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   assert(gridDim.y == 1);
   assert(gridDim.z == 1);
 
-  auto const vector_size = std::is_same<P, double>::value ? 2 : 4;
+  // FIXME could do a vector size of 4 for floats, but I'd need to handle
+  // size(x) % 4 != 0 case, it's a little more complex than some extra copy-over
+  auto const vector_size = 2 ; // FIXME std::is_same<P, double>::value ? 2 : 4;
   auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
   auto const start       = id;
@@ -76,7 +79,7 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   auto const leftovers = total_elems % vector_size;
   if (id == 0 && leftovers)
   {
-    for (auto i = total_elems - leftovers - 1; i < leftovers; ++i)
+    for (auto i = total_elems - leftovers; i < total_elems; ++i)
     {
       workspace[i] = x[i % num_elems];
     }
