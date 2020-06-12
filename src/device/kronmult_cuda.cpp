@@ -29,16 +29,23 @@
 #include <omp.h>
 #endif
 
+#ifdef ASGARD_USE_CUDA
 DEVICE_FUNCTION
-inline void vector_read(float * const dest, float const * const source, int64_t const dest_offset, int64_t source_offset) {
-    reinterpret_cast<float4*>(dest)[dest_offset] = reinterpret_cast<float4 const *>(source)[source_offset];
+inline void vector_read(float *const dest, float const *const source,
+                        int64_t const dest_offset, int64_t source_offset)
+{
+  reinterpret_cast<float4 *>(dest)[dest_offset] =
+      reinterpret_cast<float4 const *>(source)[source_offset];
 }
 
-
 DEVICE_FUNCTION
-inline void vector_read(double * const dest, double const * const source, int64_t const dest_offset, int64_t source_offset) {
-    reinterpret_cast<double2*>(dest)[dest_offset] = reinterpret_cast<double2 const *>(source)[source_offset];
+inline void vector_read(double *const dest, double const *const source,
+                        int64_t const dest_offset, int64_t source_offset)
+{
+  reinterpret_cast<double2 *>(dest)[dest_offset] =
+      reinterpret_cast<double2 const *>(source)[source_offset];
 }
+#endif
 
 template<typename P>
 GLOBAL_FUNCTION void
@@ -59,17 +66,19 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   auto const increment   = num_threads;
   auto const total_elems = static_cast<int64_t>(num_elems * num_copies);
   auto const stop        = total_elems / vector_size;
-  auto const x_length = num_elems/vector_size;
+  auto const x_length    = num_elems / vector_size;
 
   for (int i = start; i < stop; i += increment)
   {
     vector_read(workspace, x, i, i % x_length);
   }
-  
+
   int const leftovers = total_elems % vector_size;
-  if (id == 0 && leftovers) {
-    for(auto i = total_elems - leftovers - 1; i < leftovers; ++i) {
-       workspace[i] = x[i % num_elems];
+  if (id == 0 && leftovers)
+  {
+    for (auto i = total_elems - leftovers - 1; i < leftovers; ++i)
+    {
+      workspace[i] = x[i % num_elems];
     }
   }
 
