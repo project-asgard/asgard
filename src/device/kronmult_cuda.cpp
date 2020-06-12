@@ -29,6 +29,17 @@
 #include <omp.h>
 #endif
 
+DEVICE_FUNCTION
+inline void vector_read(float * const dest, float const * const source, int64_t const dest_offset, int64_t source_offset) {
+    reinterpret_cast<float4*>(dest)[dest_offset] = reinterpret_cast<float4 const *>(source)[source_offset];
+}
+
+
+DEVICE_FUNCTION
+inline void vector_read(double * const dest, double const * const source, int64_t const dest_offset, int64_t source_offset) {
+    reinterpret_cast<double2*>(dest)[dest_offset] = reinterpret_cast<double2 const *>(source)[source_offset];
+}
+
 template<typename P>
 GLOBAL_FUNCTION void
 stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
@@ -42,17 +53,17 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   assert(gridDim.z == 1);
 
   auto const vector_size = std::is_same<P, double>::value ? 2 : 4;
-  
-  //using vector_type = std::is_same<P, double>::value ? double2* : float4*;
   auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
-  auto const start       = static_cast<int64_t>(id) * vector_size;
-  auto const increment   = static_cast<int64_t>(num_threads) * vector_size;
-  auto const stop        = static_cast<int64_t>(num_elems) * num_copies;
-   
-  for (int64_t i = start; i < stop; i += increment)
+  auto const start       = id;
+  auto const increment   = num_threads;
+  auto const stop        = (static_cast<int64_t>(num_elems) * num_copies) / vector_size;
+  auto const x_length = num_elems/vector_size;
+
+  for (int i = start; i < stop; i += increment)
   {
-    reinterpret_cast<double2*>(workspace)[i] = reinterpret_cast<double2 const *>(x)[i % num_elems];
+    //reinterpret_cast<double2*>(workspace)[write] = reinterpret_cast<double2 const *>(x)[i];
+    vector_read(workspace, x, i, i % x_length);
   }
 
 #else
