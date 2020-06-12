@@ -36,23 +36,23 @@ void test_kronmult_staging(int const num_elems, int const num_copies)
 
 TEMPLATE_TEST_CASE("staging kernel", "[kronmult_cuda]", float, double)
 {
-  SECTION("1 elems, 1 copies")
+  SECTION("2 elems, 1 copies")
   {
-    auto const num_elems  = 1;
+    auto const num_elems  = 2;
     auto const num_copies = 1;
     test_kronmult_staging<TestType>(num_elems, num_copies);
   }
 
-  SECTION("1001 elems, 1 copies")
+  SECTION("1000 elems, 1 copies")
   {
-    auto const num_elems  = 1001;
+    auto const num_elems  = 1000;
     auto const num_copies = 1;
     test_kronmult_staging<TestType>(num_elems, num_copies);
   }
 
-  SECTION("1 elems, 500 copies")
+  SECTION("6 elems, 500 copies")
   {
-    auto const num_elems  = 1;
+    auto const num_elems  = 6;
     auto const num_copies = 500;
     test_kronmult_staging<TestType>(num_elems, num_copies);
   }

@@ -109,6 +109,10 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
 {
   assert(num_elems > 0);
   assert(num_copies > 0);
+  // num_elems should always have a factor of two in it.
+  // this simplifies vector reads.
+  // let's double check
+  assert(num_elems % 2 == 0);
 
 #ifdef ASGARD_USE_CUDA
 
