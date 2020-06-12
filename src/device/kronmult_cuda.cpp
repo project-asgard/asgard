@@ -62,7 +62,7 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
 
   // FIXME could do a vector size of 4 for floats, but I'd need to handle
   // size(x) % 4 != 0 case, it's a little more complex than some extra copy-over
-  auto const vector_size = 2 ; // FIXME std::is_same<P, double>::value ? 2 : 4;
+  auto const vector_size = 2; // FIXME std::is_same<P, double>::value ? 2 : 4;
   auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
   auto const start       = id;
