@@ -75,7 +75,7 @@ private:
   static auto constexpr psi = [](P x) {
     auto dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(-std::pow(x, 2));
     auto ret     = 1.0 / (2 * std::pow(x, 2)) * (phi(x) - x * dphi_dx);
-    if (x < 1e-5)
+    if (std::abs(x) < 1e-5)
       ret = 0;
     return ret;
   };
@@ -175,7 +175,7 @@ private:
   }
 
   // p dimension
-  inline static P const p_domain_min = 0;
+  inline static P const p_domain_min = 0.1;
   inline static P const p_domain_max = 20;
 
   inline static dimension<P> const dim_p =
@@ -338,9 +338,11 @@ private:
   // 1. create partial_terms
   inline static partial_term<P> const c3_pterm1 =
       partial_term<P>(coefficient_type::mass, c3_g1);
+
   inline static partial_term<P> const c3_pterm2 = partial_term<P>(
       coefficient_type::grad, c3_g2, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
+
   inline static partial_term<P> const c3_pterm3 =
       partial_term<P>(coefficient_type::grad, c3_g3, flux_type::downwind,
                       boundary_condition::neumann, boundary_condition::neumann);

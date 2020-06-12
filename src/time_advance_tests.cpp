@@ -223,11 +223,13 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
     /* Captain! Test code */
+    /*
     std::cout << "time " << time << std::endl;
     for( int j = 0; j < f_val.size(); ++j )
     {
       std::cout << "f_val: " << f_val( j ) << " gold: " << gold( j ) << std::endl;
     }
+    */
     /* end test code */
 
     rmse_comparison(gold, f_val, tolerance_factor);
