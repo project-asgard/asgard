@@ -57,13 +57,20 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
   auto const start       = id;
   auto const increment   = num_threads;
-  auto const stop        = (static_cast<int64_t>(num_elems) * num_copies) / vector_size;
+  auto const total_elems = static_cast<int64_t>(num_elems * num_copies);
+  auto const stop        = total_elems / vector_size;
   auto const x_length = num_elems/vector_size;
 
   for (int i = start; i < stop; i += increment)
   {
-    //reinterpret_cast<double2*>(workspace)[write] = reinterpret_cast<double2 const *>(x)[i];
     vector_read(workspace, x, i, i % x_length);
+  }
+  
+  int const leftovers = total_elems % vector_size;
+  if (id == 0 && leftovers) {
+    for(auto i = total_elems - leftovers - 1; i < leftovers; ++i) {
+       workspace[i] = x[i % num_elems];
+    }
   }
 
 #else
