@@ -89,7 +89,7 @@ if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
   include_directories(${CUDA_INCLUDE_DIRS})
   enable_language(CUDA)
-  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -Xlinker=Wl,-rpath,${KRON_PATH} --ptxas-options=-O3")
+  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -Xlinker -rpath,${KRON_PATH} --ptxas-options=-O3")
   set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
 endif()
 target_include_directories (kronmult_cuda PRIVATE ${KRON_PATH} ${CMAKE_BINARY_DIR})
