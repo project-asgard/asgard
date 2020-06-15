@@ -185,7 +185,7 @@ endif ()
 #
 ###############################################################################
 
-set(KRON_PATH ${CMAKE_SOURCE_DIR}/contrib/kronmult/src/kronmult-ext)
+set(KRON_PATH "${CMAKE_SOURCE_DIR}/contrib/kronmult/src/kronmult-ext")
 find_library(KRON_LIB kron PATHS ${KRON_PATH})
 
 if(NOT KRON_LIB)
