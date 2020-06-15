@@ -80,17 +80,15 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
-set(CMAKE_INSTALL_RPATH ${KRON_PATH})
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
 # build component to interface with Ed's kronmult lib
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_CUDA)
   find_package(CUDA 9.0 REQUIRED)
   include_directories(${CUDA_INCLUDE_DIRS})
-  enable_language(CUDA)
-  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -Xlinker -rpath,${KRON_PATH} --ptxas-options=-O3")
+  enable_language(CUDA) 
   set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g --ptxas-options=-O3")
+  set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${KRON_PATH}")
 endif()
 target_include_directories (kronmult_cuda PRIVATE ${KRON_PATH} ${CMAKE_BINARY_DIR})
 if(ASGARD_USE_MKL)
@@ -100,7 +98,6 @@ if(ASGARD_USE_MKL)
     target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
   endif()
 endif()
-
 
 if(ASGARD_USE_MPI)
   find_package(MPI REQUIRED)
@@ -202,9 +199,9 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
 endif ()
 
 if (ASGARD_USE_CUDA) 
-target_link_libraries(kronmult_cuda PUBLIC ${KRON_LIB})
+   target_link_libraries(kronmult_cuda PRIVATE ${KRON_LIB})
 else ()
-target_link_libraries(kronmult_cuda PUBLIC "-Wl,-rpath,${KRON_PATH} ${KRON_LIB}")
+   target_link_libraries(kronmult_cuda PRIVATE "-Wl,-rpath,${KRON_PATH} ${KRON_LIB}")
 endif ()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
