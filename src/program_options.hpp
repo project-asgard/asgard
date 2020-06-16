@@ -33,14 +33,7 @@ enum class PDE_opts
   fokkerplanck_2d_complete,
   diffusion_1,
   diffusion_2,
-  // FIXME the below have not been implemented according to the
-  // new specification. david is working on that in the matlab
-  vlasov4,  // PDE corresponding to Fig. 4 in FIXME
-  vlasov43, // PDE corresponding to Fig. 4.3 in FIXME
-  vlasov5,  // PDE corresponding to Fig. 5 in FIXME
-  vlasov7,  // PDE corresponding to Fig. 7 in FIXME
-  vlasov8,  // PDE corresponding to Fig. 8 in FIXME
-  pde_user  // FIXME will need to add the user supplied PDE choice
+  // FIXME will need to add the user supplied PDE choice
 };
 
 //
@@ -60,12 +53,7 @@ static pde_map_t const pde_mapping = {
     {"fokkerplanck_2d_complete", PDE_opts::fokkerplanck_2d_complete},
     {"diffusion_1", PDE_opts::diffusion_1},
     {"diffusion_2", PDE_opts::diffusion_2},
-    {"pde_user", PDE_opts::pde_user},
-    {"vlasov4", PDE_opts::vlasov4},
-    {"vlasov7", PDE_opts::vlasov7},
-    {"vlasov8", PDE_opts::vlasov8},
-    {"vlasov5", PDE_opts::vlasov5},
-    {"vlasov43", PDE_opts::vlasov43}};
+};
 
 // class to parse command line input
 class parser
@@ -89,23 +77,29 @@ public:
   // construct from command line
   parser(int argc, char **argv);
 
-  // construct from provided values - for testing
+  // construct from provided values - to simplify testing
   parser(PDE_opts const pde_choice, int const level, int const degree,
          double const cfl)
       : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
+  bool using_implicit() const;
+  bool using_full_grid() const;
+  bool do_poisson_solve() const;
+
   int get_level() const;
   int get_degree() const;
   int get_max_level() const;
-  double get_dt() const;
   int get_time_steps() const;
-  bool using_implicit() const;
-  bool using_full_grid() const;
-  double get_cfl() const;
-  PDE_opts get_selected_pde() const;
-  bool do_poisson_solve() const;
+
   int get_wavelet_output_freq() const;
   int get_realspace_output_freq() const;
+
+  double get_dt() const;
+  double get_cfl() const;
+
+  std::string get_pde_string() const;
+
+  PDE_opts get_selected_pde() const;
   solve_opts get_selected_solver() const;
 
   bool is_valid() const;
@@ -154,27 +148,28 @@ public:
   options(parser const &user_vals)
       : max_level(user_vals.get_max_level()),
         num_time_steps(user_vals.get_time_steps()),
+        wavelet_output_freq(user_vals.get_wavelet_output_freq()),
+        realspace_output_freq(user_vals.get_realspace_output_freq()),
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
-        wavelet_output_freq(user_vals.get_wavelet_output_freq()),
-        realspace_output_freq(user_vals.get_realspace_output_freq()){};
+        solver(user_vals.get_selected_solver()){};
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
 
   int const max_level;
   int const num_time_steps;
+  int const wavelet_output_freq;
+  int const realspace_output_freq;
 
   bool const use_implicit_stepping;
   bool const use_full_grid;
   bool const do_poisson_solve;
 
+  solve_opts const solver;
+
 private:
   // helper for output writing
   bool write_at_step(int const i, int const freq) const;
-
-  int const wavelet_output_freq;
-  int const realspace_output_freq;
-  solve_opts solver;
 };

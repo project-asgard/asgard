@@ -23,5 +23,5 @@ options make_options(std::vector<std::string> const arguments)
     argv.push_back(const_cast<char *>(arg.data()));
   }
   argv.push_back(nullptr);
-  return options(argv.size() - 1, argv.data());
+  return options(parser(argv.size() - 1, argv.data()));
 }

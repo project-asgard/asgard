@@ -32,12 +32,14 @@ using prec = float;
 
 int main(int argc, char **argv)
 {
-  options opts(argc, argv);
-  if (!opts.is_valid())
+  // -- parse cli
+  parser const cli_input(argc, argv);
+  if (!cli_input.is_valid())
   {
     node_out() << "invalid cli string; exiting" << '\n';
     exit(-1);
   }
+  options const opts(cli_input);
 
   // -- set up distribution
   auto const [my_rank, num_ranks] = initialize_distribution();
@@ -54,38 +56,35 @@ int main(int argc, char **argv)
              << '\n';
   node_out() << "This executable was built on " << BUILD_TIME << '\n';
 
-  // -- parse user input and generate pde
+  // -- generate pde
   node_out() << "generating: pde..." << '\n';
-  auto pde = make_PDE<prec>(opts);
-
-  // sync up options object in case pde defaults were loaded
-  // assume uniform level and degree across dimensions
-  opts.update_level(pde->get_dimensions()[0].get_level());
-  opts.update_degree(pde->get_dimensions()[0].get_degree());
-  opts.update_dt(pde->get_dt());
+  auto pde = make_PDE<prec>(cli_input);
 
   // do this only once to avoid confusion
   // if we ever do go to p-adaptivity (variable degree) we can change it then
   auto const degree = pde->get_dimensions()[0].get_degree();
 
+  // FIXME assume uniform level for now
+  auto const level = pde->get_dimensions()[0].get_level();
+
   node_out() << "ASGarD problem configuration:" << '\n';
-  node_out() << "  selected PDE: " << opts.get_pde_string() << '\n';
-  node_out() << "  level: " << opts.get_level() << '\n';
-  node_out() << "  degree: " << opts.get_degree() << '\n';
-  node_out() << "  N steps: " << opts.get_time_steps() << '\n';
-  node_out() << "  write freq: " << opts.get_write_frequency() << '\n';
-  node_out() << "  realspace freq: " << opts.get_realspace_output_freq()
-             << '\n';
-  node_out() << "  implicit: " << opts.using_implicit() << '\n';
-  node_out() << "  full grid: " << opts.using_full_grid() << '\n';
-  node_out() << "  CFL number: " << opts.get_cfl() << '\n';
-  node_out() << "  Poisson solve: " << opts.do_poisson_solve() << '\n';
+  node_out() << "  selected PDE: " << cli_input.get_pde_string() << '\n';
+  node_out() << "  starting level: " << level << '\n';
+  node_out() << "  degree: " << degree << '\n';
+  node_out() << "  N steps: " << opts.num_time_steps << '\n';
+  node_out() << "  write freq: " << opts.wavelet_output_freq << '\n';
+  node_out() << "  realspace freq: " << opts.realspace_output_freq << '\n';
+  node_out() << "  implicit: " << opts.use_implicit_stepping << '\n';
+  node_out() << "  full grid: " << opts.use_full_grid << '\n';
+  node_out() << "  CFL number: " << cli_input.get_cfl() << '\n';
+  node_out() << "  Poisson solve: " << opts.do_poisson_solve << '\n';
 
   node_out() << "--- begin setup ---" << '\n';
 
   // -- create forward/reverse mapping between elements and indices
   node_out() << "  generating: element table..." << '\n';
-  element_table const table = element_table(opts, pde->num_dims);
+
+  element_table const table = element_table(opts, level, pde->num_dims);
 
   node_out() << "  degrees of freedom: "
              << table.size() *
@@ -95,7 +94,7 @@ int main(int argc, char **argv)
   node_out() << "  generating: basis operator..." << '\n';
   bool const quiet = false;
   basis::wavelet_transform<prec, resource::host> const transformer(
-      opts.get_max_level(), opts.get_degree(), quiet);
+      opts.max_level, degree, quiet);
 
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
@@ -166,7 +165,7 @@ int main(int argc, char **argv)
           *pde, table, transformer, subgrid.row_start, subgrid.row_stop);
 
   // this is to bail out for further profiling/development on the setup routines
-  if (opts.get_time_steps() < 1)
+  if (opts.num_time_steps < 1)
     return 0;
 
   node_out() << "--- begin time loop staging ---" << '\n';
@@ -225,18 +224,18 @@ int main(int argc, char **argv)
 
   fk::vector<prec> f_val(initial_condition);
   node_out() << "--- begin time loop w/ dt " << pde->get_dt() << " ---\n";
-  for (int i = 0; i < opts.get_time_steps(); ++i)
+  for (int i = 0; i < opts.num_time_steps; ++i)
   {
     prec const time = i * pde->get_dt();
 
-    if (opts.using_implicit())
+    if (opts.use_implicit_stepping)
     {
       bool const update_system = i == 0;
 
       auto const time_id = timer::record.start("implicit_time_advance");
       f_val              = implicit_time_advance(*pde, table, initial_sources,
                                     unscaled_parts, f_val, chunks, plan, time,
-                                    opts.get_selected_solver(), update_system);
+                                    opts.solver, update_system);
       timer::record.stop(time_id);
     }
     else

@@ -4,7 +4,7 @@
 #include "distribution.hpp"
 #include <iostream>
 
-options::options(int argc, char **argv)
+parser::parser(int argc, char **argv)
 {
   bool show_help = false;
 
@@ -32,8 +32,8 @@ options::options(int argc, char **argv)
           "PDE to solve; see options.hpp for list") |
       clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
           "Do poisson solve for electric field") |
-      clara::detail::Opt(write_frequency,
-                         "write_frequency")["-w"]["--write_freq"](
+      clara::detail::Opt(wavelet_output_freq,
+                         "wavelet_output_freq")["-w"]["--wave_freq"](
           "Frequency in steps for writing wavelet space "
           "output") |
       clara::detail::Opt(realspace_output_freq,
@@ -110,14 +110,14 @@ options::options(int argc, char **argv)
     pde_choice = pde_mapping.at(selected_pde);
   }
 
-  if (realspace_output_freq < 0 || write_frequency < 0)
+  if (realspace_output_freq < 0 || wavelet_output_freq < 0)
   {
     std::cerr << "Write frequencies must be non-negative" << '\n';
     valid = false;
   }
 
   if (realspace_output_freq > num_time_steps ||
-      write_frequency > num_time_steps)
+      wavelet_output_freq > num_time_steps)
   {
     std::cerr << "Requested a write frequency > number of steps - no output "
                  "will be produced"
@@ -126,7 +126,7 @@ options::options(int argc, char **argv)
   }
 
 #ifndef ASGARD_IO_HIGHFIVE
-  if (realspace_output_freq > 0 || write_frequency > 0)
+  if (realspace_output_freq > 0 || wavelet_output_freq > 0)
   {
     std::cerr << "Must build with ASGARD_IO_HIGHFIVE to write output" << '\n';
     valid = false;
@@ -181,24 +181,35 @@ options::options(int argc, char **argv)
 #endif
 }
 
-int options::get_level() const { return level; }
-int options::get_degree() const { return degree; }
-int options::get_max_level() const { return max_level; }
-int options::get_time_steps() const { return num_time_steps; }
-int options::get_write_frequency() const { return write_frequency; }
-bool options::using_implicit() const { return use_implicit_stepping; }
-bool options::using_full_grid() const { return use_full_grid; }
-double options::get_cfl() const { return cfl; }
-double options::get_dt() const { return dt; }
-PDE_opts options::get_selected_pde() const { return pde_choice; }
-std::string options::get_pde_string() const { return selected_pde; }
-bool options::is_valid() const { return valid; }
-bool options::do_poisson_solve() const { return do_poisson; }
-int options::get_realspace_output_freq() const { return realspace_output_freq; }
-solve_opts options::get_selected_solver() const
+bool parser::using_implicit() const { return use_implicit_stepping; }
+bool parser::using_full_grid() const { return use_full_grid; }
+bool parser::do_poisson_solve() const { return do_poisson; }
+
+int parser::get_level() const { return level; }
+int parser::get_degree() const { return degree; }
+int parser::get_max_level() const { return max_level; }
+int parser::get_time_steps() const { return num_time_steps; }
+int parser::get_wavelet_output_freq() const { return wavelet_output_freq; }
+int parser::get_realspace_output_freq() const { return realspace_output_freq; }
+
+double parser::get_cfl() const { return cfl; }
+double parser::get_dt() const { return dt; }
+
+std::string parser::get_pde_string() const { return selected_pde; }
+
+PDE_opts parser::get_selected_pde() const { return pde_choice; }
+solve_opts parser::get_selected_solver() const { return solver; }
+
+bool parser::is_valid() const { return valid; }
+
+bool options::should_output_wavelet(int const i) const
 {
-  assert(use_implicit_stepping); // meaningless for explicit stepping
-  return solver;
+  return write_at_step(i, wavelet_output_freq);
+}
+
+bool options::should_output_realspace(int const i) const
+{
+  return write_at_step(i, realspace_output_freq);
 }
 
 bool options::write_at_step(int const i, int const freq) const
@@ -219,14 +230,4 @@ bool options::write_at_step(int const i, int const freq) const
     return true;
   }
   return false;
-}
-
-bool options::should_output_wavelet(int const i) const
-{
-  return write_at_step(i, write_frequency);
-}
-
-bool options::should_output_realspace(int const i) const
-{
-  return write_at_step(i, realspace_output_freq);
 }
