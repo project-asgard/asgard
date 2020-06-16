@@ -98,6 +98,7 @@ public:
   double get_cfl() const;
 
   std::string get_pde_string() const;
+  std::string get_solver_string() const;
 
   PDE_opts get_selected_pde() const;
   solve_opts get_selected_solver() const;
@@ -105,6 +106,11 @@ public:
   bool is_valid() const;
 
 private:
+  bool use_implicit_stepping =
+      DEFAULT_USE_IMPLICIT;             // enable implicit(/explicit) stepping
+  bool use_full_grid = DEFAULT_USE_FG;  // enable full(/sparse) grid
+  bool do_poisson = DEFAULT_DO_POISSON; // do poisson solve for electric field
+
   // FIXME level and degree are unique to dimensions, will
   // need to support inputting level and degree per dimensions
   // in future
@@ -114,25 +120,23 @@ private:
   int max_level =
       DEFAULT_MAX_LEVEL; // max adaptivity level for any given dimension.
   int num_time_steps = DEFAULT_TIME_STEPS; // number of time loop iterations
-  bool use_implicit_stepping =
-      DEFAULT_USE_IMPLICIT;             // enable implicit(/explicit) stepping
-  bool use_full_grid = DEFAULT_USE_FG;  // enable full(/sparse) grid
-  bool do_poisson = DEFAULT_DO_POISSON; // do poisson solve for electric field
-  double cfl = NO_USER_VALUE_FP; // the Courant-Friedrichs-Lewy (CFL) condition
-  double dt =
-      NO_USER_VALUE_FP; // size of time steps. double::min loads default in pde
+
   int wavelet_output_freq = DEFAULT_WRITE_FREQ; // write wavelet space output
                                                 // every this many iterations
   int realspace_output_freq =
       DEFAULT_WRITE_FREQ; // timesteps between realspace output writes to disk
 
+  double cfl = NO_USER_VALUE_FP; // the Courant-Friedrichs-Lewy (CFL) condition
+  double dt =
+      NO_USER_VALUE_FP; // size of time steps. double::min loads default in pde
+
   // default
-  std::string selected_pde = DEFAULT_PDE_STR;
+  std::string pde_str = DEFAULT_PDE_STR;
   // pde to construct/evaluate
   PDE_opts pde_choice = DEFAULT_PDE_OPT;
 
   // default
-  std::string selected_solver = NO_USER_VALUE_STR;
+  std::string solver_str = NO_USER_VALUE_STR;
   // solver to use for implicit timestepping
   solve_opts solver = DEFAULT_SOLVER;
 

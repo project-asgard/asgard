@@ -143,7 +143,7 @@ void test_chunking(PDE<P> const &pde, int const ranks)
 
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
-  element_table const table(o, pde.num_dims);
+  element_table const table(o, level, pde.num_dims);
   auto const plan = get_plan(ranks, table);
 
   for (int limit_MB = workspace_min_MB; limit_MB <= workspace_max_MB;
@@ -303,7 +303,7 @@ void reduction_test(int const degree, int const level, PDE<P> const &pde)
   options const o =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-  element_table const elem_table(o, pde.num_dims);
+  element_table const elem_table(o, level, pde.num_dims);
 
   int const num_ranks = 1;
   auto const plan     = get_plan(num_ranks, elem_table);

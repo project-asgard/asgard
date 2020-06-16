@@ -78,7 +78,7 @@ void test_kronmult_build(PDE<P> const &pde)
   std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
                                          std::to_string(degree)};
   options const o                     = make_options(args);
-  element_table const table(o, pde.num_dims);
+  element_table const table(o, level, pde.num_dims);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
   P *element_x;

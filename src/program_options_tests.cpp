@@ -17,13 +17,13 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-TEST_CASE("options constructor/getters", "[options]")
+TEST_CASE("parser constructor/getters", "[program_options]")
 {
   SECTION("create from valid string")
   {
     // the golden values
-    std::string pde_choice = "vlasov43";
-    PDE_opts pde           = PDE_opts::vlasov43;
+    std::string pde_choice = "continuity_3";
+    PDE_opts pde           = PDE_opts::continuity_3;
     int const level        = 3;
     int const degree       = 4;
     int const write        = 1;
@@ -31,115 +31,125 @@ TEST_CASE("options constructor/getters", "[options]")
     double const cfl       = 2.0;
 
     // set up test inputs directly from golden values
-    options o =
-        make_options({"-p", pde_choice, "-l", std::to_string(level), "-d",
-                      std::to_string(degree), "-w", std::to_string(write), "-r",
-                      std::to_string(realspace), "-f", "-i", "-e", "-c",
-                      std::to_string(cfl)});
+    parser const p =
+        make_parser({"-p", pde_choice, "-l", std::to_string(level), "-d",
+                     std::to_string(degree), "-w", std::to_string(write), "-r",
+                     std::to_string(realspace), "-f", "-i", "-e", "-c",
+                     std::to_string(cfl)});
 
-    REQUIRE(o.get_degree() == degree);
-    REQUIRE(o.get_level() == level);
-    REQUIRE(o.get_write_frequency() == write);
-    REQUIRE(o.get_realspace_output_freq() == realspace);
-    REQUIRE(o.using_implicit());
-    REQUIRE(o.using_full_grid());
-    REQUIRE(o.do_poisson_solve());
-    REQUIRE(o.get_cfl() == cfl);
-    REQUIRE(o.get_selected_pde() == pde);
+    REQUIRE(p.get_degree() == degree);
+    REQUIRE(p.get_level() == level);
+    REQUIRE(p.get_wavelet_output_freq() == write);
+    REQUIRE(p.get_realspace_output_freq() == realspace);
+    REQUIRE(p.using_implicit());
+    REQUIRE(p.using_full_grid());
+    REQUIRE(p.do_poisson_solve());
+    REQUIRE(p.get_cfl() == cfl);
+    REQUIRE(p.get_selected_pde() == pde);
   }
 
   SECTION("run w/ defaults")
   {
-    int const def_level          = -1;
-    int const def_degree         = -1;
-    int const def_max_level      = 12;
-    int const def_num_steps      = 10;
-    int const def_write_freq     = 0;
-    int const def_realspace_freq = 0;
-    bool const def_implicit      = false;
-    bool const def_full_grid     = false;
-    bool const def_poisson       = false;
-    double const def_cfl         = 0.01;
-    double const def_dt          = std::numeric_limits<double>::min();
-    PDE_opts const def_pde       = PDE_opts::continuity_2;
+    auto const def_level          = parser::NO_USER_VALUE;
+    auto const def_degree         = parser::NO_USER_VALUE;
+    auto const def_max_level      = parser::DEFAULT_MAX_LEVEL;
+    auto const def_num_steps      = parser::DEFAULT_TIME_STEPS;
+    auto const def_write_freq     = parser::DEFAULT_WRITE_FREQ;
+    auto const def_realspace_freq = parser::DEFAULT_WRITE_FREQ;
+    auto const def_implicit       = parser::DEFAULT_USE_IMPLICIT;
+    auto const def_full_grid      = parser::DEFAULT_USE_FG;
+    auto const def_poisson        = parser::DEFAULT_DO_POISSON;
 
-    options o = make_options({});
+    auto const def_cfl = parser::DEFAULT_CFL;
+    auto const def_dt  = parser::NO_USER_VALUE_FP;
+    auto const def_pde = parser::DEFAULT_PDE_OPT;
 
-    REQUIRE(o.get_degree() == def_degree);
-    REQUIRE(o.get_level() == def_level);
-    REQUIRE(o.get_max_level() == def_max_level);
-    REQUIRE(o.get_time_steps() == def_num_steps);
-    REQUIRE(o.get_write_frequency() == def_write_freq);
-    REQUIRE(o.get_realspace_output_freq() == def_realspace_freq);
-    REQUIRE(o.using_implicit() == def_implicit);
-    REQUIRE(o.using_full_grid() == def_full_grid);
-    REQUIRE(o.do_poisson_solve() == def_poisson);
-    REQUIRE(o.get_cfl() == def_cfl);
-    REQUIRE(o.get_selected_pde() == def_pde);
-    REQUIRE(o.get_dt() == def_dt);
-    REQUIRE(o.is_valid());
+    auto const def_pde_str   = parser::DEFAULT_PDE_STR;
+    auto const def_solve_str = parser::NO_USER_VALUE_STR;
+
+    auto const def_solver = parser::DEFAULT_SOLVER;
+
+    auto const p = make_parser({});
+
+    REQUIRE(p.get_degree() == def_degree);
+    REQUIRE(p.get_level() == def_level);
+    REQUIRE(p.get_max_level() == def_max_level);
+    REQUIRE(p.get_time_steps() == def_num_steps);
+    REQUIRE(p.get_wavelet_output_freq() == def_write_freq);
+    REQUIRE(p.get_realspace_output_freq() == def_realspace_freq);
+    REQUIRE(p.using_implicit() == def_implicit);
+    REQUIRE(p.using_full_grid() == def_full_grid);
+    REQUIRE(p.do_poisson_solve() == def_poisson);
+    REQUIRE(p.get_cfl() == def_cfl);
+    REQUIRE(p.get_selected_pde() == def_pde);
+    REQUIRE(p.get_selected_solver() == def_solver);
+    REQUIRE(p.get_pde_string() == def_pde_str);
+    REQUIRE(p.get_solver_string() == def_solve_str);
+    REQUIRE(p.get_dt() == def_dt);
+
+    REQUIRE(p.is_valid());
   }
 
   SECTION("out of range pde")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-p", "2 1337 4 u gg"});
+    parser const p = make_parser({"asgard", "-p", "2 1337 4 u gg"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 
   SECTION("out of range solver")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-s", "2 1337 4 u gg"});
+    parser const p = make_parser({"asgard", "-s", "2 1337 4 u gg"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 
   SECTION("negative level")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-l=-2"});
+    parser const p = make_parser({"asgard", "-l=-2"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 
   SECTION("negative degree")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-d=-2"});
+    parser const p = make_parser({"asgard", "-d=-2"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 
   SECTION("max level < starting level")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-l=3", "-m=2"});
+    parser const p = make_parser({"asgard", "-l=3", "-m=2"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 
   SECTION("negative cfl")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-c=-2.0"});
+    parser const p = make_parser({"asgard", "-c=-2.0"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 
   SECTION("non positive dt")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-t=-0.0"});
+    parser const p = make_parser({"asgard", "-t=-0.0"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
   SECTION("providing both dt and cfl")
   {
     std::cerr.setstate(std::ios_base::failbit);
-    options o = make_options({"asgard", "-t=-1.0", "-c=0.5"});
+    parser const p = make_parser({"asgard", "-t=-1.0", "-c=0.5"});
     std::cerr.clear();
-    REQUIRE(!o.is_valid());
+    REQUIRE(!p.is_valid());
   }
 }

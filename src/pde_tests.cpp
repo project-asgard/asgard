@@ -61,7 +61,7 @@ TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
   SECTION("diffusion 2 dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }
@@ -107,7 +107,7 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
   SECTION("diffusion 1 dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }
@@ -168,7 +168,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
   SECTION("continuity 1 dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }
@@ -228,7 +228,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations", "[pde]", double,
   SECTION("continuity 2 dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }
@@ -291,7 +291,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
   SECTION("continuity 3 dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }
@@ -354,7 +354,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
   SECTION("continuity 6 dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }
@@ -381,7 +381,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
   SECTION("fokkerplanck2_complete dt")
   {
     TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
-    TestType const dt   = pde->get_dt() / options::DEFAULT_CFL;
+    TestType const dt   = pde->get_dt() / parser::DEFAULT_CFL;
     REQUIRE(dt == gold);
   }
 }

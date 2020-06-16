@@ -20,15 +20,15 @@ parser::parser(int argc, char **argv)
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
-      clara::detail::Opt(selected_solver, "selected_solver")["-s"]["--solver"](
+      clara::detail::Opt(solver_str, "solver_str")["-s"]["--solver"](
           "Solver to use (direct or gmres) for implicit advance") |
       clara::detail::Opt(level, "level")["-l"]["--level"](
-          "Hierarchical levels (resolution)") |
+          "Stating hierarchical levels (resolution)") |
       clara::detail::Opt(max_level, "max level")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
           "Number of iterations") |
-      clara::detail::Opt(selected_pde, "selected_pde")["-p"]["--pde"](
+      clara::detail::Opt(pde_str, "pde_str")["-p"]["--pde"](
           "PDE to solve; see options.hpp for list") |
       clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
           "Do poisson solve for electric field") |
@@ -98,7 +98,7 @@ parser::parser(int argc, char **argv)
     valid = false;
   }
 
-  auto const choice = pde_mapping.find(selected_pde);
+  auto const choice = pde_mapping.find(pde_str);
   if (choice == pde_mapping.end())
   {
     std::cerr << "Invalid pde choice; see options.hpp for valid choices"
@@ -107,7 +107,7 @@ parser::parser(int argc, char **argv)
   }
   else
   {
-    pde_choice = pde_mapping.at(selected_pde);
+    pde_choice = pde_mapping.at(pde_str);
   }
 
   if (realspace_output_freq < 0 || wavelet_output_freq < 0)
@@ -135,11 +135,11 @@ parser::parser(int argc, char **argv)
 
   if (use_implicit_stepping)
   {
-    if (selected_solver == "none")
+    if (solver_str == "none")
     {
-      selected_solver = "direct";
+      solver_str = "direct";
     }
-    auto const choice = solver_mapping.find(selected_solver);
+    auto const choice = solver_mapping.find(solver_str);
     if (choice == solver_mapping.end())
     {
       std::cerr << "Invalid solver choice; see options.hpp for valid choices\n";
@@ -147,12 +147,12 @@ parser::parser(int argc, char **argv)
     }
     else
     {
-      solver = solver_mapping.at(selected_solver);
+      solver = solver_mapping.at(solver_str);
     }
   }
   else // explicit time advance
   {
-    if (selected_solver != "none")
+    if (solver_str != "none")
     {
       std::cerr << "Must set implicit (-i) flag to select a solver\n";
       valid = false;
@@ -195,7 +195,8 @@ int parser::get_realspace_output_freq() const { return realspace_output_freq; }
 double parser::get_cfl() const { return cfl; }
 double parser::get_dt() const { return dt; }
 
-std::string parser::get_pde_string() const { return selected_pde; }
+std::string parser::get_pde_string() const { return pde_str; }
+std::string parser::get_solver_string() const { return solver_str; }
 
 PDE_opts parser::get_selected_pde() const { return pde_choice; }
 solve_opts parser::get_selected_solver() const { return solver; }
