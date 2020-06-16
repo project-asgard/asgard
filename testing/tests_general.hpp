@@ -105,6 +105,7 @@ dimension<P> make_dummy_dim(
 }
 
 options make_options(std::vector<std::string> const arguments);
+parser make_parser(std::vector<std::string> const arguments);
 
 template<typename T>
 std::string to_string_with_precision(T const a_value, int const precision = 6)
