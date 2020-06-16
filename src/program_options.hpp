@@ -67,41 +67,48 @@ static pde_map_t const pde_mapping = {
     {"vlasov5", PDE_opts::vlasov5},
     {"vlasov43", PDE_opts::vlasov43}};
 
-class options
+// class to parse command line input
+class parser
 {
 public:
-  static int constexpr NO_USER_VALUE       = -1;
-  static double constexpr NO_USER_VALUE_FP = std::numeric_limits<double>::min();
-  static double constexpr DEFAULT_CFL      = 0.01;
+  static auto constexpr NO_USER_VALUE     = -1;
+  static auto constexpr NO_USER_VALUE_FP  = std::numeric_limits<double>::min();
+  static auto constexpr NO_USER_VALUE_STR = "none";
+
+  static auto constexpr DEFAULT_CFL          = 0.01;
+  static auto constexpr DEFAULT_MAX_LEVEL    = 12;
+  static auto constexpr DEFAULT_TIME_STEPS   = 10;
+  static auto constexpr DEFAULT_WRITE_FREQ   = 0;
+  static auto constexpr DEFAULT_USE_IMPLICIT = false;
+  static auto constexpr DEFAULT_USE_FG       = false;
+  static auto constexpr DEFAULT_DO_POISSON   = false;
+  static auto constexpr DEFAULT_PDE_STR      = "continuity_2";
+  static auto constexpr DEFAULT_PDE_OPT      = PDE_opts::continuity_2;
+  static auto constexpr DEFAULT_SOLVER       = solve_opts::direct;
 
   // construct from command line
-  options(int argc, char **argv);
+  parser(int argc, char **argv);
 
   // construct from provided values - for testing
-  options(PDE_opts const pde_choice, int const level, int const degree,
-          double const cfl)
+  parser(PDE_opts const pde_choice, int const level, int const degree,
+         double const cfl)
       : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
   int get_level() const;
-  void update_level(int const level) { this->level = level; }
   int get_degree() const;
-  void update_degree(int const degree) { this->degree = degree; }
   int get_max_level() const;
   double get_dt() const;
-  void update_dt(double const dt) { this->dt = dt; }
   int get_time_steps() const;
-  int get_write_frequency() const;
   bool using_implicit() const;
   bool using_full_grid() const;
   double get_cfl() const;
   PDE_opts get_selected_pde() const;
-  std::string get_pde_string() const;
   bool do_poisson_solve() const;
-  bool is_valid() const;
+  int get_wavelet_output_freq() const;
   int get_realspace_output_freq() const;
-  bool should_output_wavelet(int const i) const;
-  bool should_output_realspace(int const i) const;
   solve_opts get_selected_solver() const;
+
+  bool is_valid() const;
 
 private:
   // FIXME level and degree are unique to dimensions, will
@@ -110,33 +117,64 @@ private:
   int level  = NO_USER_VALUE; // resolution. NO_USER_VALUE loads default in pde
   int degree = NO_USER_VALUE; // deg of legendre basis polys. NO_USER_VALUE
                               // loads default in pde
-  int max_level      = 12;    // max adaptivity level for any given dimension.
-  int num_time_steps = 10;    // number of time loop iterations
-  int write_frequency =
-      0; // write wavelet space output every this many iterations
-  bool use_implicit_stepping = false; // enable implicit(/explicit) stepping
-  bool use_full_grid         = false; // enable full(/sparse) grid
-  bool do_poisson            = false; // do poisson solve for electric field
+  int max_level =
+      DEFAULT_MAX_LEVEL; // max adaptivity level for any given dimension.
+  int num_time_steps = DEFAULT_TIME_STEPS; // number of time loop iterations
+  bool use_implicit_stepping =
+      DEFAULT_USE_IMPLICIT;             // enable implicit(/explicit) stepping
+  bool use_full_grid = DEFAULT_USE_FG;  // enable full(/sparse) grid
+  bool do_poisson = DEFAULT_DO_POISSON; // do poisson solve for electric field
   double cfl = NO_USER_VALUE_FP; // the Courant-Friedrichs-Lewy (CFL) condition
   double dt =
       NO_USER_VALUE_FP; // size of time steps. double::min loads default in pde
-
+  int wavelet_output_freq = DEFAULT_WRITE_FREQ; // write wavelet space output
+                                                // every this many iterations
   int realspace_output_freq =
-      0; // timesteps between realspace output writes to disk
+      DEFAULT_WRITE_FREQ; // timesteps between realspace output writes to disk
 
   // default
-  std::string selected_pde = "continuity_2";
+  std::string selected_pde = DEFAULT_PDE_STR;
   // pde to construct/evaluate
-  PDE_opts pde_choice = PDE_opts::continuity_2;
+  PDE_opts pde_choice = DEFAULT_PDE_OPT;
 
   // default
-  std::string selected_solver = "none";
+  std::string selected_solver = NO_USER_VALUE_STR;
   // solver to use for implicit timestepping
-  solve_opts solver = solve_opts::direct;
+  solve_opts solver = DEFAULT_SOLVER;
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
+};
 
+// simple class to hold non-pde user options
+
+class options
+{
+public:
+  options(parser const &user_vals)
+      : max_level(user_vals.get_max_level()),
+        num_time_steps(user_vals.get_time_steps()),
+        use_implicit_stepping(user_vals.using_implicit()),
+        use_full_grid(user_vals.using_full_grid()),
+        do_poisson_solve(user_vals.do_poisson_solve()),
+        wavelet_output_freq(user_vals.get_wavelet_output_freq()),
+        realspace_output_freq(user_vals.get_realspace_output_freq()){};
+
+  bool should_output_wavelet(int const i) const;
+  bool should_output_realspace(int const i) const;
+
+  int const max_level;
+  int const num_time_steps;
+
+  bool const use_implicit_stepping;
+  bool const use_full_grid;
+  bool const do_poisson_solve;
+
+private:
   // helper for output writing
   bool write_at_step(int const i, int const freq) const;
+
+  int const wavelet_output_freq;
+  int const realspace_output_freq;
+  solve_opts solver;
 };
