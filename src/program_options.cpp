@@ -24,7 +24,7 @@ options::options(int argc, char **argv)
           "Solver to use (direct or gmres) for implicit advance") |
       clara::detail::Opt(level, "level")["-l"]["--level"](
           "Hierarchical levels (resolution)") |
-      clara::detail::Opt(level, "max level")["-m"]["--max_level"](
+      clara::detail::Opt(max_level, "max level")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
           "Number of iterations") |
