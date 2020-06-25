@@ -11,7 +11,7 @@ void test_element_table(int const levels, int const dims,
   std::string const grid_str = full_grid ? "-f" : "";
   options const o = make_options({"-l", std::to_string(levels), grid_str});
 
-  element_table const t(o, dims);
+  element_table const t(o, levels, dims);
   fk::vector<int> const dev_table(t.get_device_table().clone_onto_host());
   auto const gold = fk::matrix<int>(read_matrix_from_txt_file(gold_filename));
   for (int i = 0; i < static_cast<int>(t.size()); ++i)
@@ -58,8 +58,11 @@ TEST_CASE("element table constructor/accessors/size", "[element_table]")
 
 TEST_CASE("Static helper - cell builder", "[element_table]")
 {
-  element_table const t(
-      make_options({"-l", std::to_string(3), "-d", std::to_string(2)}), 1);
+  int const levels = 3;
+  int const degree = 2;
+  element_table const t(make_options({"-l", std::to_string(levels), "-d",
+                                      std::to_string(degree)}),
+                        levels, 1);
 
   SECTION("cell index set builder")
   {

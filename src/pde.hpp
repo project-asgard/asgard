@@ -41,58 +41,46 @@
 // ---------------------------------------------------------------------------
 
 template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(options const &opts)
+std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
 {
-  switch (opts.get_selected_pde())
+  switch (cli_input.get_selected_pde())
   {
   case PDE_opts::continuity_1:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
+    return std::make_unique<PDE_continuity_1d<P>>(cli_input);
   case PDE_opts::continuity_2:
-    return std::make_unique<PDE_continuity_2d<P>>(opts);
+    return std::make_unique<PDE_continuity_2d<P>>(cli_input);
   case PDE_opts::continuity_3:
-    return std::make_unique<PDE_continuity_3d<P>>(opts);
+    return std::make_unique<PDE_continuity_3d<P>>(cli_input);
   case PDE_opts::continuity_6:
-    return std::make_unique<PDE_continuity_6d<P>>(opts);
+    return std::make_unique<PDE_continuity_6d<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p1a:
-    return std::make_unique<PDE_fokkerplanck_1d_4p1a<P>>(opts);
+    return std::make_unique<PDE_fokkerplanck_1d_4p1a<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p2:
-    return std::make_unique<PDE_fokkerplanck_1d_4p2<P>>(opts);
+    return std::make_unique<PDE_fokkerplanck_1d_4p2<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p3:
-    return std::make_unique<PDE_fokkerplanck_1d_4p3<P>>(opts);
+    return std::make_unique<PDE_fokkerplanck_1d_4p3<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p4:
-    return std::make_unique<PDE_fokkerplanck_1d_4p4<P>>(opts);
+    return std::make_unique<PDE_fokkerplanck_1d_4p4<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p5:
-    return std::make_unique<PDE_fokkerplanck_1d_4p5<P>>(opts);
+    return std::make_unique<PDE_fokkerplanck_1d_4p5<P>>(cli_input);
   case PDE_opts::fokkerplanck_2d_complete:
-    return std::make_unique<PDE_fokkerplanck_2d_complete<P>>(opts);
+    return std::make_unique<PDE_fokkerplanck_2d_complete<P>>(cli_input);
   case PDE_opts::diffusion_1:
-    return std::make_unique<PDE_diffusion_1d<P>>(opts);
+    return std::make_unique<PDE_diffusion_1d<P>>(cli_input);
   case PDE_opts::diffusion_2:
-    return std::make_unique<PDE_diffusion_2d<P>>(opts);
-  // TODO not yet implemented, replace return with appropriate types
-  case PDE_opts::vlasov4:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
-  case PDE_opts::vlasov43:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
-  case PDE_opts::vlasov5:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
-  case PDE_opts::vlasov7:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
-  case PDE_opts::vlasov8:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
-  case PDE_opts::pde_user:
-    return std::make_unique<PDE_continuity_1d<P>>(opts);
+    return std::make_unique<PDE_diffusion_2d<P>>(cli_input);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);
   }
 }
+
 // shim for easy PDE creation in tests
 template<typename P>
 std::unique_ptr<PDE<P>>
-make_PDE(PDE_opts const pde_choice, int const level = options::NO_USER_VALUE,
-         int const degree = options::NO_USER_VALUE,
-         double const cfl = options::DEFAULT_CFL)
+make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
+         int const degree = parser::NO_USER_VALUE,
+         double const cfl = parser::DEFAULT_CFL)
 {
-  return make_PDE<P>(options(pde_choice, level, degree, cfl));
+  return make_PDE<P>(parser(pde_choice, level, degree, cfl));
 }

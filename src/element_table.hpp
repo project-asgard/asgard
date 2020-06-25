@@ -33,7 +33,8 @@
 class element_table
 {
 public:
-  element_table(options const program_opts, int const num_dims);
+  element_table(options const program_opts, int const num_levels,
+                int const num_dims);
 
   // forward lookup
   int get_index(fk::vector<int> const coords) const;

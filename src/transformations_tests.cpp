@@ -28,7 +28,7 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   options const o            = make_options(
       {"-d", std::to_string(deg), "-l", std::to_string(lev), grid_str});
 
-  element_table const t(o, dims);
+  element_table const t(o, lev, dims);
 
   std::vector<fk::vector<P>> vectors;
   P counter = 1.0;
@@ -170,7 +170,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   int const degree      = d.get_degree();
 
   basis::wavelet_transform<P, resource::host> const transformer(level, degree);
-  element_table table(make_options({"-l", std::to_string(level)}),
+  element_table table(make_options({"-l", std::to_string(level)}), level,
                       pde.num_dims);
 
   fk::vector<P> const wave_space = [&table, &pde, degree]() {

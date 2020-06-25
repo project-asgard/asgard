@@ -26,7 +26,7 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
                                          std::to_string(degree)};
 
   options const o = make_options(args);
-  element_table const table(o, pde.num_dims);
+  element_table const table(o, level, pde.num_dims);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
   basis::wavelet_transform<P, resource::host> const transformer(level, degree);
   generate_all_coefficients(pde, transformer);

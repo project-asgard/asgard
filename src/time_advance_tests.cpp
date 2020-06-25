@@ -40,7 +40,7 @@ void time_advance_test(int const level, int const degree, PDE<P> &pde,
   }();
   options const o = make_options(args);
 
-  element_table const table(o, pde.num_dims);
+  element_table const table(o, level, pde.num_dims);
 
   // can't run problem with fewer elements than ranks
   // this is asserted on in the distribution component
@@ -151,7 +151,7 @@ void implicit_time_advance_test(int const level, int const degree, PDE<P> &pde,
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree),
                     "--implicit", grid_str});
 
-  element_table const table(o, pde.num_dims);
+  element_table const table(o, level, pde.num_dims);
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
 

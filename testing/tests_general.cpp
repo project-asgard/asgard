@@ -16,6 +16,11 @@
 
 options make_options(std::vector<std::string> const arguments)
 {
+  return options(make_parser(arguments));
+}
+
+parser make_parser(std::vector<std::string> const arguments)
+{
   std::vector<char *> argv;
   argv.push_back(const_cast<char *>("asgard"));
   for (const auto &arg : arguments)
@@ -23,5 +28,6 @@ options make_options(std::vector<std::string> const arguments)
     argv.push_back(const_cast<char *>(arg.data()));
   }
   argv.push_back(nullptr);
-  return options(argv.size() - 1, argv.data());
+
+  return parser(argv.size() - 1, argv.data());
 }

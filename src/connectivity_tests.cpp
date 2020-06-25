@@ -48,7 +48,7 @@ void test_connectivity(int const dims, int const levels,
 {
   std::string const grid_str = full_grid ? "-f" : "";
   options const o = make_options({"-l", std::to_string(levels), grid_str});
-  element_table const t(o, dims);
+  element_table const t(o, levels, dims);
   int const max_levels        = full_grid ? dims * levels : levels;
   list_set const connectivity = make_connectivity(t, dims, max_levels, levels);
 

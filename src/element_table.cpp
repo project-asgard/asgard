@@ -11,10 +11,10 @@
 #include <vector>
 
 // Construct forward and reverse element tables
-element_table::element_table(options const program_opts, int const num_dims)
+element_table::element_table(options const program_opts, int const num_levels,
+                             int const num_dims)
 {
-  int const num_levels     = program_opts.get_level();
-  bool const use_full_grid = program_opts.using_full_grid();
+  bool const use_full_grid = program_opts.use_full_grid;
 
   assert(num_dims > 0);
   assert(num_levels > 1);

@@ -13,7 +13,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
   int const level       = d.get_level();
   int const degree      = d.get_degree();
 
-  element_table table(make_options({"-l", std::to_string(level)}),
+  element_table table(make_options({"-l", std::to_string(level)}), level,
                       pde.num_dims);
 
   basis::wavelet_transform<P, resource::host> const transformer(level, degree);
@@ -51,8 +51,10 @@ void test_compute_boundary_condition(PDE<P> &pde,
                                      P const tol_factor)
 {
   dimension<P> const &d = pde.get_dimensions()[0];
-  int const level       = d.get_level();
-  int const degree      = d.get_degree();
+
+  // FIXME assume uniform degree
+  int const level  = d.get_level();
+  int const degree = d.get_degree();
 
   basis::wavelet_transform<P, resource::host> const transformer(level, degree);
   generate_all_coefficients<P>(pde, transformer);
@@ -61,9 +63,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
   std::vector<dimension<P>> const &dimensions = pde.get_dimensions();
 
-  element_table table(
-      make_options({"-l", std::to_string(dimensions[0].get_level())}),
-      pde.num_dims);
+  element_table table(make_options({"-l", std::to_string(level)}), level,
+                      pde.num_dims);
 
   /* this timestep value must be consistent with the value used in the gold data
      generation scripts in matlab */
@@ -151,7 +152,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    element_table table(make_options({"-l", std::to_string(level)}),
+    element_table table(make_options({"-l", std::to_string(level)}), level,
                         pde->num_dims);
 
     basis::wavelet_transform<TestType, resource::host> const transformer(
@@ -195,7 +196,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    element_table table(make_options({"-l", std::to_string(level)}),
+    element_table table(make_options({"-l", std::to_string(level)}), level,
                         pde->num_dims);
 
     basis::wavelet_transform<TestType, resource::host> const transformer(
