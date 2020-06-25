@@ -32,7 +32,11 @@ inline double get_element_size_MB(PDE<P> const &pde)
   // each element requires two workspaces, X and W in Ed's code
   auto const elem_workspace_MB =
       get_MB<P>(pde.num_terms * elem_size) * num_workspaces;
-  return elem_workspace_MB;
+
+  // each element requires 3 (input/output/work) + num_dims (operators) ptrs
+  double const batch_size_MB = get_MB<P *>(3 + pde.num_dims);
+
+  return elem_workspace_MB + batch_size_MB;
 }
 
 // determine how many subgrids will be required to solve the problem
@@ -60,6 +64,7 @@ inline int get_num_subgrids(PDE<P> const &pde, element_subgrid const &grid,
   // make sure rank size is something reasonable
   assert(space_per_elem < (0.5 * rank_size_MB));
 
+  // size of workspaces, input, output
   double const problem_size_MB = space_per_elem * num_elems;
 
   // FIXME here we assume all coefficients are of equal size; if we shortcut
