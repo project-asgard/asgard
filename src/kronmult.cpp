@@ -44,8 +44,8 @@ inline double get_element_size_MB(PDE<P> const &pde)
 // whose total workspace requirement is less than the limit passed in
 // rank_size_MB
 template<typename P>
-inline int get_num_subgrids(PDE<P> const &pde, element_subgrid const &grid,
-                            int const rank_size_MB)
+inline int get_num_subgrids(PDE<P> const &pde, element_table const &elem_table,
+                            element_subgrid const &grid, int const rank_size_MB)
 {
   assert(grid.size() > 0);
 
@@ -70,14 +70,17 @@ inline int get_num_subgrids(PDE<P> const &pde, element_subgrid const &grid,
   // FIXME here we assume all coefficients are of equal size; if we shortcut
   // computation for identity coefficients later, we will need to do this more
   // carefully
-  int const coefficients_size_MB = static_cast<int>(std::ceil(
+  auto const coefficients_size_MB = static_cast<int>(std::ceil(
       get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
                 pde.num_terms * pde.num_dims)));
+
+  double const table_size_MB =
+      get_MB<int>(elem_table.get_device_table().size());
 
   // make sure the coefficient matrices/xy vectors aren't leaving us without
   // room for anything else in device workspace
   auto const remaining_rank_MB =
-      rank_size_MB - coefficients_size_MB - xy_space_MB;
+      rank_size_MB - coefficients_size_MB - table_size_MB - xy_space_MB;
   assert(remaining_rank_MB > space_per_elem * 4);
 
   // determine number of subgrids
@@ -87,14 +90,14 @@ inline int get_num_subgrids(PDE<P> const &pde, element_subgrid const &grid,
 // helper - break subgrid into smaller subgrids to fit into DRAM
 template<typename P>
 inline std::vector<element_subgrid>
-decompose(PDE<P> const &pde, element_subgrid const &my_subgrid,
-          int const workspace_size_MB)
+decompose(PDE<P> const &pde, element_table const &elem_table,
+          element_subgrid const &my_subgrid, int const workspace_size_MB)
 {
   assert(workspace_size_MB > 0);
 
   // min number subgrids
   auto const num_subgrids =
-      get_num_subgrids(pde, my_subgrid, workspace_size_MB);
+      get_num_subgrids(pde, elem_table, my_subgrid, workspace_size_MB);
 
   if (num_subgrids == 1)
   {
@@ -161,8 +164,8 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   std::call_once(print_flag, [workspace_size] {
     // FIXME assumes (with everything else) that coefficients are equally sized
-    node_out() << "workspace allocation (MB): " << get_MB<P>(workspace_size * 2)
-               << '\n';
+    node_out() << "  workspace allocation (MB): "
+               << get_MB<P>(workspace_size * 2) << "\n\n";
   });
 
   timer::record.start("kronmult_stage");
@@ -246,7 +249,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         fk::vector<P, mem_type::owner, resource::host> const &x)
 {
   static std::once_flag print_flag;
-  auto const grids = decompose(pde, my_subgrid, workspace_size_MB);
+  auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
 
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -255,15 +258,17 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   assert(output_size < INT_MAX);
   fk::vector<P, mem_type::owner, resource::device> fx_dev(output_size);
 
-  std::call_once(print_flag, [&pde, output_size] {
+  std::call_once(print_flag, [&pde, &elem_table, output_size] {
     // FIXME assumes (with everything else) that coefficients are equally sized
     auto const coefficients_size_MB =
         get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
                   pde.num_terms * pde.num_dims);
-    node_out() << "kron workspace size..." << '\n';
-    node_out() << "coefficient size (MB, existing allocation): "
-               << coefficients_size_MB << '\n';
-    node_out() << "x/fx allocation (MB): " << get_MB<P>(output_size) << '\n';
+    node_out() << "--- kron workspace size ---" << '\n';
+    node_out() << "  coefficient size (MB): " << coefficients_size_MB << '\n';
+    node_out() << "  solution vector allocation (MB): "
+               << get_MB<P>(output_size) << '\n';
+    node_out() << "  element table allocation (MB): "
+               << get_MB<int>(elem_table.get_device_table().size()) << '\n';
   });
 
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
@@ -285,12 +290,12 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 }
 
 template std::vector<element_subgrid>
-decompose(PDE<float> const &pde, element_subgrid const &my_subgrid,
-          int const workspace_size_MB);
+decompose(PDE<float> const &pde, element_table const &elem_table,
+          element_subgrid const &my_subgrid, int const workspace_size_MB);
 
 template std::vector<element_subgrid>
-decompose(PDE<double> const &pde, element_subgrid const &my_subgrid,
-          int const workspace_size_MB);
+decompose(PDE<double> const &pde, element_table const &elem_table,
+          element_subgrid const &my_subgrid, int const workspace_size_MB);
 
 template fk::vector<float, mem_type::owner, resource::host>
 execute(PDE<float> const &pde, element_table const &elem_table,
