@@ -164,8 +164,8 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   std::call_once(print_flag, [workspace_size] {
     // FIXME assumes (with everything else) that coefficients are equally sized
-    node_out() << "workspace allocation (MB): " << get_MB<P>(workspace_size * 2)
-               << '\n';
+    node_out() << "  workspace allocation (MB): "
+               << get_MB<P>(workspace_size * 2) << "\n\n";
   });
 
   timer::record.start("kronmult_stage");
@@ -258,15 +258,17 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   assert(output_size < INT_MAX);
   fk::vector<P, mem_type::owner, resource::device> fx_dev(output_size);
 
-  std::call_once(print_flag, [&pde, output_size] {
+  std::call_once(print_flag, [&pde, &elem_table, output_size] {
     // FIXME assumes (with everything else) that coefficients are equally sized
     auto const coefficients_size_MB =
         get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
                   pde.num_terms * pde.num_dims);
-    node_out() << "kron workspace size..." << '\n';
-    node_out() << "coefficient size (MB, existing allocation): "
-               << coefficients_size_MB << '\n';
-    node_out() << "x/fx allocation (MB): " << get_MB<P>(output_size) << '\n';
+    node_out() << "--- kron workspace size ---" << '\n';
+    node_out() << "  coefficient size (MB): " << coefficients_size_MB << '\n';
+    node_out() << "  solution vector allocation (MB): "
+               << get_MB<P>(output_size) << '\n';
+    node_out() << "  element table allocation (MB): "
+               << get_MB<int>(elem_table.get_device_table().size()) << '\n';
   });
 
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
