@@ -59,15 +59,14 @@ private:
   static P phi(P const z, P const t)
   {
     return z * std::exp(-t) /
-           std::sqrt(1 - (std::exp(-2 * t) - 1) * std::pow(z, 2));
+           std::sqrt(1 + (std::exp(-2 * t) - 1) * std::pow(z, 2));
   }
+
   static P f0(P const z)
   {
-    static P const sig   = 0.1;
-    static P const shift = 0.36;
+    static P const sig = 0.1;
 
-    return std::exp(-std::pow(z - shift, 2) / std::pow(sig, 2)) +
-           std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
+    return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
   }
 
   static fk::vector<P>
@@ -77,8 +76,8 @@ private:
     for (int i = 0; i < z.size(); ++i)
     {
       auto const p  = phi(z(i), t);
-      auto const t1 = 1 - std::pow(p, 2);
-      auto const t2 = 1 - std::pow(z(i), 2);
+      auto const t1 = p * (1 - std::pow(p, 2));
+      auto const t2 = z(i) * (1 - std::pow(z(i), 2));
       auto const t3 = f0(p);
       f(i)          = t1 / t2 * t3;
     }
@@ -107,25 +106,6 @@ private:
     return dt;
   }
 
-  // g-funcs
-  static P g_func_0(P const x, P const time)
-  {
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
-  static P g_func_1(P const x, P const time)
-  {
-    ignore(time);
-    return -x * (1 - std::pow(x, 2));
-  }
-  static P g_func_2(P const x, P const time)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   // define dimensions
   inline static dimension<P> const dim0_ =
       dimension<P>(-1.0,                   // domain min
@@ -140,6 +120,14 @@ private:
   // define terms (1 in this case)
   //
   //  -d/dz ( (1-z^2)*f )
+
+  // g-funcs
+  static P g_func_1(P const x, P const time)
+  {
+    ignore(time);
+    return -x * (1 - std::pow(x, 2));
+  }
+
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
       coefficient_type::grad, g_func_1, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
