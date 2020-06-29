@@ -77,8 +77,8 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
         "../testing/generated-inputs/quadrature/lgwt_weights_10_neg1_1.dat"));
 
     int const n                = 10;
-    int const a                = -1;
-    int const b                = 1;
+    TestType const a           = -1;
+    TestType const b           = 1;
     bool const use_degree_quad = true;
     auto const [roots, weights] =
         legendre_weights<TestType>(n, a, b, use_degree_quad);
@@ -97,8 +97,8 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
         "../testing/generated-inputs/quadrature/lgwt_weights_32_neg5_2.dat"));
 
     int const n                = 32;
-    int const a                = -5;
-    int const b                = 2;
+    TestType const a           = -5;
+    TestType const b           = 2;
     bool const use_degree_quad = true;
     auto const [roots, weights] =
         legendre_weights<TestType>(n, a, b, use_degree_quad);

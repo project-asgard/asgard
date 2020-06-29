@@ -21,16 +21,18 @@ private:
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = true;
 
+  static P constexpr nu = 0.01;
+
   static fk::vector<P>
   initial_condition_dim0(fk::vector<P> const &x, P const t = 0)
   {
-    static double p     = -2.0 * PI * PI;
-    P const coefficient = std::exp(p * t);
+    static double const p = -2.0 * nu * nu;
+    P const coefficient   = std::exp(p * t);
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [coefficient](P const x_value) -> P {
-                     return coefficient * std::cos(PI * x_value);
+                     return coefficient * std::cos(nu * x_value);
                    });
 
     return fx;
@@ -42,15 +44,7 @@ private:
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 
-  /* Define the g_functions */
-  static P g_func_0(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
+  /* Define terms */
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
       coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::neumann);
@@ -61,20 +55,20 @@ private:
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const x_value) -> P { return std::cos(PI * x_value); });
+                   [](P const x_value) -> P { return std::cos(nu * x_value); });
 
     return fx;
   }
 
   static P bc_time_func(P const t)
   {
-    /* e^(-2 * pi^2 * t )*/
-    static double const p = -2.0 * PI * PI;
+    /* e^(-2 * nu^2 * t )*/
+    static double const p = -2.0 * nu * nu;
     return std::exp(p * t);
   }
 
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
-      coefficient_type::grad, g_func_0, flux_type::downwind,
+      coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::inhomogeneous, homogeneity::inhomogeneous, {bc_func},
       bc_time_func, {bc_func}, bc_time_func);
@@ -93,11 +87,11 @@ private:
   static fk::vector<P> source_0_x(fk::vector<P> const x, P const t)
   {
     ignore(t);
-    static double const neg_pi_squared = -1.0 * PI * PI;
+    static double const coefficient = -1.0 * nu * nu;
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_value) -> P {
-      return neg_pi_squared * std::cos(PI * x_value);
+      return coefficient * std::cos(nu * x_value);
     });
 
     return fx;
@@ -105,9 +99,9 @@ private:
 
   static P source_0_t(P const t)
   {
-    static double neg_two_pi_squared = -2.0 * PI * PI;
+    static double const coefficient = -2.0 * nu * nu;
 
-    return std::exp(neg_two_pi_squared * t);
+    return std::exp(coefficient * t);
   }
 
   inline static source<P> const source_0 = source<P>({source_0_x}, source_0_t);
@@ -120,11 +114,11 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(PI * x); });
+                   [](P const &x) { return std::cos(nu * x); });
     return fx;
   }
 
-  static P exact_time(P const time) { return std::sin(time); }
+  static P exact_time(P const time) { return source_0_t(time); }
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       exact_solution_0};

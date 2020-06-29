@@ -251,30 +251,48 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
 TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
                    float)
 {
-  int const level  = 3;
-  int const degree = 4;
-  auto pde =
-      make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
   std::string const gold_path = "../testing/generated-inputs/coefficients/"
                                 "fokkerplanck2_complete_coefficients";
-  bool const rotate = true;
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-13 : 1e-3;
-  test_coefficients(*pde, gold_path, tol_factor, rotate);
-}
 
-TEMPLATE_TEST_CASE("fokkerplanck2_complete terms - norotate", "[coefficients]",
-                   double, float)
-{
-  int const level  = 3;
-  int const degree = 4;
-  auto pde =
-      make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+  SECTION("fokkerplanck_2d_complete, level 3, degree 3")
+  {
+    int const level   = 3;
+    int const degree  = 3;
+    bool const rotate = true;
 
-  std::string const gold_path = "../testing/generated-inputs/coefficients/"
-                                "fokkerplanck2_complete_coefficients_norotate";
-  bool const rotate = false;
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
-  test_coefficients(*pde, gold_path, tol_factor, rotate);
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+
+    test_coefficients(*pde, gold_path, tol_factor, rotate);
+  }
+
+  SECTION("fokkerplanck_2d_complete, level 4, degree 4")
+  {
+    int const level   = 4;
+    int const degree  = 4;
+    bool const rotate = true;
+
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-14 : 1e-3;
+
+    test_coefficients(*pde, gold_path, tol_factor, rotate);
+  }
+
+  SECTION("fokkerplanck_2d_complete, level 5, degree 5")
+  {
+    int const level  = 5;
+    int const degree = 5;
+    auto pde =
+        make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+    bool const rotate = true;
+    TestType const tol_factor =
+        std::is_same<TestType, double>::value ? 1e-13 : 1e-2;
+    test_coefficients(*pde, gold_path, tol_factor, rotate);
+  }
 }
