@@ -139,6 +139,121 @@ decompose(PDE<P> const &pde, element_table const &elem_table,
   return grids;
 }
 
+// helper to single allocate kronmult workspace
+template<typename P>
+class kronmult_workspace
+{
+public:
+  static kronmult_workspace &get_workspace(PDE<P> const &pde,
+                                           element_table const &elem_table,
+                                           element_subgrid const &my_subgrid)
+  {
+    static kronmult_workspace my_workspace(pde, elem_table, my_subgrid);
+    my_workspace.validate(pde, my_subgrid);
+    return my_workspace;
+  }
+
+  P *get_element_x() const { return element_x; }
+  P *get_element_work() const { return element_work; }
+  P **get_input_ptrs() const { return input_ptrs; }
+  P **get_work_ptrs() const { return work_ptrs; }
+  P **get_output_ptrs() const { return output_ptrs; }
+  P **get_operator_ptrs() const { return operator_ptrs; }
+
+  kronmult_workspace(kronmult_workspace const &) = delete;
+  void operator=(kronmult_workspace const &)        = delete;
+  kronmult_workspace(kronmult_workspace<P> &&other) = delete;
+  kronmult_workspace &operator=(kronmult_workspace<P> &&other) = delete;
+
+  ~kronmult_workspace()
+  {
+    fk::delete_device(element_x);
+    fk::delete_device(element_work);
+    fk::delete_device(input_ptrs);
+    fk::delete_device(operator_ptrs);
+    fk::delete_device(work_ptrs);
+    fk::delete_device(output_ptrs);
+  }
+
+private:
+  kronmult_workspace(PDE<P> const &pde, element_table const &elem_table,
+                     element_subgrid const &my_subgrid)
+  {
+    auto const degree     = pde.get_dimensions()[0].get_degree();
+    auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
+
+    workspace_size = my_subgrid.size() * deg_to_dim * pde.num_terms;
+    ptrs_size      = my_subgrid.size() * pde.num_terms;
+
+    auto const output_size = my_subgrid.nrows() * deg_to_dim;
+
+    auto const coefficients_size_MB =
+        get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
+                  pde.num_terms * pde.num_dims);
+
+    node_out() << "--- kron workspace size ---" << '\n';
+    node_out() << "  coefficient size (MB): " << coefficients_size_MB << '\n';
+    node_out() << "  solution vector allocation (MB): "
+               << get_MB<P>(output_size) << '\n';
+    node_out() << "  element table allocation (MB): "
+               << get_MB<int>(elem_table.get_device_table().size()) << '\n';
+    node_out() << "  workspace allocation (MB): "
+               << get_MB<P>(workspace_size * 2) << "\n\n";
+
+    // don't memset
+    bool const initialize = false;
+    fk::allocate_device(element_x, workspace_size, initialize);
+    fk::allocate_device(element_work, workspace_size, initialize);
+    fk::allocate_device(input_ptrs, ptrs_size, initialize);
+    fk::allocate_device(work_ptrs, ptrs_size, initialize);
+    fk::allocate_device(output_ptrs, ptrs_size, initialize);
+    fk::allocate_device(operator_ptrs, ptrs_size * pde.num_dims, initialize);
+  }
+
+  void validate(PDE<P> const &pde, element_subgrid const &my_subgrid)
+  {
+    auto const degree     = pde.get_dimensions()[0].get_degree();
+    auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
+    auto const new_workspace_size =
+        my_subgrid.size() * deg_to_dim * pde.num_terms;
+    auto const new_ptrs_size = my_subgrid.size() * pde.num_terms;
+    if (new_workspace_size > workspace_size || new_ptrs_size > ptrs_size)
+    {
+      node_out() << "  reallocating kron workspace for new size!" << '\n';
+
+      fk::delete_device(element_x);
+      fk::delete_device(element_work);
+      fk::delete_device(input_ptrs);
+      fk::delete_device(operator_ptrs);
+      fk::delete_device(work_ptrs);
+      fk::delete_device(output_ptrs);
+
+      // don't memset
+      bool const initialize = false;
+      fk::allocate_device(element_x, new_workspace_size, initialize);
+      fk::allocate_device(element_work, new_workspace_size, initialize);
+      fk::allocate_device(input_ptrs, new_ptrs_size, initialize);
+      fk::allocate_device(work_ptrs, new_ptrs_size, initialize);
+      fk::allocate_device(output_ptrs, new_ptrs_size, initialize);
+      fk::allocate_device(operator_ptrs, new_ptrs_size * pde.num_dims,
+                          initialize);
+
+      workspace_size = new_workspace_size;
+      ptrs_size      = new_ptrs_size;
+    }
+  }
+
+  int64_t workspace_size;
+  int64_t ptrs_size;
+
+  P *element_x;
+  P *element_work;
+  P **input_ptrs;
+  P **work_ptrs;
+  P **output_ptrs;
+  P **operator_ptrs;
+};
+
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
@@ -147,53 +262,27 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx)
 {
-  static std::once_flag print_flag;
-
   // FIXME code relies on uniform degree across dimensions
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
 
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
-
   assert(output_size == fx.size());
   auto const input_size = my_subgrid.ncols() * deg_to_dim;
   assert(input_size == x.size());
 
-  // size of input/working space for kronmults - need 2
-  auto const workspace_size = my_subgrid.size() * deg_to_dim * pde.num_terms;
-
-  std::call_once(print_flag, [workspace_size] {
-    // FIXME assumes (with everything else) that coefficients are equally sized
-    node_out() << "  workspace allocation (MB): "
-               << get_MB<P>(workspace_size * 2) << "\n\n";
-  });
+  auto const &workspace =
+      kronmult_workspace<P>::get_workspace(pde, elem_table, my_subgrid);
 
   timer::record.start("kronmult_stage");
-  P *element_x;
-  P *element_work;
-  bool const initialize = false;
-  fk::allocate_device(element_x, workspace_size, initialize);
-  fk::allocate_device(element_work, workspace_size, initialize);
-
   // stage x vector in writable regions for each element
   auto const num_copies = my_subgrid.nrows() * pde.num_terms;
-  stage_inputs_kronmult(x.data(), element_x, x.size(), num_copies);
+  stage_inputs_kronmult(x.data(), workspace.get_element_x(), x.size(),
+                        num_copies);
   timer::record.stop("kronmult_stage");
-
-  auto const total_kronmults = my_subgrid.size() * pde.num_terms;
 
   // list building kernel needs simple arrays/pointers, can't compile our
   // objects
-  P **input_ptrs;
-  P **work_ptrs;
-  P **output_ptrs;
-  P **operator_ptrs;
-  fk::allocate_device(input_ptrs, total_kronmults, initialize);
-  fk::allocate_device(work_ptrs, total_kronmults, initialize);
-  fk::allocate_device(output_ptrs, total_kronmults, initialize);
-  fk::allocate_device(operator_ptrs, total_kronmults * pde.num_dims,
-                      initialize);
-
   fk::vector<P *> const operators = [&pde] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
@@ -216,27 +305,23 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   // prepare lists for kronmult, on device if cuda is enabled
   timer::record.start("kronmult_build");
   prepare_kronmult(elem_table.get_device_table().data(), operators_d.data(),
-                   lda, element_x, element_work, fx.data(), operator_ptrs,
-                   work_ptrs, input_ptrs, output_ptrs, degree, pde.num_terms,
+                   lda, workspace.get_element_x(), workspace.get_element_work(),
+                   fx.data(), workspace.get_operator_ptrs(),
+                   workspace.get_work_ptrs(), workspace.get_input_ptrs(),
+                   workspace.get_output_ptrs(), degree, pde.num_terms,
                    pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
                    my_subgrid.col_start, my_subgrid.col_stop);
   timer::record.stop("kronmult_build");
 
-  double const flops = pde.num_dims * 2.0 *
-                       (std::pow(degree, pde.num_dims + 1)) * total_kronmults;
+  auto const total_kronmults = my_subgrid.size() * pde.num_terms;
+  auto const flops = pde.num_dims * 2.0 * (std::pow(degree, pde.num_dims + 1)) *
+                     total_kronmults;
 
   timer::record.start("kronmult");
-  call_kronmult(degree, input_ptrs, output_ptrs, work_ptrs, operator_ptrs, lda,
+  call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
+                workspace.get_work_ptrs(), workspace.get_operator_ptrs(), lda,
                 total_kronmults, pde.num_dims);
   timer::record.stop("kronmult", flops);
-
-  fk::delete_device(element_x);
-  fk::delete_device(element_work);
-
-  fk::delete_device(input_ptrs);
-  fk::delete_device(operator_ptrs);
-  fk::delete_device(work_ptrs);
-  fk::delete_device(output_ptrs);
 
   return fx;
 }
@@ -257,28 +342,15 @@ execute(PDE<P> const &pde, element_table const &elem_table,
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
   assert(output_size < INT_MAX);
   fk::vector<P, mem_type::owner, resource::device> fx_dev(output_size);
-
-  std::call_once(print_flag, [&pde, &elem_table, output_size] {
-    // FIXME assumes (with everything else) that coefficients are equally sized
-    auto const coefficients_size_MB =
-        get_MB<P>(static_cast<int64_t>(pde.get_coefficients(0, 0).size()) *
-                  pde.num_terms * pde.num_dims);
-    node_out() << "--- kron workspace size ---" << '\n';
-    node_out() << "  coefficient size (MB): " << coefficients_size_MB << '\n';
-    node_out() << "  solution vector allocation (MB): "
-               << get_MB<P>(output_size) << '\n';
-    node_out() << "  element table allocation (MB): "
-               << get_MB<int>(elem_table.get_device_table().size()) << '\n';
-  });
-
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());
+
   for (auto const grid : grids)
   {
-    int const col_start = my_subgrid.to_local_col(grid.col_start);
-    int const col_end   = my_subgrid.to_local_col(grid.col_stop);
-    int const row_start = my_subgrid.to_local_row(grid.row_start);
-    int const row_end   = my_subgrid.to_local_row(grid.row_stop);
+    auto const col_start = my_subgrid.to_local_col(grid.col_start);
+    auto const col_end   = my_subgrid.to_local_col(grid.col_stop);
+    auto const row_start = my_subgrid.to_local_row(grid.row_start);
+    auto const row_end   = my_subgrid.to_local_row(grid.row_stop);
     fk::vector<P, mem_type::const_view, resource::device> const x_dev_grid(
         x_dev, col_start * deg_to_dim, (col_end + 1) * deg_to_dim - 1);
     fk::vector<P, mem_type::view, resource::device> fx_dev_grid(
