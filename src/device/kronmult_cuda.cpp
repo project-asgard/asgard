@@ -46,8 +46,8 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   auto const copy = id / num_elems;
   auto const elem = id % num_elems;
 
-  if (copy < num_copies && elem < num_elems)
-    workspace[id + elem] = x[elem];
+  if (copy < num_copies)
+    workspace[copy * num_elems + elem] = x[elem];
 
 #else
 
