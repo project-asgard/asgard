@@ -139,16 +139,19 @@ decompose(PDE<P> const &pde, element_table const &elem_table,
   return grids;
 }
 
-// helper to single allocate kronmult workspace
+// single allocate kronmult workspace
 template<typename P>
 class kronmult_workspace
 {
 public:
+  // private constructor, callers must enter here
   static kronmult_workspace &get_workspace(PDE<P> const &pde,
                                            element_table const &elem_table,
                                            element_subgrid const &my_subgrid)
   {
+    // function static initialization - only on first entry
     static kronmult_workspace my_workspace(pde, elem_table, my_subgrid);
+    // check new values against allocated ones, resize if necessary
     my_workspace.validate(pde, my_subgrid);
     return my_workspace;
   }
@@ -160,6 +163,7 @@ public:
   P **get_output_ptrs() const { return output_ptrs; }
   P **get_operator_ptrs() const { return operator_ptrs; }
 
+  // no move no copy
   kronmult_workspace(kronmult_workspace const &) = delete;
   void operator=(kronmult_workspace const &)        = delete;
   kronmult_workspace(kronmult_workspace<P> &&other) = delete;
@@ -294,7 +298,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
     }
     return builder;
   }();
-
   fk::vector<P *, mem_type::owner, resource::device> const operators_d(
       operators.clone_onto_device());
 
@@ -333,7 +336,6 @@ execute(PDE<P> const &pde, element_table const &elem_table,
         element_subgrid const &my_subgrid, int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x)
 {
-  static std::once_flag print_flag;
   auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
 
   auto const degree     = pde.get_dimensions()[0].get_degree();
