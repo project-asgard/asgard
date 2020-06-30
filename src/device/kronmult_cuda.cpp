@@ -42,15 +42,12 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
   assert(gridDim.z == 1);
 
   auto const id = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-  auto const num_threads = static_cast<int64_t>(blockDim.x) * gridDim.x;
-  auto const start       = id;
-  auto const increment   = num_threads;
-  auto const stop        = num_elems * num_copies;
 
-  for (int64_t i = start; i < stop; i += increment)
-  {
-    workspace[i] = x[i % num_elems];
-  }
+  auto const copy = id / num_elems;
+  auto const elem = id % num_elems;
+
+  if (copy < num_copies && elem < num_elems)
+    workspace[id + elem] = x[elem];
 
 #else
 
@@ -82,7 +79,8 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
   auto constexpr warp_size   = 32;
   auto constexpr num_warps   = 8;
   auto constexpr num_threads = num_warps * warp_size;
-  auto const num_blocks      = (num_copies / num_threads) + 1;
+  auto const num_blocks =
+      (static_cast<int64_t>(num_copies) * num_elems / num_threads) + 1;
 
   stage_inputs_kronmult_kernel<P>
       <<<num_blocks, num_threads>>>(x, workspace, num_elems, num_copies);
