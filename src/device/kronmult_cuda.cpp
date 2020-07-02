@@ -99,14 +99,30 @@ DEVICE_FUNCTION
 inline int get_1d_index(int const level, int const cell)
 
 {
-  assert(level >= 0);
+  assert((level >= 0) && (level < 30));
   assert(cell >= 0);
 
   if (level == 0)
   {
     return 0;
   }
-  return static_cast<int>(pow((float)2, (float)(level - 1)) + 0.1) + cell;
+
+  static int constexpr powers_of_2[] = {
+      1,         2,        4,         8,         16,
+
+      32,        64,       128,       256,       512,
+
+      1024,      2048,     4096,      8192,      16384,
+
+      32768,     65536,    131072,    262144,    524288,
+
+      1048576,   2097152,  4194304,   8288608,   16777216,
+
+      33554432,  67108864, 134217728, 268435456, 536870912,
+
+      1073741824};
+
+  return powers_of_2[level - 1] + cell;
 }
 
 // helper - calculate element coordinates -> operator matrix indices
