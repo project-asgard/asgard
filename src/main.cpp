@@ -210,7 +210,7 @@ int main(int argc, char **argv)
           fk::vector<prec, mem_type::view, resource::host>(
               workspace, real_space_size, real_space_size * 2 - 1)};
   // transform initial condition to realspace
-  wavelet_to_realspace<prec>(*pde, initial_condition, table,
+  wavelet_to_realspace<prec>(*pde, initial_condition, table, transformer,
                              default_workspace_cpu_MB, tmp_workspace,
                              real_space);
 
@@ -290,8 +290,9 @@ int main(int argc, char **argv)
     /* transform from wavelet space to real space */
     if (opts.should_output_realspace(i))
     {
-      wavelet_to_realspace<prec>(*pde, f_val, table, default_workspace_cpu_MB,
-                                 tmp_workspace, real_space);
+      wavelet_to_realspace<prec>(*pde, f_val, table, transformer,
+                                 default_workspace_cpu_MB, tmp_workspace,
+                                 real_space);
 
       update_output_file(output_dataset_real, real_space,
                          realspace_output_name);
