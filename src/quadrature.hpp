@@ -7,7 +7,7 @@ enum legendre_normalization
 {
   unnormalized,
   lin,
-  matlab
+  matlab_default
 };
 
 template<typename P>

@@ -3,6 +3,7 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
+#if defined(ASGARD_IO_HIGHFIVE)
 TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", double, float, int)
 {
   SECTION("check it writes the correct file")
@@ -37,3 +38,4 @@ TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", double, float, int)
     }
   }
 }
+#endif

@@ -97,7 +97,7 @@ legendre(fk::vector<P> const domain, int const degree,
       P norm_2 = static_cast<P>(2.0) / (2.0 * i + 1.0);
       dscale   = static_cast<P>(1.0) / std::sqrt(norm_2);
     }
-    else if (normalization == legendre_normalization::matlab)
+    else if (normalization == legendre_normalization::matlab_default)
     {
       dscale = static_cast<P>(1.0) / std::sqrt(2.0);
     }

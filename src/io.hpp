@@ -4,10 +4,40 @@
 
 // workaround for missing include issue with highfive
 // clang-format off
+#if defined(ASGARD_IO_HIGHFIVE) 
 #include <numeric>
 #include <highfive/H5Easy.hpp>
+#endif
+
 // clang-format on
 
+#if defined(ASGARD_IO_MATLAB_DIR)
+#include "MatlabDataArray.hpp"
+#include "MatlabEngine.hpp"
+
+template<typename P>
+class matlab_engine
+{
+public:
+  matlab_engine();
+
+  ~matlab_engine();
+
+  void send_to_matlab(fk::vector<P> const &v);
+
+private:
+  std::string matlab_solution_name;
+  std::string matlab_tmp_var_name;
+
+  matlab::data::ArrayFactory array_factory;
+
+  std::unique_ptr<matlab::engine::MATLABEngine> engine;
+
+  int time_step_index;
+};
+#endif
+
+#if defined(ASGARD_IO_HIGHFIVE)
 template<typename P>
 HighFive::DataSet
 initialize_output_file(fk::vector<P> const &vec,
@@ -53,3 +83,4 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
   // Write the latest vec into the new row
   dataset.select({dataset_size[0], 0}, {1, vec_size}).write(vec.to_std());
 }
+#endif

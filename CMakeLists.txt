@@ -42,6 +42,7 @@ option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
+option(ASGARD_IO_MATLAB_DIR "Optional MATLAB root folder" "")
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
@@ -67,7 +68,6 @@ set(ASGARD_USE_MKL FALSE)
 if(FOUND_MKL GREATER_EQUAL 0)
   set(ASGARD_USE_MKL TRUE)
 endif()
-
 
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)  
@@ -145,7 +145,7 @@ set (components
   timer
   transformations
 )
-if (ASGARD_IO_HIGHFIVE)
+if (ASGARD_IO_HIGHFIVE OR ASGARD_IO_MATLAB_DIR)
   list (APPEND components io)
 endif ()
 
@@ -219,6 +219,14 @@ if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
 endif ()
 
+if(ASGARD_IO_MATLAB_DIR)
+  target_include_directories( io PUBLIC ${Matlab_INCLUDE_DIRS})
+  target_link_libraries(io PRIVATE
+                        ${Matlab_DATAARRAY_LIBRARY}
+                        ${Matlab_ENGINE_LIBRARY}
+                        -lpthread)
+endif()
+
 target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
 if (ASGARD_USE_CUDA)
   target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
@@ -273,7 +281,8 @@ set (main_app_link_deps
   timer
   transformations
 )
-if (ASGARD_IO_HIGHFIVE)
+
+if (ASGARD_IO_HIGHFIVE OR ASGARD_IO_MATLAB_DIR)
   list (APPEND main_app_link_deps io)
 endif()
 
@@ -315,10 +324,6 @@ if (ASGARD_BUILD_TESTS)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
-    # FIXME
-    if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
-      target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
-    endif ()
 
     if ("${component}" STREQUAL "chunk")
       target_link_libraries (chunk-tests PRIVATE batch)

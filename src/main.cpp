@@ -8,7 +8,7 @@
 #include "element_table.hpp"
 #include "timer.hpp"
 
-#ifdef ASGARD_IO_HIGHFIVE
+#if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_IO_MATLAB_DIR)
 #include "io.hpp"
 #endif
 
@@ -189,16 +189,16 @@ int main(int argc, char **argv)
   std::vector<element_chunk> const chunks = assign_elements(
       subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
 
+  // realspace solution vector - WARNING this is
+  // currently infeasible to form for large problems
+  int const real_space_size = real_solution_size(*pde);
+  fk::vector<prec> real_space(real_space_size);
+
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
 
   // initialize wavelet output
   auto output_dataset = initialize_output_file(initial_condition);
-
-  // realspace solution vector - WARNING this is
-  // currently infeasible to form for large problems
-  int const real_space_size = real_solution_size(*pde);
-  fk::vector<prec> real_space(real_space_size);
 
   // temporary workspaces for the transform
   fk::vector<prec, mem_type::owner, resource::host> workspace(real_space_size *
@@ -218,6 +218,13 @@ int main(int argc, char **argv)
   std::string const realspace_output_name = "asgard_realspace";
   auto output_dataset_real =
       initialize_output_file(real_space, "asgard_realspace");
+#endif
+
+/* output to matlab */
+#if defined(ASGARD_IO_MATLAB_DIR)
+  matlab_engine<prec> matlab_session;
+
+  matlab_session.send_to_matlab(real_space);
 #endif
 
   // -- time loop
@@ -299,6 +306,15 @@ int main(int argc, char **argv)
     }
 #else
     ignore(default_workspace_cpu_MB);
+#endif
+
+#if defined(ASGARD_IO_MATLAB_DIR)
+
+    if (opts.should_output_realspace(i))
+    {
+      matlab_session.send_to_matlab(real_space);
+    }
+
 #endif
 
     node_out() << "timestep: " << i << " complete" << '\n';

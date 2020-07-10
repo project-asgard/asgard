@@ -63,6 +63,21 @@ function (get_hdf5)
 endfunction()
 
 ###############################################################################
+## MATLAB interface to C++ https://www.mathworks.com/help/matlab/Cpp-api.html 
+###############################################################################
+if(ASGARD_IO_MATLAB_DIR)
+
+  set(Matlab_ROOT_DIR ${ASGARD_IO_MATLAB_DIR})
+  include(FindMatlab)
+
+  if( NOT Matlab_FOUND )
+    message( FATAL_ERROR 
+    "Matlab not found at provided path. Did you include the R20XXa/b at the end of the path?" )
+  endif()
+
+endif()
+
+###############################################################################
 ## BlueBrain/HighFive (https://github.com/BlueBrain/HighFive)
 #
 # header-only library for a c++ interface into libhdf5
