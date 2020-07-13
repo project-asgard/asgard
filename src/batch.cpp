@@ -990,6 +990,46 @@ template class batch<double>;
 template class batch<float, resource::host>;
 template class batch<double, resource::host>;
 
+template void batch<float, resource::host>::assign_entry(
+    fk::matrix<float, mem_type::owner, resource::host> const &a,
+    int const position);
+template void batch<float, resource::host>::assign_entry(
+    fk::matrix<float, mem_type::view, resource::host> const &a,
+    int const position);
+template void batch<float, resource::host>::assign_entry(
+    fk::matrix<float, mem_type::const_view, resource::host> const &a,
+    int const position);
+
+template void batch<double, resource::host>::assign_entry(
+    fk::matrix<double, mem_type::owner, resource::host> const &a,
+    int const position);
+template void batch<double, resource::host>::assign_entry(
+    fk::matrix<double, mem_type::view, resource::host> const &a,
+    int const position);
+template void batch<double, resource::host>::assign_entry(
+    fk::matrix<double, mem_type::const_view, resource::host> const &a,
+    int const position);
+
+template void batch<float, resource::device>::assign_entry(
+    fk::matrix<float, mem_type::owner, resource::device> const &a,
+    int const position);
+template void batch<float, resource::device>::assign_entry(
+    fk::matrix<float, mem_type::view, resource::device> const &a,
+    int const position);
+template void batch<float, resource::device>::assign_entry(
+    fk::matrix<float, mem_type::const_view, resource::device> const &a,
+    int const position);
+
+template void batch<double, resource::device>::assign_entry(
+    fk::matrix<double, mem_type::owner, resource::device> const &a,
+    int const position);
+template void batch<double, resource::device>::assign_entry(
+    fk::matrix<double, mem_type::view, resource::device> const &a,
+    int const position);
+template void batch<double, resource::device>::assign_entry(
+    fk::matrix<double, mem_type::const_view, resource::device> const &a,
+    int const position);
+
 template class batch_workspace<float, resource::host>;
 template class batch_workspace<float, resource::device>;
 
