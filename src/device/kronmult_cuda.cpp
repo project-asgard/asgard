@@ -79,12 +79,11 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
 
 #ifdef ASGARD_USE_CUDA
 
-  auto constexpr warp_size     = 32;
-  auto constexpr num_warps     = 8;
-  auto constexpr num_threads   = num_warps * warp_size;
-  auto constexpr num_SMs       = 80; // FIXME volta
-  auto constexpr blocks_per_SM = 32;
-  auto const num_blocks        = num_SMs * blocks_per_SM;
+  auto constexpr warp_size   = 32;
+  auto constexpr num_warps   = 8;
+  auto constexpr num_threads = num_warps * warp_size;
+  int64_t const total_copies = static_cast<int64_t>(num_elems) * num_copies;
+  auto const num_blocks      = (total_copies + num_threads - 1) / num_threads;
 
   stage_inputs_kronmult_kernel<P>
       <<<num_blocks, num_threads>>>(x, workspace, num_elems, num_copies);
