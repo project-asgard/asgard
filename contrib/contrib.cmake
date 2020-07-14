@@ -206,7 +206,7 @@ if(NOT KRON_LIB)
     ExternalProject_Add (kronmult-ext
       UPDATE_COMMAND ""
       PREFIX ${CMAKE_SOURCE_DIR}/contrib/kronmult
-      URL https://github.com/project-asgard/kronmult/archive/v1.4.5.tar.gz
+      URL https://github.com/project-asgard/kronmult/archive/v1.4.6.tar.gz
       DOWNLOAD_NO_PROGRESS 1
       CMAKE_ARGS ${KRON_ARGS}
       BUILD_IN_SOURCE 1
