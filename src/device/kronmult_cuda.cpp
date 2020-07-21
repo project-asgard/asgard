@@ -82,7 +82,9 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
   auto constexpr warp_size   = 32;
   auto constexpr num_warps   = 8;
   auto constexpr num_threads = num_warps * warp_size;
-  auto const num_blocks      = (num_copies / num_threads) + 1;
+
+  auto const total_copies = static_cast<int64_t>(num_elems) * num_copies;
+  auto const num_blocks   = (total_copies + num_threads - 1) / num_threads;
 
   stage_inputs_kronmult_kernel<P>
       <<<num_blocks, num_threads>>>(x, workspace, num_elems, num_copies);
@@ -116,7 +118,7 @@ inline int get_1d_index(int const level, int const cell)
 
       32768,     65536,    131072,    262144,    524288,
 
-      1048576,   2097152,  4194304,   8288608,   16777216,
+      1048576,   2097152,  4194304,   8388608,   16777216,
 
       33554432,  67108864, 134217728, 268435456, 536870912,
 
@@ -292,7 +294,7 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 #ifdef ASGARD_USE_CUDA
   {
     int constexpr warpsize    = 32;
-    int constexpr nwarps      = 8;
+    int constexpr nwarps      = 1;
     int constexpr num_threads = nwarps * warpsize;
 
     switch (num_dims)
