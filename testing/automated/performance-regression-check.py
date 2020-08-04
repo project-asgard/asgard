@@ -11,7 +11,7 @@ import os
 # constants
 RUN_ENTRIES = 2 # run structure: asgard args, average timestep
 EMPTY_RUN = ''
-ASGARD_PATH = '../../build/asgard' # is there a better way to do this? not relocatable...
+ASGARD_PATH = './asgard' # is there a better way to do this? not relocatable...
 NUM_THREADS = 8
 
 ## exit codes
