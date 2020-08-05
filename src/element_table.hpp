@@ -30,6 +30,12 @@
 //   than the number of levels selected for the simulation.
 // -----------------------------------------------------------------------------
 
+enum class element_type
+{
+  leaf,
+  interior
+};
+
 class element_table
 {
 public:
@@ -56,15 +62,37 @@ public:
     return forward_table_.size();
   }
 
-  // Static construction helper
-  // Return the cell indices given a level tuple
-  static fk::matrix<int> get_cell_index_set(fk::vector<int> const levels);
+  // static construction helper
+  // return the cell indices given a level tuple
+  static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
+
+  // adaptivity functions
+  void move_to_leaf(int64_t const element_id)
+  {
+    assert(interior_nodes.count(element_id) == 1);
+    assert(leaf_nodes.count(element_id) == 0);
+    interior_nodes.erase(element_id);
+    leaf_nodes.insert(element_id);
+  }
+  void move_to_interior(int const element_id)
+  {
+    assert(interior_nodes.count(element_id) == 0);
+    assert(leaf_nodes.count(element_id) == 1);
+    interior_nodes.insert(element_id);
+    leaf_nodes.erase(element_id);
+  }
 
 private:
+  // TODO move element_id to 64 bit integer, trace usages
   // a map keyed on the element coordinates
   std::map<fk::vector<int>, int> forward_table_;
   // given an integer index, give me back the element coordinates
   std::vector<fk::vector<int>> reverse_table_;
   // a flattened reverse table staged for on-device kron list building
+  // TODO must be updated at end of adapt step
   fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
+
+  // adaptivity sets
+  std::set<int64_t> leaf_nodes;
+  std::set<int64_t> interior_nodes;
 };
