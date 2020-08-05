@@ -1,7 +1,9 @@
 #pragma once
+#include "connectivity.hpp"
 #include "permutations.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
+#include <algorithm>
 #include <map>
 #include <vector>
 
@@ -66,6 +68,27 @@ public:
   // return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
 
+  // static helper
+  // return the linear index given element coordinates
+  // TODO is this needed outside class? private?
+  static int64_t map_to_index(fk::vector<int> const &coords, int const num_dims,
+                              int const max_levels)
+  {
+    assert(num_dims > 0);
+    assert(coords.size() == num_dims);
+    int64_t id     = 1;
+    int64_t stride = 1;
+    for (int i = 0; i < num_dims; ++i)
+    {
+      assert(coords(i) < max_levels);
+      id += get_1d_index(coords(i), coords(i + num_dims)) * stride;
+      stride += stride * fm::two_raised_to(max_levels);
+    }
+    assert(id >= 0);
+    assert(id < fm::two_raised_to(static_cast<int64_t>(max_levels) * num_dims));
+    return id;
+  }
+
   // adaptivity functions
   void move_to_leaf(int64_t const element_id)
   {
@@ -83,14 +106,17 @@ public:
   }
 
 private:
-  // TODO move element_id to 64 bit integer, trace usages
   // a map keyed on the element coordinates
+  // TODO DELETE, using function above
   std::map<fk::vector<int>, int> forward_table_;
   // given an integer index, give me back the element coordinates
+  // TODO rename, only table
   std::vector<fk::vector<int>> reverse_table_;
-  // a flattened reverse table staged for on-device kron list building
-  // TODO must be updated at end of adapt step
-  fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
+  std::map <
+
+      // a flattened reverse table staged for on-device kron list building
+      // TODO must be updated at end of adapt step
+      fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
 
   // adaptivity sets
   std::set<int64_t> leaf_nodes;

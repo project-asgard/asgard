@@ -6,11 +6,12 @@
 #include "tensors.hpp"
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <map>
 #include <numeric>
 #include <vector>
 
-// Construct forward and reverse element tables
+// construct forward and reverse element tables
 element_table::element_table(options const program_opts, int const num_levels,
                              int const num_dims)
 {
@@ -70,6 +71,84 @@ element_table::element_table(options const program_opts, int const num_levels,
       .transfer_from(dev_table_builder);
 }
 
+// new version: construct forward and reverse element tables
+// TODO need explicit instant. for this constructor
+element_table::element_table(options const program_opts, PDE<P> const &pde)
+{
+  // assert(iscolumn(lev_vec) || isrow(lev_vec));
+  // num_dimensions = numel(lev_vec);
+
+  //% num_dimensions = numel(pde.dimensions);
+  // is_sparse_grid = strcmp( grid_type, 'SG');
+
+  //%%
+  //% Setup element table as a collection of sparse vectors to
+  //% store the lev and cell info for each dim.
+
+  //%%
+  // calculate maximum refinement
+  auto const elems_1d = fm::two_raised_to(static_cast<int64_t>(opts.max_level));
+  auto const num_max_elems_fp = std::pow(elems_1d, pde.num_dims);
+  assert(num_max_elems_fp < static_cast<double>(INT64_MAX));
+  auto const num_max_elements = static_cast<int64_t>(num_max_elems_fp);
+
+  //%%
+  //% allocate the sparse element table members
+
+  // elements.lev_p1     = sparse (num_elements_max, num_dimensions); % _p1 is
+  // for "plus 1" sinse sparse cannot accpet 0 elements.pos_p1     = sparse
+  // (num_elements_max, num_dimensions); elements.type       = sparse
+  // (num_elements_max, 1);
+
+  //%%
+  //% Get combinations of elements across dimensions and apply sparse-grid
+  // selection rule
+
+  // get permutation table for some num_dims, num_levels
+  // each row of this table becomes a level tuple, and is the "level" component
+  // of some number of elements' coordinates
+  fk::matrix<int> const perm_table =
+      opts.use_full_grid
+          ? get_max_permutations(pde.num_dims, opts.starting_level, false)
+          : get_leq_permutations(pde.num_dims, opts.starting_level, false);
+
+  fk::vector<int> dev_table_builder;
+  for (int row = 0; row < perm_table.nrows(); ++row)
+  {
+    // get the level tuple to work on
+    fk::vector<int> const level_tuple =
+        perm_table.extract_submatrix(row, 0, 1, num_dims);
+    // calculate all possible cell indices allowed by this level tuple
+    fk::matrix<int> const index_set = get_cell_index_set(level_tuple);
+
+    for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
+    {
+      fk::vector<int> cell_indices =
+          index_set.extract_submatrix(cell_set, 0, 1, num_dims);
+
+      // the element table key is the full element coordinate - (levels,cells)
+      // (level-1, ..., level-d, cell-1, ... cell-d)
+      fk::vector<int> key = level_tuple;
+      key.concat(cell_indices);
+
+      // assign into flattened device table builder
+      dev_table_builder.concat(key);
+
+      // note the matlab code has an option to append 1d cell indices to the
+      // reverse element table. //FIXME do we need to precompute or can we call
+      // the 1d helper as needed?
+      reverse_table_.push_back(key);
+
+      // FIXME todo leaf assignment
+    }
+  }
+
+  assert(forward_table_.size() == reverse_table_.size());
+  reverse_table_d_.resize(dev_table_builder.size())
+      .transfer_from(dev_table_builder);
+}
+
+// FIXME need to delete, using index function
 // forward lookup - returns the non-negative index of an element's
 // coordinates
 int element_table::get_index(fk::vector<int> const coords) const
@@ -87,12 +166,12 @@ fk::vector<int> const &element_table::get_coords(int const index) const
   return reverse_table_[index];
 }
 
-// Static construction helper
-// Return the cell indices, given a level tuple
-// Each row in the returned matrix is the cell portion of an element's
+// static construction helper
+// return the cell indices, given a level tuple
+// each row in the returned matrix is the cell portion of an element's
 // coordinate
 fk::matrix<int>
-element_table::get_cell_index_set(fk::vector<int> const level_tuple)
+element_table::get_cell_index_set(fk::vector<int> const &level_tuple)
 {
   assert(level_tuple.size() > 0);
   for (auto const level : level_tuple)

@@ -150,7 +150,8 @@ class options
 {
 public:
   options(parser const &user_vals)
-      : max_level(user_vals.get_max_level()),
+      : starting_level(user_vals.get_level()),
+        max_level(user_vals.get_max_level()),
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
         realspace_output_freq(user_vals.get_realspace_output_freq()),
@@ -162,6 +163,7 @@ public:
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
 
+  int const starting_level;
   int const max_level;
   int const num_time_steps;
   int const wavelet_output_freq;
