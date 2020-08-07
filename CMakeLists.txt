@@ -127,7 +127,6 @@ set (components
   batch
   boundary_conditions
   coefficients
-  connectivity
   distribution
   element_table
   fast_math
@@ -171,7 +170,7 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients connectivity chunk element_table pde tensors)
+target_link_libraries (batch PRIVATE lib_dispatch coefficients chunk element_table pde tensors)
 
 target_link_libraries (boundary_conditions PRIVATE coefficients element_table transformations
                        matlab_utilities fast_math )
@@ -182,9 +181,6 @@ endif ()
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
-
-target_link_libraries (connectivity
-  PRIVATE element_table matlab_utilities permutations tensors)
 
 target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
 
@@ -199,7 +195,7 @@ target_link_libraries (element_table
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
 
-target_link_libraries(kronmult PRIVATE batch connectivity kronmult_cuda timer)
+target_link_libraries(kronmult PRIVATE batch element_table kronmult_cuda timer)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
@@ -250,7 +246,7 @@ target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver 
                                     INTERFACE element_table)
 
 target_link_libraries (transformations
-  PRIVATE basis batch connectivity distribution matlab_utilities pde program_options
+  PRIVATE basis batch distribution matlab_utilities pde program_options
   quadrature tensors)
 
 # define the main application and its linking
@@ -261,7 +257,6 @@ set (main_app_link_deps
   batch
   boundary_conditions
   coefficients
-  connectivity
   distribution
   element_table
   matlab_utilities

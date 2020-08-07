@@ -11,6 +11,44 @@
 #include <numeric>
 #include <vector>
 
+int get_1d_index(int const level, int const cell)
+{
+  assert(level >= 0);
+  assert(cell >= 0);
+
+  if (level == 0)
+  {
+    return 0;
+  }
+  return static_cast<int>(std::pow(2, level - 1)) + cell;
+}
+
+template<typename P>
+int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<P> const& pde)
+  {
+    assert(coords.size()*2 == pde.num_dims);
+    
+    int64_t id     = 0;
+    int64_t stride = 1;
+    for (int i = 0; i < pde.num_dims; ++i)
+    {
+      assert(coords(i) < opts.max_level);
+      id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
+      stride += stride * fm::two_raised_to(opts.max_level);
+    }
+    assert(id >= 0);
+    assert(id < fm::two_raised_to(static_cast<int64_t>(opts.max_level) * pde.num_dims));
+    return id;
+  }
+
+template<typename P>
+fk::vector<int> map_to_coords(int64_t const id, options const& opts, PDE<P> const& pde)
+  {
+  	return fk::vector<int>();
+  }
+
+
+
 // construct forward and reverse element tables
 element_table::element_table(options const program_opts, int const num_levels,
                              int const num_dims)
@@ -73,7 +111,8 @@ element_table::element_table(options const program_opts, int const num_levels,
 
 // new version: construct forward and reverse element tables
 // TODO need explicit instant. for this constructor
-element_table::element_table(options const program_opts, PDE<P> const &pde)
+template<typename P>
+element_table::element_table(options const opts, PDE<P> const &pde)
 {
   // assert(iscolumn(lev_vec) || isrow(lev_vec));
   // num_dimensions = numel(lev_vec);
@@ -117,14 +156,14 @@ element_table::element_table(options const program_opts, PDE<P> const &pde)
   {
     // get the level tuple to work on
     fk::vector<int> const level_tuple =
-        perm_table.extract_submatrix(row, 0, 1, num_dims);
+        perm_table.extract_submatrix(row, 0, 1, pde.num_dims);
     // calculate all possible cell indices allowed by this level tuple
     fk::matrix<int> const index_set = get_cell_index_set(level_tuple);
 
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
       fk::vector<int> cell_indices =
-          index_set.extract_submatrix(cell_set, 0, 1, num_dims);
+          index_set.extract_submatrix(cell_set, 0, 1, pde.num_dims);
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
@@ -139,7 +178,6 @@ element_table::element_table(options const program_opts, PDE<P> const &pde)
       // the 1d helper as needed?
       reverse_table_.push_back(key);
 
-      // FIXME todo leaf assignment
     }
   }
 
@@ -228,3 +266,23 @@ element_table::get_cell_index_set(fk::vector<int> const &level_tuple)
 
   return cell_index_set;
 }
+
+
+
+template
+int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<float> const& pde);
+
+template
+int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<double> const& pde);
+
+template
+fk::vector<int> map_to_coords(int64_t const id, options const& opts, PDE<float> const& pde);
+
+template
+fk::vector<int> map_to_coords(int64_t const id, options const& opts, PDE<double> const& pde);
+
+template
+element_table::element_table(options const program_opts, PDE<float> const &pde);
+
+template
+element_table::element_table(options const program_opts, PDE<double> const &pde);

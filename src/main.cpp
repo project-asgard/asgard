@@ -3,7 +3,6 @@
 #include "build_info.hpp"
 #include "chunk.hpp"
 #include "coefficients.hpp"
-#include "connectivity.hpp"
 #include "distribution.hpp"
 #include "element_table.hpp"
 #include "timer.hpp"

@@ -4,7 +4,7 @@
 #include <omp.h>
 #endif
 #include "chunk.hpp"
-#include "connectivity.hpp"
+#include "element_table.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 #include <limits.h>

@@ -1,6 +1,5 @@
 #include "transformations.hpp"
 #include "batch.hpp"
-#include "connectivity.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
