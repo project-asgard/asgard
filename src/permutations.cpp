@@ -39,7 +39,35 @@ int count_eq_permutations(int const num_dims, int const limit)
 
 // Given the number of dimensions and a limit, count the number of n-tuples
 // (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
-int count_leq_permutations(int num_dims, int limit)
+// this version handles the non-uniform level case
+int count_eq_permutations_multi(fk::vector<int> const& levels, int const num_dims, int const limit)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  if (num_dims == 1)
+  {
+    if(levels[0] >= limit) {
+		return 1;
+    }
+    return 0;
+  }
+
+  int count = 0;
+  for (auto i = 0; i <= std::min(levels[num_dims-1], limit); ++i)
+  {
+    int const dim_limit = limit - i;
+    count += count_eq_permutations_multi(levels.extract(0, num_dims-2), num_dims - 1, dim_limit);
+  }
+
+  return count;
+}
+
+
+// Given the number of dimensions and a limit, count the number of n-tuples
+// (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
+int count_leq_permutations(int const num_dims, int const limit)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -51,6 +79,24 @@ int count_leq_permutations(int num_dims, int limit)
   }
   return count;
 }
+
+// Given the number of dimensions and a limit, count the number of n-tuples
+// (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
+// this version handles the non-uniform level case
+int count_leq_permutations_multi(fk::vector<int> const & levels, int num_dims, int limit)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+  
+  int count = 0;
+  for(auto i = 0; i <= limit; ++i) {
+	count += count_eq_permutations_multi(levels, num_dims, i);
+  }
+
+  return count;
+}
+
 
 // Given the number of dimensions and a limit, count the number of n-tuples
 // (where n == 'num_dims') whose non-negative max element <= 'limit' (for full
