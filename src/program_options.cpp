@@ -84,7 +84,8 @@ parser::parser(int argc, char **argv)
   }
   if (max_level < level)
   {
-    std::cerr << "Maximum level must be greater than or equal to starting level" << '\n';
+    std::cerr << "Maximum level must be greater than or equal to starting level"
+              << '\n';
     valid = false;
   }
   if (dt != NO_USER_VALUE_FP && dt <= 0.0)

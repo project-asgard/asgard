@@ -14,12 +14,13 @@ int get_1d_index(int const level, int const cell);
 
 // return the linear index given element coordinates
 template<typename P>
-int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<P> const& pde);
+int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
+                     PDE<P> const &pde);
 
 // return the element coordinates given linear index
 template<typename P>
-int64_t map_to_coords(int64_t const id, options const& opts, PDE<P> const& pde);
-
+fk::vector<int>
+map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde);
 
 // -----------------------------------------------------------------------------
 // element table
@@ -46,17 +47,16 @@ int64_t map_to_coords(int64_t const id, options const& opts, PDE<P> const& pde);
 //   than the number of levels selected for the simulation.
 // -----------------------------------------------------------------------------
 
-
 class element_table
 {
 public:
- // TODO delete, old version
+  // TODO delete, old version
   element_table(options const program_opts, int const num_levels,
                 int const num_dims);
 
   // new adaptivity version
-template<typename P>
-element_table(options const opts, PDE<P> const &pde);
+  template<typename P>
+  element_table(options const opts, PDE<P> const &pde);
 
   // forward lookup
   int get_index(fk::vector<int> const coords) const;
@@ -82,7 +82,6 @@ element_table(options const opts, PDE<P> const &pde);
   // return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
 
-
 private:
   // a map keyed on the element coordinates
   // TODO DELETE, using function above
@@ -94,6 +93,4 @@ private:
   // a flattened reverse table staged for on-device kron list building
   // TODO must be updated at end of adapt step
   fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
-
-
 };

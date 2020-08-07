@@ -12,11 +12,13 @@
 
 int count_eq_permutations(int const num_dims, int const limit);
 
-int count_eq_permutations_multi (fk::vector<int> const& levels, int const num_dims, int const limit);
+int count_eq_permutations_multi(fk::vector<int> const &levels,
+                                int const num_dims, int const limit);
 
 int count_leq_permutations(int const num_dims, int const limit);
 
-int count_leq_permutations_multi(fk::vector<int> const & levels, int const num_dims, int const limit);
+int count_leq_permutations_multi(fk::vector<int> const &levels,
+                                 int const num_dims, int const limit);
 
 int count_max_permutations(int const num_dims, int const limit);
 

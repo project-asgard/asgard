@@ -24,30 +24,33 @@ int get_1d_index(int const level, int const cell)
 }
 
 template<typename P>
-int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<P> const& pde)
+int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
+                     PDE<P> const &pde)
+{
+  assert(coords.size() * 2 == pde.num_dims);
+
+  int64_t id     = 0;
+  int64_t stride = 1;
+  for (int i = 0; i < pde.num_dims; ++i)
   {
-    assert(coords.size()*2 == pde.num_dims);
-    
-    int64_t id     = 0;
-    int64_t stride = 1;
-    for (int i = 0; i < pde.num_dims; ++i)
-    {
-      assert(coords(i) < opts.max_level);
-      id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
-      stride += stride * fm::two_raised_to(opts.max_level);
-    }
-    assert(id >= 0);
-    assert(id < fm::two_raised_to(static_cast<int64_t>(opts.max_level) * pde.num_dims));
-    return id;
+    assert(coords(i) < opts.max_level);
+    id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
+    stride += stride * fm::two_raised_to(opts.max_level);
   }
+  assert(id >= 0);
+  assert(id < fm::two_raised_to(static_cast<int64_t>(opts.max_level) *
+                                pde.num_dims));
+  return id;
+}
 
 template<typename P>
-fk::vector<int> map_to_coords(int64_t const id, options const& opts, PDE<P> const& pde)
-  {
-  	return fk::vector<int>();
-  }
+fk::vector<int>
+map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
+{
+  assert(id >= 0);
 
-
+  return fk::vector<int>();
+}
 
 // construct forward and reverse element tables
 element_table::element_table(options const program_opts, int const num_levels,
@@ -177,7 +180,6 @@ element_table::element_table(options const opts, PDE<P> const &pde)
       // reverse element table. //FIXME do we need to precompute or can we call
       // the 1d helper as needed?
       reverse_table_.push_back(key);
-
     }
   }
 
@@ -267,22 +269,20 @@ element_table::get_cell_index_set(fk::vector<int> const &level_tuple)
   return cell_index_set;
 }
 
+template int64_t map_to_index(fk::vector<int> const &coords,
+                              options const &opts, PDE<float> const &pde);
 
+template int64_t map_to_index(fk::vector<int> const &coords,
+                              options const &opts, PDE<double> const &pde);
 
-template
-int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<float> const& pde);
+template fk::vector<int>
+map_to_coords(int64_t const id, options const &opts, PDE<float> const &pde);
 
-template
-int64_t map_to_index(fk::vector<int> const &coords, options const& opts, PDE<double> const& pde);
+template fk::vector<int>
+map_to_coords(int64_t const id, options const &opts, PDE<double> const &pde);
 
-template
-fk::vector<int> map_to_coords(int64_t const id, options const& opts, PDE<float> const& pde);
+template element_table::element_table(options const program_opts,
+                                      PDE<float> const &pde);
 
-template
-fk::vector<int> map_to_coords(int64_t const id, options const& opts, PDE<double> const& pde);
-
-template
-element_table::element_table(options const program_opts, PDE<float> const &pde);
-
-template
-element_table::element_table(options const program_opts, PDE<double> const &pde);
+template element_table::element_table(options const program_opts,
+                                      PDE<double> const &pde);
