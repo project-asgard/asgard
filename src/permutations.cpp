@@ -56,10 +56,10 @@ int count_eq_permutations_multi(fk::vector<int> const &levels,
     return 0;
   }
 
-  int count = 0;
+  auto count = 0;
   for (auto i = 0; i <= std::min(levels(num_dims - 1), limit); ++i)
   {
-    int const dim_limit = limit - i;
+    auto const dim_limit = limit - i;
     count += count_eq_permutations_multi(levels.extract(0, num_dims - 2),
                                          num_dims - 1, dim_limit);
   }
@@ -92,7 +92,7 @@ int count_leq_permutations_multi(fk::vector<int> const &levels, int num_dims,
   assert(levels.size() == num_dims);
   assert(limit >= 0);
 
-  int count = 0;
+  auto count = 0;
   for (auto i = 0; i <= limit; ++i)
   {
     count += count_eq_permutations_multi(levels, num_dims, i);
@@ -165,6 +165,62 @@ get_eq_permutations(int const num_dims, int const limit, bool const order_by_n)
   return result;
 }
 
+// Given the number of dimensions and a limit, produce n-tuples (where n ==
+// 'num_dims') whose elements' are non-negative and their sum == 'limit'. Each
+// tuple becomes a row of the output matrix
+// this version handles the non-uniform level case via a vector "levels"
+// argument
+fk::matrix<int> get_eq_permutations_multi(fk::vector<int> const &levels,
+                                          int const num_dims, int const limit,
+                                          bool const last_index_decreasing)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  if (num_dims == 1)
+  {
+    if (levels(0) >= limit)
+    {
+      return fk::matrix<int>{{limit}};
+    }
+    else
+    {
+      return fk::matrix<int>();
+    }
+  }
+
+  auto const num_tuples = count_eq_permutations_multi(levels, num_dims, limit);
+  fk::matrix<int> result(num_tuples, num_dims);
+
+  auto const stop =
+      last_index_decreasing ? 0 : std::min(levels(num_dims - 1), limit);
+  auto const inc = last_index_decreasing ? -1 : 1;
+  auto i = last_index_decreasing ? std::min(levels(num_dims - 1), limit) : 0;
+  auto row_counter = 0;
+
+  for (; i < stop; i += inc)
+  {
+    auto const partial_limit = limit - i;
+    auto const partial_size  = count_eq_permutations_multi(
+        levels.extract(0, num_dims - 2), num_dims - 1, partial_limit);
+
+    fk::matrix<int, mem_type::view> partial_result(
+        result, row_counter, row_counter + partial_size - 1, 0, num_dims - 2);
+    partial_result =
+        get_eq_permutations_multi(levels.extract(0, num_dims - 2), num_dims - 1,
+                                  partial_limit, last_index_decreasing);
+
+    fk::matrix<int, mem_type::view> partial_last_col(
+        result, row_counter, row_counter + partial_size - 1, num_dims - 1,
+        num_dims - 1);
+    partial_last_col = fk::vector(std::vector<int>(partial_size, i));
+    row_counter += partial_size;
+  }
+
+  return result;
+}
+
 // Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and their sum <= 'limit'. Each
 // tuple becomes a row of the output matrix
@@ -210,6 +266,40 @@ get_leq_permutations(int const num_dims, int const limit, bool const order_by_n)
     result.set_submatrix(counter, 0, partial_result);
 
     counter += rows;
+  }
+
+  return result;
+}
+
+fk::matrix<int> get_leq_permutations_multi(fk::vector<int> const &levels,
+                                           int const num_dims, int const limit,
+                                           bool const increasing_sum_order)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  auto const num_tuples = count_leq_permutations_multi(levels, num_dims, limit);
+  fk::matrix<int> result(num_tuples, num_dims);
+
+  auto const stop  = increasing_sum_order ? limit : 0;
+  auto const inc   = increasing_sum_order ? 1 : -1;
+  auto i           = increasing_sum_order ? 0 : limit;
+  auto row_counter = 0;
+
+  for (; i < stop; i += inc)
+  {
+    auto const partial_limit = i;
+    auto const partial_size =
+        count_eq_permutations_multi(levels, num_dims, partial_limit);
+    if (partial_size > 0)
+    {
+      fk::matrix<int, mem_type::view> partial_result(
+          result, row_counter, row_counter + partial_size - 1, 0, num_dims - 1);
+      partial_result =
+          get_eq_permutations_multi(levels, num_dims, partial_limit, false);
+      row_counter += partial_size;
+    }
   }
 
   return result;

@@ -27,8 +27,16 @@ int count_max_permutations(int const num_dims, int const limit);
 fk::matrix<int>
 get_eq_permutations(int const num_dims, int const limit, bool const order_by_n);
 
+fk::matrix<int> get_eq_permutations_multi(fk::vector<int> const &levels,
+                                          int const num_dims, int const limit,
+                                          bool const last_index_decreasing);
+
 fk::matrix<int> get_leq_permutations(int const num_dims, int const limit,
                                      bool const order_by_n);
+
+fk::matrix<int> get_leq_permutations_multi(fk::vector<int> const &levels,
+                                           int const num_dims, int const limit,
+                                           bool const increasing_sum_order);
 
 fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
                                      bool const last_index_decreasing);
