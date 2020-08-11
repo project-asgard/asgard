@@ -10,7 +10,10 @@
 // TODO namespace elements {
 
 // yield single-d linear index for level/cell combo
-int get_1d_index(int const level, int const cell);
+int64_t get_1d_index(int const level, int const cell);
+
+// yield level/cell for a single-d index
+std::array<int64_t, 2> get_level_cell(int64_t const id);
 
 // return the linear index given element coordinates
 template<typename P>

@@ -11,7 +11,7 @@
 #include <numeric>
 #include <vector>
 
-int get_1d_index(int const level, int const cell)
+int64_t get_1d_index(int const level, int const cell)
 {
   assert(level >= 0);
   assert(cell >= 0);
@@ -20,7 +20,18 @@ int get_1d_index(int const level, int const cell)
   {
     return 0;
   }
-  return static_cast<int>(std::pow(2, level - 1)) + cell;
+  return static_cast<int64_t>(std::pow(2, level - 1)) + cell;
+}
+
+std::array<int64_t, 2> get_level_cell(int64_t const id)
+{
+  if (id == 0)
+  {
+    return {0, 0};
+  }
+  auto const level = static_cast<int64_t>(std::floor(std::log2(id)) + 1);
+  auto const cell  = (level == 0) ? 0 : (id - fm::two_raised_to(level - 1));
+  return {level, cell};
 }
 
 template<typename P>
@@ -49,7 +60,18 @@ map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
 {
   assert(id >= 0);
 
-  return fk::vector<int>();
+  auto const stride = fm::two_raised_to(opts.max_level);
+
+  fk::vector<int> coords(pde.num_dims * 2);
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    auto const id_1d = static_cast<int64_t>(
+        std::round((id / static_cast<int64_t>(std::pow(stride, i))) % stride));
+    auto const [lev, pos]    = get_level_cell(id_1d);
+    coords(i)                = lev;
+    coords(i + pde.num_dims) = pos;
+  }
+  return coords;
 }
 
 // construct forward and reverse element tables
@@ -150,10 +172,22 @@ element_table::element_table(options const opts, PDE<P> const &pde)
   // each row of this table becomes a level tuple, and is the "level" component
   // of some number of elements' coordinates
   // TODO here switch to new perm
-  fk::matrix<int> const perm_table =
-      opts.use_full_grid
-          ? permutations::get_max(pde.num_dims, opts.starting_level, false)
-          : permutations::get_lequal(pde.num_dims, opts.starting_level, false);
+
+  auto const perm_table = [&pde, &opts]() {
+    auto const sort = false;
+    if (opts.use_full_grid)
+    {
+      return permutations::get_max(pde.num_dims, opts.starting_level, sort);
+    }
+
+    auto const dims = pde.get_dimensions();
+    fk::vector<int> levels(pde.num_dims);
+    std::transform(dims.begin(), dims.end(), levels.begin(),
+                   [](auto const &dim) { return dim.get_level(); });
+    return permutations::get_lequal_multi(
+        levels, pde.num_dims, *std::max_element(levels.begin(), levels.end()),
+        sort);
+  }();
 
   fk::vector<int> dev_table_builder;
   for (int row = 0; row < perm_table.nrows(); ++row)
@@ -166,13 +200,12 @@ element_table::element_table(options const opts, PDE<P> const &pde)
 
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
-      fk::vector<int> cell_indices =
+      fk::vector<int> const cell_indices =
           index_set.extract_submatrix(cell_set, 0, 1, pde.num_dims);
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
-      fk::vector<int> key = level_tuple;
-      key.concat(cell_indices);
+      auto const key = fk::vector<int>(level_tuple).concat(cell_indices);
 
       // assign into flattened device table builder
       dev_table_builder.concat(key);

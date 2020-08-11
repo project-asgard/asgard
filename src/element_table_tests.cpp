@@ -81,3 +81,22 @@ TEST_CASE("Static helper - cell builder", "[element_table]")
     }
   }
 }
+
+TEST_CASE("temp - singleD mapping", "[element_table]")
+{
+  SECTION("blah")
+  {
+    for (auto i = 0; i < 100; ++i)
+    {
+      std::cout << i << '\n';
+      auto const coords = get_level_cell(i);
+      for (int j = 0; j < 2; ++j)
+      {
+        std::cout << coords[j] << " ";
+      }
+      std::cout << get_1d_index(coords[0], coords[1]) << '\n';
+      ;
+      std::cout << '\n';
+    }
+  }
+}
