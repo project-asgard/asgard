@@ -192,18 +192,20 @@ fk::matrix<int> get_eq_permutations_multi(fk::vector<int> const &levels,
 
   auto const num_tuples = count_eq_permutations_multi(levels, num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
-
-  auto const stop =
-      last_index_decreasing ? 0 : std::min(levels(num_dims - 1), limit);
-  auto const inc = last_index_decreasing ? -1 : 1;
-  auto i = last_index_decreasing ? std::min(levels(num_dims - 1), limit) : 0;
   auto row_counter = 0;
+  auto const stop  = std::min(levels(num_dims - 1), limit);
 
-  for (; i < stop; i += inc)
+  for (auto i = 0; i <= stop; ++i)
   {
-    auto const partial_limit = limit - i;
+    auto const last_elem     = last_index_decreasing ? stop - i : i;
+    auto const partial_limit = limit - last_elem;
     auto const partial_size  = count_eq_permutations_multi(
         levels.extract(0, num_dims - 2), num_dims - 1, partial_limit);
+
+    if (partial_size < 1)
+    {
+      continue;
+    }
 
     fk::matrix<int, mem_type::view> partial_result(
         result, row_counter, row_counter + partial_size - 1, 0, num_dims - 2);
@@ -214,7 +216,7 @@ fk::matrix<int> get_eq_permutations_multi(fk::vector<int> const &levels,
     fk::matrix<int, mem_type::view> partial_last_col(
         result, row_counter, row_counter + partial_size - 1, num_dims - 1,
         num_dims - 1);
-    partial_last_col = fk::vector(std::vector<int>(partial_size, i));
+    partial_last_col = fk::vector(std::vector<int>(partial_size, last_elem));
     row_counter += partial_size;
   }
 
@@ -287,7 +289,7 @@ fk::matrix<int> get_leq_permutations_multi(fk::vector<int> const &levels,
   auto i           = increasing_sum_order ? 0 : limit;
   auto row_counter = 0;
 
-  for (; i < stop; i += inc)
+  for (; i <= stop; i += inc)
   {
     auto const partial_limit = i;
     auto const partial_size =

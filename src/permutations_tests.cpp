@@ -87,12 +87,14 @@ TEST_CASE("Permutations builders", "[permutations]")
     int const max_sum = 5;
     int const max_val = 3;
     // clang-format off
-    fk::matrix<int> const gold = {{0, 0, 0, 0}, 
-	    		          {1, 0, 0, 0}, 
+    fk::matrix<int> const gold = 
+                 {{0, 0, 0, 0}, 
+	    		  {1, 0, 0, 0}, 
 				  {0, 1, 0, 0}, 
 				  {0, 0, 1, 0}, 
 				  {1, 0, 1, 0}};
     // clang-format on
+
     REQUIRE(get_leq_max_indices(lists, lists.size(), max_sum, max_val) == gold);
     REQUIRE(count_leq_max_indices(lists, lists.size(), max_sum, max_val) ==
             gold.nrows());
@@ -119,7 +121,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
     // clang-format off
     list_set const lists{{2, 3}, 
-	    	   	 {0, 1, 2, 3, 4}, 
+	    	 {0, 1, 2, 3, 4}, 
 		   	 {0, 1, 2, 3}, 
 		   	 {1, 2, 3, 4, 5}};
     // clang-format on
@@ -130,4 +132,52 @@ TEST_CASE("Permutations builders", "[permutations]")
     REQUIRE(count_leq_max_indices(lists, lists.size(), max_sum, max_val) ==
             count_gold);
   }
+}
+
+TEST_CASE("Non-uniform level permutations builders", "[permutations]")
+{
+  std::string const zero = "0";
+  std::string const one  = "1";
+
+  // clang-format off
+  std::vector<fk::vector<int>> const test_levels = {
+  {3, 3},
+  {1, 4},
+  {1, 5, 8},
+  {10, 6, 9, 10},
+  {2, 10, 1, 5, 4, 7}
+  };
+  // clang-format on
+
+  SECTION("permutations eq")
+  {
+    std::string const out_base =
+        "../testing/generated-inputs/permutations/perm_eq_d_";
+
+    for (int i = 0; i < static_cast<int>(test_levels.size()); ++i)
+    {
+      // std::cout << i << '\n';
+      auto const sort             = (i + 1) % 2;
+      std::string const file_base = out_base +
+                                    std::to_string(test_levels[i].size()) +
+                                    "_" + (sort ? one : zero);
+      std::string const file_path  = file_base + ".dat";
+      std::string const count_path = file_base + "_count.dat";
+
+      auto const gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
+
+      auto const count_gold =
+          static_cast<int>(read_scalar_from_txt_file(count_path));
+      auto const max_level =
+          *std::max_element(test_levels[i].begin(), test_levels[i].end());
+
+      REQUIRE(count_eq_permutations_multi(test_levels[i], test_levels[i].size(),
+                                          max_level) == count_gold);
+
+      REQUIRE(get_eq_permutations_multi(test_levels[i], test_levels[i].size(),
+                                        max_level, sort) == gold);
+    }
+  }
+
+  SECTION("permutations leq") {}
 }
