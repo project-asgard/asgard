@@ -65,8 +65,8 @@ element_table::element_table(options const program_opts, int const num_levels,
   // each row of this table becomes a level tuple, and is the "level" component
   // of some number of elements' coordinates
   fk::matrix<int> const perm_table =
-      use_full_grid ? get_max_permutations(num_dims, num_levels, false)
-                    : get_leq_permutations(num_dims, num_levels, false);
+      use_full_grid ? permutations::get_max(num_dims, num_levels, false)
+                    : permutations::get_lequal(num_dims, num_levels, false);
 
   // in the matlab, the tables sizes are precomputed/preallocated.
   // I wrote the code to do that, however, this isn't a performance
@@ -149,10 +149,11 @@ element_table::element_table(options const opts, PDE<P> const &pde)
   // get permutation table for some num_dims, num_levels
   // each row of this table becomes a level tuple, and is the "level" component
   // of some number of elements' coordinates
+  // TODO here switch to new perm
   fk::matrix<int> const perm_table =
       opts.use_full_grid
-          ? get_max_permutations(pde.num_dims, opts.starting_level, false)
-          : get_leq_permutations(pde.num_dims, opts.starting_level, false);
+          ? permutations::get_max(pde.num_dims, opts.starting_level, false)
+          : permutations::get_lequal(pde.num_dims, opts.starting_level, false);
 
   fk::vector<int> dev_table_builder;
   for (int row = 0; row < perm_table.nrows(); ++row)
