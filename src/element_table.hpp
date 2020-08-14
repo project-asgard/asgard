@@ -61,6 +61,7 @@ public:
   template<typename P>
   element_table(options const opts, PDE<P> const &pde);
 
+  // FIXME the below are
   // forward lookup
   int get_index(fk::vector<int> const coords) const;
 
@@ -90,10 +91,22 @@ private:
   // TODO DELETE, using function above
   std::map<fk::vector<int>, int> forward_table_;
   // given an integer index, give me back the element coordinates
-  // TODO rename, only table
+  // TODO DELETE
   std::vector<fk::vector<int>> reverse_table_;
 
-  // a flattened reverse table staged for on-device kron list building
-  // TODO must be updated at end of adapt step
+  // TODO rename
+  // table of active elements staged for on-device kron list building
   fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
+
+  // --------------------------------------------------------------------------
+
+  // FIXME change to fk vector if upgraded to 64 bit indexing
+  // ordering of active elements
+  std::vector<int64_t> active_element_ids_;
+
+  // map from element id to coords
+  std::unordered_map<int64_t, fk::vector<int>> ids_to_coords_;
+
+  // table of active elements staged for on-device kron list building
+  fk::vector<int, mem_type::owner, resource::device> active_table_d_;
 };

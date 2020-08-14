@@ -41,19 +41,20 @@ template<typename P>
 int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
                      PDE<P> const &pde)
 {
-  assert(coords.size() * 2 == pde.num_dims);
+  assert(coords.size() == pde.num_dims * 2);
 
   int64_t id     = 0;
   int64_t stride = 1;
   for (int i = 0; i < pde.num_dims; ++i)
   {
     assert(coords(i) >= 0);
-    assert(coords(i) < opts.max_level);
+    assert(coords(i) <= opts.max_level);
     id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
     stride += stride * fm::two_raised_to(opts.max_level);
   }
   assert(id >= 0);
-  assert(id < fm::two_raised_to(static_cast<int64_t>(opts.max_level) *
+  std::cout << id << '\n';
+  assert(id <= fm::two_raised_to(static_cast<int64_t>(opts.max_level) *
                                 pde.num_dims));
   return id;
 }
@@ -175,20 +176,19 @@ element_table::element_table(options const opts, PDE<P> const &pde)
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
-      auto const key = fk::vector<int>(level_tuple).concat(cell_indices);
+      auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
+      auto const key    = map_to_index(coords, opts, pde);
+
+      active_element_ids_.push_back(key);
+      ids_to_coords_[key].resize(coords.size()) = coords;
 
       // assign into flattened device table builder
-      dev_table_builder.concat(key);
-
-      // note the matlab code has an option to append 1d cell indices to the
-      // reverse element table. //FIXME do we need to precompute or can we call
-      // the 1d helper as needed?
-      reverse_table_.push_back(key);
+      dev_table_builder.concat(coords);
     }
   }
 
-  assert(forward_table_.size() == reverse_table_.size());
-  reverse_table_d_.resize(dev_table_builder.size())
+  assert(active_element_ids_.size() == ids_to_coords_.size());
+  active_table_d_.resize(dev_table_builder.size())
       .transfer_from(dev_table_builder);
 }
 

@@ -2,6 +2,7 @@
 
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
+#include <regex>
 #include <string>
 
 void test_element_table(int const levels, int const dims,
@@ -23,6 +24,27 @@ void test_element_table(int const levels, int const dims,
     fk::vector<int, mem_type::const_view> const dev_coords(
         dev_table, i * dims * 2, (i + 1) * dims * 2 - 1);
     REQUIRE(dev_coords == gold_coords);
+  }
+}
+
+void test_element_table(PDE_opts const pde_choice,
+                        fk::vector<int> const &levels,
+                        std::string const &gold_filename,
+                        bool const full_grid = false)
+{
+  parser const cli_mock(pde_choice, levels, full_grid);
+  options const opts(cli_mock);
+  auto const pde = make_PDE<double>(cli_mock);
+  element_table const elem_table(opts, *pde);
+
+   auto const gold_table =
+          fk::matrix<int>(read_matrix_from_txt_file(gold_filename));
+
+   auto const gold_ids = fk::vector<double>(read_vector_from_txt_file(std::regex_replace(gold_filename, std::regex("table_"), "ids_")));
+
+  for (int i = 0; i < static_cast<int>(elem_table.size()); ++i)
+  {
+
   }
 }
 
@@ -90,7 +112,7 @@ TEST_CASE("element table constructors/accessors/size", "[element_table]")
   std::string const gold_base =
       "../testing/generated-inputs/element_table/table_";
 
-  SECTION("test table")
+  SECTION("test table construction")
   {
     assert(test_levels.size() == test_pdes.size());
 
@@ -98,22 +120,17 @@ TEST_CASE("element table constructors/accessors/size", "[element_table]")
     {
       auto const levels = test_levels[i];
       auto const choice = test_pdes[i];
-      parser const cli_mock(choice, levels);
-      options const opts(cli_mock);
-      auto const pde = make_PDE<double>(cli_mock);
 
       auto const full_gold_str = gold_base +
                                  std::to_string(test_levels[i].size() / 2 + 1) +
                                  "d_FG.dat";
+      test_element_table(choice, levels, full_gold_str, true);
+      
       auto const sparse_gold_str =
           gold_base + std::to_string(test_levels[i].size() / 2 + 1) +
           "d_SG.dat";
-      auto const full_table =
-          fk::matrix<int>(read_matrix_from_txt_file(full_gold_str));
-      auto const sparse_table =
-          fk::matrix<int>(read_matrix_from_txt_file(sparse_gold_str));
 
-      for (int i = 0; i < full_table.nrows(); ++i) {}
+      test_element_table(choice, levels, sparse_gold_str, false);
     }
   }
 }

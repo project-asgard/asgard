@@ -87,9 +87,11 @@ public:
 
   // construct from provided values - to simplify testing
   parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
+         bool const use_full_grid = DEFAULT_USE_FG,
          int const degree = NO_USER_VALUE, double const cfl = NO_USER_VALUE_FP)
-      : level(starting_levels(0)), starting_levels(starting_levels),
-        degree(degree), cfl(cfl), pde_choice(pde_choice){};
+      : use_full_grid(use_full_grid), level(starting_levels(0)),
+        starting_levels(starting_levels), degree(degree), cfl(cfl),
+        pde_choice(pde_choice){};
 
   bool using_implicit() const;
   bool using_full_grid() const;
