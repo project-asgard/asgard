@@ -65,9 +65,6 @@ public:
   // forward lookup
   int get_index(fk::vector<int> const coords) const;
 
-  // reverse lookup
-  fk::vector<int> const &get_coords(int const index) const;
-
   // get ref to flattened reverse table
   fk::vector<int, mem_type::owner, resource::device> const &
   get_device_table() const
@@ -75,11 +72,28 @@ public:
     return reverse_table_d_;
   }
 
-  // returns the number of elements in table
-  int size() const
+  // ------------------------------------
+
+  // get id of element given its 0,...,n index in active elements
+  int64_t get_element_id(int64_t const index) const
   {
-    assert(forward_table_.size() == reverse_table_.size());
-    return forward_table_.size();
+    assert(index >= 0);
+    assert(index < static_cast<int64_t>(active_element_ids_.size()));
+    return active_element_ids_[index];
+  }
+
+  // lookup coords by id
+  fk::vector<int> const &get_coords(int64_t const id) const
+  {
+    assert(id >= 0);
+    return id_to_coords_.at(id);
+  }
+
+  // returns the number of (active) elements in table
+  int64_t size() const
+  {
+    assert(active_element_ids_.size() == id_to_coords_.size());
+    return active_element_ids_.size();
   }
 
   // static construction helper
@@ -105,7 +119,7 @@ private:
   std::vector<int64_t> active_element_ids_;
 
   // map from element id to coords
-  std::unordered_map<int64_t, fk::vector<int>> ids_to_coords_;
+  std::unordered_map<int64_t, fk::vector<int>> id_to_coords_;
 
   // table of active elements staged for on-device kron list building
   fk::vector<int, mem_type::owner, resource::device> active_table_d_;

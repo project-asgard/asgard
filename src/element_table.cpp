@@ -11,6 +11,8 @@
 #include <numeric>
 #include <vector>
 
+// fixme
+#include <iterator>
 int64_t get_1d_index(int const level, int const cell)
 {
   assert(level >= 0);
@@ -45,17 +47,20 @@ int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
 
   int64_t id     = 0;
   int64_t stride = 1;
-  for (int i = 0; i < pde.num_dims; ++i)
+
+  for (auto i = 0; i < pde.num_dims; ++i)
   {
     assert(coords(i) >= 0);
     assert(coords(i) <= opts.max_level);
+    assert(coords(i + pde.num_dims) >= 0);
+
     id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
-    stride += stride * fm::two_raised_to(opts.max_level);
+    stride *= static_cast<int64_t>(std::pow(2, opts.max_level));
   }
+
   assert(id >= 0);
-  std::cout << id << '\n';
-  assert(id <= fm::two_raised_to(static_cast<int64_t>(opts.max_level) *
-                                pde.num_dims));
+  assert(id <=
+         static_cast<int64_t>(std::pow(2, opts.max_level * pde.num_dims)));
   return id;
 }
 
@@ -65,7 +70,7 @@ map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
 {
   assert(id >= 0);
 
-  auto const stride = fm::two_raised_to(opts.max_level);
+  auto const stride = static_cast<int64_t>(std::pow(2, opts.max_level));
 
   fk::vector<int> coords(pde.num_dims * 2);
   for (auto i = 0; i < pde.num_dims; ++i)
@@ -178,16 +183,23 @@ element_table::element_table(options const opts, PDE<P> const &pde)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
       auto const key    = map_to_index(coords, opts, pde);
+      if (key == 136)
+      {
+        coords.print();
+      }
 
       active_element_ids_.push_back(key);
-      ids_to_coords_[key].resize(coords.size()) = coords;
+
+      id_to_coords_[key].resize(coords.size()) = coords;
 
       // assign into flattened device table builder
       dev_table_builder.concat(coords);
     }
   }
-
-  assert(active_element_ids_.size() == ids_to_coords_.size());
+  std::copy(active_element_ids_.begin(), active_element_ids_.end(),
+            std::ostream_iterator<int>(std::cout, " "));
+  assert(active_element_ids_.size() == id_to_coords_.size());
+  perm_table.print("perm");
   active_table_d_.resize(dev_table_builder.size())
       .transfer_from(dev_table_builder);
 }
@@ -200,14 +212,6 @@ int element_table::get_index(fk::vector<int> const coords) const
   assert(coords.size() > 0);
   // purposely not catching std::out_of_range so that program will die
   return forward_table_.at(coords);
-}
-
-// reverse lookup - returns coordinates at a certain index
-fk::vector<int> const &element_table::get_coords(int const index) const
-{
-  assert(index >= 0);
-  assert(static_cast<size_t>(index) < reverse_table_.size());
-  return reverse_table_[index];
 }
 
 // static construction helper

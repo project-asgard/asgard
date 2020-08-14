@@ -77,7 +77,7 @@ public:
   static auto constexpr DEFAULT_SOLVER       = solve_opts::direct;
 
   // construct from command line
-  parser(int argc, char **argv);
+  explicit parser(int argc, char **argv);
 
   // FIXME todo - will eventually remove "level" argument
   // construct from provided values - to simplify testing
@@ -86,12 +86,14 @@ public:
       : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
   // construct from provided values - to simplify testing
-  parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
-         bool const use_full_grid = DEFAULT_USE_FG,
-         int const degree = NO_USER_VALUE, double const cfl = NO_USER_VALUE_FP)
+  explicit parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
+                  bool const use_full_grid = DEFAULT_USE_FG,
+                  int const max_level      = DEFAULT_MAX_LEVEL,
+                  int const degree         = NO_USER_VALUE,
+                  double const cfl         = NO_USER_VALUE_FP)
       : use_full_grid(use_full_grid), level(starting_levels(0)),
-        starting_levels(starting_levels), degree(degree), cfl(cfl),
-        pde_choice(pde_choice){};
+        starting_levels(starting_levels), degree(degree), max_level(max_level),
+        cfl(cfl), pde_choice(pde_choice){};
 
   bool using_implicit() const;
   bool using_full_grid() const;
