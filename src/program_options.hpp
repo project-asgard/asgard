@@ -3,6 +3,7 @@
 #include <limits>
 #include <map>
 #include <string>
+#include <vector>
 
 // implemented solvers for implicit stepping
 enum class solve_opts
@@ -77,16 +78,24 @@ public:
   // construct from command line
   parser(int argc, char **argv);
 
+  // FIXME todo - will eventually remove "level" argument
   // construct from provided values - to simplify testing
   parser(PDE_opts const pde_choice, int const level, int const degree,
          double const cfl)
       : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
+
+  // construct from provided values - to simplify testing
+  parser(PDE_opts const pde_choice, std::vector<int> starting_levels,
+         int const degree, double const cfl)
+      : level(starting_levels[0]), starting_levels(starting_levels),
+        degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
   bool using_implicit() const;
   bool using_full_grid() const;
   bool do_poisson_solve() const;
 
   int get_level() const;
+  std::vector<int> get_starting_levels() const;
   int get_degree() const;
   int get_max_level() const;
   int get_time_steps() const;
@@ -114,7 +123,14 @@ private:
   // FIXME level and degree are unique to dimensions, will
   // need to support inputting level and degree per dimensions
   // in future
-  int level  = NO_USER_VALUE; // resolution. NO_USER_VALUE loads default in pde
+
+  // FIXME temporary - will remove completely once multiple levels supported
+  // throughout code
+  int level = NO_USER_VALUE; // resolution. NO_USER_VALUE loads default in pde
+
+  // FIXME this will store the starting levels input by user in dimension order
+  std::vector<int> starting_levels;
+
   int degree = NO_USER_VALUE; // deg of legendre basis polys. NO_USER_VALUE
                               // loads default in pde
   int max_level =
@@ -149,6 +165,7 @@ private:
 class options
 {
 public:
+  // FIXME will be removed after multi-level PR
   options(parser const &user_vals)
       : starting_level(user_vals.get_level()),
         max_level(user_vals.get_max_level()),
@@ -163,6 +180,7 @@ public:
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
 
+  // FIXME temporary, will be replaced with levels vector
   int const starting_level;
   int const max_level;
   int const num_time_steps;

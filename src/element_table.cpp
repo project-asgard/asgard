@@ -23,14 +23,17 @@ int64_t get_1d_index(int const level, int const cell)
   return static_cast<int64_t>(std::pow(2, level - 1)) + cell;
 }
 
-std::array<int64_t, 2> get_level_cell(int64_t const id)
+std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
 {
-  if (id == 0)
+  assert(single_dim_id >= 0);
+  if (single_dim_id == 0)
   {
     return {0, 0};
   }
-  auto const level = static_cast<int64_t>(std::floor(std::log2(id)) + 1);
-  auto const cell  = (level == 0) ? 0 : (id - fm::two_raised_to(level - 1));
+  auto const level =
+      static_cast<int64_t>(std::floor(std::log2(single_dim_id)) + 1);
+  auto const cell =
+      (level == 0) ? 0 : (single_dim_id - fm::two_raised_to(level - 1));
   return {level, cell};
 }
 
@@ -44,6 +47,7 @@ int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
   int64_t stride = 1;
   for (int i = 0; i < pde.num_dims; ++i)
   {
+    assert(coords(i) >= 0);
     assert(coords(i) < opts.max_level);
     id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
     stride += stride * fm::two_raised_to(opts.max_level);
@@ -139,40 +143,6 @@ element_table::element_table(options const program_opts, int const num_levels,
 template<typename P>
 element_table::element_table(options const opts, PDE<P> const &pde)
 {
-  // assert(iscolumn(lev_vec) || isrow(lev_vec));
-  // num_dimensions = numel(lev_vec);
-
-  //% num_dimensions = numel(pde.dimensions);
-  // is_sparse_grid = strcmp( grid_type, 'SG');
-
-  //%%
-  //% Setup element table as a collection of sparse vectors to
-  //% store the lev and cell info for each dim.
-
-  //%%
-  // calculate maximum refinement
-  auto const elems_1d = fm::two_raised_to(static_cast<int64_t>(opts.max_level));
-  auto const num_max_elems_fp = std::pow(elems_1d, pde.num_dims);
-  assert(num_max_elems_fp < static_cast<double>(INT64_MAX));
-  auto const num_max_elements = static_cast<int64_t>(num_max_elems_fp);
-
-  //%%
-  //% allocate the sparse element table members
-
-  // elements.lev_p1     = sparse (num_elements_max, num_dimensions); % _p1 is
-  // for "plus 1" sinse sparse cannot accpet 0 elements.pos_p1     = sparse
-  // (num_elements_max, num_dimensions); elements.type       = sparse
-  // (num_elements_max, 1);
-
-  //%%
-  //% Get combinations of elements across dimensions and apply sparse-grid
-  // selection rule
-
-  // get permutation table for some num_dims, num_levels
-  // each row of this table becomes a level tuple, and is the "level" component
-  // of some number of elements' coordinates
-  // TODO here switch to new perm
-
   auto const perm_table = [&pde, &opts]() {
     auto const sort = false;
     if (opts.use_full_grid)
@@ -200,8 +170,8 @@ element_table::element_table(options const opts, PDE<P> const &pde)
 
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
-      fk::vector<int> const cell_indices =
-          index_set.extract_submatrix(cell_set, 0, 1, pde.num_dims);
+      auto const cell_indices = fk::vector<int>(
+          index_set.extract_submatrix(cell_set, 0, 1, pde.num_dims));
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)

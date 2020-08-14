@@ -13,7 +13,7 @@
 int64_t get_1d_index(int const level, int const cell);
 
 // yield level/cell for a single-d index
-std::array<int64_t, 2> get_level_cell(int64_t const id);
+std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id);
 
 // return the linear index given element coordinates
 template<typename P>

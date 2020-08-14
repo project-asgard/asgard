@@ -84,3 +84,13 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
 {
   return make_PDE<P>(parser(pde_choice, level, degree, cfl));
 }
+
+// TODO temporary shim for easy multilevel PDE creation in tests
+template<typename P>
+std::unique_ptr<PDE<P>>
+make_PDE(PDE_opts const pde_choice, std::vector<int> levels,
+         int const degree = parser::NO_USER_VALUE,
+         double const cfl = parser::DEFAULT_CFL)
+{
+  return make_PDE<P>(parser(pde_choice, levels, degree, cfl));
+}

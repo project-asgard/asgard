@@ -82,21 +82,26 @@ TEST_CASE("Static helper - cell builder", "[element_table]")
   }
 }
 
-TEST_CASE("temp - singleD mapping", "[element_table]")
+TEST_CASE("mapping functions", "[element_table]")
 {
-  SECTION("blah")
+  std::vector<fk::vector<int>> const test_levels{{9}, {5, 1}, {3, 2, 3}};
+  std::string const gold_base =
+      "../testing/generated-inputs/element_table/table_";
+
+  SECTION("1d mapping")
   {
-    for (auto i = 0; i < 100; ++i)
+    for (auto const &levels : test_levels)
     {
-      std::cout << i << '\n';
-      auto const coords = get_level_cell(i);
-      for (int j = 0; j < 2; ++j)
-      {
-        std::cout << coords[j] << " ";
-      }
-      std::cout << get_1d_index(coords[0], coords[1]) << '\n';
-      ;
-      std::cout << '\n';
+      auto const full_gold_str =
+          gold_base + std::to_string(levels.size() / 2) + "d_FG.dat";
+      auto const sparse_gold_str =
+          gold_base + std::to_string(levels.size() / 2) + "d_SG.dat";
+      auto const full_table =
+          fk::matrix<int>(read_matrix_from_txt_file(full_gold_str));
+      auto const sparse_table =
+          fk::matrix<int>(read_matrix_from_txt_file(sparse_gold_str));
+
+      for (int i = 0; i < full_table.nrows(); ++i) {}
     }
   }
 }
