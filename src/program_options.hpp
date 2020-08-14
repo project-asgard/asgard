@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tensors.hpp"
 #include <limits>
 #include <map>
 #include <string>
@@ -85,9 +86,9 @@ public:
       : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
   // construct from provided values - to simplify testing
-  parser(PDE_opts const pde_choice, std::vector<int> starting_levels,
-         int const degree, double const cfl)
-      : level(starting_levels[0]), starting_levels(starting_levels),
+  parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
+         int const degree = NO_USER_VALUE, double const cfl = NO_USER_VALUE_FP)
+      : level(starting_levels(0)), starting_levels(starting_levels),
         degree(degree), cfl(cfl), pde_choice(pde_choice){};
 
   bool using_implicit() const;
@@ -95,7 +96,7 @@ public:
   bool do_poisson_solve() const;
 
   int get_level() const;
-  std::vector<int> get_starting_levels() const;
+  fk::vector<int> get_starting_levels() const;
   int get_degree() const;
   int get_max_level() const;
   int get_time_steps() const;
@@ -129,7 +130,7 @@ private:
   int level = NO_USER_VALUE; // resolution. NO_USER_VALUE loads default in pde
 
   // FIXME this will store the starting levels input by user in dimension order
-  std::vector<int> starting_levels;
+  fk::vector<int> starting_levels;
 
   int degree = NO_USER_VALUE; // deg of legendre basis polys. NO_USER_VALUE
                               // loads default in pde

@@ -82,20 +82,32 @@ TEST_CASE("Static helper - cell builder", "[element_table]")
   }
 }
 
-TEST_CASE("mapping functions", "[element_table]")
+TEST_CASE("element table constructors/accessors/size", "[element_table]")
 {
-  std::vector<fk::vector<int>> const test_levels{{9}, {5, 1}, {3, 2, 3}};
+  std::vector<fk::vector<int>> const test_levels{{9}, {5, 2}, {3, 2, 3}};
+  std::vector<PDE_opts> const test_pdes{
+      PDE_opts::continuity_1, PDE_opts::continuity_2, PDE_opts::continuity_3};
   std::string const gold_base =
       "../testing/generated-inputs/element_table/table_";
 
-  SECTION("1d mapping")
+  SECTION("test table")
   {
-    for (auto const &levels : test_levels)
+    assert(test_levels.size() == test_pdes.size());
+
+    for (auto i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
-      auto const full_gold_str =
-          gold_base + std::to_string(levels.size() / 2) + "d_FG.dat";
+      auto const levels = test_levels[i];
+      auto const choice = test_pdes[i];
+      parser const cli_mock(choice, levels);
+      options const opts(cli_mock);
+      auto const pde = make_PDE<double>(cli_mock);
+
+      auto const full_gold_str = gold_base +
+                                 std::to_string(test_levels[i].size() / 2 + 1) +
+                                 "d_FG.dat";
       auto const sparse_gold_str =
-          gold_base + std::to_string(levels.size() / 2) + "d_SG.dat";
+          gold_base + std::to_string(test_levels[i].size() / 2 + 1) +
+          "d_SG.dat";
       auto const full_table =
           fk::matrix<int>(read_matrix_from_txt_file(full_gold_str));
       auto const sparse_table =
