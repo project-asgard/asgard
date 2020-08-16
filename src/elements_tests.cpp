@@ -24,6 +24,8 @@ void test_element_table(PDE_opts const pde_choice,
   REQUIRE(elem_table.size() == gold_table.nrows());
   REQUIRE(elem_table.size() == gold_ids.size());
 
+  auto const flat_table = elem_table.get_active_table().clone_onto_host();
+ 
   for (int64_t i = 0; i < elem_table.size(); ++i)
   {
     // test ordering
@@ -45,7 +47,10 @@ void test_element_table(PDE_opts const pde_choice,
     auto const mapped_id = elements::map_to_index(mapped_coords, opts, *pde);
     REQUIRE(mapped_id == gold_id);
 
-    // FIXME test flattened table
+    auto const coord_size = pde->num_dims*2;
+    auto const element_flat_index = static_cast<int64_t>(coord_size) * i;
+    fk::vector<int, mem_type::const_view> const flat_coords(flat_table, element_flat_index, element_flat_index + coord_size - 1);
+    REQUIRE(flat_coords == gold_coords);  
   }
 }
 
