@@ -1,4 +1,4 @@
-#include "element_table.hpp"
+#include "elements.hpp"
 
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
@@ -11,8 +11,8 @@
 #include <numeric>
 #include <vector>
 
-// fixme
-#include <iterator>
+namespace elements
+{
 int64_t get_1d_index(int const level, int const cell)
 {
   assert(level >= 0);
@@ -84,69 +84,9 @@ map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
   return coords;
 }
 
-// construct forward and reverse element tables
-element_table::element_table(options const program_opts, int const num_levels,
-                             int const num_dims)
-{
-  bool const use_full_grid = program_opts.use_full_grid;
-
-  assert(num_dims > 0);
-  assert(num_levels > 1);
-
-  // get permutation table for some num_dims, num_levels
-  // each row of this table becomes a level tuple, and is the "level" component
-  // of some number of elements' coordinates
-  fk::matrix<int> const perm_table =
-      use_full_grid ? permutations::get_max(num_dims, num_levels, false)
-                    : permutations::get_lequal(num_dims, num_levels, false);
-
-  // in the matlab, the tables sizes are precomputed/preallocated.
-  // I wrote the code to do that, however, this isn't a performance
-  // critical area (constructed only once at startup) and we'd need
-  // to explore the thread-safety of our tables / build a thread-safe
-  // table to see any benefit. -TM
-
-  // build the element tables (forward and reverse) and setup device table
-  int index = 0;
-
-  fk::vector<int> dev_table_builder;
-  for (int row = 0; row < perm_table.nrows(); ++row)
-  {
-    // get the level tuple to work on
-    fk::vector<int> const level_tuple =
-        perm_table.extract_submatrix(row, 0, 1, num_dims);
-    // calculate all possible cell indices allowed by this level tuple
-    fk::matrix<int> const index_set = get_cell_index_set(level_tuple);
-
-    for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
-    {
-      fk::vector<int> cell_indices =
-          index_set.extract_submatrix(cell_set, 0, 1, num_dims);
-
-      // the element table key is the full element coordinate - (levels,cells)
-      // (level-1, ..., level-d, cell-1, ... cell-d)
-      fk::vector<int> key = level_tuple;
-      key.concat(cell_indices);
-
-      // assign into flattened device table builder
-      dev_table_builder.concat(key);
-
-      forward_table_[key] = index++;
-
-      // note the matlab code has an option to append 1d cell indices to the
-      // reverse element table. //FIXME do we need to precompute or can we call
-      // the 1d helper as needed?
-      reverse_table_.push_back(key);
-    }
-  }
-  assert(forward_table_.size() == reverse_table_.size());
-  reverse_table_d_.resize(dev_table_builder.size())
-      .transfer_from(dev_table_builder);
-}
-
-// new version: construct forward and reverse element tables
+// construct element table
 template<typename P>
-element_table::element_table(options const opts, PDE<P> const &pde)
+table::table(options const opts, PDE<P> const &pde)
 {
   auto const perm_table = [&pde, &opts]() {
     auto const sort = false;
@@ -196,22 +136,11 @@ element_table::element_table(options const opts, PDE<P> const &pde)
       .transfer_from(dev_table_builder);
 }
 
-// FIXME need to delete, using index function
-// forward lookup - returns the non-negative index of an element's
-// coordinates
-int element_table::get_index(fk::vector<int> const coords) const
-{
-  assert(coords.size() > 0);
-  // purposely not catching std::out_of_range so that program will die
-  return forward_table_.at(coords);
-}
-
 // static construction helper
 // return the cell indices, given a level tuple
 // each row in the returned matrix is the cell portion of an element's
 // coordinate
-fk::matrix<int>
-element_table::get_cell_index_set(fk::vector<int> const &level_tuple)
+fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
 {
   assert(level_tuple.size() > 0);
   for (auto const level : level_tuple)
@@ -281,8 +210,8 @@ map_to_coords(int64_t const id, options const &opts, PDE<float> const &pde);
 template fk::vector<int>
 map_to_coords(int64_t const id, options const &opts, PDE<double> const &pde);
 
-template element_table::element_table(options const program_opts,
-                                      PDE<float> const &pde);
+template table::table(options const program_opts, PDE<float> const &pde);
 
-template element_table::element_table(options const program_opts,
-                                      PDE<double> const &pde);
+template table::table(options const program_opts, PDE<double> const &pde);
+
+} // namespace elements

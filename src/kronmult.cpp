@@ -44,8 +44,9 @@ inline double get_element_size_MB(PDE<P> const &pde)
 // whose total workspace requirement is less than the limit passed in
 // rank_size_MB
 template<typename P>
-inline int get_num_subgrids(PDE<P> const &pde, element_table const &elem_table,
-                            element_subgrid const &grid, int const rank_size_MB)
+inline int
+get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
+                 element_subgrid const &grid, int const rank_size_MB)
 {
   assert(grid.size() > 0);
 
@@ -75,7 +76,7 @@ inline int get_num_subgrids(PDE<P> const &pde, element_table const &elem_table,
                 pde.num_terms * pde.num_dims)));
 
   double const table_size_MB =
-      get_MB<int>(elem_table.get_device_table().size());
+      get_MB<int>(elem_table.get_active_table().size());
 
   // make sure the coefficient matrices/xy vectors aren't leaving us without
   // room for anything else in device workspace
@@ -90,7 +91,7 @@ inline int get_num_subgrids(PDE<P> const &pde, element_table const &elem_table,
 // helper - break subgrid into smaller subgrids to fit into DRAM
 template<typename P>
 inline std::vector<element_subgrid>
-decompose(PDE<P> const &pde, element_table const &elem_table,
+decompose(PDE<P> const &pde, elements::table const &elem_table,
           element_subgrid const &my_subgrid, int const workspace_size_MB)
 {
   assert(workspace_size_MB > 0);
@@ -146,7 +147,7 @@ class kronmult_workspace
 public:
   // private constructor, callers must enter here
   static kronmult_workspace &get_workspace(PDE<P> const &pde,
-                                           element_table const &elem_table,
+                                           elements::table const &elem_table,
                                            element_subgrid const &my_subgrid)
   {
     // function static initialization - only on first entry
@@ -180,7 +181,7 @@ public:
   }
 
 private:
-  kronmult_workspace(PDE<P> const &pde, element_table const &elem_table,
+  kronmult_workspace(PDE<P> const &pde, elements::table const &elem_table,
                      element_subgrid const &my_subgrid)
   {
     auto const degree     = pde.get_dimensions()[0].get_degree();
@@ -200,7 +201,7 @@ private:
     node_out() << "  solution vector allocation (MB): "
                << get_MB<P>(output_size) << '\n';
     node_out() << "  element table allocation (MB): "
-               << get_MB<int>(elem_table.get_device_table().size()) << '\n';
+               << get_MB<int>(elem_table.get_active_table().size()) << '\n';
     node_out() << "  workspace allocation (MB): "
                << get_MB<P>(workspace_size * 2) << "\n\n";
 
@@ -261,7 +262,7 @@ private:
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
-execute(PDE<P> const &pde, element_table const &elem_table,
+execute(PDE<P> const &pde, elements::table const &elem_table,
         element_subgrid const &my_subgrid,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx)
@@ -307,7 +308,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 
   // prepare lists for kronmult, on device if cuda is enabled
   timer::record.start("kronmult_build");
-  prepare_kronmult(elem_table.get_device_table().data(), operators_d.data(),
+  prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
                    lda, workspace.get_element_x(), workspace.get_element_work(),
                    fx.data(), workspace.get_operator_ptrs(),
                    workspace.get_work_ptrs(), workspace.get_input_ptrs(),
@@ -332,7 +333,7 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 // public, execute a given subgrid by decomposing and running over sub-subgrids
 template<typename P>
 fk::vector<P, mem_type::owner, resource::host>
-execute(PDE<P> const &pde, element_table const &elem_table,
+execute(PDE<P> const &pde, elements::table const &elem_table,
         element_subgrid const &my_subgrid, int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x)
 {
@@ -364,20 +365,20 @@ execute(PDE<P> const &pde, element_table const &elem_table,
 }
 
 template std::vector<element_subgrid>
-decompose(PDE<float> const &pde, element_table const &elem_table,
+decompose(PDE<float> const &pde, elements::table const &elem_table,
           element_subgrid const &my_subgrid, int const workspace_size_MB);
 
 template std::vector<element_subgrid>
-decompose(PDE<double> const &pde, element_table const &elem_table,
+decompose(PDE<double> const &pde, elements::table const &elem_table,
           element_subgrid const &my_subgrid, int const workspace_size_MB);
 
 template fk::vector<float, mem_type::owner, resource::host>
-execute(PDE<float> const &pde, element_table const &elem_table,
+execute(PDE<float> const &pde, elements::table const &elem_table,
         element_subgrid const &my_subgrid, int const workspace_size_MB,
         fk::vector<float, mem_type::owner, resource::host> const &x);
 
 template fk::vector<double, mem_type::owner, resource::host>
-execute(PDE<double> const &pde, element_table const &elem_table,
+execute(PDE<double> const &pde, elements::table const &elem_table,
         element_subgrid const &my_subgrid, int const workspace_size_MB,
         fk::vector<double, mem_type::owner, resource::host> const &x);
 

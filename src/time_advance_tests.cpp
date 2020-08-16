@@ -39,7 +39,7 @@ void time_advance_test(parser const &parse, std::string const &filepath,
   }
 
   options const opts(parse);
-  element_table const table(opts, parse.get_level(), pde->num_dims);
+  elements::table const table(opts, *pde);
 
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);

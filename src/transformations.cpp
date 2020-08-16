@@ -128,7 +128,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
-    element_table const &table,
+    elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
@@ -162,7 +162,8 @@ void wavelet_to_realspace(
 
     for (int j = 0; j < pde.num_dims; j++)
     {
-      int const id     = get_1d_index(coords(j), coords(j + pde.num_dims));
+      int const id =
+          elements::get_1d_index(coords(j), coords(j + pde.num_dims));
       int const degree = pde.get_dimensions()[j].get_degree();
       fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
@@ -198,7 +199,7 @@ void wavelet_to_realspace(
 // with the provided start and stop element bounds (inclusive)
 template<typename P>
 fk::vector<P>
-combine_dimensions(int const degree, element_table const &table,
+combine_dimensions(int const degree, elements::table const &table,
                    int const start_element, int const stop_element,
                    std::vector<fk::vector<P>> const &vectors,
                    P const time_scale)
@@ -225,7 +226,7 @@ combine_dimensions(int const degree, element_table const &table,
     {
       // iterating over cell coords;
       // first num_dims entries in coords are level coords
-      int const id          = get_1d_index(coords(j), coords(j + num_dims));
+      int const id = elements::get_1d_index(coords(j), coords(j + num_dims));
       int const index_start = id * degree;
       // index_start and index_end describe a subvector of length degree;
       // for deg = 1, this is a vector of one element
@@ -263,7 +264,7 @@ template std::vector<fk::matrix<float>> gen_realspace_transform(
 
 template void wavelet_to_realspace(
     PDE<double> const &pde, fk::vector<double> const &wave_space,
-    element_table const &table,
+    elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
@@ -271,15 +272,15 @@ template void wavelet_to_realspace(
     fk::vector<double> &real_space);
 template void wavelet_to_realspace(
     PDE<float> const &pde, fk::vector<float> const &wave_space,
-    element_table const &table,
+    elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<float> &real_space);
 
 template fk::vector<double>
-combine_dimensions(int const, element_table const &, int const, int const,
+combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
 template fk::vector<float>
-combine_dimensions(int const, element_table const &, int const, int const,
+combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);

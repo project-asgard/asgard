@@ -928,7 +928,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
                                          std::to_string(degree), grid_str};
   options const o                     = make_options(args);
 
-  element_table const elem_table(o, level, pde.num_dims);
+  elements::table const elem_table(o, pde);
   int const num_ranks = 1;
   int const my_rank   = 0;
   auto const plan     = get_plan(num_ranks, elem_table);

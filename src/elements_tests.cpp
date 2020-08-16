@@ -1,4 +1,4 @@
-#include "element_table.hpp"
+#include "elements.hpp"
 
 #include "matlab_utilities.hpp"
 #include "tests_general.hpp"
@@ -13,7 +13,7 @@ void test_element_table(PDE_opts const pde_choice,
   parser const cli_mock(pde_choice, levels, full_grid, max_level);
   options const opts(cli_mock);
   auto const pde = make_PDE<double>(cli_mock);
-  element_table const elem_table(opts, *pde);
+  elements::table const elem_table(opts, *pde);
 
   auto const gold_table =
       fk::matrix<int>(read_matrix_from_txt_file(gold_filename));
@@ -36,12 +36,13 @@ void test_element_table(PDE_opts const pde_choice,
     auto const &test_coords = elem_table.get_coords(test_id);
     fk::vector<int> const gold_coords =
         gold_table.extract_submatrix(i, 0, 1, pde->num_dims * 2);
-    fk::vector<int> const mapped_coords = map_to_coords(test_id, opts, *pde);
+    fk::vector<int> const mapped_coords =
+        elements::map_to_coords(test_id, opts, *pde);
     REQUIRE(mapped_coords == test_coords);
     REQUIRE(gold_coords == test_coords);
 
     // test mapping back to id
-    auto const mapped_id = map_to_index(mapped_coords, opts, *pde);
+    auto const mapped_id = elements::map_to_index(mapped_coords, opts, *pde);
     REQUIRE(mapped_id == gold_id);
 
     // FIXME test flattened table
@@ -89,14 +90,14 @@ TEST_CASE("1d mapping functions", "[element_table]")
   for (auto const &pair : pairs)
   {
     assert(pair.size() == 2);
-    auto const id   = get_1d_index(pair(0), pair(1));
+    auto const id   = elements::get_1d_index(pair(0), pair(1));
     auto const gold = static_cast<int64_t>(
         read_scalar_from_txt_file(gold_base + std::to_string(pair(0)) + "_" +
                                   std::to_string(pair(1)) + ".dat"));
     REQUIRE(id + 1 == gold);
 
     // map back to pair
-    auto const [lev, cell] = get_level_cell(id);
+    auto const [lev, cell] = elements::get_level_cell(id);
     REQUIRE(lev == pair(0));
     REQUIRE(cell == pair(1));
   }
@@ -106,9 +107,11 @@ TEST_CASE("static helper - cell builder", "[element_table]")
 {
   auto const levels = 3;
   auto const degree = 2;
-  element_table const t(make_options({"-l", std::to_string(levels), "-d",
-                                      std::to_string(degree)}),
-                        levels, 1);
+
+  auto const pde = make_PDE<double>(PDE_opts::continuity_1, levels, degree);
+  elements::table const t(make_options({"-l", std::to_string(levels), "-d",
+                                        std::to_string(degree)}),
+                          *pde);
 
   SECTION("cell index set builder")
   {

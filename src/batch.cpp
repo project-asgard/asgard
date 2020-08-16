@@ -4,7 +4,7 @@
 #include <omp.h>
 #endif
 #include "chunk.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 #include <limits.h>
@@ -310,7 +310,7 @@ inline void linearize(fk::vector<int> const &coords, int output[])
   int const output_size = coords.size() / 2;
   for (int i = 0; i < output_size; ++i)
   {
-    output[i] = get_1d_index(coords(i), coords(i + output_size));
+    output[i] = elements::get_1d_index(coords(i), coords(i + output_size));
   }
 }
 
@@ -320,7 +320,7 @@ inline fk::vector<int> linearize(fk::vector<int> const &coords)
   fk::vector<int> linear(coords.size() / 2);
   for (int i = 0; i < linear.size(); ++i)
   {
-    linear(i) = get_1d_index(coords(i), coords(i + linear.size()));
+    linear(i) = elements::get_1d_index(coords(i), coords(i + linear.size()));
   }
   return linear;
 }
@@ -544,7 +544,7 @@ batch_chain<P, resrc, method>::batch_chain(
 template<typename P, resource resrc, chain_method method>
 template<chain_method, typename>
 batch_chain<P, resrc, method>::batch_chain(
-    PDE<P> const &pde, element_table const &elem_table,
+    PDE<P> const &pde, elements::table const &elem_table,
     batch_workspace<P, resrc> const &workspace, element_subgrid const &subgrid,
     element_chunk const &chunk)
 {
@@ -832,7 +832,7 @@ void batch_chain<P, resrc, method>::kronmult_to_batch_sets(
 // does not utilize batching, here because it shares underlying structure and
 // routines with explicit time advance
 template<typename P>
-void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
+void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          element_chunk const &chunk, fk::matrix<P> &A)
 {
   // assume uniform degree for now
@@ -1069,10 +1069,10 @@ template void batched_gemv(batch<double, resource::host> const &a,
                            double const alpha, double const beta);
 
 template void
-build_system_matrix(PDE<double> const &pde, element_table const &elem_table,
+build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
                     element_chunk const &chunk, fk::matrix<double> &A);
 template void
-build_system_matrix(PDE<float> const &pde, element_table const &elem_table,
+build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
                     element_chunk const &chunk, fk::matrix<float> &A);
 
 template class batch_chain<double, resource::device, chain_method::realspace>;
@@ -1120,22 +1120,22 @@ template batch_chain<double, resource::device, chain_method::realspace>::
         fk::vector<double, mem_type::view, resource::device> &final_output);
 
 template batch_chain<float, resource::device, chain_method::advance>::
-    batch_chain(PDE<float> const &pde, element_table const &elem_table,
+    batch_chain(PDE<float> const &pde, elements::table const &elem_table,
                 batch_workspace<float, resource::device> const &workspace,
                 element_subgrid const &subgrid, element_chunk const &chunk);
 
 template batch_chain<double, resource::device, chain_method::advance>::
-    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+    batch_chain(PDE<double> const &pde, elements::table const &elem_table,
                 batch_workspace<double, resource::device> const &workspace,
                 element_subgrid const &subgrid, element_chunk const &chunk);
 
 template batch_chain<float, resource::host, chain_method::advance>::batch_chain(
-    PDE<float> const &pde, element_table const &elem_table,
+    PDE<float> const &pde, elements::table const &elem_table,
     batch_workspace<float, resource::host> const &workspace,
     element_subgrid const &subgrid, element_chunk const &chunk);
 
 template batch_chain<double, resource::host, chain_method::advance>::
-    batch_chain(PDE<double> const &pde, element_table const &elem_table,
+    batch_chain(PDE<double> const &pde, elements::table const &elem_table,
                 batch_workspace<double, resource::host> const &workspace,
                 element_subgrid const &subgrid, element_chunk const &chunk);
 

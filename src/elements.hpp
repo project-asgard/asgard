@@ -7,8 +7,8 @@
 #include <map>
 #include <vector>
 
-// TODO namespace elements {
-
+namespace elements
+{
 // yield single-d linear index for level/cell combo
 int64_t get_1d_index(int const level, int const cell);
 
@@ -28,9 +28,10 @@ map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde);
 // -----------------------------------------------------------------------------
 // element table
 // this object's purpose is:
-// - to provide a mapping from elements' coordinates to an assigned positive
-//   integer index
-// - to provide the reverse mapping from index to coordinates.
+// - to maintain a list of active element IDs
+// - to provide a mapping from an assigned index (ordering) of an elements
+//   to its coordinates
+// - store a flattened version of this for access on devie
 //
 // about coordinates
 // - coordinates are composed of a set of dimension-many pairs (level, cell).
@@ -44,35 +45,17 @@ map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde);
 // - to build a full grid, all potentional level combinations are included in
 //   the table; that is, all dimension-length permutations of integers less
 //   than or equal to the number of levels selected for the simulation are
-//   valid.get_level() components.
+//   valid components.
 // - to build a sparse grid, we apply some rule to omit some of these
 //   permutations. currently, we cull level combinations whose sum is greater
 //   than the number of levels selected for the simulation.
 // -----------------------------------------------------------------------------
 
-class element_table
+class table
 {
 public:
-  // TODO delete, old version
-  element_table(options const program_opts, int const num_levels,
-                int const num_dims);
-
-  // new adaptivity version
   template<typename P>
-  element_table(options const opts, PDE<P> const &pde);
-
-  // FIXME the below are
-  // forward lookup
-  int get_index(fk::vector<int> const coords) const;
-
-  // get ref to flattened reverse table
-  fk::vector<int, mem_type::owner, resource::device> const &
-  get_device_table() const
-  {
-    return reverse_table_d_;
-  }
-
-  // ------------------------------------
+  table(options const opts, PDE<P> const &pde);
 
   // get id of element given its 0,...,n index in active elements
   int64_t get_element_id(int64_t const index) const
@@ -83,10 +66,17 @@ public:
   }
 
   // lookup coords by id
-  fk::vector<int> const &get_coords(int64_t const id) const
+  fk::vector<int> const &get_coords(int64_t const element_id) const
   {
-    assert(id >= 0);
-    return id_to_coords_.at(id);
+    assert(element_id >= 0);
+    return id_to_coords_.at(element_id);
+  }
+
+  // get flattened element table for device
+  fk::vector<int, mem_type::owner, resource::device> const &
+  get_active_table() const
+  {
+    return active_table_d_;
   }
 
   // returns the number of (active) elements in table
@@ -97,23 +87,11 @@ public:
   }
 
   // static construction helper
+  // conceptually private, exposed for testing
   // return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
 
 private:
-  // a map keyed on the element coordinates
-  // TODO DELETE, using function above
-  std::map<fk::vector<int>, int> forward_table_;
-  // given an integer index, give me back the element coordinates
-  // TODO DELETE
-  std::vector<fk::vector<int>> reverse_table_;
-
-  // TODO rename
-  // table of active elements staged for on-device kron list building
-  fk::vector<int, mem_type::owner, resource::device> reverse_table_d_;
-
-  // --------------------------------------------------------------------------
-
   // FIXME change to fk vector if upgraded to 64 bit indexing
   // ordering of active elements
   std::vector<int64_t> active_element_ids_;
@@ -124,3 +102,5 @@ private:
   // table of active elements staged for on-device kron list building
   fk::vector<int, mem_type::owner, resource::device> active_table_d_;
 };
+
+} // end namespace elements

@@ -1,5 +1,5 @@
 #include "../distribution.hpp"
-#include "../element_table.hpp"
+#include "../elements.hpp"
 #include "kronmult_cuda.hpp"
 #include "tests_general.hpp"
 
@@ -78,7 +78,7 @@ void test_kronmult_build(PDE<P> const &pde)
   std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
                                          std::to_string(degree)};
   options const o                     = make_options(args);
-  element_table const table(o, level, pde.num_dims);
+  elements::table const table(o, pde);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
   P *element_x;
@@ -117,7 +117,7 @@ void test_kronmult_build(PDE<P> const &pde)
 
   fk::vector<P, mem_type::owner, resource::device> fx(my_subgrid.nrows() *
                                                       deg_to_dim);
-  prepare_kronmult(table.get_device_table().data(), operators_d.data(), lda,
+  prepare_kronmult(table.get_active_table().data(), operators_d.data(), lda,
                    element_x, element_work, fx.data(), operator_ptrs, work_ptrs,
                    input_ptrs, output_ptrs, degree, pde.num_terms, pde.num_dims,
                    my_subgrid.row_start, my_subgrid.row_stop,

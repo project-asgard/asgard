@@ -1,7 +1,7 @@
 #include "time_advance.hpp"
 #include "boundary_conditions.hpp"
 #include "distribution.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "fast_math.hpp"
 #include "solver.hpp"
 #include "timer.hpp"
@@ -11,7 +11,7 @@
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_time_advance(PDE<P> const &pde, element_table const &table,
+explicit_time_advance(PDE<P> const &pde, elements::table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
@@ -157,7 +157,7 @@ scale_sources(PDE<P> const &pde,
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-implicit_time_advance(PDE<P> const &pde, element_table const &table,
+implicit_time_advance(PDE<P> const &pde, elements::table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
@@ -247,21 +247,21 @@ implicit_time_advance(PDE<P> const &pde, element_table const &table,
 }
 
 template fk::vector<double> explicit_time_advance(
-    PDE<double> const &pde, element_table const &table,
+    PDE<double> const &pde, elements::table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
     fk::vector<double> const &x, distribution_plan const &plan,
     int const workspace_size_MB, double const time);
 
 template fk::vector<float> explicit_time_advance(
-    PDE<float> const &pde, element_table const &table,
+    PDE<float> const &pde, elements::table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
     fk::vector<float> const &x, distribution_plan const &plan,
     int const workspace_size_MB, float const time);
 
 template fk::vector<double> implicit_time_advance(
-    PDE<double> const &pde, element_table const &table,
+    PDE<double> const &pde, elements::table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
     fk::vector<double> const &host_space,
@@ -269,7 +269,7 @@ template fk::vector<double> implicit_time_advance(
     double const time, solve_opts const solver, bool const update_system);
 
 template fk::vector<float> implicit_time_advance(
-    PDE<float> const &pde, element_table const &table,
+    PDE<float> const &pde, elements::table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
     fk::vector<float> const &x, std::vector<element_chunk> const &chunks,

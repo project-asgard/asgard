@@ -1,7 +1,7 @@
 #pragma once
 
 #include "distribution.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "fast_math.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
@@ -24,7 +24,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
-    element_table const &table,
+    elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
@@ -32,14 +32,14 @@ void wavelet_to_realspace(
 
 template<typename P>
 fk::vector<P>
-combine_dimensions(int const, element_table const &,
+combine_dimensions(int const, elements::table const &element_table,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 // overload - get only the elements of the combined vector that fall within a
 // specified range
 template<typename P>
 fk::vector<P>
-combine_dimensions(int const, element_table const &, int const, int const,
+combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P, typename F>
@@ -138,7 +138,7 @@ fk::vector<P> forward_transform(
 template<typename P>
 inline fk::vector<P> transform_and_combine_dimensions(
     PDE<P> const &pde, std::vector<vector_func<P>> const &v_functions,
-    element_table const &table,
+    elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const start, int const stop, int const degree)
 {

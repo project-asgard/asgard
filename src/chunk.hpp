@@ -1,7 +1,7 @@
 #pragma once
 
 #include "distribution.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
 

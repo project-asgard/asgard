@@ -128,7 +128,7 @@ set (components
   boundary_conditions
   coefficients
   distribution
-  element_table
+  elements
   fast_math
   chunk
   kronmult
@@ -170,9 +170,9 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients chunk element_table pde tensors)
+target_link_libraries (batch PRIVATE lib_dispatch coefficients chunk elements pde tensors)
 
-target_link_libraries (boundary_conditions PRIVATE coefficients element_table transformations
+target_link_libraries (boundary_conditions PRIVATE coefficients elements transformations
                        matlab_utilities fast_math )
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -182,20 +182,20 @@ endif ()
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
 
-target_link_libraries(chunk PRIVATE distribution element_table fast_math pde)
+target_link_libraries(chunk PRIVATE distribution elements fast_math pde)
 
-target_link_libraries(distribution PRIVATE element_table lib_dispatch)
+target_link_libraries(distribution PRIVATE elements lib_dispatch)
 if (ASGARD_USE_MPI)
   target_link_libraries(distribution PRIVATE MPI::MPI_CXX)
 endif ()
 
-target_link_libraries (element_table
+target_link_libraries (elements
   PRIVATE permutations program_options tensors)
 
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
 
-target_link_libraries(kronmult PRIVATE batch element_table kronmult_cuda timer)
+target_link_libraries(kronmult PRIVATE batch elements kronmult_cuda timer)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
@@ -243,7 +243,7 @@ if (ASGARD_USE_CUDA)
 endif ()
 
 target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver tensors timer boundary_conditions
-                                    INTERFACE element_table)
+                                    INTERFACE elements)
 
 target_link_libraries (transformations
   PRIVATE basis batch distribution matlab_utilities pde program_options
@@ -258,7 +258,7 @@ set (main_app_link_deps
   boundary_conditions
   coefficients
   distribution
-  element_table
+  elements
   matlab_utilities
   pde
   program_options
