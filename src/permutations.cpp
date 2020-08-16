@@ -362,7 +362,7 @@ fk::matrix<int> get_max_multi(fk::vector<int> const &levels, int const num_dims,
                               bool const last_index_decreasing)
 {
   assert(num_dims > 0);
-  assert(levels.size() == num_dims);
+  assert(levels.size() > 0);
 
   auto const limit = levels(num_dims - 1);
 

@@ -212,4 +212,23 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
                                              sort) == gold);
     }
   }
+
+  SECTION("permutations max")
+  {
+    std::string const out_base =
+        "../testing/generated-inputs/permutations/perm_max_d_";
+
+    for (int i = 0; i < static_cast<int>(test_levels.size()); ++i)
+    {
+      auto const sort             = (i + 1) % 2;
+      std::string const file_path = out_base +
+                                    std::to_string(test_levels[i].size()) +
+                                    "_" + (sort ? one : zero) + ".dat";
+
+      auto const gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
+
+      REQUIRE(permutations::get_max_multi(test_levels[i], test_levels[i].size(),
+                                          sort) == gold);
+    }
+  }
 }
