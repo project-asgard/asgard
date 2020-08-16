@@ -14,10 +14,9 @@ void test_element_table(PDE_opts const pde_choice,
   options const opts(cli_mock);
   auto const pde = make_PDE<double>(cli_mock);
   element_table const elem_table(opts, *pde);
-  std::cout << gold_filename << '\n';
+
   auto const gold_table =
       fk::matrix<int>(read_matrix_from_txt_file(gold_filename));
-
   auto const gold_ids = fk::vector<double>(read_vector_from_txt_file(
       std::regex_replace(gold_filename, std::regex("table_"), "ids_")));
 
@@ -71,8 +70,8 @@ TEST_CASE("element table constructors/accessors/size/multid mapping",
       auto const full_gold_str =
           gold_base + std::to_string(test_levels[i].size()) + "d_FG.dat";
       auto const use_full_grid = true;
-      //     test_element_table(choice, levels, full_gold_str, max_level,
-      // use_full_grid);
+      test_element_table(choice, levels, full_gold_str, max_level,
+                         use_full_grid);
 
       auto const sparse_gold_str =
           gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat";
@@ -105,8 +104,8 @@ TEST_CASE("1d mapping functions", "[element_table]")
 
 TEST_CASE("static helper - cell builder", "[element_table]")
 {
-  int const levels = 3;
-  int const degree = 2;
+  auto const levels = 3;
+  auto const degree = 2;
   element_table const t(make_options({"-l", std::to_string(levels), "-d",
                                       std::to_string(degree)}),
                         levels, 1);
@@ -122,7 +121,7 @@ TEST_CASE("static helper - cell builder", "[element_table]")
         {{0, 0}, {1, 0}},
         {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}, {1, 2}, {0, 3}, {1, 3}}};
 
-    for (int i = 0; i < static_cast<int>(gold_set.size()); ++i)
+    for (auto i = 0; i < static_cast<int>(gold_set.size()); ++i)
     {
       REQUIRE(t.get_cell_index_set(levels_set[i]) == gold_set[i]);
     }

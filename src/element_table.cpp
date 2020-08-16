@@ -145,24 +145,22 @@ element_table::element_table(options const program_opts, int const num_levels,
 }
 
 // new version: construct forward and reverse element tables
-// TODO need explicit instant. for this constructor
 template<typename P>
 element_table::element_table(options const opts, PDE<P> const &pde)
 {
   auto const perm_table = [&pde, &opts]() {
     auto const sort = false;
-    if (opts.use_full_grid)
-    {
-      return permutations::get_max(pde.num_dims, opts.starting_level, sort);
-    }
 
     auto const dims = pde.get_dimensions();
     fk::vector<int> levels(pde.num_dims);
     std::transform(dims.begin(), dims.end(), levels.begin(),
                    [](auto const &dim) { return dim.get_level(); });
-    return permutations::get_lequal_multi(
-        levels, pde.num_dims, *std::max_element(levels.begin(), levels.end()),
-        sort);
+
+    return opts.use_full_grid
+               ? permutations::get_max_multi(levels, pde.num_dims, sort)
+               : permutations::get_lequal_multi(
+                     levels, pde.num_dims,
+                     *std::max_element(levels.begin(), levels.end()), sort);
   }();
 
   fk::vector<int> dev_table_builder;
@@ -183,10 +181,6 @@ element_table::element_table(options const opts, PDE<P> const &pde)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
       auto const key    = map_to_index(coords, opts, pde);
-      if (key == 136)
-      {
-        coords.print();
-      }
 
       active_element_ids_.push_back(key);
 
@@ -196,10 +190,8 @@ element_table::element_table(options const opts, PDE<P> const &pde)
       dev_table_builder.concat(coords);
     }
   }
-  std::copy(active_element_ids_.begin(), active_element_ids_.end(),
-            std::ostream_iterator<int>(std::cout, " "));
+
   assert(active_element_ids_.size() == id_to_coords_.size());
-  perm_table.print("perm");
   active_table_d_.resize(dev_table_builder.size())
       .transfer_from(dev_table_builder);
 }
