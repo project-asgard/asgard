@@ -354,6 +354,53 @@ get_max(int const num_dims, int const limit, bool const last_index_decreasing)
   return result;
 }
 
+// Given the number of dimensions and a limit, produce n-tuples (n ==
+// 'num_dims') whose elements are non-negative and the max element <= 'limit'
+// (for full grid only). Each tuple becomes a row of the output matrix
+// this version handles non-uniform levels passed as vector argument
+fk::matrix<int> get_max_multi(fk::vector<int> const &levels, int const num_dims,
+                              bool const last_index_decreasing)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+
+  auto const limit = levels(num_dims - 1);
+
+  if (num_dims == 1)
+  {
+    std::vector<int> entries(limit + 1);
+    std::iota(begin(entries), end(entries), 0);
+    if (last_index_decreasing)
+    {
+      std::reverse(begin(entries), end(entries));
+    }
+    return fk::matrix<int>(limit + 1, 1).update_col(0, entries);
+  }
+
+  auto const lower_perm =
+      get_max_multi(levels, num_dims - 1, last_index_decreasing);
+  fk::matrix<int> result(lower_perm.nrows() * (limit + 1), num_dims);
+
+  for (auto i = 0; i <= limit; ++i)
+  {
+    auto const row_pos  = i * lower_perm.nrows();
+    auto const row_stop = row_pos + lower_perm.nrows() - 1;
+
+    fk::matrix<int, mem_type::view> partial_result(result, row_pos, row_stop, 0,
+                                                   num_dims - 2);
+    partial_result = fk::matrix<int, mem_type::const_view>(
+        lower_perm, 0, lower_perm.nrows() - 1, 0, num_dims - 2);
+
+    fk::vector<int, mem_type::view> last_col(result, num_dims - 1, row_pos,
+                                             row_stop);
+    auto const last_col_val = last_index_decreasing ? limit - i : i;
+    last_col =
+        fk::vector<int>(std::vector<int>(row_stop - row_pos + 1, last_col_val));
+  }
+
+  return result;
+}
+
 //
 // Index finding functions
 //

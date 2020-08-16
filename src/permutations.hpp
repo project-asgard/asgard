@@ -43,6 +43,9 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
 fk::matrix<int>
 get_max(int const num_dims, int const limit, bool const last_index_decreasing);
 
+fk::matrix<int> get_max_multi(fk::vector<int> const &levels, int const num_dims,
+                              bool const last_index_decreasing);
+
 using list_set = std::vector<fk::vector<int>>;
 
 // Index counter
