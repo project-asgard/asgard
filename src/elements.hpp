@@ -65,11 +65,12 @@ public:
     return active_element_ids_[index];
   }
 
-  // lookup coords by id
-  fk::vector<int> const &get_coords(int64_t const element_id) const
+  // lookup coords by index
+  fk::vector<int> const &get_coords(int64_t const index) const
   {
-    assert(element_id >= 0);
-    return id_to_coords_.at(element_id);
+    assert(index >= 0);
+    assert(index < size());
+    return id_to_coords_.at(active_element_ids_[index]);
   }
 
   // get flattened element table for device

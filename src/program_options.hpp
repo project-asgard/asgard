@@ -66,7 +66,7 @@ public:
   static auto constexpr NO_USER_VALUE_STR = "none";
 
   static auto constexpr DEFAULT_CFL          = 0.01;
-  static auto constexpr DEFAULT_MAX_LEVEL    = 9;
+  static auto constexpr DEFAULT_MAX_LEVEL    = 8;
   static auto constexpr DEFAULT_TIME_STEPS   = 10;
   static auto constexpr DEFAULT_WRITE_FREQ   = 0;
   static auto constexpr DEFAULT_USE_IMPLICIT = false;
