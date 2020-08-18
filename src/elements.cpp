@@ -44,6 +44,7 @@ int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
                      PDE<P> const &pde)
 {
   assert(coords.size() == pde.num_dims * 2);
+  assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
 
   int64_t id     = 0;
   int64_t stride = 1;
@@ -69,6 +70,7 @@ fk::vector<int>
 map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
 {
   assert(id >= 0);
+  assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
 
   auto const stride = static_cast<int64_t>(std::pow(2, opts.max_level));
 
@@ -88,6 +90,9 @@ map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
 template<typename P>
 table::table(options const opts, PDE<P> const &pde)
 {
+  // key type is 64 bits; this limits number of unique element ids
+  assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
+
   auto const perm_table = [&pde, &opts]() {
     auto const sort = false;
 

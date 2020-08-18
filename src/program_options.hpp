@@ -57,6 +57,15 @@ static pde_map_t const pde_mapping = {
     {"diffusion_2", PDE_opts::diffusion_2},
 };
 
+// map number of dimensions to max supported level
+// FIXME these limits are created by mapping element
+// coords to 64 bit integer ids; using a larger
+// type for ids in elements.cpp would raise supported
+// max level limit
+static std::map<int, int> const dim_to_max_level = {
+    {1, 62}, {2, 33}, {3, 20}, {4, 16}, {5, 13}, {6, 9},
+};
+
 // class to parse command line input
 class parser
 {
@@ -66,7 +75,7 @@ public:
   static auto constexpr NO_USER_VALUE_STR = "none";
 
   static auto constexpr DEFAULT_CFL          = 0.01;
-  static auto constexpr DEFAULT_MAX_LEVEL    = 12;
+  static auto constexpr DEFAULT_MAX_LEVEL    = 9;
   static auto constexpr DEFAULT_TIME_STEPS   = 10;
   static auto constexpr DEFAULT_WRITE_FREQ   = 0;
   static auto constexpr DEFAULT_USE_IMPLICIT = false;
