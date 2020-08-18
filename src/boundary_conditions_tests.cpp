@@ -3,9 +3,10 @@
 #include "elements.hpp"
 #include "tests_general.hpp"
 
+#include <regex>
 template<typename P>
 void test_boundary_condition_vector(PDE<P> &pde,
-                                    std::string const &gold_filename_prefix,
+                                    std::string const &gold_filename,
                                     P const tol_factor)
 {
   /* setup stuff */
@@ -33,10 +34,6 @@ void test_boundary_condition_vector(PDE<P> &pde,
   fk::vector<P> bc_advanced = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, start_element, stop_element,
       test_time);
-
-  std::string const gold_filename =
-      gold_filename_prefix + "boundary_condition_vector" + "_l" +
-      std::to_string(level) + "_d" + std::to_string(degree) + ".dat";
 
   fk::vector<P> const gold_bc_vector =
       fk::vector<P>(read_vector_from_txt_file(gold_filename));
@@ -90,6 +87,11 @@ void test_compute_boundary_condition(PDE<P> &pde,
       for (int p_num = 0; p_num < static_cast<int>(partial_terms.size());
            ++p_num)
       {
+        std::string const gold_filename =
+            gold_filename_prefix + "_bcL_" + std::to_string(d.get_degree()) +
+            "d_" + std::to_string(d.get_level()) + "l_" +
+            std::to_string(term_num) + "t_" + std::to_string(dim_num) + "dim_" +
+            std::to_string(p_num) + "p.dat";
         partial_term<P> const &p_term = partial_terms[p_num];
         if (p_term.left_homo == homogeneity::inhomogeneous)
         {
@@ -100,16 +102,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
                   p_term.g_func, time, d, p_term.left_bc_funcs[dim_num]);
 
           /* compare to gold left bc */
-          std::string const gold_filename =
-              gold_filename_prefix + "bcL" + "_d" +
-              std::to_string(d.get_degree()) + "_l" +
-              std::to_string(d.get_level()) + "_t" + std::to_string(term_num) +
-              "_d" + std::to_string(dim_num) + "_p" + std::to_string(p_num) +
-              ".dat";
-
           fk::vector<P> const gold_left_bc_vector =
               fk::vector<P>(read_vector_from_txt_file(gold_filename));
-
           rmse_comparison(gold_left_bc_vector, left_bc, tol_factor);
         }
 
@@ -120,18 +114,12 @@ void test_compute_boundary_condition(PDE<P> &pde,
           fk::vector<P> const right_bc =
               boundary_conditions::compute_right_boundary_condition(
                   p_term.g_func, time, d, p_term.right_bc_funcs[dim_num]);
+          /* compare to gold right bc */
 
-          /* compare to gold left bc */
-          std::string const gold_filename =
-              gold_filename_prefix + "bcR" + "_d" +
-              std::to_string(d.get_degree()) + "_l" +
-              std::to_string(d.get_level()) + "_t" + std::to_string(term_num) +
-              "_d" + std::to_string(dim_num) + "_p" + std::to_string(p_num) +
-              ".dat";
-
+          std::string const gold_right_filename =
+              std::regex_replace(gold_filename, std::regex("bcL"), "bcR");
           fk::vector<P> const gold_right_bc_vector =
-              fk::vector<P>(read_vector_from_txt_file(gold_filename));
-
+              fk::vector<P>(read_vector_from_txt_file(gold_right_filename));
           rmse_comparison(gold_right_bc_vector, right_bc, tol_factor);
         }
       }
@@ -254,15 +242,14 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
 
+  std::string const gold_filename_prefix =
+      "../testing/generated-inputs/"
+      "boundary_conditions/compute_diffusion1";
   SECTION("diffusion_1 level 2 degree 2")
   {
     int const level  = 2;
     int const degree = 2;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-
-    std::string const gold_filename_prefix = "../testing/generated-inputs/"
-                                             "compute_boundary_conditions/"
-                                             "diffusion1/";
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
@@ -273,10 +260,6 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
     int const degree = 4;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename_prefix = "../testing/generated-inputs/"
-                                             "compute_boundary_conditions/"
-                                             "diffusion1/";
-
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
 
@@ -285,10 +268,6 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
     int const level  = 5;
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-
-    std::string const gold_filename_prefix = "../testing/generated-inputs/"
-                                             "compute_boundary_conditions/"
-                                             "diffusion1/";
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
@@ -306,11 +285,13 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 2;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename_prefix = "../testing/generated-inputs/"
-                                             "boundary_condition_vector/"
-                                             "diffusion1/";
+    std::string const gold_filename = "../testing/generated-inputs/"
+                                      "boundary_conditions/"
+                                      "vector_diffusion1_l" +
+                                      std::to_string(level) + "_d" +
+                                      std::to_string(degree) + ".dat";
 
-    test_boundary_condition_vector(*pde, gold_filename_prefix, tol_factor);
+    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
 
   SECTION("diffusion_1 level 4 degree 4")
@@ -319,11 +300,13 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 4;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename_prefix = "../testing/generated-inputs/"
-                                             "boundary_condition_vector/"
-                                             "diffusion1/";
+    std::string const gold_filename = "../testing/generated-inputs/"
+                                      "boundary_conditions/"
+                                      "vector_diffusion1_l" +
+                                      std::to_string(level) + "_d" +
+                                      std::to_string(degree) + ".dat";
 
-    test_boundary_condition_vector(*pde, gold_filename_prefix, tol_factor);
+    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
   SECTION("diffusion_1 level 5 degree 5")
   {
@@ -331,10 +314,12 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename_prefix = "../testing/generated-inputs/"
-                                             "boundary_condition_vector/"
-                                             "diffusion1/";
+    std::string const gold_filename = "../testing/generated-inputs/"
+                                      "boundary_conditions/"
+                                      "vector_diffusion1_l" +
+                                      std::to_string(level) + "_d" +
+                                      std::to_string(degree) + ".dat";
 
-    test_boundary_condition_vector(*pde, gold_filename_prefix, tol_factor);
+    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
 }
