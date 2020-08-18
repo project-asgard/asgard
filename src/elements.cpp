@@ -137,7 +137,6 @@ table::table(options const opts, PDE<P> const &pde)
       auto const key    = map_to_index(coords, opts, pde);
 
       active_element_ids_.push_back(key);
-
       id_to_coords_[key].resize(coords.size()) = coords;
 
       // assign into flattened device table builder
