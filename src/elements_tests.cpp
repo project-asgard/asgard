@@ -35,7 +35,7 @@ void test_element_table(PDE_opts const pde_choice,
     REQUIRE(gold_id == test_id);
 
     // test id to coord mapping
-    auto const &test_coords = elem_table.get_coords(test_id);
+    auto const &test_coords = elem_table.get_coords(i);
     fk::vector<int> const gold_coords =
         gold_table.extract_submatrix(i, 0, 1, pde->num_dims * 2);
     fk::vector<int> const mapped_coords =
