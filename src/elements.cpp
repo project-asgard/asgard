@@ -13,6 +13,15 @@
 
 namespace elements
 {
+// map number of dimensions to max supported level
+// FIXME these limits are created by mapping element
+// coords to 64 bit integer ids; using a larger
+// type for ids in mapping funcs would raise supported
+// max levels
+static std::map<int, int> const dim_to_max_level = {
+    {1, 62}, {2, 33}, {3, 20}, {4, 16}, {5, 13}, {6, 9},
+};
+
 int64_t get_1d_index(int const level, int const cell)
 {
   assert(level >= 0);
