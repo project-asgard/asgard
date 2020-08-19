@@ -635,14 +635,16 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
     int const num_ranks = distrib_test_info.get_num_ranks();
     if (my_rank < num_ranks)
     {
-      int const degree        = 4;
-      int const level         = 6;
-      auto const segment_size = static_cast<int>(std::pow(degree, num_dims));
+      int const degree = 4;
+      int const level  = 6;
 
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
       auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+      auto const segment_size =
+          static_cast<int>(std::pow(degree, pde->num_dims));
+
       elements::table const table(o, *pde);
 
       // create the system vector
@@ -705,8 +707,9 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
 
       auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
       elements::table const table(o, *pde);
-      auto const plan         = get_plan(num_ranks, table);
-      auto const segment_size = static_cast<int>(std::pow(degree, num_dims));
+      auto const plan = get_plan(num_ranks, table);
+      auto const segment_size =
+          static_cast<int>(std::pow(degree, pde->num_dims));
 
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
