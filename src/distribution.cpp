@@ -151,8 +151,8 @@ void finalize_distribution()
 // divide element grid into rectangular sub-areas, which will be assigned to
 // each rank require number of ranks to be a perfect square or an even number;
 // otherwise, we will ignore (leave unused) the highest rank.
-element_subgrid
-get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
+element_subgrid get_subgrid(int const num_ranks, int const my_rank,
+                            elements::table const &table)
 {
   assert(num_ranks > 0);
 
@@ -195,7 +195,7 @@ get_subgrid(int const num_ranks, int const my_rank, element_table const &table)
 }
 
 // distribution plan is a mapping from rank -> assigned subgrid
-distribution_plan get_plan(int const num_ranks, element_table const &table)
+distribution_plan get_plan(int const num_ranks, elements::table const &table)
 {
   assert(num_ranks > 0);
   assert(table.size() > num_ranks);

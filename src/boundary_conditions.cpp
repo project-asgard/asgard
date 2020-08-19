@@ -15,7 +15,7 @@ value "t" to generate the complete boundary condition vector at time "t".
 // FIXME refactor this component
 template<typename P>
 std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
-    PDE<P> const &pde, element_table const &table,
+    PDE<P> const &pde, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const start_element, int const stop_element, P const t_init)
 {
@@ -299,13 +299,13 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
 /* explicit instantiations */
 template std::array<unscaled_bc_parts<double>, 2>
 boundary_conditions::make_unscaled_bc_parts(
-    PDE<double> const &pde, element_table const &table,
+    PDE<double> const &pde, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const start_element, int const stop_element, double const t_init = 0);
 
 template std::array<unscaled_bc_parts<float>, 2>
 boundary_conditions::make_unscaled_bc_parts(
-    PDE<float> const &pde, element_table const &table,
+    PDE<float> const &pde, elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     int const start_element, int const stop_element, float const t_init = 0);
 

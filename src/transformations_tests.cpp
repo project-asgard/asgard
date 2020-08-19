@@ -28,7 +28,7 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   options const o            = make_options(
       {"-d", std::to_string(deg), "-l", std::to_string(lev), grid_str});
 
-  element_table const t(o, lev, dims);
+  elements::table const t(o, pde);
 
   std::vector<fk::vector<P>> vectors;
   P counter = 1.0;
@@ -170,8 +170,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   int const degree      = d.get_degree();
 
   basis::wavelet_transform<P, resource::host> const transformer(level, degree);
-  element_table table(make_options({"-l", std::to_string(level)}), level,
-                      pde.num_dims);
+  elements::table const table(make_options({"-l", std::to_string(level)}), pde);
 
   fk::vector<P> const wave_space = [&table, &pde, degree]() {
     // arbitrary function to transform from wavelet space to real space
@@ -205,6 +204,8 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   fk::vector<P> const gold =
       fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
+  std::cout << gold.size() << '\n';
+  std::cout << real_space_size << '\n';
   rmse_comparison(gold, real_space, tol_factor);
 }
 
@@ -216,9 +217,8 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const degree = 7;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     std::string const gold_filename =
-        "../testing/generated-inputs/transformations/wavelet_to_realspace/"
-        "continuity_1/"
-        "wavelet_to_realspace.dat";
+        "../testing/generated-inputs/transformations/"
+        "wavelet_to_realspace_continuity_1.dat";
 
     TestType const tol_factor =
         std::is_same<TestType, double>::value ? 1e-11 : 1e-2;
@@ -231,9 +231,8 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const degree = 5;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     std::string const gold_filename =
-        "../testing/generated-inputs/transformations/wavelet_to_realspace/"
-        "continuity_2/"
-        "wavelet_to_realspace.dat";
+        "../testing/generated-inputs/transformations/"
+        "wavelet_to_realspace_continuity_2.dat";
 
     TestType const tol_factor =
         std::is_same<TestType, double>::value ? 1e-13 : 1e-4;
@@ -246,9 +245,8 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const degree = 4;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
     std::string const gold_filename =
-        "../testing/generated-inputs/transformations/wavelet_to_realspace/"
-        "continuity_3/"
-        "wavelet_to_realspace.dat";
+        "../testing/generated-inputs/transformations/"
+        "wavelet_to_realspace_continuity_3.dat";
 
     TestType const tol_factor =
         std::is_same<TestType, double>::value ? 1e-14 : 1e-5;

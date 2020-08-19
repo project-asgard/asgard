@@ -1,6 +1,6 @@
 #pragma once
 #include "build_info.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 
 #ifdef ASGARD_USE_MPI
 #include "mpi.h"
@@ -154,12 +154,12 @@ struct node_out
 };
 
 // given a rank, determine element subgrid assigned to that rank
-element_subgrid
-get_subgrid(int const num_ranks, int const my_rank, element_table const &table);
+element_subgrid get_subgrid(int const num_ranks, int const my_rank,
+                            elements::table const &table);
 
 // map ranks to assigned subgrids
 using distribution_plan = std::map<int, element_subgrid>;
-distribution_plan get_plan(int const num_ranks, element_table const &table);
+distribution_plan get_plan(int const num_ranks, elements::table const &table);
 
 enum class message_direction
 {

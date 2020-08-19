@@ -3,9 +3,8 @@
 #include "build_info.hpp"
 #include "chunk.hpp"
 #include "coefficients.hpp"
-#include "connectivity.hpp"
 #include "distribution.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "timer.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
@@ -84,7 +83,7 @@ int main(int argc, char **argv)
   // -- create forward/reverse mapping between elements and indices
   node_out() << "  generating: element table..." << '\n';
 
-  element_table const table = element_table(opts, level, pde->num_dims);
+  auto const table = elements::table(opts, *pde);
 
   node_out() << "  degrees of freedom: "
              << table.size() *

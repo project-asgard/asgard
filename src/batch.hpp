@@ -1,6 +1,6 @@
 #pragma once
 #include "chunk.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "pde/pde_base.hpp"
 #include "tensors.hpp"
 #include <array>
@@ -175,7 +175,7 @@ public:
       fk::vector<P, mem_type::view, resrc> &final_output);
   // time advance constructor
   template<chain_method m_ = method, typename = enable_for_advance<m_>>
-  batch_chain(PDE<P> const &pde, element_table const &elem_table,
+  batch_chain(PDE<P> const &pde, elements::table const &elem_table,
               batch_workspace<P, resrc> const &workspace,
               element_subgrid const &subgrid, element_chunk const &chunk);
   void execute() const;
@@ -235,5 +235,5 @@ private:
 // function to build system matrix for implicit stepping
 // doesn't use batches, but does use many of the same helpers/structure
 template<typename P>
-void build_system_matrix(PDE<P> const &pde, element_table const &elem_table,
+void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          element_chunk const &chunk, fk::matrix<P> &A);

@@ -401,7 +401,7 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
     }
     else
     {
-      int const cn = fm::two_raised_to(n - j + 1.0) * degree;
+      int const cn = fm::two_raised_to(n - j + 1) * degree;
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
       cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));

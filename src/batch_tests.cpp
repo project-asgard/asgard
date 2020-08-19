@@ -923,12 +923,19 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
                         std::string const &gold_path = {},
                         bool const full_grid         = false)
 {
-  std::string const grid_str          = full_grid ? "-f" : "";
-  std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
-                                         std::to_string(degree), grid_str};
-  options const o                     = make_options(args);
+  std::string const grid_str = full_grid ? "-f" : "";
 
-  element_table const elem_table(o, level, pde.num_dims);
+  P const cfl                         = 0.01;
+  std::vector<std::string> const args = {
+      "-l",    std::to_string(level),
+      "-d",    std::to_string(degree),
+      "--cfl", to_string_with_precision(cfl, 16),
+      grid_str};
+
+  options const o = make_options(args);
+
+  elements::table const elem_table(o, pde);
+
   int const num_ranks = 1;
   int const my_rank   = 0;
   auto const plan     = get_plan(num_ranks, elem_table);
@@ -941,15 +948,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   fk::vector<P> x(vector_size);
   std::fill(x.begin(), x.end(), 1.0);
 
-  fk::vector<P> const gold = [&pde, &x, &gold_path]() {
-    if (pde.num_terms == 1 && pde.num_dims == 1)
-    {
-      fk::matrix<P> const &coefficient_matrix =
-          pde.get_coefficients(0, 0).clone_onto_host();
-      return coefficient_matrix * x;
-    }
-    return fk::vector<P>(read_vector_from_txt_file(gold_path));
-  }();
+  auto const gold = fk::vector<P>(read_vector_from_txt_file(gold_path));
 
   auto const chunks = assign_elements(subgrid, get_num_chunks(subgrid, pde));
   batch_workspace<P, resource::device> batch_space(pde, subgrid, chunks);
@@ -972,6 +971,7 @@ void batch_builder_test(int const degree, int const level, PDE<P> &pde,
   x.transfer_from(batch_space.output);
 
   P const tol_factor = std::is_same<P, double>::value ? 1e-13 : 1e-4;
+
   rmse_comparison(gold, x, tol_factor);
 }
 
@@ -982,14 +982,18 @@ TEMPLATE_TEST_CASE("batch builder", "[batch]", float, double)
     int const degree = 2;
     int const level  = 2;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    batch_builder_test(degree, level, *pde);
+    std::string const gold_path =
+        "../testing/generated-inputs/batch/continuity1_sg_l2_d2_t1.dat";
+    batch_builder_test(degree, level, *pde, gold_path);
   }
   SECTION("1d, 1 term, degree 4, level 3")
   {
     int const degree = 4;
     int const level  = 3;
     auto pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    batch_builder_test(degree, level, *pde);
+    std::string const gold_path =
+        "../testing/generated-inputs/batch/continuity1_sg_l3_d4_t1.dat";
+    batch_builder_test(degree, level, *pde, gold_path);
   }
 
   SECTION("2d, 2 terms, level 2, degree 2")

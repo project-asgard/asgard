@@ -6,8 +6,10 @@
 namespace fm
 {
 // a non-matlab one-liner that had no better home - compute 2^arg
-inline int two_raised_to(int exponent)
+template<typename T>
+inline T two_raised_to(T const exponent)
 {
+  static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t>);
   assert(exponent >= 0);
   return 1 << exponent;
 }

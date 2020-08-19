@@ -8,13 +8,15 @@
 #include <numeric>
 #include <vector>
 
+namespace permutations
+{
 //
 // Permutation enumerators
 //
 
 // Given the number of dimensions and a limit, count the number of n-tuples
 // (where n == 'num_dims') whose non-negative elements' sum == 'limit'
-int count_eq_permutations(int const num_dims, int const limit)
+int count_equal(int const num_dims, int const limit)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -31,7 +33,7 @@ int count_eq_permutations(int const num_dims, int const limit)
   int count = 0;
   for (auto i = 0; i <= limit; ++i)
   {
-    count += count_eq_permutations(num_dims - 1, i);
+    count += count_equal(num_dims - 1, i);
   }
 
   return count;
@@ -39,7 +41,37 @@ int count_eq_permutations(int const num_dims, int const limit)
 
 // Given the number of dimensions and a limit, count the number of n-tuples
 // (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
-int count_leq_permutations(int num_dims, int limit)
+// this version handles the non-uniform level case
+int count_equal_multi(fk::vector<int> const &levels, int const num_dims,
+                      int const limit)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  if (num_dims == 1)
+  {
+    if (levels(0) >= limit)
+    {
+      return 1;
+    }
+    return 0;
+  }
+
+  auto count = 0;
+  for (auto i = 0; i <= std::min(levels(num_dims - 1), limit); ++i)
+  {
+    auto const dim_limit = limit - i;
+    count += count_equal_multi(levels.extract(0, num_dims - 2), num_dims - 1,
+                               dim_limit);
+  }
+
+  return count;
+}
+
+// Given the number of dimensions and a limit, count the number of n-tuples
+// (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
+int count_lequal(int const num_dims, int const limit)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -47,15 +79,33 @@ int count_leq_permutations(int num_dims, int limit)
   int count = 0;
   for (auto i = 0; i <= limit; ++i)
   {
-    count += count_eq_permutations(num_dims, i);
+    count += count_equal(num_dims, i);
   }
+  return count;
+}
+
+// Given the number of dimensions and a limit, count the number of n-tuples
+// (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
+// this version handles the non-uniform level case
+int count_lequal_multi(fk::vector<int> const &levels, int num_dims, int limit)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  auto count = 0;
+  for (auto i = 0; i <= limit; ++i)
+  {
+    count += count_equal_multi(levels, num_dims, i);
+  }
+
   return count;
 }
 
 // Given the number of dimensions and a limit, count the number of n-tuples
 // (where n == 'num_dims') whose non-negative max element <= 'limit' (for full
 // grid only)
-int count_max_permutations(int const num_dims, int const limit)
+int count_max(int const num_dims, int const limit)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
@@ -71,12 +121,12 @@ int count_max_permutations(int const num_dims, int const limit)
 // 'num_dims') whose elements' are non-negative and their sum == 'limit'. Each
 // tuple becomes a row of the output matrix
 fk::matrix<int>
-get_eq_permutations(int const num_dims, int const limit, bool const order_by_n)
+get_equal(int const num_dims, int const limit, bool const order_by_n)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
 
-  int const num_tuples = count_eq_permutations(num_dims, limit);
+  int const num_tuples = count_equal(num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
 
   if (num_dims == 1)
@@ -103,10 +153,10 @@ get_eq_permutations(int const num_dims, int const limit, bool const order_by_n)
 
     // build set of num_dims-1 sized tuples which sum to partial_sum,
     // then append a column with difference to make a num_dims-tuple.
-    int const rows = count_eq_permutations(num_dims - 1, partial_sum);
+    int const rows = count_equal(num_dims - 1, partial_sum);
     fk::matrix<int> partial_result(rows, num_dims);
     partial_result.set_submatrix(
-        0, 0, get_eq_permutations(num_dims - 1, partial_sum, order_by_n));
+        0, 0, get_equal(num_dims - 1, partial_sum, order_by_n));
     fk::vector<int> last_col = std::vector<int>(rows, difference);
     partial_result.update_col(num_dims - 1, last_col);
     result.set_submatrix(counter, 0, partial_result);
@@ -116,16 +166,74 @@ get_eq_permutations(int const num_dims, int const limit, bool const order_by_n)
   return result;
 }
 
+// Given the number of dimensions and a limit, produce n-tuples (where n ==
+// 'num_dims') whose elements' are non-negative and their sum == 'limit'. Each
+// tuple becomes a row of the output matrix
+// this version handles the non-uniform level case via a vector "levels"
+// argument
+fk::matrix<int> get_equal_multi(fk::vector<int> const &levels,
+                                int const num_dims, int const limit,
+                                bool const last_index_decreasing)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  if (num_dims == 1)
+  {
+    if (levels(0) >= limit)
+    {
+      return fk::matrix<int>{{limit}};
+    }
+    else
+    {
+      return fk::matrix<int>();
+    }
+  }
+
+  auto const num_tuples = count_equal_multi(levels, num_dims, limit);
+  fk::matrix<int> result(num_tuples, num_dims);
+  auto row_counter = 0;
+  auto const stop  = std::min(levels(num_dims - 1), limit);
+
+  for (auto i = 0; i <= stop; ++i)
+  {
+    auto const last_elem     = last_index_decreasing ? stop - i : i;
+    auto const partial_limit = limit - last_elem;
+    auto const partial_size = count_equal_multi(levels.extract(0, num_dims - 2),
+                                                num_dims - 1, partial_limit);
+
+    if (partial_size < 1)
+    {
+      continue;
+    }
+
+    fk::matrix<int, mem_type::view> partial_result(
+        result, row_counter, row_counter + partial_size - 1, 0, num_dims - 2);
+    partial_result =
+        get_equal_multi(levels.extract(0, num_dims - 2), num_dims - 1,
+                        partial_limit, last_index_decreasing);
+
+    fk::matrix<int, mem_type::view> partial_last_col(
+        result, row_counter, row_counter + partial_size - 1, num_dims - 1,
+        num_dims - 1);
+    partial_last_col = fk::vector(std::vector<int>(partial_size, last_elem));
+    row_counter += partial_size;
+  }
+
+  return result;
+}
+
 // Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and their sum <= 'limit'. Each
 // tuple becomes a row of the output matrix
 fk::matrix<int>
-get_leq_permutations(int const num_dims, int const limit, bool const order_by_n)
+get_lequal(int const num_dims, int const limit, bool const order_by_n)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
 
-  int const num_tuples = count_leq_permutations(num_dims, limit);
+  int const num_tuples = count_lequal(num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
 
   if (order_by_n)
@@ -133,8 +241,8 @@ get_leq_permutations(int const num_dims, int const limit, bool const order_by_n)
     int counter = 0;
     for (auto i = 0; i <= limit; ++i)
     {
-      int const rows = count_eq_permutations(num_dims, i);
-      result.set_submatrix(counter, 0, get_eq_permutations(num_dims, i, false));
+      int const rows = count_equal(num_dims, i);
+      result.set_submatrix(counter, 0, get_equal(num_dims, i, false));
       counter += rows;
     }
     return result;
@@ -152,10 +260,10 @@ get_leq_permutations(int const num_dims, int const limit, bool const order_by_n)
   int counter = 0;
   for (auto i = 0; i <= limit; ++i)
   {
-    int const rows = count_leq_permutations(num_dims - 1, limit - i);
+    int const rows = count_lequal(num_dims - 1, limit - i);
     fk::matrix<int> partial_result(rows, num_dims);
     partial_result.set_submatrix(
-        0, 0, get_leq_permutations(num_dims - 1, limit - i, order_by_n));
+        0, 0, get_lequal(num_dims - 1, limit - i, order_by_n));
     fk::vector<int> last_col = std::vector<int>(rows, i);
     partial_result.update_col(num_dims - 1, last_col);
     result.set_submatrix(counter, 0, partial_result);
@@ -167,15 +275,48 @@ get_leq_permutations(int const num_dims, int const limit, bool const order_by_n)
 }
 
 // Given the number of dimensions and a limit, produce n-tuples (n ==
+// 'num_dims') whose elements are non-negative and their sum <= 'limit'. Each
+// tuple becomes a row of the output matrix
+// this version works with non-uniform levels across dimension
+fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
+                                 int const num_dims, int const limit,
+                                 bool const increasing_sum_order)
+{
+  assert(num_dims > 0);
+  assert(levels.size() == num_dims);
+  assert(limit >= 0);
+
+  auto const num_tuples = count_lequal_multi(levels, num_dims, limit);
+  fk::matrix<int> result(num_tuples, num_dims);
+
+  auto row_counter = 0;
+  for (auto i = 0; i <= limit; ++i)
+  {
+    auto const partial_limit = increasing_sum_order ? i : limit - i;
+    auto const partial_size =
+        count_equal_multi(levels, num_dims, partial_limit);
+    if (partial_size > 0)
+    {
+      fk::matrix<int, mem_type::view> partial_result(
+          result, row_counter, row_counter + partial_size - 1, 0, num_dims - 1);
+      partial_result = get_equal_multi(levels, num_dims, partial_limit, false);
+      row_counter += partial_size;
+    }
+  }
+
+  return result;
+}
+
+// Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and the max element <= 'limit'
 // (for full grid only). Each tuple becomes a row of the output matrix
-fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
-                                     bool const last_index_decreasing)
+fk::matrix<int>
+get_max(int const num_dims, int const limit, bool const last_index_decreasing)
 {
   assert(num_dims > 0);
   assert(limit >= 0);
 
-  int const num_tuples = count_max_permutations(num_dims, limit);
+  int const num_tuples = count_max(num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
 
   if (num_dims == 1)
@@ -192,7 +333,7 @@ fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
 
   // recursively build the lower dim tuples
   fk::matrix<int> lower_dims =
-      get_max_permutations(num_dims - 1, limit, last_index_decreasing);
+      get_max(num_dims - 1, limit, last_index_decreasing);
   int const m = lower_dims.nrows();
 
   for (auto i = 0; i <= limit; ++i)
@@ -213,13 +354,60 @@ fk::matrix<int> get_max_permutations(int const num_dims, int const limit,
   return result;
 }
 
+// Given the number of dimensions and a limit, produce n-tuples (n ==
+// 'num_dims') whose elements are non-negative and the max element <= 'limit'
+// (for full grid only). Each tuple becomes a row of the output matrix
+// this version handles non-uniform levels passed as vector argument
+fk::matrix<int> get_max_multi(fk::vector<int> const &levels, int const num_dims,
+                              bool const last_index_decreasing)
+{
+  assert(num_dims > 0);
+  assert(levels.size() > 0);
+
+  auto const limit = levels(num_dims - 1);
+
+  if (num_dims == 1)
+  {
+    std::vector<int> entries(limit + 1);
+    std::iota(begin(entries), end(entries), 0);
+    if (last_index_decreasing)
+    {
+      std::reverse(begin(entries), end(entries));
+    }
+    return fk::matrix<int>(limit + 1, 1).update_col(0, entries);
+  }
+
+  auto const lower_perm =
+      get_max_multi(levels, num_dims - 1, last_index_decreasing);
+  fk::matrix<int> result(lower_perm.nrows() * (limit + 1), num_dims);
+
+  for (auto i = 0; i <= limit; ++i)
+  {
+    auto const row_pos  = i * lower_perm.nrows();
+    auto const row_stop = row_pos + lower_perm.nrows() - 1;
+
+    fk::matrix<int, mem_type::view> partial_result(result, row_pos, row_stop, 0,
+                                                   num_dims - 2);
+    partial_result = fk::matrix<int, mem_type::const_view>(
+        lower_perm, 0, lower_perm.nrows() - 1, 0, num_dims - 2);
+
+    fk::vector<int, mem_type::view> last_col(result, num_dims - 1, row_pos,
+                                             row_stop);
+    auto const last_col_val = last_index_decreasing ? limit - i : i;
+    last_col =
+        fk::vector<int>(std::vector<int>(row_stop - row_pos + 1, last_col_val));
+  }
+
+  return result;
+}
+
 //
 // Index finding functions
 //
 
 // count the number of rows in the matrix returned by the index finder
 // get_leq_max_indices() below
-int count_leq_max_indices(list_set const lists, int const num_dims,
+int count_leq_max_indices(list_set const &lists, int const num_dims,
                           int const max_sum, int const max_val)
 {
   assert(lists.size() > 0);
@@ -255,7 +443,7 @@ int count_leq_max_indices(list_set const lists, int const num_dims,
 // elements sum to less than max_sum and whose maximum value is less than
 // max_val.
 // num_dims is the initial number of lists at the start of the recursion
-fk::matrix<int> get_leq_max_indices(list_set const lists, int const num_dims,
+fk::matrix<int> get_leq_max_indices(list_set const &lists, int const num_dims,
                                     int const max_sum, int const max_val)
 {
   assert(lists.size() > 0);
@@ -299,3 +487,5 @@ fk::matrix<int> get_leq_max_indices(list_set const lists, int const num_dims,
 
   return result;
 }
+
+} // end namespace permutations

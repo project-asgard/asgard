@@ -1,5 +1,5 @@
 #pragma once
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "pde/pde_base.hpp"
@@ -13,7 +13,7 @@ namespace boundary_conditions
 {
 template<typename P>
 std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
-    PDE<P> const &pde, element_table const &table,
+    PDE<P> const &pde, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const start_element, int const stop_element, P const t_init = 0);
 

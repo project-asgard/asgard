@@ -415,6 +415,16 @@ public:
         }
       }
 
+      // FIXME temporary - allow for multilevel pdes in tests
+      if (static_cast<int>(cli_input.get_starting_levels().size()) == num_dims)
+      {
+        for (auto i = 0; i < num_dims; ++i)
+        {
+          assert(cli_input.get_starting_levels()(i) > 1);
+          dimensions_[i].set_level(cli_input.get_starting_levels()(i));
+        }
+      }
+
       for (std::vector<term<P>> &term_list : terms_)
       {
         // positive, bounded size - safe compare

@@ -3,7 +3,7 @@
 #define USE_GPU
 #endif
 #include "distribution.hpp"
-#include "element_table.hpp"
+#include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
 
@@ -16,7 +16,7 @@ namespace kronmult
 // fit workspace limit MB
 template<typename P>
 fk::vector<P, mem_type::owner, resource::host>
-execute(PDE<P> const &pde, element_table const &elem_table,
+execute(PDE<P> const &pde, elements::table const &elem_table,
         element_subgrid const &my_subgrid, int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x);
 

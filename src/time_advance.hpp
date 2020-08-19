@@ -14,7 +14,7 @@
 // on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_time_advance(PDE<P> const &pde, element_table const &table,
+explicit_time_advance(PDE<P> const &pde, elements::table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x, distribution_plan const &plan,
@@ -22,7 +22,7 @@ explicit_time_advance(PDE<P> const &pde, element_table const &table,
 
 template<typename P>
 fk::vector<P>
-implicit_time_advance(PDE<P> const &pde, element_table const &table,
+implicit_time_advance(PDE<P> const &pde, elements::table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x,

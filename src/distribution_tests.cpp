@@ -83,7 +83,7 @@ TEST_CASE("subgrid struct", "[distribution]")
   }
 }
 
-void check_coverage(element_table const &table,
+void check_coverage(elements::table const &table,
                     distribution_plan const &to_test)
 {
   enum element_status
@@ -112,7 +112,7 @@ void check_coverage(element_table const &table,
   }
 }
 
-void check_even_sizing(element_table const &table,
+void check_even_sizing(elements::table const &table,
                        distribution_plan const &to_test)
 {
   auto const size = to_test.at(0).size();
@@ -143,14 +143,14 @@ TEST_CASE("rank subgrid function", "[distribution]")
 {
   SECTION("1 rank, whole problem")
   {
-    int const degree   = 4;
-    int const level    = 4;
-    int const num_dims = 2;
+    int const degree = 4;
+    int const level  = 4;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
 
-    element_table const table(o, level, num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 1;
     int const my_rank   = 0;
@@ -165,14 +165,14 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("2 ranks")
   {
-    int const degree   = 6;
-    int const level    = 5;
-    int const num_dims = 2;
+    int const degree = 6;
+    int const level  = 5;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, level, num_dims);
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(o, *pde);
 
     int const num_ranks  = 2;
     int const first_rank = 0;
@@ -196,14 +196,14 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("4 ranks - even/square")
   {
-    int const degree   = 10;
-    int const level    = 7;
-    int const num_dims = 3;
+    int const degree = 10;
+    int const level  = 7;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, level, num_dims);
+    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+    elements::table const table(o, *pde);
 
     int const num_ranks  = 4;
     int const first_rank = 0;
@@ -243,14 +243,14 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("9 ranks - odd/square")
   {
-    int const degree   = 4;
-    int const level    = 5;
-    int const num_dims = 6;
+    int const degree = 4;
+    int const level  = 5;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, level, num_dims);
+    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 9;
 
@@ -277,14 +277,14 @@ TEST_CASE("distribution plan function", "[distribution]")
 {
   SECTION("1 rank")
   {
-    int const degree   = 3;
-    int const level    = 2;
-    int const num_dims = 2;
+    int const degree = 3;
+    int const level  = 2;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, level, num_dims);
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 1;
 
@@ -294,14 +294,14 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("2 ranks - also, test 3rd rank ignored")
   {
-    int const degree   = 8;
-    int const level    = 5;
-    int const num_dims = 2;
+    int const degree = 8;
+    int const level  = 5;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, level, num_dims);
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 2;
     auto const plan     = get_plan(num_ranks, table);
@@ -323,14 +323,14 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("20 ranks")
   {
-    int const degree   = 5;
-    int const level    = 5;
-    int const num_dims = 6;
+    int const degree = 5;
+    int const level  = 5;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    element_table const table(o, level, num_dims);
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 20;
     auto const plan     = get_plan(num_ranks, table);
@@ -350,12 +350,12 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
     auto const my_rank   = 0;
     int const degree     = 4;
     int const level      = 2;
-    int const num_dims   = 2;
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(o, *pde);
 
-    element_table const table(o, level, num_dims);
     auto const plan = get_plan(num_ranks, table);
 
     fk::vector<TestType> const gold{0, 1, 2, 3, 4, 5};
@@ -374,14 +374,15 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
 
     if (my_rank < num_ranks)
     {
-      int const degree   = 5;
-      int const level    = 4;
-      int const num_dims = 3;
+      int const degree = 5;
+      int const level  = 4;
 
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-      element_table const table(o, level, num_dims);
+      auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+      elements::table const table(o, *pde);
+
       auto const plan       = get_plan(num_ranks, table);
       int const vector_size = 10;
 
@@ -416,7 +417,7 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
   }
 }
 
-void generate_messages_test(int const num_ranks, element_table const &table)
+void generate_messages_test(int const num_ranks, elements::table const &table)
 {
   auto const plan     = get_plan(num_ranks, table);
   auto const messages = generate_messages(plan);
@@ -535,7 +536,7 @@ TEST_CASE("generate messages tests", "[distribution]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
-    element_table const table(o, level, pde->num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 1;
     generate_messages_test(num_ranks, table);
@@ -549,7 +550,7 @@ TEST_CASE("generate messages tests", "[distribution]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-    element_table const table(o, level, pde->num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 1;
     generate_messages_test(num_ranks, table);
@@ -563,7 +564,7 @@ TEST_CASE("generate messages tests", "[distribution]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    element_table const table(o, level, pde->num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 9;
     generate_messages_test(num_ranks, table);
@@ -577,7 +578,7 @@ TEST_CASE("generate messages tests", "[distribution]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
-    element_table const table(o, level, pde->num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 36;
     generate_messages_test(num_ranks, table);
@@ -591,7 +592,7 @@ TEST_CASE("generate messages tests", "[distribution]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_1, level, degree);
-    element_table const table(o, level, pde->num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 20;
     generate_messages_test(num_ranks, table);
@@ -605,7 +606,7 @@ TEST_CASE("generate messages tests", "[distribution]")
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
     auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
-    element_table const table(o, level, pde->num_dims);
+    elements::table const table(o, *pde);
 
     int const num_ranks = 32;
     generate_messages_test(num_ranks, table);
@@ -634,15 +635,17 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
     int const num_ranks = distrib_test_info.get_num_ranks();
     if (my_rank < num_ranks)
     {
-      int const degree        = 4;
-      int const level         = 6;
-      int const num_dims      = 2;
-      auto const segment_size = static_cast<int>(std::pow(degree, num_dims));
+      int const degree = 4;
+      int const level  = 6;
 
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-      element_table const table(o, level, num_dims);
+      auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+      auto const segment_size =
+          static_cast<int>(std::pow(degree, pde->num_dims));
+
+      elements::table const table(o, *pde);
 
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
@@ -696,16 +699,17 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
 
     if (my_rank < num_ranks)
     {
-      int const degree   = 2;
-      int const level    = 2;
-      int const num_dims = 2;
+      int const degree = 2;
+      int const level  = 2;
 
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-      element_table const table(o, level, num_dims);
-      auto const plan         = get_plan(num_ranks, table);
-      auto const segment_size = static_cast<int>(std::pow(degree, num_dims));
+      auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+      elements::table const table(o, *pde);
+      auto const plan = get_plan(num_ranks, table);
+      auto const segment_size =
+          static_cast<int>(std::pow(degree, pde->num_dims));
 
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
