@@ -355,8 +355,7 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
-    auto const degree     = cli_input.get_degree();
-    auto const num_levels = cli_input.get_level();
+    auto const degree = cli_input.get_degree();
 
     for (auto tt : terms)
     {
@@ -397,46 +396,45 @@ public:
 
     // modify for appropriate level/degree
     // if default lev/degree not used
-    if (num_levels != parser::NO_USER_VALUE || degree != parser::NO_USER_VALUE)
+    int const user_levels = cli_input.get_starting_levels().size();
+    if (user_levels != 0 && user_levels != num_dims)
     {
-      // FIXME eventually independent levels for each dim will be
-      // supported
+      std::cerr << "failed to parse dimension-many starting levels - parsed "
+                << user_levels << "levels\n";
+      exit(1);
+    }
+    if (user_levels == num_dims)
+    {
+      int counter = 0;
       for (dimension<P> &d : dimensions_)
       {
-        if (num_levels != parser::NO_USER_VALUE)
-        {
-          assert(num_levels > 1);
-          d.set_level(num_levels);
-        }
-        if (degree != parser::NO_USER_VALUE)
-        {
-          assert(degree > 0);
-          d.set_degree(degree);
-        }
-      }
-
-      // FIXME temporary - allow for multilevel pdes in tests
-      if (static_cast<int>(cli_input.get_starting_levels().size()) == num_dims)
-      {
-        for (auto i = 0; i < num_dims; ++i)
-        {
-          assert(cli_input.get_starting_levels()(i) > 1);
-          dimensions_[i].set_level(cli_input.get_starting_levels()(i));
-        }
-      }
-
-      for (std::vector<term<P>> &term_list : terms_)
-      {
-        // positive, bounded size - safe compare
-        for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
-        {
-          term_list[i].set_data(dimensions_[i], fk::vector<P>());
-          term_list[i].set_coefficients(
-              dimensions_[i],
-              eye<P>(term_list[i].degrees_freedom(dimensions_[i])));
-        }
+        int const num_levels = cli_input.get_starting_levels()(counter++);
+        assert(num_levels > 1);
+        d.set_level(num_levels);
       }
     }
+
+    if (degree != parser::NO_USER_VALUE)
+    {
+      assert(degree > 0);
+      for (dimension<P> &d : dimensions_)
+      {
+        d.set_degree(degree);
+      }
+    }
+
+    for (std::vector<term<P>> &term_list : terms_)
+    {
+      // positive, bounded size - safe compare
+      for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
+      {
+        term_list[i].set_data(dimensions_[i], fk::vector<P>());
+        term_list[i].set_coefficients(
+            dimensions_[i],
+            eye<P>(term_list[i].degrees_freedom(dimensions_[i])));
+      }
+    }
+
     // check all dimensions
     for (dimension<P> const d : dimensions_)
     {

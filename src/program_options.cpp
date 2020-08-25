@@ -24,7 +24,7 @@ parser::parser(int argc, char **argv)
           "Use implicit time advance (vs. explicit)") |
       clara::detail::Opt(solver_str, "solver_str")["-s"]["--solver"](
           "Solver to use (direct or gmres) for implicit advance") |
-      clara::detail::Opt(level, "level")["-l"]["--level"](
+      clara::detail::Opt(starting_levels_str, "levels")["-l"]["--levels"](
           "Stating hierarchical levels (resolution)") |
       clara::detail::Opt(max_level, "max level")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
@@ -87,17 +87,34 @@ parser::parser(int argc, char **argv)
     std::cerr << "Degree must be a natural number" << '\n';
     valid = false;
   }
-  if (level < 2 && level != NO_USER_VALUE)
+
+  if (starting_levels_str != NO_USER_VALUE_STR)
   {
-    std::cerr << "Level must be greater than one" << '\n';
-    valid = false;
+    auto const starting_lev = ints_from_string(starting_levels_str);
+    if (starting_lev.size() == 0)
+    {
+      std::cerr << "Failed to parse starting levels from input argument"
+                << '\n';
+      valid = false;
+    }
+    starting_levels.resize(starting_lev.size()) = starting_lev;
+    for (auto const lev : starting_levels)
+    {
+      if (lev < 2)
+      {
+        std::cerr << "Level must be greater than one" << '\n';
+        valid = false;
+      }
+      if (max_level < lev)
+      {
+        std::cerr
+            << "Maximum level must be greater than or equal to starting level"
+            << '\n';
+        valid = false;
+      }
+    }
   }
-  if (max_level < level)
-  {
-    std::cerr << "Maximum level must be greater than or equal to starting level"
-              << '\n';
-    valid = false;
-  }
+
   if (dt != NO_USER_VALUE_FP && dt <= 0.0)
   {
     std::cerr << "Provided dt must be positive" << '\n';
@@ -196,7 +213,6 @@ bool parser::using_implicit() const { return use_implicit_stepping; }
 bool parser::using_full_grid() const { return use_full_grid; }
 bool parser::do_poisson_solve() const { return do_poisson; }
 
-int parser::get_level() const { return level; }
 fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
 int parser::get_degree() const { return degree; }
 int parser::get_max_level() const { return max_level; }
