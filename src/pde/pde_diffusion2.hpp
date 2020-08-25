@@ -1,6 +1,11 @@
 #pragma once
 #include "pde_base.hpp"
 
+// Example PDE using the 2D (1x-1y) Heat Equation. This example PDE is
+// time dependent (although not all the terms are time dependent). This
+// implies the need for an initial condition.
+// PDE: df/dt = d^2 f/dx^2 + d^2 f/dy^2
+
 template<typename P>
 class PDE_diffusion_2d : public PDE<P>
 {

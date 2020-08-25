@@ -56,7 +56,7 @@ parser::parser(int argc, char **argv)
   }
   if (show_pdes)
   {
-    std::cerr << get_available_pdes() << '\n';
+    print_available_pdes();
   }
   if (show_help || show_pdes)
   {
@@ -118,7 +118,7 @@ parser::parser(int argc, char **argv)
   }
   else
   {
-    pde_choice = pde_mapping.at(pde_str);
+    pde_choice = pde_mapping.at(pde_str).pde_choice;
   }
 
   if (realspace_output_freq < 0 || wavelet_output_freq < 0)
