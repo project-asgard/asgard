@@ -17,8 +17,11 @@
 //
 // the "continuity 3d" pde
 //
-// 2D test case using continuity equation, i.e.,
-// df/dt + v.grad(f) == 0 where v = {1,1,1}
+// 3D test case using continuity equation, i.e.,
+//
+// df/dt + v.grad(f)==0 where v={1,1,1}, so
+//
+// df/dt = -df/dx -df/dy - df/dz
 //
 // ---------------------------------------------------------------------------
 template<typename P>

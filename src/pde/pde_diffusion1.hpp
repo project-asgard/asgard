@@ -1,6 +1,11 @@
 #pragma once
 #include "pde_base.hpp"
 
+// Example PDE using the 1D Diffusion Equation. This example PDE is
+// time dependent (although not all the terms are time dependent). This
+// implies the need for an initial condition.
+// PDE: df/dt = d^2 f/dx^2
+
 template<typename P>
 class PDE_diffusion_1d : public PDE<P>
 {
