@@ -7,10 +7,12 @@
 parser::parser(int argc, char **argv)
 {
   bool show_help = false;
-
+  bool show_pdes = false;
   // Parsing...
   auto cli =
       clara::detail::Help(show_help) |
+      clara::detail::Opt(show_pdes)["-a"]["--available_pdes"](
+          "Print available pdes (for -p argument) and exit") |
       clara::detail::Opt(cfl, "cfl")["-c"]["--cfl"](
           "The Courant-Friedrichs-Lewy (CFL) condition") |
       clara::detail::Opt(dt, "dt")["-t"]["--dt"]("Size of time steps") |
@@ -29,7 +31,7 @@ parser::parser(int argc, char **argv)
       clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
           "Number of iterations") |
       clara::detail::Opt(pde_str, "pde_str")["-p"]["--pde"](
-          "PDE to solve; see options.hpp for list") |
+          "PDE to solve; use -a option to print list of choices") |
       clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
           "Do poisson solve for electric field") |
       clara::detail::Opt(wavelet_output_freq,
@@ -47,9 +49,17 @@ parser::parser(int argc, char **argv)
               << '\n';
     valid = false;
   }
+
   if (show_help)
   {
     std::cerr << cli << '\n';
+  }
+  if (show_pdes)
+  {
+    std::cerr << get_available_pdes() << '\n';
+  }
+  if (show_help || show_pdes)
+  {
     exit(0);
   }
 

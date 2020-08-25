@@ -57,6 +57,18 @@ static pde_map_t const pde_mapping = {
     {"diffusion_2", PDE_opts::diffusion_2},
 };
 
+inline std::string get_available_pdes()
+{
+  std::string pde_listing{"available pdes (select with -p argument): "};
+  for (auto const &[pde_name, pde_enum_val] : pde_mapping)
+  {
+    ignore(pde_enum_val);
+    pde_listing += '\n';
+    pde_listing += pde_name;
+  }
+  return pde_listing;
+}
+
 // class to parse command line input
 class parser
 {
