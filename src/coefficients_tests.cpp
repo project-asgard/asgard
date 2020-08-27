@@ -9,9 +9,10 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
                        P const tol_factor = 1e-15, bool const rotate = true)
 {
   // FIXME assume uniform level and degree
-  dimension<P> const &d           = pde.get_dimensions()[0];
-  int const level                 = d.get_level();
-  int const degree                = d.get_degree();
+  dimension<P> const &d = pde.get_dimensions()[0];
+  int const level       = d.get_level();
+  int const degree      = d.get_degree();
+
   std::string const filename_base = gold_path + "_l" + std::to_string(level) +
                                     "_d" + std::to_string(degree) + "_";
 

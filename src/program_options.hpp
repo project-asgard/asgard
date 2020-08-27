@@ -125,10 +125,10 @@ public:
 
   // construct from provided values - to simplify testing
   explicit parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
-                  bool const use_full_grid = DEFAULT_USE_FG,
-                  int const max_level      = DEFAULT_MAX_LEVEL,
                   int const degree         = NO_USER_VALUE,
-                  double const cfl         = DEFAULT_CFL)
+                  double const cfl         = DEFAULT_CFL,
+                  bool const use_full_grid = DEFAULT_USE_FG,
+                  int const max_level      = DEFAULT_MAX_LEVEL)
       : use_full_grid(use_full_grid), starting_levels(starting_levels),
         degree(degree), max_level(max_level), cfl(cfl),
         pde_choice(pde_choice){};

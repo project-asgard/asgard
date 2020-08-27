@@ -62,6 +62,7 @@ fk::matrix<P> generate_coefficients(
 {
   assert(time >= 0.0);
   // setup jacobi of variable x and define coeff_mat
+
   int const num_points = fm::two_raised_to(dim.get_level());
 
   double const grid_spacing    = (dim.domain_max - dim.domain_min) / num_points;

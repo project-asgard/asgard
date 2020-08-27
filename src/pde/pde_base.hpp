@@ -355,14 +355,12 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
-    auto const degree = cli_input.get_degree();
-
-    for (auto tt : terms)
+    for (auto const &tt : terms)
     {
-      for (auto t : tt)
+      for (auto const &t : tt)
       {
         std::vector<partial_term<P>> const &pterms = t.get_partial_terms();
-        for (auto p : pterms)
+        for (auto const &p : pterms)
         {
           if (p.left_homo == homogeneity::homogeneous)
             assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
@@ -396,7 +394,7 @@ public:
 
     // modify for appropriate level/degree
     // if default lev/degree not used
-    int const user_levels = cli_input.get_starting_levels().size();
+    auto const user_levels = cli_input.get_starting_levels().size();
     if (user_levels != 0 && user_levels != num_dims)
     {
       std::cerr << "failed to parse dimension-many starting levels - parsed "
@@ -405,15 +403,16 @@ public:
     }
     if (user_levels == num_dims)
     {
-      int counter = 0;
+      auto counter = 0;
       for (dimension<P> &d : dimensions_)
       {
-        int const num_levels = cli_input.get_starting_levels()(counter++);
+        auto const num_levels = cli_input.get_starting_levels()(counter++);
         assert(num_levels > 1);
         d.set_level(num_levels);
       }
     }
 
+    auto const degree = cli_input.get_degree();
     if (degree != parser::NO_USER_VALUE)
     {
       assert(degree > 0);
