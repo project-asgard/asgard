@@ -129,10 +129,11 @@ public:
                   double const cfl         = DEFAULT_CFL,
                   bool const use_full_grid = DEFAULT_USE_FG,
                   int const max_level      = DEFAULT_MAX_LEVEL,
-                  int const num_steps      = DEFAULT_TIME_STEPS)
-      : use_full_grid(use_full_grid), starting_levels(starting_levels),
-        degree(degree), max_level(max_level), num_time_steps(num_steps),
-        cfl(cfl), pde_choice(pde_choice){};
+                  int const num_steps      = DEFAULT_TIME_STEPS,
+                  bool const use_implicit  = DEFAULT_USE_IMPLICIT)
+      : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid),
+        starting_levels(starting_levels), degree(degree), max_level(max_level),
+        num_time_steps(num_steps), cfl(cfl), pde_choice(pde_choice){};
 
   explicit parser(std::string const &pde_choice,
                   fk::vector<int> starting_levels,
@@ -140,9 +141,10 @@ public:
                   double const cfl         = DEFAULT_CFL,
                   bool const use_full_grid = DEFAULT_USE_FG,
                   int const max_level      = DEFAULT_MAX_LEVEL,
-                  int const num_steps      = DEFAULT_TIME_STEPS)
+                  int const num_steps      = DEFAULT_TIME_STEPS,
+                  bool const use_implicit  = DEFAULT_USE_IMPLICIT)
       : parser(pde_mapping.at(pde_choice).pde_choice, starting_levels, degree,
-               cfl, use_full_grid, max_level, num_steps){};
+               cfl, use_full_grid, max_level, num_steps, use_implicit){};
 
   bool using_implicit() const;
   bool using_full_grid() const;

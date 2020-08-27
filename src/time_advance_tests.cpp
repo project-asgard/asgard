@@ -496,12 +496,13 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
 }
 
 // explicit time advance is not a fruitful approach to this problem
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
-                   float, double)
+TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
+                   "[time_advance]", float, double)
 {
   TestType const cfl     = 0.01;
   std::string pde_choice = "fokkerplanck_2d_complete";
   auto const num_dims    = 2;
+  auto const implicit    = true;
 
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {
@@ -517,7 +518,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -536,7 +537,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -555,7 +556,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_2d_complete", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -568,7 +569,9 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
   std::string pde_choice = "diffusion_1";
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
   auto const num_dims = 1;
+  auto const implicit = true;
 
   SECTION("diffusion1, implicit, sparse grid, level 4, degree 4")
   {
@@ -580,7 +583,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -593,7 +596,9 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
   TestType const cfl     = 0.01;
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+
   auto const num_dims = 2;
+  auto const implicit = true;
 
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 3")
   {
@@ -605,7 +610,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -620,7 +625,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -635,7 +640,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -651,6 +656,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
       std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
 
   auto const num_dims = 1;
+  auto const implicit = true;
 
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
@@ -662,7 +668,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -678,7 +684,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -693,7 +699,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -709,6 +715,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
       std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
   auto const num_dims = 2;
+  auto const implicit = true;
 
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
@@ -721,7 +728,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -737,7 +744,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -755,7 +762,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
