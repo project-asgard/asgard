@@ -128,10 +128,21 @@ public:
                   int const degree         = NO_USER_VALUE,
                   double const cfl         = DEFAULT_CFL,
                   bool const use_full_grid = DEFAULT_USE_FG,
-                  int const max_level      = DEFAULT_MAX_LEVEL)
+                  int const max_level      = DEFAULT_MAX_LEVEL,
+                  int const num_steps      = DEFAULT_TIME_STEPS)
       : use_full_grid(use_full_grid), starting_levels(starting_levels),
-        degree(degree), max_level(max_level), cfl(cfl),
-        pde_choice(pde_choice){};
+        degree(degree), max_level(max_level), num_time_steps(num_steps),
+        cfl(cfl), pde_choice(pde_choice){};
+
+  explicit parser(std::string const &pde_choice,
+                  fk::vector<int> starting_levels,
+                  int const degree         = NO_USER_VALUE,
+                  double const cfl         = DEFAULT_CFL,
+                  bool const use_full_grid = DEFAULT_USE_FG,
+                  int const max_level      = DEFAULT_MAX_LEVEL,
+                  int const num_steps      = DEFAULT_TIME_STEPS)
+      : parser(pde_mapping.at(pde_choice).pde_choice, starting_levels, degree,
+               cfl, use_full_grid, max_level, num_steps){};
 
   bool using_implicit() const;
   bool using_full_grid() const;

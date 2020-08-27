@@ -90,13 +90,13 @@ public:
   int get_degree() const { return degree_; }
 
 private:
-  void set_level(int level)
+  void set_level(int const level)
   {
     assert(level > 1);
     level_ = level;
   }
 
-  void set_degree(int degree)
+  void set_degree(int const degree)
   {
     assert(degree > 0);
     degree_ = degree;
@@ -398,7 +398,7 @@ public:
     if (user_levels != 0 && user_levels != num_dims)
     {
       std::cerr << "failed to parse dimension-many starting levels - parsed "
-                << user_levels << "levels\n";
+                << user_levels << " levels\n";
       exit(1);
     }
     if (user_levels == num_dims)
