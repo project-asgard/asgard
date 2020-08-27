@@ -128,7 +128,7 @@ public:
                   bool const use_full_grid = DEFAULT_USE_FG,
                   int const max_level      = DEFAULT_MAX_LEVEL,
                   int const degree         = NO_USER_VALUE,
-                  double const cfl         = NO_USER_VALUE_FP)
+                  double const cfl         = DEFAULT_CFL)
       : use_full_grid(use_full_grid), starting_levels(starting_levels),
         degree(degree), max_level(max_level), cfl(cfl),
         pde_choice(pde_choice){};
@@ -229,11 +229,9 @@ private:
 };
 
 // simple class to hold non-pde user options
-
 class options
 {
 public:
-  // FIXME will be removed after multi-level PR
   options(parser const &user_vals)
       : starting_levels(user_vals.get_starting_levels()),
         max_level(user_vals.get_max_level()),

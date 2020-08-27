@@ -44,7 +44,7 @@ void time_advance_test(parser const &parse, std::string const &filepath,
   auto const subgrid = plan.at(my_rank);
 
   basis::wavelet_transform<P, resource::host> const transformer(
-      parse.get_level(), parse.get_degree());
+      parse.get_max_level(), parse.get_degree());
 
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
