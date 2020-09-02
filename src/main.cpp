@@ -80,6 +80,7 @@ int main(int argc, char **argv)
                       return accum + std::to_string(dim.get_level()) + " ";
                     })
              << '\n';
+  node_out() << "  max adaptivity levels: " << opts.max_level << '\n';
 
   node_out() << "--- begin setup ---" << '\n';
 
@@ -241,9 +242,9 @@ int main(int argc, char **argv)
       // FIXME fold initial sources/unscaled parts into pde object
       // after pde spec/pde split
       auto const &time_id = timer::record.start("explicit_time_advance");
-      f_val =
-          explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, default_workspace_MB, time);
+      f_val = explicit_time_advance(*pde, table, opts, initial_sources,
+                                    unscaled_parts, f_val, plan,
+                                    default_workspace_MB, time);
 
       timer::record.stop(time_id);
     }
