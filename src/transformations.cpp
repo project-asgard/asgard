@@ -8,6 +8,7 @@
 #include <climits>
 #include <cmath>
 #include <numeric>
+
 //
 // set the range specified by first and last,
 // starting with the supplied value and incrementing
@@ -145,10 +146,10 @@ void wavelet_to_realspace(
   std::vector<fk::matrix<P>> real_space_transform =
       gen_realspace_transform(pde, transformer);
 
-  /* Assume the degree in the first dimension is equal across all the remaining
-   */
-  int const stride =
-      std::pow(pde.get_dimensions()[0].get_degree(), dims.size());
+  // FIXME Assume the degree in the first dimension is equal across all the
+  // remaining
+  auto const degree = pde.get_dimensions()[0].get_degree();
+  int const stride  = degree * fm::two_raised_to(transformer.max_level);
 
   fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
