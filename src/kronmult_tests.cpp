@@ -16,7 +16,7 @@ static distribution_test_init const distrib_test_info;
 template<typename P>
 void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
 {
-  // assume uniform level and degree across dimensions
+  // assume uniform degree across dimensions
   auto const level  = pde.get_dimensions()[0].get_level();
   auto const degree = pde.get_dimensions()[0].get_degree();
 
@@ -55,7 +55,7 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
   // perform kronmult using ed's library
   std::cout.setstate(std::ios_base::failbit); // shhh...don't print alloc info
   auto const fx =
-      kronmult::execute(pde, table, my_subgrid, workspace_size_MB, x);
+      kronmult::execute(pde, table, o, my_subgrid, workspace_size_MB, x);
   std::cout.clear();
 
   rmse_comparison(gold, fx, tol_factor);

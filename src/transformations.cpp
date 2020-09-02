@@ -137,8 +137,6 @@ void wavelet_to_realspace(
 {
   assert(memory_limit_MB > 0);
 
-  std::vector<dimension<P>> const &dims = pde.get_dimensions();
-
   std::vector<batch_chain<P, resource::host>> chain;
 
   /* generate the wavelet-to-real-space transformation matrices for each
