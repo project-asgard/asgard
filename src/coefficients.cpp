@@ -126,7 +126,7 @@ fk::matrix<P> generate_coefficients(
     auto const x_left  = dim.domain_min + i * grid_spacing;
     auto const x_right = x_left + grid_spacing;
 
-    // get index for current, firs and last element
+    // get index for current, first and last element
     auto const current = dim.get_degree() * i;
     auto const first   = 0;
     auto const last    = dim.get_degree() * (num_points - 1);
@@ -134,7 +134,7 @@ fk::matrix<P> generate_coefficients(
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const quadrature_points_i = [&, quadrature_points =
                                                       quadrature_points]() {
-      fk::vector<P> quadrature_points_copy = quadrature_points;
+      fk::vector<P> quadrature_points_copy(quadrature_points);
       std::transform(
           quadrature_points_copy.begin(), quadrature_points_copy.end(),
           quadrature_points_copy.begin(), [&](P const elem) {
