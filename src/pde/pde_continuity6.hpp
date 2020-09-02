@@ -723,7 +723,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "massY",         // name
-              y_,              // owning dim
               {partial_term_I_});
 
   // term 0
@@ -735,7 +734,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "v_x.d_dx",      // name
-              x_,              // owning dim
               {partial_term_0_x_});
   inline static std::vector<term<P>> const terms0_ = {term0_x_, I_, I_,
                                                       I_,       I_, I_};
@@ -748,7 +746,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "v_y.d_dy",      // name
-              y_,              // owning dim
               {partial_term_1_y_});
   inline static std::vector<term<P>> const terms1_ = {I_, term1_y_, I_,
                                                       I_, I_,       I_};
@@ -761,7 +758,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "v_z.d_dz",      // name
-              z_,              // owning dim
               {partial_term_2_z_});
 
   inline static std::vector<term<P>> const terms2_ = {I_, I_, term2_z_,
@@ -775,7 +771,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "a_x.d_dvx",     // name
-              vx_,             // owning dim
               {partial_term_3_vx_});
 
   inline static std::vector<term<P>> const terms3_ = {I_,        I_, I_,
@@ -789,7 +784,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "a_y.d_dvy",     // name
-              vy_,             // owning dim
               {partial_term_4_vy_});
 
   inline static std::vector<term<P>> const terms4_ = {I_, I_,        I_,
@@ -803,7 +797,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "a_z.d_dvz",     // name
-              vz_,             // owning dim
               {partial_term_5_vz_});
 
   inline static std::vector<term<P>> const terms5_ = {I_, I_, I_,

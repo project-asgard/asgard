@@ -61,12 +61,14 @@ fk::matrix<P> generate_coefficients(
     P const time, bool const rotate)
 {
   assert(time >= 0.0);
+  assert(transformer.degree == dim.get_degree());
+  assert(transformer.max_level >= dim.get_level());
+
   // setup jacobi of variable x and define coeff_mat
+  auto const num_points = fm::two_raised_to(transformer.max_level);
 
-  int const num_points = fm::two_raised_to(dim.get_level());
-
-  double const grid_spacing    = (dim.domain_max - dim.domain_min) / num_points;
-  int const degrees_freedom_1d = dim.get_degree() * num_points;
+  auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_points;
+  auto const degrees_freedom_1d = dim.get_degree() * num_points;
   fk::matrix<P> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
   // get quadrature points and quadrature_weights.
@@ -108,20 +110,26 @@ fk::matrix<P> generate_coefficients(
   auto const jacobi = grid_spacing / 2;
 
   // convert term input data from wavelet space to realspace
-  auto const data      = term_1D.get_data();
-  auto const data_real = transformer.apply(
-      data, dim.get_level(), basis::side::left, basis::transpose::trans);
+  // FIXME during PDE rework, fix term's RAII issues...
+  auto const data =
+      term_1D.get_data().size() > 0
+          ? term_1D.get_data()
+          : fk::vector<P>(std::vector<P>(degrees_freedom_1d, 1.0));
+  assert(data.size() == degrees_freedom_1d);
 
-  for (int i = 0; i < num_points; ++i)
+  auto const data_real = transformer.apply(
+      data, transformer.max_level, basis::side::left, basis::transpose::trans);
+
+  for (auto i = 0; i < num_points; ++i)
   {
     // get left and right locations for this element
     auto const x_left  = dim.domain_min + i * grid_spacing;
     auto const x_right = x_left + grid_spacing;
 
     // get index for current, firs and last element
-    int const current = dim.get_degree() * i;
-    int const first   = 0;
-    int const last    = dim.get_degree() * (num_points - 1);
+    auto const current = dim.get_degree() * i;
+    auto const first   = 0;
+    auto const last    = dim.get_degree() * (num_points - 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const quadrature_points_i = [&, quadrature_points =
@@ -145,7 +153,7 @@ fk::matrix<P> generate_coefficients(
       // get g(x,t,dat)
       // FIXME : add dat as a argument to the G functions
       fk::vector<P> g(quadrature_points_i.size());
-      for (int i = 0; i < quadrature_points_i.size(); ++i)
+      for (auto i = 0; i < quadrature_points_i.size(); ++i)
       {
         g(i) = pterm.g_func(quadrature_points_i(i), time);
       }
@@ -380,9 +388,9 @@ fk::matrix<P> generate_coefficients(
     // coefficients = forward_trans * coefficients * forward_trans_transpose;
 
     coefficients = transformer.apply(
-        transformer.apply(coefficients, dim.get_level(), basis::side::right,
-                          basis::transpose::trans),
-        dim.get_level(), basis::side::left, basis::transpose::no_trans);
+        transformer.apply(coefficients, transformer.max_level,
+                          basis::side::right, basis::transpose::trans),
+        transformer.max_level, basis::side::left, basis::transpose::no_trans);
   }
   return coefficients;
 }

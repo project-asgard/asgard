@@ -82,7 +82,6 @@ private:
       term<P>(true,            // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
-              dim_0,           // owning dim
               {partial_term_0, partial_term_1});
 
   inline static std::vector<term<P>> const terms_0 = {term_0};

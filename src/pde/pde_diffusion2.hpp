@@ -62,14 +62,12 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "massY",         // name
-              dim_0,           // owning dim
               {partial_term_I_});
 
   inline static term<P> const I_1 =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "massY",         // name
-              dim_1,           // owning dim
               {partial_term_I_});
 
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
@@ -104,14 +102,12 @@ private:
       term<P>(true,            // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
-              dim_0,           // owning dim
               {partial_term_0, partial_term_1});
 
   inline static term<P> const term_1 =
       term<P>(true,            // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
-              dim_1,           // owning dim
               {partial_term_0, partial_term_1});
 
   inline static std::vector<term<P>> const terms_0 = {term_0, I_0};

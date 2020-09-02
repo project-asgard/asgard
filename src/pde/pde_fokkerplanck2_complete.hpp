@@ -222,7 +222,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "massY",         // name
-              dim_p,           // owning dim
               {pterm_I});
 
   // termC1 == 1/p^2*d/dp*p^2*Ca*df/dp
@@ -266,7 +265,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C1_p",          // name
-              dim_p,           // owning dim
               {c1_pterm1, c1_pterm2, c1_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
@@ -302,7 +300,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C2_p",          // name
-              dim_p,           // owning dim
               {c2_pterm1, c2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
@@ -351,13 +348,11 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C3_p",          // name
-              dim_p,           // owning dim
               {c3_pterm1});
   inline static term<P> const c3_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C3_z",          // name
-              dim_p,           // owning dim
               {c3_pterm2, c3_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
@@ -402,13 +397,11 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "E1_p",          // name
-              dim_p,           // owning dim
               {e1_pterm2, e1_pterm3});
   inline static term<P> const e1_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "E1_z",          // name
-              dim_p,           // owning dim
               {e1_pterm1});
 
   // 3. combine single dimension terms into multi dimension term
@@ -442,13 +435,11 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "E2_p",          // name
-              dim_p,           // owning dim
               {e2_pterm1});
   inline static term<P> const e2_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "E2_z",          // name
-              dim_p,           // owning dim
               {e2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
@@ -496,13 +487,11 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "R1_p",          // name
-              dim_p,           // owning dim
               {r1_pterm1, r1_pterm2});
   inline static term<P> const r1_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "R1_z",          // name
-              dim_p,           // owning dim
               {r1_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
@@ -540,13 +529,11 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "R2_p",          // name
-              dim_p,           // owning dim
               {r2_pterm1});
   inline static term<P> const r2_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "R2_z",          // name
-              dim_p,           // owning dim
               {r2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term

@@ -17,10 +17,13 @@
 #include "../matlab_utilities.hpp"
 #include "../program_options.hpp"
 #include "../tensors.hpp"
+
 //
 // This file contains all of the interface and object definitions for our
 // representation of a PDE
 //
+// FIXME we plan a major rework of this component in the future
+// for RAII compliance and readability
 
 // same pi used by matlab
 static double const PI = 3.141592653589793;
@@ -213,41 +216,24 @@ class term
 
 public:
   term(bool const time_dependent, fk::vector<P> const data,
-       std::string const name, dimension<P> const owning_dim,
+       std::string const name,
        std::initializer_list<partial_term<P>> const partial_terms)
-      : time_dependent(time_dependent), name(name), owning_dim(owning_dim),
+      : time_dependent(time_dependent), name(name),
         partial_terms(partial_terms), data_(data)
 
-  {
-    set_data(owning_dim, data);
-    set_coefficients(owning_dim, eye<P>(degrees_freedom(owning_dim)));
-  }
+  {}
 
-  void set_data(dimension<P> const &owning_dim, fk::vector<P> const &data)
+  void set_data(fk::vector<P> const &data)
   {
-    int const degrees_freedom_1d = degrees_freedom(owning_dim);
-    if (data.size() != 0)
-    {
-      assert(data.size() == degrees_freedom_1d);
-      data_ = data;
-    }
-    else
-    {
-      this->data_.resize(degrees_freedom_1d);
-      this->data_ = fk::vector<P>(std::vector<P>(degrees_freedom_1d, 1.0));
-    }
+    this->data_.resize(data.size()) = data;
   }
 
   fk::vector<P> get_data() const { return data_; };
 
-  void set_coefficients(dimension<P> const &owning_dim,
-                        fk::matrix<P> const &new_coefficients)
+  void set_coefficients(fk::matrix<P> const &new_coefficients)
   {
-    int const degrees_freedom_1d = degrees_freedom(owning_dim);
-    assert(degrees_freedom_1d == new_coefficients.nrows());
-    assert(degrees_freedom_1d == new_coefficients.ncols());
-    this->coefficients_.clear_and_resize(degrees_freedom_1d,
-                                         degrees_freedom_1d) =
+    this->coefficients_.clear_and_resize(new_coefficients.nrows(),
+                                         new_coefficients.ncols()) =
         new_coefficients.clone_onto_device();
   }
 
@@ -264,12 +250,6 @@ public:
     return coefficients_;
   }
 
-  // small helper to return degrees of freedom given dimension
-  int degrees_freedom(dimension<P> const &d) const
-  {
-    return d.get_degree() * static_cast<int>(std::pow(2, d.get_level()));
-  }
-
   std::vector<partial_term<P>> const &get_partial_terms() const
   {
     return partial_terms;
@@ -278,7 +258,6 @@ public:
   // public but const data. no getters
   bool const time_dependent;
   std::string const name;
-  dimension<P> const owning_dim;
 
 private:
   std::vector<partial_term<P>> partial_terms;
@@ -289,11 +268,6 @@ private:
   // initialized to one if not provided at instantiation, which performs an
   // identity operation where this is used, until set by outside source.
   fk::vector<P> data_;
-
-  // scale the jump operator in coefficient construction by this amount,
-  // determined by flux type. 0 or 1 for central or upwind, respectively,
-  // and df/du for lax freidrich. should not be set after construction for
-  // central or upwind.
 
   // operator matrix for this term at a single dimension
   fk::matrix<P, mem_type::owner, resource::device> coefficients_;
@@ -422,20 +396,8 @@ public:
       }
     }
 
-    for (std::vector<term<P>> &term_list : terms_)
-    {
-      // positive, bounded size - safe compare
-      for (int i = 0; i < static_cast<int>(term_list.size()); ++i)
-      {
-        term_list[i].set_data(dimensions_[i], fk::vector<P>());
-        term_list[i].set_coefficients(
-            dimensions_[i],
-            eye<P>(term_list[i].degrees_freedom(dimensions_[i])));
-      }
-    }
-
     // check all dimensions
-    for (dimension<P> const d : dimensions_)
+    for (auto const &d : dimensions_)
     {
       assert(d.get_degree() > 0);
       assert(d.get_level() > 1);
@@ -443,7 +405,7 @@ public:
     }
 
     // check all sources
-    for (source<P> const s : this->sources)
+    for (auto const &s : sources)
     {
       assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
     }
@@ -498,7 +460,7 @@ public:
     assert(term < num_terms);
     assert(dim >= 0);
     assert(dim < num_dims);
-    terms_[term][dim].set_coefficients(dimensions_[dim], coeffs);
+    terms_[term][dim].set_coefficients(coeffs);
   }
 
   void set_partial_coefficients(int const term, int const dim, int const pterm,
