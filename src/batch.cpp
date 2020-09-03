@@ -344,13 +344,6 @@ batch_chain<P, resrc, method>::batch_chain(
 
   /* ensure "x" is correct size - should be the product of all the matrices
      respective number of columns */
-  std::cout << x.size() << '\n';
-
-  std::cout << std::accumulate(
-                   matrices.begin(), matrices.end(), 1,
-                   [](int const i, auto const &m) { return i * m.ncols(); })
-            << '\n';
-  std::cout << matrices.size() << '\n';
   assert(x.size() == std::accumulate(matrices.begin(), matrices.end(), 1,
                                      [](int const i, auto const &m) {
                                        return i * m.ncols();

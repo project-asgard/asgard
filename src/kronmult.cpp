@@ -82,8 +82,6 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   // room for anything else in device workspace
   auto const remaining_rank_MB =
       rank_size_MB - coefficients_size_MB - table_size_MB - xy_space_MB;
-  std::cout << "RANK: " << rank_size_MB << '\n';
-  std::cout << "COEFF: " << coefficients_size_MB << '\n';
 
   assert(remaining_rank_MB > space_per_elem * 4);
 
@@ -297,6 +295,12 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
       degree *
       fm::two_raised_to(
           program_opts.max_level); // leading dimension of coefficient matrices
+  auto const real_size = degree * fm::two_raised_to(pde.get_dimensions()[0].get_level());
+  auto const coeff = pde.get_coefficients(0,0).clone_onto_host();
+  fk::matrix<P, mem_type::const_view> const blah(coeff, 0, real_size - 1, 0, real_size - 1);
+  blah.print();
+  std::cout << lda << '\n';
+  std::cout << pde.get_coefficients(0,0).nrows() << '\n';
   fk::vector<P *> const operators = [&pde, lda] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
@@ -304,7 +308,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
       for (int j = 0; j < pde.num_dims; ++j)
       {
         builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
-        assert(pde.get_coefficients(i, j).nrows() <= lda);
+        assert(pde.get_coefficients(i, j).nrows() == lda);
       }
     }
     return builder;
