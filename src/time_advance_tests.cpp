@@ -43,8 +43,7 @@ void time_advance_test(parser const &parse, std::string const &filepath,
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
 
-  basis::wavelet_transform<P, resource::host> const transformer(
-      parse.get_max_level(), parse.get_degree());
+  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
 
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
@@ -104,9 +103,9 @@ void time_advance_test(parser const &parse, std::string const &filepath,
     else
     {
       auto const workspace_limit_MB = 4000;
-      f_val =
-          explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, workspace_limit_MB, time);
+      f_val = explicit_time_advance(*pde, table, opts, initial_sources,
+                                    unscaled_parts, f_val, plan,
+                                    workspace_limit_MB, time);
     }
 
     std::cout.clear();

@@ -145,25 +145,25 @@ void wavelet_to_realspace(
       gen_realspace_transform(pde, transformer);
 
   // FIXME Assume the degree in the first dimension is equal across all the
-  // remaining
+  // remaining dimensions
   auto const degree = pde.get_dimensions()[0].get_degree();
-  int const stride  = degree * fm::two_raised_to(transformer.max_level);
+  auto const stride = degree * fm::two_raised_to(pde.num_dims);
 
   fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
       accumulator);
 
-  for (int i = 0; i < table.size(); i++)
+  for (auto i = 0; i < table.size(); i++)
   {
     std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
     kron_matrices.reserve(pde.num_dims);
-    fk::vector<int> const coords = table.get_coords(i);
+    auto const coords = table.get_coords(i);
 
-    for (int j = 0; j < pde.num_dims; j++)
+    for (auto j = 0; j < pde.num_dims; j++)
     {
-      int const id =
+      auto const id =
           elements::get_1d_index(coords(j), coords(j + pde.num_dims));
-      int const degree = pde.get_dimensions()[j].get_degree();
+      auto const degree = pde.get_dimensions()[j].get_degree();
       fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
           id * degree, (id + 1) * degree - 1);

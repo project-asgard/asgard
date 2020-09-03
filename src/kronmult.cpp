@@ -82,6 +82,9 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   // room for anything else in device workspace
   auto const remaining_rank_MB =
       rank_size_MB - coefficients_size_MB - table_size_MB - xy_space_MB;
+  std::cout << "RANK: " << rank_size_MB << '\n';
+  std::cout << "COEFF: " << coefficients_size_MB << '\n';
+
   assert(remaining_rank_MB > space_per_elem * 4);
 
   // determine number of subgrids

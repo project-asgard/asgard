@@ -432,15 +432,14 @@ operator_two_scale(int const degree, int const num_levels);
 
 namespace basis
 {
+// FIXME assumes same degree for all dimensions
 template<typename P, resource resrc>
-wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
-                                               int const degree,
+wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
+                                               PDE<P> const &pde,
                                                bool const quiet)
-    : max_level(max_level), degree(degree), dense_blocks_(max_level * 2)
+    : max_level(program_opts.max_level),
+      degree(pde.get_dimensions()[0].get_degree()), dense_blocks_(max_level * 2)
 {
-  assert(max_level > 1);
-  assert(degree > 0);
-
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until
   // c++20)

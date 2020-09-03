@@ -21,13 +21,14 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
   auto const degree = pde.get_dimensions()[0].get_degree();
 
   // setup problem
-  std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
-                                         std::to_string(degree)};
+  std::vector<std::string> const args = {"-l", std::to_string(level),
+                                         "-d", std::to_string(degree),
+                                         "-m", std::to_string(level)};
 
   options const o = make_options(args);
   elements::table const table(o, pde);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
-  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  basis::wavelet_transform<P, resource::host> const transformer(o, pde);
   generate_all_coefficients(pde, transformer);
 
   // setup x vector

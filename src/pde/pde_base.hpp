@@ -12,7 +12,6 @@
 #include <typeinfo>
 #include <vector>
 
-#include "../basis.hpp"
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
 #include "../program_options.hpp"

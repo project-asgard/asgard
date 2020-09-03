@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "program_options.hpp"
+#include "quadrature.hpp"
 
 #include "pde/pde_base.hpp"
 #include "pde/pde_continuity1.hpp"

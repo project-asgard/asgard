@@ -8,22 +8,25 @@ template<typename P>
 void test_coefficients(PDE<P> &pde, std::string const gold_path,
                        P const tol_factor = 1e-15, bool const rotate = true)
 {
-  // FIXME assume uniform level and degree
-  dimension<P> const &d = pde.get_dimensions()[0];
-  int const level       = d.get_level();
-  int const degree      = d.get_degree();
+  // FIXME this test assumes uniform level and degree
+  auto const &d     = pde.get_dimensions()[0];
+  auto const level  = d.get_level();
+  auto const degree = d.get_degree();
 
-  std::string const filename_base = gold_path + "_l" + std::to_string(level) +
-                                    "_d" + std::to_string(degree) + "_";
+  auto const filename_base = gold_path + "_l" + std::to_string(level) + "_d" +
+                             std::to_string(degree) + "_";
 
   P const time = 1.0;
 
-  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  auto const opts =
+      make_options({"-d", std::to_string(degree), "-l", std::to_string(level),
+                    "-m", std::to_string(level)});
+  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   generate_all_coefficients(pde, transformer, time, rotate);
 
-  for (int t = 0; t < pde.num_terms; ++t)
+  for (auto t = 0; t < pde.num_terms; ++t)
   {
-    for (int d = 0; d < pde.num_dims; ++d)
+    for (auto d = 0; d < pde.num_dims; ++d)
     {
       std::string const filename = filename_base + std::to_string(t + 1) + "_" +
                                    std::to_string(d + 1) + ".dat";

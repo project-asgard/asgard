@@ -96,8 +96,8 @@ int main(int argc, char **argv)
 
   node_out() << "  generating: basis operator..." << '\n';
   bool const quiet = false;
-  basis::wavelet_transform<prec, resource::host> const transformer(
-      opts.max_level, degree, quiet);
+  basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde,
+                                                                   quiet);
 
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);

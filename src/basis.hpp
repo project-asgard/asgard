@@ -1,5 +1,6 @@
 #pragma once
-
+#include "pde.hpp"
+#include "program_options.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
 #include <algorithm>
@@ -31,7 +32,7 @@ template<typename P, resource resrc>
 class wavelet_transform
 {
 public:
-  wavelet_transform(int const max_level, int const degree,
+  wavelet_transform(options const &program_opts, PDE<P> const &pde,
                     bool const quiet = true);
 
   // apply the fmwt matrix to coefficients
