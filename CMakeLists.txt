@@ -130,7 +130,6 @@ set (components
   distribution
   elements
   fast_math
-  chunk
   kronmult
   lib_dispatch
   matlab_utilities
@@ -170,7 +169,7 @@ endif ()
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients chunk elements pde tensors)
+target_link_libraries (batch PRIVATE lib_dispatch coefficients elements pde tensors)
 
 target_link_libraries (boundary_conditions PRIVATE coefficients elements transformations
                        matlab_utilities fast_math )
@@ -181,8 +180,6 @@ endif ()
 
 target_link_libraries (coefficients
   PRIVATE pde matlab_utilities quadrature tensors transformations)
-
-target_link_libraries(chunk PRIVATE distribution elements fast_math pde)
 
 target_link_libraries(distribution PRIVATE elements lib_dispatch)
 if (ASGARD_USE_MPI)
@@ -310,15 +307,11 @@ if (ASGARD_BUILD_TESTS)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
+    
     # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
-
-    if ("${component}" STREQUAL "chunk")
-      target_link_libraries (chunk-tests PRIVATE batch)
-    endif ()
-
 
     if (ASGARD_USE_MPI)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)

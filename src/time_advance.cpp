@@ -161,7 +161,6 @@ implicit_time_advance(PDE<P> const &pde, elements::table const &table,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
-                      std::vector<element_chunk> const &chunks,
                       distribution_plan const &plan, P const time,
                       solve_opts const solver, bool const update_system)
 {
@@ -198,10 +197,7 @@ implicit_time_advance(PDE<P> const &pde, elements::table const &table,
     first_time = false;
 
     A.clear_and_resize(A_size, A_size);
-    for (auto const &chunk : chunks)
-    {
-      build_system_matrix(pde, table, chunk, A);
-    }
+    build_system_matrix(pde, table, A);
 
     // AA = I - dt*A;
     for (int i = 0; i < A.nrows(); ++i)
@@ -264,14 +260,12 @@ template fk::vector<double> implicit_time_advance(
     PDE<double> const &pde, elements::table const &table,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    fk::vector<double> const &host_space,
-    std::vector<element_chunk> const &chunks, distribution_plan const &plan,
+    fk::vector<double> const &host_space, distribution_plan const &plan,
     double const time, solve_opts const solver, bool const update_system);
 
 template fk::vector<float> implicit_time_advance(
     PDE<float> const &pde, elements::table const &table,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    fk::vector<float> const &x, std::vector<element_chunk> const &chunks,
-    distribution_plan const &plan, float const time, solve_opts const solver,
-    bool const update_system);
+    fk::vector<float> const &x, distribution_plan const &plan, float const time,
+    solve_opts const solver, bool const update_system);

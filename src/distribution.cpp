@@ -5,7 +5,6 @@
 #include <csignal>
 #include <numeric>
 
-#include "chunk.hpp"
 #include "lib_dispatch.hpp"
 
 #ifdef ASGARD_USE_MPI
