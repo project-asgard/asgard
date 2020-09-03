@@ -1,5 +1,4 @@
 #include "build_info.hpp"
-#include "chunk.hpp"
 #include "coefficients.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -86,11 +85,6 @@ void time_advance_test(parser const &parse, std::string const &filepath,
       boundary_conditions::make_unscaled_bc_parts(
           *pde, table, transformer, subgrid.row_start, subgrid.row_stop);
 
-  // -- prep workspace/chunks
-  int const workspace_limit_MB            = 4000;
-  std::vector<element_chunk> const chunks = assign_elements(
-      subgrid, get_num_chunks(subgrid, *pde, workspace_limit_MB));
-
   fk::vector<P> f_val(initial_condition);
 
   // -- time loop
@@ -102,14 +96,14 @@ void time_advance_test(parser const &parse, std::string const &filepath,
 
     if (parse.using_implicit())
     {
-      f_val = implicit_time_advance(*pde, table, initial_sources,
-                                    unscaled_parts, f_val, chunks, plan, time,
-                                    parse.get_selected_solver());
+      f_val =
+          implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
+                                f_val, plan, time, parse.get_selected_solver());
     }
 
     else
     {
-      int const workspace_limit_MB = 4000;
+      auto const workspace_limit_MB = 4000;
       f_val =
           explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
                                 f_val, plan, workspace_limit_MB, time);

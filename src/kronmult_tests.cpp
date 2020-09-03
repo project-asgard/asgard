@@ -1,5 +1,4 @@
 #include "batch.hpp"
-#include "chunk.hpp"
 #include "coefficients.cpp"
 #include "kronmult.hpp"
 #include "tests_general.hpp"
@@ -49,17 +48,7 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
   fk::vector<P> const gold = [&pde, &table, x, elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
-
-    element_chunk const chunk = [&table]() {
-      element_chunk chunk;
-      for (int i = 0; i < table.size(); ++i)
-      {
-        chunk.insert({i, grid_limits(0, table.size() - 1)});
-      }
-      return chunk;
-    }();
-
-    build_system_matrix(pde, table, chunk, A);
+    build_system_matrix(pde, table, A);
     return A * x;
   }();
 

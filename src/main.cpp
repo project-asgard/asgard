@@ -1,7 +1,6 @@
 #include "batch.hpp"
 
 #include "build_info.hpp"
-#include "chunk.hpp"
 #include "coefficients.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
@@ -184,10 +183,6 @@ int main(int argc, char **argv)
   /* RAM on fusiont5 */
   static int const default_workspace_cpu_MB = 187000;
 
-  // FIXME DELETE --
-  std::vector<element_chunk> const chunks = assign_elements(
-      subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
-
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
 
@@ -232,9 +227,9 @@ int main(int argc, char **argv)
       bool const update_system = i == 0;
 
       auto const time_id = timer::record.start("implicit_time_advance");
-      f_val              = implicit_time_advance(*pde, table, initial_sources,
-                                    unscaled_parts, f_val, chunks, plan, time,
-                                    opts.solver, update_system);
+      f_val =
+          implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
+                                f_val, plan, time, opts.solver, update_system);
       timer::record.stop(time_id);
     }
     else

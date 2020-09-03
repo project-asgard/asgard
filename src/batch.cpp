@@ -3,7 +3,6 @@
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
-#include "chunk.hpp"
 #include "elements.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
@@ -302,91 +301,34 @@ void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
                              resrc);
 }
 
-// helpers for calculating 1d indices for elements
+// Problem solved by batch_chain class:
 
-// performant (no-alloc) version
-inline void linearize(fk::vector<int> const &coords, int output[])
-{
-  int const output_size = coords.size() / 2;
-  for (int i = 0; i < output_size; ++i)
-  {
-    output[i] = elements::get_1d_index(coords(i), coords(i + output_size));
-  }
-}
+// perform one or many (A1 kron A2 ... kron An) * x via constructing pointer
+// lists to small gemms and invoking BLAS
 
-// "safe" version
-inline fk::vector<int> linearize(fk::vector<int> const &coords)
-{
-  fk::vector<int> linear(coords.size() / 2);
-  for (int i = 0; i < linear.size(); ++i)
-  {
-    linear(i) = elements::get_1d_index(coords(i), coords(i + linear.size()));
-  }
-  return linear;
-}
+// Realspace Transform
 
-// helpers for converting linear coordinates into operator matrix indices
+// For a list of "n" matrices in "matrix" parameter, this constructor
+// will prepare "n" rounds of batched matrix multiplications. The output of
+// each round becomes the input of the next round. Two workspaces are thus
+// sufficient, if each of them is as large as the largest output from any round.
+// This function calculates the largest output of any round.
 
-// performant (no-alloc) version
-template<typename P>
-inline void
-linear_coords_to_indices(PDE<P> const &pde, int const degree, int coords[])
-{
-  for (int d = 0; d < pde.num_dims; ++d)
-  {
-    coords[d] = coords[d] * degree;
-  }
-}
+// For a Kronecker product m0 * m1 * m2 * x = m3:
+// matrix ~ ( rows, columns )
+// m0 ~ (a, b)
+// m1 ~ ( c, d )
+// m2 ~ ( e, f )
+// m3 ~ ( g, h )
+// x ~ ( b*d*f*h, 1 )
+// m3 ~ ( a*c*e*g, 1 )
 
-// "safe" version
-template<typename P>
-inline fk::vector<int>
-linear_coords_to_indices(PDE<P> const &pde, int const degree,
-                         fk::vector<int> const &coords)
-{
-  fk::vector<int> indices(coords.size());
-  for (int d = 0; d < pde.num_dims; ++d)
-  {
-    indices(d) = coords(d) * degree;
-  }
-  return indices;
-}
-
-/*
-
-Problem solved by batch_chain class:
-
-perform one or many (A1 kron A2 ... kron An) * x via constructing pointer lists
-to small gemms and invoking BLAS
-
-*/
-
-/*
-
-Realspace Transform
-
-For a list of "n" matrices in "matrix" parameter, this constructor
-will prepare "n" rounds of batched matrix multiplications. The output of
-each round becomes the input of the next round. Two workspaces are thus
-sufficient, if each of them is as large as the largest output from any round.
-This function calculates the largest output of any round.
-
-For a Kronecker product m0 * m1 * m2 * x = m3:
-matrix ~ ( rows, columns )
-m0 ~ (a, b)
-m1 ~ ( c, d )
-m2 ~ ( e, f )
-m3 ~ ( g, h )
-x ~ ( b*d*f*h, 1 )
-m3 ~ ( a*c*e*g, 1 )
-
-Algorithm completes in 3 rounds.
-Initial space needed: size of "x" vector: b*d*f*h
-Round 0 output size: b*d*f*g
-Round 1 output size: b*d*e*g
-Round 2 output size: b*c*e*g
-Round 3 ourput size: a*c*e*g
-*/
+// Algorithm completes in 3 rounds.
+// Initial space needed: size of "x" vector: b*d*f*h
+// Round 0 output size: b*d*f*g
+// Round 1 output size: b*d*e*g
+// Round 2 output size: b*c*e*g
+// Round 3 ourput size: a*c*e*g
 
 template<typename P, resource resrc, chain_method method>
 template<chain_method, typename>
@@ -542,198 +484,6 @@ batch_chain<P, resrc, method>::batch_chain(
 }
 
 template<typename P, resource resrc, chain_method method>
-template<chain_method, typename>
-batch_chain<P, resrc, method>::batch_chain(
-    PDE<P> const &pde, elements::table const &elem_table,
-    batch_workspace<P, resrc> const &workspace, element_subgrid const &subgrid,
-    element_chunk const &chunk)
-{
-  // 1 -- allocate batches
-  int const num_elems = num_elements_in_chunk(chunk);
-
-  // FIXME code relies on uniform degree across dimensions
-  int const degree = pde.get_dimensions()[0].get_degree();
-
-  // add the first (lowest dimension) batch
-  bool const do_trans         = false;
-  int const num_gemms         = pde.num_terms * num_elems;
-  matrix_size_set const sizes = compute_dimensions(degree, pde.num_dims, 0);
-
-  // get stride of first coefficient matrix in 0th term set.
-  // note all the coefficient matrices for each term have the
-  // same dimensions
-  int const stride = pde.get_coefficients(0, 0).stride();
-
-  left_.emplace_back(std::move(batch<P, resrc>(
-      num_gemms, sizes.rows_a, sizes.cols_a, stride, do_trans)));
-  right_.emplace_back(std::move(batch<P, resrc>(
-      num_gemms, sizes.rows_b, sizes.cols_b, sizes.rows_b, do_trans)));
-  product_.emplace_back(std::move(batch<P, resrc>(
-      num_gemms, sizes.rows_a, sizes.cols_b, sizes.rows_a, false)));
-
-  // remaining batches
-  for (int i = 1; i < pde.num_dims; ++i)
-  {
-    int const num_gemms =
-        compute_batch_size(degree, pde.num_dims, i) * pde.num_terms * num_elems;
-    matrix_size_set const sizes = compute_dimensions(degree, pde.num_dims, i);
-    bool const trans_a          = false;
-    bool const trans_b          = true;
-
-    int const stride = pde.get_coefficients(0, i).stride();
-
-    left_.emplace_back(std::move(batch<P, resrc>(
-        num_gemms, sizes.rows_a, sizes.cols_a, sizes.rows_a, trans_a)));
-    right_.emplace_back(std::move(batch<P, resrc>(
-        num_gemms, sizes.rows_b, sizes.cols_b, stride, trans_b)));
-    product_.emplace_back(std::move(batch<P, resrc>(
-        num_gemms, sizes.rows_a, sizes.rows_b, sizes.rows_a, false)));
-  }
-
-  // 2 -- populate
-
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-
-  auto const x_size = (subgrid.col_stop - subgrid.col_start + 1) *
-                      static_cast<int64_t>(elem_size);
-  assert(workspace.input.size() >= x_size);
-
-  int const elements_in_chunk = num_elements_in_chunk(chunk);
-
-  // this can be smaller w/ atomic batched gemm e.g. ed's modified magma
-  assert(workspace.reduction_space.size() >=
-         (elem_size * elements_in_chunk * pde.num_terms));
-
-  // intermediate workspaces for kron product.
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  assert(workspace.kron_intermediate.size() ==
-         workspace.reduction_space.size() * num_workspaces);
-
-  int const max_connected       = max_connected_in_chunk(chunk);
-  int const max_items_to_reduce = pde.num_terms * max_connected;
-  assert(workspace.get_unit_vector().size() >= max_items_to_reduce);
-
-  // here we map integers 0->chunk_size-1 to row_0->row_last in the chunk
-  // we could iterate over the chunk (which is a map rows->connected)
-  // but openmp requires traditional loop, not foreachs
-  std::vector<int> const index_to_key = [&chunk]() {
-    std::vector<int> builder;
-    for (auto const &[i, connected] : chunk)
-    {
-      builder.push_back(i);
-      ignore(connected);
-    }
-    return builder;
-  }();
-
-// loop over elements
-#ifdef ASGARD_USE_OPENMP
-  int const threads = omp_get_num_procs();
-#pragma omp parallel for num_threads(threads)
-#endif
-  for (int chunk_num = 0; chunk_num < static_cast<int>(chunk.size());
-       ++chunk_num)
-  {
-    // allocate on thread stack
-    static int constexpr max_dims       = 6;
-    static int constexpr max_workspaces = 2;
-    int operator_row[max_dims];
-    int operator_col[max_dims];
-    P *workspace_ptrs[max_workspaces];
-    P *operator_ptrs[max_dims];
-
-    // i: row we are addressing in element grid
-    int const i = index_to_key[chunk_num];
-    // connected: start/stop grid elements for this row
-    auto const connected = chunk.at(i);
-
-    // first, get linearized indices for this element
-    //
-    // calculate from the level/cell indices for each
-    // dimension
-    fk::vector<int> const &coords = elem_table.get_coords(i);
-    assert(coords.size() == pde.num_dims * 2);
-
-    linearize(coords, operator_row);
-
-    // calculate the row portion of the
-    // operator position used for this
-    // element's gemm calls
-    linear_coords_to_indices(pde, degree, operator_row);
-
-    // calculate number of elements in previous rows
-    // for later indexing in term (k) loop
-    int const prev_row_elems = [i = i, &chunk] {
-      if (i == chunk.begin()->first)
-      {
-        return 0;
-      }
-      int prev_elems = 0;
-      for (int r = chunk.begin()->first; r < i; ++r)
-      {
-        prev_elems += chunk.at(r).stop - chunk.at(r).start + 1;
-      }
-      return prev_elems;
-    }();
-
-    // loop over connected elements. for now, we assume
-    // full connectivity
-    for (int j = connected.start; j <= connected.stop; ++j)
-    {
-      // get linearized indices for this connected element
-      fk::vector<int> const &coords = elem_table.get_coords(j);
-      assert(coords.size() == pde.num_dims * 2);
-
-      linearize(coords, operator_col);
-
-      // calculate the col portion of the
-      // operator position used for this
-      // element's gemm calls
-      linear_coords_to_indices(pde, degree, operator_col);
-
-      for (int k = 0; k < pde.num_terms; ++k)
-      {
-        // term major y-space layout, followed by connected items, finally work
-        // items.
-        int const total_prev_elems = prev_row_elems + j - connected.start;
-        int const kron_index       = k + total_prev_elems * pde.num_terms;
-
-        // y space, where kron outputs are written
-        int const y_index = elem_size * kron_index;
-        P *const y_ptr    = workspace.reduction_space.data() + y_index;
-
-        // work space, intermediate kron data
-        auto const work_index = static_cast<int64_t>(elem_size) * kron_index *
-                                std::min(pde.num_dims - 1, 2);
-
-        if (num_workspaces > 0)
-          workspace_ptrs[0] = workspace.kron_intermediate.data() + work_index;
-        if (num_workspaces == 2)
-          workspace_ptrs[1] =
-              workspace.kron_intermediate.data() + work_index + elem_size;
-
-        // index into operator matrices
-        for (int d = pde.num_dims - 1; d >= 0; --d)
-        {
-          operator_ptrs[(pde.num_dims - 1) - d] =
-              pde.get_coefficients(k, d).data() + operator_row[d] +
-              operator_col[d] * pde.get_coefficients(k, d).stride();
-        }
-
-        // determine the index for the input vector
-        int const x_index = subgrid.to_local_col(j) * elem_size;
-
-        // x vector input to kronmult
-        P *const x_ptr = workspace.input.data() + x_index;
-
-        kronmult_to_batch_sets(operator_ptrs, x_ptr, y_ptr, workspace_ptrs,
-                               kron_index, pde);
-      }
-    }
-  }
-}
-
-template<typename P, resource resrc, chain_method method>
 void batch_chain<P, resrc, method>::execute() const
 {
   assert(left_.size() == right_.size());
@@ -747,84 +497,27 @@ void batch_chain<P, resrc, method>::execute() const
   return;
 }
 
-// function to transform a single kronecker product * vector into a
-// series of batched gemm calls, where the kronecker product is
-// tensor encoded in the view vector A. x is the input vector; y is the output
-// vector. work is a vector of vectors (max size 2), each of which is the same
-// size as y. these store intermediate kron products - lower dimensional outputs
-// are higher dimensional inputs.
-//
-//
-// on entry the batches argument contains empty (pre-allocated) pointer lists
-// that this function will populate to perform the above operation
-
-// unsafe version; uses raw pointers rather than views as view construction
-// destruction incurred significant runtime expense (alloc sync in parallel
-// loop)
-
-template<typename P, resource resrc, chain_method method>
-template<chain_method, typename>
-void batch_chain<P, resrc, method>::kronmult_to_batch_sets(
-    P *const *const A, P *const x, P *const y, P *const *const work,
-    int const batch_offset, PDE<P> const &pde)
+// helpers for converting linear coordinates into operator matrix indices
+inline fk::vector<int> linearize(fk::vector<int> const &coords)
 {
-  // FIXME when we allow varying degree by dimension, all
-  // this code will have to change...
-  int const degree = pde.get_dimensions()[0].get_degree();
-
-  // batch offset describes the ordinal position of the
-  // connected element we are on - should be non-negative
-  assert(batch_offset >= 0);
-
-  // first, enqueue gemms for the lowest dimension
-  left_[0].assign_raw(A[0], batch_offset);
-  right_[0].assign_raw(x, batch_offset);
-
-  // in a single dimensional PDE, we have to write lowest-dimension output
-  // directly into the output vector
-  if (pde.num_dims == 1)
+  fk::vector<int> linear(coords.size() / 2);
+  for (int i = 0; i < linear.size(); ++i)
   {
-    product_[0].assign_raw(y, batch_offset);
-    return;
+    linear(i) = elements::get_1d_index(coords(i), coords(i + linear.size()));
   }
-
-  // otherwise, we write into a work vector to serve as input for next-highest
-  // dimension
-  product_[0].assign_raw(work[0], batch_offset);
-
-  // loop over intermediate dimensions, enqueueing gemms
-  for (int dimension = 1; dimension < pde.num_dims - 1; ++dimension)
+  return linear;
+}
+template<typename P>
+inline fk::vector<int>
+linear_coords_to_indices(PDE<P> const &pde, int const degree,
+                         fk::vector<int> const &coords)
+{
+  fk::vector<int> indices(coords.size());
+  for (int d = 0; d < pde.num_dims; ++d)
   {
-    // determine a and b matrix sizes at this dimension for all gemms
-    matrix_size_set const sizes =
-        compute_dimensions(degree, pde.num_dims, dimension);
-    // determine how many gemms we will enqueue for this dimension
-    int const num_gemms = compute_batch_size(degree, pde.num_dims, dimension);
-    int const offset    = sizes.rows_a * sizes.cols_a;
-    assert((offset * num_gemms) ==
-           static_cast<int>(std::pow(degree, pde.num_dims)));
-
-    // loop over gemms for this dimension and enqueue
-    for (int gemm = 0; gemm < num_gemms; ++gemm)
-    {
-      // the modulus here is to alternate input/output workspaces per dimension
-
-      P *const x_ptr = work[(dimension - 1) % 2] + offset * gemm;
-      left_[dimension].assign_raw(x_ptr, batch_offset * num_gemms + gemm);
-
-      right_[dimension].assign_raw(A[dimension],
-                                   batch_offset * num_gemms + gemm);
-
-      P *const work_ptr = work[dimension % 2] + offset * gemm;
-      product_[dimension].assign_raw(work_ptr, batch_offset * num_gemms + gemm);
-    }
+    indices(d) = coords(d) * degree;
   }
-
-  // enqueue gemms for the highest dimension
-  P *const x_ptr = work[pde.num_dims % 2];
-  left_[pde.num_dims - 1].assign_raw(x_ptr, batch_offset);
-  right_[pde.num_dims - 1].assign_raw(A[pde.num_dims - 1], batch_offset);
-  product_[pde.num_dims - 1].assign_raw(y, batch_offset);
+  return indices;
 }
 
 // function to allocate and build implicit system.
@@ -833,7 +526,7 @@ void batch_chain<P, resrc, method>::kronmult_to_batch_sets(
 // routines with explicit time advance
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
-                         element_chunk const &chunk, fk::matrix<P> &A)
+                         fk::matrix<P> &A)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
@@ -847,7 +540,8 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
   std::map<key_type, val_type> coef_cache;
 
   assert(A.ncols() == A_size && A.nrows() == A_size);
-  // Copy coefficients to host for subsequent use
+
+  // copy coefficients to host for subsequent use
   for (int k = 0; k < pde.num_terms; ++k)
   {
     for (int d = 0; d < pde.num_dims; d++)
@@ -858,8 +552,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
   }
 
   // loop over elements
-  // FIXME eventually want to do this in parallel
-  for (auto const &[i, connected] : chunk)
+  for (auto i = 0; i < elem_table.size(); ++i)
   {
     // first, get linearized indices for this element
     //
@@ -879,7 +572,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
 
     // loop over connected elements. for now, we assume
     // full connectivity
-    for (int j = connected.start; j <= connected.stop; ++j)
+    for (int j = 0; j < elem_table.size(); ++j)
     {
       // get linearized indices for this connected element
       fk::vector<int> const coords_nD = elem_table.get_coords(j);
@@ -921,68 +614,6 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
       }
     }
   }
-}
-
-template<typename P, resource resrc>
-batch_workspace<P, resrc>::batch_workspace(
-    PDE<P> const &pde, element_subgrid const &subgrid,
-    std::vector<element_chunk> const &chunks)
-{
-  int const elem_size = element_segment_size(pde);
-
-  // the size of the x vector needed for assigned subgrid
-  auto const x_size = static_cast<int64_t>(subgrid.ncols()) * elem_size;
-  assert(x_size < INT_MAX);
-  input.resize(x_size);
-
-  // the size of the y vector for assigned subgrid
-  auto const y_size = static_cast<int64_t>(subgrid.nrows()) * elem_size;
-  assert(y_size < INT_MAX);
-  output.resize(y_size);
-
-  // reduction space for kron outputs
-  int const max_total = num_elements_in_chunk(*std::max_element(
-      chunks.begin(), chunks.end(),
-      [](element_chunk const &a, element_chunk const &b) {
-        return num_elements_in_chunk(a) < num_elements_in_chunk(b);
-      }));
-
-  reduction_space.resize(elem_size * max_total * pde.num_terms);
-
-  // intermediate workspaces for kron product.
-  int const num_workspaces = std::min(pde.num_dims - 1, 2);
-  kron_intermediate.resize(reduction_space.size() * num_workspaces);
-
-  // unit vector for reduction
-  auto const max_col_limits = columns_in_chunk(*std::max_element(
-      chunks.begin(), chunks.end(),
-      [](element_chunk const &a, element_chunk const &b) {
-        auto const cols_in_a = columns_in_chunk(a);
-        auto const cols_in_b = columns_in_chunk(b);
-        auto const num_a     = cols_in_a.stop - cols_in_a.start + 1;
-        auto const num_b     = cols_in_b.stop - cols_in_b.start + 1;
-        return num_a < num_b;
-      }));
-
-  unit_vector_.resize(pde.num_terms * max_col_limits.size());
-  if constexpr (resrc == resource::host)
-  {
-    std::fill(unit_vector_.begin(), unit_vector_.end(), 1.0);
-  }
-  else
-  {
-    fk::vector<P, mem_type::owner, resource::host> unit_vect(
-        unit_vector_.size());
-    std::fill(unit_vect.begin(), unit_vect.end(), 1.0);
-    unit_vector_.transfer_from(unit_vect);
-  }
-}
-
-template<typename P, resource resrc>
-fk::vector<P, mem_type::owner, resrc> const &
-batch_workspace<P, resrc>::get_unit_vector() const
-{
-  return unit_vector_;
 }
 
 template class batch<float>;
@@ -1030,12 +661,6 @@ template void batch<double, resource::device>::assign_entry(
     fk::matrix<double, mem_type::const_view, resource::device> const &a,
     int const position);
 
-template class batch_workspace<float, resource::host>;
-template class batch_workspace<float, resource::device>;
-
-template class batch_workspace<double, resource::host>;
-template class batch_workspace<double, resource::device>;
-
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
                            float const beta);
@@ -1068,12 +693,12 @@ template void batched_gemv(batch<double, resource::host> const &a,
                            batch<double, resource::host> const &c,
                            double const alpha, double const beta);
 
-template void
-build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
-                    element_chunk const &chunk, fk::matrix<double> &A);
-template void
-build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
-                    element_chunk const &chunk, fk::matrix<float> &A);
+template void build_system_matrix(PDE<double> const &pde,
+                                  elements::table const &elem_table,
+                                  fk::matrix<double> &A);
+template void build_system_matrix(PDE<float> const &pde,
+                                  elements::table const &elem_table,
+                                  fk::matrix<float> &A);
 
 template class batch_chain<double, resource::device, chain_method::realspace>;
 template class batch_chain<double, resource::host, chain_method::realspace>;
@@ -1118,43 +743,3 @@ template batch_chain<double, resource::device, chain_method::realspace>::
         std::array<fk::vector<double, mem_type::view, resource::device>, 2>
             &workspace,
         fk::vector<double, mem_type::view, resource::device> &final_output);
-
-template batch_chain<float, resource::device, chain_method::advance>::
-    batch_chain(PDE<float> const &pde, elements::table const &elem_table,
-                batch_workspace<float, resource::device> const &workspace,
-                element_subgrid const &subgrid, element_chunk const &chunk);
-
-template batch_chain<double, resource::device, chain_method::advance>::
-    batch_chain(PDE<double> const &pde, elements::table const &elem_table,
-                batch_workspace<double, resource::device> const &workspace,
-                element_subgrid const &subgrid, element_chunk const &chunk);
-
-template batch_chain<float, resource::host, chain_method::advance>::batch_chain(
-    PDE<float> const &pde, elements::table const &elem_table,
-    batch_workspace<float, resource::host> const &workspace,
-    element_subgrid const &subgrid, element_chunk const &chunk);
-
-template batch_chain<double, resource::host, chain_method::advance>::
-    batch_chain(PDE<double> const &pde, elements::table const &elem_table,
-                batch_workspace<double, resource::host> const &workspace,
-                element_subgrid const &subgrid, element_chunk const &chunk);
-
-template void batch_chain<float, resource::device, chain_method::advance>::
-    kronmult_to_batch_sets(float *const *const A, float *const x,
-                           float *const y, float *const *const work,
-                           int const batch_offset, PDE<float> const &pde);
-
-template void batch_chain<double, resource::device, chain_method::advance>::
-    kronmult_to_batch_sets(double *const *const A, double *const x,
-                           double *const y, double *const *const work,
-                           int const batch_offset, PDE<double> const &pde);
-
-template void batch_chain<float, resource::host, chain_method::advance>::
-    kronmult_to_batch_sets(float *const *const A, float *const x,
-                           float *const y, float *const *const work,
-                           int const batch_offset, PDE<float> const &pde);
-
-template void batch_chain<double, resource::host, chain_method::advance>::
-    kronmult_to_batch_sets(double *const *const A, double *const x,
-                           double *const y, double *const *const work,
-                           int const batch_offset, PDE<double> const &pde);

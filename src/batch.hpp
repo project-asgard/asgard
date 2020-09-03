@@ -1,5 +1,4 @@
 #pragma once
-#include "chunk.hpp"
 #include "elements.hpp"
 #include "pde/pde_base.hpp"
 #include "tensors.hpp"
@@ -76,18 +75,6 @@ template<typename P, resource resrc>
 void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
                   batch<P, resrc> const &c, P const alpha, P const beta);
 
-// this could be named better - encode dimensions for a gemm
-struct matrix_size_set
-{
-  int const rows_a;
-  int const cols_a;
-  int const rows_b;
-  int const cols_b;
-  matrix_size_set(int const rows_a, int const cols_a, int const rows_b,
-                  int const cols_b)
-      : rows_a(rows_a), cols_a(cols_a), rows_b(rows_b), cols_b(cols_b){};
-};
-
 // inline helper to calc workspace size for realspace batching, where dimensions
 // of matrices not uniform
 template<typename P, resource resrc>
@@ -111,55 +98,20 @@ inline int calculate_workspace_length(
   return greatest;
 }
 
-// workspace for the primary computation in time advance. along with
-// the coefficient matrices, we need this space resident on whatever
-// accelerator we are using
-template<typename P, resource resrc>
-class batch_workspace
-{
-public:
-  batch_workspace(PDE<P> const &pde, element_subgrid const &subgrid,
-                  std::vector<element_chunk> const &chunks);
-  fk::vector<P, mem_type::owner, resrc> const &get_unit_vector() const;
-
-  double size_MB() const
-  {
-    int64_t num_elems = input.size() + reduction_space.size() +
-                        kron_intermediate.size() + output.size() +
-                        unit_vector_.size();
-
-    double const bytes     = static_cast<double>(num_elems) * sizeof(P);
-    double const megabytes = bytes * 1e-6;
-    return megabytes;
-  };
-
-  // input, output, workspace for batched gemm/reduction
-  fk::vector<P, mem_type::owner, resrc> input;
-  fk::vector<P, mem_type::owner, resrc> reduction_space;
-  fk::vector<P, mem_type::owner, resrc> kron_intermediate;
-  fk::vector<P, mem_type::owner, resrc> output;
-
-private:
-  fk::vector<P, mem_type::owner, resrc> unit_vector_;
-};
-
 // which of the kronecker-product based algorithms the batch chain supports
 enum class chain_method
 {
   realspace, // for realspace transform
-  advance    // for time advance
+  advance // for time advance //FIXME deprecated. once realspace is refactored,
+          // this entire component will be deleted.
 };
 
 template<chain_method method>
 using enable_for_realspace =
     std::enable_if_t<method == chain_method::realspace>;
 
-template<chain_method method>
-using enable_for_advance = std::enable_if_t<method == chain_method::advance>;
-
 // class that marshals pointers for batched gemm and calls into blas to execute.
-// realspace method enqueues all gemms for one kron(A1,...,AN)*x,
-// time advance method equeues gemms for many such krons
+// realspace method enqueues all gemms for one kron(A1,...,AN)*x
 template<typename P, resource resrc,
          chain_method method = chain_method::realspace>
 class batch_chain
@@ -173,57 +125,9 @@ public:
       fk::vector<P, mem_type::const_view, resrc> const &x,
       std::array<fk::vector<P, mem_type::view, resrc>, 2> &workspace,
       fk::vector<P, mem_type::view, resrc> &final_output);
-  // time advance constructor
-  template<chain_method m_ = method, typename = enable_for_advance<m_>>
-  batch_chain(PDE<P> const &pde, elements::table const &elem_table,
-              batch_workspace<P, resrc> const &workspace,
-              element_subgrid const &subgrid, element_chunk const &chunk);
   void execute() const;
 
 private:
-  // enqueue gemms for one kronmult - time advance
-  template<chain_method m_ = method, typename = enable_for_advance<m_>>
-  void kronmult_to_batch_sets(P *const *const A, P *const x, P *const y,
-                              P *const *const work, int const batch_offset,
-                              PDE<P> const &pde);
-
-  // compute gemm sizes for a given dimension for time advance batching
-  template<chain_method m_ = method, typename = enable_for_advance<m_>>
-  matrix_size_set
-  compute_dimensions(int const degree, int const num_dims, int const dimension)
-  {
-    assert(dimension >= 0);
-    assert(dimension < num_dims);
-    assert(num_dims > 0);
-    assert(degree > 0);
-    if (dimension == 0)
-    {
-      return matrix_size_set(degree, degree, degree,
-                             static_cast<int>(std::pow(degree, num_dims - 1)));
-    }
-    return matrix_size_set(static_cast<int>(std::pow(degree, dimension)),
-                           degree, degree, degree);
-  }
-
-  // compute how many gemms required for kronmult at a given PDE dimension for
-  // time advance batching
-  template<chain_method m_ = method, typename = enable_for_advance<m_>>
-  int compute_batch_size(int const degree, int const num_dims,
-                         int const dimension)
-  {
-    assert(dimension >= 0);
-    assert(dimension < num_dims);
-    assert(num_dims > 0);
-    assert(degree > 0);
-
-    if (dimension == 0 || dimension == num_dims - 1)
-    {
-      return 1;
-    }
-
-    return std::pow(degree, (num_dims - dimension - 1));
-  }
-
   // A matrices for batched gemm
   std::vector<batch<P, resrc>> left_;
   // B matrices
@@ -232,8 +136,12 @@ private:
   std::vector<batch<P, resrc>> product_;
 };
 
+// FIXME when this component is deleted, move this to time advance
+// FIXME this will eventually be replaced when we move to matrix-free implicit
+// stepping
+// FIXME issue # 340
 // function to build system matrix for implicit stepping
 // doesn't use batches, but does use many of the same helpers/structure
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
-                         element_chunk const &chunk, fk::matrix<P> &A);
+                         fk::matrix<P> &A);
