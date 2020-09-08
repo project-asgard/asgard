@@ -69,11 +69,13 @@ private:
   }
   static P f0(P const z)
   {
-    return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
+    auto const shift = 0.36;
+    return std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
   }
 
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
   {
+    
     ignore(t);
     fk::vector<P> f(z.size());
     for (int i = 0; i < z.size(); ++i)

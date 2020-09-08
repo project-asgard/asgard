@@ -9,8 +9,8 @@
 #include "transformations.hpp"
 #include <numeric>
 
-/* generate coefficient matrices for each 1D term in each dimension and
-   underlying partial term coefficients matrices */
+// generate coefficient matrices for each 1D term in each dimension and
+// underlying partial term coefficients matrices 
 template<typename P>
 void generate_all_coefficients(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
@@ -18,24 +18,25 @@ void generate_all_coefficients(
 {
   assert(time >= 0.0);
 
-  for (int i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims; ++i)
   {
+    
     auto const &dim = pde.get_dimensions()[i];
 
-    for (int j = 0; j < pde.num_terms; ++j)
+    for (auto j = 0; j < pde.num_terms; ++j)
     {
       auto const &term_1D = pde.get_terms()[j][i];
 
       auto const &partial_terms = term_1D.get_partial_terms();
 
-      /* generate the first partial term */
+      // generate the first partial term 
       auto term_coeff = generate_coefficients<P>(dim, term_1D, partial_terms[0],
                                                  transformer, time, rotate);
-
-      /* set the partial term's coefficient matrix */
+      
+      // set the partial term's coefficient matrix 
       pde.set_partial_coefficients(j, i, 0, fk::matrix<P>(term_coeff));
 
-      for (int k = 1; k < static_cast<int>(partial_terms.size()); ++k)
+      for (auto k = 1; k < static_cast<int>(partial_terms.size()); ++k)
       {
         auto const partial_term_coeff = generate_coefficients<P>(
             dim, term_1D, partial_terms[k], transformer, time, rotate);
@@ -154,7 +155,7 @@ fk::matrix<P> generate_coefficients(
       }
       return g;
     }();
-
+    
     auto const block = [&, legendre_poly = legendre_poly,
                         quadrature_weights = quadrature_weights]() {
       fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
@@ -382,7 +383,6 @@ fk::matrix<P> generate_coefficients(
 
     // These routines do the following operation:
     // coefficients = forward_trans * coefficients * forward_trans_transpose;
-
     coefficients = transformer.apply(
         transformer.apply(coefficients, transformer.max_level,
                           basis::side::right, basis::transpose::trans),
