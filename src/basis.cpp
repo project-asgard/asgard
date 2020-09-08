@@ -718,6 +718,13 @@ wavelet_transform<float, resource::host>::apply(
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 
+template fk::vector<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::vector<double, mem_type::const_view, resource::host> const
+        &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
 template fk::vector<float, mem_type::owner, resource::device>
 wavelet_transform<float, resource::device>::apply(
     fk::vector<float, mem_type::const_view, resource::device> const

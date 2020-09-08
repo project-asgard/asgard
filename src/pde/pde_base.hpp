@@ -5,7 +5,7 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
-#include <limits>
+#include <limits.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -218,7 +218,7 @@ public:
        std::string const name,
        std::initializer_list<partial_term<P>> const partial_terms)
       : time_dependent(time_dependent), name(name),
-        partial_terms(partial_terms), data_(data)
+        partial_terms_(partial_terms), data_(data)
 
   {}
 
@@ -227,7 +227,7 @@ public:
     this->data_.resize(data.size()) = data;
   }
 
-  fk::vector<P> get_data() const { return data_; };
+  fk::vector<P> get_data() const & { return data_; };
 
   void set_coefficients(fk::matrix<P> const &new_coefficients)
   {
@@ -239,8 +239,8 @@ public:
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
   {
     assert(pterm >= 0);
-    assert(pterm < static_cast<int>(partial_terms.size()));
-    partial_terms[pterm].set_coefficients(coeffs);
+    assert(pterm < static_cast<int>(partial_terms_.size()));
+    partial_terms_[pterm].set_coefficients(coeffs);
   }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
@@ -251,7 +251,36 @@ public:
 
   std::vector<partial_term<P>> const &get_partial_terms() const
   {
-    return partial_terms;
+    return partial_terms_;
+  }
+
+  // after adapting to a new number of hierarchical basis levels,
+  // recombine partial terms to form new coefficient matrices
+  void rechain_coefficients(dimension<P> const &adapted_dim)
+  {
+    auto const new_dof =
+        adapted_dim.get_degree() * fm::two_raised_to(adapted_dim.get_level());
+    assert(coefficients_.nrows() == coefficients_.ncols());
+    if (coefficients_.nrows() == new_dof)
+    {
+      return;
+    }
+    auto new_coeffs = eye<P>(new_dof);
+    for (auto const &pterm : partial_terms_)
+    {
+      auto const &partial_coeff = pterm.get_coefficients();
+      assert(partial_coeff.size() >=
+             new_dof); // make sure we built the partial terms to support new
+                       // level/degree
+      new_coeffs = new_coeffs *
+                   fk::matrix<P, mem_type::const_view>(
+                       partial_coeff, 0, new_dof - 1, 0,
+                       new_dof - 1); // at some point, we could consider storing
+                                     // these device-side after construction.
+    }
+    fk::matrix<P, mem_type::view, resource::device>(coefficients_, 0,
+                                                    new_dof - 1, 0, new_dof - 1)
+        .transfer_from(new_coeffs);
   }
 
   // public but const data. no getters
@@ -259,7 +288,7 @@ public:
   std::string const name;
 
 private:
-  std::vector<partial_term<P>> partial_terms;
+  std::vector<partial_term<P>> partial_terms_;
 
   // this is to hold data that may change over the course of the simulation,
   // from any source, that is used in operator construction.
@@ -328,12 +357,22 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
-    for (auto const &tt : terms)
+    // check all terms
+    for (auto &term_list : terms_)
     {
-      for (auto const &t : tt)
+      assert(term_list.size() == static_cast<unsigned>(num_dims));
+      for (auto &term_1D : term_list)
       {
-        std::vector<partial_term<P>> const &pterms = t.get_partial_terms();
-        for (auto const &p : pterms)
+        assert(term_1D.get_partial_terms().size() > 0);
+
+        auto const max_dof =
+            fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
+            cli_input.get_degree();
+        assert(max_dof < INT_MAX);
+        term_1D.set_data(fk::vector<P>(std::vector<P>(max_dof, 1.0)));
+        term_1D.set_coefficients(eye<P>(max_dof));
+
+        for (auto &p : term_1D.get_partial_terms())
         {
           if (p.left_homo == homogeneity::homogeneous)
             assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
@@ -347,22 +386,10 @@ public:
         }
       }
     }
-
     // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln)
     {
       assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
-    }
-
-    // check all terms
-    for (std::vector<term<P>> const &term_list : terms_)
-    {
-      assert(term_list.size() == static_cast<unsigned>(num_dims));
-
-      for (term<P> const &term_1D : term_list)
-      {
-        assert(term_1D.get_partial_terms().size() > 0);
-      }
     }
 
     // modify for appropriate level/degree
@@ -472,11 +499,21 @@ public:
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
+  void rechain_dimension(int const dim_index)
+  {
+    assert(dim_index >= 0);
+    assert(dim_index < num_dims);
+    for (auto i = 0; i < num_terms; ++i)
+    {
+      terms_[i][dim_index].rechain_coefficients(dimensions_[dim_index]);
+    }
+  }
+
   P get_dt() const { return dt_; };
 
   void set_dt(P const dt)
   {
-    aasert(dt > 0.0);
+    assert(dt > 0.0);
     dt_ = dt;
   }
 

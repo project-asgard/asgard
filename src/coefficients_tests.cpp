@@ -9,9 +9,10 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
                        P const tol_factor = 1e-15, bool const rotate = true)
 {
   // FIXME this test assumes uniform level and degree
-  auto const &d     = pde.get_dimensions()[0];
-  auto const level  = d.get_level();
-  auto const degree = d.get_degree();
+  auto const &d                 = pde.get_dimensions()[0];
+  auto const level              = d.get_level();
+  auto const degree             = d.get_degree();
+  auto const degrees_freedom_1d = degree * fm::two_raised_to(level);
 
   auto const filename_base = gold_path + "_l" + std::to_string(level) + "_d" +
                              std::to_string(degree) + "_";
@@ -20,7 +21,8 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
 
   auto const opts =
       make_options({"-d", std::to_string(degree), "-l", std::to_string(level),
-                    "-m", std::to_string(level)});
+                    "-m", std::to_string(3)});
+
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   generate_all_coefficients(pde, transformer, time, rotate);
 
@@ -33,14 +35,18 @@ void test_coefficients(PDE<P> &pde, std::string const gold_path,
 
       fk::matrix<P> const gold =
           fk::matrix<P>(read_matrix_from_txt_file(filename));
-      fk::matrix<P> const &test = pde.get_coefficients(t, d).clone_onto_host();
-
+      auto const full_coeff = pde.get_coefficients(t, d).clone_onto_host();
+      fk::matrix<P, mem_type::const_view> const test(
+          full_coeff, 0, degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
+      test.print("done - rot");
+      gold.print("gold");
       rmse_comparison(gold, test, tol_factor);
     }
   }
 }
 
-TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
+/*TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double,
+float)
 {
   std::string const gold_path =
       "../testing/generated-inputs/coefficients/diffusion2/coefficients";
@@ -77,7 +83,7 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
     test_coefficients<TestType>(*pde, gold_path, tol_factor);
   }
 }
-
+*/
 TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 {
   std::string const gold_path =
@@ -96,7 +102,8 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
 
     test_coefficients<TestType>(*pde, gold_path, tol_factor);
   }
-
+}
+/*
   SECTION("level 4, degree 4")
   {
     int const level  = 4;
@@ -299,4 +306,4 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
         std::is_same<TestType, double>::value ? 1e-13 : 1e-2;
     test_coefficients(*pde, gold_path, tol_factor, rotate);
   }
-}
+}*/

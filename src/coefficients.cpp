@@ -39,16 +39,13 @@ void generate_all_coefficients(
       {
         auto const partial_term_coeff = generate_coefficients<P>(
             dim, term_1D, partial_terms[k], transformer, time, rotate);
-
-        term_coeff = term_coeff * partial_term_coeff;
-
         pde.set_partial_coefficients(j, i, k, partial_term_coeff);
       }
-
-      pde.set_coefficients(term_coeff, j, i);
     }
+    pde.rechain_dimension(i);
   }
 }
+
 // construct 1D coefficient matrix - new conventions
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
@@ -111,11 +108,9 @@ fk::matrix<P> generate_coefficients(
 
   // convert term input data from wavelet space to realspace
   // FIXME during PDE rework, fix term's RAII issues...
-  auto const data =
-      term_1D.get_data().size() > 0
-          ? term_1D.get_data()
-          : fk::vector<P>(std::vector<P>(degrees_freedom_1d, 1.0));
-  assert(data.size() == degrees_freedom_1d);
+  auto const &term_data = term_1D.get_data();
+  fk::vector<P, mem_type::const_view> const data(term_data, 0,
+                                                 degrees_freedom_1d - 1);
 
   auto const data_real = transformer.apply(
       data, transformer.max_level, basis::side::left, basis::transpose::trans);
@@ -180,6 +175,8 @@ fk::matrix<P> generate_coefficients(
       }
       else if (pterm.coeff_type == coefficient_type::grad)
       {
+        //       tmp.print("tmp");
+        //         legendre_prime_t.print("prime");
         block = legendre_prime_t * tmp * (-1);
       }
       return block;
@@ -192,6 +189,9 @@ fk::matrix<P> generate_coefficients(
                                       current + dim.get_degree() - 1) +
         block;
     coefficients.set_submatrix(current, current, curr_block);
+
+    // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0,
+    // 7).print("blockset - partial");
 
     if (pterm.coeff_type == coefficient_type::grad)
     {
@@ -355,19 +355,24 @@ fk::matrix<P> generate_coefficients(
               coefficients, row1, row1 + dim.get_degree() - 1, col1,
               col1 + dim.get_degree() - 1);
           block1 = block1 + trace_value_1;
+
+          // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0,
+          // 7).print("t1 - partial");
         }
         // Add trace part 2
         fk::matrix<P, mem_type::view> block2(coefficients, row2,
                                              row2 + dim.get_degree() - 1, col2,
                                              col2 + dim.get_degree() - 1);
         block2 = block2 + trace_value_2;
-
+        // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0,
+        // 7).print("t2 - partial");
         // Add trace part 3
         fk::matrix<P, mem_type::view> block3(coefficients, row3,
                                              row3 + dim.get_degree() - 1, col3,
                                              col3 + dim.get_degree() - 1);
         block3 = block3 + trace_value_3;
-
+        // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0,
+        // 7).print("t3 - partial");
         if (i != num_points - 1 || pterm.left == boundary_condition::periodic ||
             pterm.right == boundary_condition::periodic)
         {
@@ -376,10 +381,16 @@ fk::matrix<P> generate_coefficients(
               coefficients, row4, row4 + dim.get_degree() - 1, col4,
               col4 + dim.get_degree() - 1);
           block4 = block4 + trace_value_4;
+
+          // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0,
+          // 7).print("t4 - partial");
         }
       }
     }
   }
+
+  // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0, 7).print("unrot
+  // - partial");
   if (rotate)
   {
     // transform matrix to wavelet space
@@ -392,6 +403,8 @@ fk::matrix<P> generate_coefficients(
                           basis::side::right, basis::transpose::trans),
         transformer.max_level, basis::side::left, basis::transpose::no_trans);
   }
+  // fk::matrix<P, mem_type::const_view>(coefficients, 0, 7, 0, 7).print("rot -
+  // partial");
   return coefficients;
 }
 
