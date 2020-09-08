@@ -21,9 +21,8 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
   auto const degree = pde.get_dimensions()[0].get_degree();
 
   // setup problem
-  std::vector<std::string> const args = {"-l", std::to_string(level),
-                                         "-d", std::to_string(degree),
-                                         "-m", std::to_string(level)};
+  std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
+                                         std::to_string(degree)};
 
   options const o = make_options(args);
   elements::table const table(o, pde);
@@ -54,7 +53,8 @@ void test_kronmult(PDE<P> &pde, int const workspace_size_MB, P const tol_factor)
   }();
 
   // perform kronmult using ed's library
-  std::cout.setstate(std::ios_base::failbit); // shhh...don't print alloc info
+  // std::cout.setstate(std::ios_base::failbit); // shhh...don't print alloc
+  // info
   auto const fx =
       kronmult::execute(pde, table, o, my_subgrid, workspace_size_MB, x);
   std::cout.clear();
@@ -106,7 +106,7 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
     auto const level  = 6;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     auto const workspace_size_MB =
-        30; // small enough so that the problem is decomposed x2
+        80; // small enough so that the problem is decomposed
     test_kronmult(*pde, workspace_size_MB, tol_factor);
   }
 
@@ -116,7 +116,8 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
     auto const level  = 2;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
     auto const workspace_size_MB =
-        100; // small enough so that the problem is decomposed x4
+        80; // small enough so that the problem is decomposed
+    std::cout << typeid(TestType).name() << "2" << '\n';
     test_kronmult(*pde, workspace_size_MB, tol_factor);
   }
 }

@@ -104,6 +104,8 @@ dimension<P> make_dummy_dim(
                       initial_condition, name);
 }
 
+// WARNING for tests only!
+// features rely on options, parser, and PDE constructed w/ same arguments
 options make_options(std::vector<std::string> const arguments);
 parser make_parser(std::vector<std::string> const arguments);
 

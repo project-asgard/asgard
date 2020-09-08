@@ -76,6 +76,8 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
   }
 }
 
+// WARNING for tests only!
+// features rely on options, parser, and PDE constructed w/ same arguments
 // shim for easy PDE creation in tests
 template<typename P>
 std::unique_ptr<PDE<P>>
