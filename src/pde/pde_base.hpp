@@ -357,35 +357,6 @@ public:
     assert(terms.size() == static_cast<unsigned>(num_terms));
     assert(sources.size() == static_cast<unsigned>(num_sources));
 
-    // check all terms
-    for (auto &term_list : terms_)
-    {
-      assert(term_list.size() == static_cast<unsigned>(num_dims));
-      for (auto &term_1D : term_list)
-      {
-        assert(term_1D.get_partial_terms().size() > 0);
-
-        auto const max_dof =
-            fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
-            cli_input.get_degree();
-        assert(max_dof < INT_MAX);
-        term_1D.set_data(fk::vector<P>(std::vector<P>(max_dof, 1.0)));
-        term_1D.set_coefficients(eye<P>(max_dof));
-
-        for (auto &p : term_1D.get_partial_terms())
-        {
-          if (p.left_homo == homogeneity::homogeneous)
-            assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
-          else if (p.left_homo == homogeneity::inhomogeneous)
-            assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
-
-          if (p.right_homo == homogeneity::homogeneous)
-            assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
-          else if (p.right_homo == homogeneity::inhomogeneous)
-            assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
-        }
-      }
-    }
     // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln)
     {
@@ -412,13 +383,46 @@ public:
       }
     }
 
-    auto const degree = cli_input.get_degree();
-    if (degree != parser::NO_USER_VALUE)
+    auto const cli_degree = cli_input.get_degree();
+    if (cli_degree != parser::NO_USER_VALUE)
     {
-      assert(degree > 0);
+      assert(cli_degree > 0);
       for (dimension<P> &d : dimensions_)
       {
-        d.set_degree(degree);
+        d.set_degree(cli_degree);
+      }
+    }
+    // assume uniform degree
+    auto const degree = dimensions_[0].get_degree();
+
+    // check all terms
+    for (auto &term_list : terms_)
+    {
+      assert(term_list.size() == static_cast<unsigned>(num_dims));
+      for (auto &term_1D : term_list)
+      {
+        assert(term_1D.get_partial_terms().size() > 0);
+
+        auto const max_dof =
+            fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
+            degree;
+        assert(max_dof < INT_MAX);
+
+        term_1D.set_data(fk::vector<P>(std::vector<P>(max_dof, 1.0)));
+        term_1D.set_coefficients(eye<P>(max_dof));
+
+        for (auto &p : term_1D.get_partial_terms())
+        {
+          if (p.left_homo == homogeneity::homogeneous)
+            assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
+          else if (p.left_homo == homogeneity::inhomogeneous)
+            assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
+
+          if (p.right_homo == homogeneity::homogeneous)
+            assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
+          else if (p.right_homo == homogeneity::inhomogeneous)
+            assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
+        }
       }
     }
 
