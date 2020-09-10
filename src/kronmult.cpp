@@ -236,6 +236,10 @@ private:
 
       // don't memset
       bool const initialize = false;
+
+      // FIXME allocate once for maximum adaptivity? this would be a LOT of elements,
+      // not sure we want to do that. but, the below code will crash if we add so many elements
+      // that we spill out of device RAM
       fk::allocate_device(element_x, new_workspace_size, initialize);
       fk::allocate_device(element_work, new_workspace_size, initialize);
       fk::allocate_device(input_ptrs, new_ptrs_size, initialize);

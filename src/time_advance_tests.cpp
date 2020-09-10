@@ -131,7 +131,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const level  = 2;
 
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
+        std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2_sg_l2_d2_t";
@@ -149,7 +149,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const degree = 3;
     int const level  = 3;
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
+        std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2_sg_l3_d3_t";
@@ -167,7 +167,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const degree = 4;
     int const level  = 4;
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-13 : 1e-1;
+        std::is_same<TestType, double>::value ? 1e-12 : 1e-1;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2_sg_l4_d4_t";
 
@@ -228,7 +228,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion1_sg_l4_d4_t";
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-12 : 1e-2;
+        std::is_same<TestType, double>::value ? 1e-11 : 1e-2;
 
     auto const full_grid = false;
     parser const parse(
@@ -247,7 +247,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
   TestType const cfl = 0.01;
 
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-17 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
   auto const num_dims = 1;
 
@@ -475,7 +475,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
   std::string const pde_choice = "fokkerplanck_1d_4p1a";
   TestType const cfl           = 0.01;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-5;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
   auto const num_dims = 1;
 
   SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
@@ -652,7 +652,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
   TestType const cfl     = 0.01;
 
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-17 : 1e-8;
+      std::is_same<TestType, double>::value ? 1e-16 : 1e-8;
 
   auto const num_dims = 1;
   auto const implicit = true;
