@@ -258,14 +258,12 @@ public:
   // recombine partial terms to form new coefficient matrices
   void rechain_coefficients(dimension<P> const &adapted_dim)
   {
+
     auto const new_dof =
         adapted_dim.get_degree() * fm::two_raised_to(adapted_dim.get_level());
     assert(coefficients_.nrows() == coefficients_.ncols());
-    if (coefficients_.nrows() == new_dof)
-    {
-      return;
-    }
     auto new_coeffs = eye<P>(new_dof);
+
     for (auto const &pterm : partial_terms_)
     {
       auto const &partial_coeff = pterm.get_coefficients();
