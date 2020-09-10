@@ -26,7 +26,6 @@ void generate_all_coefficients(
     for (auto j = 0; j < pde.num_terms; ++j)
     {
       auto const &term_1D = pde.get_terms()[j][i];
-
       auto const &partial_terms = term_1D.get_partial_terms();
 
       // generate the first partial term 

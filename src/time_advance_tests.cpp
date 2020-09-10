@@ -87,7 +87,7 @@ void time_advance_test(parser const &parse, std::string const &filepath,
   fk::vector<P> f_val(initial_condition);
 
   // -- time loop
-  for (int i = 0; i < parse.get_time_steps(); ++i)
+  for (auto i = 0; i < parse.get_time_steps(); ++i)
   {
     P const time = i * pde->get_dt();
 
