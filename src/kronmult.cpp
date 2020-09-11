@@ -100,7 +100,7 @@ decompose(PDE<P> const &pde, elements::table const &elem_table,
   // min number subgrids
   auto const num_subgrids =
       get_num_subgrids(pde, elem_table, my_subgrid, workspace_size_MB);
-  std::cout << num_subgrids << '\n';
+
   if (num_subgrids == 1)
   {
     return std::vector<element_subgrid>{my_subgrid};
@@ -237,9 +237,9 @@ private:
       // don't memset
       bool const initialize = false;
 
-      // FIXME allocate once for maximum adaptivity? this would be a LOT of elements,
-      // not sure we want to do that. but, the below code will crash if we add so many elements
-      // that we spill out of device RAM
+      // FIXME allocate once for maximum adaptivity? this would be a LOT of
+      // elements, not sure we want to do that. but, the below code will crash
+      // if we add so many elements that we spill out of device RAM
       fk::allocate_device(element_x, new_workspace_size, initialize);
       fk::allocate_device(element_work, new_workspace_size, initialize);
       fk::allocate_device(input_ptrs, new_ptrs_size, initialize);
