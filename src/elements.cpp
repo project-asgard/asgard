@@ -17,7 +17,10 @@ namespace elements
 // FIXME these limits are created by mapping element
 // coords to 64 bit integer ids; using a larger
 // type for ids in mapping funcs would raise supported
-// max levels
+// max levels.
+
+// however, other factors also bound levels, most notably
+// kron workspace size and coefficient matrix size...
 static std::map<int, int> const dim_to_max_level = {
     {1, 62}, {2, 33}, {3, 20}, {4, 16}, {5, 13}, {6, 9},
 };
@@ -103,13 +106,12 @@ table::table(options const opts, PDE<P> const &pde)
   assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
 
   auto const perm_table = [&pde, &opts]() {
-    auto const sort = false;
-
     auto const dims = pde.get_dimensions();
     fk::vector<int> levels(pde.num_dims);
     std::transform(dims.begin(), dims.end(), levels.begin(),
                    [](auto const &dim) { return dim.get_level(); });
 
+    auto const sort = false;
     return opts.use_full_grid
                ? permutations::get_max_multi(levels, pde.num_dims, sort)
                : permutations::get_lequal_multi(
