@@ -13,33 +13,37 @@ parser::parser(int argc, char **argv)
       clara::detail::Help(show_help) |
       clara::detail::Opt(show_pdes)["-a"]["--available_pdes"](
           "Print available pdes (for -p argument) and exit") |
-      clara::detail::Opt(cfl, "cfl")["-c"]["--cfl"](
+      clara::detail::Opt(cfl, "positive float")["-c"]["--cfl"](
           "The Courant-Friedrichs-Lewy (CFL) condition") |
-      clara::detail::Opt(dt, "dt")["-t"]["--dt"]("Size of time steps") |
-      clara::detail::Opt(degree, "degree")["-d"]["--degree"](
+      clara::detail::Opt(dt,
+                         "positive float")["-t"]["--dt"]("Size of time steps") |
+      clara::detail::Opt(degree, "positive integer")["-d"]["--degree"](
           "Terms in legendre basis polynomials") |
       clara::detail::Opt(use_full_grid)["-f"]["--full_grid"](
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
-      clara::detail::Opt(solver_str, "solver_str")["-s"]["--solver"](
-          "Solver to use (direct or gmres) for implicit advance") |
-      clara::detail::Opt(starting_levels_str, "levels")["-l"]["--levels"](
+      clara::detail::Opt(solver_str, "direct|gmres")["-s"]["--solver"](
+          "Solver to use for implicit advance") |
+      clara::detail::Opt(starting_levels_str,
+                         "e.g. for 2d PDE: \"3 2\"")["-l"]["--levels"](
           "Stating hierarchical levels (resolution)") |
-      clara::detail::Opt(max_level, "max level")["-m"]["--max_level"](
+      clara::detail::Opt(max_level,
+                         "integer >= all starting levels")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
-      clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
+      clara::detail::Opt(num_time_steps,
+                         "positive integer")["-n"]["--num_steps"](
           "Number of iterations") |
-      clara::detail::Opt(pde_str, "pde_str")["-p"]["--pde"](
+      clara::detail::Opt(pde_str, "e.g. continuity2")["-p"]["--pde"](
           "PDE to solve; use -a option to print list of choices") |
       clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
           "Do poisson solve for electric field") |
       clara::detail::Opt(wavelet_output_freq,
-                         "wavelet_output_freq")["-w"]["--wave_freq"](
+                         "0-num_time_steps")["-w"]["--wave_freq"](
           "Frequency in steps for writing wavelet space "
           "output") |
       clara::detail::Opt(realspace_output_freq,
-                         "realspace_output_freq")["-r"]["--real_freq"](
+                         "0-num_time_steps")["-r"]["--real_freq"](
           "Frequency in steps for writing realspace output");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
