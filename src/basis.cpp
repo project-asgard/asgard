@@ -449,7 +449,7 @@ wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
   ignore(phi_co);
   ignore(scale_co);
 
-  int const fmwt_size = degree * fm::two_raised_to(max_level);
+  auto const fmwt_size = degree * fm::two_raised_to(max_level);
 
   std::vector<fk::matrix<P>> block_builder(max_level * 2);
 
@@ -458,11 +458,11 @@ wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
                             .set_submatrix(0, 0, eye<P>(degree, degree));
 
   // main loop - build the blocks with small gemms
-  for (int j = max_level - 1; j >= 0; --j)
+  for (auto j = max_level - 1; j >= 0; --j)
   {
-    int const num_cells   = fm::two_raised_to(j);
-    int const block_ncols = fmwt_size / num_cells;
-    int const ncols_h     = block_ncols / 2;
+    auto const num_cells   = fm::two_raised_to(j);
+    auto const block_ncols = fmwt_size / num_cells;
+    auto const ncols_h     = block_ncols / 2;
 
     fk::matrix<P> h_tmp(degree, ncols_h);
     fk::matrix<P, mem_type::view> h_view(h_mat, 0, degree - 1, 0, ncols_h - 1);
@@ -491,9 +491,11 @@ wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
   }
 
   // how much space are we using?
-  auto const num_elems = std::accumulate(
-      block_builder.begin(), block_builder.end(), 0,
-      [](int const sum, auto const matrix) { return sum + matrix.size(); });
+  auto const num_elems =
+      std::accumulate(block_builder.begin(), block_builder.end(), 0,
+                      [](int64_t const sum, auto const &matrix) {
+                        return sum + static_cast<int64_t>(matrix.size());
+                      });
 
   if (!quiet)
     node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
@@ -627,7 +629,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
     for (auto j = 0; j < num_cells; ++j)
     {
-      auto const cell_start = j * cell_size; // +1?
+      auto const cell_start = j * cell_size;
       auto const cell_end   = cell_start + cell_size - 1;
       auto const degree_end = degree_start + degree - 1;
 
