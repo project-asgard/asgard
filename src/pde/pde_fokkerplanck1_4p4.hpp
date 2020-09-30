@@ -75,7 +75,6 @@ private:
 
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
   {
-    
     ignore(t);
     fk::vector<P> f(z.size());
     for (int i = 0; i < z.size(); ++i)

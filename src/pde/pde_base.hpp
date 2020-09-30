@@ -258,7 +258,6 @@ public:
   // recombine partial terms to form new coefficient matrices
   void rechain_coefficients(dimension<P> const &adapted_dim)
   {
-
     auto const new_dof =
         adapted_dim.get_degree() * fm::two_raised_to(adapted_dim.get_level());
     assert(coefficients_.nrows() == coefficients_.ncols());
