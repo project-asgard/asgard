@@ -27,14 +27,7 @@ void generate_all_coefficients(
       auto const &term_1D       = pde.get_terms()[j][i];
       auto const &partial_terms = term_1D.get_partial_terms();
 
-      // generate the first partial term
-      auto term_coeff = generate_coefficients<P>(dim, term_1D, partial_terms[0],
-                                                 transformer, time, rotate);
-
-      // set the partial term's coefficient matrix
-      pde.set_partial_coefficients(j, i, 0, fk::matrix<P>(term_coeff));
-
-      for (auto k = 1; k < static_cast<int>(partial_terms.size()); ++k)
+      for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
       {
         auto const partial_term_coeff = generate_coefficients<P>(
             dim, term_1D, partial_terms[k], transformer, time, rotate);
