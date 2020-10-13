@@ -275,7 +275,6 @@ void test_gen_realspace_transform(PDE<P> const &pde,
   {
     fk::matrix<P> const gold = fk::matrix<P>(
         read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
-
     rmse_comparison(gold, transforms[i], tol_factor);
   }
 }
@@ -285,7 +284,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
 {
   SECTION("gen_realspace_transform_1")
   {
-    int const level  = 8;
+    int const level  = 7;
     int const degree = 7;
     std::string const gold_filename =
         "../testing/generated-inputs/transformations/matrix_plot_D/"
