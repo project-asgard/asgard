@@ -31,7 +31,7 @@ void time_advance_test(parser const &parse, std::string const &filepath,
   int const my_rank   = get_rank();
   int const num_ranks = get_num_ranks();
 
-  if (num_ranks > 1)
+  if (num_ranks > 1 && parse.using_implicit())
   {
     // distributed implicit stepping not implemented
     return;
@@ -110,11 +110,16 @@ void time_advance_test(parser const &parse, std::string const &filepath,
 
     std::cout.clear();
     std::string const file_path = filepath + std::to_string(i) + ".dat";
-
     fk::vector<P> const gold =
         fk::vector<P>(read_vector_from_txt_file(file_path));
 
-    rmse_comparison(gold, f_val, tolerance_factor);
+    // each rank generates partial answer
+    auto const dof =
+        static_cast<int>(std::pow(parse.get_degree(), pde->num_dims));
+    auto const my_gold = fk::vector<P, mem_type::const_view>(
+        gold, subgrid.col_start * dof, (subgrid.col_stop + 1) * dof - 1);
+
+    rmse_comparison(my_gold, f_val, tolerance_factor);
   }
 }
 
@@ -212,23 +217,6 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
   TestType const cfl     = 0.01;
   std::string pde_choice = "diffusion_1";
   int const num_dims     = 1;
-
-  SECTION("diffusion1, explicit, sparse grid, level 2, degree 2")
-  {
-    int const degree            = 2;
-    int const level             = 2;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1_sg_l2_d2_t";
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
-
-    auto const full_grid = false;
-    parser const parse(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
-
-    time_advance_test(parse, gold_base, tol_factor);
-  }
 
   SECTION("diffusion1, explicit, sparse grid, level 3, degree 3")
   {
