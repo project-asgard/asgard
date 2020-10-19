@@ -451,7 +451,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
   std::string const pde_choice = "continuity_6";
   TestType const cfl           = 0.01;
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
   auto const num_dims = 6;
 
   SECTION("continuity6, level 2, degree 3, sparse grid")
