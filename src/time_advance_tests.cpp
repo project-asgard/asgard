@@ -28,8 +28,8 @@ void time_advance_test(parser const &parse, std::string const &filepath,
 {
   auto pde = make_PDE<P>(parse);
 
-  int const my_rank   = get_rank();
-  int const num_ranks = get_num_ranks();
+  auto const my_rank   = get_rank();
+  auto const num_ranks = get_num_ranks();
 
   if (num_ranks > 1 && parse.using_implicit())
   {
@@ -39,6 +39,12 @@ void time_advance_test(parser const &parse, std::string const &filepath,
 
   options const opts(parse);
   elements::table const table(opts, *pde);
+
+  if (table.size() <= num_ranks)
+  {
+    // don't run tiny problems when MPI testing
+    return;
+  }
 
   auto const plan    = get_plan(num_ranks, table);
   auto const subgrid = plan.at(my_rank);
