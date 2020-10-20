@@ -9,8 +9,8 @@
 #include "transformations.hpp"
 #include <numeric>
 
-/* generate coefficient matrices for each 1D term in each dimension and
-   underlying partial term coefficients matrices */
+// generate coefficient matrices for each 1D term in each dimension and
+// underlying partial term coefficients matrices
 template<typename P>
 void generate_all_coefficients(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
@@ -18,37 +18,26 @@ void generate_all_coefficients(
 {
   assert(time >= 0.0);
 
-  for (int i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims; ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
 
-    for (int j = 0; j < pde.num_terms; ++j)
+    for (auto j = 0; j < pde.num_terms; ++j)
     {
-      auto const &term_1D = pde.get_terms()[j][i];
-
+      auto const &term_1D       = pde.get_terms()[j][i];
       auto const &partial_terms = term_1D.get_partial_terms();
 
-      /* generate the first partial term */
-      auto term_coeff = generate_coefficients<P>(dim, term_1D, partial_terms[0],
-                                                 transformer, time, rotate);
-
-      /* set the partial term's coefficient matrix */
-      pde.set_partial_coefficients(j, i, 0, fk::matrix<P>(term_coeff));
-
-      for (int k = 1; k < static_cast<int>(partial_terms.size()); ++k)
+      for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
       {
         auto const partial_term_coeff = generate_coefficients<P>(
             dim, term_1D, partial_terms[k], transformer, time, rotate);
-
-        term_coeff = term_coeff * partial_term_coeff;
-
         pde.set_partial_coefficients(j, i, k, partial_term_coeff);
       }
-
-      pde.set_coefficients(term_coeff, j, i);
     }
+    pde.rechain_dimension(i);
   }
 }
+
 // construct 1D coefficient matrix - new conventions
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
@@ -61,11 +50,14 @@ fk::matrix<P> generate_coefficients(
     P const time, bool const rotate)
 {
   assert(time >= 0.0);
-  // setup jacobi of variable x and define coeff_mat
-  int const num_points = fm::two_raised_to(dim.get_level());
+  assert(transformer.degree == dim.get_degree());
+  assert(transformer.max_level >= dim.get_level());
 
-  double const grid_spacing    = (dim.domain_max - dim.domain_min) / num_points;
-  int const degrees_freedom_1d = dim.get_degree() * num_points;
+  // setup jacobi of variable x and define coeff_mat
+  auto const num_points = fm::two_raised_to(transformer.max_level);
+
+  auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_points;
+  auto const degrees_freedom_1d = dim.get_degree() * num_points;
   fk::matrix<P> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
   // get quadrature points and quadrature_weights.
@@ -107,25 +99,29 @@ fk::matrix<P> generate_coefficients(
   auto const jacobi = grid_spacing / 2;
 
   // convert term input data from wavelet space to realspace
-  auto const data      = term_1D.get_data();
-  auto const data_real = transformer.apply(
-      data, dim.get_level(), basis::side::left, basis::transpose::trans);
+  // FIXME during PDE rework, fix term's RAII issues...
+  auto const &term_data = term_1D.get_data();
+  fk::vector<P, mem_type::const_view> const data(term_data, 0,
+                                                 degrees_freedom_1d - 1);
 
-  for (int i = 0; i < num_points; ++i)
+  auto const data_real = transformer.apply(
+      data, transformer.max_level, basis::side::left, basis::transpose::trans);
+
+  for (auto i = 0; i < num_points; ++i)
   {
     // get left and right locations for this element
     auto const x_left  = dim.domain_min + i * grid_spacing;
     auto const x_right = x_left + grid_spacing;
 
-    // get index for current, firs and last element
-    int const current = dim.get_degree() * i;
-    int const first   = 0;
-    int const last    = dim.get_degree() * (num_points - 1);
+    // get index for current, first and last element
+    auto const current = dim.get_degree() * i;
+    auto const first   = 0;
+    auto const last    = dim.get_degree() * (num_points - 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const quadrature_points_i = [&, quadrature_points =
                                                       quadrature_points]() {
-      fk::vector<P> quadrature_points_copy = quadrature_points;
+      fk::vector<P> quadrature_points_copy(quadrature_points);
       std::transform(
           quadrature_points_copy.begin(), quadrature_points_copy.end(),
           quadrature_points_copy.begin(), [&](P const elem) {
@@ -144,7 +140,7 @@ fk::matrix<P> generate_coefficients(
       // get g(x,t,dat)
       // FIXME : add dat as a argument to the G functions
       fk::vector<P> g(quadrature_points_i.size());
-      for (int i = 0; i < quadrature_points_i.size(); ++i)
+      for (auto i = 0; i < quadrature_points_i.size(); ++i)
       {
         g(i) = pterm.g_func(quadrature_points_i(i), time);
       }
@@ -347,6 +343,7 @@ fk::matrix<P> generate_coefficients(
               col1 + dim.get_degree() - 1);
           block1 = block1 + trace_value_1;
         }
+
         // Add trace part 2
         fk::matrix<P, mem_type::view> block2(coefficients, row2,
                                              row2 + dim.get_degree() - 1, col2,
@@ -358,7 +355,6 @@ fk::matrix<P> generate_coefficients(
                                              row3 + dim.get_degree() - 1, col3,
                                              col3 + dim.get_degree() - 1);
         block3 = block3 + trace_value_3;
-
         if (i != num_points - 1 || pterm.left == boundary_condition::periodic ||
             pterm.right == boundary_condition::periodic)
         {
@@ -371,18 +367,19 @@ fk::matrix<P> generate_coefficients(
       }
     }
   }
+
   if (rotate)
   {
     // transform matrix to wavelet space
 
     // These routines do the following operation:
     // coefficients = forward_trans * coefficients * forward_trans_transpose;
-
     coefficients = transformer.apply(
-        transformer.apply(coefficients, dim.get_level(), basis::side::right,
-                          basis::transpose::trans),
-        dim.get_level(), basis::side::left, basis::transpose::no_trans);
+        transformer.apply(coefficients, transformer.max_level,
+                          basis::side::right, basis::transpose::trans),
+        transformer.max_level, basis::side::left, basis::transpose::no_trans);
   }
+
   return coefficients;
 }
 

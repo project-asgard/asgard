@@ -1,5 +1,6 @@
 #pragma once
 
+#include "basis.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"

@@ -14,11 +14,11 @@ void test_boundary_condition_vector(PDE<P> &pde,
   int const level       = d.get_level();
   int const degree      = d.get_degree();
 
-  elements::table const table(
-      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)}),
-      pde);
+  auto const opts =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
+  elements::table const table(opts, pde);
 
-  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   generate_all_coefficients<P>(pde, transformer);
 
   /* initialize bc vector at test_time */
@@ -54,16 +54,16 @@ void test_compute_boundary_condition(PDE<P> &pde,
   int const level  = d.get_level();
   int const degree = d.get_degree();
 
-  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  auto const opts =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
+  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   generate_all_coefficients<P>(pde, transformer);
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
   std::vector<dimension<P>> const &dimensions = pde.get_dimensions();
 
-  elements::table const table(
-      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)}),
-      pde);
+  elements::table const table(opts, pde);
 
   /* this timestep value must be consistent with the value used in the gold data
      generation scripts in matlab */
@@ -142,12 +142,13 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    elements::table const table(make_options({"-l", std::to_string(level), "-d",
-                                              std::to_string(degree)}),
-                                *pde);
+    auto const opts = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    basis::wavelet_transform<TestType, resource::host> const transformer(
-        level, degree);
+    elements::table const table(opts, *pde);
+
+    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                         *pde);
     generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */
@@ -186,13 +187,13 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     int const level  = 5;
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const opts  = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    elements::table const table(make_options({"-l", std::to_string(level), "-d",
-                                              std::to_string(degree)}),
-                                *pde);
+    elements::table const table(opts, *pde);
 
-    basis::wavelet_transform<TestType, resource::host> const transformer(
-        level, degree);
+    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                         *pde);
     generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */

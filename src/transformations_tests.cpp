@@ -111,17 +111,20 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
       return x * static_cast<TestType>(2.0);
     };
 
-    dimension const dim =
-        make_PDE<TestType>(PDE_opts::continuity_1, levels, degree)
-            ->get_dimensions()[0];
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(
-            "../testing/generated-inputs/transformations/forward_transform_" +
-            std::to_string(degree) + "_" + std::to_string(levels) +
-            "_neg1_pos1_double.dat"));
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, levels, degree);
+    auto const dim = pde->get_dimensions()[0];
 
-    basis::wavelet_transform<TestType, resource::host> const transformer(
-        dim.get_level(), dim.get_degree());
+    auto const opts = make_options(
+        {"-l", std::to_string(levels), "-d", std::to_string(degree)});
+
+    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                         *pde);
+
+    auto const gold = fk::vector<TestType>(read_vector_from_txt_file(
+        "../testing/generated-inputs/transformations/forward_transform_" +
+        std::to_string(degree) + "_" + std::to_string(levels) +
+        "_neg1_pos1_double.dat"));
+
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it, transformer);
 
@@ -137,18 +140,20 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
       return x + (x * static_cast<TestType>(2.0));
     };
 
-    dimension const dim =
-        make_PDE<TestType>(PDE_opts::continuity_2, levels, degree)
-            ->get_dimensions()[1];
+    auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, levels, degree);
+    auto const dim = pde->get_dimensions()[1];
+
+    auto const opts = make_options(
+        {"-l", std::to_string(levels), "-d", std::to_string(degree)});
+
+    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                         *pde);
 
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(
             "../testing/generated-inputs/transformations/forward_transform_" +
             std::to_string(degree) + "_" + std::to_string(levels) +
             "_neg2_pos2_doubleplus.dat"));
-
-    basis::wavelet_transform<TestType, resource::host> const transformer(
-        dim.get_level(), dim.get_degree());
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus, transformer);
 
@@ -162,17 +167,18 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
                                P const tol_factor)
 {
   // memory limit for routines
-  static int constexpr limit_MB = 4000;
+  static auto constexpr limit_MB = 4000;
 
   // FIXME assume uniform level and degree
-  dimension<P> const &d = pde.get_dimensions()[0];
-  int const level       = d.get_level();
-  int const degree      = d.get_degree();
+  auto const &d     = pde.get_dimensions()[0];
+  auto const level  = d.get_level();
+  auto const degree = d.get_degree();
 
-  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
-  elements::table const table(make_options({"-l", std::to_string(level)}), pde);
+  auto const opts = make_options({"-l", std::to_string(level)});
+  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
+  elements::table const table(opts, pde);
 
-  fk::vector<P> const wave_space = [&table, &pde, degree]() {
+  auto const wave_space = [&table, &pde, degree]() {
     // arbitrary function to transform from wavelet space to real space
     auto const arbitrary_func = [](P const x) { return 2.0 * x; };
 
@@ -188,7 +194,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     return wave_space;
   }();
 
-  int const real_space_size = real_solution_size(pde);
+  auto const real_space_size = real_solution_size(pde);
   fk::vector<P> real_space(real_space_size);
 
   fk::vector<P, mem_type::owner, resource::host> workspace_0(real_space_size);
@@ -201,11 +207,8 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   wavelet_to_realspace<P>(pde, wave_space, table, transformer, limit_MB,
                           tmp_workspace, real_space);
 
-  fk::vector<P> const gold =
-      fk::vector<P>(read_vector_from_txt_file(gold_filename));
+  auto const gold = fk::vector<P>(read_vector_from_txt_file(gold_filename));
 
-  std::cout << gold.size() << '\n';
-  std::cout << real_space_size << '\n';
   rmse_comparison(gold, real_space, tol_factor);
 }
 
@@ -262,7 +265,9 @@ void test_gen_realspace_transform(PDE<P> const &pde,
   // FIXME assumes uniform level and degree across dims
   auto const level  = pde.get_dimensions()[0].get_level();
   auto const degree = pde.get_dimensions()[0].get_degree();
-  basis::wavelet_transform<P, resource::host> const transformer(level, degree);
+  auto const opts =
+      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
+  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   std::vector<fk::matrix<P>> const transforms =
       gen_realspace_transform(pde, transformer);
 
@@ -270,7 +275,6 @@ void test_gen_realspace_transform(PDE<P> const &pde,
   {
     fk::matrix<P> const gold = fk::matrix<P>(
         read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
-
     rmse_comparison(gold, transforms[i], tol_factor);
   }
 }
@@ -280,7 +284,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
 {
   SECTION("gen_realspace_transform_1")
   {
-    int const level  = 8;
+    int const level  = 7;
     int const degree = 7;
     std::string const gold_filename =
         "../testing/generated-inputs/transformations/matrix_plot_D/"

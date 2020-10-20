@@ -62,12 +62,8 @@ int main(int argc, char **argv)
   // if we ever do go to p-adaptivity (variable degree) we can change it then
   auto const degree = pde->get_dimensions()[0].get_degree();
 
-  // FIXME assume uniform level for now
-  auto const level = pde->get_dimensions()[0].get_level();
-
   node_out() << "ASGarD problem configuration:" << '\n';
   node_out() << "  selected PDE: " << cli_input.get_pde_string() << '\n';
-  node_out() << "  starting level: " << level << '\n';
   node_out() << "  degree: " << degree << '\n';
   node_out() << "  N steps: " << opts.num_time_steps << '\n';
   node_out() << "  write freq: " << opts.wavelet_output_freq << '\n';
@@ -76,6 +72,15 @@ int main(int argc, char **argv)
   node_out() << "  full grid: " << opts.use_full_grid << '\n';
   node_out() << "  CFL number: " << cli_input.get_cfl() << '\n';
   node_out() << "  Poisson solve: " << opts.do_poisson_solve << '\n';
+  node_out() << "  starting levels: ";
+  node_out() << std::accumulate(
+                    pde->get_dimensions().begin(), pde->get_dimensions().end(),
+                    std::string(),
+                    [](std::string const &accum, dimension<prec> const &dim) {
+                      return accum + std::to_string(dim.get_level()) + " ";
+                    })
+             << '\n';
+  node_out() << "  max adaptivity levels: " << opts.max_level << '\n';
 
   node_out() << "--- begin setup ---" << '\n';
 
@@ -91,8 +96,8 @@ int main(int argc, char **argv)
 
   node_out() << "  generating: basis operator..." << '\n';
   bool const quiet = false;
-  basis::wavelet_transform<prec, resource::host> const transformer(
-      opts.max_level, degree, quiet);
+  basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde,
+                                                                   quiet);
 
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
@@ -237,9 +242,9 @@ int main(int argc, char **argv)
       // FIXME fold initial sources/unscaled parts into pde object
       // after pde spec/pde split
       auto const &time_id = timer::record.start("explicit_time_advance");
-      f_val =
-          explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, default_workspace_MB, time);
+      f_val = explicit_time_advance(*pde, table, opts, initial_sources,
+                                    unscaled_parts, f_val, plan,
+                                    default_workspace_MB, time);
 
       timer::record.stop(time_id);
     }

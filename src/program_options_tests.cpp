@@ -22,23 +22,24 @@ TEST_CASE("parser constructor/getters", "[program_options]")
   SECTION("create from valid string")
   {
     // the golden values
-    std::string pde_choice = "continuity_3";
-    PDE_opts pde           = PDE_opts::continuity_3;
-    int const level        = 3;
-    int const degree       = 4;
-    int const write        = 1;
-    int const realspace    = 1;
-    double const cfl       = 2.0;
+    std::string const pde_choice   = "continuity_3";
+    PDE_opts const pde             = PDE_opts::continuity_3;
+    std::string const input_levels = "3 4 5";
+    int const degree               = 4;
+    int const write                = 1;
+    int const realspace            = 1;
+    double const cfl               = 2.0;
 
     // set up test inputs directly from golden values
-    parser const p =
-        make_parser({"-p", pde_choice, "-l", std::to_string(level), "-d",
-                     std::to_string(degree), "-w", std::to_string(write), "-r",
-                     std::to_string(realspace), "-f", "-i", "-e", "-c",
-                     std::to_string(cfl)});
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser(
+        {"-p", pde_choice, "-l", input_levels, "-d", std::to_string(degree),
+         "-w", std::to_string(write), "-r", std::to_string(realspace), "-f",
+         "-i", "-e", "-c", std::to_string(cfl)});
+    std::cerr.clear();
 
     REQUIRE(p.get_degree() == degree);
-    REQUIRE(p.get_level() == level);
+    REQUIRE(p.get_starting_levels() == fk::vector<int>{3, 4, 5});
     REQUIRE(p.get_wavelet_output_freq() == write);
     REQUIRE(p.get_realspace_output_freq() == realspace);
     REQUIRE(p.using_implicit());
@@ -50,7 +51,7 @@ TEST_CASE("parser constructor/getters", "[program_options]")
 
   SECTION("run w/ defaults")
   {
-    auto const def_level          = parser::NO_USER_VALUE;
+    auto const def_levels         = fk::vector<int>();
     auto const def_degree         = parser::NO_USER_VALUE;
     auto const def_max_level      = parser::DEFAULT_MAX_LEVEL;
     auto const def_num_steps      = parser::DEFAULT_TIME_STEPS;
@@ -72,7 +73,7 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     auto const p = make_parser({});
 
     REQUIRE(p.get_degree() == def_degree);
-    REQUIRE(p.get_level() == def_level);
+    REQUIRE(p.get_starting_levels() == def_levels);
     REQUIRE(p.get_max_level() == def_max_level);
     REQUIRE(p.get_time_steps() == def_num_steps);
     REQUIRE(p.get_wavelet_output_freq() == def_write_freq);
@@ -105,7 +106,6 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-
   SECTION("negative level")
   {
     std::cerr.setstate(std::ios_base::failbit);
@@ -113,7 +113,13 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-
+  SECTION("out of range level, 2nd entry")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"asgard", "-l=\"2, 0\""});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
   SECTION("negative degree")
   {
     std::cerr.setstate(std::ios_base::failbit);
@@ -121,7 +127,6 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-
   SECTION("max level < starting level")
   {
     std::cerr.setstate(std::ios_base::failbit);
@@ -129,7 +134,6 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-
   SECTION("negative cfl")
   {
     std::cerr.setstate(std::ios_base::failbit);
@@ -137,7 +141,6 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-
   SECTION("non positive dt")
   {
     std::cerr.setstate(std::ios_base::failbit);

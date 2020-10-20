@@ -69,7 +69,8 @@ private:
   }
   static P f0(P const z)
   {
-    return std::exp(-std::pow(z, 2) / std::pow(sig, 2));
+    auto const shift = 0.36;
+    return std::exp(-std::pow(z + shift, 2) / std::pow(sig, 2));
   }
 
   static fk::vector<P> f0_vec(fk::vector<P> const z, P const t = 0)
@@ -167,7 +168,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "d_dx",          // name
-              dim0_,           // owning dim
               {partial_term_0});
 
   inline static std::vector<term<P>> const termE = {termE_z};
@@ -187,7 +187,6 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "d_dx",          // name
-              dim0_,           // owning dim
               {partial_term_1, partial_term_2});
 
   inline static std::vector<term<P>> const termC = {termC_z};

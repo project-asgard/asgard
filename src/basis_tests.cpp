@@ -159,39 +159,29 @@ void test_fmwt_block_generation(int const level, int const degree)
 {
   P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-14;
 
-  std::cerr.setstate(std::ios_base::failbit);
-  basis::wavelet_transform<P, resrc> const forward_transform(level, degree);
+  // none of these options matter except for max level and degree
+  auto const pde_choice = "diffusion_2";
+  auto const num_dims   = 2;
 
+  parser const parse(pde_choice,
+                     fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+                     parser::DEFAULT_CFL, parser::DEFAULT_USE_IMPLICIT, level);
+  auto const pde = make_PDE<P>(parse);
+  options const opts(parse);
+
+  auto const quiet = true;
+  basis::wavelet_transform<P, resrc> const forward_transform(opts, *pde, quiet);
   auto const &blocks = forward_transform.get_blocks();
 
-  // check odd/non-level unique blocks
-  for (auto i = 1; i < level + 1; ++i)
+  auto ctr = 0;
+  for (auto const &block : blocks)
   {
     std::string const gold_str =
         "../testing/generated-inputs/basis/transform_blocks_l" +
         std::to_string(level) + "_d" + std::to_string(degree) + "_" +
-        std::to_string(i + 1) + ".dat";
-    auto const gold   = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
-    auto const &block = blocks[(i - 1) * 2 + 1];
-    if constexpr (resrc == resource::host)
-    {
-      rmse_comparison(gold, block, tol);
-    }
-    else
-    {
-      rmse_comparison(gold, block.clone_onto_host(), tol);
-    }
-  }
+        std::to_string(++ctr) + ".dat";
+    auto const gold = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
 
-  // check even/level unique blocks
-  for (auto i = 0; i < 2 * level; i += 2)
-  {
-    std::string const gold_str =
-        "../testing/generated-inputs/basis/transform_blocks_l" +
-        std::to_string((level - i / 2)) + "_d" + std::to_string(degree) + "_" +
-        "1.dat";
-    auto const gold   = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
-    auto const &block = blocks[i];
     if constexpr (resrc == resource::host)
     {
       rmse_comparison(gold, block, tol);
@@ -233,26 +223,23 @@ TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
     auto const levels = 5;
     test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-  SECTION("level 12 degree 2")
-  {
-    auto const degree = 2;
-    auto const levels = 12;
-    test_fmwt_block_generation<TestType, resrc>(levels, degree);
-  }
-  SECTION("level 12 degree 5")
-  {
-    auto const degree = 5;
-    auto const levels = 12;
-    test_fmwt_block_generation<TestType, resrc>(levels, degree);
-  }
 }
 
 // tests transform across all supported levels
 template<typename P, resource resrc>
-void test_fmwt_application(
-    basis::wavelet_transform<P, resrc> const &forward_transform)
+void test_fmwt_application(int const level, int const degree)
 {
   P constexpr tol = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+
+  auto const pde_choice = "diffusion_2";
+  auto const num_dims   = 2;
+  parser const parse(pde_choice,
+                     fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+                     parser::DEFAULT_CFL, parser::DEFAULT_USE_IMPLICIT, level);
+  auto const pde = make_PDE<P>(parse);
+  options const opts(parse);
+  auto const quiet = true;
+  basis::wavelet_transform<P, resrc> const forward_transform(opts, *pde, quiet);
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());
@@ -388,49 +375,43 @@ TEMPLATE_TEST_CASE_SIG("wavelet transform", "[basis]",
   {
     auto const degree = 2;
     auto const levels = 2;
-    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
-                                                                      degree);
-    test_fmwt_application<TestType, resrc>(forward_transform);
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
   }
   SECTION("level 2 degree 5")
   {
     auto const degree = 5;
     auto const levels = 2;
-    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
-                                                                      degree);
-    test_fmwt_application<TestType, resrc>(forward_transform);
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
   }
   SECTION("level 5 degree 3")
   {
     auto const degree = 3;
     auto const levels = 5;
-    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
-                                                                      degree);
-    test_fmwt_application<TestType, resrc>(forward_transform);
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
   }
   SECTION("level 5 degree 6")
   {
     auto const degree = 6;
     auto const levels = 5;
-    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
-                                                                      degree);
-    test_fmwt_application<TestType, resrc>(forward_transform);
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
   }
 
   SECTION("level 8 degree 4")
   {
     auto const degree = 4;
     auto const levels = 8;
-    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
-                                                                      degree);
-    test_fmwt_application<TestType, resrc>(forward_transform);
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
   }
   SECTION("level 8 degree 5")
   {
     auto const degree = 5;
     auto const levels = 8;
-    basis::wavelet_transform<TestType, resrc> const forward_transform(levels,
-                                                                      degree);
-    test_fmwt_application<TestType, resrc>(forward_transform);
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
   }
 }

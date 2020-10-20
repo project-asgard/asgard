@@ -13,33 +13,37 @@ parser::parser(int argc, char **argv)
       clara::detail::Help(show_help) |
       clara::detail::Opt(show_pdes)["-a"]["--available_pdes"](
           "Print available pdes (for -p argument) and exit") |
-      clara::detail::Opt(cfl, "cfl")["-c"]["--cfl"](
+      clara::detail::Opt(cfl, "positive float")["-c"]["--cfl"](
           "The Courant-Friedrichs-Lewy (CFL) condition") |
-      clara::detail::Opt(dt, "dt")["-t"]["--dt"]("Size of time steps") |
-      clara::detail::Opt(degree, "degree")["-d"]["--degree"](
+      clara::detail::Opt(dt,
+                         "positive float")["-t"]["--dt"]("Size of time steps") |
+      clara::detail::Opt(degree, "positive integer")["-d"]["--degree"](
           "Terms in legendre basis polynomials") |
       clara::detail::Opt(use_full_grid)["-f"]["--full_grid"](
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
-      clara::detail::Opt(solver_str, "solver_str")["-s"]["--solver"](
-          "Solver to use (direct or gmres) for implicit advance") |
-      clara::detail::Opt(level, "level")["-l"]["--level"](
+      clara::detail::Opt(solver_str, "direct|gmres")["-s"]["--solver"](
+          "Solver to use for implicit advance") |
+      clara::detail::Opt(starting_levels_str,
+                         "e.g. for 2d PDE: \"3 2\"")["-l"]["--levels"](
           "Stating hierarchical levels (resolution)") |
-      clara::detail::Opt(max_level, "max level")["-m"]["--max_level"](
+      clara::detail::Opt(max_level,
+                         "integer >= all starting levels")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
-      clara::detail::Opt(num_time_steps, "time steps")["-n"]["--num_steps"](
+      clara::detail::Opt(num_time_steps,
+                         "positive integer")["-n"]["--num_steps"](
           "Number of iterations") |
-      clara::detail::Opt(pde_str, "pde_str")["-p"]["--pde"](
+      clara::detail::Opt(pde_str, "e.g. continuity2")["-p"]["--pde"](
           "PDE to solve; use -a option to print list of choices") |
       clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
           "Do poisson solve for electric field") |
       clara::detail::Opt(wavelet_output_freq,
-                         "wavelet_output_freq")["-w"]["--wave_freq"](
+                         "0-num_time_steps")["-w"]["--wave_freq"](
           "Frequency in steps for writing wavelet space "
           "output") |
       clara::detail::Opt(realspace_output_freq,
-                         "realspace_output_freq")["-r"]["--real_freq"](
+                         "0-num_time_steps")["-r"]["--real_freq"](
           "Frequency in steps for writing realspace output");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
@@ -87,17 +91,34 @@ parser::parser(int argc, char **argv)
     std::cerr << "Degree must be a natural number" << '\n';
     valid = false;
   }
-  if (level < 2 && level != NO_USER_VALUE)
+
+  if (starting_levels_str != NO_USER_VALUE_STR)
   {
-    std::cerr << "Level must be greater than one" << '\n';
-    valid = false;
+    auto const starting_lev = ints_from_string(starting_levels_str);
+    if (starting_lev.size() == 0)
+    {
+      std::cerr << "Failed to parse starting levels from input argument"
+                << '\n';
+      valid = false;
+    }
+    starting_levels.resize(starting_lev.size()) = starting_lev;
+    for (auto const lev : starting_levels)
+    {
+      if (lev < 2)
+      {
+        std::cerr << "Level must be greater than one" << '\n';
+        valid = false;
+      }
+      if (max_level < lev)
+      {
+        std::cerr
+            << "Maximum level must be greater than or equal to starting level"
+            << '\n';
+        valid = false;
+      }
+    }
   }
-  if (max_level < level)
-  {
-    std::cerr << "Maximum level must be greater than or equal to starting level"
-              << '\n';
-    valid = false;
-  }
+
   if (dt != NO_USER_VALUE_FP && dt <= 0.0)
   {
     std::cerr << "Provided dt must be positive" << '\n';
@@ -196,7 +217,6 @@ bool parser::using_implicit() const { return use_implicit_stepping; }
 bool parser::using_full_grid() const { return use_full_grid; }
 bool parser::do_poisson_solve() const { return do_poisson; }
 
-int parser::get_level() const { return level; }
 fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
 int parser::get_degree() const { return degree; }
 int parser::get_max_level() const { return max_level; }

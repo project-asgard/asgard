@@ -1,4 +1,5 @@
 #pragma once
+#include "basis.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
 

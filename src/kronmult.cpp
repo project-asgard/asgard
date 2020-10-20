@@ -82,6 +82,7 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   // room for anything else in device workspace
   auto const remaining_rank_MB =
       rank_size_MB - coefficients_size_MB - table_size_MB - xy_space_MB;
+
   assert(remaining_rank_MB > space_per_elem * 4);
 
   // determine number of subgrids
@@ -235,6 +236,10 @@ private:
 
       // don't memset
       bool const initialize = false;
+
+      // FIXME allocate once for maximum adaptivity? this would be a LOT of
+      // elements, not sure we want to do that. but, the below code will crash
+      // if we add so many elements that we spill out of device RAM
       fk::allocate_device(element_x, new_workspace_size, initialize);
       fk::allocate_device(element_work, new_workspace_size, initialize);
       fk::allocate_device(input_ptrs, new_ptrs_size, initialize);
@@ -263,7 +268,7 @@ private:
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
 execute(PDE<P> const &pde, elements::table const &elem_table,
-        element_subgrid const &my_subgrid,
+        options const &program_opts, element_subgrid const &my_subgrid,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx)
 {
@@ -288,23 +293,32 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
 
   // list building kernel needs simple arrays/pointers, can't compile our
   // objects
-  fk::vector<P *> const operators = [&pde] {
+
+  // FIXME assume all operators same size - largest possible adaptivity size
+  auto const lda =
+      degree *
+      fm::two_raised_to(
+          program_opts.max_level); // leading dimension of coefficient matrices
+  auto const real_size =
+      degree * fm::two_raised_to(pde.get_dimensions()[0].get_level());
+  auto const coeff = pde.get_coefficients(0, 0).clone_onto_host();
+  fk::matrix<P, mem_type::const_view> const blah(coeff, 0, real_size - 1, 0,
+                                                 real_size - 1);
+
+  fk::vector<P *> const operators = [&pde, lda] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {
       for (int j = 0; j < pde.num_dims; ++j)
       {
         builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
+        assert(pde.get_coefficients(i, j).nrows() == lda);
       }
     }
     return builder;
   }();
   fk::vector<P *, mem_type::owner, resource::device> const operators_d(
       operators.clone_onto_device());
-
-  // FIXME assume all operators same size
-  auto const lda = pde.get_coefficients(0, 0)
-                       .stride(); // leading dimension of coefficient matrices
 
   // prepare lists for kronmult, on device if cuda is enabled
   timer::record.start("kronmult_build");
@@ -334,7 +348,8 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
 template<typename P>
 fk::vector<P, mem_type::owner, resource::host>
 execute(PDE<P> const &pde, elements::table const &elem_table,
-        element_subgrid const &my_subgrid, int const workspace_size_MB,
+        options const &program_opts, element_subgrid const &my_subgrid,
+        int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x)
 {
   auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
@@ -358,8 +373,8 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         x_dev, col_start * deg_to_dim, (col_end + 1) * deg_to_dim - 1);
     fk::vector<P, mem_type::view, resource::device> fx_dev_grid(
         fx_dev, row_start * deg_to_dim, (row_end + 1) * deg_to_dim - 1);
-    fx_dev_grid =
-        kronmult::execute(pde, elem_table, grid, x_dev_grid, fx_dev_grid);
+    fx_dev_grid = kronmult::execute(pde, elem_table, program_opts, grid,
+                                    x_dev_grid, fx_dev_grid);
   }
   return fx_dev.clone_onto_host();
 }
@@ -374,12 +389,14 @@ decompose(PDE<double> const &pde, elements::table const &elem_table,
 
 template fk::vector<float, mem_type::owner, resource::host>
 execute(PDE<float> const &pde, elements::table const &elem_table,
-        element_subgrid const &my_subgrid, int const workspace_size_MB,
+        options const &program_options, element_subgrid const &my_subgrid,
+        int const workspace_size_MB,
         fk::vector<float, mem_type::owner, resource::host> const &x);
 
 template fk::vector<double, mem_type::owner, resource::host>
 execute(PDE<double> const &pde, elements::table const &elem_table,
-        element_subgrid const &my_subgrid, int const workspace_size_MB,
+        options const &program_options, element_subgrid const &my_subgrid,
+        int const workspace_size_MB,
         fk::vector<double, mem_type::owner, resource::host> const &x);
 
 } // namespace kronmult

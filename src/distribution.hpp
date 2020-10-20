@@ -158,6 +158,7 @@ element_subgrid get_subgrid(int const num_ranks, int const my_rank,
                             elements::table const &table);
 
 // map ranks to assigned subgrids
+// code assumes no subgrid will be larger than rank 0's.
 using distribution_plan = std::map<int, element_subgrid>;
 distribution_plan get_plan(int const num_ranks, elements::table const &table);
 

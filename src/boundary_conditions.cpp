@@ -12,7 +12,7 @@ value "t" to generate the complete boundary condition vector at time "t".
 
 */
 
-// FIXME refactor this component
+// FIXME refactor this component. the whole thing.
 template<typename P>
 std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
     PDE<P> const &pde, elements::table const &table,
@@ -273,13 +273,18 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
 
   if (p_index > 0)
   {
-    fk::matrix<P> chain = eye<P>(partial_terms[0].get_coefficients().nrows(),
-                                 partial_terms[0].get_coefficients().ncols());
+    // FIXME assume uniform level across dimensions
+    auto const degrees_freedom_1d =
+        dimensions[d_index].get_degree() *
+        fm::two_raised_to(dimensions[d_index].get_level());
+    fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
 
     for (int p = 0; p < p_index; ++p)
     {
-      fm::gemm(fk::matrix<P>(chain), partial_terms[p].get_coefficients(),
-               chain);
+      fk::matrix<P, mem_type::const_view> const next_coeff(
+          partial_terms[p].get_coefficients(), 0, degrees_freedom_1d - 1, 0,
+          degrees_freedom_1d - 1);
+      fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
     }
 
     fm::gemv(chain, fk::vector<P>(partial_bc_vecs.back()),

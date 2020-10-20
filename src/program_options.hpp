@@ -3,6 +3,7 @@
 #include "tensors.hpp"
 #include <limits>
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -89,6 +90,7 @@ static pde_map_t const pde_mapping = {
          "Same as 4p4, but with radiation damping: df/dt == -E d/dz((1-z^2) f) "
          "+ C d/dz((1-z^2) df/dz) - R d/dz(z(1-z^2) f)",
          PDE_opts::fokkerplanck_1d_4p5)},
+
     {"fokkerplanck_2d_complete",
      PDE_descriptor("Full PDE from the 2D runaway electron paper: d/dt f(p,z) "
                     "== -div(flux_C + flux_E + flux_R)",
@@ -121,27 +123,33 @@ public:
   // construct from command line
   explicit parser(int argc, char **argv);
 
-  // FIXME todo - will eventually remove "level" argument
-  // construct from provided values - to simplify testing
-  parser(PDE_opts const pde_choice, int const level, int const degree,
-         double const cfl)
-      : level(level), degree(degree), cfl(cfl), pde_choice(pde_choice){};
-
   // construct from provided values - to simplify testing
   explicit parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
+                  int const degree         = NO_USER_VALUE,
+                  double const cfl         = DEFAULT_CFL,
                   bool const use_full_grid = DEFAULT_USE_FG,
                   int const max_level      = DEFAULT_MAX_LEVEL,
-                  int const degree         = NO_USER_VALUE,
-                  double const cfl         = NO_USER_VALUE_FP)
-      : use_full_grid(use_full_grid), level(starting_levels(0)),
+                  int const num_steps      = DEFAULT_TIME_STEPS,
+                  bool const use_implicit  = DEFAULT_USE_IMPLICIT)
+      : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid),
         starting_levels(starting_levels), degree(degree), max_level(max_level),
-        cfl(cfl), pde_choice(pde_choice){};
+        num_time_steps(num_steps), cfl(cfl), pde_choice(pde_choice){};
+
+  explicit parser(std::string const &pde_choice,
+                  fk::vector<int> starting_levels,
+                  int const degree         = NO_USER_VALUE,
+                  double const cfl         = DEFAULT_CFL,
+                  bool const use_full_grid = DEFAULT_USE_FG,
+                  int const max_level      = DEFAULT_MAX_LEVEL,
+                  int const num_steps      = DEFAULT_TIME_STEPS,
+                  bool const use_implicit  = DEFAULT_USE_IMPLICIT)
+      : parser(pde_mapping.at(pde_choice).pde_choice, starting_levels, degree,
+               cfl, use_full_grid, max_level, num_steps, use_implicit){};
 
   bool using_implicit() const;
   bool using_full_grid() const;
   bool do_poisson_solve() const;
 
-  int get_level() const;
   fk::vector<int> get_starting_levels() const;
   int get_degree() const;
   int get_max_level() const;
@@ -169,7 +177,6 @@ private:
               << "\n\n";
     std::cerr << std::left << std::setw(max_name_length) << "Argument"
               << "Description" << '\n';
-
     for (auto const &[pde_name, pde_enum_val] : pde_mapping)
     {
       ignore(pde_enum_val);
@@ -179,20 +186,30 @@ private:
     }
   }
 
+  fk::vector<int> ints_from_string(std::string const &number_string)
+  {
+    std::stringstream number_stream{number_string};
+    std::vector<int> parsed_ints;
+    while (!number_stream.eof())
+    {
+      std::string word;
+      number_stream >> word;
+      int temp_int;
+      if (std::stringstream(word) >> temp_int)
+      {
+        parsed_ints.push_back(temp_int);
+      }
+    }
+    return fk::vector<int>(parsed_ints);
+  }
+
   bool use_implicit_stepping =
       DEFAULT_USE_IMPLICIT;             // enable implicit(/explicit) stepping
   bool use_full_grid = DEFAULT_USE_FG;  // enable full(/sparse) grid
   bool do_poisson = DEFAULT_DO_POISSON; // do poisson solve for electric field
 
-  // FIXME level and degree are unique to dimensions, will
-  // need to support inputting level and degree per dimensions
-  // in future
-
-  // FIXME temporary - will remove completely once multiple levels supported
-  // throughout code
-  int level = NO_USER_VALUE; // resolution. NO_USER_VALUE loads default in pde
-
-  // FIXME this will store the starting levels input by user in dimension order
+  // if none are provided, default is loaded from pde
+  std::string starting_levels_str = NO_USER_VALUE_STR;
   fk::vector<int> starting_levels;
 
   int degree = NO_USER_VALUE; // deg of legendre basis polys. NO_USER_VALUE
@@ -225,13 +242,11 @@ private:
 };
 
 // simple class to hold non-pde user options
-
 class options
 {
 public:
-  // FIXME will be removed after multi-level PR
   options(parser const &user_vals)
-      : starting_level(user_vals.get_level()),
+      : starting_levels(user_vals.get_starting_levels()),
         max_level(user_vals.get_max_level()),
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
@@ -244,8 +259,7 @@ public:
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
 
-  // FIXME temporary, will be replaced with levels vector
-  int const starting_level;
+  fk::vector<int> const starting_levels;
   int const max_level;
   int const num_time_steps;
   int const wavelet_output_freq;

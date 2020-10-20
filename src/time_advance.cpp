@@ -12,6 +12,7 @@
 template<typename P>
 fk::vector<P>
 explicit_time_advance(PDE<P> const &pde, elements::table const &table,
+                      options const &program_opts,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                       fk::vector<P> const &x_orig,
@@ -52,7 +53,8 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = timer::record.start("kronmult_setup");
-  auto fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
+  auto fx =
+      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -75,7 +77,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
 
   // -- RK step 2
   timer::record.start(apply_id);
-  fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
+  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -103,7 +105,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
 
   // -- RK step 3
   timer::record.start(apply_id);
-  fx = kronmult::execute(pde, table, grid, workspace_size_MB, x);
+  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, my_rank);
 
@@ -244,6 +246,7 @@ implicit_time_advance(PDE<P> const &pde, elements::table const &table,
 
 template fk::vector<double> explicit_time_advance(
     PDE<double> const &pde, elements::table const &table,
+    options const &program_opts,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
     fk::vector<double> const &x, distribution_plan const &plan,
@@ -251,6 +254,7 @@ template fk::vector<double> explicit_time_advance(
 
 template fk::vector<float> explicit_time_advance(
     PDE<float> const &pde, elements::table const &table,
+    options const &program_opts,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
     fk::vector<float> const &x, distribution_plan const &plan,

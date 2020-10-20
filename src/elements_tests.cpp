@@ -10,7 +10,9 @@ void test_element_table(PDE_opts const pde_choice,
                         std::string const &gold_filename,
                         int64_t const max_level, bool const full_grid = false)
 {
-  parser const cli_mock(pde_choice, levels, full_grid, max_level);
+  auto const degree = parser::NO_USER_VALUE;
+  auto const cfl    = parser::DEFAULT_CFL;
+  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
   options const opts(cli_mock);
   auto const pde = make_PDE<double>(cli_mock);
   elements::table const elem_table(opts, *pde);

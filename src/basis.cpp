@@ -432,15 +432,14 @@ operator_two_scale(int const degree, int const num_levels);
 
 namespace basis
 {
+// FIXME assumes same degree for all dimensions
 template<typename P, resource resrc>
-wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
-                                               int const degree,
+wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
+                                               PDE<P> const &pde,
                                                bool const quiet)
-    : max_level(max_level), degree(degree), dense_blocks_(max_level * 2)
+    : max_level(program_opts.max_level),
+      degree(pde.get_dimensions()[0].get_degree()), dense_blocks_(max_level * 2)
 {
-  assert(max_level > 1);
-  assert(degree > 0);
-
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until
   // c++20)
@@ -450,7 +449,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
   ignore(phi_co);
   ignore(scale_co);
 
-  int const fmwt_size = degree * fm::two_raised_to(max_level);
+  auto const fmwt_size = degree * fm::two_raised_to(max_level);
 
   std::vector<fk::matrix<P>> block_builder(max_level * 2);
 
@@ -459,11 +458,11 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
                             .set_submatrix(0, 0, eye<P>(degree, degree));
 
   // main loop - build the blocks with small gemms
-  for (int j = max_level - 1; j >= 0; --j)
+  for (auto j = max_level - 1; j >= 0; --j)
   {
-    int const num_cells   = fm::two_raised_to(j);
-    int const block_ncols = fmwt_size / num_cells;
-    int const ncols_h     = block_ncols / 2;
+    auto const num_cells   = fm::two_raised_to(j);
+    auto const block_ncols = fmwt_size / num_cells;
+    auto const ncols_h     = block_ncols / 2;
 
     fk::matrix<P> h_tmp(degree, ncols_h);
     fk::matrix<P, mem_type::view> h_view(h_mat, 0, degree - 1, 0, ncols_h - 1);
@@ -492,9 +491,11 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level,
   }
 
   // how much space are we using?
-  auto const num_elems = std::accumulate(
-      block_builder.begin(), block_builder.end(), 0,
-      [](int const sum, auto const matrix) { return sum + matrix.size(); });
+  auto const num_elems =
+      std::accumulate(block_builder.begin(), block_builder.end(), 0,
+                      [](int64_t const sum, auto const &matrix) {
+                        return sum + static_cast<int64_t>(matrix.size());
+                      });
 
   if (!quiet)
     node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
@@ -628,7 +629,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
     for (auto j = 0; j < num_cells; ++j)
     {
-      auto const cell_start = j * cell_size; // +1?
+      auto const cell_start = j * cell_size;
       auto const cell_end   = cell_start + cell_size - 1;
       auto const degree_end = degree_start + degree - 1;
 
@@ -716,6 +717,13 @@ wavelet_transform<double, resource::device>::apply(
 template fk::vector<float, mem_type::owner, resource::host>
 wavelet_transform<float, resource::host>::apply(
     fk::vector<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+template fk::vector<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::vector<double, mem_type::const_view, resource::host> const
+        &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 

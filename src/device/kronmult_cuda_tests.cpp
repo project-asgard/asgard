@@ -1,3 +1,5 @@
+#include "../basis.hpp"
+#include "../coefficients.hpp"
 #include "../distribution.hpp"
 #include "../elements.hpp"
 #include "kronmult_cuda.hpp"
@@ -69,15 +71,20 @@ TEMPLATE_TEST_CASE("staging kernel", "[kronmult_cuda]", float, double)
 // and in correct range
 
 template<typename P>
-void test_kronmult_build(PDE<P> const &pde)
+void test_kronmult_build(PDE<P> &pde)
 {
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const level      = pde.get_dimensions()[0].get_level();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
 
-  std::vector<std::string> const args = {"-l", std::to_string(level), "-d",
-                                         std::to_string(degree)};
-  options const o                     = make_options(args);
+  std::vector<std::string> const args = {"-l", std::to_string(level),
+                                         "-d", std::to_string(degree),
+                                         "-m", std::to_string(level)};
+
+  options const o = make_options(args);
+  basis::wavelet_transform<P, resource::host> const transformer(o, pde);
+  generate_all_coefficients<P>(pde, transformer);
+
   elements::table const table(o, pde);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
@@ -112,8 +119,9 @@ void test_kronmult_build(PDE<P> const &pde)
   fk::vector<P *, mem_type::owner, resource::device> const operators_d(
       operators.clone_onto_device());
 
-  auto const lda = pde.get_coefficients(0, 0)
-                       .stride(); // leading dimension of coefficient matrices
+  auto const lda =
+      degree * fm::two_raised_to(
+                   o.max_level); // leading dimension of coefficient matrices
 
   fk::vector<P, mem_type::owner, resource::device> fx(my_subgrid.nrows() *
                                                       deg_to_dim);
