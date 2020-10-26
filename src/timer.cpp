@@ -10,8 +10,9 @@ namespace timer
 std::string recorder::report()
 {
   std::ostringstream report;
-  report << "\nperformance report, all times in ms...\n\n";
-
+  report << "\nperformance report, all times in ms...\n";
+  report << "Operation,avg,min,max,med,avg flops,calls\n";
+  
   for (auto [id, times] : id_to_times_)
   {
     auto const avg =
@@ -34,14 +35,14 @@ std::string recorder::report()
         auto const flops = id_to_flops_[id];
         auto const avg =
             std::accumulate(flops.begin(), flops.end(), 0.0) / flops.size();
-        return " avg gflops: " + std::to_string(avg);
+        	return std::to_string(avg);
       }
       return std::string("");
     }();
 
-    report << id << " - avg: " << avg << " min: " << min << " max: " << max
-           << " med: " << med << avg_flops << " calls: " << times.size()
-           << '\n';
+    report << id << "," << avg << "," << min << "," << max << "," << med << "," 
+    << avg_flops << "," << times.size() << '\n';
+
   }
   return report.str();
 }

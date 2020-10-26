@@ -1,9 +1,11 @@
 #include "batch.hpp"
 
 #include "build_info.hpp"
+#include "chunk.hpp"
 #include "coefficients.hpp"
+#include "connectivity.hpp"
 #include "distribution.hpp"
-#include "elements.hpp"
+#include "element_table.hpp"
 #include "timer.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
@@ -21,6 +23,7 @@
 #include "time_advance.hpp"
 #include "transformations.hpp"
 #include <numeric>
+#include <fstream>
 
 #ifdef ASGARD_USE_DOUBLE_PREC
 using prec = double;
@@ -62,8 +65,12 @@ int main(int argc, char **argv)
   // if we ever do go to p-adaptivity (variable degree) we can change it then
   auto const degree = pde->get_dimensions()[0].get_degree();
 
+  // FIXME assume uniform level for now
+  auto const level = pde->get_dimensions()[0].get_level();
+
   node_out() << "ASGarD problem configuration:" << '\n';
   node_out() << "  selected PDE: " << cli_input.get_pde_string() << '\n';
+  node_out() << "  starting level: " << level << '\n';
   node_out() << "  degree: " << degree << '\n';
   node_out() << "  N steps: " << opts.num_time_steps << '\n';
   node_out() << "  write freq: " << opts.wavelet_output_freq << '\n';
@@ -72,22 +79,13 @@ int main(int argc, char **argv)
   node_out() << "  full grid: " << opts.use_full_grid << '\n';
   node_out() << "  CFL number: " << cli_input.get_cfl() << '\n';
   node_out() << "  Poisson solve: " << opts.do_poisson_solve << '\n';
-  node_out() << "  starting levels: ";
-  node_out() << std::accumulate(
-                    pde->get_dimensions().begin(), pde->get_dimensions().end(),
-                    std::string(),
-                    [](std::string const &accum, dimension<prec> const &dim) {
-                      return accum + std::to_string(dim.get_level()) + " ";
-                    })
-             << '\n';
-  node_out() << "  max adaptivity levels: " << opts.max_level << '\n';
 
   node_out() << "--- begin setup ---" << '\n';
 
   // -- create forward/reverse mapping between elements and indices
   node_out() << "  generating: element table..." << '\n';
 
-  auto const table = elements::table(opts, *pde);
+  element_table const table = element_table(opts, level, pde->num_dims);
 
   node_out() << "  degrees of freedom: "
              << table.size() *
@@ -96,8 +94,8 @@ int main(int argc, char **argv)
 
   node_out() << "  generating: basis operator..." << '\n';
   bool const quiet = false;
-  basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde,
-                                                                   quiet);
+  basis::wavelet_transform<prec, resource::host> const transformer(
+      opts.max_level, degree, quiet);
 
   // -- get distribution plan - dividing element grid into subgrids
   auto const plan    = get_plan(num_ranks, table);
@@ -188,6 +186,10 @@ int main(int argc, char **argv)
   /* RAM on fusiont5 */
   static int const default_workspace_cpu_MB = 187000;
 
+  // FIXME DELETE --
+  std::vector<element_chunk> const chunks = assign_elements(
+      subgrid, get_num_chunks(plan.at(my_rank), *pde, default_workspace_MB));
+
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
 
@@ -232,9 +234,9 @@ int main(int argc, char **argv)
       bool const update_system = i == 0;
 
       auto const time_id = timer::record.start("implicit_time_advance");
-      f_val =
-          implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, time, opts.solver, update_system);
+      f_val              = implicit_time_advance(*pde, table, initial_sources,
+                                    unscaled_parts, f_val, chunks, plan, time,
+                                    opts.solver, update_system);
       timer::record.stop(time_id);
     }
     else
@@ -242,9 +244,9 @@ int main(int argc, char **argv)
       // FIXME fold initial sources/unscaled parts into pde object
       // after pde spec/pde split
       auto const &time_id = timer::record.start("explicit_time_advance");
-      f_val = explicit_time_advance(*pde, table, opts, initial_sources,
-                                    unscaled_parts, f_val, plan,
-                                    default_workspace_MB, time);
+      f_val =
+          explicit_time_advance(*pde, table, initial_sources, unscaled_parts,
+                                f_val, plan, default_workspace_MB, time);
 
       timer::record.stop(time_id);
     }
@@ -311,7 +313,23 @@ int main(int argc, char **argv)
   // yet, but rank 0 holds the complete result after this call
   auto const final_result = gather_results(f_val, plan, my_rank, segment_size);
 
-  node_out() << timer::record.report() << '\n';
+//  node_out() << timer::record.report() << '\n';
+
+
+// BENCHMARKING
+//===========================================================
+if (my_rank == 0)
+{
+  std::ofstream benchFile;
+  benchFile.open("bm.csv");
+  uint64_t DoF{table.size() *
+  static_cast<uint64_t>(std::pow(degree, pde->num_dims))};
+  benchFile << "Level," << level << "\nDegree," 
+  << degree << "\nDoF," << DoF; 
+  benchFile << timer::record.report();
+  benchFile.close();
+}
+//===========================================================
 
   finalize_distribution();
 
