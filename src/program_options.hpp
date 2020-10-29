@@ -110,12 +110,14 @@ public:
   static auto constexpr NO_USER_VALUE_STR = "none";
 
   static auto constexpr DEFAULT_CFL          = 0.01;
+  static auto constexpr DEFAULT_ADAPT_THRESH = 1e-3;
   static auto constexpr DEFAULT_MAX_LEVEL    = 8;
   static auto constexpr DEFAULT_TIME_STEPS   = 10;
   static auto constexpr DEFAULT_WRITE_FREQ   = 0;
   static auto constexpr DEFAULT_USE_IMPLICIT = false;
   static auto constexpr DEFAULT_USE_FG       = false;
   static auto constexpr DEFAULT_DO_POISSON   = false;
+  static auto constexpr DEFAULT_DO_ADAPT     = false;
   static auto constexpr DEFAULT_PDE_STR      = "continuity_2";
   static auto constexpr DEFAULT_PDE_OPT      = PDE_opts::continuity_2;
   static auto constexpr DEFAULT_SOLVER       = solve_opts::direct;
@@ -125,32 +127,40 @@ public:
 
   // construct from provided values - to simplify testing
   explicit parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
-                  int const degree         = NO_USER_VALUE,
-                  double const cfl         = DEFAULT_CFL,
-                  bool const use_full_grid = DEFAULT_USE_FG,
-                  int const max_level      = DEFAULT_MAX_LEVEL,
-                  int const num_steps      = DEFAULT_TIME_STEPS,
-                  bool const use_implicit  = DEFAULT_USE_IMPLICIT)
+                  int const degree             = NO_USER_VALUE,
+                  double const cfl             = DEFAULT_CFL,
+                  bool const use_full_grid     = DEFAULT_USE_FG,
+                  int const max_level          = DEFAULT_MAX_LEVEL,
+                  int const num_steps          = DEFAULT_TIME_STEPS,
+                  bool const use_implicit      = DEFAULT_USE_IMPLICIT,
+                  bool const do_adapt_levels   = DEFAULT_DO_ADAPT,
+                  double const adapt_threshold = DEFAULT_ADAPT_THRESH)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid),
-        starting_levels(starting_levels), degree(degree), max_level(max_level),
-        num_time_steps(num_steps), cfl(cfl), pde_choice(pde_choice){};
+        do_adapt(do_adapt_levels), starting_levels(starting_levels),
+        degree(degree), max_level(max_level), num_time_steps(num_steps),
+        cfl(cfl), adapt_threshold(adapt_threshold), pde_choice(pde_choice){};
 
   explicit parser(std::string const &pde_choice,
                   fk::vector<int> starting_levels,
-                  int const degree         = NO_USER_VALUE,
-                  double const cfl         = DEFAULT_CFL,
-                  bool const use_full_grid = DEFAULT_USE_FG,
-                  int const max_level      = DEFAULT_MAX_LEVEL,
-                  int const num_steps      = DEFAULT_TIME_STEPS,
-                  bool const use_implicit  = DEFAULT_USE_IMPLICIT)
+                  int const degree             = NO_USER_VALUE,
+                  double const cfl             = DEFAULT_CFL,
+                  bool const use_full_grid     = DEFAULT_USE_FG,
+                  int const max_level          = DEFAULT_MAX_LEVEL,
+                  int const num_steps          = DEFAULT_TIME_STEPS,
+                  bool const use_implicit      = DEFAULT_USE_IMPLICIT,
+                  bool const do_adapt_levels   = DEFAULT_DO_ADAPT,
+                  double const adapt_threshold = DEFAULT_ADAPT_THRESH)
       : parser(pde_mapping.at(pde_choice).pde_choice, starting_levels, degree,
-               cfl, use_full_grid, max_level, num_steps, use_implicit){};
+               cfl, use_full_grid, max_level, num_steps, use_implicit,
+               do_adapt_levels, adapt_threshold){};
 
   bool using_implicit() const;
   bool using_full_grid() const;
   bool do_poisson_solve() const;
+  bool do_adapt_levels() const;
 
   fk::vector<int> get_starting_levels() const;
+
   int get_degree() const;
   int get_max_level() const;
   int get_time_steps() const;
@@ -160,6 +170,7 @@ public:
 
   double get_dt() const;
   double get_cfl() const;
+  double get_adapt_thresh() const;
 
   std::string get_pde_string() const;
   std::string get_solver_string() const;
@@ -207,25 +218,31 @@ private:
       DEFAULT_USE_IMPLICIT;             // enable implicit(/explicit) stepping
   bool use_full_grid = DEFAULT_USE_FG;  // enable full(/sparse) grid
   bool do_poisson = DEFAULT_DO_POISSON; // do poisson solve for electric field
+  bool do_adapt   = DEFAULT_DO_ADAPT;   // adapt number of basis levels
 
   // if none are provided, default is loaded from pde
   std::string starting_levels_str = NO_USER_VALUE_STR;
   fk::vector<int> starting_levels;
 
-  int degree = NO_USER_VALUE; // deg of legendre basis polys. NO_USER_VALUE
-                              // loads default in pde
-  int max_level =
-      DEFAULT_MAX_LEVEL; // max adaptivity level for any given dimension.
-  int num_time_steps = DEFAULT_TIME_STEPS; // number of time loop iterations
-
-  int wavelet_output_freq = DEFAULT_WRITE_FREQ; // write wavelet space output
-                                                // every this many iterations
-  int realspace_output_freq =
-      DEFAULT_WRITE_FREQ; // timesteps between realspace output writes to disk
-
-  double cfl = NO_USER_VALUE_FP; // the Courant-Friedrichs-Lewy (CFL) condition
-  double dt =
-      NO_USER_VALUE_FP; // size of time steps. double::min loads default in pde
+  // deg of legendre basis polys. NO_USER_VALUE
+  // loads default in pde
+  int degree = NO_USER_VALUE;
+  // max adaptivity level for any given dimension.
+  int max_level = DEFAULT_MAX_LEVEL;
+  // number of time loop iterations
+  int num_time_steps = DEFAULT_TIME_STEPS;
+  // write wavelet space output every this many iterations
+  int wavelet_output_freq = DEFAULT_WRITE_FREQ;
+  // timesteps between realspace output writes to disk
+  int realspace_output_freq = DEFAULT_WRITE_FREQ;
+  // the Courant-Friedrichs-Lewy (CFL) condition
+  double cfl = NO_USER_VALUE_FP;
+  // size of time steps. double::min loads default in pde
+  double dt = NO_USER_VALUE_FP;
+  // relative adaptivity threshold
+  // max(abs(x)) for solution vector x * adapt_thresh
+  // is the threshold for refining elements
+  double adapt_threshold = DEFAULT_ADAPT_THRESH;
 
   // default
   std::string pde_str = DEFAULT_PDE_STR;
@@ -247,6 +264,7 @@ class options
 public:
   options(parser const &user_vals)
       : starting_levels(user_vals.get_starting_levels()),
+        adapt_threshold(user_vals.get_adapt_thresh()),
         max_level(user_vals.get_max_level()),
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
@@ -254,12 +272,16 @@ public:
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
+        do_adapt_levels(user_vals.do_adapt_levels()),
         solver(user_vals.get_selected_solver()){};
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
 
   fk::vector<int> const starting_levels;
+
+  double const adapt_threshold;
+
   int const max_level;
   int const num_time_steps;
   int const wavelet_output_freq;
@@ -268,6 +290,7 @@ public:
   bool const use_implicit_stepping;
   bool const use_full_grid;
   bool const do_poisson_solve;
+  bool const do_adapt_levels;
 
   solve_opts const solver;
 
