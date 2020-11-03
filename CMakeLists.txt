@@ -123,6 +123,7 @@ endif()
 
 # define the components and how to build and link the components together
 set (components
+  adapt
   basis
   batch
   boundary_conditions
@@ -167,9 +168,11 @@ if (build_kron)
   add_dependencies (kronmult_cuda kronmult-ext)
 endif ()
 
+target_link_libraries (adapt PRIVATE distribution elements program_options)
+
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients elements pde tensors)
+target_link_libraries (batch PRIVATE coefficients elements lib_dispatch pde tensors)
 
 target_link_libraries (boundary_conditions PRIVATE coefficients elements transformations
                        matlab_utilities fast_math )
@@ -251,6 +254,7 @@ add_executable (asgard src/main.cpp)
 
 # link in components needed directly by main
 set (main_app_link_deps
+  adapt
   batch
   boundary_conditions
   coefficients

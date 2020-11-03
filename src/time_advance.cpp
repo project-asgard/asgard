@@ -11,16 +11,17 @@
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_time_advance(PDE<P> const &pde, elements::table const &table,
+explicit_time_advance(PDE<P> const &pde,
+                      adapt::distributed_grid<P> const &adaptive_grid,
                       options const &program_opts,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x_orig,
-                      distribution_plan const &plan,
-                      int const workspace_size_MB, P const time)
+                      fk::vector<P> const &x_orig, int const workspace_size_MB,
+                      P const time)
 {
-  auto const my_rank   = get_rank();
-  auto const &grid     = plan.at(get_rank());
+  auto const &table    = adaptive_grid.get_table();
+  auto const &plan     = adaptive_grid.get_distrib_plan();
+  auto const &grid     = adaptive_grid.get_subgrid(get_rank());
   auto const elem_size = element_segment_size(pde);
   auto const dt        = pde.get_dt();
   auto const col_size  = elem_size * static_cast<int64_t>(grid.ncols());
@@ -56,7 +57,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
   auto fx =
       kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
-  reduce_results(fx, reduced_fx, plan, my_rank);
+  reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (!unscaled_sources.empty())
   {
@@ -71,7 +72,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
 
   // FIXME I eventually want to return a vect here
   fk::vector<P> rk_1(x_orig.size());
-  exchange_results(reduced_fx, rk_1, elem_size, plan, my_rank);
+  exchange_results(reduced_fx, rk_1, elem_size, plan, get_rank());
   P const rk_scale_1 = a21 * dt;
   fm::axpy(rk_1, x, rk_scale_1);
 
@@ -79,7 +80,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
   timer::record.start(apply_id);
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
-  reduce_results(fx, reduced_fx, plan, my_rank);
+  reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (!unscaled_sources.empty())
   {
@@ -94,7 +95,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
   fm::axpy(bc1, reduced_fx);
 
   fk::vector<P> rk_2(x_orig.size());
-  exchange_results(reduced_fx, rk_2, elem_size, plan, my_rank);
+  exchange_results(reduced_fx, rk_2, elem_size, plan, get_rank());
 
   fm::copy(x_orig, x);
   P const rk_scale_2a = a31 * dt;
@@ -107,7 +108,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
   timer::record.start(apply_id);
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
   timer::record.stop(apply_id);
-  reduce_results(fx, reduced_fx, plan, my_rank);
+  reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (!unscaled_sources.empty())
   {
@@ -121,7 +122,7 @@ explicit_time_advance(PDE<P> const &pde, elements::table const &table,
   fm::axpy(bc2, reduced_fx);
 
   fk::vector<P> rk_3(x_orig.size());
-  exchange_results(reduced_fx, rk_3, elem_size, plan, my_rank);
+  exchange_results(reduced_fx, rk_3, elem_size, plan, get_rank());
 
   // -- finish
   fm::copy(x_orig, x);
@@ -159,11 +160,11 @@ scale_sources(PDE<P> const &pde,
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-implicit_time_advance(PDE<P> const &pde, elements::table const &table,
+implicit_time_advance(PDE<P> const &pde,
+                      adapt::distributed_grid<P> const &adaptive_grid,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x_orig,
-                      distribution_plan const &plan, P const time,
+                      fk::vector<P> const &x_orig, P const time,
                       solve_opts const solver, bool const update_system)
 {
   assert(time >= 0);
@@ -173,6 +174,7 @@ implicit_time_advance(PDE<P> const &pde, elements::table const &table,
   static std::vector<int> ipiv;
   static bool first_time = true;
 
+  auto const &table   = adaptive_grid.get_table();
   auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -186,8 +188,7 @@ implicit_time_advance(PDE<P> const &pde, elements::table const &table,
   }
 
   /* add the boundary condition */
-  int const my_rank = get_rank();
-  auto const &grid  = plan.at(my_rank);
+  auto const &grid = adaptive_grid.get_subgrid(get_rank());
 
   auto const bc = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
@@ -245,31 +246,32 @@ implicit_time_advance(PDE<P> const &pde, elements::table const &table,
 }
 
 template fk::vector<double> explicit_time_advance(
-    PDE<double> const &pde, elements::table const &table,
+    PDE<double> const &pde,
+    adapt::distributed_grid<double> const &adaptive_grid,
     options const &program_opts,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    fk::vector<double> const &x, distribution_plan const &plan,
-    int const workspace_size_MB, double const time);
+    fk::vector<double> const &x, int const workspace_size_MB,
+    double const time);
 
 template fk::vector<float> explicit_time_advance(
-    PDE<float> const &pde, elements::table const &table,
+    PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
     options const &program_opts,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    fk::vector<float> const &x, distribution_plan const &plan,
-    int const workspace_size_MB, float const time);
+    fk::vector<float> const &x, int const workspace_size_MB, float const time);
 
 template fk::vector<double> implicit_time_advance(
-    PDE<double> const &pde, elements::table const &table,
+    PDE<double> const &pde,
+    adapt::distributed_grid<double> const &adaptive_grid,
     std::vector<fk::vector<double>> const &unscaled_sources,
     std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    fk::vector<double> const &host_space, distribution_plan const &plan,
-    double const time, solve_opts const solver, bool const update_system);
+    fk::vector<double> const &host_space, double const time,
+    solve_opts const solver, bool const update_system);
 
 template fk::vector<float> implicit_time_advance(
-    PDE<float> const &pde, elements::table const &table,
+    PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
     std::vector<fk::vector<float>> const &unscaled_sources,
     std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    fk::vector<float> const &x, distribution_plan const &plan, float const time,
-    solve_opts const solver, bool const update_system);
+    fk::vector<float> const &x, float const time, solve_opts const solver,
+    bool const update_system);

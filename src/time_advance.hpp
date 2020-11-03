@@ -1,7 +1,7 @@
 #pragma once
+#include "adapt.hpp"
 #include "batch.hpp"
 #include "boundary_conditions.hpp"
-#include "distribution.hpp"
 #include "kronmult.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -13,19 +13,20 @@
 // on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_time_advance(PDE<P> const &pde, elements::table const &table,
+explicit_time_advance(PDE<P> const &pde,
+                      adapt::distributed_grid<P> const &adaptive_grid,
                       options const &program_opts,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x, distribution_plan const &plan,
-                      int const workspace_size_MB, P const time);
+                      fk::vector<P> const &x, int const workspace_size_MB,
+                      P const time);
 
 template<typename P>
 fk::vector<P>
-implicit_time_advance(PDE<P> const &pde, elements::table const &table,
+implicit_time_advance(PDE<P> const &pde,
+                      adapt::distributed_grid<P> const &adaptive_grid,
                       std::vector<fk::vector<P>> const &unscaled_sources,
                       std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x, distribution_plan const &plan,
-                      P const time,
+                      fk::vector<P> const &x, P const time,
                       solve_opts const solver  = solve_opts::direct,
                       bool const update_system = true);
