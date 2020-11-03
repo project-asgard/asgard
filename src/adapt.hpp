@@ -34,7 +34,7 @@ public:
 
 private:
   fk::vector<P> refine_elements(std::vector<int64_t> indices_to_refine,
-                                fk::vector<P> const &x);
+                                options const &opts, fk::vector<P> const &x);
   fk::vector<P> remove_elements(std::vector<int64_t> indices_to_remove,
                                 fk::vector<P> const &x);
 

@@ -26,16 +26,15 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   }
 
   auto const refine_check =
-      [refine_threshold,
-       abs_compare](int64_t const,
-                    fk::vector<P, mem_type::const_view> const &element_x) {
-         auto const max_elem =
+      [refine_threshold, abs_compare](
+          int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
+        auto const max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
         return max_elem >= refine_threshold;
       };
 
   auto const to_refine = filter_elements(refine_check, x);
-  return this->refine_elements(to_refine, x);
+  return this->refine_elements(to_refine, cli_opts, x);
 }
 
 template<typename P>
@@ -54,7 +53,7 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   }
   auto const coarsen_threshold = refine_threshold * 0.1;
 
-  auto const& table = this->table_;
+  auto const &table = this->table_;
   auto const coarsen_check =
       [&table, coarsen_threshold,
        abs_compare](int64_t const elem_index,
@@ -72,14 +71,24 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::refine_elements(std::vector<int64_t> indices_to_refine, fk::vector<P> const &x)
+distributed_grid<P>::refine_elements(std::vector<int64_t> indices_to_refine,
+                                     options const &opts,
+                                     fk::vector<P> const &x)
 {
+  std::vector<int64_t> child_ids;
+  for (auto const parent_id : indices_to_refine)
+  {
+    auto const children = table_.get_child_elements(parent_id, opts);
+    child_ids.insert(child_ids.end(), children.begin(), children.end());
+  }
+
   return x;
 }
 
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::remove_elements(std::vector<int64_t> indices_to_remove, fk::vector<P> const &x)
+distributed_grid<P>::remove_elements(std::vector<int64_t> indices_to_remove,
+                                     fk::vector<P> const &x)
 {
   return x;
 }

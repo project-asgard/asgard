@@ -41,12 +41,13 @@ void test_element_table(PDE_opts const pde_choice,
     fk::vector<int> const gold_coords =
         gold_table.extract_submatrix(i, 0, 1, pde->num_dims * 2);
     fk::vector<int> const mapped_coords =
-        elements::map_to_coords(test_id, opts, *pde);
+        elements::map_to_coords(test_id, opts.max_level, pde->num_dims);
     REQUIRE(mapped_coords == test_coords);
     REQUIRE(gold_coords == test_coords);
 
     // test mapping back to id
-    auto const mapped_id = elements::map_to_index(mapped_coords, opts, *pde);
+    auto const mapped_id =
+        elements::map_to_index(mapped_coords, opts.max_level, pde->num_dims);
     REQUIRE(mapped_id == gold_id);
 
     auto const coord_size         = pde->num_dims * 2;
