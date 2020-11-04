@@ -51,8 +51,8 @@ std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
   return {level, cell};
 }
 
-int64_t map_to_index(fk::vector<int> const &coords, int const max_level,
-                     int const num_dims)
+int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
+                  int const num_dims)
 {
   assert(max_level > 0);
   assert(num_dims > 0);
@@ -99,11 +99,84 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims)
   return coords;
 }
 
-// FIXME
-bool table::remove_elements(std::vector<int64_t> const &ids) { return true; }
+bool table::remove_elements(std::vector<int64_t> const &indices)
+{
+  if (indices.empty())
+  {
+    return true;
+  }
 
-// FIXME
-bool table::add_elements(std::vector<int64_t> const &ids) { return true; }
+  for (auto const index : indices)
+  {
+    auto const id = active_element_ids_[index];
+    active_element_ids_.erase(active_element_ids_.begin() + index);
+    id_to_coords_.erase(id);
+  }
+  assert(active_element_ids_.size() == id_to_coords_.size());
+  assert(size() > 0);
+
+  // form new active table from retained elements in old table
+  auto const active_table_h = active_table_d_.clone_onto_host();
+
+  auto const coord_size = static_cast<int64_t>(get_coords(0).size());
+  auto const new_table_size =
+      active_table_h.size() - coord_size * indices.size();
+  assert(new_table_size > 0);
+  auto new_active_table = fk::vector<int>(new_table_size);
+
+  auto retain_start = 0;
+  auto dest_start   = 0;
+  assert(indices.size() < INT_MAX);
+  // this approach may be slow when there is lots of refinement,
+  // probably quick when there is little refinement. plenty of
+  // room for optimization in either case.
+  for (auto i = 0; i < static_cast<int>(indices.size()); ++i)
+  {
+    auto const retain_stop = i * coord_size - 1;
+    auto const retain_size = retain_stop - retain_start + 1;
+    if (retain_size > 0)
+    {
+      fk::vector<int, mem_type::const_view> const retained_coords(
+          active_table_h, retain_start, retain_stop);
+      auto const dest_stop = dest_start + retain_size - 1;
+      fk::vector<int, mem_type::view> dest_for_coords(new_active_table,
+                                                      dest_start, dest_stop);
+      dest_start = dest_stop + 1;
+    }
+    retain_start = retain_stop + 1;
+  }
+
+  active_table_d_ = new_active_table.clone_onto_device();
+
+  // FIXME return mapping?
+
+  return true;
+}
+
+bool table::add_elements(std::vector<int64_t> const &ids, int const max_level)
+{
+  assert(max_level > 0);
+  auto active_table_h = active_table_d_.clone_onto_host();
+  assert(size() > 0);
+  auto const coord_size = get_coords(0).size();
+
+  for (auto const id : ids)
+  {
+    active_element_ids_.push_back(id);
+    auto const coords                    = get_coords(id);
+    id_to_coords_[id].resize(coord_size) = coords;
+    active_table_h.concat(coords);
+  }
+  assert(active_element_ids_.size() == id_to_coords_.size());
+  assert(static_cast<uint64_t>(active_table_h.size()) ==
+         active_table_d_.size() + ids.size() * coord_size);
+
+  active_table_d_ = active_table_h.clone_onto_device();
+
+  // FIXME return mapping?
+
+  return true;
+}
 
 std::vector<int64_t>
 table::get_child_elements(int64_t const index, options const &opts)
@@ -125,13 +198,13 @@ table::get_child_elements(int64_t const index, options const &opts)
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i + 1);
       daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
-      daughter_ids.push_back(map_to_index(coords, opts.max_level, num_dims));
+      daughter_ids.push_back(map_to_id(coords, opts.max_level, num_dims));
 
       // second daughter
       if (coords(i) >= 1)
       {
         daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
-        daughter_ids.push_back(map_to_index(coords, opts.max_level, num_dims));
+        daughter_ids.push_back(map_to_id(coords, opts.max_level, num_dims));
       }
     }
   }
@@ -176,7 +249,7 @@ table::table(options const &opts, PDE<P> const &pde)
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
-      auto const key    = map_to_index(coords, opts.max_level, pde.num_dims);
+      auto const key    = map_to_id(coords, opts.max_level, pde.num_dims);
 
       active_element_ids_.push_back(key);
       id_to_coords_[key].resize(coords.size()) = coords;

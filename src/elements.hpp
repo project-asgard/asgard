@@ -17,8 +17,8 @@ std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id);
 
 // mapping functions -- conceptually private/component local, exposed for
 // testing return the linear index given element coordinates
-int64_t map_to_index(fk::vector<int> const &coords, int const max_level,
-                     int const num_dims);
+int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
+                  int const num_dims);
 
 // return the element coordinates given linear index
 fk::vector<int>
@@ -72,13 +72,14 @@ public:
     return id_to_coords_.at(active_element_ids_[index]);
   }
 
-  // remove elements
-  // returns true if all indices passed were present before removal
-  bool remove_elements(std::vector<int64_t> const &element_ids);
+  // remove elements by index
+  // FIXME return
+  bool remove_elements(std::vector<int64_t> const &element_indices);
 
-  // manually add elements
-  // returns true if none of the indices passed were present before addition
-  bool add_elements(std::vector<int64_t> const &element_ids);
+  // manually add elements by id
+  // FIXME return
+  bool
+  add_elements(std::vector<int64_t> const &element_ids, int const max_level);
 
   // get element id of all children of an element (by index) for refinement
   std::vector<int64_t>

@@ -47,7 +47,7 @@ void test_element_table(PDE_opts const pde_choice,
 
     // test mapping back to id
     auto const mapped_id =
-        elements::map_to_index(mapped_coords, opts.max_level, pde->num_dims);
+        elements::map_to_id(mapped_coords, opts.max_level, pde->num_dims);
     REQUIRE(mapped_id == gold_id);
 
     auto const coord_size         = pde->num_dims * 2;

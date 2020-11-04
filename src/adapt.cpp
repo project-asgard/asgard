@@ -88,7 +88,7 @@ distributed_grid<P>::refine_elements(std::vector<int64_t> indices_to_refine,
   auto const refined = table_.add_elements(all_child_ids);
   assert(refined);
 
-  // reform new vector
+  // new plan, reform new vector
 
   return x;
 }
@@ -98,13 +98,13 @@ fk::vector<P>
 distributed_grid<P>::remove_elements(std::vector<int64_t> indices_to_remove,
                                      fk::vector<P> const &x)
 {
-  auto const all_remove_ids =
+  auto const all_remove_indices =
       distribute_table_changes(indices_to_remove, plan_, get_rank());
 
-  auto const coarsened = table_.remove_elements(all_remove_ids);
+  auto const coarsened = table_.remove_elements(all_remove_indices);
   assert(coarsened);
 
-  // reform new vector
+  // new plan, reform vector
 
   return x;
 }
