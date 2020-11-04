@@ -253,7 +253,6 @@ find_column_dependencies(std::vector<int> const &row_boundaries,
     }
     col_start = column_end + 1;
   }
-
   return column_dependencies;
 }
 
@@ -713,6 +712,65 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
 #else
   ignore(element_segment_size);
   return own_results();
+#endif
+}
+
+std::vector<int64_t>
+distribute_table_changes(std::vector<int64_t> const &my_changes,
+                         distribution_plan const &plan, int const my_rank)
+{
+  if (plan.size() == 1)
+  {
+    return my_changes;
+  }
+
+#ifdef ASGARD_USE_MPI
+
+  // determine size of everyone's messages
+  auto const num_messages = [&plan, &my_changes, my_rank]() {
+    std::vector<int> num_messages(plan.size());
+    assert(my_changes.size() < INT_MAX);
+    num_messages[get_rank()] = static_cast<int>(my_changes.size());
+    assert(plan.size() < INT_MAX);
+    for (auto i = 0; i < static_cast<int>(plan.size()); ++i)
+    {
+      auto const success = MPI_Bcast(num_messages.data() + i, 1, MPI_INT, i,
+                                     distro_handle.get_global_comm());
+      assert(success);
+    }
+    return num_messages;
+  }();
+
+  auto const displacements = [&num_messages]() {
+    std::vector<int> displacements(num_messages.size());
+
+    // some compilers don't support this yet...//FIXME
+    // std::exclusive_scan(num_messages.begin(), num_messages.end(),
+    //                    displacements.begin(), 0);
+    // do it manually instead...
+    for (auto i = 1; i < static_cast<int>(num_messages.size()); ++i)
+    {
+      displacements[i] = displacements[i - 1] + num_messages[i - 1];
+    }
+    return displacements;
+  }();
+
+  // now distribute changes
+  std::vector<int64_t> all_changes(
+      std::accumulate(num_messages.begin(), num_messages.end(), 0));
+
+  auto const success = MPI_Allgatherv(
+      my_changes.data(), static_cast<int>(my_changes.size()), MPI_INT64_T,
+      all_changes.data(), num_messages.data(), displacements.data(),
+      MPI_INT64_T, distro_handle.get_global_comm());
+
+  assert(success);
+
+  return all_changes;
+
+#else
+  assert(my_rank == 0);
+  return my_changes;
 #endif
 }
 

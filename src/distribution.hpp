@@ -95,6 +95,8 @@ public:
   int const col_stop;
 };
 
+// -- funcs for distributing solution vector
+
 // helper for determining the number of subgrid columns given
 // a number of ranks.
 //
@@ -222,3 +224,8 @@ double get_MB(int64_t const num_elems)
   double const MB    = bytes * 1e-6;
   return MB;
 }
+
+// -- func(s) for distributing table results
+std::vector<int64_t>
+distribute_table_changes(std::vector<int64_t> const &my_changes,
+                         distribution_plan const &plan, int const my_rank);

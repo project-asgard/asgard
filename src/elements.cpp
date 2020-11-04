@@ -51,7 +51,6 @@ std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
   return {level, cell};
 }
 
-template<typename P>
 int64_t map_to_index(fk::vector<int> const &coords, int const max_level,
                      int const num_dims)
 {
@@ -78,7 +77,6 @@ int64_t map_to_index(fk::vector<int> const &coords, int const max_level,
   return id;
 }
 
-template<typename P>
 fk::vector<int>
 map_to_coords(int64_t const id, int const max_level, int const num_dims)
 {
@@ -102,10 +100,10 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims)
 }
 
 // FIXME
-bool remove_elements(std::vector<int64_t> const &ids) { return true; }
+bool table::remove_elements(std::vector<int64_t> const &ids) { return true; }
 
 // FIXME
-bool add_elements(std::vector<int64_t> const &ids) { return true; }
+bool table::add_elements(std::vector<int64_t> const &ids) { return true; }
 
 std::vector<int64_t>
 table::get_child_elements(int64_t const index, options const &opts)
@@ -114,7 +112,6 @@ table::get_child_elements(int64_t const index, options const &opts)
   assert(index >= 0);
   assert(index < size());
 
-  auto const id     = get_element_id(index);
   auto const coords = get_coords(index);
   // all coordinates have 2 entries (lev, cell) per dimension
   auto const num_dims = coords.size() / 2;
@@ -257,7 +254,6 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
 }
 
 template table::table(options const &program_opts, PDE<float> const &pde);
-
 template table::table(options const &program_opts, PDE<double> const &pde);
 
 } // namespace elements
