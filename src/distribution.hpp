@@ -5,6 +5,8 @@
 #ifdef ASGARD_USE_MPI
 #include "mpi.h"
 #endif
+
+#include <list>
 #include <map>
 #include <vector>
 
@@ -195,9 +197,12 @@ struct message
         dest_range(source_range)
   {}
 
-  // TODO fix - const member - why doesn't this warn?
-  message(message const &other) = default;
-  message(message &&other)      = default;
+  message(message const &other)
+      : message_dir(other.message_dir), target(other.target),
+        source_range(other.source_range), dest_range(other.dest_range)
+  {}
+
+  message(message &&other) = delete;
 
   message_direction const message_dir;
   int const target;
@@ -250,7 +255,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 // generate messages for redistribute_vector
 // conceptually private, exposed for testing
-std::vector<message>
+std::list<message>
 generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
                         std::map<int64_t, grid_limits> const &elem_remap);

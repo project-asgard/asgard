@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <csignal>
+#include <list>
 #include <numeric>
 
 #include "lib_dispatch.hpp"
@@ -786,17 +787,17 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 #endif
 }
 
-static std::vector<message>
+static std::list<message>
 region_messages_remap(distribution_plan const &old_plan,
                       grid_limits const region_to_retrieve, int const rank)
 {
-  std::vector<message> region_messages;
+  std::list<message> region_messages;
 }
 
 // private helper.
 // find the rank on my subgrid row that has the old x data new_region needs,
 // using the element remapping
-static std::vector<message>
+static std::list<message>
 subgrid_messages_remap(distribution_plan const &old_plan,
                        distribution_plan const &new_plan,
                        std::map<int64_t, grid_limits> const &elem_index_remap,
@@ -810,17 +811,15 @@ subgrid_messages_remap(distribution_plan const &old_plan,
 
   auto const rank_subgrid = new_plan.at(rank);
   auto index              = rank_subgrid.col_start;
-  std::vector<message> subgrid_messages;
+  std::list<message> subgrid_messages;
   while (index <= rank_subgrid.col_stop)
   {
     if (elem_index_remap.count(index) == 1)
     {
       // need to retrieve data for my assigned region
       auto const old_region = elem_index_remap.at(index);
-      auto const region_messages =
-          region_messages_remap(old_plan, old_region, rank);
-      subgrid_messages.insert(subgrid_messages.end(), region_messages.begin(),
-                              region_messages.end());
+      auto region_messages  = region_messages_remap(old_plan, old_region, rank);
+      subgrid_messages.splice(subgrid_messages.end(), region_messages);
       auto const copy_size =
           std::min(old_region.size(), rank_subgrid.col_stop - index + 1);
       index += copy_size;
@@ -834,7 +833,7 @@ subgrid_messages_remap(distribution_plan const &old_plan,
   return subgrid_messages;
 }
 
-std::vector<message>
+std::list<message>
 generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
                         std::map<int64_t, grid_limits> const &elem_index_remap)
@@ -845,15 +844,13 @@ generate_messages_remap(distribution_plan const &old_plan,
   // messages for each subgrid row. if this requires optimization, just perform
   // the first row, and add functionality to replicate messaging behavior across
   // rows
-  std::vector<message> redis_messages;
-  redis_messages.reserve(new_plan.size() * 2);
+  std::list<message> redis_messages;
   for (auto const &[rank, subgrid] : new_plan)
   {
     ignore(subgrid);
-    auto const rank_messages =
+    auto rank_messages =
         subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
-    redis_messages.insert(redis_messages.end(), rank_messages.begin(),
-                          rank_messages.end());
+    redis_messages.splice(redis_messages.end(), rank_messages);
   }
 
   return redis_messages;
