@@ -72,13 +72,13 @@ public:
     return id_to_coords_.at(active_element_ids_[index]);
   }
 
-  // remove elements by index
-  // FIXME return
-  bool remove_elements(std::vector<int64_t> const &element_indices);
+  // these functions return a  mapping new_indices -> old_indices
+  // remove elements by index.
+  void remove_elements(std::vector<int64_t> const &element_indices);
 
   // manually add elements by id
-  // FIXME return
-  bool
+  // remove elements by index.
+  void
   add_elements(std::vector<int64_t> const &element_ids, int const max_level);
 
   // get element id of all children of an element (by index) for refinement

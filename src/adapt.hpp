@@ -38,6 +38,12 @@ private:
   fk::vector<P> remove_elements(std::vector<int64_t> indices_to_remove,
                                 fk::vector<P> const &x);
 
+  // remap element ranges after deletion/addition of elements
+  // returns a mapping new contiguous element index regions -> old regions
+  static std::map<grid_limits, grid_limits>
+  remap_elements(std::vector<int64_t> const &deleted_indices,
+                 int64_t const new_num_elems);
+
   template<typename F>
   std::vector<int64_t>
   filter_elements(F const condition, fk::vector<P> const &x)

@@ -15,9 +15,13 @@ struct grid_limits
   grid_limits(grid_limits const &l) : start(l.start), stop(l.stop){};
   grid_limits(grid_limits const &&l) : start(l.start), stop(l.stop){};
   int size() const { return stop - start + 1; }
-  bool operator==(const grid_limits &rhs) const
+  bool operator==(grid_limits const &rhs) const
   {
     return start == rhs.start && stop == rhs.stop;
+  }
+  bool operator<(grid_limits const &rhs) const
+  {
+    return std::tie(start, stop) < std::tie(rhs.start, rhs.stop);
   }
   int const start;
   int const stop;
@@ -170,22 +174,35 @@ enum class message_direction
   receive
 };
 
-// represent a point-to-point message.
+// represent a point-to-point message within or across distribution plans.
 // target is the sender rank for a receive, and receive rank for send
-// the range describes the global indices (inclusive) that will be transmitted
+// old range describes the global indices (inclusive) that will be transmitted
+// new range describes the global indices (inclusive) for receiving
 struct message
 {
   message(message_direction const message_dir, int const target,
-          grid_limits const range)
-      : message_dir(message_dir), target(target), range(range)
+          grid_limits const source_range, grid_limits const dest_range)
+      : message_dir(message_dir), target(target), source_range(source_range),
+        dest_range(dest_range)
+  {
+    assert(source_range.size() == dest_range.size());
+  }
+  // within the same distro plan, only need one range
+  // global indices are consistent
+  message(message_direction const message_dir, int const target,
+          grid_limits const source_range)
+      : message_dir(message_dir), target(target), source_range(source_range),
+        dest_range(source_range)
   {}
 
+  // TODO fix - const member - why doesn't this warn?
   message(message const &other) = default;
   message(message &&other)      = default;
 
   message_direction const message_dir;
   int const target;
-  grid_limits const range;
+  grid_limits const source_range;
+  grid_limits const dest_range;
 };
 
 // reduce the results of a subgrid row
@@ -225,7 +242,24 @@ double get_MB(int64_t const num_elems)
   return MB;
 }
 
-// -- func(s) for distributing table results
+// -- func(s) for adaptivity/redistribution
+// merge my element table additions/deletions with other nodes
 std::vector<int64_t>
 distribute_table_changes(std::vector<int64_t> const &my_changes,
-                         distribution_plan const &plan, int const my_rank);
+                         distribution_plan const &plan);
+
+// generate messages for redistribute_vector
+// conceptually private, exposed for testing
+std::vector<message>
+generate_messages_remap(distribution_plan const &old_plan,
+                        distribution_plan const &new_plan,
+                        std::map<int64_t, grid_limits> const &elem_remap);
+
+// after adapting distribution plan, ensure everyone has values for their
+// assigned subgrid
+template<typename P>
+fk::vector<P>
+redistribute_vector(fk::vector<P> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap);

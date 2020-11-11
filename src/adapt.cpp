@@ -82,15 +82,21 @@ distributed_grid<P>::refine_elements(std::vector<int64_t> indices_to_refine,
     child_ids.insert(child_ids.end(), children.begin(), children.end());
   }
 
-  auto const all_child_ids =
-      distribute_table_changes(child_ids, plan_, get_rank());
+  auto const all_child_ids = distribute_table_changes(child_ids, plan_);
 
-  auto const refined = table_.add_elements(all_child_ids);
-  assert(refined);
+  if (all_child_ids.size() == 0)
+  {
+    return x;
+  }
 
-  // new plan, reform new vector
+  table_.add_elements(all_child_ids, opts.max_level);
 
-  return x;
+  auto const new_plan = get_plan(get_num_ranks(), table_);
+  auto const remapper = remap_for_addtl(table_.size() - all_child_ids.size());
+  auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
+  plan_               = new_plan;
+
+  return y;
 }
 
 template<typename P>
@@ -99,14 +105,85 @@ distributed_grid<P>::remove_elements(std::vector<int64_t> indices_to_remove,
                                      fk::vector<P> const &x)
 {
   auto const all_remove_indices =
-      distribute_table_changes(indices_to_remove, plan_, get_rank());
+      distribute_table_changes(indices_to_remove, plan_);
 
-  auto const coarsened = table_.remove_elements(all_remove_indices);
-  assert(coarsened);
+  if (all_remove_indices.size() == 0)
+  {
+    return x;
+  }
 
-  // new plan, reform vector
+  table_.remove_elements(all_remove_indices);
 
-  return x;
+  auto const new_plan = get_plan(get_num_ranks(), table_);
+  auto const remapper = remap_for_delete(deleted_elements, table_.size());
+  auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
+  plan_               = new_plan;
+
+  // TODO rechain pde...
+  return y;
+}
+
+static std::map<int64_t, grid_limits>
+remap_for_addtl(int64_t const old_num_elems)
+{
+  assert(old_num_elems > 0);
+  std::map<int64_t, grid_limits> mapper;
+  // beginning of new elem range maps directly to old elem range
+  mapper[0] = grid_limits(0, old_num_elems - 1);
+  return mapper;
+}
+
+static std::map<int64_t, grid_limits>
+remap_for_delete(std::vector<int64_t> const &deleted_indices,
+                 int64_t const new_num_elems)
+{
+  assert(num_new_elems > 0);
+
+  if (deleted_indices.size() == 0)
+  {
+    return {};
+  }
+
+  std::unordered_set<int64_t> deleted(deleted_indices.begin(),
+                                      deleted_indices.end());
+  assert(deleted.size() ==
+         deleted_indices.size()); // should all be unique indices
+  std::map<int64_t, grid_limits> new_to_old;
+  int64_t old_index    = 0;
+  int64_t new_index    = 0;
+  int64_t retain_count = 0;
+
+  while (new_index < new_num_elems)
+  {
+    // while in a preserved region, advance both indices
+    // count how many elements are in the region
+    while (deleted.count(old_index) == 0)
+    {
+      old_index++;
+      new_index++;
+      retain_count++;
+      if (new_index >= new_num_elems - 1)
+      {
+        break;
+      }
+    }
+
+    // record preserved region
+    if (retain_count > 0)
+    {
+      new_to_old[new_index - retain_count - 1] =
+          grid_limits(old_index - retain_count - 1, old_index);
+      retain_count = 0;
+    }
+
+    // skip past deleted regions
+    while (deleted.count(old_index) == 1)
+    {
+      old_index++;
+    }
+  }
+
+  return new_to_old;
 }
 
 template class distributed_grid<float>;

@@ -99,11 +99,11 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims)
   return coords;
 }
 
-bool table::remove_elements(std::vector<int64_t> const &indices)
+void table::remove_elements(std::vector<int64_t> const &indices)
 {
   if (indices.empty())
   {
-    return true;
+    return;
   }
 
   for (auto const index : indices)
@@ -141,22 +141,19 @@ bool table::remove_elements(std::vector<int64_t> const &indices)
       auto const dest_stop = dest_start + retain_size - 1;
       fk::vector<int, mem_type::view> dest_for_coords(new_active_table,
                                                       dest_start, dest_stop);
-      dest_start = dest_stop + 1;
+      dest_for_coords = retained_coords;
+      dest_start      = dest_stop + 1;
     }
     retain_start = retain_stop + 1;
   }
-
   active_table_d_ = new_active_table.clone_onto_device();
-
-  // FIXME return mapping?
-
-  return true;
 }
 
-bool table::add_elements(std::vector<int64_t> const &ids, int const max_level)
+void table::add_elements(std::vector<int64_t> const &ids, int const max_level)
 {
   assert(max_level > 0);
   auto active_table_h = active_table_d_.clone_onto_host();
+
   assert(size() > 0);
   auto const coord_size = get_coords(0).size();
 
@@ -165,6 +162,8 @@ bool table::add_elements(std::vector<int64_t> const &ids, int const max_level)
     active_element_ids_.push_back(id);
     auto const coords                    = get_coords(id);
     id_to_coords_[id].resize(coord_size) = coords;
+    // TODO we know a priori how many coords we are adding
+    // so this could be optimized away if it's slow
     active_table_h.concat(coords);
   }
   assert(active_element_ids_.size() == id_to_coords_.size());
@@ -172,10 +171,6 @@ bool table::add_elements(std::vector<int64_t> const &ids, int const max_level)
          active_table_d_.size() + ids.size() * coord_size);
 
   active_table_d_ = active_table_h.clone_onto_device();
-
-  // FIXME return mapping?
-
-  return true;
 }
 
 std::vector<int64_t>

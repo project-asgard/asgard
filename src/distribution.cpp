@@ -148,7 +148,7 @@ void finalize_distribution()
 }
 
 // divide element grid into rectangular sub-areas, which will be assigned to
-// each rank require number of ranks to be a perfect square or an even number;
+// each rank. require number of ranks to be a perfect square or an even number;
 // otherwise, we will ignore (leave unused) the highest rank.
 element_subgrid get_subgrid(int const num_ranks, int const my_rank,
                             elements::table const &table)
@@ -304,6 +304,8 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 // rows via point-to-point messages.
 //
 
+// FIXME the whole exchange_results partnering process is silly and
+// overengineered.
 /* utility class for round robin selection, used in dependencies_to_messages */
 class round_robin_wheel
 {
@@ -437,6 +439,7 @@ generate_messages(distribution_plan const &plan)
 }
 
 // static helper for copying my own output to input
+// TODO modify for redis case
 template<typename P>
 static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
                           element_subgrid const &my_grid,
@@ -445,18 +448,21 @@ static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
   assert(segment_size > 0);
   if (message.message_dir == message_direction::send)
   {
+    assert(message.source_range == message.dest_range);
     auto const output_start =
-        static_cast<int64_t>(my_grid.to_local_row(message.range.start)) *
+        static_cast<int64_t>(my_grid.to_local_row(message.source_range.start)) *
         segment_size;
     auto const output_end =
-        static_cast<int64_t>(my_grid.to_local_row(message.range.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_row(message.source_range.stop) +
+                             1) *
             segment_size -
         1;
     auto const input_start =
-        static_cast<int64_t>(my_grid.to_local_col(message.range.start)) *
+        static_cast<int64_t>(my_grid.to_local_col(message.source_range.start)) *
         segment_size;
     auto const input_end =
-        static_cast<int64_t>(my_grid.to_local_col(message.range.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_col(message.source_range.stop) +
+                             1) *
             segment_size -
         1;
 
@@ -469,6 +475,7 @@ static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
   // else ignore the matching receive; I am copying locally
 }
 
+// TODO modify for redistribution case (message source/dest
 // static helper for sending/receiving output/input data using mpi
 template<typename P>
 static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
@@ -485,11 +492,15 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   int const mpi_tag = 0;
   if (message.message_dir == message_direction::send)
   {
+    // in this case (not redistributing vector),
+    // global indices should be consistent
+    assert(message.source_range == message.dest_range);
     auto const output_start =
-        static_cast<int64_t>(my_grid.to_local_row(message.range.start)) *
+        static_cast<int64_t>(my_grid.to_local_row(message.source_range.start)) *
         segment_size;
     auto const output_end =
-        static_cast<int64_t>(my_grid.to_local_row(message.range.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_row(message.source_range.stop) +
+                             1) *
             segment_size -
         1;
 
@@ -504,10 +515,11 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   else
   {
     auto const input_start =
-        static_cast<int64_t>(my_grid.to_local_col(message.range.start)) *
+        static_cast<int64_t>(my_grid.to_local_col(message.source_range.start)) *
         segment_size;
     auto const input_end =
-        static_cast<int64_t>(my_grid.to_local_col(message.range.stop) + 1) *
+        static_cast<int64_t>(my_grid.to_local_col(message.source_range.stop) +
+                             1) *
             segment_size -
         1;
 
@@ -717,7 +729,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
 
 std::vector<int64_t>
 distribute_table_changes(std::vector<int64_t> const &my_changes,
-                         distribution_plan const &plan, int const my_rank)
+                         distribution_plan const &plan)
 {
   if (plan.size() == 1)
   {
@@ -727,6 +739,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 #ifdef ASGARD_USE_MPI
 
   // determine size of everyone's messages
+  auto const my_rank      = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
     std::vector<int> num_messages(plan.size());
     assert(my_changes.size() < INT_MAX);
@@ -769,8 +782,109 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
   return all_changes;
 
 #else
-  assert(my_rank == 0);
   return my_changes;
+#endif
+}
+
+static std::vector<message>
+region_messages_remap(distribution_plan const &old_plan,
+                      grid_limits const region_to_retrieve, int const rank)
+{
+  std::vector<message> region_messages;
+}
+
+// private helper.
+// find the rank on my subgrid row that has the old x data new_region needs,
+// using the element remapping
+static std::vector<message>
+subgrid_messages_remap(distribution_plan const &old_plan,
+                       distribution_plan const &new_plan,
+                       std::map<int64_t, grid_limits> const &elem_index_remap,
+                       int const rank)
+{
+  // we should only need to communicate with our own (old) row of subgrids
+  // each has a full copy of the vector
+  auto const cols = get_num_subgrid_cols(old_plan.size());
+  auto const row  = rank / cols;
+  auto const col  = rank % cols;
+
+  auto const rank_subgrid = new_plan.at(rank);
+  auto index              = rank_subgrid.col_start;
+  std::vector<message> subgrid_messages;
+  while (index <= rank_subgrid.col_stop)
+  {
+    if (elem_index_remap.count(index) == 1)
+    {
+      // need to retrieve data for my assigned region
+      auto const old_region = elem_index_remap.at(index);
+      auto const region_messages =
+          region_messages_remap(old_plan, old_region, rank);
+      subgrid_messages.insert(subgrid_messages.end(), region_messages.begin(),
+                              region_messages.end());
+      auto const copy_size =
+          std::min(old_region.size(), rank_subgrid.col_stop - index + 1);
+      index += copy_size;
+    }
+    else
+    {
+      index++;
+    }
+  }
+
+  return subgrid_messages;
+}
+
+std::vector<message>
+generate_messages_remap(distribution_plan const &old_plan,
+                        distribution_plan const &new_plan,
+                        std::map<int64_t, grid_limits> const &elem_index_remap)
+{
+  assert(old_plan.size() == new_plan.size());
+
+  // TODO technically, all these calculations will yield the same set of
+  // messages for each subgrid row. if this requires optimization, just perform
+  // the first row, and add functionality to replicate messaging behavior across
+  // rows
+  std::vector<message> redis_messages;
+  redis_messages.reserve(new_plan.size() * 2);
+  for (auto const &[rank, subgrid] : new_plan)
+  {
+    ignore(subgrid);
+    auto const rank_messages =
+        subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
+    redis_messages.insert(redis_messages.end(), rank_messages.begin(),
+                          rank_messages.end());
+  }
+
+  return redis_messages;
+}
+
+template<typename P>
+fk::vector<P>
+redistribute_vector(fk::vector<P> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap)
+{
+  assert(old_plan.size() == new_plan.size());
+
+#ifdef ASGARD_USE_MPI
+
+  // x's size should be num_elements*deg^dim
+  // (deg^dim is one element's number of coefficients/ elements in x vector)
+  assert(old_x.size() % old_plan.at(get_rank()).ncols() == 0);
+  int64_t const segment_size = old_x.size() / old_plan.at(get_rank()).ncols();
+  fk::vector<P> y(new_plan.at(get_rank()).nrows() * segment_size);
+
+  auto const messages = generate_messages_remap(old_plan, new_plan, elem_remap);
+  for (auto const &message : messages)
+  {
+    // TODO call dispatch/copy to in
+  }
+
+  return y;
+#else
+  return old_x;
 #endif
 }
 
@@ -804,3 +918,15 @@ template std::vector<double>
 gather_results(fk::vector<double> const &my_results,
                distribution_plan const &plan, int const my_rank,
                int const element_segment_size);
+
+template fk::vector<float>
+redistribute_vector(fk::vector<float> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap);
+
+template fk::vector<double>
+redistribute_vector(fk::vector<double> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap);
