@@ -36,6 +36,8 @@ struct grid_limits
 // start and stop members are inclusive global indices of the element grid.
 //
 // translation functions are provided for mapping global<->local indices.
+
+using index_mapper = std::function<int(int const)>;
 class element_subgrid
 {
 public:
@@ -95,6 +97,18 @@ public:
     assert(local < ncols());
     return local;
   };
+
+  // shims for when we need to pass the above to functions
+  index_mapper get_local_col_map() const
+  {
+    return
+        [this](int const global_index) { return to_local_col(global_index); };
+  }
+  index_mapper get_local_row_map() const
+  {
+    return
+        [this](int const global_index) { return to_local_row(global_index); };
+  }
 
   int const row_start;
   int const row_stop;
@@ -184,7 +198,7 @@ enum class message_direction
 struct message
 {
   message(message_direction const message_dir, int const target,
-          grid_limits const source_range, grid_limits const dest_range)
+          grid_limits const &source_range, grid_limits const &dest_range)
       : message_dir(message_dir), target(target), source_range(source_range),
         dest_range(dest_range)
   {
@@ -252,7 +266,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 // generate messages for redistribute_vector
 // conceptually private, exposed for testing
-std::list<message>
+std::vector<std::list<message>>
 generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
                         std::map<int64_t, grid_limits> const &elem_remap);

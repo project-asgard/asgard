@@ -439,30 +439,28 @@ generate_messages(distribution_plan const &plan)
 }
 
 // static helper for copying my own output to input
-// TODO modify for redis case
+// message ranges are in terms of global element indices
+// index maps get us back to local element indices
 template<typename P>
-static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
-                          element_subgrid const &source_grid,
-                          element_subgrid const &dest_grid,
-                          message const &message, int const segment_size)
+static void
+copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
+              index_mapper const &source_map, index_mapper const &dest_map,
+              message const &message, int const segment_size)
 {
   assert(segment_size > 0);
   if (message.message_dir == message_direction::send)
   {
-    auto const source_start = static_cast<int64_t>(source_grid.to_local_row(
-                                  message.source_range.start)) *
-                              segment_size;
+    auto const source_start =
+        static_cast<int64_t>(source_map(message.source_range.start)) *
+        segment_size;
     auto const source_end =
-        static_cast<int64_t>(
-            source_grid.to_local_row(message.source_range.stop) + 1) *
+        static_cast<int64_t>(source_map(message.source_range.stop) + 1) *
             segment_size -
         1;
     auto const dest_start =
-        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.start)) *
-        segment_size;
+        static_cast<int64_t>(dest_map(message.dest_range.start)) * segment_size;
     auto const dest_end =
-        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.stop) +
-                             1) *
+        static_cast<int64_t>(dest_map(message.dest_range.stop) + 1) *
             segment_size -
         1;
 
@@ -476,11 +474,12 @@ static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
 }
 
 // static helper for sending/receiving output/input data using mpi
+// message ranges are in terms of global element indices
+// index map gets us back to local element indices
 template<typename P>
 static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
-                             element_subgrid const &source_grid,
-                             element_subgrid const &dest_grid,
-                             message const &message, int const segment_size)
+                             index_mapper const &map, message const &message,
+                             int const segment_size)
 {
 #ifdef ASGARD_USE_MPI
   assert(segment_size > 0);
@@ -492,12 +491,10 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   auto const mpi_tag = 0;
   if (message.message_dir == message_direction::send)
   {
-    auto const source_start = static_cast<int64_t>(source_grid.to_local_row(
-                                  message.source_range.start)) *
-                              segment_size;
+    auto const source_start =
+        static_cast<int64_t>(map(message.source_range.start)) * segment_size;
     auto const source_end =
-        static_cast<int64_t>(
-            source_grid.to_local_row(message.source_range.stop) + 1) *
+        static_cast<int64_t>(map(message.source_range.stop) + 1) *
             segment_size -
         1;
 
@@ -512,12 +509,9 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   else
   {
     auto const dest_start =
-        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.start)) *
-        segment_size;
+        static_cast<int64_t>(map(message.dest_range.start)) * segment_size;
     auto const dest_end =
-        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.stop) +
-                             1) *
-            segment_size -
+        static_cast<int64_t>(map(message.dest_range.stop) + 1) * segment_size -
         1;
 
     fk::vector<P, mem_type::view> window(dest, dest_start, dest_end);
@@ -528,7 +522,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
     assert(success == 0);
   }
 #else
-  ignore({source, dest, source_grid, dest_grid, message, segment_size});
+  ignore({source, dest, map, message, segment_size});
   assert(false);
 #endif
 }
@@ -559,13 +553,15 @@ void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
   {
     if (message.target == my_rank)
     {
-      copy_to_input(source, dest, my_subgrid, my_subgrid, message,
-                    segment_size);
+      copy_to_input(source, dest, my_subgrid.get_local_row_map(),
+                    my_subgrid.get_local_col_map(), message, segment_size);
       continue;
     }
 
-    dispatch_message(source, dest, my_subgrid, my_subgrid, message,
-                     segment_size);
+    auto const local_map = (message.message_dir == message_direction::send)
+                               ? my_subgrid.get_local_row_map()
+                               : my_subgrid.get_local_col_map();
+    dispatch_message(source, dest, local_map, message, segment_size);
   }
 
 #else
@@ -878,7 +874,7 @@ subgrid_messages_remap(distribution_plan const &old_plan,
   return subgrid_messages;
 }
 
-std::list<message>
+std::vector<std::list<message>>
 generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
                         std::map<int64_t, grid_limits> const &elem_index_remap)
@@ -889,13 +885,14 @@ generate_messages_remap(distribution_plan const &old_plan,
   // messages for each subgrid row. if this requires optimization, just perform
   // the first row, and add functionality to replicate messaging behavior across
   // rows
-  std::list<message> redis_messages;
+  std::vector<std::list<message>> redis_messages;
+  redis_messages.reserve(new_plan.size());
   for (auto const &[rank, subgrid] : new_plan)
   {
     ignore(subgrid);
     auto rank_messages =
         subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
-    redis_messages.splice(redis_messages.end(), rank_messages);
+    redis_messages.push_back(rank_messages);
   }
 
   return redis_messages;
@@ -918,10 +915,24 @@ redistribute_vector(fk::vector<P> const &old_x,
   int64_t const segment_size = old_x.size() / old_plan.at(get_rank()).ncols();
   fk::vector<P> y(new_plan.at(get_rank()).nrows() * segment_size);
 
+  auto const my_rank  = get_rank();
   auto const messages = generate_messages_remap(old_plan, new_plan, elem_remap);
-  for (auto const &message : messages)
+  for (auto const &message : messages[my_rank])
   {
-    // TODO call dispatch/copy to in
+    auto const source_local_map = old_plan.at(my_rank).get_local_col_map();
+    auto const dest_local_map   = new_plan.at(my_rank).get_local_col_map();
+    if (message.target == my_rank)
+    {
+      copy_to_input(old_x, y, source_local_map, dest_local_map, message,
+                    segment_size);
+    }
+    else
+    {
+      auto const local_map = (message.message_dir == message_direction::send)
+                                 ? source_local_map
+                                 : dest_local_map;
+      dispatch_message(old_x, y, local_map, message, segment_size);
+    }
   }
 
   return y;
