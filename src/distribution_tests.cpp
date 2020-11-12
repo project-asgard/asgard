@@ -442,15 +442,15 @@ void generate_messages_test(int const num_ranks, elements::table const &table)
           send_counter(i) += 1;
         }
         // make sure the send message is inside my assigned outputs
-        REQUIRE(message.range.start >= subgrid.row_start);
-        REQUIRE(message.range.stop <= subgrid.row_stop);
+        REQUIRE(message.source_range.start >= subgrid.row_start);
+        REQUIRE(message.source_range.stop <= subgrid.row_stop);
       }
       // receive
       else
       {
         // make sure the receive message is inside my assigned inputs
-        REQUIRE(message.range.start >= subgrid.col_start);
-        REQUIRE(message.range.stop <= subgrid.col_stop);
+        REQUIRE(message.dest_range.start >= subgrid.col_start);
+        REQUIRE(message.dest_range.stop <= subgrid.col_stop);
 
         // also, check the matching send
         int const sender_rank       = message.target;
@@ -460,7 +460,7 @@ void generate_messages_test(int const num_ranks, elements::table const &table)
         for (int j = 0; j < static_cast<int>(sender_messages.size()); ++j)
         {
           auto const &sender_message = sender_messages[j];
-          if (sender_message.range == message.range &&
+          if (sender_message.source_range == message.dest_range &&
               sender_message.message_dir == message_direction::send &&
               sender_message.target == i)
 

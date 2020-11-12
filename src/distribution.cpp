@@ -937,6 +937,7 @@ redistribute_vector(fk::vector<P> const &old_x,
 
   return y;
 #else
+  ignore(elem_remap);
   return old_x;
 #endif
 }
