@@ -1,4 +1,3 @@
-
 #include "distribution.hpp"
 
 #include <cmath>
@@ -29,7 +28,7 @@ static distribution_handler distro_handle;
 int get_local_rank()
 {
 #ifdef ASGARD_USE_MPI
-  static int const rank = []() {
+  static auto const rank = []() {
     MPI_Comm local_comm;
     auto success = MPI_Comm_split_type(distro_handle.get_global_comm(),
                                        MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
@@ -443,44 +442,44 @@ generate_messages(distribution_plan const &plan)
 // TODO modify for redis case
 template<typename P>
 static void copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
-                          element_subgrid const &my_grid,
+                          element_subgrid const &source_grid,
+                          element_subgrid const &dest_grid,
                           message const &message, int const segment_size)
 {
   assert(segment_size > 0);
   if (message.message_dir == message_direction::send)
   {
-    assert(message.source_range == message.dest_range);
-    auto const output_start =
-        static_cast<int64_t>(my_grid.to_local_row(message.source_range.start)) *
-        segment_size;
-    auto const output_end =
-        static_cast<int64_t>(my_grid.to_local_row(message.source_range.stop) +
-                             1) *
+    auto const source_start = static_cast<int64_t>(source_grid.to_local_row(
+                                  message.source_range.start)) *
+                              segment_size;
+    auto const source_end =
+        static_cast<int64_t>(
+            source_grid.to_local_row(message.source_range.stop) + 1) *
             segment_size -
         1;
-    auto const input_start =
-        static_cast<int64_t>(my_grid.to_local_col(message.source_range.start)) *
+    auto const dest_start =
+        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.start)) *
         segment_size;
-    auto const input_end =
-        static_cast<int64_t>(my_grid.to_local_col(message.source_range.stop) +
+    auto const dest_end =
+        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.stop) +
                              1) *
             segment_size -
         1;
 
-    fk::vector<P, mem_type::const_view> const output_window(
-        source, output_start, output_end);
-    fk::vector<P, mem_type::view> input_window(dest, input_start, input_end);
+    fk::vector<P, mem_type::const_view> const source_window(
+        source, source_start, source_end);
+    fk::vector<P, mem_type::view> dest_window(dest, dest_start, dest_end);
 
-    fm::copy(output_window, input_window);
+    fm::copy(source_window, dest_window);
   }
   // else ignore the matching receive; I am copying locally
 }
 
-// TODO modify for redistribution case (message source/dest
 // static helper for sending/receiving output/input data using mpi
 template<typename P>
 static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
-                             element_subgrid const &my_grid,
+                             element_subgrid const &source_grid,
+                             element_subgrid const &dest_grid,
                              message const &message, int const segment_size)
 {
 #ifdef ASGARD_USE_MPI
@@ -490,23 +489,20 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
       std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
   MPI_Comm const communicator = distro_handle.get_global_comm();
 
-  int const mpi_tag = 0;
+  auto const mpi_tag = 0;
   if (message.message_dir == message_direction::send)
   {
-    // in this case (not redistributing vector),
-    // global indices should be consistent
-    assert(message.source_range == message.dest_range);
-    auto const output_start =
-        static_cast<int64_t>(my_grid.to_local_row(message.source_range.start)) *
-        segment_size;
-    auto const output_end =
-        static_cast<int64_t>(my_grid.to_local_row(message.source_range.stop) +
-                             1) *
+    auto const source_start = static_cast<int64_t>(source_grid.to_local_row(
+                                  message.source_range.start)) *
+                              segment_size;
+    auto const source_end =
+        static_cast<int64_t>(
+            source_grid.to_local_row(message.source_range.stop) + 1) *
             segment_size -
         1;
 
-    fk::vector<P, mem_type::const_view> const window(source, output_start,
-                                                     output_end);
+    fk::vector<P, mem_type::const_view> const window(source, source_start,
+                                                     source_end);
 
     auto const success =
         MPI_Send((void *)window.data(), window.size(), mpi_type, message.target,
@@ -515,16 +511,16 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   }
   else
   {
-    auto const input_start =
-        static_cast<int64_t>(my_grid.to_local_col(message.source_range.start)) *
+    auto const dest_start =
+        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.start)) *
         segment_size;
-    auto const input_end =
-        static_cast<int64_t>(my_grid.to_local_col(message.source_range.stop) +
+    auto const dest_end =
+        static_cast<int64_t>(dest_grid.to_local_col(message.dest_range.stop) +
                              1) *
             segment_size -
         1;
 
-    fk::vector<P, mem_type::view> window(dest, input_start, input_end);
+    fk::vector<P, mem_type::view> window(dest, dest_start, dest_end);
 
     auto const success =
         MPI_Recv((void *)window.data(), window.size(), mpi_type, message.target,
@@ -532,7 +528,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
     assert(success == 0);
   }
 #else
-  ignore({source, dest, my_grid, message, segment_size});
+  ignore({source, dest, source_grid, dest_grid, message, segment_size});
   assert(false);
 #endif
 }
@@ -563,11 +559,13 @@ void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
   {
     if (message.target == my_rank)
     {
-      copy_to_input(source, dest, my_subgrid, message, segment_size);
+      copy_to_input(source, dest, my_subgrid, my_subgrid, message,
+                    segment_size);
       continue;
     }
 
-    dispatch_message(source, dest, my_subgrid, message, segment_size);
+    dispatch_message(source, dest, my_subgrid, my_subgrid, message,
+                     segment_size);
   }
 
 #else
@@ -674,8 +672,8 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
   }();
 
   // split the communicator - only need the first row
-  bool const participating            = my_rank < num_subgrid_cols;
-  int const comm_color                = participating ? 1 : MPI_UNDEFINED;
+  auto const participating            = my_rank < num_subgrid_cols;
+  auto const comm_color               = participating ? 1 : MPI_UNDEFINED;
   MPI_Comm const &global_communicator = distro_handle.get_global_comm();
   MPI_Comm first_row_communicator;
   auto success = MPI_Comm_split(global_communicator, comm_color, my_rank,
@@ -698,7 +696,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
     {
       std::copy(my_results.begin(), my_results.end(), results.begin());
 
-      for (int i = 1; i < num_subgrid_cols; ++i)
+      for (auto i = 1; i < num_subgrid_cols; ++i)
       {
         success = MPI_Recv((void *)(results.data() + my_results.size() +
                                     rank_displacements(i)),
@@ -711,7 +709,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
     }
     else
     {
-      int const mpi_tag = 0;
+      auto const mpi_tag = 0;
       success = MPI_Send((void *)my_results.data(), my_results.size(), mpi_type,
                          0, mpi_tag, first_row_communicator);
 
@@ -789,9 +787,59 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 static std::list<message>
 region_messages_remap(distribution_plan const &old_plan,
-                      grid_limits const region_to_retrieve, int const rank)
+                      grid_limits const source_region,
+                      grid_limits const dest_region, int const rank)
 {
+  assert(rank >= 0);
+  assert(source_region.size() == dest_region.size());
+
+  // we should only need to communicate with our own (old) row of subgrids
+  // each has a full copy of the vector
+  auto const cols = get_num_subgrid_cols(old_plan.size());
+  auto const row  = rank / cols;
+
   std::list<message> region_messages;
+
+  // iterate over columns in the subgrid
+  // find grids that include parts (or all)
+  // of this region.
+  auto dest_subregion_start = dest_region.start;
+  for (auto i = 0; i < cols; ++i)
+  {
+    // FIXME assumes a row major layout of the element grid
+    auto const subgrid = old_plan.at(i);
+
+    // if the region is contained within the subgrid
+    if (source_region.start >= subgrid.col_start &&
+        source_region.start <= subgrid.col_stop)
+    {
+      auto const contain_start =
+          std::min(source_region.start, subgrid.col_start);
+      auto const contain_end = std::min(source_region.stop, subgrid.col_stop);
+      auto const source_subregion = grid_limits(contain_start, contain_end);
+
+      auto const dest_subregion_stop =
+          dest_subregion_start + source_subregion.size() - 1;
+      auto const dest_subregion =
+          grid_limits(dest_subregion_start, dest_subregion_stop);
+      dest_subregion_start = dest_subregion_stop + 1;
+
+      // enqueue the communication with
+      // the subgrid at old_grid(rank_row, i)
+      auto const partner_rank = row * cols + i;
+
+      // receive
+      region_messages.push_back(message(message_direction::receive,
+                                        partner_rank, source_subregion,
+                                        dest_subregion));
+      // matching send
+      region_messages.push_back(message(message_direction::send, rank,
+                                        source_subregion, dest_subregion));
+    }
+  }
+
+  assert(dest_subregion_start = dest_region.stop + 1);
+  return region_messages;
 }
 
 // private helper.
@@ -803,22 +851,19 @@ subgrid_messages_remap(distribution_plan const &old_plan,
                        std::map<int64_t, grid_limits> const &elem_index_remap,
                        int const rank)
 {
-  // we should only need to communicate with our own (old) row of subgrids
-  // each has a full copy of the vector
-  auto const cols = get_num_subgrid_cols(old_plan.size());
-  auto const row  = rank / cols;
-  auto const col  = rank % cols;
+  assert(rank >= 0);
 
   auto const rank_subgrid = new_plan.at(rank);
-  auto index              = rank_subgrid.col_start;
   std::list<message> subgrid_messages;
-  while (index <= rank_subgrid.col_stop)
+  for (auto index = rank_subgrid.col_start; index <= rank_subgrid.col_stop;)
   {
     if (elem_index_remap.count(index) == 1)
     {
       // need to retrieve data for my assigned region
       auto const old_region = elem_index_remap.at(index);
-      auto region_messages  = region_messages_remap(old_plan, old_region, rank);
+      auto const new_region = grid_limits(index, index + old_region.size() - 1);
+      auto region_messages =
+          region_messages_remap(old_plan, old_region, new_region, rank);
       subgrid_messages.splice(subgrid_messages.end(), region_messages);
       auto const copy_size =
           std::min(old_region.size(), rank_subgrid.col_stop - index + 1);

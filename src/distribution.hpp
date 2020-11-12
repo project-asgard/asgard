@@ -16,6 +16,7 @@ struct grid_limits
   grid_limits(int const start, int const stop) : start(start), stop(stop){};
   grid_limits(grid_limits const &l) : start(l.start), stop(l.stop){};
   grid_limits(grid_limits const &&l) : start(l.start), stop(l.stop){};
+
   int size() const { return stop - start + 1; }
   bool operator==(grid_limits const &rhs) const
   {
@@ -197,12 +198,8 @@ struct message
         dest_range(source_range)
   {}
 
-  message(message const &other)
-      : message_dir(other.message_dir), target(other.target),
-        source_range(other.source_range), dest_range(other.dest_range)
-  {}
-
-  message(message &&other) = delete;
+  message(message const &other) = default;
+  message(message &&other)      = default;
 
   message_direction const message_dir;
   int const target;

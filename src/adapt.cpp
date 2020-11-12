@@ -1,8 +1,73 @@
 #include "adapt.hpp"
 #include "distribution.hpp"
 
+#include <unordered_set>
+
 namespace adapt
 {
+static std::map<int64_t, grid_limits>
+remap_for_addtl(int64_t const old_num_elems)
+{
+  assert(old_num_elems > 0);
+  std::map<int64_t, grid_limits> mapper;
+  // beginning of new elem range maps directly to old elem range
+  mapper.insert({0, grid_limits(0, old_num_elems - 1)});
+  return mapper;
+}
+
+static std::map<int64_t, grid_limits>
+remap_for_delete(std::vector<int64_t> const &deleted_indices,
+                 int64_t const num_new_elems)
+{
+  assert(num_new_elems > 0);
+
+  if (deleted_indices.size() == 0)
+  {
+    return {};
+  }
+
+  std::unordered_set<int64_t> deleted(deleted_indices.begin(),
+                                      deleted_indices.end());
+  assert(deleted.size() ==
+         deleted_indices.size()); // should all be unique indices
+  std::map<int64_t, grid_limits> new_to_old;
+  int64_t old_index    = 0;
+  int64_t new_index    = 0;
+  int64_t retain_count = 0;
+
+  while (new_index < num_new_elems)
+  {
+    // while in a preserved region, advance both indices
+    // count how many elements are in the region
+    while (deleted.count(old_index) == 0)
+    {
+      old_index++;
+      new_index++;
+      retain_count++;
+      if (new_index >= num_new_elems - 1)
+      {
+        break;
+      }
+    }
+
+    // record preserved region
+    if (retain_count > 0)
+    {
+      new_to_old.insert({new_index - retain_count - 1,
+                         grid_limits(old_index - retain_count - 1, old_index)});
+      retain_count = 0;
+    }
+
+    // skip past deleted regions
+    while (deleted.count(old_index) == 1)
+    {
+      old_index++;
+    }
+  }
+
+  return new_to_old;
+}
+
 template<typename P>
 distributed_grid<P>::distributed_grid(options const &cli_opts,
                                       PDE<P> const &pde)
@@ -115,75 +180,12 @@ distributed_grid<P>::remove_elements(std::vector<int64_t> indices_to_remove,
   table_.remove_elements(all_remove_indices);
 
   auto const new_plan = get_plan(get_num_ranks(), table_);
-  auto const remapper = remap_for_delete(deleted_elements, table_.size());
+  auto const remapper = remap_for_delete(all_remove_indices, table_.size());
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
   plan_               = new_plan;
 
   // TODO rechain pde...
   return y;
-}
-
-static std::map<int64_t, grid_limits>
-remap_for_addtl(int64_t const old_num_elems)
-{
-  assert(old_num_elems > 0);
-  std::map<int64_t, grid_limits> mapper;
-  // beginning of new elem range maps directly to old elem range
-  mapper[0] = grid_limits(0, old_num_elems - 1);
-  return mapper;
-}
-
-static std::map<int64_t, grid_limits>
-remap_for_delete(std::vector<int64_t> const &deleted_indices,
-                 int64_t const new_num_elems)
-{
-  assert(num_new_elems > 0);
-
-  if (deleted_indices.size() == 0)
-  {
-    return {};
-  }
-
-  std::unordered_set<int64_t> deleted(deleted_indices.begin(),
-                                      deleted_indices.end());
-  assert(deleted.size() ==
-         deleted_indices.size()); // should all be unique indices
-  std::map<int64_t, grid_limits> new_to_old;
-  int64_t old_index    = 0;
-  int64_t new_index    = 0;
-  int64_t retain_count = 0;
-
-  while (new_index < new_num_elems)
-  {
-    // while in a preserved region, advance both indices
-    // count how many elements are in the region
-    while (deleted.count(old_index) == 0)
-    {
-      old_index++;
-      new_index++;
-      retain_count++;
-      if (new_index >= new_num_elems - 1)
-      {
-        break;
-      }
-    }
-
-    // record preserved region
-    if (retain_count > 0)
-    {
-      new_to_old[new_index - retain_count - 1] =
-          grid_limits(old_index - retain_count - 1, old_index);
-      retain_count = 0;
-    }
-
-    // skip past deleted regions
-    while (deleted.count(old_index) == 1)
-    {
-      old_index++;
-    }
-  }
-
-  return new_to_old;
 }
 
 template class distributed_grid<float>;
