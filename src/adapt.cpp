@@ -135,10 +135,9 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 }
 
 template<typename P>
-fk::vector<P>
-distributed_grid<P>::refine_elements(std::vector<int64_t> indices_to_refine,
-                                     options const &opts,
-                                     fk::vector<P> const &x)
+fk::vector<P> distributed_grid<P>::refine_elements(
+    std::vector<int64_t> const &indices_to_refine, options const &opts,
+    fk::vector<P> const &x)
 {
   std::vector<int64_t> child_ids;
   for (auto const parent_index : indices_to_refine)
@@ -165,9 +164,8 @@ distributed_grid<P>::refine_elements(std::vector<int64_t> indices_to_refine,
 }
 
 template<typename P>
-fk::vector<P>
-distributed_grid<P>::remove_elements(std::vector<int64_t> indices_to_remove,
-                                     fk::vector<P> const &x)
+fk::vector<P> distributed_grid<P>::remove_elements(
+    std::vector<int64_t> const &indices_to_remove, fk::vector<P> const &x)
 {
   auto const all_remove_indices =
       distribute_table_changes(indices_to_remove, plan_);

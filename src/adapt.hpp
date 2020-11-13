@@ -12,6 +12,9 @@ class distributed_grid
 public:
   distributed_grid(options const &cli_opts, PDE<P> const &pde);
 
+  // these may eventually be invoked by driver routines
+  // that continue to coarsen or refine until goal met,
+  // and then rechain the PDE coefficient matrices
   fk::vector<P> refine(fk::vector<P> const &x, options const &cli_opts);
   fk::vector<P> coarsen(fk::vector<P> const &x, options const &cli_opts);
 
@@ -19,8 +22,6 @@ public:
   distributed_grid &operator=(distributed_grid const &) = delete;
   // -- move constr./assignment op. implicitly deleted --
 
-  // FIXME should provide appropriate external interface rather than simple
-  // getters
   distribution_plan const &get_distrib_plan() const { return plan_; }
   element_subgrid const &get_subgrid(int const rank) const
   {
@@ -33,9 +34,9 @@ public:
   int64_t size() const { return table_.size(); }
 
 private:
-  fk::vector<P> refine_elements(std::vector<int64_t> indices_to_refine,
+  fk::vector<P> refine_elements(std::vector<int64_t> const &indices_to_refine,
                                 options const &opts, fk::vector<P> const &x);
-  fk::vector<P> remove_elements(std::vector<int64_t> indices_to_remove,
+  fk::vector<P> remove_elements(std::vector<int64_t> const &indices_to_remove,
                                 fk::vector<P> const &x);
 
   // remap element ranges after deletion/addition of elements

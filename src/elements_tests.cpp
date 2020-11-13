@@ -58,15 +58,46 @@ void test_element_table(PDE_opts const pde_choice,
   }
 }
 
-TEST_CASE("element table constructors/accessors/size/multid mapping",
-          "[element_table]")
+void test_child_discovery(PDE_opts const pde_choice,
+                          fk::vector<int> const &levels,
+                          std::string const &gold_filename,
+                          int64_t const max_level, bool const full_grid = false)
+{
+  auto const degree = parser::NO_USER_VALUE;
+  auto const cfl    = parser::DEFAULT_CFL;
+  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
+  options const opts(cli_mock);
+  auto const pde = make_PDE<double>(cli_mock);
+  elements::table const elem_table(opts, *pde);
+
+  auto const gold_child_ids =
+      fk::vector<int>(read_vector_from_txt_file(gold_filename));
+  std::vector<int64_t> gold_vector(gold_child_ids.begin(),
+                                   gold_child_ids.end());
+
+  auto const test_vector = [&elem_table, &opts]() {
+    std::vector<int64_t> child_ids;
+    for (auto i = 0; i < elem_table.size(); ++i)
+    {
+      auto const children_i = elem_table.get_child_elements(i, opts);
+      child_ids.insert(child_ids.end(), children_i.begin(), children_i.end());
+    }
+    return child_ids;
+  }();
+  compare_vectors(test_vector, gold_vector);
+}
+
+TEST_CASE("element table object", "[element_table]")
 {
   std::vector<fk::vector<int>> const test_levels{{7}, {5, 2}, {3, 2, 3}};
-  int const max_level = 7;
+  auto const max_level = 7;
   std::vector<PDE_opts> const test_pdes{
       PDE_opts::continuity_1, PDE_opts::continuity_2, PDE_opts::continuity_3};
+
   std::string const gold_base =
       "../testing/generated-inputs/element_table/table_";
+  std::string const child_gold_base =
+      "../testing/generated-inputs/element_table/child_ids_";
 
   SECTION("test table construction/mapping")
   {
@@ -86,6 +117,26 @@ TEST_CASE("element table constructors/accessors/size/multid mapping",
       auto const sparse_gold_str =
           gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat";
       test_element_table(choice, levels, sparse_gold_str, max_level);
+    }
+  }
+  SECTION("test child id discovery")
+  {
+    assert(test_levels.size() == test_pdes.size());
+
+    for (auto i = 0; i < static_cast<int>(test_levels.size()); ++i)
+    {
+      auto const levels = test_levels[i];
+      auto const choice = test_pdes[i];
+
+      auto const full_gold_str =
+          child_gold_base + std::to_string(test_levels[i].size()) + "d_FG.dat";
+      auto const use_full_grid = true;
+      test_child_discovery(choice, levels, full_gold_str, max_level,
+                           use_full_grid);
+
+      auto const sparse_gold_str =
+          child_gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat";
+      test_child_discovery(choice, levels, sparse_gold_str, max_level);
     }
   }
 }

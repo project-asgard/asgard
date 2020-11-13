@@ -57,7 +57,7 @@ void rmse_comparison(fk::matrix<P, mem> const &m0,
 // https://github.com/catchorg/Catch2/blob/master/docs/matchers.md
 // FIXME we hardly use std::vect...do we still need this?
 template<typename P>
-void compare_vectors(std::vector<P> a, std::vector<P> b)
+void compare_vectors(std::vector<P> const &a, std::vector<P> const &b)
 {
   if constexpr (std::is_floating_point<P>::value)
   {

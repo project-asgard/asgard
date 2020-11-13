@@ -132,7 +132,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
   // room for optimization in either case.
   for (auto i = 0; i < static_cast<int>(indices.size()); ++i)
   {
-    auto const retain_stop = i * coord_size - 1;
+    auto const retain_stop = indices[i] * coord_size - 1;
     auto const retain_size = retain_stop - retain_start + 1;
     if (retain_size > 0)
     {
@@ -174,7 +174,7 @@ void table::add_elements(std::vector<int64_t> const &ids, int const max_level)
 }
 
 std::vector<int64_t>
-table::get_child_elements(int64_t const index, options const &opts)
+table::get_child_elements(int64_t const index, options const &opts) const
 {
   // make sure we're dealing with an active element
   assert(index >= 0);
@@ -191,15 +191,17 @@ table::get_child_elements(int64_t const index, options const &opts)
     if (coords(i) + 1 < opts.max_level)
     {
       auto daughter_coords          = coords;
-      daughter_coords(i)            = coords(i + 1);
+      daughter_coords(i)            = coords(i) + 1;
       daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
-      daughter_ids.push_back(map_to_id(coords, opts.max_level, num_dims));
+      daughter_ids.push_back(
+          map_to_id(daughter_coords, opts.max_level, num_dims));
 
       // second daughter
       if (coords(i) >= 1)
       {
         daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
-        daughter_ids.push_back(map_to_id(coords, opts.max_level, num_dims));
+        daughter_ids.push_back(
+            map_to_id(daughter_coords, opts.max_level, num_dims));
       }
     }
   }
