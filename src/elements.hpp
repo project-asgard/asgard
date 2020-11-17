@@ -5,6 +5,7 @@
 #include "tensors.hpp"
 #include <algorithm>
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 namespace elements
@@ -77,11 +78,12 @@ public:
   void remove_elements(std::vector<int64_t> const &element_indices);
 
   // manually add elements by id
-  void
-  add_elements(std::vector<int64_t> const &element_ids, int const max_level);
+  // returns number of elements added - ignore ids already present
+  int64_t add_elements(std::unordered_set<int64_t> const &element_ids,
+                       int const max_level);
 
   // get element id of all children of an element (by index) for refinement
-  std::vector<int64_t>
+  std::unordered_set<int64_t>
   get_child_elements(int64_t const index, options const &opts) const;
 
   // get flattened element table for device

@@ -139,24 +139,25 @@ fk::vector<P> distributed_grid<P>::refine_elements(
     std::vector<int64_t> const &indices_to_refine, options const &opts,
     fk::vector<P> const &x)
 {
-  std::vector<int64_t> child_ids;
+  std::unordered_set<int64_t> child_ids;
   for (auto const parent_index : indices_to_refine)
   {
-    auto const children = table_.get_child_elements(parent_index, opts);
-    child_ids.insert(child_ids.end(), children.begin(), children.end());
+    child_ids.merge(table_.get_child_elements(parent_index, opts));
   }
 
-  auto const all_child_ids = distribute_table_changes(child_ids, plan_);
+  std::vector<int64_t> child_vect(child_ids.begin(), child_ids.end());
+  auto const all_child_ids = distribute_table_changes(child_vect, plan_);
 
   if (all_child_ids.size() == 0)
   {
     return x;
   }
-
-  table_.add_elements(all_child_ids, opts.max_level);
+  std::unordered_set<int64_t> all_children_set(all_child_ids.begin(),
+                                               all_child_ids.end());
+  auto const added = table_.add_elements(all_children_set, opts.max_level);
 
   auto const new_plan = get_plan(get_num_ranks(), table_);
-  auto const remapper = remap_for_addtl(table_.size() - all_child_ids.size());
+  auto const remapper = remap_for_addtl(table_.size() - added);
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
   plan_               = new_plan;
 

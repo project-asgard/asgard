@@ -6,9 +6,11 @@
 #include "tensors.hpp"
 #include <cmath>
 #include <functional>
+#include <iterator> // for ostream_iterator TEMP
 #include <limits>
 #include <map>
 #include <numeric>
+#include <unordered_set>
 #include <vector>
 
 namespace elements
@@ -106,14 +108,30 @@ void table::remove_elements(std::vector<int64_t> const &indices)
     return;
   }
 
-  for (auto const index : indices)
-  {
-    auto const id = active_element_ids_[index];
-    active_element_ids_.erase(active_element_ids_.begin() + index);
-    id_to_coords_.erase(id);
-  }
-  assert(active_element_ids_.size() == id_to_coords_.size());
-  assert(size() > 0);
+  std::unordered_set<int64_t> const to_delete(indices.begin(), indices.end());
+
+  // check for duplicate indices passed
+  assert(to_delete.size() == indices.size());
+
+  auto const new_active_ids = [&to_delete,
+                               &active_element_ids_ = active_element_ids_]() {
+    // don't delete all the elements
+    assert(active_element_ids_.size() > to_delete.size());
+    std::vector<int64_t> new_active_ids(active_element_ids_.size() -
+                                        to_delete.size());
+    auto count = 0;
+    assert(active_element_ids_.size() < INT_MAX);
+    for (auto i = 0; i < static_cast<int>(active_element_ids_.size()); ++i)
+    {
+      if (to_delete.count(i) == 1)
+      {
+        continue;
+      }
+      new_active_ids[count++] = active_element_ids_[i];
+    }
+    assert(count == static_cast<int>(new_active_ids.size()));
+    return new_active_ids;
+  }();
 
   // form new active table from retained elements in old table
   auto const active_table_h = active_table_d_.clone_onto_host();
@@ -124,56 +142,79 @@ void table::remove_elements(std::vector<int64_t> const &indices)
   assert(new_table_size > 0);
   auto new_active_table = fk::vector<int>(new_table_size);
 
-  auto retain_start = 0;
-  auto dest_start   = 0;
-  assert(indices.size() < INT_MAX);
-  // this approach may be slow when there is lots of refinement,
-  // probably quick when there is little refinement. plenty of
-  // room for optimization in either case.
-  for (auto i = 0; i < static_cast<int>(indices.size()); ++i)
+  int64_t dest_start = 0;
+  assert(size() < INT_MAX);
+  for (int64_t i = 0; i < size(); ++i)
   {
-    auto const retain_stop = indices[i] * coord_size - 1;
-    auto const retain_size = retain_stop - retain_start + 1;
-    if (retain_size > 0)
+    if (to_delete.count(i) == 1)
     {
-      fk::vector<int, mem_type::const_view> const retained_coords(
-          active_table_h, retain_start, retain_stop);
-      auto const dest_stop = dest_start + retain_size - 1;
-      fk::vector<int, mem_type::view> dest_for_coords(new_active_table,
-                                                      dest_start, dest_stop);
-      dest_for_coords = retained_coords;
-      dest_start      = dest_stop + 1;
+      continue;
     }
-    retain_start = retain_stop + 1;
+    fk::vector<int, mem_type::const_view> const retained_coords(
+        active_table_h, i * coord_size, (i + 1) * coord_size - 1);
+    auto const dest_stop = dest_start + coord_size - 1;
+    fk::vector<int, mem_type::view> dest_for_coords(new_active_table,
+                                                    dest_start, dest_stop);
+    dest_for_coords = retained_coords;
+    dest_start      = dest_stop + 1;
   }
-  active_table_d_ = new_active_table.clone_onto_device();
+
+  for (auto const index : indices)
+  {
+    auto const id = active_element_ids_[index];
+    id_to_coords_.erase(id);
+  }
+
+  active_table_d_.resize(new_active_table.size())
+      .transfer_from(new_active_table);
+
+  active_element_ids_ = new_active_ids;
+
+  assert(active_element_ids_.size() == id_to_coords_.size());
+  assert(size() > 0);
 }
 
-void table::add_elements(std::vector<int64_t> const &ids, int const max_level)
+int64_t
+table::add_elements(std::unordered_set<int64_t> const &ids, int const max_level)
 {
   assert(max_level > 0);
+
   auto active_table_h = active_table_d_.clone_onto_host();
 
   assert(size() > 0);
   auto const coord_size = get_coords(0).size();
+  assert(coord_size % 2 == 0);
+  auto const num_dims = coord_size / 2;
+
+  int64_t added = 0;
+  std::unordered_set<int64_t> const existing_ids(active_element_ids_.begin(),
+                                                 active_element_ids_.end());
 
   for (auto const id : ids)
   {
+    assert(id >= 0);
+
+    // already present in grid
+    if (existing_ids.count(id) == 1)
+    {
+      continue;
+    }
+    // not present, insert
+    auto const coords = map_to_coords(id, max_level, num_dims);
     active_element_ids_.push_back(id);
-    auto const coords                    = get_coords(id);
     id_to_coords_[id].resize(coord_size) = coords;
     // TODO we know a priori how many coords we are adding
     // so this could be optimized away if it's slow
     active_table_h.concat(coords);
+    added++;
   }
   assert(active_element_ids_.size() == id_to_coords_.size());
-  assert(static_cast<uint64_t>(active_table_h.size()) ==
-         active_table_d_.size() + ids.size() * coord_size);
-
-  active_table_d_ = active_table_h.clone_onto_device();
+  active_table_d_.resize(active_table_h.size()) =
+      active_table_h.clone_onto_device();
+  return added;
 }
 
-std::vector<int64_t>
+std::unordered_set<int64_t>
 table::get_child_elements(int64_t const index, options const &opts) const
 {
   // make sure we're dealing with an active element
@@ -184,7 +225,7 @@ table::get_child_elements(int64_t const index, options const &opts) const
   // all coordinates have 2 entries (lev, cell) per dimension
   auto const num_dims = coords.size() / 2;
 
-  std::vector<int64_t> daughter_ids;
+  std::unordered_set<int64_t> daughter_ids;
   for (auto i = 0; i < num_dims; ++i)
   {
     // first daughter in this dimension
@@ -193,14 +234,13 @@ table::get_child_elements(int64_t const index, options const &opts) const
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i) + 1;
       daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
-      daughter_ids.push_back(
-          map_to_id(daughter_coords, opts.max_level, num_dims));
+      daughter_ids.insert(map_to_id(daughter_coords, opts.max_level, num_dims));
 
       // second daughter
       if (coords(i) >= 1)
       {
         daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
-        daughter_ids.push_back(
+        daughter_ids.insert(
             map_to_id(daughter_coords, opts.max_level, num_dims));
       }
     }

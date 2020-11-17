@@ -4,6 +4,7 @@
 #include "tests_general.hpp"
 #include <regex>
 #include <string>
+#include <unordered_set>
 
 void test_element_table(PDE_opts const pde_choice,
                         fk::vector<int> const &levels,
@@ -70,21 +71,171 @@ void test_child_discovery(PDE_opts const pde_choice,
   auto const pde = make_PDE<double>(cli_mock);
   elements::table const elem_table(opts, *pde);
 
-  auto const gold_child_ids =
+  auto const gold_child_vect =
       fk::vector<int>(read_vector_from_txt_file(gold_filename));
-  std::vector<int64_t> gold_vector(gold_child_ids.begin(),
-                                   gold_child_ids.end());
+  std::unordered_set<int64_t> gold_child_ids(gold_child_vect.begin(),
+                                             gold_child_vect.end());
 
-  auto const test_vector = [&elem_table, &opts]() {
-    std::vector<int64_t> child_ids;
-    for (auto i = 0; i < elem_table.size(); ++i)
+  auto const child_ids = [&elem_table, &opts]() {
+    std::unordered_set<int64_t> child_ids;
+    for (int64_t i = 0; i < elem_table.size(); ++i)
     {
-      auto const children_i = elem_table.get_child_elements(i, opts);
-      child_ids.insert(child_ids.end(), children_i.begin(), children_i.end());
+      child_ids.merge(elem_table.get_child_elements(i, opts));
     }
     return child_ids;
   }();
-  compare_vectors(test_vector, gold_vector);
+
+  REQUIRE(child_ids == gold_child_ids);
+}
+
+void test_element_addition(PDE_opts const pde_choice,
+                           fk::vector<int> const &levels,
+                           int64_t const max_level,
+                           bool const full_grid = false)
+{
+  auto const degree = parser::NO_USER_VALUE;
+  auto const cfl    = parser::DEFAULT_CFL;
+  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
+  options const opts(cli_mock);
+  auto const pde = make_PDE<double>(cli_mock);
+  elements::table elem_table(opts, *pde);
+
+  // store existing ids
+  auto const active_ids = [&elem_table]() {
+    std::vector<int64_t> active_ids;
+    active_ids.reserve(elem_table.size());
+    for (int64_t i = 0; i < elem_table.size(); ++i)
+    {
+      active_ids.push_back(elem_table.get_element_id(i));
+    }
+    return active_ids;
+  }();
+
+  // store existing flat table
+  auto const active_table = elem_table.get_active_table();
+
+  // store ids to refine
+  auto const ids_to_add = [&elem_table, &opts]() {
+    std::unordered_set<int64_t> ids_to_add;
+    auto const n = 5;
+    assert(elem_table.size() > n);
+    ids_to_add.reserve(elem_table.size() / n);
+    int64_t counter = 0;
+    for (int64_t i = 0; i < elem_table.size(); i += n)
+    {
+      ids_to_add.merge(elem_table.get_child_elements(i, opts));
+      // and sometimes refine a contiguous element
+      if ((counter++ % 2) == 0 && (i + 1) < elem_table.size())
+      {
+        ids_to_add.merge(elem_table.get_child_elements(i + 1, opts));
+      }
+    }
+    return ids_to_add;
+  }();
+
+  std::unordered_set<int64_t> active_set(active_ids.begin(), active_ids.end());
+  assert(active_set.size() == active_ids.size());
+  int64_t should_add = 0;
+  for (auto const child_id : ids_to_add)
+  {
+    if (active_set.count(child_id) == 0)
+    {
+      should_add++;
+    }
+  }
+
+  auto const old_size  = elem_table.size();
+  auto const num_added = elem_table.add_elements(ids_to_add, opts.max_level);
+
+  REQUIRE(num_added == should_add);
+  REQUIRE(elem_table.size() == old_size + should_add);
+
+  // check that lower range of flat table and active ids is same
+
+  // check that upper range added correctly
+}
+
+void test_element_deletion(PDE_opts const pde_choice,
+                           fk::vector<int> const &levels,
+                           int64_t const max_level,
+                           bool const full_grid = false)
+{
+  auto const degree = parser::NO_USER_VALUE;
+  auto const cfl    = parser::DEFAULT_CFL;
+  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
+  options const opts(cli_mock);
+  auto const pde = make_PDE<double>(cli_mock);
+  elements::table elem_table(opts, *pde);
+
+  // delete every nth element,
+  auto const n        = 5;
+  auto const old_size = elem_table.size();
+  assert(old_size > n);
+
+  // store deleted indices
+  std::vector<int64_t> indices_to_delete;
+
+  // store deleted ids
+  std::unordered_set<int64_t> deleted_ids;
+
+  indices_to_delete.reserve(elem_table.size() / n);
+  int64_t counter = 0;
+  for (int64_t i = 0; i < elem_table.size(); i += n)
+  {
+    indices_to_delete.push_back(i);
+    deleted_ids.insert(elem_table.get_element_id(i));
+    // and sometimes delete a contiguous element
+    if ((counter++ % 2) == 0 && (i + 1) < elem_table.size())
+    {
+      indices_to_delete.push_back(i + 1);
+      deleted_ids.insert(elem_table.get_element_id(i + 1));
+    }
+  }
+
+  std::unordered_set<int64_t> const to_delete(indices_to_delete.begin(),
+                                              indices_to_delete.end());
+  auto const gold_flat_table = [&elem_table, &to_delete]() {
+    auto table = fk::vector<int>();
+    // auto gold_ids = std::vector<int64_t>();
+    for (int64_t i = 0; i < elem_table.size(); ++i)
+    {
+      if (to_delete.count(i) == 1)
+      {
+        continue;
+      }
+      table.concat(elem_table.get_coords(i));
+      // gold_ids.push_back(elem_table.get_element_id(i));
+    }
+    return table;
+  }();
+
+  elem_table.remove_elements(indices_to_delete);
+
+  // check that table shrank appropriately
+  REQUIRE(elem_table.size() ==
+          old_size - static_cast<int>(indices_to_delete.size()));
+  auto const flat_table = elem_table.get_active_table().clone_onto_host();
+  auto const coord_size = pde->num_dims * 2;
+  REQUIRE(flat_table.size() / coord_size == elem_table.size());
+
+  // check that deleted ids are not present in table
+  for (int64_t i = 0; i < elem_table.size(); ++i)
+  {
+    REQUIRE(deleted_ids.count(elem_table.get_element_id(i)) == 0);
+  }
+
+  // check that retained coords were shifted left
+  REQUIRE(indices_to_delete.size() > 0);
+  REQUIRE(gold_flat_table == flat_table);
+
+  // check that index to coord mapping still works,
+  // also checks that ids are present in correct position
+  for (int64_t i = 0; i < elem_table.size(); ++i)
+  {
+    REQUIRE(fk::vector<int, mem_type::const_view>(flat_table, i * coord_size,
+                                                  (i + 1) * coord_size - 1) ==
+            elem_table.get_coords(i));
+  }
 }
 
 TEST_CASE("element table object", "[element_table]")
@@ -119,7 +270,8 @@ TEST_CASE("element table object", "[element_table]")
       test_element_table(choice, levels, sparse_gold_str, max_level);
     }
   }
-  SECTION("test child id discovery")
+  SECTION("adaptivity: child id discovery, element addition, "
+          "element deletion")
   {
     assert(test_levels.size() == test_pdes.size());
 
@@ -133,10 +285,14 @@ TEST_CASE("element table object", "[element_table]")
       auto const use_full_grid = true;
       test_child_discovery(choice, levels, full_gold_str, max_level,
                            use_full_grid);
+      test_element_addition(choice, levels, max_level, use_full_grid);
+      test_element_deletion(choice, levels, max_level, use_full_grid);
 
       auto const sparse_gold_str =
           child_gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat";
       test_child_discovery(choice, levels, sparse_gold_str, max_level);
+      test_element_addition(choice, levels, max_level);
+      test_element_deletion(choice, levels, max_level);
     }
   }
 }
