@@ -161,6 +161,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
   plan_               = new_plan;
 
+  // TODO need rechain
   return y;
 }
 

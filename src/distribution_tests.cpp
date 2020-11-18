@@ -759,3 +759,62 @@ TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", float, double)
     }
   }
 }
+
+TEST_CASE("distribute table tests", "[distribution]")
+{
+  SECTION("single rank - should copy back")
+  {
+    std::vector<int64_t> const source{1, 2, 3, 4, 5};
+    distribution_plan plan;
+    plan.emplace(0, element_subgrid(0, 1, 2, 3));
+    auto const result = distribute_table_changes(source, plan);
+    REQUIRE(source == result);
+  }
+
+  SECTION("multiple rank - should aggregate all")
+  {
+#ifdef ASGARD_USE_MPI
+
+    auto const my_rank   = distrib_test_info.get_my_rank();
+    auto const num_ranks = distrib_test_info.get_num_ranks();
+
+    auto const plan = [num_ranks]() {
+      distribution_plan plan;
+      for (auto i = 0; i < num_ranks; ++i)
+      {
+        // values here don't matter - plan is just used
+        // to determine number of ranks
+        plan.emplace(i, element_subgrid(0, 1, 2, 3));
+      }
+      return plan;
+    }();
+    auto const my_changes = [my_rank]() {
+      std::vector<int64_t> my_changes(std::max(my_rank * 2, 1));
+      std::iota(my_changes.begin(), my_changes.end(), my_rank);
+      return my_changes;
+    }();
+    auto const result_gold = [num_ranks]() {
+      std::vector<int64_t> all_changes;
+      for (auto i = 0; i < num_ranks; ++i)
+      {
+        for (auto j = 0; j < std::max(i * 2, 1); ++j)
+        {
+          all_changes.push_back(i + j);
+        }
+      }
+      return all_changes;
+    }();
+
+    if (my_rank < num_ranks)
+    {
+      auto const result      = distribute_table_changes(my_changes, plan);
+      auto const result_size = num_ranks * (num_ranks - 1) + 1;
+      REQUIRE(static_cast<int64_t>(result.size()) == result_size);
+      compare_vectors(result, result_gold);
+    }
+
+#else
+    REQUIRE(true);
+#endif
+  }
+}

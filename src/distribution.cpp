@@ -732,7 +732,6 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
   }
 
 #ifdef ASGARD_USE_MPI
-
   // determine size of everyone's messages
   auto const my_rank      = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
@@ -744,7 +743,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
     {
       auto const success = MPI_Bcast(num_messages.data() + i, 1, MPI_INT, i,
                                      distro_handle.get_global_comm());
-      assert(success);
+      assert(success == 0);
     }
     return num_messages;
   }();
@@ -772,11 +771,13 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
       all_changes.data(), num_messages.data(), displacements.data(),
       MPI_INT64_T, distro_handle.get_global_comm());
 
-  assert(success);
+  assert(success == 0);
 
   return all_changes;
 
 #else
+  // plan size > 1, MPI off - shouldn't occur
+  assert(false);
   return my_changes;
 #endif
 }
