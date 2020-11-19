@@ -15,6 +15,11 @@ public:
   // these may eventually be invoked by driver routines
   // that continue to coarsen or refine until goal met,
   // and then rechain the PDE coefficient matrices
+
+  // the underlying distribution routines rely on no "reshuffling" of elements,
+  // i.e., elements are either deleted (coarsening) with left shift
+  // to fill deleted segments of the element grid,
+  // or added (refinement) to the end of the element grid
   fk::vector<P> refine(fk::vector<P> const &x, options const &cli_opts);
   fk::vector<P> coarsen(fk::vector<P> const &x, options const &cli_opts);
 

@@ -215,6 +215,12 @@ struct message
   message(message const &other) = default;
   message(message &&other)      = default;
 
+  bool operator==(message const &oth) const
+  {
+    return (message_dir == oth.message_dir && target == oth.target &&
+            source_range == oth.source_range && dest_range == oth.dest_range);
+  }
+
   message_direction const message_dir;
   int const target;
   grid_limits const source_range;
@@ -266,6 +272,8 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 // generate messages for redistribute_vector
 // conceptually private, exposed for testing
+
+// elem remap: new element index -> old grid start,stop
 std::vector<std::list<message>>
 generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
@@ -273,6 +281,10 @@ generate_messages_remap(distribution_plan const &old_plan,
 
 // after adapting distribution plan, ensure everyone has values for their
 // assigned subgrid
+
+// preconditions: old plan and new plan sizes match (same number of ranks)
+// also, elements must either be appended to the element grid (refinement)
+// or deleted from the middle of the grid with left shift to fill (coarsening)
 template<typename P>
 fk::vector<P>
 redistribute_vector(fk::vector<P> const &old_x,

@@ -782,10 +782,10 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 #endif
 }
 
-static std::list<message>
-region_messages_remap(distribution_plan const &old_plan,
-                      grid_limits const source_region,
-                      grid_limits const dest_region, int const rank)
+std::list<message> region_messages_remap(distribution_plan const &old_plan,
+                                         grid_limits const source_region,
+                                         grid_limits const dest_region,
+                                         int const rank)
 {
   assert(rank >= 0);
   assert(source_region.size() == dest_region.size());
@@ -891,12 +891,51 @@ generate_messages_remap(distribution_plan const &old_plan,
   for (auto const &[rank, subgrid] : new_plan)
   {
     ignore(subgrid);
-    auto rank_messages =
+    auto const rank_messages =
         subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
     redis_messages.push_back(rank_messages);
   }
 
-  return redis_messages;
+  // the sends and receives required for each rank i are stored at index i
+  // in redis messages. places the messages in lists as they should be
+  // invoked (send messages go in sender's list)
+  std::vector<std::list<message>> sorted_messages(new_plan.size());
+  assert(redis_messages.size() < INT_MAX);
+  for (auto i = 0; i < static_cast<int>(redis_messages.size()); ++i)
+  {
+    auto const &message_list = redis_messages[i];
+    for (auto const &message : message_list)
+    {
+      auto const dest_index =
+          (message.message_dir == message_direction::send) ? message.target : i;
+      sorted_messages[dest_index].push_back(message);
+    }
+  }
+  // coarsening and refinement should both only trigger messages from "right"
+  // (higher subgrid column number) to "left" (lower subgrid column number).
+  // ensure no deadlock by 1) ordering all receives before all sends, and
+  // 2) highest sender/receiver rank number first within receives/sends.
+  auto const right_to_left_sort = [](message const &left,
+                                     message const &right) {
+    if (left.message_dir == message_direction::send &&
+        right.message_dir == message_direction::receive)
+    {
+      return false;
+    }
+    if (right.message_dir == message_direction::send &&
+        left.message_dir == message_direction::receive)
+    {
+      return true;
+    }
+    return left.target > right.target;
+  };
+
+  for (auto &message_list : sorted_messages)
+  {
+    message_list.sort(right_to_left_sort);
+  }
+
+  return sorted_messages;
 }
 
 template<typename P>
@@ -907,8 +946,6 @@ redistribute_vector(fk::vector<P> const &old_x,
                     std::map<int64_t, grid_limits> const &elem_remap)
 {
   assert(old_plan.size() == new_plan.size());
-
-#ifdef ASGARD_USE_MPI
 
   // x's size should be num_elements*deg^dim
   // (deg^dim is one element's number of coefficients/ elements in x vector)
@@ -937,10 +974,6 @@ redistribute_vector(fk::vector<P> const &old_x,
   }
 
   return y;
-#else
-  ignore(elem_remap);
-  return old_x;
-#endif
 }
 
 template void reduce_results(fk::vector<float> const &source,
