@@ -829,15 +829,29 @@ void generate_messages_remap_test(
   auto const num_subgrid_rows =
       static_cast<int>(old_plan.size() / num_subgrid_cols);
 
-  auto const col_start = old_plan.at(0).col_start;
-  auto const col_end   = old_plan.at(num_subgrid_cols - 1).col_stop;
-  fk::vector<int> coverage_map(col_end - col_start + 1);
+  std::map<int64_t, std::list<grid_limits>> coverage_map;
 
   auto const messages =
       generate_messages_remap(old_plan, new_plan, changes_map);
 
   // all ranks have a message list
   REQUIRE(messages.size() == new_plan.size());
+  auto ctr = 0;
+  for (auto const &message_list : messages)
+  {
+    std::cout << "RANK MSG " << ctr++ << '\n';
+    for (auto const message : message_list)
+    {
+      std::cout << message.target << ", " << message.source_range.start << " : "
+                << message.source_range.stop << '\n';
+      std::cout << message.dest_range.start << " : " << message.dest_range.stop
+                << '\n';
+      std::cout << ((message.message_dir == message_direction::send)
+                        ? "send"
+                        : "receive")
+                << '\n';
+    }
+  }
 
   fk::vector<int> send_counter(old_plan.size());
   fk::vector<int> recv_counter(old_plan.size());
@@ -852,14 +866,11 @@ void generate_messages_remap_test(
       if (message.message_dir == message_direction::send)
       {
         auto const receiver_subgrid = new_plan.at(message.target);
+        coverage_map[message.dest_range.start].push_back(message.source_range);
+
         if (message.target != my_rank)
         { // if not a "send" to myself
           send_counter(my_rank) += 1;
-        }
-        for (auto i = message.source_range.start;
-             i <= message.source_range.stop; ++i)
-        {
-          coverage_map(my_rank) += 1;
         }
 
         REQUIRE(message.source_range.start >= my_old_subgrid.col_start);
@@ -883,11 +894,14 @@ void generate_messages_remap_test(
     }
   }
 
-  // all regions in old plan covered by messages
-  // each subgrid row has a full copy of the input vector
-  for (auto i = 0; i < coverage_map.size(); ++i)
+  // all regions in changes map covered by messages
+  // note: each subgrid row has a full copy of the input vector
+  for (auto const &[key, val] : changes_map)
   {
-    REQUIRE(coverage_map(i) == num_subgrid_rows);
+    REQUIRE(static_cast<int>(coverage_map[key].size()) == num_subgrid_rows);
+    // FIXME add coverage check, subgrids from messages (in coverage map)
+    // may need processing. merge intervals, sum, should be 3x in changes map
+    // watch key though, may not be same key...need to work on this
   }
 
   auto const find_match = [num_subgrid_cols](
@@ -924,55 +938,60 @@ void generate_messages_remap_test(
     }
   }
 
-  auto const right_to_left_sort = [](message const &left,
-                                     message const &right) {
-    if (left.message_dir == message_direction::send &&
-        right.message_dir == message_direction::receive)
-    {
-      return false;
-    }
-    if (right.message_dir == message_direction::send &&
-        left.message_dir == message_direction::receive)
-    {
-      return true;
-    }
-    return left.target > right.target;
+  // no deadlocks - simpler than in earlier case - no grids should
+  // sending/receiving from one another. simulate "rounds" of messaging.
+  auto message_copy(messages);
+  auto const msgs_remaining = [&message_copy]() {
+    auto const largest = *std::max_element(
+        message_copy.begin(), message_copy.end(),
+        [](std::list<message> const &left, std::list<message> const &right) {
+          return left.size() < right.size();
+        });
+    return largest.size() > 0;
   };
 
-  // no deadlocks - simpler than in other case - no rank should have both a send
-  // and a receive for any other grid, last subgrid col should have no receive,
-  // receives ordered before sends, then highest message target first
-  for (auto const &[my_rank, my_old_subgrid] : new_plan)
+  while (msgs_remaining())
   {
-    ignore(my_old_subgrid);
-    auto const is_last_col = ((my_rank + 1) % num_subgrid_cols == 0);
-
-    auto const &message_list = messages[my_rank];
-    auto message_copy{message_list};
-    message_copy.sort(right_to_left_sort);
-    REQUIRE(message_copy == message_list);
-
-    std::unordered_set<int> senders;
-    std::unordered_set<int> receivers;
-    for (auto const &message : message_list)
+    std::vector<std::list<message>> sends(message_copy.size());
+    std::vector<std::list<message>> recvs(message_copy.size());
+    for (auto i = 0; i < static_cast<int>(message_copy.size()); ++i)
     {
-      REQUIRE(
-          !(is_last_col && message.message_dir == message_direction::receive));
-      if (message.target == my_rank)
+      auto &message_list = message_copy[i];
+
+      while (message_list.size() > 0 && message_list.front().target == i)
       {
-        continue;
+        auto const self_message = message_list.front();
+        message_list.pop_front();
+        auto &target_vector =
+            self_message.message_dir == message_direction::send ? sends : recvs;
+        target_vector[i].push_back(self_message);
       }
-      if (message.message_dir == message_direction::send)
+
+      if (message_list.size() > 0)
       {
-        senders.insert(message.target);
-        continue;
+        auto const message = message_list.front();
+        message_list.pop_front();
+        auto &target_vector =
+            message.message_dir == message_direction::send ? sends : recvs;
+        target_vector[i].push_back(message);
       }
-      receivers.insert(message.target);
     }
-
-    for (auto sender : senders)
+    for (auto i = 0; i < static_cast<int>(message_copy.size()); ++i)
     {
-      REQUIRE(receivers.count(sender) == 0);
+      for (auto const send : sends[i])
+      {
+        bool found = false;
+        for (auto const recv : recvs[send.target])
+        {
+          if (send.source_range == recv.source_range &&
+              send.dest_range == recv.dest_range)
+          {
+            found = true;
+            break;
+          }
+        }
+        REQUIRE(found);
+      }
     }
   }
 
@@ -986,6 +1005,7 @@ void generate_messages_remap_test(
       REQUIRE(recv_counter(i) == recv_counter(col_leader));
     }
   }
+  std::cout << "\n\n";
 }
 
 TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
@@ -993,17 +1013,83 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
   // in this case, the source vector is simply copied into dest
   SECTION("single rank -- matching plans/empty remap should yield no messages")
   {
-    distribution_plan const plan = {{1, element_subgrid(0, 1, 2, 3)}};
+    distribution_plan const plan = {{0, element_subgrid(0, 1, 2, 3)}};
     std::map<int64_t, grid_limits> const changes;
     auto const messages = generate_messages_remap(plan, plan, changes);
-    REQUIRE(messages.size() == 0);
+    REQUIRE(messages.size() == 1);
+    REQUIRE(messages[0].size() == 0);
   }
 
-  SECTION("single rank coarsen - messages to self to redistribute vector") {}
-  SECTION("single rank refine - messages to self to redistribute vector") {}
+  SECTION("single rank coarsen - messages to self to redistribute vector")
+  {
+    distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 8)}};
+    distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 3)}};
+    std::map<int64_t, grid_limits> const changes = {
+        {0, grid_limits(2, 2)}, {1, grid_limits(4, 5)}, {3, grid_limits(7, 7)}};
+    generate_messages_remap_test(plan, new_plan, changes);
+  }
+  SECTION("single rank refine - messages to self to redistribute vector")
+  {
+    distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 8)}};
+    distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 21)}};
+    std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 8)}};
+    generate_messages_remap_test(plan, new_plan, changes);
+  }
 
-  SECTION("two rank -- coarsen/delete from ends") {}
-  SECTION("two rank -- intermittent coarsen/deletion") {}
+  SECTION("two rank -- coarsen/delete from ends")
+  {
+    auto const test_levels = fk::vector<int>{3, 4};
+    auto const test_pde    = PDE_opts::continuity_2;
+    auto const degree      = parser::NO_USER_VALUE;
+    auto const cfl         = parser::DEFAULT_CFL;
+    parser const cli_mock(test_pde, test_levels, degree, cfl);
+    options const opts(cli_mock);
+    auto const pde = make_PDE<double>(cli_mock);
+    elements::table table(opts, *pde);
+
+    auto const num_ranks = 2;
+    auto const old_plan  = get_plan(num_ranks, table);
+    // delete half of the elements
+    distribution_plan const new_plan = {
+        {0, element_subgrid(0, 1, 0, table.size() / 4 - 1)},
+        {1, element_subgrid(0, 1, table.size() / 4, table.size() / 2 - 1)}};
+
+    // from the beginning and end
+    std::map<int64_t, grid_limits> const changes = {{0, grid_limits(10, 19)},
+                                                    {10, grid_limits(20, 29)}};
+
+    generate_messages_remap_test(old_plan, new_plan, changes);
+  }
+
+  SECTION("two rank -- intermittent coarsen/deletion")
+  {
+    auto const test_levels = fk::vector<int>{2, 3, 5};
+    auto const test_pde    = PDE_opts::continuity_3;
+    auto const degree      = parser::NO_USER_VALUE;
+    auto const cfl         = parser::DEFAULT_CFL;
+    parser const cli_mock(test_pde, test_levels, degree, cfl);
+    options const opts(cli_mock);
+    auto const pde = make_PDE<double>(cli_mock);
+    elements::table table(opts, *pde);
+
+    std::cout << table.size() << '\n';
+    auto const num_ranks = 2;
+    auto const old_plan  = get_plan(num_ranks, table);
+    // delete ~1/3 of the elements
+    distribution_plan const new_plan = {
+        {0, element_subgrid(0, 1, 0, table.size() / 3)},
+        {1, element_subgrid(0, 1, table.size() / 3 + 1,
+                            2 * table.size() / 3 - 1)}};
+
+    // intermittently
+    std::map<int64_t, grid_limits> const changes = {
+        {0, grid_limits(0, 4)},     {5, grid_limits(5, 5)},
+        {6, grid_limits(12, 60)},   {55, grid_limits(65, 80)},
+        {71, grid_limits(83, 84)},  {73, grid_limits(85, 100)},
+        {89, grid_limits(101, 105)}};
+
+    generate_messages_remap_test(old_plan, new_plan, changes);
+  }
   SECTION("two rank -- refine") {}
   SECTION("four rank -- coarsen") {}
   SECTION("four rank -- refine") {}

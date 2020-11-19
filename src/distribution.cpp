@@ -522,7 +522,11 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
     assert(success == 0);
   }
 #else
-  ignore({source, dest, map, message, segment_size});
+  ignore(source);
+  ignore(dest);
+  ignore(map);
+  ignore(message);
+  ignore(segment_size);
   assert(false);
 #endif
 }
@@ -782,10 +786,10 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 #endif
 }
 
-std::list<message> region_messages_remap(distribution_plan const &old_plan,
-                                         grid_limits const source_region,
-                                         grid_limits const dest_region,
-                                         int const rank)
+std::unordered_map<int, std::list<message>>
+region_messages_remap(distribution_plan const &old_plan,
+                      grid_limits const source_region,
+                      grid_limits const dest_region, int const rank)
 {
   assert(rank >= 0);
   assert(source_region.size() == dest_region.size());
@@ -795,7 +799,12 @@ std::list<message> region_messages_remap(distribution_plan const &old_plan,
   auto const cols = get_num_subgrid_cols(old_plan.size());
   auto const row  = rank / cols;
 
-  std::list<message> region_messages;
+  std::unordered_map<int, std::list<message>> region_messages;
+  auto const queue_msg = [&region_messages](int const rank,
+                                            message const &msg) {
+    region_messages.try_emplace(rank, std::list<message>());
+    region_messages[rank].push_back(msg);
+  };
 
   // iterate over columns in the subgrid
   // find grids that include parts (or all)
@@ -811,7 +820,7 @@ std::list<message> region_messages_remap(distribution_plan const &old_plan,
         source_region.start <= subgrid.col_stop)
     {
       auto const contain_start =
-          std::min(source_region.start, subgrid.col_start);
+          std::max(source_region.start, subgrid.col_start);
       auto const contain_end = std::min(source_region.stop, subgrid.col_stop);
       auto const source_subregion = grid_limits(contain_start, contain_end);
 
@@ -825,13 +834,13 @@ std::list<message> region_messages_remap(distribution_plan const &old_plan,
       // the subgrid at old_grid(rank_row, i)
       auto const partner_rank = row * cols + i;
 
+      // no deadlock ensured by simultaneously enqueing the recv and send
       // receive
-      region_messages.push_back(message(message_direction::receive,
-                                        partner_rank, source_subregion,
-                                        dest_subregion));
+      queue_msg(rank, message(message_direction::receive, partner_rank,
+                              source_subregion, dest_subregion));
       // matching send
-      region_messages.push_back(message(message_direction::send, rank,
-                                        source_subregion, dest_subregion));
+      queue_msg(partner_rank, message(message_direction::send, rank,
+                                      source_subregion, dest_subregion));
     }
   }
 
@@ -842,7 +851,7 @@ std::list<message> region_messages_remap(distribution_plan const &old_plan,
 // private helper.
 // find the rank on my subgrid row that has the old x data new_region needs,
 // using the element remapping
-static std::list<message>
+static std::vector<std::list<message>>
 subgrid_messages_remap(distribution_plan const &old_plan,
                        distribution_plan const &new_plan,
                        std::map<int64_t, grid_limits> const &elem_index_remap,
@@ -850,18 +859,28 @@ subgrid_messages_remap(distribution_plan const &old_plan,
 {
   assert(rank >= 0);
 
+  std::vector<std::list<message>> subgrid_messages(new_plan.size());
   auto const rank_subgrid = new_plan.at(rank);
-  std::list<message> subgrid_messages;
   for (auto index = rank_subgrid.col_start; index <= rank_subgrid.col_stop;)
   {
     if (elem_index_remap.count(index) == 1)
     {
       // need to retrieve data for my assigned region
       auto const old_region = elem_index_remap.at(index);
-      auto const new_region = grid_limits(index, index + old_region.size() - 1);
+      auto const new_region =
+          grid_limits(index, std::min(index + old_region.size() - 1,
+                                      rank_subgrid.col_stop));
+      auto const old_subregion = grid_limits(
+          old_region.start, old_region.start + new_region.size() - 1);
+
       auto region_messages =
-          region_messages_remap(old_plan, old_region, new_region, rank);
-      subgrid_messages.splice(subgrid_messages.end(), region_messages);
+          region_messages_remap(old_plan, old_subregion, new_region, rank);
+
+      for (auto &[rank, msgs] : region_messages)
+      {
+        subgrid_messages[rank].splice(subgrid_messages[rank].end(), msgs);
+      }
+
       auto const copy_size =
           std::min(old_region.size(), rank_subgrid.col_stop - index + 1);
       index += copy_size;
@@ -871,7 +890,6 @@ subgrid_messages_remap(distribution_plan const &old_plan,
       index++;
     }
   }
-
   return subgrid_messages;
 }
 
@@ -886,56 +904,21 @@ generate_messages_remap(distribution_plan const &old_plan,
   // messages for each subgrid row. if this requires optimization, just perform
   // the first row, and add functionality to replicate messaging behavior across
   // rows
-  std::vector<std::list<message>> redis_messages;
-  redis_messages.reserve(new_plan.size());
+  std::vector<std::list<message>> redis_messages(new_plan.size());
   for (auto const &[rank, subgrid] : new_plan)
   {
     ignore(subgrid);
-    auto const rank_messages =
+    auto rank_messages =
         subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
-    redis_messages.push_back(rank_messages);
-  }
-
-  // the sends and receives required for each rank i are stored at index i
-  // in redis messages. places the messages in lists as they should be
-  // invoked (send messages go in sender's list)
-  std::vector<std::list<message>> sorted_messages(new_plan.size());
-  assert(redis_messages.size() < INT_MAX);
-  for (auto i = 0; i < static_cast<int>(redis_messages.size()); ++i)
-  {
-    auto const &message_list = redis_messages[i];
-    for (auto const &message : message_list)
+    assert(rank_messages.size() == new_plan.size());
+    for (auto const &[rank, subgrid] : new_plan)
     {
-      auto const dest_index =
-          (message.message_dir == message_direction::send) ? message.target : i;
-      sorted_messages[dest_index].push_back(message);
+      ignore(subgrid);
+      redis_messages[rank].splice(redis_messages[rank].end(),
+                                  rank_messages[rank]);
     }
   }
-  // coarsening and refinement should both only trigger messages from "right"
-  // (higher subgrid column number) to "left" (lower subgrid column number).
-  // ensure no deadlock by 1) ordering all receives before all sends, and
-  // 2) highest sender/receiver rank number first within receives/sends.
-  auto const right_to_left_sort = [](message const &left,
-                                     message const &right) {
-    if (left.message_dir == message_direction::send &&
-        right.message_dir == message_direction::receive)
-    {
-      return false;
-    }
-    if (right.message_dir == message_direction::send &&
-        left.message_dir == message_direction::receive)
-    {
-      return true;
-    }
-    return left.target > right.target;
-  };
-
-  for (auto &message_list : sorted_messages)
-  {
-    message_list.sort(right_to_left_sort);
-  }
-
-  return sorted_messages;
+  return redis_messages;
 }
 
 template<typename P>
@@ -953,9 +936,16 @@ redistribute_vector(fk::vector<P> const &old_x,
   int64_t const segment_size = old_x.size() / old_plan.at(get_rank()).ncols();
   fk::vector<P> y(new_plan.at(get_rank()).nrows() * segment_size);
 
-  auto const my_rank  = get_rank();
-  auto const messages = generate_messages_remap(old_plan, new_plan, elem_remap);
-  for (auto const &message : messages[my_rank])
+  auto const my_rank = get_rank();
+  auto const messages =
+      generate_messages_remap(old_plan, new_plan, elem_remap)[my_rank];
+
+  if (messages.size() == 0)
+  {
+    return old_x;
+  }
+
+  for (auto const &message : messages)
   {
     auto const source_local_map = old_plan.at(my_rank).get_local_col_map();
     auto const dest_local_map   = new_plan.at(my_rank).get_local_col_map();
@@ -972,7 +962,6 @@ redistribute_vector(fk::vector<P> const &old_x,
       dispatch_message(old_x, y, local_map, message, segment_size);
     }
   }
-
   return y;
 }
 
