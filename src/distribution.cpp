@@ -825,7 +825,6 @@ region_messages_remap(distribution_plan const &old_plan,
     if (source_region.start <= old_source_subgrid.col_stop &&
         source_region.stop >= old_source_subgrid.col_start)
     {
-      std::cout << " --- " << i << '\n';
       // find source values contained within the remote subgrid
       auto const contain_start =
           std::max(source_region.start, old_source_subgrid.col_start);
@@ -918,6 +917,7 @@ generate_messages_remap(distribution_plan const &old_plan,
                         std::map<int64_t, grid_limits> const &elem_index_remap)
 {
   assert(old_plan.size() == new_plan.size());
+  assert(elem_index_remap.size() != 0);
 
   // TODO technically, all these calculations will yield the same set of
   // messages for each subgrid row. if this requires optimization, just perform
@@ -940,6 +940,20 @@ generate_messages_remap(distribution_plan const &old_plan,
   return redis_messages;
 }
 
+bool check_overlap(std::map<int64_t, grid_limits> const &elem_remap)
+{
+  auto next_valid = 0;
+  for (auto const &[new_index, old_region] : elem_remap)
+  {
+    if (new_index < next_valid)
+    {
+      return false;
+    }
+    next_valid = new_index + old_region.size();
+  }
+  return true;
+}
+
 template<typename P>
 fk::vector<P>
 redistribute_vector(fk::vector<P> const &old_x,
@@ -948,23 +962,18 @@ redistribute_vector(fk::vector<P> const &old_x,
                     std::map<int64_t, grid_limits> const &elem_remap)
 {
   assert(old_plan.size() == new_plan.size());
-
-  // TODO check for interval overlap in elem range?
+  assert(check_overlap(elem_remap));
+  assert(elem_remap.size() != 0);
 
   // x's size should be num_elements*deg^dim
   // (deg^dim is one element's number of coefficients/ elements in x vector)
   assert(old_x.size() % old_plan.at(get_rank()).ncols() == 0);
   int64_t const segment_size = old_x.size() / old_plan.at(get_rank()).ncols();
-  fk::vector<P> y(new_plan.at(get_rank()).nrows() * segment_size);
+  fk::vector<P> y(new_plan.at(get_rank()).ncols() * segment_size);
 
   auto const my_rank = get_rank();
   auto const messages =
       generate_messages_remap(old_plan, new_plan, elem_remap)[my_rank];
-
-  if (messages.size() == 0)
-  {
-    return old_x;
-  }
 
   for (auto const &message : messages)
   {

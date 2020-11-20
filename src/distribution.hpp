@@ -279,8 +279,8 @@ generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
                         std::map<int64_t, grid_limits> const &elem_remap);
 
-// after adapting distribution plan, ensure everyone has values for their
-// assigned subgrid
+// redistribute: after adapting distribution plan, ensure all ranks have
+// correct existing values for assigned subgrids
 
 // preconditions: old plan and new plan sizes match (same number of ranks)
 // also, elements must either be appended to the element grid (refinement)

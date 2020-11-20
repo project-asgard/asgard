@@ -836,22 +836,6 @@ void generate_messages_remap_test(
 
   // all ranks have a message list
   REQUIRE(messages.size() == new_plan.size());
-  auto ctr = 0;
-  for (auto const &message_list : messages)
-  {
-    std::cout << "RANK MSG " << ctr++ << '\n';
-    for (auto const message : message_list)
-    {
-      std::cout << message.target << ", " << message.source_range.start << " : "
-                << message.source_range.stop << '\n';
-      std::cout << message.dest_range.start << " : " << message.dest_range.stop
-                << '\n';
-      std::cout << ((message.message_dir == message_direction::send)
-                        ? "send"
-                        : "receive")
-                << '\n';
-    }
-  }
 
   fk::vector<int> send_counter(old_plan.size());
   fk::vector<int> recv_counter(old_plan.size());
@@ -944,62 +928,6 @@ void generate_messages_remap_test(
     }
   }
 
-  // no deadlocks - simulate "rounds" of messaging.
-  auto message_copy(messages);
-  auto const msgs_remaining = [&message_copy]() {
-    auto const largest = *std::max_element(
-        message_copy.begin(), message_copy.end(),
-        [](std::list<message> const &left, std::list<message> const &right) {
-          return left.size() < right.size();
-        });
-    return largest.size() > 0;
-  };
-
-  while (msgs_remaining())
-  {
-    std::vector<std::list<message>> sends(message_copy.size());
-    std::vector<std::list<message>> recvs(message_copy.size());
-    for (auto i = 0; i < static_cast<int>(message_copy.size()); ++i)
-    {
-      auto &message_list = message_copy[i];
-
-      while (message_list.size() > 0 && message_list.front().target == i)
-      {
-        auto const self_message = message_list.front();
-        message_list.pop_front();
-        auto &target_vector =
-            self_message.message_dir == message_direction::send ? sends : recvs;
-        target_vector[i].push_back(self_message);
-      }
-
-      if (message_list.size() > 0)
-      {
-        auto const message = message_list.front();
-        message_list.pop_front();
-        auto &target_vector =
-            message.message_dir == message_direction::send ? sends : recvs;
-        target_vector[i].push_back(message);
-      }
-    }
-    for (auto i = 0; i < static_cast<int>(message_copy.size()); ++i)
-    {
-      for (auto const send : sends[i])
-      {
-        bool found = false;
-        for (auto const recv : recvs[send.target])
-        {
-          if (send.source_range == recv.source_range &&
-              send.dest_range == recv.dest_range)
-          {
-            found = true;
-            break;
-          }
-        }
-        REQUIRE(found);
-      }
-    }
-  }
-
   // balanced - all column members same number of messages
   for (auto i = 0; i < num_subgrid_cols; ++i)
   {
@@ -1012,38 +940,78 @@ void generate_messages_remap_test(
   }
 }
 
-TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
+template<typename P>
+void redistribute_vector_test(distribution_plan const &old_plan,
+                              distribution_plan const &new_plan,
+                              std::map<int64_t, grid_limits> const &elem_remap)
 {
-  // in this case, the source vector is simply copied into dest
-  SECTION("single rank -- matching plans/empty remap should yield no messages")
+  auto const my_rank   = distrib_test_info.get_my_rank();
+  auto const num_ranks = distrib_test_info.get_num_ranks();
+
+  if (num_ranks != static_cast<int>(old_plan.size()))
   {
-    distribution_plan const plan = {{0, element_subgrid(0, 1, 2, 3)}};
-    std::map<int64_t, grid_limits> const changes;
-    auto const messages = generate_messages_remap(plan, plan, changes);
-    REQUIRE(messages.size() == 1);
-    REQUIRE(messages[0].size() == 0);
+    return;
+  }
+  if (my_rank >= num_ranks)
+  {
+    return;
   }
 
+  auto const my_old_subgrid = old_plan.at(my_rank);
+  auto const old_x          = [&my_old_subgrid]() {
+    fk::vector<P> x(my_old_subgrid.ncols());
+    std::iota(x.begin(), x.end(), my_old_subgrid.col_start);
+    return x;
+  }();
+
+  auto const x = redistribute_vector(old_x, old_plan, new_plan, elem_remap);
+
+  auto const my_new_subgrid = new_plan.at(get_rank());
+  auto i                    = 0;
+  while (i < x.size())
+  {
+    if (elem_remap.count(my_new_subgrid.to_global_col(i)) == 1)
+    {
+      auto const region = elem_remap.at(my_new_subgrid.to_global_col(i));
+      for (auto j = region.start; j <= region.stop; ++j)
+      {
+        if (i >= x.size())
+        {
+          break;
+        }
+        REQUIRE(x(i++) == static_cast<P>(j));
+      }
+    }
+    else
+    {
+      REQUIRE(x(i++) == static_cast<P>(0));
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
+                   "[distribution]", float, double)
+{
   SECTION("single rank coarsen - messages to self to redistribute vector")
   {
     distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 8)}};
     distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 3)}};
     std::map<int64_t, grid_limits> const changes = {
         {0, grid_limits(2, 2)}, {1, grid_limits(4, 5)}, {3, grid_limits(7, 7)}};
-    std::cout << " ONE " << '\n';
     generate_messages_remap_test(plan, new_plan, changes);
+    redistribute_vector_test<TestType>(plan, new_plan, changes);
   }
+
   SECTION("single rank refine - messages to self to redistribute vector")
   {
     distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 8)}};
     distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 21)}};
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 8)}};
-
-    std::cout << " TWO " << '\n';
     generate_messages_remap_test(plan, new_plan, changes);
+    redistribute_vector_test<TestType>(plan, new_plan, changes);
   }
 
-  SECTION("two rank -- coarsen/delete from ends")
+  SECTION("two/four rank -- coarsen/delete from ends")
   {
     auto const test_levels = fk::vector<int>{3, 4};
     auto const test_pde    = PDE_opts::continuity_2;
@@ -1065,11 +1033,26 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(10, 19)},
                                                     {10, grid_limits(20, 29)}};
 
-    std::cout << " THREE " << '\n';
     generate_messages_remap_test(old_plan, new_plan, changes);
+    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
+
+    // ensure multiple row behavior correct
+    auto const double_num_ranks             = 4;
+    auto const double_old_plan              = get_plan(double_num_ranks, table);
+    distribution_plan const double_new_plan = {
+        {0, element_subgrid(0, 1, 0, table.size() / 4 - 1)},
+        {1, element_subgrid(0, 1, table.size() / 4, table.size() / 2 - 1)},
+        {2, element_subgrid(2, 3, 0, table.size() / 4 - 1)},
+        {3, element_subgrid(2, 3, table.size() / 4, table.size() / 2 - 1)}};
+
+    generate_messages_remap_test(double_old_plan, double_new_plan, changes);
+#ifdef ASGARD_USE_MPI
+    redistribute_vector_test<TestType>(double_old_plan, double_new_plan,
+                                       changes);
+#endif
   }
 
-  SECTION("two rank -- intermittent coarsen/deletion")
+  SECTION("two/four rank -- intermittent coarsen/deletion")
   {
     auto const test_levels = fk::vector<int>{2, 3, 5};
     auto const test_pde    = PDE_opts::continuity_3;
@@ -1080,7 +1063,6 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
     auto const pde = make_PDE<double>(cli_mock);
     elements::table table(opts, *pde);
 
-    std::cout << table.size() << '\n';
     auto const num_ranks = 2;
     auto const old_plan  = get_plan(num_ranks, table);
     // delete ~1/3 of the elements
@@ -1096,24 +1078,126 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
         {71, grid_limits(83, 84)},  {73, grid_limits(85, 100)},
         {89, grid_limits(101, 105)}};
 
-    std::cout << " FOUR " << '\n';
     generate_messages_remap_test(old_plan, new_plan, changes);
+    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
+
+    // ensure multiple row behavior correct
+    auto const double_num_ranks             = 4;
+    auto const double_old_plan              = get_plan(double_num_ranks, table);
+    distribution_plan const double_new_plan = {
+        {0, element_subgrid(0, 1, 0, table.size() / 3)},
+        {1,
+         element_subgrid(0, 1, table.size() / 3 + 1, 2 * table.size() / 3 - 1)},
+
+        {2, element_subgrid(0, 1, 0, table.size() / 3)},
+        {3, element_subgrid(0, 1, table.size() / 3 + 1,
+                            2 * table.size() / 3 - 1)}};
+
+    generate_messages_remap_test(double_old_plan, double_new_plan, changes);
+#ifdef ASGARD_USE_MPI
+    redistribute_vector_test<TestType>(double_old_plan, double_new_plan,
+                                       changes);
+#endif
   }
-  SECTION("two rank -- refine")
+  SECTION("two/four rank -- refine")
   {
     distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 49)},
                                     {1, element_subgrid(0, 1, 50, 100)}};
     distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 99)},
                                         {1, element_subgrid(0, 1, 100, 150)}};
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 100)}};
-
-    std::cout << " FIVE " << '\n';
     generate_messages_remap_test(plan, new_plan, changes);
+    redistribute_vector_test<TestType>(plan, new_plan, changes);
+
+    distribution_plan const double_plan = {{0, element_subgrid(0, 1, 0, 49)},
+                                           {1, element_subgrid(0, 1, 50, 100)},
+                                           {2, element_subgrid(2, 3, 0, 49)},
+                                           {3, element_subgrid(2, 3, 50, 100)}};
+    distribution_plan const double_new_plan = {
+        {0, element_subgrid(0, 1, 0, 99)},
+        {1, element_subgrid(0, 1, 100, 150)},
+        {2, element_subgrid(2, 3, 0, 99)},
+        {3, element_subgrid(2, 3, 100, 150)}};
+    generate_messages_remap_test(double_plan, double_new_plan, changes);
+
+#ifdef ASGARD_USE_MPI
+    redistribute_vector_test<TestType>(double_plan, double_new_plan, changes);
+#endif
   }
-  SECTION("four rank -- coarsen") {}
-  SECTION("four rank -- refine") {}
 
-  SECTION("9 (odd/perfect square) rank -- coarsen") {}
+  SECTION("9 (odd/perfect square) rank -- coarsen")
+  {
+    auto const test_levels = fk::vector<int>{2, 3, 4, 3, 2, 3};
+    auto const test_pde    = PDE_opts::continuity_6;
+    auto const degree      = parser::NO_USER_VALUE;
+    auto const cfl         = parser::DEFAULT_CFL;
+    parser const cli_mock(test_pde, test_levels, degree, cfl);
+    options const opts(cli_mock);
+    auto const pde = make_PDE<double>(cli_mock);
+    elements::table table(opts, *pde);
 
-  SECTION("9 rank -- refine") {}
+    auto const num_ranks = 9;
+    auto const old_plan  = get_plan(num_ranks, table);
+
+    // delete some elements
+    distribution_plan const new_plan = {
+        {0, element_subgrid(0, 1, 0, table.size() / 6)},
+        {1, element_subgrid(0, 1, table.size() / 6 + 1, 2 * table.size() / 6)},
+        {2, element_subgrid(0, 1, 2 * table.size() / 6 + 1, table.size() / 2)},
+        {3, element_subgrid(2, 3, 0, table.size() / 6)},
+        {4, element_subgrid(2, 3, table.size() / 6 + 1, 2 * table.size() / 6)},
+        {5, element_subgrid(2, 3, 2 * table.size() / 6 + 1, table.size() / 2)},
+        {6, element_subgrid(4, 5, 0, table.size() / 6)},
+        {7, element_subgrid(4, 5, table.size() / 6 + 1, 2 * table.size() / 6)},
+        {8, element_subgrid(4, 5, 2 * table.size() / 6 + 1, table.size() / 2)},
+    };
+
+    std::map<int64_t, grid_limits> const changes = {
+        {1, grid_limits(10, 19)},
+        {11, grid_limits(41, 65)},
+        {50, grid_limits(66, 66)},
+        {85, grid_limits(100, 180)},
+        {200, grid_limits(400, 404)}};
+
+    generate_messages_remap_test(old_plan, new_plan, changes);
+
+#ifdef ASGARD_USE_MPI
+    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
+#endif
+  }
+
+  SECTION("9 rank -- refine")
+  {
+    auto const test_levels = fk::vector<int>{2, 3, 4, 3, 2, 3};
+    auto const test_pde    = PDE_opts::continuity_6;
+    auto const degree      = parser::NO_USER_VALUE;
+    auto const cfl         = parser::DEFAULT_CFL;
+    parser const cli_mock(test_pde, test_levels, degree, cfl);
+    options const opts(cli_mock);
+    auto const pde = make_PDE<double>(cli_mock);
+    elements::table table(opts, *pde);
+
+    auto const num_ranks = 9;
+    auto const old_plan  = get_plan(num_ranks, table);
+
+    // delete some elements
+    distribution_plan const new_plan = {
+        {0, element_subgrid(0, 1, 0, 200)},
+        {1, element_subgrid(0, 1, 201, 401)},
+        {2, element_subgrid(0, 1, 402, 512)},
+        {3, element_subgrid(2, 3, 0, 200)},
+        {4, element_subgrid(2, 3, 201, 401)},
+        {5, element_subgrid(2, 3, 402, 512)},
+        {6, element_subgrid(4, 5, 0, 200)},
+        {7, element_subgrid(4, 5, 201, 401)},
+        {8, element_subgrid(4, 5, 402, 512)},
+    };
+
+    std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 412)}};
+    generate_messages_remap_test(old_plan, new_plan, changes);
+
+#ifdef ASGARD_USE_MPI
+    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
+#endif
+  }
 }
