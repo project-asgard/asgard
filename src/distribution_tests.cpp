@@ -829,7 +829,7 @@ void generate_messages_remap_test(
   auto const num_subgrid_rows =
       static_cast<int>(old_plan.size() / num_subgrid_cols);
 
-  std::map<int64_t, std::list<grid_limits>> coverage_map;
+  std::map<int64_t, int> coverage_counts;
 
   auto const messages =
       generate_messages_remap(old_plan, new_plan, changes_map);
@@ -866,7 +866,11 @@ void generate_messages_remap_test(
       if (message.message_dir == message_direction::send)
       {
         auto const receiver_subgrid = new_plan.at(message.target);
-        coverage_map[message.dest_range.start].push_back(message.source_range);
+        for (auto i = message.source_range.start;
+             i <= message.source_range.stop; ++i)
+        {
+          coverage_counts[i] += 1;
+        }
 
         if (message.target != my_rank)
         { // if not a "send" to myself
@@ -895,13 +899,15 @@ void generate_messages_remap_test(
   }
 
   // all regions in changes map covered by messages
+  // warning: regions should not overlap -- check for this in distrib.cpp?
   // note: each subgrid row has a full copy of the input vector
   for (auto const &[key, val] : changes_map)
   {
-    REQUIRE(static_cast<int>(coverage_map[key].size()) == num_subgrid_rows);
-    // FIXME add coverage check, subgrids from messages (in coverage map)
-    // may need processing. merge intervals, sum, should be 3x in changes map
-    // watch key though, may not be same key...need to work on this
+    ignore(key);
+    for (auto i = val.start; i <= val.stop; ++i)
+    {
+      REQUIRE(coverage_counts[i] == num_subgrid_rows);
+    }
   }
 
   auto const find_match = [num_subgrid_cols](
@@ -938,8 +944,7 @@ void generate_messages_remap_test(
     }
   }
 
-  // no deadlocks - simpler than in earlier case - no grids should
-  // sending/receiving from one another. simulate "rounds" of messaging.
+  // no deadlocks - simulate "rounds" of messaging.
   auto message_copy(messages);
   auto const msgs_remaining = [&message_copy]() {
     auto const largest = *std::max_element(
@@ -1005,7 +1010,6 @@ void generate_messages_remap_test(
       REQUIRE(recv_counter(i) == recv_counter(col_leader));
     }
   }
-  std::cout << "\n\n";
 }
 
 TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
@@ -1026,6 +1030,7 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
     distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 3)}};
     std::map<int64_t, grid_limits> const changes = {
         {0, grid_limits(2, 2)}, {1, grid_limits(4, 5)}, {3, grid_limits(7, 7)}};
+    std::cout << " ONE " << '\n';
     generate_messages_remap_test(plan, new_plan, changes);
   }
   SECTION("single rank refine - messages to self to redistribute vector")
@@ -1033,6 +1038,8 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
     distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 8)}};
     distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 21)}};
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 8)}};
+
+    std::cout << " TWO " << '\n';
     generate_messages_remap_test(plan, new_plan, changes);
   }
 
@@ -1058,6 +1065,7 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(10, 19)},
                                                     {10, grid_limits(20, 29)}};
 
+    std::cout << " THREE " << '\n';
     generate_messages_remap_test(old_plan, new_plan, changes);
   }
 
@@ -1088,9 +1096,20 @@ TEST_CASE("generate messags (remap vector after adapt)", "[distribution]")
         {71, grid_limits(83, 84)},  {73, grid_limits(85, 100)},
         {89, grid_limits(101, 105)}};
 
+    std::cout << " FOUR " << '\n';
     generate_messages_remap_test(old_plan, new_plan, changes);
   }
-  SECTION("two rank -- refine") {}
+  SECTION("two rank -- refine")
+  {
+    distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 49)},
+                                    {1, element_subgrid(0, 1, 50, 100)}};
+    distribution_plan const new_plan = {{0, element_subgrid(0, 1, 0, 99)},
+                                        {1, element_subgrid(0, 1, 100, 150)}};
+    std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 100)}};
+
+    std::cout << " FIVE " << '\n';
+    generate_messages_remap_test(plan, new_plan, changes);
+  }
   SECTION("four rank -- coarsen") {}
   SECTION("four rank -- refine") {}
 

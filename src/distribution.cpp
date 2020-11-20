@@ -786,13 +786,16 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 #endif
 }
 
+// private helper.
+// find the rank on my subgrid row that has the old x data new_region needs,
+// using old plan
 std::unordered_map<int, std::list<message>>
 region_messages_remap(distribution_plan const &old_plan,
+                      distribution_plan const &new_plan,
                       grid_limits const source_region,
                       grid_limits const dest_region, int const rank)
 {
   assert(rank >= 0);
-  assert(source_region.size() == dest_region.size());
 
   // we should only need to communicate with our own (old) row of subgrids
   // each has a full copy of the vector
@@ -809,26 +812,39 @@ region_messages_remap(distribution_plan const &old_plan,
   // iterate over columns in the subgrid
   // find grids that include parts (or all)
   // of this region.
+  auto const my_new_subgrid = new_plan.at(rank);
   auto dest_subregion_start = dest_region.start;
+  assert(dest_subregion_start >= my_new_subgrid.col_start);
+
   for (auto i = 0; i < cols; ++i)
   {
     // FIXME assumes a row major layout of the element grid
-    auto const subgrid = old_plan.at(i);
+    auto const old_source_subgrid = old_plan.at(i);
 
-    // if the region is contained within the subgrid
-    if (source_region.start >= subgrid.col_start &&
-        source_region.start <= subgrid.col_stop)
+    // if the source region is contained within the old remote subgrid
+    if (source_region.start <= old_source_subgrid.col_stop &&
+        source_region.stop >= old_source_subgrid.col_start)
     {
+      std::cout << " --- " << i << '\n';
+      // find source values contained within the remote subgrid
       auto const contain_start =
-          std::max(source_region.start, subgrid.col_start);
-      auto const contain_end = std::min(source_region.stop, subgrid.col_stop);
-      auto const source_subregion = grid_limits(contain_start, contain_end);
+          std::max(source_region.start, old_source_subgrid.col_start);
+      auto const contain_end =
+          std::min(source_region.stop, old_source_subgrid.col_stop);
+      auto const contain_subregion = grid_limits(contain_start, contain_end);
 
+      // where I am going to place those values in this subgrid
       auto const dest_subregion_stop =
-          dest_subregion_start + source_subregion.size() - 1;
+          std::min(dest_subregion_start + contain_subregion.size() - 1,
+                   my_new_subgrid.col_stop);
       auto const dest_subregion =
           grid_limits(dest_subregion_start, dest_subregion_stop);
       dest_subregion_start = dest_subregion_stop + 1;
+
+      // trim to fit dest
+      auto const source_subregion =
+          grid_limits(contain_subregion.start,
+                      contain_subregion.start + dest_subregion.size() - 1);
 
       // enqueue the communication with
       // the subgrid at old_grid(rank_row, i)
@@ -849,7 +865,7 @@ region_messages_remap(distribution_plan const &old_plan,
 }
 
 // private helper.
-// find the rank on my subgrid row that has the old x data new_region needs,
+// map to the old x data my subgrid requires,
 // using the element remapping
 static std::vector<std::list<message>>
 subgrid_messages_remap(distribution_plan const &old_plan,
@@ -861,33 +877,36 @@ subgrid_messages_remap(distribution_plan const &old_plan,
 
   std::vector<std::list<message>> subgrid_messages(new_plan.size());
   auto const rank_subgrid = new_plan.at(rank);
-  for (auto index = rank_subgrid.col_start; index <= rank_subgrid.col_stop;)
+
+  for (auto const &[new_index_start, old_region] : elem_index_remap)
   {
-    if (elem_index_remap.count(index) == 1)
+    // containment test
+    auto const new_index_stop = new_index_start + old_region.size() - 1;
+    if (new_index_start > rank_subgrid.col_stop ||
+        new_index_stop < rank_subgrid.col_start)
     {
-      // need to retrieve data for my assigned region
-      auto const old_region = elem_index_remap.at(index);
-      auto const new_region =
-          grid_limits(index, std::min(index + old_region.size() - 1,
-                                      rank_subgrid.col_stop));
-      auto const old_subregion = grid_limits(
-          old_region.start, old_region.start + new_region.size() - 1);
-
-      auto region_messages =
-          region_messages_remap(old_plan, old_subregion, new_region, rank);
-
-      for (auto &[rank, msgs] : region_messages)
-      {
-        subgrid_messages[rank].splice(subgrid_messages[rank].end(), msgs);
-      }
-
-      auto const copy_size =
-          std::min(old_region.size(), rank_subgrid.col_stop - index + 1);
-      index += copy_size;
+      continue;
     }
-    else
+
+    auto const dest_start =
+        std::max(new_index_start, static_cast<int64_t>(rank_subgrid.col_start));
+    auto const dest_stop =
+        std::min(new_index_stop, static_cast<int64_t>(rank_subgrid.col_stop));
+    auto const dest_region = grid_limits(dest_start, dest_stop);
+    auto const source_start =
+        std::max(static_cast<int64_t>(old_region.start),
+                 old_region.start + (rank_subgrid.col_start - new_index_start));
+    auto const source_stop =
+        std::min(static_cast<int64_t>(old_region.stop),
+                 old_region.stop - (new_index_stop - rank_subgrid.col_stop));
+    auto const source_region = grid_limits(source_start, source_stop);
+
+    auto region_messages = region_messages_remap(
+        old_plan, new_plan, source_region, dest_region, rank);
+
+    for (auto &[rank, msgs] : region_messages)
     {
-      index++;
+      subgrid_messages[rank].splice(subgrid_messages[rank].end(), msgs);
     }
   }
   return subgrid_messages;
@@ -929,6 +948,8 @@ redistribute_vector(fk::vector<P> const &old_x,
                     std::map<int64_t, grid_limits> const &elem_remap)
 {
   assert(old_plan.size() == new_plan.size());
+
+  // TODO check for interval overlap in elem range?
 
   // x's size should be num_elements*deg^dim
   // (deg^dim is one element's number of coefficients/ elements in x vector)
