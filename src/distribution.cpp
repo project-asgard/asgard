@@ -940,7 +940,7 @@ generate_messages_remap(distribution_plan const &old_plan,
   return redis_messages;
 }
 
-bool check_overlap(std::map<int64_t, grid_limits> const &elem_remap)
+static bool check_overlap(std::map<int64_t, grid_limits> const &elem_remap)
 {
   auto next_valid = 0;
   for (auto const &[new_index, old_region] : elem_remap)

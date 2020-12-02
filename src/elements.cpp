@@ -175,9 +175,11 @@ void table::remove_elements(std::vector<int64_t> const &indices)
 }
 
 int64_t
-table::add_elements(std::unordered_set<int64_t> const &ids, int const max_level)
+table::add_elements(std::vector<int64_t> const &ids, int const max_level)
 {
   assert(max_level > 0);
+  std::unordered_set<int64_t> const child_ids(ids.begin(), ids.end());
+  assert(child_ids.size() == ids.size());
 
   auto active_table_h = active_table_d_.clone_onto_host();
 
@@ -189,7 +191,6 @@ table::add_elements(std::unordered_set<int64_t> const &ids, int const max_level)
   int64_t added = 0;
   std::unordered_set<int64_t> const existing_ids(active_element_ids_.begin(),
                                                  active_element_ids_.end());
-
   for (auto const id : ids)
   {
     assert(id >= 0);
@@ -214,7 +215,7 @@ table::add_elements(std::unordered_set<int64_t> const &ids, int const max_level)
   return added;
 }
 
-std::unordered_set<int64_t>
+std::list<int64_t>
 table::get_child_elements(int64_t const index, options const &opts) const
 {
   // make sure we're dealing with an active element
@@ -225,7 +226,7 @@ table::get_child_elements(int64_t const index, options const &opts) const
   // all coordinates have 2 entries (lev, cell) per dimension
   auto const num_dims = coords.size() / 2;
 
-  std::unordered_set<int64_t> daughter_ids;
+  std::list<int64_t> daughter_ids;
   for (auto i = 0; i < num_dims; ++i)
   {
     // first daughter in this dimension
@@ -234,13 +235,14 @@ table::get_child_elements(int64_t const index, options const &opts) const
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i) + 1;
       daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
-      daughter_ids.insert(map_to_id(daughter_coords, opts.max_level, num_dims));
+      daughter_ids.push_back(
+          map_to_id(daughter_coords, opts.max_level, num_dims));
 
       // second daughter
       if (coords(i) >= 1)
       {
         daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
-        daughter_ids.insert(
+        daughter_ids.push_back(
             map_to_id(daughter_coords, opts.max_level, num_dims));
       }
     }

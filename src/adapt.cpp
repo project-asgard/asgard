@@ -28,9 +28,11 @@ remap_for_delete(std::vector<int64_t> const &deleted_indices,
 
   std::unordered_set<int64_t> deleted(deleted_indices.begin(),
                                       deleted_indices.end());
+
   assert(deleted.size() ==
          deleted_indices.size()); // should all be unique indices
   std::map<int64_t, grid_limits> new_to_old;
+
   int64_t old_index    = 0;
   int64_t new_index    = 0;
   int64_t retain_count = 0;
@@ -53,8 +55,8 @@ remap_for_delete(std::vector<int64_t> const &deleted_indices,
     // record preserved region
     if (retain_count > 0)
     {
-      new_to_old.insert({new_index - retain_count - 1,
-                         grid_limits(old_index - retain_count - 1, old_index)});
+      new_to_old.insert({new_index - retain_count,
+                         grid_limits(old_index - retain_count, old_index - 1)});
       retain_count = 0;
     }
 
@@ -126,8 +128,9 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
         auto const max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
         auto const coords    = table.get_coords(elem_index);
-        auto const min_level = *std::min_element(coords.begin(), coords.end());
-        return max_elem <= coarsen_threshold && min_level >= 2;
+        auto const min_level = *std::min_element(
+            coords.begin(), coords.begin() + coords.size() / 2);
+        return max_elem <= coarsen_threshold && min_level >= 1;
       };
 
   auto const to_coarsen = filter_elements(coarsen_check, x);
@@ -139,22 +142,31 @@ fk::vector<P> distributed_grid<P>::refine_elements(
     std::vector<int64_t> const &indices_to_refine, options const &opts,
     fk::vector<P> const &x)
 {
-  std::unordered_set<int64_t> child_ids;
+  std::list<int64_t> child_ids;
   for (auto const parent_index : indices_to_refine)
   {
-    child_ids.merge(table_.get_child_elements(parent_index, opts));
+    child_ids.splice(child_ids.end(),
+                     table_.get_child_elements(parent_index, opts));
+  }
+  std::unordered_set<int64_t> ids_so_far;
+  std::vector<int64_t> unique_ids;
+  for (auto const id : child_ids)
+  {
+    if (ids_so_far.count(id) == 0)
+    {
+      unique_ids.push_back(id);
+    }
+    ids_so_far.insert(id);
   }
 
-  std::vector<int64_t> child_vect(child_ids.begin(), child_ids.end());
-  auto const all_child_ids = distribute_table_changes(child_vect, plan_);
+  auto const all_child_ids = distribute_table_changes(unique_ids, plan_);
 
   if (all_child_ids.size() == 0)
   {
     return x;
   }
-  std::unordered_set<int64_t> all_children_set(all_child_ids.begin(),
-                                               all_child_ids.end());
-  auto const added = table_.add_elements(all_children_set, opts.max_level);
+
+  auto const added = table_.add_elements(all_child_ids, opts.max_level);
 
   auto const new_plan = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_addtl(table_.size() - added);

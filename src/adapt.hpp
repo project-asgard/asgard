@@ -16,10 +16,10 @@ public:
   // that continue to coarsen or refine until goal met,
   // and then rechain the PDE coefficient matrices
 
-  // the underlying distribution routines rely on no "reshuffling" of elements,
-  // i.e., elements are either deleted (coarsening) with left shift
-  // to fill deleted segments of the element grid,
-  // or added (refinement) to the end of the element grid
+  // the underlying distribution routines may rely on elements not being
+  // "reshuffling", i.e., elements only deleted (coarsening) with left shift
+  // to fill deleted segments of the element grid, or added (refinement) to
+  // the end of the element grid
   fk::vector<P> refine(fk::vector<P> const &x, options const &cli_opts);
   fk::vector<P> coarsen(fk::vector<P> const &x, options const &cli_opts);
 
@@ -55,12 +55,12 @@ private:
   filter_elements(F const condition, fk::vector<P> const &x)
   {
     auto const my_subgrid = this->get_subgrid(get_rank());
-    assert(x.size() % my_subgrid.nrows() == 0);
-    auto const element_dof = x.size() / my_subgrid.nrows();
+    assert(x.size() % my_subgrid.ncols() == 0);
+    auto const element_dof = x.size() / my_subgrid.ncols();
 
     // check each of my rank's assigned elements against a condition
     std::vector<int64_t> matching_elements;
-    for (int64_t i = 0; i < my_subgrid.nrows(); ++i)
+    for (int64_t i = 0; i < my_subgrid.ncols(); ++i)
     {
       auto const elem_start = i * element_dof;
       auto const elem_stop  = (i + 1) * element_dof - 1;

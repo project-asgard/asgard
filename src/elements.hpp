@@ -4,6 +4,7 @@
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include <algorithm>
+#include <list>
 #include <map>
 #include <unordered_set>
 #include <vector>
@@ -79,11 +80,11 @@ public:
 
   // manually add elements by id
   // returns number of elements added - ignore ids already present
-  int64_t add_elements(std::unordered_set<int64_t> const &element_ids,
-                       int const max_level);
+  int64_t
+  add_elements(std::vector<int64_t> const &element_ids, int const max_level);
 
   // get element id of all children of an element (by index) for refinement
-  std::unordered_set<int64_t>
+  std::list<int64_t>
   get_child_elements(int64_t const index, options const &opts) const;
 
   // get flattened element table for device
