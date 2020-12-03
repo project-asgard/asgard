@@ -130,8 +130,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   auto refining = true;
   while (refining)
   {
-    auto const old_y = fk::vector<P>(refine_y);
-
+    auto const old_y   = fk::vector<P>(refine_y);
     auto const refined = this->refine(old_y, cli_opts);
     refining           = old_y.size() != refined.size();
 
@@ -146,7 +145,6 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     auto const reprojected = [this, &v_functions, &pde, &transformer,
                               &cli_opts]() {
       auto const subgrid = this->get_subgrid(get_rank());
-
       return transform_and_combine_dimensions(
           pde, v_functions, this->get_table(), transformer, subgrid.col_start,
           subgrid.col_stop, pde.get_dimensions()[0].get_degree());
@@ -174,7 +172,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   return adapted_y;
 }
 
-// FIXME todo
+// FIXME
 template<typename P>
 fk::vector<P>
 distributed_grid<P>::adapt_solution_vector(PDE<P> &pde, fk::vector<P> const &x,
@@ -202,9 +200,8 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
           int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
         auto const max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
-        return max_elem >= refine_threshold;
+        return std::abs(max_elem) >= refine_threshold;
       };
-
   auto const to_refine = filter_elements(refine_check, x);
   return this->refine_elements(to_refine, cli_opts, x);
 }
@@ -235,7 +232,7 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
         auto const coords    = table.get_coords(elem_index);
         auto const min_level = *std::min_element(
             coords.begin(), coords.begin() + coords.size() / 2);
-        return max_elem <= coarsen_threshold && min_level >= 1;
+        return std::abs(max_elem) <= coarsen_threshold && min_level >= 1;
       };
 
   auto const to_coarsen = filter_elements(coarsen_check, x);
@@ -253,6 +250,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
     child_ids.splice(child_ids.end(),
                      table_.get_child_elements(parent_index, opts));
   }
+
   std::unordered_set<int64_t> ids_so_far;
   std::vector<int64_t> unique_ids;
   for (auto const id : child_ids)
@@ -271,8 +269,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
     return x;
   }
 
-  auto const added = table_.add_elements(all_child_ids, opts.max_level);
-
+  auto const added    = table_.add_elements(all_child_ids, opts.max_level);
   auto const new_plan = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_addtl(table_.size() - added);
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
