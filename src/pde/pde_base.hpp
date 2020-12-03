@@ -94,7 +94,7 @@ public:
 private:
   void set_level(int const level)
   {
-    assert(level > 1);
+    assert(level >= 0);
     level_ = level;
   }
 
@@ -503,7 +503,7 @@ public:
   void update_dimension(int const dim_index, int const new_level) {
     assert(dim_index >= 0);
     assert(dim_index < num_dims);
-	assert(new_level > 1);
+	assert(new_level >= 0);
 
 	dimensions_[dim_index].set_level(new_level);
 

@@ -527,7 +527,7 @@ fk::vector<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     basis::side const transform_side,
     basis::transpose const transform_trans) const
 {
-  assert(level > 1);
+  assert(level >= 0);
   assert(level <= max_level);
 
   auto const ncols =
@@ -546,7 +546,12 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     basis::side const transform_side,
     basis::transpose const transform_trans) const
 {
-  assert(level > 1);
+  assert(level >= 0);
+  if (level == 0)
+  {
+    return fk::matrix<P, mem_type::owner, resrc>(coefficients);
+  }
+
   assert(level <= max_level);
   auto const op_size = fm::two_raised_to(level) * degree;
 

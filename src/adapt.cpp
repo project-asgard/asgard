@@ -294,7 +294,6 @@ fk::vector<P> distributed_grid<P>::remove_elements(
   }
 
   table_.remove_elements(all_remove_indices);
-
   auto const new_plan = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_delete(all_remove_indices, table_.size());
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
