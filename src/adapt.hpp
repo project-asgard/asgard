@@ -1,4 +1,5 @@
 #pragma once
+#include "basis.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
@@ -10,16 +11,24 @@ template<typename P>
 class distributed_grid
 {
 public:
-  distributed_grid(options const &cli_opts, PDE<P> const &pde);
+  distributed_grid(PDE<P> const &pde, options const &cli_options);
 
-  // these may eventually be invoked by driver routines
-  // that continue to coarsen or refine until goal met,
-  // and then rechain the PDE coefficient matrices
+  // driver routines
+  fk::vector<P> get_initial_condition(
+      PDE<P> &pde,
+      basis::wavelet_transform<P, resource::host> const &transformer,
+      options const &cli_opts);
 
-  // the underlying distribution routines may rely on elements not being
-  // "reshuffling", i.e., elements only deleted (coarsening) with left shift
-  // to fill deleted segments of the element grid, or added (refinement) to
-  // the end of the element grid
+  fk::vector<P> adapt_solution_vector(PDE<P> &pde, fk::vector<P> const &x,
+                                      options const &cli_opts);
+
+  // adaptivity routines, meant to be invoked from driver routines
+  // (conceptually private, exposed for testing)
+
+  // the underlying distribution routines for adapt may rely on elements
+  // not being "reshuffled", i.e., elements only deleted (coarsening) with
+  // left shift to fill deleted segments of the element grid, or added
+  // (refinement) to the end of the element grid
   fk::vector<P> refine(fk::vector<P> const &x, options const &cli_opts);
   fk::vector<P> coarsen(fk::vector<P> const &x, options const &cli_opts);
 

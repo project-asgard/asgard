@@ -500,6 +500,15 @@ public:
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
+  void update_dimension(int const dim_index, int const new_level) {
+    assert(dim_index >= 0);
+    assert(dim_index < num_dims);
+	assert(new_level > 1);
+
+	dimensions_[dim_index].set_level(new_level);
+
+  }
+
   void rechain_dimension(int const dim_index)
   {
     assert(dim_index >= 0);

@@ -88,7 +88,7 @@ int main(int argc, char **argv)
   // -- along with a distribution plan. this is the adaptive grid.
   node_out() << "  generating: adaptive grid..." << '\n';
 
-  adapt::distributed_grid adaptive_grid(opts, *pde);
+  adapt::distributed_grid adaptive_grid(*pde, opts);
   node_out() << "  degrees of freedom: "
              << adaptive_grid.size() *
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
@@ -100,23 +100,12 @@ int main(int argc, char **argv)
                                                                    quiet);
   // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
-
-  auto const initial_unref = [&pde, &transformer, &adaptive_grid, degree]() {
-    std::vector<vector_func<prec>> v_functions;
-    auto const subgrid = adaptive_grid.get_subgrid(get_rank());
-
-    for (dimension<prec> const &dim : pde->get_dimensions())
-    {
-      v_functions.push_back(dim.initial_condition);
-    }
-    return transform_and_combine_dimensions(
-        *pde, v_functions, adaptive_grid.get_table(), transformer,
-        subgrid.col_start, subgrid.col_stop, degree);
-  }();
-
-  // -- adapt the grid/initial condition for required accuracy
-  auto const initial_ref       = adaptive_grid.refine(initial_unref, opts);
-  auto const initial_condition = adaptive_grid.coarsen(initial_ref, opts);
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+  node_out() << "  degrees of freedom (post initial adapt): "
+             << adaptive_grid.size() *
+                    static_cast<uint64_t>(std::pow(degree, pde->num_dims))
+             << '\n';
 
   // -- generate source vectors
   // -- these will be scaled later according to the simulation time applied

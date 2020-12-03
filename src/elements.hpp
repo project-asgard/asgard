@@ -107,7 +107,6 @@ public:
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
 
 private:
-  // FIXME change to fk vector if upgraded to 64 bit indexing
   // ordering of active elements
   std::vector<int64_t> active_element_ids_;
 

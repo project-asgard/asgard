@@ -6,7 +6,6 @@
 #include "tensors.hpp"
 #include <cmath>
 #include <functional>
-#include <iterator> // for ostream_iterator TEMP
 #include <limits>
 #include <map>
 #include <numeric>
