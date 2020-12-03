@@ -19,8 +19,11 @@ public:
       basis::wavelet_transform<P, resource::host> const &transformer,
       options const &cli_opts);
 
-  fk::vector<P> adapt_solution_vector(PDE<P> &pde, fk::vector<P> const &x,
-                                      options const &cli_opts);
+  fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
+                                 options const &cli_opts);
+
+  fk::vector<P>
+  refine_solution(PDE<P> &pde, fk::vector<P> const &x, options const &cli_opts);
 
   // adaptivity routines, meant to be invoked from driver routines
   // (conceptually private, exposed for testing)

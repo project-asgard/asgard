@@ -124,24 +124,6 @@ int main(int argc, char **argv)
     return initial_sources;
   }();
 
-  // -- generate analytic solution vector.
-  node_out() << "  generating: analytic solution at t=0 ..." << '\n';
-
-  auto const analytic_solution = [&pde, &adaptive_grid, &transformer,
-                                  degree]() {
-    if (pde->has_analytic_soln)
-    {
-      auto const subgrid = adaptive_grid.get_subgrid(get_rank());
-      return transform_and_combine_dimensions(
-          *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
-          subgrid.col_start, subgrid.col_stop, degree);
-    }
-    else
-    {
-      return fk::vector<prec>();
-    }
-  }();
-
   // -- generate and store coefficient matrices.
   node_out() << "  generating: coefficient matrices..." << '\n';
   generate_all_coefficients<prec>(*pde, transformer);
@@ -230,19 +212,22 @@ int main(int argc, char **argv)
     {
       // FIXME fold initial sources/unscaled parts into pde object
       // after pde spec/pde split
-      auto const &time_id = timer::record.start("explicit_time_advance");
-      f_val = explicit_time_advance(*pde, adaptive_grid, opts, initial_sources,
-                                    unscaled_parts, f_val, default_workspace_MB,
-                                    time);
-
+      auto const &time_id = timer::record.start("adaptive_explicit_advance");
+      auto const sol =
+          adaptive_explicit_advance(*pde, adaptive_grid, transformer, opts,
+                                    f_val, default_workspace_MB, time);
+      f_val.resize(sol.size()) = sol;
       timer::record.stop(time_id);
     }
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
-      auto const time_multiplier = pde->exact_time((i + 1) * pde->get_dt());
-
+      auto const subgrid           = adaptive_grid.get_subgrid(get_rank());
+      auto const analytic_solution = transform_and_combine_dimensions(
+          *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
+          subgrid.col_start, subgrid.col_stop, degree);
+      auto const time_multiplier     = pde->exact_time((i + 1) * pde->get_dt());
       auto const analytic_solution_t = analytic_solution * time_multiplier;
       auto const diff                = f_val - analytic_solution_t;
       auto const RMSE                = [&diff]() {

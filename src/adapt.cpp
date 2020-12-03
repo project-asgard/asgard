@@ -92,6 +92,22 @@ get_levels(elements::table const &adapted_table, int const num_dims)
 }
 
 template<typename P>
+static void update_levels(elements::table const &adapted_table, PDE<P> &pde,
+                          bool const rechain = false)
+{
+  auto const new_levels =
+      get_levels(adapted_table, pde.get_dimensions().size());
+  for (auto i = 0; i < static_cast<int>(new_levels.size()); ++i)
+  {
+    pde.update_dimension(i, new_levels[i]);
+    if (rechain)
+    {
+      pde.rechain_dimension(i);
+    }
+  }
+}
+
+template<typename P>
 distributed_grid<P>::distributed_grid(PDE<P> const &pde,
                                       options const &cli_opts)
     : table_(cli_opts, pde)
@@ -133,13 +149,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     auto const old_y   = fk::vector<P>(refine_y);
     auto const refined = this->refine(old_y, cli_opts);
     refining           = old_y.size() != refined.size();
-
-    auto const new_levels =
-        get_levels(this->get_table(), pde.get_dimensions().size());
-    for (auto i = 0; i < static_cast<int>(new_levels.size()); ++i)
-    {
-      pde.update_dimension(i, new_levels[i]);
-    }
+    update_levels(this->get_table(), pde);
 
     // reproject
     auto const reprojected = [this, &v_functions, &pde, &transformer,
@@ -154,12 +164,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 
   // coarsen
   auto const coarse_y = this->coarsen(refine_y, cli_opts);
-  auto const new_levels =
-      get_levels(this->get_table(), pde.get_dimensions().size());
-  for (auto i = 0; i < static_cast<int>(new_levels.size()); ++i)
-  {
-    pde.update_dimension(i, new_levels[i]);
-  }
+  update_levels(this->get_table(), pde);
 
   // reproject
   auto const adapted_y = [this, &v_functions, &pde, &transformer, &cli_opts]() {
@@ -172,13 +177,26 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   return adapted_y;
 }
 
-// FIXME
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::adapt_solution_vector(PDE<P> &pde, fk::vector<P> const &x,
-                                           options const &cli_opts)
+distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
+                                      options const &cli_opts)
 {
-  return x;
+  auto const coarse_y = this->coarsen(x, cli_opts);
+  auto const rechain  = true;
+  update_levels(this->get_table(), pde, rechain);
+  return coarse_y;
+}
+
+template<typename P>
+fk::vector<P>
+distributed_grid<P>::refine_solution(PDE<P> &pde, fk::vector<P> const &x,
+                                     options const &cli_opts)
+{
+  auto const refine_y = this->refine(x, cli_opts);
+  auto const rechain  = true;
+  update_levels(this->get_table(), pde, rechain);
+  return refine_y;
 }
 
 template<typename P>

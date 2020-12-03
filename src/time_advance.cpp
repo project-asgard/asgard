@@ -1,4 +1,5 @@
 #include "time_advance.hpp"
+#include "adapt.hpp"
 #include "boundary_conditions.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
@@ -6,6 +7,97 @@
 #include "solver.hpp"
 #include "timer.hpp"
 #include <limits.h>
+
+template<typename P>
+static std::vector<fk::vector<P>>
+get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+            basis::wavelet_transform<P, resource::host> const &transformer)
+{
+  std::vector<fk::vector<P>> source_vects;
+  auto const my_subgrid = grid.get_subgrid(get_rank());
+  // FIXME assume uniform degree
+  auto const degree = pde.get_dimensions()[0].get_degree();
+  for (auto const &source : pde.sources)
+  {
+    source_vects.push_back(transform_and_combine_dimensions(
+        pde, source.source_funcs, grid.get_table(), transformer,
+        my_subgrid.row_start, my_subgrid.row_stop, degree));
+  }
+  return source_vects;
+}
+
+// scale source vectors for time
+template<typename P>
+static fk::vector<P>
+scale_sources(PDE<P> const &pde,
+              std::vector<fk::vector<P>> const &unscaled_sources, P const time)
+{
+  // zero out final vect
+  assert(unscaled_sources.size() > 0);
+  fk::vector<P> scaled_source(unscaled_sources[0].size());
+
+  // scale and accumulate all sources
+  for (int i = 0; i < pde.num_sources; ++i)
+  {
+    fm::axpy(unscaled_sources[i], scaled_source,
+             pde.sources[i].time_func(time));
+  }
+  return scaled_source;
+}
+
+template<typename P>
+fk::vector<P> adaptive_explicit_advance(
+    PDE<P> &pde, adapt::distributed_grid<P> &adaptive_grid,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    options const &program_opts, fk::vector<P> const &x_orig,
+    int const workspace_size_MB, P const time)
+{
+  if (!program_opts.do_adapt_levels)
+  {
+    auto const unscaled_sources = get_sources(pde, adaptive_grid, transformer);
+    auto const my_subgrid       = adaptive_grid.get_subgrid(get_rank());
+    auto const unscaled_parts   = boundary_conditions::make_unscaled_bc_parts(
+        pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
+        my_subgrid.row_stop);
+    return explicit_time_advance(pde, adaptive_grid, program_opts,
+                                 unscaled_sources, unscaled_parts, x_orig,
+                                 workspace_size_MB, time);
+  }
+
+  // coarsen
+  auto y = adaptive_grid.coarsen_solution(pde, x_orig, program_opts);
+
+  // refine
+  auto refining = true;
+  while (refining)
+  {
+    // update souce/boundary conditions
+    auto const unscaled_sources = get_sources(pde, adaptive_grid, transformer);
+    auto const my_subgrid       = adaptive_grid.get_subgrid(get_rank());
+    auto const unscaled_parts   = boundary_conditions::make_unscaled_bc_parts(
+        pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
+        my_subgrid.row_stop);
+
+    // take a probing refinement step
+    auto const y_stepped = explicit_time_advance(
+        pde, adaptive_grid, program_opts, unscaled_sources, unscaled_parts, y,
+        workspace_size_MB, time);
+    auto const y_refined =
+        adaptive_grid.refine_solution(pde, y_stepped, program_opts);
+    refining = y_stepped.size() != y_refined.size();
+
+    if (!refining)
+    {
+      y.resize(y_stepped.size()) = y_stepped;
+    }
+    else
+    {
+      y.resize(y_refined.size());
+    }
+  }
+
+  return y;
+}
 
 // this function executes an explicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in x.
@@ -137,25 +229,6 @@ explicit_time_advance(PDE<P> const &pde,
   return x;
 }
 
-// scale source vectors for time
-template<typename P>
-fk::vector<P>
-scale_sources(PDE<P> const &pde,
-              std::vector<fk::vector<P>> const &unscaled_sources, P const time)
-{
-  // zero out final vect
-  assert(unscaled_sources.size() > 0);
-  fk::vector<P> scaled_source(unscaled_sources[0].size());
-
-  // scale and accumulate all sources
-  for (int i = 0; i < pde.num_sources; ++i)
-  {
-    fm::axpy(unscaled_sources[i], scaled_source,
-             pde.sources[i].time_func(time));
-  }
-  return scaled_source;
-}
-
 // this function executes an implicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -244,6 +317,18 @@ implicit_time_advance(PDE<P> const &pde,
   }
   return x;
 }
+
+template fk::vector<double> adaptive_explicit_advance(
+    PDE<double> &pde, adapt::distributed_grid<double> &adaptive_grid,
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    options const &program_opts, fk::vector<double> const &x,
+    int const workspace_size_MB, double const time);
+
+template fk::vector<float> adaptive_explicit_advance(
+    PDE<float> &pde, adapt::distributed_grid<float> &adaptive_grid,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    options const &program_opts, fk::vector<float> const &x,
+    int const workspace_size_MB, float const time);
 
 template fk::vector<double> explicit_time_advance(
     PDE<double> const &pde,
