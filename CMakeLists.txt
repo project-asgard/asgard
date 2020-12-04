@@ -17,10 +17,26 @@ endif ()
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
-message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
+# Set a default build type if none was specified
+# https://blog.kitware.com/cmake-and-the-default-build-type/
+set (default_build_type "Release")
+if (EXISTS "${CMAKE_SOURCE_DIR}/.git")
+  set (default_build_type "Debug")
+endif ()
+
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message (STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set (CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+       STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property (CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+else ()
+  message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
+endif ()
 
 # add compiler flags we always want to use
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -O3 -g")
+string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic")
 
 # set up possible commandline input variable defaults (override with -D)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
