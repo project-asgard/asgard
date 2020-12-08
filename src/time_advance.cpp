@@ -8,6 +8,8 @@
 #include "timer.hpp"
 #include <limits.h>
 
+namespace time_advance
+{
 template<typename P>
 static std::vector<fk::vector<P>>
 get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
@@ -46,11 +48,13 @@ scale_sources(PDE<P> const &pde,
 }
 
 template<typename P>
-fk::vector<P> adaptive_explicit_advance(
-    PDE<P> &pde, adapt::distributed_grid<P> &adaptive_grid,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    options const &program_opts, fk::vector<P> const &x_orig,
-    int const workspace_size_MB, P const time)
+fk::vector<P>
+adaptive_advance(method const step_method, PDE<P> &pde,
+                 adapt::distributed_grid<P> &adaptive_grid,
+                 basis::wavelet_transform<P, resource::host> const &transformer,
+                 options const &program_opts, fk::vector<P> const &x_orig,
+                 P const time, int const workspace_size_MB,
+                 bool const update_system)
 {
   if (!program_opts.do_adapt_levels)
   {
@@ -59,9 +63,8 @@ fk::vector<P> adaptive_explicit_advance(
     auto const unscaled_parts   = boundary_conditions::make_unscaled_bc_parts(
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
         my_subgrid.row_stop);
-    return explicit_time_advance(pde, adaptive_grid, program_opts,
-                                 unscaled_sources, unscaled_parts, x_orig,
-                                 workspace_size_MB, time);
+    return explicit_advance(pde, adaptive_grid, program_opts, unscaled_sources,
+                            unscaled_parts, x_orig, workspace_size_MB, time);
   }
 
   // coarsen
@@ -79,9 +82,15 @@ fk::vector<P> adaptive_explicit_advance(
         my_subgrid.row_stop);
 
     // take a probing refinement step
-    auto const y_stepped = explicit_time_advance(
-        pde, adaptive_grid, program_opts, unscaled_sources, unscaled_parts, y,
-        workspace_size_MB, time);
+    auto const y_stepped =
+        (step_method == method::exp)
+            ? explicit_advance(pde, adaptive_grid, program_opts,
+                               unscaled_sources, unscaled_parts, y,
+                               workspace_size_MB, time)
+            : implicit_advance(pde, adaptive_grid, unscaled_sources,
+                               unscaled_parts, y, time, program_opts.solver,
+                               update_system);
+
     auto const y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
     refining = y_stepped.size() != y_refined.size();
@@ -103,13 +112,13 @@ fk::vector<P> adaptive_explicit_advance(
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_time_advance(PDE<P> const &pde,
-                      adapt::distributed_grid<P> const &adaptive_grid,
-                      options const &program_opts,
-                      std::vector<fk::vector<P>> const &unscaled_sources,
-                      std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x_orig, int const workspace_size_MB,
-                      P const time)
+explicit_advance(PDE<P> const &pde,
+                 adapt::distributed_grid<P> const &adaptive_grid,
+                 options const &program_opts,
+                 std::vector<fk::vector<P>> const &unscaled_sources,
+                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 fk::vector<P> const &x_orig, int const workspace_size_MB,
+                 P const time)
 {
   auto const &table    = adaptive_grid.get_table();
   auto const &plan     = adaptive_grid.get_distrib_plan();
@@ -233,12 +242,12 @@ explicit_time_advance(PDE<P> const &pde,
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-implicit_time_advance(PDE<P> const &pde,
-                      adapt::distributed_grid<P> const &adaptive_grid,
-                      std::vector<fk::vector<P>> const &unscaled_sources,
-                      std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
-                      fk::vector<P> const &x_orig, P const time,
-                      solve_opts const solver, bool const update_system)
+implicit_advance(PDE<P> const &pde,
+                 adapt::distributed_grid<P> const &adaptive_grid,
+                 std::vector<fk::vector<P>> const &unscaled_sources,
+                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 fk::vector<P> const &x_orig, P const time,
+                 solve_opts const solver, bool const update_system)
 {
   assert(time >= 0);
   assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
@@ -318,45 +327,52 @@ implicit_time_advance(PDE<P> const &pde,
   return x;
 }
 
-template fk::vector<double> adaptive_explicit_advance(
-    PDE<double> &pde, adapt::distributed_grid<double> &adaptive_grid,
+template fk::vector<double> adaptive_advance(
+    method const step_method, PDE<double> &pde,
+    adapt::distributed_grid<double> &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    options const &program_opts, fk::vector<double> const &x,
-    int const workspace_size_MB, double const time);
+    options const &program_opts, fk::vector<double> const &x, double const time,
+    int const workspace_size_MB, bool const update_system);
 
-template fk::vector<float> adaptive_explicit_advance(
-    PDE<float> &pde, adapt::distributed_grid<float> &adaptive_grid,
+template fk::vector<float> adaptive_advance(
+    method const step_method, PDE<float> &pde,
+    adapt::distributed_grid<float> &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
-    options const &program_opts, fk::vector<float> const &x,
-    int const workspace_size_MB, float const time);
+    options const &program_opts, fk::vector<float> const &x, float const time,
+    int const workspace_size_MB, bool const update_system);
 
-template fk::vector<double> explicit_time_advance(
-    PDE<double> const &pde,
-    adapt::distributed_grid<double> const &adaptive_grid,
-    options const &program_opts,
-    std::vector<fk::vector<double>> const &unscaled_sources,
-    std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    fk::vector<double> const &x, int const workspace_size_MB,
-    double const time);
+template fk::vector<double>
+explicit_advance(PDE<double> const &pde,
+                 adapt::distributed_grid<double> const &adaptive_grid,
+                 options const &program_opts,
+                 std::vector<fk::vector<double>> const &unscaled_sources,
+                 std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
+                 fk::vector<double> const &x, int const workspace_size_MB,
+                 double const time);
 
-template fk::vector<float> explicit_time_advance(
-    PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
-    options const &program_opts,
-    std::vector<fk::vector<float>> const &unscaled_sources,
-    std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    fk::vector<float> const &x, int const workspace_size_MB, float const time);
+template fk::vector<float>
+explicit_advance(PDE<float> const &pde,
+                 adapt::distributed_grid<float> const &adaptive_grid,
+                 options const &program_opts,
+                 std::vector<fk::vector<float>> const &unscaled_sources,
+                 std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
+                 fk::vector<float> const &x, int const workspace_size_MB,
+                 float const time);
 
-template fk::vector<double> implicit_time_advance(
-    PDE<double> const &pde,
-    adapt::distributed_grid<double> const &adaptive_grid,
-    std::vector<fk::vector<double>> const &unscaled_sources,
-    std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
-    fk::vector<double> const &host_space, double const time,
-    solve_opts const solver, bool const update_system);
+template fk::vector<double>
+implicit_advance(PDE<double> const &pde,
+                 adapt::distributed_grid<double> const &adaptive_grid,
+                 std::vector<fk::vector<double>> const &unscaled_sources,
+                 std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
+                 fk::vector<double> const &host_space, double const time,
+                 solve_opts const solver, bool const update_system);
 
-template fk::vector<float> implicit_time_advance(
-    PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
-    std::vector<fk::vector<float>> const &unscaled_sources,
-    std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
-    fk::vector<float> const &x, float const time, solve_opts const solver,
-    bool const update_system);
+template fk::vector<float>
+implicit_advance(PDE<float> const &pde,
+                 adapt::distributed_grid<float> const &adaptive_grid,
+                 std::vector<fk::vector<float>> const &unscaled_sources,
+                 std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
+                 fk::vector<float> const &x, float const time,
+                 solve_opts const solver, bool const update_system);
+
+} // namespace time_advance

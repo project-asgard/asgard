@@ -194,31 +194,21 @@ int main(int argc, char **argv)
 
   fk::vector<prec> f_val(initial_condition);
   node_out() << "--- begin time loop w/ dt " << pde->get_dt() << " ---\n";
-  for (int i = 0; i < opts.num_time_steps; ++i)
+  for (auto i = 0; i < opts.num_time_steps; ++i)
   {
-    prec const time = i * pde->get_dt();
-
-    if (opts.use_implicit_stepping)
-    {
-      auto const update_system = i == 0;
-
-      auto const time_id = timer::record.start("implicit_time_advance");
-      f_val = implicit_time_advance(*pde, adaptive_grid, initial_sources,
-                                    unscaled_parts, f_val, time, opts.solver,
-                                    update_system);
-      timer::record.stop(time_id);
-    }
-    else
-    {
-      // FIXME fold initial sources/unscaled parts into pde object
-      // after pde spec/pde split
-      auto const &time_id = timer::record.start("adaptive_explicit_advance");
-      auto const sol =
-          adaptive_explicit_advance(*pde, adaptive_grid, transformer, opts,
-                                    f_val, default_workspace_MB, time);
-      f_val.resize(sol.size()) = sol;
-      timer::record.stop(time_id);
-    }
+    // take a time advance step
+    auto const time          = i * pde->get_dt();
+    auto const update_system = i == 0;
+    auto const method = opts.use_implicit_stepping ? time_advance::method::imp
+                                                   : time_advance::method::exp;
+    auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
+                                                     : "explicit_time_advance";
+    auto const time_id = timer::record.start(time_str);
+    auto const sol     = time_advance::adaptive_advance(
+        method, *pde, adaptive_grid, transformer, opts, f_val, time,
+        default_workspace_MB, update_system);
+    f_val.resize(sol.size()) = sol;
+    timer::record.stop(time_id);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
