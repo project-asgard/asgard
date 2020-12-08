@@ -168,7 +168,7 @@ if (build_kron)
   add_dependencies (kronmult_cuda kronmult-ext)
 endif ()
 
-target_link_libraries (adapt PRIVATE distribution elements program_options)
+target_link_libraries (adapt PRIVATE distribution elements program_options transformations)
 
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
@@ -242,7 +242,7 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver tensors timer boundary_conditions
+target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors timer boundary_conditions
                                     INTERFACE elements)
 
 target_link_libraries (transformations
@@ -255,8 +255,6 @@ add_executable (asgard src/main.cpp)
 # link in components needed directly by main
 set (main_app_link_deps
   adapt
-  batch
-  boundary_conditions
   coefficients
   distribution
   elements

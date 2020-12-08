@@ -14,7 +14,6 @@
 #include <mpi.h>
 #endif
 
-#include "boundary_conditions.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -107,36 +106,9 @@ int main(int argc, char **argv)
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
              << '\n';
 
-  // -- generate source vectors
-  // -- these will be scaled later according to the simulation time applied
-  // -- with their own time-scaling functions
-  node_out() << "  generating: source vectors..." << '\n';
-  auto const initial_sources = [&pde, &adaptive_grid, &transformer, degree]() {
-    std::vector<fk::vector<prec>> initial_sources;
-    auto const subgrid = adaptive_grid.get_subgrid(get_rank());
-
-    for (auto const &source : pde->sources)
-    {
-      initial_sources.push_back(transform_and_combine_dimensions(
-          *pde, source.source_funcs, adaptive_grid.get_table(), transformer,
-          subgrid.row_start, subgrid.row_stop, degree));
-    }
-    return initial_sources;
-  }();
-
   // -- generate and store coefficient matrices.
   node_out() << "  generating: coefficient matrices..." << '\n';
   generate_all_coefficients<prec>(*pde, transformer);
-
-  /* generate boundary condition vectors */
-  /* these will be scaled later similarly to the source vectors */
-  node_out() << "  generating: boundary condition vectors..." << '\n';
-
-  // FIXME change this name and interface
-  auto const initial_subgrid = adaptive_grid.get_subgrid(get_rank());
-  auto const unscaled_parts  = boundary_conditions::make_unscaled_bc_parts(
-      *pde, adaptive_grid.get_table(), transformer, initial_subgrid.row_start,
-      initial_subgrid.row_stop);
 
   // this is to bail out for further profiling/development on the setup routines
   if (opts.num_time_steps < 1)

@@ -26,102 +26,54 @@ template<typename P>
 void time_advance_test(parser const &parse, std::string const &filepath,
                        P const tolerance_factor = 1e-6)
 {
-  auto pde = make_PDE<P>(parse);
-
-  auto const my_rank   = get_rank();
   auto const num_ranks = get_num_ranks();
-
   if (num_ranks > 1 && parse.using_implicit())
   {
     // distributed implicit stepping not implemented
     return;
   }
 
+  auto pde = make_PDE<P>(parse);
   options const opts(parse);
-  elements::table const table(opts, *pde);
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
 
-  if (table.size() <= num_ranks)
+  if (adaptive_grid.size() <= num_ranks)
   {
     // don't run tiny problems when MPI testing
     return;
   }
-
-  auto const plan    = get_plan(num_ranks, table);
-  auto const subgrid = plan.at(my_rank);
-
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
-
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
 
   // -- generate initial condition vector.
-  P const initial_scale = 1.0;
-  std::vector<fk::vector<P>> initial_conditions;
-  for (dimension<P> const &dim : pde->get_dimensions())
-  {
-    initial_conditions.push_back(
-        forward_transform<P>(dim, dim.initial_condition, transformer));
-  }
-  fk::vector<P> const initial_condition =
-      combine_dimensions(parse.get_degree(), table, subgrid.col_start,
-                         subgrid.col_stop, initial_conditions);
-
-  // -- generate sources.
-  // these will be scaled later for time
-  std::vector<fk::vector<P>> initial_sources;
-
-  for (source<P> const &source : pde->sources)
-  {
-    std::vector<fk::vector<P>> initial_sources_dim;
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      initial_sources_dim.push_back(forward_transform<P>(
-          pde->get_dimensions()[i], source.source_funcs[i], transformer));
-    }
-
-    initial_sources.push_back(combine_dimensions(
-        parse.get_degree(), table, subgrid.row_start, subgrid.row_stop,
-        initial_sources_dim, initial_scale));
-  }
-
-  // generate boundary condition vectors
-  // these will be scaled later similarly to the source vectors
-  std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
-      boundary_conditions::make_unscaled_bc_parts(
-          *pde, table, transformer, subgrid.row_start, subgrid.row_stop);
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
 
   fk::vector<P> f_val(initial_condition);
 
   // -- time loop
-  for (auto i = 0; i < parse.get_time_steps(); ++i)
+  for (auto i = 0; i < opts.num_time_steps; ++i)
   {
-    P const time = i * pde->get_dt();
-
     std::cout.setstate(std::ios_base::failbit);
-
-    if (parse.using_implicit())
-    {
-      f_val =
-          implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, time, parse.get_selected_solver());
-    }
-
-    else
-    {
-      auto const workspace_limit_MB = 4000;
-      f_val = explicit_time_advance(*pde, table, opts, initial_sources,
-                                    unscaled_parts, f_val, plan,
-                                    workspace_limit_MB, time);
-    }
-
+    auto const workspace_limit_MB = 4000;
+    auto const time               = i * pde->get_dt();
+    auto const update_system      = i == 0;
+    auto const method = opts.use_implicit_stepping ? time_advance::method::imp
+                                                   : time_advance::method::exp;
+    auto const sol = time_advance::adaptive_advance(
+        method, *pde, adaptive_grid, transformer, opts, f_val, time,
+        workspace_limit_MB, update_system);
+    f_val.resize(sol.size()) = sol;
     std::cout.clear();
-    std::string const file_path = filepath + std::to_string(i) + ".dat";
-    fk::vector<P> const gold =
-        fk::vector<P>(read_vector_from_txt_file(file_path));
+
+    auto const file_path = filepath + std::to_string(i) + ".dat";
+    auto const gold      = fk::vector<P>(read_vector_from_txt_file(file_path));
 
     // each rank generates partial answer
     auto const dof =
         static_cast<int>(std::pow(parse.get_degree(), pde->num_dims));
+    auto const subgrid = adaptive_grid.get_subgrid(get_rank());
     auto const my_gold = fk::vector<P, mem_type::const_view>(
         gold, subgrid.col_start * dof, (subgrid.col_stop + 1) * dof - 1);
 

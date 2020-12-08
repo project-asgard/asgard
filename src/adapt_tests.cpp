@@ -50,10 +50,10 @@ void test_adapt(parser const &problem, std::string const &gold_base)
   auto const pde = make_PDE<P>(problem);
   options const opts(problem);
 
-  adapt::distributed_grid refine_grid(opts, *pde);
+  adapt::distributed_grid<P> refine_grid(*pde, opts);
   auto const test_refine = refine_grid.refine(fval_orig, opts);
 
-  adapt::distributed_grid coarse_grid(opts, *pde);
+  adapt::distributed_grid<P> coarse_grid(*pde, opts);
   auto const test_coarse = coarse_grid.coarsen(fval_orig, opts);
 
   test_tables(coarse_grid.get_table(), gold_coarse_table);

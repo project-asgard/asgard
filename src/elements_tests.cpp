@@ -73,14 +73,14 @@ void test_child_discovery(PDE_opts const pde_choice,
 
   auto const gold_child_vect =
       fk::vector<int>(read_vector_from_txt_file(gold_filename));
-  std::unordered_set<int64_t> gold_child_ids(gold_child_vect.begin(),
-                                             gold_child_vect.end());
+  std::list<int64_t> gold_child_ids(gold_child_vect.begin(),
+                                    gold_child_vect.end());
 
   auto const child_ids = [&elem_table, &opts]() {
-    std::unordered_set<int64_t> child_ids;
+    std::list<int64_t> child_ids;
     for (int64_t i = 0; i < elem_table.size(); ++i)
     {
-      child_ids.merge(elem_table.get_child_elements(i, opts));
+      child_ids.splice(child_ids.end(), elem_table.get_child_elements(i, opts));
     }
     return child_ids;
   }();
@@ -115,28 +115,31 @@ void test_element_addition(PDE_opts const pde_choice,
   auto const active_table = elem_table.get_active_table();
 
   // store ids to refine
-  auto const ids_to_add = [&elem_table, &opts]() {
-    std::unordered_set<int64_t> ids_to_add;
+  auto const id_list = [&elem_table, &opts]() {
     auto const n = 5;
     assert(elem_table.size() > n);
-    ids_to_add.reserve(elem_table.size() / n);
+
+    std::list<int64_t> ids_to_add;
     int64_t counter = 0;
     for (int64_t i = 0; i < elem_table.size(); i += n)
     {
-      ids_to_add.merge(elem_table.get_child_elements(i, opts));
+      ids_to_add.splice(ids_to_add.end(),
+                        elem_table.get_child_elements(i, opts));
       // and sometimes refine a contiguous element
       if ((counter++ % 2) == 0 && (i + 1) < elem_table.size())
       {
-        ids_to_add.merge(elem_table.get_child_elements(i + 1, opts));
+        ids_to_add.splice(ids_to_add.end(),
+                          elem_table.get_child_elements(i + 1, opts));
       }
     }
     return ids_to_add;
   }();
 
+  std::unordered_set<int64_t> unique_add(id_list.begin(), id_list.end());
   std::unordered_set<int64_t> active_set(active_ids.begin(), active_ids.end());
   assert(active_set.size() == active_ids.size());
   int64_t should_add = 0;
-  for (auto const child_id : ids_to_add)
+  for (auto const child_id : unique_add)
   {
     if (active_set.count(child_id) == 0)
     {
@@ -144,15 +147,12 @@ void test_element_addition(PDE_opts const pde_choice,
     }
   }
 
-  auto const old_size  = elem_table.size();
+  auto const old_size = elem_table.size();
+  std::vector<int64_t> ids_to_add(id_list.begin(), id_list.end());
   auto const num_added = elem_table.add_elements(ids_to_add, opts.max_level);
 
   REQUIRE(num_added == should_add);
   REQUIRE(elem_table.size() == old_size + should_add);
-
-  // check that lower range of flat table and active ids is same
-
-  // check that upper range added correctly
 }
 
 void test_element_deletion(PDE_opts const pde_choice,

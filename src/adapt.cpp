@@ -269,6 +269,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
                      table_.get_child_elements(parent_index, opts));
   }
 
+  // need to preserve ordering for testing
   std::unordered_set<int64_t> ids_so_far;
   std::vector<int64_t> unique_ids;
   for (auto const id : child_ids)

@@ -47,6 +47,7 @@ scale_sources(PDE<P> const &pde,
   return scaled_source;
 }
 
+// FIXME want to change how sources/bcs are handled
 template<typename P>
 fk::vector<P>
 adaptive_advance(method const step_method, PDE<P> &pde,
@@ -63,8 +64,13 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     auto const unscaled_parts   = boundary_conditions::make_unscaled_bc_parts(
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
         my_subgrid.row_stop);
-    return explicit_advance(pde, adaptive_grid, program_opts, unscaled_sources,
-                            unscaled_parts, x_orig, workspace_size_MB, time);
+    return (step_method == method::exp)
+               ? explicit_advance(pde, adaptive_grid, program_opts,
+                                  unscaled_sources, unscaled_parts, x_orig,
+                                  workspace_size_MB, time)
+               : implicit_advance(pde, adaptive_grid, unscaled_sources,
+                                  unscaled_parts, x_orig, time,
+                                  program_opts.solver, update_system);
   }
 
   // coarsen

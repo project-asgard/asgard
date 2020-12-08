@@ -21,7 +21,6 @@ public:
 
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
                                  options const &cli_opts);
-
   fk::vector<P>
   refine_solution(PDE<P> &pde, fk::vector<P> const &x, options const &cli_opts);
 

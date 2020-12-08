@@ -178,7 +178,6 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
 {
   assert(max_level > 0);
   std::unordered_set<int64_t> const child_ids(ids.begin(), ids.end());
-  assert(child_ids.size() == ids.size());
 
   auto active_table_h = active_table_d_.clone_onto_host();
 
@@ -188,17 +187,16 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
   auto const num_dims = coord_size / 2;
 
   int64_t added = 0;
-  std::unordered_set<int64_t> const existing_ids(active_element_ids_.begin(),
-                                                 active_element_ids_.end());
   for (auto const id : ids)
   {
     assert(id >= 0);
 
     // already present in grid
-    if (existing_ids.count(id) == 1)
+    if (id_to_coords_.count(id) == 1)
     {
       continue;
     }
+
     // not present, insert
     auto const coords = map_to_coords(id, max_level, num_dims);
     active_element_ids_.push_back(id);
