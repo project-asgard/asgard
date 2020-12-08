@@ -206,7 +206,8 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  auto const max_elem = *std::max_element(x.begin(), x.end(), abs_compare);
+  auto const max_elem =
+      std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
   auto const refine_threshold = cli_opts.adapt_threshold * max_elem;
   if (refine_threshold <= 0.0)
   {
@@ -231,7 +232,8 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  auto const max_elem = *std::max_element(x.begin(), x.end(), abs_compare);
+  auto const max_elem =
+      std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
 
   auto const refine_threshold = cli_opts.adapt_threshold * max_elem;
   if (refine_threshold <= 0.0)

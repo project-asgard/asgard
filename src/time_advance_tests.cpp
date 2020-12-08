@@ -169,6 +169,74 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
   }
 }
 
+TEST_CASE("adaptive time advance")
+{
+  auto const cfl = 0.01;
+
+  SECTION("diffusion 2 explicit")
+  {
+    auto const tol_factor        = 1e-11;
+    std::string const pde_choice = "diffusion_2";
+    auto const degree            = 4;
+    fk::vector<int> const levels{3, 3};
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2_ad_sg_l3_d4_t";
+
+    auto const full_grid       = false;
+    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
+    auto const do_adapt_levels = true;
+    auto const adapt_threshold = 0.5e-1;
+
+    parser const parse(pde_choice, levels, degree, cfl, full_grid,
+                       parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                       do_adapt_levels, adapt_threshold);
+
+    time_advance_test(parse, gold_base, tol_factor);
+  }
+
+  SECTION("fokkerplanck1_4p1a explicit")
+  {
+    auto const tol_factor        = 1e-15;
+    std::string const pde_choice = "fokkerplanck_1d_4p1a";
+    auto const degree            = 4;
+    fk::vector<int> const levels{4};
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_4p1a_ad_sg_l4_d4_t";
+
+    auto const full_grid       = false;
+    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
+    auto const do_adapt_levels = true;
+    auto const adapt_threshold = 1e-4;
+
+    parser const parse(pde_choice, levels, degree, cfl, full_grid,
+                       parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                       do_adapt_levels, adapt_threshold);
+
+    time_advance_test(parse, gold_base, tol_factor);
+  }
+
+  SECTION("continuity 2 explicit")
+  {
+    auto const tol_factor        = 1e-15;
+    std::string const pde_choice = "continuity_2";
+    auto const degree            = 4;
+    fk::vector<int> const levels{3, 3};
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "continuity2_ad_sg_l3_d4_t";
+
+    auto const full_grid       = false;
+    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
+    auto const do_adapt_levels = true;
+    auto const adapt_threshold = 1e-3;
+
+    parser const parse(pde_choice, levels, degree, cfl, full_grid,
+                       parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                       do_adapt_levels, adapt_threshold);
+
+    time_advance_test(parse, gold_base, tol_factor);
+  }
+}
+
 TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
                    float)
 {
