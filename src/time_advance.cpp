@@ -74,9 +74,11 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   }
 
   // coarsen
+  auto const old_size = adaptive_grid.size();
   auto y = adaptive_grid.coarsen_solution(pde, x_orig, program_opts);
+  node_out() << " adapt -- coarsened grid from " << old_size << " -> "
+             << adaptive_grid.size() << " elems\n";
 
-  std::cout << "coarsened from " << x_orig.size() << " -> " << y.size() << '\n';
   // refine
   auto refining = true;
   while (refining)
@@ -105,8 +107,9 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     refining = static_cast<bool>(
         get_global_max(static_cast<float>(y_stepped.size() != y_refined.size()),
                        adaptive_grid.get_distrib_plan()));
-    std::cout << "refined from " << y_stepped.size() << " -> "
-              << y_refined.size() << '\n';
+
+    node_out() << " adapt -- refined grid from " << old_size << " -> "
+               << adaptive_grid.size() << " elems\n";
 
     if (!refining)
     {
