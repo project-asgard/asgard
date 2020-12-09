@@ -35,14 +35,15 @@ void time_advance_test(parser const &parse, std::string const &filepath,
 
   auto pde = make_PDE<P>(parse);
   options const opts(parse);
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
-
-  if (adaptive_grid.size() <= num_ranks)
+  elements::table const check(opts, *pde);
+  if (check.size() <= num_ranks)
   {
     // don't run tiny problems when MPI testing
     return;
   }
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
+
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
 
@@ -76,7 +77,6 @@ void time_advance_test(parser const &parse, std::string const &filepath,
     auto const subgrid = adaptive_grid.get_subgrid(get_rank());
     auto const my_gold = fk::vector<P, mem_type::const_view>(
         gold, subgrid.col_start * dof, (subgrid.col_stop + 1) * dof - 1);
-
     rmse_comparison(my_gold, f_val, tolerance_factor);
   }
 }
@@ -172,6 +172,26 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 TEST_CASE("adaptive time advance")
 {
   auto const cfl = 0.01;
+  SECTION("diffusion 2 implicit")
+  {
+    auto const tol_factor        = 1e-11;
+    std::string const pde_choice = "diffusion_2";
+    auto const degree            = 4;
+    fk::vector<int> const levels{3, 3};
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "diffusion2_ad_implicit_sg_l3_d4_t";
+
+    auto const full_grid       = false;
+    auto const use_implicit    = true;
+    auto const do_adapt_levels = true;
+    auto const adapt_threshold = 0.5e-1;
+
+    parser const parse(pde_choice, levels, degree, cfl, full_grid,
+                       parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                       do_adapt_levels, adapt_threshold);
+
+    time_advance_test(parse, gold_base, tol_factor);
+  }
 
   SECTION("diffusion 2 explicit")
   {
@@ -190,7 +210,6 @@ TEST_CASE("adaptive time advance")
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
                        do_adapt_levels, adapt_threshold);
-
     time_advance_test(parse, gold_base, tol_factor);
   }
 
@@ -212,12 +231,16 @@ TEST_CASE("adaptive time advance")
                        parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
                        do_adapt_levels, adapt_threshold);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    // we do not gracefully handle coarsening below number of active ranks yet
+    if (get_num_ranks() == 1)
+    {
+      time_advance_test(parse, gold_base, tol_factor);
+    }
   }
 
   SECTION("continuity 2 explicit")
   {
-    auto const tol_factor        = 1e-15;
+    auto const tol_factor        = 1e-13;
     std::string const pde_choice = "continuity_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
@@ -236,7 +259,6 @@ TEST_CASE("adaptive time advance")
     time_advance_test(parse, gold_base, tol_factor);
   }
 }
-
 TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
                    float)
 {

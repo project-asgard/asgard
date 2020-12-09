@@ -24,6 +24,10 @@ public:
   fk::vector<P>
   refine_solution(PDE<P> &pde, fk::vector<P> const &x, options const &cli_opts);
 
+  fk::vector<P> redistribute_solution(fk::vector<P> const &x,
+                                      distribution_plan const &old_plan,
+                                      int const old_size);
+
   // adaptivity routines, meant to be invoked from driver routines
   // (conceptually private, exposed for testing)
 
@@ -77,9 +81,10 @@ private:
       auto const elem_stop  = (i + 1) * element_dof - 1;
       fk::vector<P, mem_type::const_view> const element_x(x, elem_start,
                                                           elem_stop);
-      if (condition(i, element_x))
+      auto const elem_index = my_subgrid.to_global_col(i);
+      if (condition(elem_index, element_x))
       {
-        matching_elements.push_back(my_subgrid.to_global_col(i));
+        matching_elements.push_back(elem_index);
       }
     }
     return matching_elements;

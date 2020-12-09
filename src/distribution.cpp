@@ -85,7 +85,9 @@ int get_num_ranks()
 auto const num_effective_ranks = [](int const num_ranks) {
   if (std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)) ||
       num_ranks % 2 == 0)
+  {
     return num_ranks;
+  }
   return num_ranks - 1;
 };
 
@@ -197,10 +199,8 @@ element_subgrid get_subgrid(int const num_ranks, int const my_rank,
 distribution_plan get_plan(int const num_ranks, elements::table const &table)
 {
   assert(num_ranks > 0);
-  assert(table.size() >= num_ranks);
-
-  int const num_splits = num_effective_ranks(num_ranks);
-
+  assert(table.size() > 0);
+  auto const num_splits = num_effective_ranks(num_ranks);
   distribution_plan plan;
   for (int i = 0; i < num_splits; ++i)
   {
@@ -726,6 +726,41 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
 #endif
 }
 
+template<typename P>
+P get_global_max(P const my_max, distribution_plan const &plan)
+{
+#ifdef ASGARD_USE_MPI
+
+  // split into rows
+  MPI_Comm row_communicator;
+  MPI_Comm const global_communicator = distro_handle.get_global_comm();
+  auto const num_cols                = get_num_subgrid_cols(plan.size());
+  auto const my_rank                 = get_rank();
+  auto const my_row                  = my_rank / num_cols;
+  auto const my_col                  = my_rank % num_cols;
+  auto success =
+      MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
+  assert(success == 0);
+
+  // get max
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+
+  P global_max;
+  success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_MAX,
+                          row_communicator);
+  assert(success == 0);
+  success = MPI_Comm_free(&row_communicator);
+  assert(success == 0);
+
+#else
+  assert(plan.size() == 1);
+  auto const global_max = my_max;
+#endif
+
+  return global_max;
+}
+
 std::vector<int64_t>
 distribute_table_changes(std::vector<int64_t> const &my_changes,
                          distribution_plan const &plan)
@@ -965,20 +1000,23 @@ redistribute_vector(fk::vector<P> const &old_x,
   assert(check_overlap(elem_remap));
   assert(elem_remap.size() != 0);
 
+  auto const my_rank     = get_rank();
+  auto const old_subgrid = old_plan.at(my_rank);
+  auto const new_subgrid = new_plan.at(my_rank);
+
   // x's size should be num_elements*deg^dim
   // (deg^dim is one element's number of coefficients/ elements in x vector)
-  assert(old_x.size() % old_plan.at(get_rank()).ncols() == 0);
-  int64_t const segment_size = old_x.size() / old_plan.at(get_rank()).ncols();
-  fk::vector<P> y(new_plan.at(get_rank()).ncols() * segment_size);
+  assert(old_x.size() % old_subgrid.ncols() == 0);
+  auto const segment_size = old_x.size() / old_subgrid.ncols();
+  fk::vector<P> y(new_subgrid.ncols() * segment_size);
 
-  auto const my_rank = get_rank();
   auto const messages =
       generate_messages_remap(old_plan, new_plan, elem_remap)[my_rank];
 
   for (auto const &message : messages)
   {
-    auto const source_local_map = old_plan.at(my_rank).get_local_col_map();
-    auto const dest_local_map   = new_plan.at(my_rank).get_local_col_map();
+    auto const source_local_map = old_subgrid.get_local_col_map();
+    auto const dest_local_map   = new_subgrid.get_local_col_map();
     if (message.target == my_rank)
     {
       copy_to_input(old_x, y, source_local_map, dest_local_map, message,
@@ -1025,6 +1063,11 @@ template std::vector<double>
 gather_results(fk::vector<double> const &my_results,
                distribution_plan const &plan, int const my_rank,
                int const element_segment_size);
+
+template float
+get_global_max(float const my_max, distribution_plan const &plan);
+template double
+get_global_max(double const my_max, distribution_plan const &plan);
 
 template fk::vector<float>
 redistribute_vector(fk::vector<float> const &old_x,

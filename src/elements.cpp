@@ -109,9 +109,6 @@ void table::remove_elements(std::vector<int64_t> const &indices)
 
   std::unordered_set<int64_t> const to_delete(indices.begin(), indices.end());
 
-  // check for duplicate indices passed
-  assert(to_delete.size() == indices.size());
-
   auto const new_active_ids = [&to_delete,
                                &active_element_ids_ = active_element_ids_]() {
     // don't delete all the elements
@@ -134,10 +131,9 @@ void table::remove_elements(std::vector<int64_t> const &indices)
 
   // form new active table from retained elements in old table
   auto const active_table_h = active_table_d_.clone_onto_host();
-
-  auto const coord_size = static_cast<int64_t>(get_coords(0).size());
+  auto const coord_size     = static_cast<int64_t>(get_coords(0).size());
   auto const new_table_size =
-      active_table_h.size() - coord_size * indices.size();
+      active_table_h.size() - coord_size * to_delete.size();
   assert(new_table_size > 0);
   auto new_active_table = fk::vector<int>(new_table_size);
 

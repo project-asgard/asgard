@@ -30,8 +30,6 @@ remap_for_delete(std::vector<int64_t> const &deleted_indices,
   std::unordered_set<int64_t> deleted(deleted_indices.begin(),
                                       deleted_indices.end());
 
-  assert(deleted.size() ==
-         deleted_indices.size()); // should all be unique indices
   std::map<int64_t, grid_limits> new_to_old;
 
   int64_t old_index    = 0;
@@ -201,6 +199,15 @@ distributed_grid<P>::refine_solution(PDE<P> &pde, fk::vector<P> const &x,
 
 template<typename P>
 fk::vector<P>
+distributed_grid<P>::redistribute_solution(fk::vector<P> const &x,
+                                           distribution_plan const &old_plan,
+                                           int const old_size)
+{
+  return redistribute_vector(x, old_plan, plan_, remap_for_addtl(old_size));
+}
+
+template<typename P>
+fk::vector<P>
 distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
 {
   auto const abs_compare = [](auto const a, auto const b) {
@@ -208,14 +215,16 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   };
   auto const max_elem =
       std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
-  auto const refine_threshold = cli_opts.adapt_threshold * max_elem;
+  auto const global_max = get_global_max(max_elem, this->plan_);
+
+  auto const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
   {
     return x;
   }
 
   auto const refine_check =
-      [refine_threshold, abs_compare](
+      [refine_threshold, global_max, abs_compare](
           int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
         auto const max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
@@ -234,15 +243,15 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   };
   auto const max_elem =
       std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
-
-  auto const refine_threshold = cli_opts.adapt_threshold * max_elem;
+  auto const global_max       = get_global_max(max_elem, this->plan_);
+  auto const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
   {
     return x;
   }
-  auto const coarsen_threshold = refine_threshold * 0.1;
 
-  auto const &table = this->table_;
+  auto const coarsen_threshold = refine_threshold * 0.1;
+  auto const &table            = this->table_;
   auto const coarsen_check =
       [&table, coarsen_threshold,
        abs_compare](int64_t const elem_index,
@@ -272,18 +281,22 @@ fk::vector<P> distributed_grid<P>::refine_elements(
   }
 
   // need to preserve ordering for testing
-  std::unordered_set<int64_t> ids_so_far;
-  std::vector<int64_t> unique_ids;
-  for (auto const id : child_ids)
-  {
-    if (ids_so_far.count(id) == 0)
+  auto const get_unique = [](auto const &ids) {
+    std::unordered_set<int64_t> ids_so_far;
+    std::vector<int64_t> unique_ids;
+    for (auto const id : ids)
     {
-      unique_ids.push_back(id);
+      if (ids_so_far.count(id) == 0)
+      {
+        unique_ids.push_back(id);
+      }
+      ids_so_far.insert(id);
     }
-    ids_so_far.insert(id);
-  }
+    return unique_ids;
+  };
 
-  auto const all_child_ids = distribute_table_changes(unique_ids, plan_);
+  auto const all_child_ids =
+      get_unique(distribute_table_changes(get_unique(child_ids), plan_));
 
   if (all_child_ids.size() == 0)
   {
@@ -312,11 +325,15 @@ fk::vector<P> distributed_grid<P>::remove_elements(
   }
 
   table_.remove_elements(all_remove_indices);
+  if (this->size() < get_num_ranks())
+  {
+    node_out() << "coarsened below number of ranks - can't handle this case yet"
+               << '\n';
+  }
   auto const new_plan = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_delete(all_remove_indices, table_.size());
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
   plan_               = new_plan;
-
   return y;
 }
 

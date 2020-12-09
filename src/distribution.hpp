@@ -265,6 +265,11 @@ double get_MB(int64_t const num_elems)
 }
 
 // -- func(s) for adaptivity/redistribution
+
+// find maximum elements in (poentially) distributed solution vector
+template<typename P>
+P get_global_max(P const my_max, distribution_plan const &plan);
+
 // merge my element table additions/deletions with other nodes
 std::vector<int64_t>
 distribute_table_changes(std::vector<int64_t> const &my_changes,

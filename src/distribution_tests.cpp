@@ -646,7 +646,10 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
           static_cast<int>(std::pow(degree, pde->num_dims));
 
       elements::table const table(o, *pde);
-
+      if (num_ranks > table.size())
+      {
+        return;
+      }
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
         fk::vector<TestType> fx(table.size() * segment_size);
@@ -707,6 +710,11 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
 
       auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
       elements::table const table(o, *pde);
+      if (table.size() < num_ranks)
+      {
+        return;
+      }
+
       auto const plan = get_plan(num_ranks, table);
       auto const segment_size =
           static_cast<int>(std::pow(degree, pde->num_dims));
@@ -965,28 +973,29 @@ void redistribute_vector_test(distribution_plan const &old_plan,
   }();
 
   auto const x = redistribute_vector(old_x, old_plan, new_plan, elem_remap);
+  auto const my_new_subgrid = new_plan.at(my_rank);
+  REQUIRE(x.size() == my_new_subgrid.ncols());
 
-  auto const my_new_subgrid = new_plan.at(get_rank());
-  auto i                    = 0;
-  while (i < x.size())
+  auto test(x);
+  auto new_col_index = 0;
+  for (auto const &[index, region] : elem_remap)
   {
-    if (elem_remap.count(my_new_subgrid.to_global_col(i)) == 1)
+    new_col_index = index;
+    for (auto j = region.start; j <= region.stop; ++j)
     {
-      auto const region = elem_remap.at(my_new_subgrid.to_global_col(i));
-      for (auto j = region.start; j <= region.stop; ++j)
+      if (new_col_index >= my_new_subgrid.col_start &&
+          new_col_index <= my_new_subgrid.col_stop)
       {
-        if (i >= x.size())
-        {
-          break;
-        }
-        REQUIRE(x(i++) == static_cast<P>(j));
+        REQUIRE(test(my_new_subgrid.to_local_col(new_col_index)) ==
+                static_cast<P>(j));
+        test(my_new_subgrid.to_local_col(new_col_index)) = static_cast<P>(0.0);
       }
-    }
-    else
-    {
-      REQUIRE(x(i++) == static_cast<P>(0));
+      new_col_index++;
     }
   }
+
+  auto const remainder = std::accumulate(test.begin(), test.end(), 0.0);
+  REQUIRE(remainder == 0);
 }
 
 TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
@@ -1046,10 +1055,8 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
         {3, element_subgrid(2, 3, table.size() / 4, table.size() / 2 - 1)}};
 
     generate_messages_remap_test(double_old_plan, double_new_plan, changes);
-#ifdef ASGARD_USE_MPI
     redistribute_vector_test<TestType>(double_old_plan, double_new_plan,
                                        changes);
-#endif
   }
 
   SECTION("two/four rank -- intermittent coarsen/deletion")
@@ -1094,10 +1101,8 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
                             2 * table.size() / 3 - 1)}};
 
     generate_messages_remap_test(double_old_plan, double_new_plan, changes);
-#ifdef ASGARD_USE_MPI
     redistribute_vector_test<TestType>(double_old_plan, double_new_plan,
                                        changes);
-#endif
   }
   SECTION("two/four rank -- refine")
   {
@@ -1120,9 +1125,7 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
         {3, element_subgrid(2, 3, 100, 150)}};
     generate_messages_remap_test(double_plan, double_new_plan, changes);
 
-#ifdef ASGARD_USE_MPI
     redistribute_vector_test<TestType>(double_plan, double_new_plan, changes);
-#endif
   }
 
   SECTION("9 (odd/perfect square) rank -- coarsen")
@@ -1160,10 +1163,7 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
         {200, grid_limits(400, 404)}};
 
     generate_messages_remap_test(old_plan, new_plan, changes);
-
-#ifdef ASGARD_USE_MPI
     redistribute_vector_test<TestType>(old_plan, new_plan, changes);
-#endif
   }
 
   SECTION("9 rank -- refine")
@@ -1195,9 +1195,6 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 412)}};
     generate_messages_remap_test(old_plan, new_plan, changes);
-
-#ifdef ASGARD_USE_MPI
     redistribute_vector_test<TestType>(old_plan, new_plan, changes);
-#endif
   }
 }
