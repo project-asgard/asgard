@@ -310,7 +310,6 @@ if (ASGARD_BUILD_TESTS)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     
-    # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
@@ -318,7 +317,8 @@ if (ASGARD_BUILD_TESTS)
     if (ASGARD_USE_MPI)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
       if ("${component}" STREQUAL "distribution" OR
-          "${component}" STREQUAL "time_advance")
+          "${component}" STREQUAL "time_advance" OR
+          "${component}" STREQUAL "adapt") #FIXME place in MPI test set
 
       set(test_ranks "4")
       if (ASGARD_USE_CUDA)
