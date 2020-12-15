@@ -264,9 +264,9 @@ double get_MB(int64_t const num_elems)
   return MB;
 }
 
-// -- func(s) for adaptivity/redistribution
+// -- funcs for adaptivity/redistribution
 
-// find maximum elements in (poentially) distributed solution vector
+// find maximum element in plan using each rank's local max
 template<typename P>
 P get_global_max(P const my_max, distribution_plan const &plan);
 

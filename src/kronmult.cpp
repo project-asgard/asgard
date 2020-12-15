@@ -248,6 +248,13 @@ private:
       fk::allocate_device(operator_ptrs, new_ptrs_size * pde.num_dims,
                           initialize);
 
+      auto const output_size = my_subgrid.nrows() * deg_to_dim;
+      node_out() << "--- kron workspace resize ---" << '\n';
+      node_out() << "  solution vector allocation (MB): "
+                 << get_MB<P>(output_size) << '\n';
+      node_out() << "  workspace allocation (MB): "
+                 << get_MB<P>(new_workspace_size * 2) << "\n\n";
+
       workspace_size = new_workspace_size;
       ptrs_size      = new_ptrs_size;
     }

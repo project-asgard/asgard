@@ -46,7 +46,7 @@ parser::parser(int argc, char **argv)
                          "0-num_time_steps")["-r"]["--real_freq"](
           "Frequency in steps for writing realspace output") |
       clara::detail::Opt(do_adapt)["--adapt"]("Enable/disable adaptivity") |
-      clara::detail::Opt(adapt_threshold, "0> threshold <1")["--thresh"](
+      clara::detail::Opt(adapt_threshold, " 0>threshold<1 ")["--thresh"](
           "Relative threshold for adaptivity");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));

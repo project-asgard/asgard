@@ -304,6 +304,15 @@ if (ASGARD_BUILD_TESTS)
   add_library (tests_general testing/tests_general.cpp)
   target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options )
   target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
+  
+  # components with MPI-enabled testing
+  set (mpi_test_components
+    adapt
+    distribution
+    time_advance
+  )
+
+
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
@@ -316,20 +325,17 @@ if (ASGARD_BUILD_TESTS)
 
     if (ASGARD_USE_MPI)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
-      if ("${component}" STREQUAL "distribution" OR
-          "${component}" STREQUAL "time_advance" OR
-          "${component}" STREQUAL "adapt") #FIXME place in MPI test set
-
-      set(test_ranks "4")
-      if (ASGARD_USE_CUDA)
-         set(test_ranks "1")
-      endif ()
-      if (${ASGARD_TESTING_RANKS})
+      if (${component} IN_LIST mpi_test_components)
+        set(test_ranks "4")
+      	if (ASGARD_USE_CUDA)
+          set(test_ranks "1")
+        endif ()
+        if (${ASGARD_TESTING_RANKS})
          set(test_ranks ${ASGARD_TESTING_RANKS})
-      endif ()
-      add_test (NAME ${component}-test-mpi
-                COMMAND mpirun -n ${test_ranks} ${component}-tests
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+        endif ()
+        add_test (NAME ${component}-test-mpi
+                  COMMAND mpirun -n ${test_ranks} ${component}-tests
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
       endif()
     endif ()
 

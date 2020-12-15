@@ -7,6 +7,32 @@
 
 namespace adapt
 {
+// this class bundles
+// 1) the element table (set of active elements and their coordinates) and
+// 2) the distribution plan that maps ranks to the active elements whose
+// coefficients the rank must compute coefficients for.
+
+// the active elements can be viewed as a 2d grid where grid(i,j) refers to the
+// connection from the ith element to the jth element. the grid is square - we
+// assume full connectivity. the element table and distribution plan together
+// represent a "distributed grid" - each rank is assigned some subgrid of the 2d
+// element grid.
+
+// the purpose of this class is to adapt the set of the active elements given
+// the coefficients in the initial condition/solution vector x. during gemv that
+// drives explicit time advance, for each term, each element connection reads
+// from a deg^dim segment x beginning at x[i*deg^dim] and writes deg^dim
+// coefficients to y[j*deg^dim].
+
+// elements responsible for coefficients with low absolute value may be removed
+// from the grid (grid coarsening) elements responsible for coefficients with
+// large absolute value may have child elements added to grid (grid refinement)
+// the limits for refinement/coarsening are set by the user using command line
+// options.
+
+// this class relies on distribution component functions to communicate changes
+// in element table and distribution plan between ranks after
+// refinement/coarsening.
 template<typename P>
 class distributed_grid
 {
@@ -60,11 +86,12 @@ private:
                                 fk::vector<P> const &x);
 
   // remap element ranges after deletion/addition of elements
-  // returns a mapping new contiguous element index regions -> old regions
+  // returns a mapping from new element indices -> old regions
   static std::map<grid_limits, grid_limits>
   remap_elements(std::vector<int64_t> const &deleted_indices,
                  int64_t const new_num_elems);
 
+  // select elements from table given condition and solution vector
   template<typename F>
   std::vector<int64_t>
   filter_elements(F const condition, fk::vector<P> const &x)
