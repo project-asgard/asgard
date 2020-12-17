@@ -29,12 +29,12 @@ execute_process(
 # Replace newlines with '\n\t' literal
 string(REGEX REPLACE "(\r?\n)+"
        "\\\\n" GIT_COMMIT_SUMMARY
-       ${GIT_COMMIT_SUMMARY}
+       "${GIT_COMMIT_SUMMARY}"
 )
 # Remove double quotes
 string(REGEX REPLACE "\""
        "" GIT_COMMIT_SUMMARY
-       ${GIT_COMMIT_SUMMARY}
+       "${GIT_COMMIT_SUMMARY}"
 )
 # Get the current date and time of build
 execute_process(
