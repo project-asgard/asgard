@@ -126,8 +126,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     v_functions.push_back(dim.initial_condition);
   }
 
-  auto const initial_unref = [this, &v_functions, &pde, &transformer,
-                              &cli_opts]() {
+  auto const initial_unref = [this, &v_functions, &pde, &transformer]() {
     auto const subgrid = this->get_subgrid(get_rank());
     return transform_and_combine_dimensions(
         pde, v_functions, this->get_table(), transformer, subgrid.col_start,
@@ -150,8 +149,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     update_levels(this->get_table(), pde);
 
     // reproject
-    auto const reprojected = [this, &v_functions, &pde, &transformer,
-                              &cli_opts]() {
+    auto const reprojected = [this, &v_functions, &pde, &transformer]() {
       auto const subgrid = this->get_subgrid(get_rank());
       return transform_and_combine_dimensions(
           pde, v_functions, this->get_table(), transformer, subgrid.col_start,
@@ -165,7 +163,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   update_levels(this->get_table(), pde);
 
   // reproject
-  auto const adapted_y = [this, &v_functions, &pde, &transformer, &cli_opts]() {
+  auto const adapted_y = [this, &v_functions, &pde, &transformer]() {
     auto const subgrid = this->get_subgrid(get_rank());
     return transform_and_combine_dimensions(
         pde, v_functions, this->get_table(), transformer, subgrid.col_start,
@@ -224,7 +222,7 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   }
 
   auto const refine_check =
-      [refine_threshold, global_max, abs_compare](
+      [refine_threshold, abs_compare](
           int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
         auto const max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
