@@ -30,6 +30,8 @@ using prec = float;
 
 int main(int argc, char **argv)
 {
+  int unused = 1;
+
   // -- parse cli
   parser const cli_input(argc, argv);
   if (!cli_input.is_valid())
