@@ -5,6 +5,8 @@
 #ifdef ASGARD_USE_MPI
 #include "mpi.h"
 #endif
+
+#include <list>
 #include <map>
 #include <vector>
 
@@ -14,10 +16,15 @@ struct grid_limits
   grid_limits(int const start, int const stop) : start(start), stop(stop){};
   grid_limits(grid_limits const &l) : start(l.start), stop(l.stop){};
   grid_limits(grid_limits const &&l) : start(l.start), stop(l.stop){};
+
   int size() const { return stop - start + 1; }
-  bool operator==(const grid_limits &rhs) const
+  bool operator==(grid_limits const &rhs) const
   {
     return start == rhs.start && stop == rhs.stop;
+  }
+  bool operator<(grid_limits const &rhs) const
+  {
+    return std::tie(start, stop) < std::tie(rhs.start, rhs.stop);
   }
   int const start;
   int const stop;
@@ -29,6 +36,8 @@ struct grid_limits
 // start and stop members are inclusive global indices of the element grid.
 //
 // translation functions are provided for mapping global<->local indices.
+
+using index_mapper = std::function<int(int const)>;
 class element_subgrid
 {
 public:
@@ -89,11 +98,25 @@ public:
     return local;
   };
 
+  // shims for when we need to pass the above to functions
+  index_mapper get_local_col_map() const
+  {
+    return
+        [this](int const global_index) { return to_local_col(global_index); };
+  }
+  index_mapper get_local_row_map() const
+  {
+    return
+        [this](int const global_index) { return to_local_row(global_index); };
+  }
+
   int const row_start;
   int const row_stop;
   int const col_start;
   int const col_stop;
 };
+
+// -- funcs for distributing solution vector
 
 // helper for determining the number of subgrid columns given
 // a number of ranks.
@@ -168,22 +191,40 @@ enum class message_direction
   receive
 };
 
-// represent a point-to-point message.
+// represent a point-to-point message within or across distribution plans.
 // target is the sender rank for a receive, and receive rank for send
-// the range describes the global indices (inclusive) that will be transmitted
+// old range describes the global indices (inclusive) that will be transmitted
+// new range describes the global indices (inclusive) for receiving
 struct message
 {
   message(message_direction const message_dir, int const target,
-          grid_limits const range)
-      : message_dir(message_dir), target(target), range(range)
+          grid_limits const &source_range, grid_limits const &dest_range)
+      : message_dir(message_dir), target(target), source_range(source_range),
+        dest_range(dest_range)
+  {
+    assert(source_range.size() == dest_range.size());
+  }
+  // within the same distro plan, only need one range
+  // global indices are consistent
+  message(message_direction const message_dir, int const target,
+          grid_limits const source_range)
+      : message_dir(message_dir), target(target), source_range(source_range),
+        dest_range(source_range)
   {}
 
   message(message const &other) = default;
   message(message &&other)      = default;
 
+  bool operator==(message const &oth) const
+  {
+    return (message_dir == oth.message_dir && target == oth.target &&
+            source_range == oth.source_range && dest_range == oth.dest_range);
+  }
+
   message_direction const message_dir;
   int const target;
-  grid_limits const range;
+  grid_limits const source_range;
+  grid_limits const dest_range;
 };
 
 // reduce the results of a subgrid row
@@ -222,3 +263,36 @@ double get_MB(int64_t const num_elems)
   double const MB    = bytes * 1e-6;
   return MB;
 }
+
+// -- funcs for adaptivity/redistribution
+
+// find maximum element in plan using each rank's local max
+template<typename P>
+P get_global_max(P const my_max, distribution_plan const &plan);
+
+// merge my element table additions/deletions with other nodes
+std::vector<int64_t>
+distribute_table_changes(std::vector<int64_t> const &my_changes,
+                         distribution_plan const &plan);
+
+// generate messages for redistribute_vector
+// conceptually private, exposed for testing
+
+// elem remap: new element index -> old grid start,stop
+std::vector<std::list<message>>
+generate_messages_remap(distribution_plan const &old_plan,
+                        distribution_plan const &new_plan,
+                        std::map<int64_t, grid_limits> const &elem_remap);
+
+// redistribute: after adapting distribution plan, ensure all ranks have
+// correct existing values for assigned subgrids
+
+// preconditions: old plan and new plan sizes match (same number of ranks)
+// also, elements must either be appended to the element grid (refinement)
+// or deleted from the middle of the grid with left shift to fill (coarsening)
+template<typename P>
+fk::vector<P>
+redistribute_vector(fk::vector<P> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap);

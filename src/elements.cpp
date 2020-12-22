@@ -9,6 +9,7 @@
 #include <limits>
 #include <map>
 #include <numeric>
+#include <unordered_set>
 #include <vector>
 
 namespace elements
@@ -51,56 +52,200 @@ std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
   return {level, cell};
 }
 
-template<typename P>
-int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
-                     PDE<P> const &pde)
+int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
+                  int const num_dims)
 {
-  assert(coords.size() == pde.num_dims * 2);
-  assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
+  assert(max_level > 0);
+  assert(num_dims > 0);
+  assert(coords.size() == num_dims * 2);
+  assert(max_level <= dim_to_max_level.at(num_dims));
 
   int64_t id     = 0;
   int64_t stride = 1;
 
-  for (auto i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < num_dims; ++i)
   {
     assert(coords(i) >= 0);
-    assert(coords(i) <= opts.max_level);
-    assert(coords(i + pde.num_dims) >= 0);
+    assert(coords(i) <= max_level);
+    assert(coords(i + num_dims) >= 0);
 
-    id += get_1d_index(coords(i), coords(i + pde.num_dims)) * stride;
-    stride *= static_cast<int64_t>(std::pow(2, opts.max_level));
+    id += get_1d_index(coords(i), coords(i + num_dims)) * stride;
+    stride *= static_cast<int64_t>(std::pow(2, max_level));
   }
 
   assert(id >= 0);
-  assert(id <=
-         static_cast<int64_t>(std::pow(2, opts.max_level * pde.num_dims)));
+  assert(id <= static_cast<int64_t>(std::pow(2, max_level * num_dims)));
   return id;
 }
 
-template<typename P>
 fk::vector<int>
-map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde)
+map_to_coords(int64_t const id, int const max_level, int const num_dims)
 {
   assert(id >= 0);
-  assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
+  assert(max_level > 0);
+  assert(num_dims > 0);
+  assert(max_level <= dim_to_max_level.at(num_dims));
 
-  auto const stride = static_cast<int64_t>(std::pow(2, opts.max_level));
+  auto const stride = static_cast<int64_t>(std::pow(2, max_level));
 
-  fk::vector<int> coords(pde.num_dims * 2);
-  for (auto i = 0; i < pde.num_dims; ++i)
+  fk::vector<int> coords(num_dims * 2);
+  for (auto i = 0; i < num_dims; ++i)
   {
     auto const id_1d = static_cast<int64_t>(
         std::round((id / static_cast<int64_t>(std::pow(stride, i))) % stride));
-    auto const [lev, pos]    = get_level_cell(id_1d);
-    coords(i)                = lev;
-    coords(i + pde.num_dims) = pos;
+    auto const [lev, pos] = get_level_cell(id_1d);
+    coords(i)             = lev;
+    coords(i + num_dims)  = pos;
   }
   return coords;
 }
 
+void table::remove_elements(std::vector<int64_t> const &indices)
+{
+  if (indices.empty())
+  {
+    return;
+  }
+
+  std::unordered_set<int64_t> const to_delete(indices.begin(), indices.end());
+
+  auto const new_active_ids = [&to_delete,
+                               &active_element_ids_ = active_element_ids_]() {
+    // don't delete all the elements
+    assert(active_element_ids_.size() > to_delete.size());
+    std::vector<int64_t> new_active_ids(active_element_ids_.size() -
+                                        to_delete.size());
+    auto count = 0;
+    assert(active_element_ids_.size() < INT_MAX);
+    for (auto i = 0; i < static_cast<int>(active_element_ids_.size()); ++i)
+    {
+      if (to_delete.count(i) == 1)
+      {
+        continue;
+      }
+      new_active_ids[count++] = active_element_ids_[i];
+    }
+    assert(count == static_cast<int>(new_active_ids.size()));
+    return new_active_ids;
+  }();
+
+  // form new active table from retained elements in old table
+  auto const active_table_h = active_table_d_.clone_onto_host();
+  auto const coord_size     = static_cast<int64_t>(get_coords(0).size());
+  auto const new_table_size =
+      active_table_h.size() - coord_size * to_delete.size();
+  assert(new_table_size > 0);
+  auto new_active_table = fk::vector<int>(new_table_size);
+
+  int64_t dest_start = 0;
+  assert(size() < INT_MAX);
+  for (int64_t i = 0; i < size(); ++i)
+  {
+    if (to_delete.count(i) == 1)
+    {
+      continue;
+    }
+    fk::vector<int, mem_type::const_view> const retained_coords(
+        active_table_h, i * coord_size, (i + 1) * coord_size - 1);
+    auto const dest_stop = dest_start + coord_size - 1;
+    fk::vector<int, mem_type::view> dest_for_coords(new_active_table,
+                                                    dest_start, dest_stop);
+    dest_for_coords = retained_coords;
+    dest_start      = dest_stop + 1;
+  }
+
+  for (auto const index : indices)
+  {
+    auto const id = active_element_ids_[index];
+    id_to_coords_.erase(id);
+  }
+
+  active_table_d_.resize(new_active_table.size())
+      .transfer_from(new_active_table);
+
+  active_element_ids_ = new_active_ids;
+
+  assert(active_element_ids_.size() == id_to_coords_.size());
+  assert(size() > 0);
+}
+
+int64_t
+table::add_elements(std::vector<int64_t> const &ids, int const max_level)
+{
+  assert(max_level > 0);
+  std::unordered_set<int64_t> const child_ids(ids.begin(), ids.end());
+
+  auto active_table_h = active_table_d_.clone_onto_host();
+
+  assert(size() > 0);
+  auto const coord_size = get_coords(0).size();
+  assert(coord_size % 2 == 0);
+  auto const num_dims = coord_size / 2;
+
+  int64_t added = 0;
+  for (auto const id : ids)
+  {
+    assert(id >= 0);
+
+    // already present in grid
+    if (id_to_coords_.count(id) == 1)
+    {
+      continue;
+    }
+
+    // not present, insert
+    auto const coords = map_to_coords(id, max_level, num_dims);
+    active_element_ids_.push_back(id);
+    id_to_coords_[id].resize(coord_size) = coords;
+    // TODO we know a priori how many coords we are adding
+    // so this could be optimized away if it's slow
+    active_table_h.concat(coords);
+    added++;
+  }
+  assert(active_element_ids_.size() == id_to_coords_.size());
+  active_table_d_.resize(active_table_h.size()) =
+      active_table_h.clone_onto_device();
+  return added;
+}
+
+std::list<int64_t>
+table::get_child_elements(int64_t const index, options const &opts) const
+{
+  // make sure we're dealing with an active element
+  assert(index >= 0);
+  assert(index < size());
+
+  auto const coords = get_coords(index);
+  // all coordinates have 2 entries (lev, cell) per dimension
+  auto const num_dims = coords.size() / 2;
+
+  std::list<int64_t> daughter_ids;
+  for (auto i = 0; i < num_dims; ++i)
+  {
+    // first daughter in this dimension
+    if (coords(i) + 1 < opts.max_level)
+    {
+      auto daughter_coords          = coords;
+      daughter_coords(i)            = coords(i) + 1;
+      daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
+      daughter_ids.push_back(
+          map_to_id(daughter_coords, opts.max_level, num_dims));
+
+      // second daughter
+      if (coords(i) >= 1)
+      {
+        daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
+        daughter_ids.push_back(
+            map_to_id(daughter_coords, opts.max_level, num_dims));
+      }
+    }
+  }
+  return daughter_ids;
+}
+
 // construct element table
 template<typename P>
-table::table(options const opts, PDE<P> const &pde)
+table::table(options const &opts, PDE<P> const &pde)
 {
   // key type is 64 bits; this limits number of unique element ids
   assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
@@ -136,7 +281,7 @@ table::table(options const opts, PDE<P> const &pde)
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
-      auto const key    = map_to_index(coords, opts, pde);
+      auto const key    = map_to_id(coords, opts.max_level, pde.num_dims);
 
       active_element_ids_.push_back(key);
       id_to_coords_[key].resize(coords.size()) = coords;
@@ -213,20 +358,7 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
   return cell_index_set;
 }
 
-template int64_t map_to_index(fk::vector<int> const &coords,
-                              options const &opts, PDE<float> const &pde);
-
-template int64_t map_to_index(fk::vector<int> const &coords,
-                              options const &opts, PDE<double> const &pde);
-
-template fk::vector<int>
-map_to_coords(int64_t const id, options const &opts, PDE<float> const &pde);
-
-template fk::vector<int>
-map_to_coords(int64_t const id, options const &opts, PDE<double> const &pde);
-
-template table::table(options const program_opts, PDE<float> const &pde);
-
-template table::table(options const program_opts, PDE<double> const &pde);
+template table::table(options const &program_opts, PDE<float> const &pde);
+template table::table(options const &program_opts, PDE<double> const &pde);
 
 } // namespace elements

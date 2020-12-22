@@ -29,13 +29,15 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     int const write                = 1;
     int const realspace            = 1;
     double const cfl               = 2.0;
+    double const thresh            = 0.1;
 
     // set up test inputs directly from golden values
     std::cerr.setstate(std::ios_base::failbit);
     parser const p = make_parser(
         {"-p", pde_choice, "-l", input_levels, "-d", std::to_string(degree),
          "-w", std::to_string(write), "-r", std::to_string(realspace), "-f",
-         "-i", "-e", "-c", std::to_string(cfl)});
+         "-i", "-e", "-c", std::to_string(cfl), "--adapt", "--thresh",
+         std::to_string(thresh)});
     std::cerr.clear();
 
     REQUIRE(p.get_degree() == degree);
@@ -45,6 +47,8 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     REQUIRE(p.using_implicit());
     REQUIRE(p.using_full_grid());
     REQUIRE(p.do_poisson_solve());
+    REQUIRE(p.do_adapt_levels());
+    REQUIRE(p.get_adapt_thresh() == thresh);
     REQUIRE(p.get_cfl() == cfl);
     REQUIRE(p.get_selected_pde() == pde);
   }
@@ -70,6 +74,9 @@ TEST_CASE("parser constructor/getters", "[program_options]")
 
     auto const def_solver = parser::DEFAULT_SOLVER;
 
+    auto const def_adapt     = parser::DEFAULT_DO_ADAPT;
+    auto const def_threshold = parser::DEFAULT_ADAPT_THRESH;
+
     auto const p = make_parser({});
 
     REQUIRE(p.get_degree() == def_degree);
@@ -87,7 +94,8 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     REQUIRE(p.get_pde_string() == def_pde_str);
     REQUIRE(p.get_solver_string() == def_solve_str);
     REQUIRE(p.get_dt() == def_dt);
-
+    REQUIRE(p.get_adapt_thresh() == def_threshold);
+    REQUIRE(p.do_adapt_levels() == def_adapt);
     REQUIRE(p.is_valid());
   }
 
@@ -152,6 +160,27 @@ TEST_CASE("parser constructor/getters", "[program_options]")
   {
     std::cerr.setstate(std::ios_base::failbit);
     parser const p = make_parser({"asgard", "-t=-1.0", "-c=0.5"});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
+  SECTION("providing adapt threshold but disabled adapt")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"asgard", "--thresh=-0.2"});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
+  SECTION("out of range threshold")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"asgard", "--adapt", "--thresh=-2.0"});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
+  SECTION("out of range threshold - neg")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"asgard", "--adapt", "--thresh=1.1"});
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }

@@ -94,7 +94,7 @@ public:
 private:
   void set_level(int const level)
   {
-    assert(level > 1);
+    assert(level >= 0);
     level_ = level;
   }
 
@@ -498,6 +498,15 @@ public:
     assert(dim >= 0);
     assert(dim < num_dims);
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
+  }
+
+  void update_dimension(int const dim_index, int const new_level)
+  {
+    assert(dim_index >= 0);
+    assert(dim_index < num_dims);
+    assert(new_level >= 0);
+
+    dimensions_[dim_index].set_level(new_level);
   }
 
   void rechain_dimension(int const dim_index)

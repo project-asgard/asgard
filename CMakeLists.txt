@@ -123,6 +123,7 @@ endif()
 
 # define the components and how to build and link the components together
 set (components
+  adapt
   basis
   batch
   boundary_conditions
@@ -167,9 +168,11 @@ if (build_kron)
   add_dependencies (kronmult_cuda kronmult-ext)
 endif ()
 
+target_link_libraries (adapt PRIVATE distribution elements program_options transformations)
+
 target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
 
-target_link_libraries (batch PRIVATE lib_dispatch coefficients elements pde tensors)
+target_link_libraries (batch PRIVATE coefficients elements lib_dispatch pde tensors)
 
 target_link_libraries (boundary_conditions PRIVATE coefficients elements transformations
                        matlab_utilities fast_math )
@@ -239,7 +242,7 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE batch fast_math pde kronmult solver tensors timer boundary_conditions
+target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors timer boundary_conditions
                                     INTERFACE elements)
 
 target_link_libraries (transformations
@@ -251,8 +254,7 @@ add_executable (asgard src/main.cpp)
 
 # link in components needed directly by main
 set (main_app_link_deps
-  batch
-  boundary_conditions
+  adapt
   coefficients
   distribution
   elements
@@ -302,32 +304,38 @@ if (ASGARD_BUILD_TESTS)
   add_library (tests_general testing/tests_general.cpp)
   target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options )
   target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
+  
+  # components with MPI-enabled testing
+  set (mpi_test_components
+    adapt
+    distribution
+    time_advance
+  )
+
+
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
     
-    # FIXME
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
       target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
     endif ()
 
     if (ASGARD_USE_MPI)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
-      if ("${component}" STREQUAL "distribution" OR
-          "${component}" STREQUAL "time_advance")
-
-      set(test_ranks "4")
-      if (ASGARD_USE_CUDA)
-         set(test_ranks "1")
-      endif ()
-      if (${ASGARD_TESTING_RANKS})
+      if (${component} IN_LIST mpi_test_components)
+        set(test_ranks "4")
+      	if (ASGARD_USE_CUDA)
+          set(test_ranks "1")
+        endif ()
+        if (${ASGARD_TESTING_RANKS})
          set(test_ranks ${ASGARD_TESTING_RANKS})
-      endif ()
-      add_test (NAME ${component}-test-mpi
-                COMMAND mpirun -n ${test_ranks} ${component}-tests
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+        endif ()
+        add_test (NAME ${component}-test-mpi
+                  COMMAND mpirun -n ${test_ranks} ${component}-tests
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
       endif()
     endif ()
 

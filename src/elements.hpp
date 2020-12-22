@@ -4,7 +4,9 @@
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include <algorithm>
+#include <list>
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 namespace elements
@@ -15,15 +17,14 @@ int64_t get_1d_index(int const level, int const cell);
 // yield level/cell for a single-d index
 std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id);
 
-// return the linear index given element coordinates
-template<typename P>
-int64_t map_to_index(fk::vector<int> const &coords, options const &opts,
-                     PDE<P> const &pde);
+// mapping functions -- conceptually private/component local, exposed for
+// testing return the linear index given element coordinates
+int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
+                  int const num_dims);
 
 // return the element coordinates given linear index
-template<typename P>
 fk::vector<int>
-map_to_coords(int64_t const id, options const &opts, PDE<P> const &pde);
+map_to_coords(int64_t const id, int const max_level, int const num_dims);
 
 // -----------------------------------------------------------------------------
 // element table
@@ -55,7 +56,7 @@ class table
 {
 public:
   template<typename P>
-  table(options const opts, PDE<P> const &pde);
+  table(options const &opts, PDE<P> const &pde);
 
   // get id of element given its 0,...,n index in active elements
   int64_t get_element_id(int64_t const index) const
@@ -72,6 +73,19 @@ public:
     assert(index < size());
     return id_to_coords_.at(active_element_ids_[index]);
   }
+
+  // these functions return a  mapping new_indices -> old_indices
+  // remove elements by index.
+  void remove_elements(std::vector<int64_t> const &element_indices);
+
+  // manually add elements by id
+  // returns number of elements added - ignore ids already present
+  int64_t
+  add_elements(std::vector<int64_t> const &element_ids, int const max_level);
+
+  // get element id of all children of an element (by index) for refinement
+  std::list<int64_t>
+  get_child_elements(int64_t const index, options const &opts) const;
 
   // get flattened element table for device
   fk::vector<int, mem_type::owner, resource::device> const &
@@ -93,7 +107,6 @@ public:
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
 
 private:
-  // FIXME change to fk vector if upgraded to 64 bit indexing
   // ordering of active elements
   std::vector<int64_t> active_element_ids_;
 

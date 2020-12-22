@@ -14,7 +14,6 @@
 #include <mpi.h>
 #endif
 
-#include "boundary_conditions.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -84,88 +83,32 @@ int main(int argc, char **argv)
 
   node_out() << "--- begin setup ---" << '\n';
 
-  // -- create forward/reverse mapping between elements and indices
-  node_out() << "  generating: element table..." << '\n';
+  // -- create forward/reverse mapping between elements and indices,
+  // -- along with a distribution plan. this is the adaptive grid.
+  node_out() << "  generating: adaptive grid..." << '\n';
 
-  auto const table = elements::table(opts, *pde);
-
+  adapt::distributed_grid adaptive_grid(*pde, opts);
   node_out() << "  degrees of freedom: "
-             << table.size() *
+             << adaptive_grid.size() *
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
              << '\n';
 
   node_out() << "  generating: basis operator..." << '\n';
-  bool const quiet = false;
+  auto const quiet = false;
   basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde,
                                                                    quiet);
-
-  // -- get distribution plan - dividing element grid into subgrids
-  auto const plan    = get_plan(num_ranks, table);
-  auto const subgrid = plan.at(get_rank());
-
   // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
-
-  fk::vector<prec> const initial_condition = [&pde, &table, &transformer,
-                                              &subgrid, degree]() {
-    std::vector<vector_func<prec>> v_functions;
-
-    for (dimension<prec> const &dim : pde->get_dimensions())
-    {
-      v_functions.push_back(dim.initial_condition);
-    }
-
-    return transform_and_combine_dimensions(*pde, v_functions, table,
-                                            transformer, subgrid.col_start,
-                                            subgrid.col_stop, degree);
-  }();
-
-  // -- generate source vectors
-  // these will be scaled later according to the simulation time applied
-  // with their own time-scaling functions
-  node_out() << "  generating: source vectors..." << '\n';
-  std::vector<fk::vector<prec>> const initial_sources =
-      [&pde, &table, &transformer, &subgrid, degree]() {
-        std::vector<fk::vector<prec>> initial_sources;
-
-        for (source<prec> const &source : pde->sources)
-        {
-          initial_sources.push_back(transform_and_combine_dimensions(
-              *pde, source.source_funcs, table, transformer, subgrid.row_start,
-              subgrid.row_stop, degree));
-        }
-        return initial_sources;
-      }();
-
-  // -- generate analytic solution vector.
-  node_out() << "  generating: analytic solution at t=0 ..." << '\n';
-
-  fk::vector<prec> const analytic_solution = [&pde, &table, &transformer,
-                                              &subgrid, degree]() {
-    if (pde->has_analytic_soln)
-    {
-      return transform_and_combine_dimensions(
-          *pde, pde->exact_vector_funcs, table, transformer, subgrid.col_start,
-          subgrid.col_stop, degree);
-    }
-    else
-    {
-      return fk::vector<prec>();
-    }
-  }();
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+  node_out() << "  degrees of freedom (post initial adapt): "
+             << adaptive_grid.size() *
+                    static_cast<uint64_t>(std::pow(degree, pde->num_dims))
+             << '\n';
 
   // -- generate and store coefficient matrices.
-
   node_out() << "  generating: coefficient matrices..." << '\n';
   generate_all_coefficients<prec>(*pde, transformer);
-
-  /* generate boundary condition vectors */
-  /* these will be scaled later similarly to the source vectors */
-  node_out() << "  generating: boundary condition vectors..." << '\n';
-
-  std::array<unscaled_bc_parts<prec>, 2> unscaled_parts =
-      boundary_conditions::make_unscaled_bc_parts(
-          *pde, table, transformer, subgrid.row_start, subgrid.row_stop);
 
   // this is to bail out for further profiling/development on the setup routines
   if (opts.num_time_steps < 1)
@@ -182,11 +125,11 @@ int main(int argc, char **argv)
   // if the code is built for that.
   //
   // FIXME eventually going to be settable from the cmake
-  static int const default_workspace_MB = 10000;
+  static auto const default_workspace_MB = 10000;
 
   // FIXME currently used to check realspace transform only
   /* RAM on fusiont5 */
-  static int const default_workspace_cpu_MB = 187000;
+  static auto const default_workspace_cpu_MB = 187000;
 
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
@@ -196,7 +139,7 @@ int main(int argc, char **argv)
 
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
-  int const real_space_size = real_solution_size(*pde);
+  auto const real_space_size = real_solution_size(*pde);
   fk::vector<prec> real_space(real_space_size);
 
   // temporary workspaces for the transform
@@ -209,12 +152,12 @@ int main(int argc, char **argv)
           fk::vector<prec, mem_type::view, resource::host>(
               workspace, real_space_size, real_space_size * 2 - 1)};
   // transform initial condition to realspace
-  wavelet_to_realspace<prec>(*pde, initial_condition, table, transformer,
-                             default_workspace_cpu_MB, tmp_workspace,
-                             real_space);
+  wavelet_to_realspace<prec>(*pde, initial_condition, adaptive_grid.get_table(),
+                             transformer, default_workspace_cpu_MB,
+                             tmp_workspace, real_space);
 
   // initialize realspace output
-  std::string const realspace_output_name = "asgard_realspace";
+  auto const realspace_output_name = "asgard_realspace";
   auto output_dataset_real =
       initialize_output_file(real_space, "asgard_realspace");
 #endif
@@ -223,45 +166,37 @@ int main(int argc, char **argv)
 
   fk::vector<prec> f_val(initial_condition);
   node_out() << "--- begin time loop w/ dt " << pde->get_dt() << " ---\n";
-  for (int i = 0; i < opts.num_time_steps; ++i)
+  for (auto i = 0; i < opts.num_time_steps; ++i)
   {
-    prec const time = i * pde->get_dt();
-
-    if (opts.use_implicit_stepping)
-    {
-      bool const update_system = i == 0;
-
-      auto const time_id = timer::record.start("implicit_time_advance");
-      f_val =
-          implicit_time_advance(*pde, table, initial_sources, unscaled_parts,
-                                f_val, plan, time, opts.solver, update_system);
-      timer::record.stop(time_id);
-    }
-    else
-    {
-      // FIXME fold initial sources/unscaled parts into pde object
-      // after pde spec/pde split
-      auto const &time_id = timer::record.start("explicit_time_advance");
-      f_val = explicit_time_advance(*pde, table, opts, initial_sources,
-                                    unscaled_parts, f_val, plan,
-                                    default_workspace_MB, time);
-
-      timer::record.stop(time_id);
-    }
+    // take a time advance step
+    auto const time          = i * pde->get_dt();
+    auto const update_system = i == 0;
+    auto const method = opts.use_implicit_stepping ? time_advance::method::imp
+                                                   : time_advance::method::exp;
+    auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
+                                                     : "explicit_time_advance";
+    auto const time_id = timer::record.start(time_str);
+    auto const sol     = time_advance::adaptive_advance(
+        method, *pde, adaptive_grid, transformer, opts, f_val, time,
+        default_workspace_MB, update_system);
+    f_val.resize(sol.size()) = sol;
+    timer::record.stop(time_id);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
-      prec const time_multiplier = pde->exact_time((i + 1) * pde->get_dt());
-
-      fk::vector<prec> const analytic_solution_t =
-          analytic_solution * time_multiplier;
-      fk::vector<prec> const diff = f_val - analytic_solution_t;
-      prec const RMSE             = [&diff]() {
+      auto const subgrid           = adaptive_grid.get_subgrid(get_rank());
+      auto const analytic_solution = transform_and_combine_dimensions(
+          *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
+          subgrid.col_start, subgrid.col_stop, degree);
+      auto const time_multiplier     = pde->exact_time((i + 1) * pde->get_dt());
+      auto const analytic_solution_t = analytic_solution * time_multiplier;
+      auto const diff                = f_val - analytic_solution_t;
+      auto const RMSE                = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
                        [](prec const &elem) { return elem * elem; });
-        prec const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
+        auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
                           squared.size();
         return std::sqrt(mean);
       }();
@@ -289,9 +224,9 @@ int main(int argc, char **argv)
     /* transform from wavelet space to real space */
     if (opts.should_output_realspace(i))
     {
-      wavelet_to_realspace<prec>(*pde, f_val, table, transformer,
-                                 default_workspace_cpu_MB, tmp_workspace,
-                                 real_space);
+      wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
+                                 transformer, default_workspace_cpu_MB,
+                                 tmp_workspace, real_space);
 
       update_output_file(output_dataset_real, real_space,
                          realspace_output_name);
@@ -305,11 +240,12 @@ int main(int argc, char **argv)
 
   node_out() << "--- simulation complete ---" << '\n';
 
-  int const segment_size = element_segment_size(*pde);
+  auto const segment_size = element_segment_size(*pde);
 
   // gather results from all ranks. not currently writing the result anywhere
   // yet, but rank 0 holds the complete result after this call
-  auto const final_result = gather_results(f_val, plan, my_rank, segment_size);
+  auto const final_result = gather_results(
+      f_val, adaptive_grid.get_distrib_plan(), my_rank, segment_size);
 
   node_out() << timer::record.report() << '\n';
 
