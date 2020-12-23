@@ -86,6 +86,7 @@ endif()
 
 find_package(slate)
 set(blaspp_DIR /opt/slate/lib/blaspp/)
+# Without at least find_package(lapackpp), we get a linking error cannot find "`-llpackpp -llblaspp"
 find_package(blaspp)
 set(lapackpp_DIR /opt/slate/lib/lapackpp/)
 find_package(lapackpp)
@@ -236,7 +237,7 @@ if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
 endif ()
 
-target_link_libraries (lib_dispatch PUBLIC slate_lapack_api slate lapackpp blaspp)
+target_link_libraries (lib_dispatch PUBLIC slate_lapack_api)
 
 if (ASGARD_USE_CUDA)
   target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
