@@ -1,7 +1,7 @@
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 #include <array>
-#include <cassert>
 #include <cmath>
 #include <fstream>
 #include <numeric>
@@ -41,7 +41,7 @@ template<typename P>
 std::enable_if_t<std::is_floating_point<P>::value, fk::vector<P>>
 linspace(P const start, P const end, unsigned int const num_elems)
 {
-  assert(num_elems > 1); // must have at least 2 elements
+  tools::expect(num_elems > 1); // must have at least 2 elements
 
   // create output vector
   fk::vector<P> points(num_elems);
@@ -131,7 +131,7 @@ template<typename P>
 P polyval(fk::vector<P> const p, P const x)
 {
   int const num_terms = p.size();
-  assert(num_terms > 0);
+  tools::expect(num_terms > 0);
 
   P y = static_cast<P>(p(0));
   for (int i = 1; i < num_terms; ++i)
@@ -147,8 +147,8 @@ fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x)
 {
   int const num_terms = p.size();
   int const num_sols  = x.size();
-  assert(num_terms > 0);
-  assert(num_sols > 0);
+  tools::expect(num_terms > 0);
+  tools::expect(num_sols > 0);
 
   fk::vector<P> solutions(num_sols);
   for (int i = 0; i < num_sols; ++i)
@@ -206,7 +206,7 @@ fk::vector<double> read_vector_from_bin_file(std::string const &path)
   if (!infile)
   {
     std::cout << "ERROR: Unable to open file " << path << "\n";
-    assert(infile);
+    tools::expect(!infile.fail());
   }
 
   std::streampos bytes;
@@ -248,7 +248,7 @@ double read_scalar_from_txt_file(std::string const &path)
   if (!infile)
   {
     std::cout << "ERROR: Unable to open file " << path << "\n";
-    assert(infile);
+    tools::expect(!infile.fail());
   }
 
   std::string tmp_str;
@@ -259,9 +259,9 @@ double read_scalar_from_txt_file(std::string const &path)
   // third line. expect "# type: scalar"
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "type:");
+  tools::expect(tmp_str == "type:");
   infile >> tmp_str;
-  assert(tmp_str == "scalar");
+  tools::expect(tmp_str == "scalar");
 
   double value;
 
@@ -290,7 +290,7 @@ fk::vector<double> read_vector_from_txt_file(std::string const &path)
   if (!infile)
   {
     std::cout << "ERROR: Unable to open file " << path << "\n";
-    assert(infile);
+    tools::expect(!infile.fail());
   }
 
   std::string tmp_str;
@@ -301,26 +301,26 @@ fk::vector<double> read_vector_from_txt_file(std::string const &path)
   // third line. expect "# type: matrix"
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "type:");
+  tools::expect(tmp_str == "type:");
   infile >> tmp_str;
-  assert(tmp_str == "matrix");
+  tools::expect(tmp_str == "matrix");
 
   // get the number of rows
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "rows:");
+  tools::expect(tmp_str == "rows:");
   infile >> tmp_str;
   int rows = std::stoi(tmp_str);
 
   // get the number of columns
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "columns:");
+  tools::expect(tmp_str == "columns:");
   infile >> tmp_str;
   int columns = std::stoi(tmp_str);
 
   // make sure we're working with a (either row or column) vector
-  assert((rows == 1) || columns == 1);
+  tools::expect((rows == 1) || columns == 1);
 
   int const num_elems = (rows >= columns) ? rows : columns;
 
@@ -357,7 +357,7 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   if (!infile)
   {
     std::cout << "ERROR: Unable to open file " << path << "\n";
-    assert(infile);
+    tools::expect(!infile.fail());
   }
 
   std::string tmp_str;
@@ -368,21 +368,21 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
   // third line. expect "# type: matrix"
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "type:");
+  tools::expect(tmp_str == "type:");
   infile >> tmp_str;
-  assert(tmp_str == "matrix");
+  tools::expect(tmp_str == "matrix");
 
   // get the number of rows
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "rows:");
+  tools::expect(tmp_str == "rows:");
   infile >> tmp_str;
   int rows = std::stoi(tmp_str);
 
   // get the number of columns
   infile >> tmp_str; // chomp the '#'
   infile >> tmp_str;
-  assert(tmp_str == "columns:");
+  tools::expect(tmp_str == "columns:");
   infile >> tmp_str;
   int columns = std::stoi(tmp_str);
 
@@ -403,14 +403,14 @@ fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
 template<typename P>
 fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
 {
-  assert(matrices.size() > 0);
+  tools::expect(matrices.size() > 0);
   auto const [nrows, ncols] = [&]() {
     int col_accum   = 0;
     int const nrows = matrices[0].nrows();
     for (auto const &mat : matrices)
     {
       col_accum += mat.ncols();
-      assert(mat.nrows() == nrows);
+      tools::expect(mat.nrows() == nrows);
     }
     return std::array<int, 2>{nrows, col_accum};
   }();
@@ -437,7 +437,7 @@ fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
 //
 fk::matrix<int> meshgrid(int const start, int const length)
 {
-  assert(length > 0);
+  tools::expect(length > 0);
   fk::matrix<int> mesh(length, length);
   fk::vector<int> const row = [=]() {
     fk::vector<int> row(length);
@@ -454,7 +454,7 @@ fk::matrix<int> meshgrid(int const start, int const length)
 template<typename P, mem_type mem>
 fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol)
 {
-  assert(nrow * ncol == mat.size());
+  tools::expect(nrow * ncol == mat.size());
   fk::vector<P> X(mat);
   fk::matrix<P> Xreshape(nrow, ncol);
 

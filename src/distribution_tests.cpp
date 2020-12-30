@@ -314,10 +314,10 @@ TEST_CASE("distribution plan function", "[distribution]")
     auto const plan_extra     = get_plan(num_ranks_extra, table);
     check_coverage(table, plan);
 
-    assert(plan.size() == plan_extra.size());
+    REQUIRE(plan.size() == plan_extra.size());
     for (auto const &[rank, grid] : plan)
     {
-      assert(grid == plan_extra.at(rank));
+      REQUIRE(grid == plan_extra.at(rank));
     }
   }
 

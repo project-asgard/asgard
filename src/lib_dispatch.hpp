@@ -1,5 +1,4 @@
 #pragma once
-#include <cassert>
 
 enum class resource
 {

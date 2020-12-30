@@ -95,7 +95,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
         partial_term<P> const &p_term = partial_terms[p_num];
         if (p_term.left_homo == homogeneity::inhomogeneous)
         {
-          assert(static_cast<int>(p_term.left_bc_funcs.size()) > dim_num);
+          REQUIRE(static_cast<int>(p_term.left_bc_funcs.size()) > dim_num);
 
           fk::vector<P> const left_bc =
               boundary_conditions::compute_left_boundary_condition(
@@ -109,7 +109,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
         if (p_term.right_homo == homogeneity::inhomogeneous)
         {
-          assert(static_cast<int>(p_term.right_bc_funcs.size()) > dim_num);
+          REQUIRE(static_cast<int>(p_term.right_bc_funcs.size()) > dim_num);
 
           fk::vector<P> const right_bc =
               boundary_conditions::compute_right_boundary_condition(

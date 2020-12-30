@@ -3,6 +3,7 @@
 #include "matlab_utilities.hpp"
 #include "pde.hpp"
 #include "tests_general.hpp"
+#include "tools.hpp"
 #include "transformations.hpp"
 #include <climits>
 #include <numeric>
@@ -184,7 +185,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
 
     auto const wave_space_size =
         static_cast<uint64_t>(table.size()) * std::pow(degree, pde.num_dims);
-    assert(wave_space_size < INT_MAX);
+    tools::expect(wave_space_size < INT_MAX);
     fk::vector<P> wave_space(wave_space_size);
 
     for (int i = 0; i < wave_space.size(); ++i)

@@ -1,4 +1,4 @@
-#include "timer.hpp"
+#include "tools.hpp"
 #include <algorithm>
 // FIXME use string format after C++20
 // #include <format>
@@ -6,9 +6,9 @@
 #include <numeric>
 #include <sstream>
 
-namespace timer
+namespace tools
 {
-std::string recorder::report()
+std::string simple_timer::report()
 {
   std::ostringstream report;
   report << "\nperformance report, all times in ms...\n\n";
@@ -52,6 +52,6 @@ std::string recorder::report()
   return report.str();
 }
 
-recorder record;
+simple_timer timer;
 
-} // namespace timer
+} // namespace tools

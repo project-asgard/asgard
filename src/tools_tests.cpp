@@ -1,12 +1,14 @@
 #include "tests_general.hpp"
-#include "timer.hpp"
+#include "tools.hpp"
 #include <algorithm>
 #include <random>
 #include <sstream>
-// function that does nothing productive, for testing the timer
+
+// function that does nothing productive, but takes some time...
+// for testing the timer
 double shuffle_random(int const num_items)
 {
-  assert(num_items > 0);
+  tools::expect(num_items > 0);
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());
   std::uniform_real_distribution<double> dist(0.1, 1.0);
@@ -19,21 +21,22 @@ double shuffle_random(int const num_items)
   std::shuffle(items.begin(), items.end(), mersenne_engine);
   return items[0];
 }
-auto constexpr tol = 1e3;
-TEST_CASE("test recorder")
+
+static auto constexpr tol = 1e3;
+TEST_CASE("test timer")
 {
-  timer::recorder record;
+  tools::simple_timer timer;
   int const items_to_gen       = 100000;
   int const iterations         = 10;
   std::string const identifier = "waste_time";
   for (int i = 0; i < iterations; ++i)
   {
-    record.start(identifier);
+    timer.start(identifier);
     double const val = shuffle_random(items_to_gen);
-    record.stop(identifier);
-    assert(val > 0.0); // to avoid comp. warnings
+    timer.stop(identifier);
+    tools::expect(val > 0.0); // to avoid comp. warnings
   }
-  std::string const report = record.report();
+  std::string const report = timer.report();
 
   std::stringstream s1(report.substr(report.find("avg: ")));
   std::string s;
@@ -61,7 +64,7 @@ TEST_CASE("test recorder")
   int calls;
   s5 >> calls;
 
-  auto const &times = record.get_times(identifier);
+  auto const &times = timer.get_times(identifier);
 
   SECTION("avg")
   {

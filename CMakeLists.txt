@@ -141,7 +141,7 @@ set (components
   solver
   tensors
   time_advance
-  timer
+  tools
   transformations
 )
 if (ASGARD_IO_HIGHFIVE)
@@ -195,7 +195,7 @@ target_link_libraries (elements
 target_link_libraries (fast_math
   PRIVATE lib_dispatch tensors)
 
-target_link_libraries(kronmult PRIVATE batch elements kronmult_cuda timer)
+target_link_libraries(kronmult PRIVATE batch elements kronmult_cuda tools)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
@@ -242,7 +242,7 @@ if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
 endif ()
 
-target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors timer boundary_conditions
+target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors tools boundary_conditions
                                     INTERFACE elements)
 
 target_link_libraries (transformations
@@ -264,7 +264,7 @@ set (main_app_link_deps
   quadrature
   tensors
   time_advance
-  timer
+  tools
   transformations
 )
 if (ASGARD_IO_HIGHFIVE)

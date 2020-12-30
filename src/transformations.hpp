@@ -7,6 +7,8 @@
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
@@ -54,10 +56,10 @@ fk::vector<P> forward_transform(
   P const domain_min   = dim.domain_min;
   P const domain_max   = dim.domain_max;
 
-  assert(num_levels >= 0);
-  assert(num_levels <= transformer.max_level);
-  assert(degree > 0);
-  assert(domain_max > domain_min);
+  tools::expect(num_levels >= 0);
+  tools::expect(num_levels <= transformer.max_level);
+  tools::expect(degree > 0);
+  tools::expect(domain_max > domain_min);
 
   // check to make sure the F function arg is a function type
   // that will accept a vector argument. we have a check for its
@@ -104,7 +106,7 @@ fk::vector<P> forward_transform(
     // get the f(v) initial condition at the quadrature points.
     fk::vector<P> f_here = function(mapped_roots, t);
     // ensuring function returns vector of appropriate size
-    assert(f_here.size() == weights.size());
+    tools::expect(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
                    f_here.begin(), std::multiplies<P>());
 
@@ -143,10 +145,10 @@ inline fk::vector<P> transform_and_combine_dimensions(
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const start, int const stop, int const degree)
 {
-  assert(static_cast<int>(v_functions.size()) == pde.num_dims);
-  assert(start <= stop);
-  assert(stop < table.size());
-  assert(degree > 0);
+  tools::expect(static_cast<int>(v_functions.size()) == pde.num_dims);
+  tools::expect(start <= stop);
+  tools::expect(stop < table.size());
+  tools::expect(degree > 0);
 
   std::vector<fk::vector<P>> dimension_components;
   dimension_components.reserve(pde.num_dims);

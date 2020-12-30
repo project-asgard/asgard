@@ -2,8 +2,8 @@
 
 #include "matlab_utilities.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <numeric>
 #include <vector>
@@ -18,8 +18,8 @@ namespace permutations
 // (where n == 'num_dims') whose non-negative elements' sum == 'limit'
 int count_equal(int const num_dims, int const limit)
 {
-  assert(num_dims > 0);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(limit >= 0);
   if (num_dims == 1)
   {
     return 1;
@@ -45,9 +45,9 @@ int count_equal(int const num_dims, int const limit)
 int count_equal_multi(fk::vector<int> const &levels, int const num_dims,
                       int const limit)
 {
-  assert(num_dims > 0);
-  assert(levels.size() == num_dims);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(levels.size() == num_dims);
+  tools::expect(limit >= 0);
 
   if (num_dims == 1)
   {
@@ -73,8 +73,8 @@ int count_equal_multi(fk::vector<int> const &levels, int const num_dims,
 // (where n == 'num_dims') whose non-negative elements' sum <= 'limit'
 int count_lequal(int const num_dims, int const limit)
 {
-  assert(num_dims > 0);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(limit >= 0);
 
   int count = 0;
   for (auto i = 0; i <= limit; ++i)
@@ -89,9 +89,9 @@ int count_lequal(int const num_dims, int const limit)
 // this version handles the non-uniform level case
 int count_lequal_multi(fk::vector<int> const &levels, int num_dims, int limit)
 {
-  assert(num_dims > 0);
-  assert(levels.size() == num_dims);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(levels.size() == num_dims);
+  tools::expect(limit >= 0);
 
   auto count = 0;
   for (auto i = 0; i <= limit; ++i)
@@ -107,8 +107,8 @@ int count_lequal_multi(fk::vector<int> const &levels, int num_dims, int limit)
 // grid only)
 int count_max(int const num_dims, int const limit)
 {
-  assert(num_dims > 0);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(limit >= 0);
 
   return static_cast<int>(std::pow(limit + 1, num_dims));
 }
@@ -123,8 +123,8 @@ int count_max(int const num_dims, int const limit)
 fk::matrix<int>
 get_equal(int const num_dims, int const limit, bool const order_by_n)
 {
-  assert(num_dims > 0);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(limit >= 0);
 
   int const num_tuples = count_equal(num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
@@ -175,9 +175,9 @@ fk::matrix<int> get_equal_multi(fk::vector<int> const &levels,
                                 int const num_dims, int const limit,
                                 bool const last_index_decreasing)
 {
-  assert(num_dims > 0);
-  assert(levels.size() == num_dims);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(levels.size() == num_dims);
+  tools::expect(limit >= 0);
 
   if (num_dims == 1)
   {
@@ -230,8 +230,8 @@ fk::matrix<int> get_equal_multi(fk::vector<int> const &levels,
 fk::matrix<int>
 get_lequal(int const num_dims, int const limit, bool const order_by_n)
 {
-  assert(num_dims > 0);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(limit >= 0);
 
   int const num_tuples = count_lequal(num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
@@ -282,9 +282,9 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
                                  int const num_dims, int const limit,
                                  bool const increasing_sum_order)
 {
-  assert(num_dims > 0);
-  assert(levels.size() == num_dims);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(levels.size() == num_dims);
+  tools::expect(limit >= 0);
 
   auto const num_tuples = count_lequal_multi(levels, num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
@@ -313,8 +313,8 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
 fk::matrix<int>
 get_max(int const num_dims, int const limit, bool const last_index_decreasing)
 {
-  assert(num_dims > 0);
-  assert(limit >= 0);
+  tools::expect(num_dims > 0);
+  tools::expect(limit >= 0);
 
   int const num_tuples = count_max(num_dims, limit);
   fk::matrix<int> result(num_tuples, num_dims);
@@ -361,8 +361,8 @@ get_max(int const num_dims, int const limit, bool const last_index_decreasing)
 fk::matrix<int> get_max_multi(fk::vector<int> const &levels, int const num_dims,
                               bool const last_index_decreasing)
 {
-  assert(num_dims > 0);
-  assert(levels.size() > 0);
+  tools::expect(num_dims > 0);
+  tools::expect(levels.size() > 0);
 
   auto const limit = levels(num_dims - 1);
 
@@ -410,9 +410,9 @@ fk::matrix<int> get_max_multi(fk::vector<int> const &levels, int const num_dims,
 int count_leq_max_indices(list_set const &lists, int const num_dims,
                           int const max_sum, int const max_val)
 {
-  assert(lists.size() > 0);
-  assert(num_dims > 0);
-  assert(num_dims <= static_cast<int>(lists.size()));
+  tools::expect(lists.size() > 0);
+  tools::expect(num_dims > 0);
+  tools::expect(num_dims <= static_cast<int>(lists.size()));
 
   // base case
   if (num_dims == 1)
@@ -446,9 +446,9 @@ int count_leq_max_indices(list_set const &lists, int const num_dims,
 fk::matrix<int> get_leq_max_indices(list_set const &lists, int const num_dims,
                                     int const max_sum, int const max_val)
 {
-  assert(lists.size() > 0);
-  assert(num_dims > 0);
-  assert(num_dims <= static_cast<int>(lists.size()));
+  tools::expect(lists.size() > 0);
+  tools::expect(num_dims > 0);
+  tools::expect(num_dims <= static_cast<int>(lists.size()));
 
   int const num_entries =
       count_leq_max_indices(lists, num_dims, max_sum, max_val);
