@@ -13,7 +13,8 @@
 enum class solve_opts
 {
   direct,
-  gmres
+  gmres,
+  slate
 };
 
 // map those choices to selection strings
@@ -21,6 +22,7 @@ using solve_map_t                       = std::map<std::string, solve_opts>;
 static solve_map_t const solver_mapping = {
     {"direct", solve_opts::direct},
     {"gmres", solve_opts::gmres},
+    {"slate", solve_opts::slate}
 };
 
 // the choices for supported PDE types

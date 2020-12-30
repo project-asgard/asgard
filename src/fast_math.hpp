@@ -1,5 +1,6 @@
 #pragma once
 #include "lib_dispatch.hpp"
+#include "program_options.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"
 #include <numeric>
@@ -226,7 +227,7 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
 //
 template<typename P, mem_type amem, mem_type bmem>
 void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
-           std::vector<int> &ipiv)
+           std::vector<int> &ipiv, solve_opts opt = solve_opts::direct)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -243,8 +244,16 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int ldb    = B.size();
 
   int info;
-  lib_dispatch::getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
-                      B.data(), &ldb, &info);
+  if(opt == solve_opts::direct) {
+      lib_dispatch::getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
+                          B.data(), &ldb, &info);
+  } else if (opt == solve_opts::slate) {
+      lib_dispatch::slate_getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
+                                B.data(), &ldb, &info);
+  } else {
+      printf("Invalid getrs solver library specified\n");
+      exit(1);
+  }
   if (info < 0)
   {
     printf("Argument %d in call to getrs() has an illegal value\n", -info);
