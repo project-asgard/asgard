@@ -1,5 +1,6 @@
 #include "time_advance.hpp"
 #include "adapt.hpp"
+#include "batch.hpp"
 #include "boundary_conditions.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
