@@ -17,10 +17,10 @@ struct device_handler
   {
 #ifdef ASGARD_USE_CUDA
     auto success = cublasCreate(&handle);
-    tools::expect(success == 0);
+    tools::expect(success == CUBLAS_STATUS_SUCCESS);
 
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
-    tools::expect(success == 0);
+    tools::expect(success == CUBLAS_STATUS_SUCCESS);
 #endif
   }
 
@@ -29,23 +29,27 @@ struct device_handler
 #ifdef ASGARD_USE_CUDA
     int num_devices;
     auto success = cudaGetDeviceCount(&num_devices);
-    tools::expect(success == 0);
+
+    tools::expect(success == cudaSuccess);
     tools::expect(local_rank >= 0);
     tools::expect(local_rank < num_devices);
 
     if (handle)
     {
       auto const cublas_success = cublasDestroy(handle);
-      tools::expect(cublas_success == 0);
+      tools::expect(cublas_success == CUBLAS_STATUS_SUCCESS);
     }
+
     success = cudaSetDevice(local_rank);
-    tools::expect(success == 0);
+    tools::expect(success == cudaSuccess);
     auto const cublas_success = cublasCreate(&handle);
-    tools::expect(cublas_success == 0);
+    tools::expect(cublas_success == CUBLAS_STATUS_SUCCESS);
+
 #else
     ignore(local_rank);
 #endif
   }
+
 #ifdef ASGARD_USE_CUDA
   cublasHandle_t const &get_handle() const { return handle; }
 #endif

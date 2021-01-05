@@ -641,12 +641,18 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 {
 #ifdef ASGARD_USE_CUDA
   auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  tools::expect(success == 0);
+  assert(success == cudaSuccess);
+  if (num_elems > 0)
+  {
+    tools::expect(ptr != nullptr);
+  }
+
   if (initialize)
   {
     success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
-    tools::expect(success == 0);
+    tools::expect(success == cudaSuccess);
   }
+
 #else
   if (initialize)
   {
@@ -658,11 +664,17 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
   }
 #endif
 }
+
 template<typename P>
 inline void delete_device(P *const ptr)
 {
 #ifdef ASGARD_USE_CUDA
-  cudaFree(ptr);
+  auto const success = cudaFree(ptr);
+  // the device runtime may be unloaded at process shut down
+  // (when static storage duration destructors are called)
+  // returning a cudartUnloading error code.
+  tools::expect((success == cudaSuccess) ||
+                (success == cudaErrorCudartUnloading));
 #else
   delete[] ptr;
 #endif
@@ -675,7 +687,7 @@ copy_on_device(P *const dest, P const *const source, int const num_elems)
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
-  tools::expect(success == 0);
+  tools::expect(success == cudaSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -688,7 +700,7 @@ copy_to_device(P *const dest, P const *const source, int const num_elems)
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
-  tools::expect(success == 0);
+  tools::expect(success == cudaSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -701,7 +713,7 @@ copy_to_host(P *const dest, P const *const source, int const num_elems)
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
-  tools::expect(success == 0);
+  tools::expect(success == cudaSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
