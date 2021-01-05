@@ -1,5 +1,6 @@
 #include "solver.hpp"
 #include "fast_math.hpp"
+#include "tools.hpp"
 
 namespace solver
 {
@@ -9,26 +10,26 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
-  assert(tolerance >= std::numeric_limits<P>::epsilon());
-  assert(A.nrows() == A.ncols());
+  tools::expect(tolerance >= std::numeric_limits<P>::epsilon());
+  tools::expect(A.nrows() == A.ncols());
   int const n = A.nrows();
-  assert(b.size() == n);
-  assert(x.size() == n);
+  tools::expect(b.size() == n);
+  tools::expect(x.size() == n);
 
   bool const do_precond = M.size() > 0;
   std::vector<int> precond_pivots(n);
   if (do_precond)
   {
-    assert(M.ncols() == n);
-    assert(M.nrows() == n);
+    tools::expect(M.ncols() == n);
+    tools::expect(M.nrows() == n);
   }
   fk::matrix<P> precond(M);
   bool precond_factored = false;
 
-  assert(restart > 0);
-  assert(restart <= n);
-  assert(max_iter >= restart);
-  assert(max_iter <= n);
+  tools::expect(restart > 0);
+  tools::expect(restart <= n);
+  tools::expect(max_iter >= restart);
+  tools::expect(max_iter <= n);
 
   P const norm_b = [&b]() {
     P const norm_b = fm::nrm2(b);

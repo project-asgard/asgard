@@ -4,7 +4,7 @@
 #include "coefficients.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
-#include "timer.hpp"
+#include "tools.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
@@ -175,12 +175,12 @@ int main(int argc, char **argv)
                                                    : time_advance::method::exp;
     auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
                                                      : "explicit_time_advance";
-    auto const time_id = timer::record.start(time_str);
+    auto const time_id = tools::timer.start(time_str);
     auto const sol     = time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         default_workspace_MB, update_system);
     f_val.resize(sol.size()) = sol;
-    timer::record.stop(time_id);
+    tools::timer.stop(time_id);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
@@ -203,7 +203,7 @@ int main(int argc, char **argv)
       auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
       auto const [rmse_errors, relative_errors] =
           gather_errors(RMSE, relative_error);
-      assert(rmse_errors.size() == relative_errors.size());
+      tools::expect(rmse_errors.size() == relative_errors.size());
       for (int i = 0; i < rmse_errors.size(); ++i)
       {
         node_out() << "Errors for local rank: " << i << '\n';
@@ -247,7 +247,7 @@ int main(int argc, char **argv)
   auto const final_result = gather_results(
       f_val, adaptive_grid.get_distrib_plan(), my_rank, segment_size);
 
-  node_out() << timer::record.report() << '\n';
+  node_out() << tools::timer.report() << '\n';
 
   finalize_distribution();
 

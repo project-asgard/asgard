@@ -3,8 +3,8 @@
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 #include <algorithm>
-#include <cassert>
 #include <climits>
 #include <cmath>
 #include <numeric>
@@ -30,7 +30,7 @@ template<typename P>
 fk::vector<P>
 kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 {
-  assert(num_prods > 0);
+  tools::expect(num_prods > 0);
   if (num_prods == 1)
   {
     return operands[0];
@@ -68,8 +68,8 @@ fk::matrix<P>
 recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
                int const index)
 {
-  assert(index >= 0);
-  assert(index < static_cast<int>(kron_matrices.size()));
+  tools::expect(index >= 0);
+  tools::expect(index < static_cast<int>(kron_matrices.size()));
 
   if (index == (static_cast<int>(kron_matrices.size()) - 1))
   {
@@ -135,7 +135,7 @@ void wavelet_to_realspace(
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space)
 {
-  assert(memory_limit_MB > 0);
+  tools::expect(memory_limit_MB > 0);
 
   std::vector<batch_chain<P, resource::host>> chain;
 
@@ -171,7 +171,7 @@ void wavelet_to_realspace(
     }
 
     /* compute the amount of needed memory */
-    assert(kron_matrix_MB(kron_matrices) <= memory_limit_MB);
+    tools::expect(kron_matrix_MB(kron_matrices) <= memory_limit_MB);
 
     /* create a view of a section of the wave space vector */
     fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
@@ -204,17 +204,17 @@ combine_dimensions(int const degree, elements::table const &table,
                    P const time_scale)
 {
   int const num_dims = vectors.size();
-  assert(num_dims > 0);
-  assert(start_element >= 0);
-  assert(stop_element >= start_element);
-  assert(stop_element < table.size());
+  tools::expect(num_dims > 0);
+  tools::expect(start_element >= 0);
+  tools::expect(stop_element >= start_element);
+  tools::expect(stop_element < table.size());
 
   int64_t const vector_size =
       (stop_element - start_element + 1) * std::pow(degree, num_dims);
 
   // FIXME here we want to catch the 64-bit solution vector problem
   // and halt execution if we spill over. there is an open issue for this
-  assert(vector_size < INT_MAX);
+  tools::expect(vector_size < INT_MAX);
   fk::vector<P> combined(vector_size);
 
   for (int i = start_element; i <= stop_element; ++i)

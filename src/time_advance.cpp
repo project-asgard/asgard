@@ -1,11 +1,12 @@
 #include "time_advance.hpp"
 #include "adapt.hpp"
+#include "batch.hpp"
 #include "boundary_conditions.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"
 #include "solver.hpp"
-#include "timer.hpp"
+#include "tools.hpp"
 #include <limits.h>
 
 namespace time_advance
@@ -144,10 +145,10 @@ explicit_advance(PDE<P> const &pde,
   auto const elem_size = element_segment_size(pde);
   auto const dt        = pde.get_dt();
   auto const col_size  = elem_size * static_cast<int64_t>(grid.ncols());
-  assert(x_orig.size() == col_size);
+  tools::expect(x_orig.size() == col_size);
   auto const row_size = elem_size * static_cast<int64_t>(grid.nrows());
-  assert(col_size < INT_MAX);
-  assert(row_size < INT_MAX);
+  tools::expect(col_size < INT_MAX);
+  tools::expect(row_size < INT_MAX);
 
   // time advance working vectors
   // input vector for apply_A
@@ -155,9 +156,9 @@ explicit_advance(PDE<P> const &pde,
   // a buffer for reducing across subgrid row
   fk::vector<P> reduced_fx(row_size);
 
-  assert(time >= 0);
-  assert(dt > 0);
-  assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
+  tools::expect(time >= 0);
+  tools::expect(dt > 0);
+  tools::expect(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
 
   // see
   // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Explicit_Runge%E2%80%93Kutta_methods
@@ -172,10 +173,11 @@ explicit_advance(PDE<P> const &pde,
 
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
-  auto const apply_id = timer::record.start("kronmult_setup");
+  auto const apply_id = tools::timer.start("kronmult_setup");
   auto fx =
       kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
-  timer::record.stop(apply_id);
+
+  tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (!unscaled_sources.empty())
@@ -196,9 +198,9 @@ explicit_advance(PDE<P> const &pde,
   fm::axpy(rk_1, x, rk_scale_1);
 
   // -- RK step 2
-  timer::record.start(apply_id);
+  tools::timer.start(apply_id);
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
-  timer::record.stop(apply_id);
+  tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (!unscaled_sources.empty())
@@ -224,9 +226,9 @@ explicit_advance(PDE<P> const &pde,
   fm::axpy(rk_2, x, rk_scale_2b);
 
   // -- RK step 3
-  timer::record.start(apply_id);
+  tools::timer.start(apply_id);
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
-  timer::record.stop(apply_id);
+  tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (!unscaled_sources.empty())
@@ -267,8 +269,8 @@ implicit_advance(PDE<P> const &pde,
                  fk::vector<P> const &x_orig, P const time,
                  solve_opts const solver, bool const update_system)
 {
-  assert(time >= 0);
-  assert(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
+  tools::expect(time >= 0);
+  tools::expect(static_cast<int>(unscaled_sources.size()) == pde.num_sources);
 
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;

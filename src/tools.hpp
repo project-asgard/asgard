@@ -10,23 +10,32 @@
 // simple profiling object
 // this is NOT thread safe for now - only one thread should be calling class
 // funcs at a time, if we need this, just need to wrap map access with locks
-namespace timer
+namespace tools
 {
-class recorder
+// simple layer over assert to prevent unused variable warnings when
+// tools::expects disabled
+inline void expect(bool const condition)
+{
+  auto const ignore = [](auto ignored) { (void)ignored; };
+  ignore(condition);
+  assert(condition);
+}
+
+class simple_timer
 {
 public:
   std::string const start(std::string const &identifier)
   {
-    assert(!identifier.empty());
-    assert(id_to_start_.count(identifier) == 0);
+    tools::expect(!identifier.empty());
+    tools::expect(id_to_start_.count(identifier) == 0);
     id_to_start_[identifier] = std::chrono::high_resolution_clock::now();
     return identifier;
   }
 
   void stop(std::string const &identifier, double const flops = -1)
   {
-    assert(!identifier.empty());
-    assert(id_to_start_.count(identifier) == 1);
+    tools::expect(!identifier.empty());
+    tools::expect(id_to_start_.count(identifier) == 1);
     auto const beg = id_to_start_[identifier];
     auto const end = std::chrono::high_resolution_clock::now();
     auto const dur =
@@ -38,16 +47,17 @@ public:
 
     if (flops != -1)
     {
-      assert(flops > 0);
+      tools::expect(flops > 0);
       auto const gflops = flops / 1e9;
-      assert(dur >= 0.0);
+      tools::expect(dur >= 0.0);
 
       auto const gflops_per_sec =
           dur == 0.0 ? std::numeric_limits<double>::infinity()
                      : gflops / (static_cast<double>(dur) * 1e-6); // to seconds
 
       insert(id_to_flops_, identifier, gflops_per_sec);
-      assert(id_to_times_.count(identifier) == id_to_flops_.count(identifier));
+      tools::expect(id_to_times_.count(identifier) ==
+                    id_to_flops_.count(identifier));
     }
   }
 
@@ -57,7 +67,7 @@ public:
   // get times for some key, mostly for testing for now
   std::vector<double> const &get_times(std::string const &id)
   {
-    assert(id_to_times_.count(id) == 1);
+    tools::expect(id_to_times_.count(id) == 1);
     return id_to_times_[id];
   }
 
@@ -80,5 +90,7 @@ private:
            std::chrono::time_point<std::chrono::high_resolution_clock>>
       id_to_start_;
 };
-extern recorder record;
-} // namespace timer
+
+extern simple_timer timer;
+
+} // namespace tools

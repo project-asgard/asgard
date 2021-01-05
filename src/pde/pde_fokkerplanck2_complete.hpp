@@ -1,6 +1,5 @@
 #pragma once
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -13,6 +12,7 @@
 
 #include "../quadrature.hpp"
 #include "../tensors.hpp"
+#include "../tools.hpp"
 #include "pde_base.hpp"
 
 // ---------------------------------------------------------------------------
@@ -377,7 +377,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    assert(x > 0);
+    tools::expect(x > 0);
     return 1.0 / std::pow(x, 2);
   }
   static P e1_g3(P const x, P const time = 0)

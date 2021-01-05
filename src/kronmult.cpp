@@ -1,5 +1,7 @@
 #include "kronmult.hpp"
 #include "device/kronmult_cuda.hpp"
+#include "lib_dispatch.hpp"
+#include "tools.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda_runtime.h>
@@ -10,12 +12,9 @@
 #endif
 
 #include <cstdlib>
+#include <limits.h>
 #include <mutex>
 #include <vector>
-
-#include "lib_dispatch.hpp"
-#include "timer.hpp"
-#include <limits.h>
 
 namespace kronmult
 {
@@ -48,7 +47,7 @@ inline int
 get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
                  element_subgrid const &grid, int const rank_size_MB)
 {
-  assert(grid.size() > 0);
+  tools::expect(grid.size() > 0);
 
   // determine total problem size
   auto const num_elems        = grid.size();
@@ -57,13 +56,13 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   // determine size of assigned x and y vectors
   auto const elem_size   = element_segment_size(pde);
   auto const num_x_elems = static_cast<int64_t>(grid.nrows()) * elem_size;
-  assert(num_x_elems < INT_MAX);
+  tools::expect(num_x_elems < INT_MAX);
   auto const num_y_elems = static_cast<int64_t>(grid.ncols()) * elem_size;
-  assert(num_y_elems < INT_MAX);
+  tools::expect(num_y_elems < INT_MAX);
   double const xy_space_MB = get_MB<P>(num_y_elems + num_x_elems);
 
   // make sure rank size is something reasonable
-  assert(space_per_elem < (0.5 * rank_size_MB));
+  tools::expect(space_per_elem < (0.5 * rank_size_MB));
 
   // size of workspaces, input, output
   double const problem_size_MB = space_per_elem * num_elems;
@@ -83,7 +82,7 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   auto const remaining_rank_MB =
       rank_size_MB - coefficients_size_MB - table_size_MB - xy_space_MB;
 
-  assert(remaining_rank_MB > space_per_elem * 4);
+  tools::expect(remaining_rank_MB > space_per_elem * 4);
 
   // determine number of subgrids
   return static_cast<int>(std::ceil(problem_size_MB / remaining_rank_MB));
@@ -95,7 +94,7 @@ inline std::vector<element_subgrid>
 decompose(PDE<P> const &pde, elements::table const &elem_table,
           element_subgrid const &my_subgrid, int const workspace_size_MB)
 {
-  assert(workspace_size_MB > 0);
+  tools::expect(workspace_size_MB > 0);
 
   // min number subgrids
   auto const num_subgrids =
@@ -115,7 +114,7 @@ decompose(PDE<P> const &pde, elements::table const &elem_table,
   // square tile the assigned subgrid
   std::vector<element_subgrid> grids;
   auto const round_up = [](int const to_round, int const multiple) {
-    assert(multiple);
+    tools::expect(multiple);
     return ((to_round + multiple - 1) / multiple) * multiple;
   };
 
@@ -284,19 +283,19 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
 
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
-  assert(output_size == fx.size());
+  tools::expect(output_size == fx.size());
   auto const input_size = my_subgrid.ncols() * deg_to_dim;
-  assert(input_size == x.size());
+  tools::expect(input_size == x.size());
 
   auto const &workspace =
       kronmult_workspace<P>::get_workspace(pde, elem_table, my_subgrid);
 
-  timer::record.start("kronmult_stage");
+  tools::timer.start("kronmult_stage");
   // stage x vector in writable regions for each element
   auto const num_copies = my_subgrid.nrows() * pde.num_terms;
   stage_inputs_kronmult(x.data(), workspace.get_element_x(), x.size(),
                         num_copies);
-  timer::record.stop("kronmult_stage");
+  tools::timer.stop("kronmult_stage");
 
   // list building kernel needs simple arrays/pointers, can't compile our
   // objects
@@ -319,7 +318,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
       for (int j = 0; j < pde.num_dims; ++j)
       {
         builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
-        assert(pde.get_coefficients(i, j).nrows() == lda);
+        tools::expect(pde.get_coefficients(i, j).nrows() == lda);
       }
     }
     return builder;
@@ -328,7 +327,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
       operators.clone_onto_device());
 
   // prepare lists for kronmult, on device if cuda is enabled
-  timer::record.start("kronmult_build");
+  tools::timer.start("kronmult_build");
   prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
                    lda, workspace.get_element_x(), workspace.get_element_work(),
                    fx.data(), workspace.get_operator_ptrs(),
@@ -336,17 +335,17 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
                    workspace.get_output_ptrs(), degree, pde.num_terms,
                    pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
                    my_subgrid.col_start, my_subgrid.col_stop);
-  timer::record.stop("kronmult_build");
+  tools::timer.stop("kronmult_build");
 
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
   auto const flops = pde.num_dims * 2.0 * (std::pow(degree, pde.num_dims + 1)) *
                      total_kronmults;
 
-  timer::record.start("kronmult");
+  tools::timer.start("kronmult");
   call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
                 workspace.get_work_ptrs(), workspace.get_operator_ptrs(), lda,
                 total_kronmults, pde.num_dims);
-  timer::record.stop("kronmult", flops);
+  tools::timer.stop("kronmult", flops);
 
   return fx;
 }
@@ -365,7 +364,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
 
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
-  assert(output_size < INT_MAX);
+  tools::expect(output_size < INT_MAX);
   fk::vector<P, mem_type::owner, resource::device> fx_dev(output_size);
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());

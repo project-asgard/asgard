@@ -1,5 +1,6 @@
 #include "lib_dispatch.hpp"
 #include "build_info.hpp"
+#include "tools.hpp"
 #include <cmath>
 #include <iostream>
 #include <type_traits>
@@ -16,10 +17,10 @@ struct device_handler
   {
 #ifdef ASGARD_USE_CUDA
     auto success = cublasCreate(&handle);
-    assert(success == 0);
+    tools::expect(success == 0);
 
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
-    assert(success == 0);
+    tools::expect(success == 0);
 #endif
   }
 
@@ -28,19 +29,19 @@ struct device_handler
 #ifdef ASGARD_USE_CUDA
     int num_devices;
     auto success = cudaGetDeviceCount(&num_devices);
-    assert(success == 0);
-    assert(local_rank >= 0);
-    assert(local_rank < num_devices);
+    tools::expect(success == 0);
+    tools::expect(local_rank >= 0);
+    tools::expect(local_rank < num_devices);
 
     if (handle)
     {
       auto const cublas_success = cublasDestroy(handle);
-      assert(cublas_success == 0);
+      tools::expect(cublas_success == 0);
     }
     success = cudaSetDevice(local_rank);
-    assert(success == 0);
+    tools::expect(success == 0);
     auto const cublas_success = cublasCreate(&handle);
-    assert(cublas_success == 0);
+    tools::expect(cublas_success == 0);
 #else
     ignore(local_rank);
 #endif
@@ -65,7 +66,7 @@ static device_handler device;
 void initialize_libraries(int const local_rank)
 {
 #ifdef ASGARD_USE_CUDA
-  assert(local_rank >= 0);
+  tools::expect(local_rank >= 0);
   device.set_device(local_rank);
 #else
   ignore(local_rank);
@@ -91,10 +92,10 @@ namespace lib_dispatch
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s, resource const resrc)
 {
-  assert(a && b && c && s);
+  tools::expect(a && b && c && s);
 
   // function doesn't make sense outside of FP context
-  assert(std::is_floating_point_v<P>);
+  tools::expect(std::is_floating_point_v<P>);
 
   if (resrc == resource::device)
   {
@@ -104,12 +105,12 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDrotg(device.get_handle(), a, b, c, s);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSrotg(device.get_handle(), a, b, c, s);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -129,29 +130,29 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
 template<typename P>
 P nrm2(int *n, P *x, int *incx, resource const resrc)
 {
-  assert(x);
-  assert(incx && *incx >= 0);
-  assert(n && *n >= 0);
+  tools::expect(x);
+  tools::expect(incx && *incx >= 0);
+  tools::expect(n && *n >= 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
     P norm;
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
           cublasDnrm2(device.get_handle(), *n, x, *incx, &norm);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
           cublasSnrm2(device.get_handle(), *n, x, *incx, &norm);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return norm;
 #endif
@@ -180,31 +181,31 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
 template<typename P>
 void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
-  assert(x);
-  assert(y);
-  assert(incx && *incx >= 0);
-  assert(incy && *incy >= 0);
-  assert(n && *n >= 0);
+  tools::expect(x);
+  tools::expect(y);
+  tools::expect(incx && *incx >= 0);
+  tools::expect(incy && *incy >= 0);
+  tools::expect(n && *n >= 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
           cublasDcopy(device.get_handle(), *n, x, *incx, y, *incy);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
           cublasScopy(device.get_handle(), *n, x, *incx, y, *incy);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -231,18 +232,18 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 template<typename P>
 P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 {
-  assert(x);
-  assert(y);
-  assert(incx && *incx >= 0);
-  assert(incy && *incy >= 0);
-  assert(n && *n >= 0);
+  tools::expect(x);
+  tools::expect(y);
+  tools::expect(incx && *incx >= 0);
+  tools::expect(incy && *incy >= 0);
+  tools::expect(n && *n >= 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     P result;
     // instantiated for these two fp types
@@ -250,13 +251,13 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
     {
       auto const success =
           cublasDdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
           cublasSdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return result;
 #endif
@@ -286,32 +287,32 @@ template<typename P>
 void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
           resource const resrc)
 {
-  assert(alpha);
-  assert(x);
-  assert(y);
-  assert(incx && *incx >= 0);
-  assert(incy && *incy >= 0);
-  assert(n && *n >= 0);
+  tools::expect(alpha);
+  tools::expect(x);
+  tools::expect(y);
+  tools::expect(incx && *incx >= 0);
+  tools::expect(incy && *incy >= 0);
+  tools::expect(n && *n >= 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
           cublasDaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
           cublasSaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -338,30 +339,30 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
 template<typename P>
 void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
 {
-  assert(alpha);
-  assert(x);
-  assert(n && *n >= 0);
-  assert(incx && *incx >= 0);
+  tools::expect(alpha);
+  tools::expect(x);
+  tools::expect(n && *n >= 0);
+  tools::expect(incx && *incx >= 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
           cublasDscal(device.get_handle(), *n, alpha, x, *incx);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
           cublasSscal(device.get_handle(), *n, alpha, x, *incx);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -394,12 +395,12 @@ basic_gemm(P const *A, bool const trans_A, int const lda, P *B, bool trans_B,
            int const ldb, P *C, int const ldc, int const m, int const k,
            int const n, P const alpha, P const beta)
 {
-  assert(m > 0);
-  assert(k > 0);
-  assert(n > 0);
-  assert(lda > 0); // FIXME Tyler says these could be more thorough
-  assert(ldb > 0);
-  assert(ldc > 0);
+  tools::expect(m > 0);
+  tools::expect(k > 0);
+  tools::expect(n > 0);
+  tools::expect(lda > 0); // FIXME Tyler says these could be more thorough
+  tools::expect(ldb > 0);
+  tools::expect(ldc > 0);
 
   for (auto i = 0; i < m; ++i)
   {
@@ -422,11 +423,11 @@ static void basic_gemv(P const *A, bool const trans_A, int const lda,
                        P const *x, int const incx, P *y, int const incy,
                        int const m, int const n, P const alpha, P const beta)
 {
-  assert(m > 0);
-  assert(n > 0);
-  assert(lda > 0);
-  assert(incx > 0);
-  assert(incy > 0);
+  tools::expect(m > 0);
+  tools::expect(n > 0);
+  tools::expect(lda > 0);
+  tools::expect(incx > 0);
+  tools::expect(incy > 0);
 
   for (auto i = 0; i < m; ++i)
   {
@@ -444,24 +445,24 @@ template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, resource const resrc)
 {
-  assert(alpha);
-  assert(A);
-  assert(x);
-  assert(beta);
-  assert(y);
-  assert(m && *m >= 0);
-  assert(n && *n >= 0);
-  assert(lda && *lda >= 0);
-  assert(incx && *incx >= 0);
-  assert(incy && *incy >= 0);
-  assert(trans && (*trans == 't' || *trans == 'n'));
+  tools::expect(alpha);
+  tools::expect(A);
+  tools::expect(x);
+  tools::expect(beta);
+  tools::expect(y);
+  tools::expect(m && *m >= 0);
+  tools::expect(n && *n >= 0);
+  tools::expect(lda && *lda >= 0);
+  tools::expect(incx && *incx >= 0);
+  tools::expect(incy && *incy >= 0);
+  tools::expect(trans && (*trans == 't' || *trans == 'n'));
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
@@ -469,14 +470,14 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
       auto const success =
           cublasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
                       A, *lda, x, *incx, beta, y, *incy);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
           cublasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
                       A, *lda, x, *incx, beta, y, *incy);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -506,26 +507,26 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
           P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
           resource const resrc)
 {
-  assert(alpha);
-  assert(A);
-  assert(lda && *lda >= 0);
-  assert(B);
-  assert(ldb && *ldb >= 0);
-  assert(beta);
-  assert(C);
-  assert(ldc && *ldc >= 0);
-  assert(m && *m >= 0);
-  assert(n && *n >= 0);
-  assert(k && *k >= 0);
-  assert(transa && (*transa == 't' || *transa == 'n'));
-  assert(transb && (*transb == 't' || *transb == 'n'));
+  tools::expect(alpha);
+  tools::expect(A);
+  tools::expect(lda && *lda >= 0);
+  tools::expect(B);
+  tools::expect(ldb && *ldb >= 0);
+  tools::expect(beta);
+  tools::expect(C);
+  tools::expect(ldc && *ldc >= 0);
+  tools::expect(m && *m >= 0);
+  tools::expect(n && *n >= 0);
+  tools::expect(k && *k >= 0);
+  tools::expect(transa && (*transa == 't' || *transa == 'n'));
+  tools::expect(transb && (*transb == 't' || *transb == 'n'));
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
@@ -533,14 +534,14 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
       auto const success = cublasDgemm(
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemm(
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -568,12 +569,12 @@ template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
            resource const resrc)
 {
-  assert(A);
-  assert(ipiv);
-  assert(info);
-  assert(lda && *lda >= 0);
-  assert(m && *m >= 0);
-  assert(n && *n >= 0);
+  tools::expect(A);
+  tools::expect(ipiv);
+  tools::expect(info);
+  tools::expect(lda && *lda >= 0);
+  tools::expect(m && *m >= 0);
+  tools::expect(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -581,28 +582,28 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
 #ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
-    assert(*m == *n);
+    tools::expect(std::is_floating_point_v<P>);
+    tools::expect(*m == *n);
     ignore(m);
 
     P **A_d;
     auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgetrfBatched(device.get_handle(), *n, A_d,
                                                *lda, ipiv, info, 1);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgetrfBatched(device.get_handle(), *n, A_d,
                                                *lda, ipiv, info, 1);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -620,7 +621,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   else
   { // not instantiated; should never be reached
     std::cerr << "getrf not implemented for non-floating types" << '\n';
-    assert(false);
+    tools::expect(false);
   }
 }
 
@@ -628,13 +629,13 @@ template<typename P>
 void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
            resource const resrc)
 {
-  assert(A);
-  assert(ipiv);
-  assert(work);
-  assert(lwork);
-  assert(info);
-  assert(lda && *lda >= 0);
-  assert(n && *n >= 0);
+  tools::expect(A);
+  tools::expect(ipiv);
+  tools::expect(work);
+  tools::expect(lwork);
+  tools::expect(info);
+  tools::expect(lda && *lda >= 0);
+  tools::expect(n && *n >= 0);
 
   if (resrc == resource::device)
   {
@@ -642,35 +643,35 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
 #ifdef ASGARD_USE_CUDA
 
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
-    assert(*lwork == (*n) * (*n));
+    tools::expect(*lwork == (*n) * (*n));
     ignore(lwork);
 
     P const **A_d;
     P **work_d;
     auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMalloc((void **)&work_d, sizeof(P *));
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(work_d, &work, sizeof(P *), cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgetriBatched(
           device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgetriBatched(
           device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
-      assert(success == 0);
+      tools::expect(success == 0);
     }
     return;
 #endif
@@ -688,7 +689,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   else
   { // not instantiated; should never be reached
     std::cerr << "getri not implemented for non-floating types" << '\n';
-    assert(false);
+    tools::expect(false);
   }
 }
 
@@ -698,27 +699,27 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
                   int *n, int *k, P *alpha, P *beta, int *num_batch,
                   resource const resrc)
 {
-  assert(alpha);
-  assert(a);
-  assert(lda && *lda >= 0);
-  assert(b);
-  assert(ldb && *ldb >= 0);
-  assert(beta);
-  assert(c);
-  assert(ldc && *ldc >= 0);
-  assert(m && *m >= 0);
-  assert(n && *n >= 0);
-  assert(k && *k >= 0);
-  assert(transa && (*transa == 't' || *transa == 'n'));
-  assert(transb && (*transb == 't' || *transb == 'n'));
-  assert(num_batch && *num_batch > 0);
+  tools::expect(alpha);
+  tools::expect(a);
+  tools::expect(lda && *lda >= 0);
+  tools::expect(b);
+  tools::expect(ldb && *ldb >= 0);
+  tools::expect(beta);
+  tools::expect(c);
+  tools::expect(ldc && *ldc >= 0);
+  tools::expect(m && *m >= 0);
+  tools::expect(n && *n >= 0);
+  tools::expect(k && *k >= 0);
+  tools::expect(transa && (*transa == 't' || *transa == 'n'));
+  tools::expect(transb && (*transb == 't' || *transb == 'n'));
+  tools::expect(num_batch && *num_batch > 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
 
     P const **a_d;
     P const **b_d;
@@ -726,17 +727,17 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     size_t const list_size = *num_batch * sizeof(P *);
 
     auto stat = cudaMalloc((void **)&a_d, list_size);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMalloc((void **)&b_d, list_size);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMalloc((void **)&c_d, list_size);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(b_d, b, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(c_d, c, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
@@ -745,8 +746,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
-      assert(cuda_stat == 0);
-      assert(success == 0);
+      tools::expect(cuda_stat == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
@@ -754,16 +755,16 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
-      assert(cuda_stat == 0);
-      assert(success == 0);
+      tools::expect(cuda_stat == 0);
+      tools::expect(success == 0);
     }
 
     stat = cudaFree(a_d);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaFree(b_d);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaFree(c_d);
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     return;
 #endif
@@ -789,24 +790,24 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
                   P **const &y, int *m, int *n, P *alpha, P *beta,
                   int *num_batch, resource const resrc)
 {
-  assert(alpha);
-  assert(a);
-  assert(lda && *lda >= 0);
-  assert(x);
-  assert(beta);
-  assert(y);
-  assert(m && *m >= 0);
-  assert(n && *n >= 0);
+  tools::expect(alpha);
+  tools::expect(a);
+  tools::expect(lda && *lda >= 0);
+  tools::expect(x);
+  tools::expect(beta);
+  tools::expect(y);
+  tools::expect(m && *m >= 0);
+  tools::expect(n && *n >= 0);
 
-  assert(trans && (*trans == 't' || *trans == 'n'));
-  assert(num_batch && *num_batch > 0);
+  tools::expect(trans && (*trans == 't' || *trans == 'n'));
+  tools::expect(num_batch && *num_batch > 0);
 
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    assert(std::is_floating_point_v<P>);
+    tools::expect(std::is_floating_point_v<P>);
     char const transb = 'n';
 
     int gemm_m = *trans == 't' ? *n : *m;
@@ -822,17 +823,17 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     size_t const list_size = *num_batch * sizeof(P *);
 
     auto stat = cudaMalloc((void **)&a_d, list_size);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMalloc((void **)&x_d, list_size);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMalloc((void **)&y_d, list_size);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(x_d, x, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaMemcpy(y_d, y, list_size, cudaMemcpyHostToDevice);
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
@@ -842,8 +843,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
-      assert(cuda_stat == 0);
-      assert(success == 0);
+      tools::expect(cuda_stat == 0);
+      tools::expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
@@ -852,16 +853,16 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
-      assert(cuda_stat == 0);
-      assert(success == 0);
+      tools::expect(cuda_stat == 0);
+      tools::expect(success == 0);
     }
 
     stat = cudaFree(a_d);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaFree(x_d);
-    assert(stat == 0);
+    tools::expect(stat == 0);
     stat = cudaFree(y_d);
-    assert(stat == 0);
+    tools::expect(stat == 0);
 
     return;
 
@@ -882,17 +883,17 @@ template<typename P>
 void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
           int *info)
 {
-  assert(n);
-  assert(nrhs);
-  assert(A);
-  assert(lda);
-  assert(ipiv);
-  assert(info);
-  assert(b);
-  assert(ldb);
-  assert(*ldb >= 1);
-  assert(*lda >= 1);
-  assert(*n >= 0);
+  tools::expect(n);
+  tools::expect(nrhs);
+  tools::expect(A);
+  tools::expect(lda);
+  tools::expect(ipiv);
+  tools::expect(info);
+  tools::expect(b);
+  tools::expect(ldb);
+  tools::expect(*ldb >= 1);
+  tools::expect(*lda >= 1);
+  tools::expect(*n >= 0);
   if constexpr (std::is_same<P, double>::value)
   {
     dgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
@@ -904,25 +905,25 @@ void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
   else
   { // not instantiated; should never be reached
     std::cerr << "gesv not implemented for non-floating types" << '\n';
-    assert(false);
+    tools::expect(false);
   }
 }
 template<typename P>
 void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
            int *ldb, int *info)
 {
-  assert(trans);
-  assert(n);
-  assert(nrhs);
-  assert(A);
-  assert(lda);
-  assert(ipiv);
-  assert(info);
-  assert(b);
-  assert(ldb);
-  assert(*ldb >= 1);
-  assert(*lda >= 1);
-  assert(*n >= 0);
+  tools::expect(trans);
+  tools::expect(n);
+  tools::expect(nrhs);
+  tools::expect(A);
+  tools::expect(lda);
+  tools::expect(ipiv);
+  tools::expect(info);
+  tools::expect(b);
+  tools::expect(ldb);
+  tools::expect(*ldb >= 1);
+  tools::expect(*lda >= 1);
+  tools::expect(*n >= 0);
   if constexpr (std::is_same<P, double>::value)
   {
     dgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
@@ -934,7 +935,7 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
   else
   { // not instantiated; should never be reached
     std::cerr << "getrs not implemented for non-floating types" << '\n';
-    assert(false);
+    tools::expect(false);
   }
 }
 

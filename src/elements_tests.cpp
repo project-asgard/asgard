@@ -252,7 +252,7 @@ TEST_CASE("element table object", "[element_table]")
 
   SECTION("test table construction/mapping")
   {
-    assert(test_levels.size() == test_pdes.size());
+    REQUIRE(test_levels.size() == test_pdes.size());
 
     for (auto i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
@@ -305,7 +305,7 @@ TEST_CASE("1d mapping functions", "[element_table]")
       "../testing/generated-inputs/element_table/1d_index_";
   for (auto const &pair : pairs)
   {
-    assert(pair.size() == 2);
+    REQUIRE(pair.size() == 2);
     auto const id   = elements::get_1d_index(pair(0), pair(1));
     auto const gold = static_cast<int64_t>(
         read_scalar_from_txt_file(gold_base + std::to_string(pair(0)) + "_" +

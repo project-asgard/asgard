@@ -1,12 +1,9 @@
 #pragma once
 #include "adapt.hpp"
-#include "batch.hpp"
 #include "boundary_conditions.hpp"
 #include "kronmult.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
-#include "timer.hpp"
-#include <mutex>
 
 namespace time_advance
 {

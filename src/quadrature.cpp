@@ -1,10 +1,9 @@
 #include "quadrature.hpp"
-#include <iostream>
-
 #include "matlab_utilities.hpp"
+#include "tools.hpp"
+
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cmath>
 #include <functional>
 // Evaluate Legendre polynomials on an input domain, trimmed to [-1,1]
@@ -19,8 +18,8 @@ std::enable_if_t<std::is_floating_point<P>::value, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const domain, int const degree,
          legendre_normalization const normalization)
 {
-  assert(degree >= 0);
-  assert(domain.size() > 0);
+  tools::expect(degree >= 0);
+  tools::expect(domain.size() > 0);
 
   // allocate and zero the output Legendre polynomials, their derivatives
   fk::matrix<P> legendre(domain.size(), std::max(1, degree));
@@ -102,7 +101,7 @@ legendre(fk::vector<P> const domain, int const degree,
       dscale = static_cast<P>(1.0) / std::sqrt(2.0);
     }
 
-    assert(dscale > 0);
+    tools::expect(dscale > 0);
 
     fk::vector<P> const legendre_sub =
         legendre.extract_submatrix(0, i, domain.size(), 1);
@@ -160,8 +159,8 @@ std::array<fk::vector<P>, 2>
 legendre_weights(int const degree, P const lower_bound, P const upper_bound,
                  bool const use_degree_points)
 {
-  assert(degree > 0);
-  assert(lower_bound < upper_bound);
+  tools::expect(degree > 0);
+  tools::expect(lower_bound < upper_bound);
 
   auto const default_quad_number = [](int const degree) {
     static int constexpr minimum_quadrature = 10;

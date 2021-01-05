@@ -4,6 +4,8 @@
 #include "matlab_utilities.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
+
 #include <cmath>
 #include <functional>
 #include <limits>
@@ -28,8 +30,8 @@ static std::map<int, int> const dim_to_max_level = {
 
 int64_t get_1d_index(int const level, int const cell)
 {
-  assert(level >= 0);
-  assert(cell >= 0);
+  tools::expect(level >= 0);
+  tools::expect(cell >= 0);
 
   if (level == 0)
   {
@@ -40,7 +42,7 @@ int64_t get_1d_index(int const level, int const cell)
 
 std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
 {
-  assert(single_dim_id >= 0);
+  tools::expect(single_dim_id >= 0);
   if (single_dim_id == 0)
   {
     return {0, 0};
@@ -55,36 +57,37 @@ std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
 int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
                   int const num_dims)
 {
-  assert(max_level > 0);
-  assert(num_dims > 0);
-  assert(coords.size() == num_dims * 2);
-  assert(max_level <= dim_to_max_level.at(num_dims));
+  tools::expect(max_level > 0);
+  tools::expect(num_dims > 0);
+  tools::expect(coords.size() == num_dims * 2);
+  tools::expect(max_level <= dim_to_max_level.at(num_dims));
 
   int64_t id     = 0;
   int64_t stride = 1;
 
   for (auto i = 0; i < num_dims; ++i)
   {
-    assert(coords(i) >= 0);
-    assert(coords(i) <= max_level);
-    assert(coords(i + num_dims) >= 0);
+    tools::expect(coords(i) >= 0);
+    tools::expect(coords(i) <= max_level);
+    tools::expect(coords(i + num_dims) >= 0);
 
     id += get_1d_index(coords(i), coords(i + num_dims)) * stride;
     stride *= static_cast<int64_t>(std::pow(2, max_level));
   }
 
-  assert(id >= 0);
-  assert(id <= static_cast<int64_t>(std::pow(2, max_level * num_dims)));
+  tools::expect(id >= 0);
+  tools::expect(id <= static_cast<int64_t>(std::pow(2, max_level * num_dims)));
+
   return id;
 }
 
 fk::vector<int>
 map_to_coords(int64_t const id, int const max_level, int const num_dims)
 {
-  assert(id >= 0);
-  assert(max_level > 0);
-  assert(num_dims > 0);
-  assert(max_level <= dim_to_max_level.at(num_dims));
+  tools::expect(id >= 0);
+  tools::expect(max_level > 0);
+  tools::expect(num_dims > 0);
+  tools::expect(max_level <= dim_to_max_level.at(num_dims));
 
   auto const stride = static_cast<int64_t>(std::pow(2, max_level));
 
@@ -112,11 +115,11 @@ void table::remove_elements(std::vector<int64_t> const &indices)
   auto const new_active_ids = [&to_delete,
                                &active_element_ids_ = active_element_ids_]() {
     // don't delete all the elements
-    assert(active_element_ids_.size() > to_delete.size());
+    tools::expect(active_element_ids_.size() > to_delete.size());
     std::vector<int64_t> new_active_ids(active_element_ids_.size() -
                                         to_delete.size());
     auto count = 0;
-    assert(active_element_ids_.size() < INT_MAX);
+    tools::expect(active_element_ids_.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(active_element_ids_.size()); ++i)
     {
       if (to_delete.count(i) == 1)
@@ -125,7 +128,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
       }
       new_active_ids[count++] = active_element_ids_[i];
     }
-    assert(count == static_cast<int>(new_active_ids.size()));
+    tools::expect(count == static_cast<int>(new_active_ids.size()));
     return new_active_ids;
   }();
 
@@ -134,11 +137,11 @@ void table::remove_elements(std::vector<int64_t> const &indices)
   auto const coord_size     = static_cast<int64_t>(get_coords(0).size());
   auto const new_table_size =
       active_table_h.size() - coord_size * to_delete.size();
-  assert(new_table_size > 0);
+  tools::expect(new_table_size > 0);
   auto new_active_table = fk::vector<int>(new_table_size);
 
   int64_t dest_start = 0;
-  assert(size() < INT_MAX);
+  tools::expect(size() < INT_MAX);
   for (int64_t i = 0; i < size(); ++i)
   {
     if (to_delete.count(i) == 1)
@@ -165,27 +168,27 @@ void table::remove_elements(std::vector<int64_t> const &indices)
 
   active_element_ids_ = new_active_ids;
 
-  assert(active_element_ids_.size() == id_to_coords_.size());
-  assert(size() > 0);
+  tools::expect(active_element_ids_.size() == id_to_coords_.size());
+  tools::expect(size() > 0);
 }
 
 int64_t
 table::add_elements(std::vector<int64_t> const &ids, int const max_level)
 {
-  assert(max_level > 0);
+  tools::expect(max_level > 0);
   std::unordered_set<int64_t> const child_ids(ids.begin(), ids.end());
 
   auto active_table_h = active_table_d_.clone_onto_host();
 
-  assert(size() > 0);
+  tools::expect(size() > 0);
   auto const coord_size = get_coords(0).size();
-  assert(coord_size % 2 == 0);
+  tools::expect(coord_size % 2 == 0);
   auto const num_dims = coord_size / 2;
 
   int64_t added = 0;
   for (auto const id : ids)
   {
-    assert(id >= 0);
+    tools::expect(id >= 0);
 
     // already present in grid
     if (id_to_coords_.count(id) == 1)
@@ -202,7 +205,7 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
     active_table_h.concat(coords);
     added++;
   }
-  assert(active_element_ids_.size() == id_to_coords_.size());
+  tools::expect(active_element_ids_.size() == id_to_coords_.size());
   active_table_d_.resize(active_table_h.size()) =
       active_table_h.clone_onto_device();
   return added;
@@ -212,8 +215,8 @@ std::list<int64_t>
 table::get_child_elements(int64_t const index, options const &opts) const
 {
   // make sure we're dealing with an active element
-  assert(index >= 0);
-  assert(index < size());
+  tools::expect(index >= 0);
+  tools::expect(index < size());
 
   auto const coords = get_coords(index);
   // all coordinates have 2 entries (lev, cell) per dimension
@@ -248,7 +251,7 @@ template<typename P>
 table::table(options const &opts, PDE<P> const &pde)
 {
   // key type is 64 bits; this limits number of unique element ids
-  assert(opts.max_level <= dim_to_max_level.at(pde.num_dims));
+  tools::expect(opts.max_level <= dim_to_max_level.at(pde.num_dims));
 
   auto const perm_table = [&pde, &opts]() {
     auto const dims = pde.get_dimensions();
@@ -291,7 +294,7 @@ table::table(options const &opts, PDE<P> const &pde)
     }
   }
 
-  assert(active_element_ids_.size() == id_to_coords_.size());
+  tools::expect(active_element_ids_.size() == id_to_coords_.size());
   active_table_d_.resize(dev_table_builder.size())
       .transfer_from(dev_table_builder);
 }
@@ -302,10 +305,11 @@ table::table(options const &opts, PDE<P> const &pde)
 // coordinate
 fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
 {
-  assert(level_tuple.size() > 0);
+  tools::expect(level_tuple.size() > 0);
   for (auto const level : level_tuple)
   {
-    assert(level >= 0);
+    ignore(level);
+    tools::expect(level >= 0);
   }
   int const num_dims = level_tuple.size();
 

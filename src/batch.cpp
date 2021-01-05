@@ -1,11 +1,13 @@
 #include "batch.hpp"
 #include "build_info.hpp"
-#ifdef ASGARD_USE_OPENMP
-#include <omp.h>
-#endif
 #include "elements.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
+
+#ifdef ASGARD_USE_OPENMP
+#include <omp.h>
+#endif
 #include <limits.h>
 
 // utilized as the primary data structure for other functions
@@ -16,10 +18,10 @@ batch<P, resrc>::batch(int const num_entries, int const nrows, int const ncols,
     : num_entries_(num_entries), nrows_(nrows), ncols_(ncols), stride_(stride),
       do_trans_(do_trans), batch_{new P *[num_entries]()}
 {
-  assert(num_entries > 0);
-  assert(nrows > 0);
-  assert(ncols > 0);
-  assert(stride > 0);
+  tools::expect(num_entries > 0);
+  tools::expect(nrows > 0);
+  tools::expect(ncols > 0);
+  tools::expect(stride > 0);
 }
 
 template<typename P, resource resrc>
@@ -38,11 +40,11 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> const &other)
   {
     return *this;
   }
-  assert(num_entries() == other.num_entries());
-  assert(nrows() == other.nrows());
-  assert(ncols() == other.ncols());
-  assert(get_stride() == other.get_stride());
-  assert(get_trans() == other.get_trans());
+  tools::expect(num_entries() == other.num_entries());
+  tools::expect(nrows() == other.nrows());
+  tools::expect(ncols() == other.ncols());
+  tools::expect(get_stride() == other.get_stride());
+  tools::expect(get_trans() == other.get_trans());
   std::memcpy(batch_, other.batch_, other.num_entries() * sizeof(P *));
   return *this;
 }
@@ -64,12 +66,12 @@ batch<P, resrc> &batch<P, resrc>::operator=(batch<P, resrc> &&other)
     return *this;
   }
 
-  assert(num_entries() == other.num_entries());
-  assert(nrows() == other.nrows());
-  assert(ncols() == other.ncols());
-  assert(get_stride() == other.get_stride());
+  tools::expect(num_entries() == other.num_entries());
+  tools::expect(nrows() == other.nrows());
+  tools::expect(ncols() == other.ncols());
+  tools::expect(get_stride() == other.get_stride());
 
-  assert(get_trans() == other.get_trans());
+  tools::expect(get_trans() == other.get_trans());
   batch_       = other.batch_;
   other.batch_ = nullptr;
   return *this;
@@ -119,8 +121,8 @@ bool batch<P, resrc>::operator==(batch<P, resrc> const &other) const
 template<typename P, resource resrc>
 P *batch<P, resrc>::operator()(int const position) const
 {
-  assert(position >= 0);
-  assert(position < num_entries());
+  tools::expect(position >= 0);
+  tools::expect(position < num_entries());
   return batch_[position];
 }
 
@@ -134,20 +136,20 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
 {
   // make sure this matrix is the
   // same dimensions as others in batch
-  assert(a.nrows() == nrows());
-  assert(a.ncols() == ncols());
+  tools::expect(a.nrows() == nrows());
+  tools::expect(a.ncols() == ncols());
 
   // if this is a batch of vectors,
   // we won't check the single column
   // matrix view a's stride
   if (get_stride() != 1)
   {
-    assert(a.stride() == get_stride());
+    tools::expect(a.stride() == get_stride());
   }
 
   // ensure position is valid
-  assert(position >= 0);
-  assert(position < num_entries());
+  tools::expect(position >= 0);
+  tools::expect(position < num_entries());
 
   batch_[position] = a.data();
 }
@@ -155,8 +157,8 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
 template<typename P, resource resrc>
 void batch<P, resrc>::assign_raw(P *const a, int const position)
 {
-  assert(position >= 0);
-  assert(position < num_entries());
+  tools::expect(position >= 0);
+  tools::expect(position < num_entries());
   batch_[position] = a;
 }
 
@@ -218,14 +220,14 @@ void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
                   batch<P, resrc> const &c, P const alpha, P const beta)
 {
   // check cardinality of sets
-  assert(a.num_entries() == b.num_entries());
-  assert(b.num_entries() == c.num_entries());
+  tools::expect(a.num_entries() == b.num_entries());
+  tools::expect(b.num_entries() == c.num_entries());
 
   // not allowed by blas interface
   // can be removed if we decide
   // we need to consider the transpose
   // of C later
-  assert(!c.get_trans());
+  tools::expect(!c.get_trans());
 
   // check dimensions for gemm
   //
@@ -237,9 +239,9 @@ void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
   int const rows_b = b.get_trans() ? b.ncols() : b.nrows();
   int const cols_b = b.get_trans() ? b.nrows() : b.ncols();
 
-  assert(cols_a == rows_b);
-  assert(c.nrows() == rows_a);
-  assert(c.ncols() == cols_b);
+  tools::expect(cols_a == rows_b);
+  tools::expect(c.nrows() == rows_a);
+  tools::expect(c.ncols() == cols_b);
 
   // setup blas args
   int m = rows_a;
@@ -269,8 +271,8 @@ void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
                   batch<P, resrc> const &c, P const alpha, P const beta)
 {
   // check cardinality of sets
-  assert(a.num_entries() == b.num_entries());
-  assert(b.num_entries() == c.num_entries());
+  tools::expect(a.num_entries() == b.num_entries());
+  tools::expect(b.num_entries() == c.num_entries());
   int const num_entries = a.num_entries();
 
   // our gemv will be set up for a column vector,
@@ -278,12 +280,12 @@ void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
   //
   // we can remove either or both of these if
   // we want to support more flexible operations
-  assert(!b.get_trans() && !c.get_trans());
+  tools::expect(!b.get_trans() && !c.get_trans());
 
   // check dimensions for gemv
-  assert((a.get_trans() ? a.nrows() : a.ncols()) == b.nrows());
-  assert(b.ncols() == 1);
-  assert(c.ncols() == 1);
+  tools::expect((a.get_trans() ? a.nrows() : a.ncols()) == b.nrows());
+  tools::expect(b.ncols() == 1);
+  tools::expect(c.ncols() == 1);
 
   // setup blas args
   int m   = a.nrows();
@@ -339,15 +341,15 @@ batch_chain<P, resrc, method>::batch_chain(
     fk::vector<P, mem_type::view, resrc> &final_output)
 {
   /* validation */
-  assert(matrices.size() > 0);
-  assert(workspace.size() == 2);
+  tools::expect(matrices.size() > 0);
+  tools::expect(workspace.size() == 2);
 
   /* ensure "x" is correct size - should be the product of all the matrices
      respective number of columns */
-  assert(x.size() == std::accumulate(matrices.begin(), matrices.end(), 1,
-                                     [](int const i, auto const &m) {
-                                       return i * m.ncols();
-                                     }));
+  tools::expect(x.size() == std::accumulate(matrices.begin(), matrices.end(), 1,
+                                            [](int const i, auto const &m) {
+                                              return i * m.ncols();
+                                            }));
 
   /* these are used to index "workspace" - the input/output role alternates
      between workspace[ 0 ] and workspace[ 1 ] in this algorithm */
@@ -356,8 +358,8 @@ batch_chain<P, resrc, method>::batch_chain(
 
   /* ensure the workspaces are big enough for the problem */
   int const workspace_len = calculate_workspace_length(matrices, x.size());
-  assert(workspace[0].size() >= workspace_len);
-  assert(workspace[1].size() >= workspace_len);
+  tools::expect(workspace[0].size() >= workspace_len);
+  tools::expect(workspace[1].size() >= workspace_len);
 
   /*
     The algorithm iterates over each matrix in "matrix" in reverse order,
@@ -486,8 +488,8 @@ batch_chain<P, resrc, method>::batch_chain(
 template<typename P, resource resrc, chain_method method>
 void batch_chain<P, resrc, method>::execute() const
 {
-  assert(left_.size() == right_.size());
-  assert(right_.size() == product_.size());
+  tools::expect(left_.size() == right_.size());
+  tools::expect(right_.size() == product_.size());
 
   for (int i = 0; i < static_cast<int>(left_.size()); ++i)
   {
@@ -533,13 +535,13 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_size    = elem_size * elem_table.size();
 
-  assert(A.ncols() == A_size && A.nrows() == A_size);
+  tools::expect(A.ncols() == A_size && A.nrows() == A_size);
 
   using key_type = std::pair<int, int>;
   using val_type = fk::matrix<P, mem_type::owner, resource::host>;
   std::map<key_type, val_type> coef_cache;
 
-  assert(A.ncols() == A_size && A.nrows() == A_size);
+  tools::expect(A.ncols() == A_size && A.nrows() == A_size);
 
   // copy coefficients to host for subsequent use
   for (int k = 0; k < pde.num_terms; ++k)
@@ -559,7 +561,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
     // calculate from the level/cell indices for each
     // dimension
     fk::vector<int> const coords = elem_table.get_coords(i);
-    assert(coords.size() == pde.num_dims * 2);
+    tools::expect(coords.size() == pde.num_dims * 2);
     fk::vector<int> const elem_indices = linearize(coords);
 
     int const global_row = i * elem_size;
@@ -576,7 +578,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
     {
       // get linearized indices for this connected element
       fk::vector<int> const coords_nD = elem_table.get_coords(j);
-      assert(coords_nD.size() == pde.num_dims * 2);
+      tools::expect(coords_nD.size() == pde.num_dims * 2);
       fk::vector<int> const connected_indices = linearize(coords_nD);
 
       // calculate the col portion of the

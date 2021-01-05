@@ -2,6 +2,8 @@
 #include "build_info.hpp"
 #include "clara.hpp"
 #include "distribution.hpp"
+#include "tools.hpp"
+
 #include <iostream>
 
 parser::parser(int argc, char **argv)
@@ -265,8 +267,8 @@ bool options::should_output_realspace(int const i) const
 
 bool options::write_at_step(int const i, int const freq) const
 {
-  assert(i >= 0);
-  assert(freq >= 0);
+  tools::expect(i >= 0);
+  tools::expect(freq >= 0);
 
   if (freq == 0)
   {

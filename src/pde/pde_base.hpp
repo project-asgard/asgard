@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -16,6 +15,7 @@
 #include "../matlab_utilities.hpp"
 #include "../program_options.hpp"
 #include "../tensors.hpp"
+#include "../tools.hpp"
 
 //
 // This file contains all of the interface and object definitions for our
@@ -94,13 +94,13 @@ public:
 private:
   void set_level(int const level)
   {
-    assert(level >= 0);
+    tools::expect(level >= 0);
     level_ = level;
   }
 
   void set_degree(int const degree)
   {
-    assert(degree > 0);
+    tools::expect(degree > 0);
     degree_ = degree;
   }
 
@@ -238,8 +238,8 @@ public:
 
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
   {
-    assert(pterm >= 0);
-    assert(pterm < static_cast<int>(partial_terms_.size()));
+    tools::expect(pterm >= 0);
+    tools::expect(pterm < static_cast<int>(partial_terms_.size()));
     partial_terms_[pterm].set_coefficients(coeffs);
   }
 
@@ -260,15 +260,15 @@ public:
   {
     auto const new_dof =
         adapted_dim.get_degree() * fm::two_raised_to(adapted_dim.get_level());
-    assert(coefficients_.nrows() == coefficients_.ncols());
+    tools::expect(coefficients_.nrows() == coefficients_.ncols());
     auto new_coeffs = eye<P>(new_dof);
 
     for (auto const &pterm : partial_terms_)
     {
       auto const &partial_coeff = pterm.get_coefficients();
-      assert(partial_coeff.size() >=
-             new_dof); // make sure we built the partial terms to support new
-                       // level/degree
+      tools::expect(partial_coeff.size() >=
+                    new_dof); // make sure we built the partial terms to support
+                              // new level/degree
       new_coeffs = new_coeffs *
                    fk::matrix<P, mem_type::const_view>(
                        partial_coeff, 0, new_dof - 1, 0,
@@ -346,18 +346,19 @@ public:
         has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
         terms_(terms)
   {
-    assert(num_dims > 0);
-    assert(num_sources >= 0);
-    assert(num_terms > 0);
+    tools::expect(num_dims > 0);
+    tools::expect(num_sources >= 0);
+    tools::expect(num_terms > 0);
 
-    assert(dimensions.size() == static_cast<unsigned>(num_dims));
-    assert(terms.size() == static_cast<unsigned>(num_terms));
-    assert(sources.size() == static_cast<unsigned>(num_sources));
+    tools::expect(dimensions.size() == static_cast<unsigned>(num_dims));
+    tools::expect(terms.size() == static_cast<unsigned>(num_terms));
+    tools::expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln)
     {
-      assert(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
+      tools::expect(exact_vector_funcs.size() ==
+                    static_cast<unsigned>(num_dims));
     }
 
     // modify for appropriate level/degree
@@ -375,7 +376,7 @@ public:
       for (dimension<P> &d : dimensions_)
       {
         auto const num_levels = cli_input.get_starting_levels()(counter++);
-        assert(num_levels > 1);
+        tools::expect(num_levels > 1);
         d.set_level(num_levels);
       }
     }
@@ -383,7 +384,7 @@ public:
     auto const cli_degree = cli_input.get_degree();
     if (cli_degree != parser::NO_USER_VALUE)
     {
-      assert(cli_degree > 0);
+      tools::expect(cli_degree > 0);
       for (dimension<P> &d : dimensions_)
       {
         d.set_degree(cli_degree);
@@ -395,15 +396,15 @@ public:
     // check all terms
     for (auto &term_list : terms_)
     {
-      assert(term_list.size() == static_cast<unsigned>(num_dims));
+      tools::expect(term_list.size() == static_cast<unsigned>(num_dims));
       for (auto &term_1D : term_list)
       {
-        assert(term_1D.get_partial_terms().size() > 0);
+        tools::expect(term_1D.get_partial_terms().size() > 0);
 
         auto const max_dof =
             fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
             degree;
-        assert(max_dof < INT_MAX);
+        tools::expect(max_dof < INT_MAX);
 
         term_1D.set_data(fk::vector<P>(std::vector<P>(max_dof, 1.0)));
         term_1D.set_coefficients(eye<P>(max_dof));
@@ -411,14 +412,15 @@ public:
         for (auto &p : term_1D.get_partial_terms())
         {
           if (p.left_homo == homogeneity::homogeneous)
-            assert(static_cast<int>(p.left_bc_funcs.size()) == 0);
+            tools::expect(static_cast<int>(p.left_bc_funcs.size()) == 0);
           else if (p.left_homo == homogeneity::inhomogeneous)
-            assert(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
+            tools::expect(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
 
           if (p.right_homo == homogeneity::homogeneous)
-            assert(static_cast<int>(p.right_bc_funcs.size()) == 0);
+            tools::expect(static_cast<int>(p.right_bc_funcs.size()) == 0);
           else if (p.right_homo == homogeneity::inhomogeneous)
-            assert(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
+            tools::expect(static_cast<int>(p.right_bc_funcs.size()) ==
+                          num_dims);
         }
       }
     }
@@ -426,15 +428,15 @@ public:
     // check all dimensions
     for (auto const &d : dimensions_)
     {
-      assert(d.get_degree() > 0);
-      assert(d.get_level() > 1);
-      assert(d.domain_max > d.domain_min);
+      tools::expect(d.get_degree() > 0);
+      tools::expect(d.get_level() > 1);
+      tools::expect(d.domain_max > d.domain_min);
     }
 
     // check all sources
     for (auto const &s : sources)
     {
-      assert(s.source_funcs.size() == static_cast<unsigned>(num_dims));
+      tools::expect(s.source_funcs.size() == static_cast<unsigned>(num_dims));
     }
 
     // set the dt
@@ -471,10 +473,10 @@ public:
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const
   {
-    assert(term >= 0);
-    assert(term < num_terms);
-    assert(dim >= 0);
-    assert(dim < num_dims);
+    tools::expect(term >= 0);
+    tools::expect(term < num_terms);
+    tools::expect(dim >= 0);
+    tools::expect(dim < num_dims);
     return terms_[term][dim].get_coefficients();
   }
 
@@ -483,20 +485,20 @@ public:
   void
   set_coefficients(fk::matrix<P> const &coeffs, int const term, int const dim)
   {
-    assert(term >= 0);
-    assert(term < num_terms);
-    assert(dim >= 0);
-    assert(dim < num_dims);
+    tools::expect(term >= 0);
+    tools::expect(term < num_terms);
+    tools::expect(dim >= 0);
+    tools::expect(dim < num_dims);
     terms_[term][dim].set_coefficients(coeffs);
   }
 
   void set_partial_coefficients(int const term, int const dim, int const pterm,
                                 fk::matrix<P> const &coeffs)
   {
-    assert(term >= 0);
-    assert(term < num_terms);
-    assert(dim >= 0);
-    assert(dim < num_dims);
+    tools::expect(term >= 0);
+    tools::expect(term < num_terms);
+    tools::expect(dim >= 0);
+    tools::expect(dim < num_dims);
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
@@ -511,8 +513,8 @@ public:
 
   void rechain_dimension(int const dim_index)
   {
-    assert(dim_index >= 0);
-    assert(dim_index < num_dims);
+    tools::expect(dim_index >= 0);
+    tools::expect(dim_index < num_dims);
     for (auto i = 0; i < num_terms; ++i)
     {
       terms_[i][dim_index].rechain_coefficients(dimensions_[dim_index]);
@@ -523,7 +525,7 @@ public:
 
   void set_dt(P const dt)
   {
-    assert(dt > 0.0);
+    tools::expect(dt > 0.0);
     dt_ = dt;
   }
 

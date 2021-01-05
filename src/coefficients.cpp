@@ -6,6 +6,7 @@
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 #include "transformations.hpp"
 #include <numeric>
 
@@ -16,7 +17,7 @@ void generate_all_coefficients(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
     P const time, bool const rotate)
 {
-  assert(time >= 0.0);
+  tools::expect(time >= 0.0);
 
   for (auto i = 0; i < pde.num_dims; ++i)
   {
@@ -49,9 +50,9 @@ fk::matrix<P> generate_coefficients(
     basis::wavelet_transform<P, resource::host> const &transformer,
     P const time, bool const rotate)
 {
-  assert(time >= 0.0);
-  assert(transformer.degree == dim.get_degree());
-  assert(transformer.max_level >= dim.get_level());
+  tools::expect(time >= 0.0);
+  tools::expect(transformer.degree == dim.get_degree());
+  tools::expect(transformer.max_level >= dim.get_level());
 
   // setup jacobi of variable x and define coeff_mat
   auto const num_points = fm::two_raised_to(transformer.max_level);
