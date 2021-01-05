@@ -189,7 +189,7 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
 //                    float* b, int* ldb, int* info );
 template<typename P, mem_type amem, mem_type bmem>
 void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
-          std::vector<int> &ipiv)
+          std::vector<int> &ipiv, solve_opts opt = solve_opts::direct)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -205,8 +205,18 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int ldb = B.size();
 
   int info;
-  lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
-                     &ldb, &info);
+  if (opt == solve_opts::direct) {
+    lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
+                       &ldb, &info);
+#ifdef ASGARD_USE_SLATE
+  } else if (opt == solve_opts::slate) {
+    lib_dispatch::slate_gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(),
+                               B.data(), &ldb, &info);
+#endif
+  } else {
+    printf("Invalid gesv solver library specified\n");
+    exit(1);
+  }
   if (info > 0)
   {
     std::cout << "The diagonal element of the triangular factor of A,\n";
@@ -244,17 +254,17 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int ldb    = B.size();
 
   int info;
-  if(opt == solve_opts::direct) {
-      lib_dispatch::getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
-                          B.data(), &ldb, &info);
+  if (opt == solve_opts::direct) {
+    lib_dispatch::getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
+                        B.data(), &ldb, &info);
 #ifdef ASGARD_USE_SLATE
   } else if (opt == solve_opts::slate) {
-      lib_dispatch::slate_getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
-                                B.data(), &ldb, &info);
+    lib_dispatch::slate_getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
+                              B.data(), &ldb, &info);
 #endif
   } else {
-      printf("Invalid getrs solver library specified\n");
-      exit(1);
+    printf("Invalid getrs solver library specified\n");
+    exit(1);
   }
   if (info < 0)
   {
