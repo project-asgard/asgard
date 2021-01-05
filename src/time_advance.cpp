@@ -319,13 +319,13 @@ implicit_advance(PDE<P> const &pde,
     case solve_opts::direct:
       if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
         ipiv.resize(A.nrows());
-      fm::gesv(A, x, ipiv);
+      fm::gesv(A, x, ipiv, solver);
       return x;
       break;
     case solve_opts::slate:
       if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
         ipiv.resize(A.nrows());
-      fm::gesv(A, x, ipiv);
+      fm::gesv(A, x, ipiv, solver);
       return x;
       break;
     case solve_opts::gmres:
