@@ -62,6 +62,8 @@ ctest
 ./asgard
 ```
 
+For best performance (especially on accelerators) please pass `-DCMAKE_BUILD_TYPE=Release` to disable asserts when building the code.
+
 To see a list of available PDEs, run `./asgard --available_pdes`. The listed PDEs can be selected using the `-p` argument to asgard.
 
 To see the list of all runtime options, run `./asgard --help`.
