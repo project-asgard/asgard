@@ -795,6 +795,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
     rmse_comparison(x, X1_gold, tol_factor);
   }
 
+#ifdef ASGARD_USE_SLATE
   SECTION("slate_gesv and slate_getrs")
   {
     fk::matrix<TestType> const A_copy = A_gold;
@@ -812,4 +813,5 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
     fm::getrs(A_copy, x, ipiv, solve_opts::slate);
     rmse_comparison(x, X1_gold, tol_factor);
   }
+#endif
 }
