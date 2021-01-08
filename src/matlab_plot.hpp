@@ -201,7 +201,7 @@ public:
     auto lgwt  = legendre_weights(degree, -1.0, 1.0, true);
     auto roots = lgwt[0];
 
-    uint dof = roots.size();
+    unsigned int dof = roots.size();
 
     // Using the same variable names as in matrix_plot_D.m for easier comparing
     // TODO: make these names better..
@@ -234,7 +234,7 @@ public:
 
       Meval.set_submatrix(Iu[0] - 1, Iv[0] - 1, p_val[0]);
 
-      for (uint j = 0; j < xi.size(); j++)
+      for (unsigned int j = 0; j < xi.size(); j++)
       {
         nodes(Iu[j] - 1) = xi[j];
       }
