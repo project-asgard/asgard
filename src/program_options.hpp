@@ -197,6 +197,10 @@ public:
   PDE_opts get_selected_pde() const;
   solve_opts get_selected_solver() const;
 
+#ifdef ASGARD_USE_MATLAB
+  std::string get_ml_session_string() const;
+#endif
+
   bool is_valid() const;
 
 private:
@@ -272,6 +276,10 @@ private:
   std::string solver_str = NO_USER_VALUE_STR;
   // solver to use for implicit timestepping
   solve_opts solver = DEFAULT_SOLVER;
+
+#ifdef ASGARD_USE_MATLAB
+  std::string matlab_name = NO_USER_VALUE_STR;
+#endif
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;

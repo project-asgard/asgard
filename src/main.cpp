@@ -14,6 +14,11 @@
 #include <mpi.h>
 #endif
 
+#ifdef ASGARD_USE_MATLAB
+#include "matlab_plot.hpp"
+#endif
+
+#include "boundary_conditions.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -131,6 +136,54 @@ int main(int argc, char **argv)
   /* RAM on fusiont5 */
   static auto const default_workspace_cpu_MB = 187000;
 
+#ifdef ASGARD_USE_MATLAB
+  node_out() << "  creating MATLAB session" << '\n';
+  matlab_plot ml_plot;
+  if (cli_input.get_ml_session_string().compare("none") != 0)
+  {
+    ml_plot.connect(cli_input.get_ml_session_string());
+    node_out() << "  connected to MATLAB" << '\n';
+  }
+  else
+  {
+    ml_plot.start();
+  }
+
+  // realspace solution vector - WARNING this is
+  // currently infeasible to form for large problems
+  int const real_size = real_solution_size(*pde);
+  fk::vector<prec> real(real_size);
+
+  // temporary workspaces for the transform
+  fk::vector<prec, mem_type::owner, resource::host> transform_wksp(real_size *
+                                                                   2);
+  std::array<fk::vector<prec, mem_type::view, resource::host>, 2> tmp_wksp = {
+      fk::vector<prec, mem_type::view, resource::host>(transform_wksp, 0,
+                                                       real_size),
+      fk::vector<prec, mem_type::view, resource::host>(
+          transform_wksp, real_size, real_size * 2 - 1)};
+
+  // transform initial condition to realspace
+  wavelet_to_realspace<prec>(*pde, initial_condition, table, transformer,
+                             default_workspace_cpu_MB, tmp_wksp, real);
+
+  fk::vector<prec> analytic_solution_realspace(real_size);
+
+  // transform initial condition to realspace
+  wavelet_to_realspace<prec>(*pde, analytic_solution, table, transformer,
+                             default_workspace_cpu_MB, tmp_wksp,
+                             analytic_solution_realspace);
+
+  // TODO: this is the path to the Matlab version of Asgard, or relevent
+  // matlab code used by C++ Asgard
+  std::string asgard_matlab("../src/");
+  ml_plot.add_param(asgard_matlab);
+  ml_plot.call("addpath");
+
+  ml_plot.init_plotting(*pde, table);
+  ml_plot.plot_fval_ml(*pde, real, analytic_solution_realspace);
+#endif
+
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
 
@@ -214,6 +267,12 @@ int main(int argc, char **argv)
         node_out() << "Relative difference (numeric-analytic) [wavelet]: "
                    << relative_errors(i) << " %" << '\n';
       }
+
+#ifdef ASGARD_USE_MATLAB
+      wavelet_to_realspace<prec>(*pde, analytic_solution_t, table, transformer,
+                                 default_workspace_cpu_MB, tmp_wksp,
+                                 analytic_solution_realspace);
+#endif
     }
     else
     {
@@ -241,6 +300,15 @@ int main(int argc, char **argv)
     ignore(default_workspace_cpu_MB);
 #endif
 
+#ifdef ASGARD_USE_MATLAB
+    wavelet_to_realspace<prec>(*pde, f_val, table, transformer,
+                               default_workspace_cpu_MB, tmp_wksp, real);
+
+    auto const plottimer = timer::record.start("matlab plot");
+    ml_plot.plot_fval_ml(*pde, real, analytic_solution_realspace);
+    timer::record.stop(plottimer);
+#endif
+
     node_out() << "timestep: " << i << " complete" << '\n';
   }
 
@@ -256,6 +324,10 @@ int main(int argc, char **argv)
   node_out() << tools::timer.report() << '\n';
 
   finalize_distribution();
+
+#ifdef ASGARD_USE_MATLAB
+  ml_plot.close();
+#endif
 
   return 0;
 }

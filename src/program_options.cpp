@@ -51,6 +51,11 @@ parser::parser(int argc, char **argv)
       clara::detail::Opt(adapt_threshold, " 0>threshold<1 ")["--thresh"](
           "Relative threshold for adaptivity");
 
+#ifdef ASGARD_USE_MATLAB
+  cli |= clara::detail::Opt(matlab_name, "session name")["--matlab_name"](
+      "Name of a shared MATLAB session to connect to");
+#endif
+
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
   {
@@ -260,6 +265,10 @@ std::string parser::get_solver_string() const { return solver_str; }
 
 PDE_opts parser::get_selected_pde() const { return pde_choice; }
 solve_opts parser::get_selected_solver() const { return solver; }
+
+#ifdef ASGARD_USE_MATLAB
+std::string parser::get_ml_session_string() const { return matlab_name; }
+#endif
 
 bool parser::is_valid() const { return valid; }
 
