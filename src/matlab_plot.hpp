@@ -192,7 +192,7 @@ public:
   fk::vector<T> generate_nodes(int degree, int level, T min, T max)
   {
     // Trimmed version of matrix_plot_D.m to get only the nodes
-    int n        = pow(level, 2);
+    int n        = pow(2, level);
     int mat_dims = degree * n;
     T h          = (max - min) / n;
 
