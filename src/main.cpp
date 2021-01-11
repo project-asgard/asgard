@@ -215,6 +215,10 @@ int main(int argc, char **argv)
                    << relative_errors(i) << " %" << '\n';
       }
     }
+    else
+    {
+      node_out() << "No analytic solution found." << '\n';
+    }
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE

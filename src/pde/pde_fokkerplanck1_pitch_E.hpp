@@ -32,10 +32,10 @@
 //
 // ---------------------------------------------------------------------------
 template<typename P>
-class PDE_fokkerplanck_1d_4p1a : public PDE<P>
+class PDE_fokkerplanck_1d_pitch_E : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_1d_4p1a(parser const &cli_input)
+  PDE_fokkerplanck_1d_pitch_E(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
@@ -68,7 +68,7 @@ private:
   // analytic solution
 
   static P phi(P const z, P const t) { return std::tanh(std::atanh(z) - t); }
-  static P f0(P const z) { return z * 0 + 1; }
+  static P f0(P const z) { return z * 0. + 1; }
 
   static fk::vector<P>
   analytic_solution_dim0(fk::vector<P> const z, P const t = 0)

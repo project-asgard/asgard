@@ -19,11 +19,11 @@
 #include "pde/pde_continuity6.hpp"
 #include "pde/pde_diffusion1.hpp"
 #include "pde/pde_diffusion2.hpp"
-#include "pde/pde_fokkerplanck1_4p1a.hpp"
-#include "pde/pde_fokkerplanck1_4p2.hpp"
 #include "pde/pde_fokkerplanck1_4p3.hpp"
 #include "pde/pde_fokkerplanck1_4p4.hpp"
 #include "pde/pde_fokkerplanck1_4p5.hpp"
+#include "pde/pde_fokkerplanck1_pitch_C.hpp"
+#include "pde/pde_fokkerplanck1_pitch_E.hpp"
 #include "pde/pde_fokkerplanck2_complete.hpp"
 #include "tensors.hpp"
 
@@ -53,10 +53,10 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_continuity_3d<P>>(cli_input);
   case PDE_opts::continuity_6:
     return std::make_unique<PDE_continuity_6d<P>>(cli_input);
-  case PDE_opts::fokkerplanck_1d_4p1a:
-    return std::make_unique<PDE_fokkerplanck_1d_4p1a<P>>(cli_input);
-  case PDE_opts::fokkerplanck_1d_4p2:
-    return std::make_unique<PDE_fokkerplanck_1d_4p2<P>>(cli_input);
+  case PDE_opts::fokkerplanck_1d_pitch_E:
+    return std::make_unique<PDE_fokkerplanck_1d_pitch_E<P>>(cli_input);
+  case PDE_opts::fokkerplanck_1d_pitch_C:
+    return std::make_unique<PDE_fokkerplanck_1d_pitch_C<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p3:
     return std::make_unique<PDE_fokkerplanck_1d_4p3<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p4:
@@ -114,10 +114,10 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
     case PDE_opts::continuity_6:
       return fk::vector<int>(std::vector<int>(6, level));
 
-    case PDE_opts::fokkerplanck_1d_4p1a:
+    case PDE_opts::fokkerplanck_1d_pitch_E:
       return fk::vector<int>(std::vector<int>(1, level));
 
-    case PDE_opts::fokkerplanck_1d_4p2:
+    case PDE_opts::fokkerplanck_1d_pitch_C:
       return fk::vector<int>(std::vector<int>(1, level));
 
     case PDE_opts::fokkerplanck_1d_4p3:

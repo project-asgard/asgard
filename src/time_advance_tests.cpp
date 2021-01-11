@@ -213,14 +213,14 @@ TEST_CASE("adaptive time advance")
     time_advance_test(parse, gold_base, tol_factor);
   }
 
-  SECTION("fokkerplanck1_4p1a explicit")
+  SECTION("fokkerplanck1_pitch_E explicit")
   {
     auto const tol_factor        = 1e-15;
-    std::string const pde_choice = "fokkerplanck_1d_4p1a";
+    std::string const pde_choice = "fokkerplanck_1d_pitch_E";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p1a_ad_sg_l4_d4_t";
+                                  "fokkerplanck1_pitch_E_ad_sg_l4_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
@@ -527,21 +527,21 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p2", "[time_advance]",
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
                    float, double)
 {
-  std::string const pde_choice = "fokkerplanck_1d_4p2";
+  std::string const pde_choice = "fokkerplanck_1d_pitch_C";
   TestType const cfl           = 0.01;
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
   auto const num_dims = 1;
 
-  SECTION("fokkerplanck_1d_4p2, level 2, degree 2, sparse grid")
+  SECTION("fokkerplanck_1d_pitch_C, level 2, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/fokkerplanck1_4p2_sg_l2_d2_t";
+    int const degree            = 2;
+    int const level             = 2;
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_pitch_C_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -579,21 +579,21 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p1a", "[time_advance]",
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E", "[time_advance]",
                    float, double)
 {
-  std::string const pde_choice = "fokkerplanck_1d_4p1a";
+  std::string const pde_choice = "fokkerplanck_1d_pitch_E";
   TestType const cfl           = 0.01;
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
   auto const num_dims = 1;
 
-  SECTION("fokkerplanck_1d_4p1a, level 2, degree 2, sparse grid")
+  SECTION("fokkerplanck_1d_pitch_E, level 2, degree 2, sparse grid")
   {
     int const degree            = 2;
     int const level             = 2;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p1a_sg_l2_d2_t";
+                                  "fokkerplanck1_pitch_E_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
