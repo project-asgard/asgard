@@ -30,8 +30,8 @@ enum class PDE_opts
   continuity_2,
   continuity_3,
   continuity_6,
-  fokkerplanck_1d_4p1a,
-  fokkerplanck_1d_4p2,
+  fokkerplanck_1d_pitch_E,
+  fokkerplanck_1d_pitch_C,
   fokkerplanck_1d_4p3,
   fokkerplanck_1d_4p4,
   fokkerplanck_1d_4p5,
@@ -70,14 +70,14 @@ static pde_map_t const pde_mapping = {
                     PDE_opts::continuity_6)},
     // the following are labelled according to figure number in the runaway
     // electron paper
-    {"fokkerplanck_1d_4p1a",
+    {"fokkerplanck_1d_pitch_E",
      PDE_descriptor(
          "1D pitch angle collisional term: df/dt == d/dz ( (1-z^2) df/dz",
-         PDE_opts::fokkerplanck_1d_4p1a)},
-    {"fokkerplanck_1d_4p2",
+         PDE_opts::fokkerplanck_1d_pitch_E)},
+    {"fokkerplanck_1d_pitch_C",
      PDE_descriptor(
          "1D pitch angle collisional term: df/dt == d/dz ( (1-z^2) df/dz",
-         PDE_opts::fokkerplanck_1d_4p2)},
+         PDE_opts::fokkerplanck_1d_pitch_C)},
     {"fokkerplanck_1d_4p3",
      PDE_descriptor("Radiation damping term: df/dt == -d/dz ( z(1-z^2)f )",
                     PDE_opts::fokkerplanck_1d_4p3)},

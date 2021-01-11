@@ -32,10 +32,10 @@
 //
 // ---------------------------------------------------------------------------
 template<typename P>
-class PDE_fokkerplanck_1d_4p2 : public PDE<P>
+class PDE_fokkerplanck_1d_pitch_C : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_1d_4p2(parser const &cli_input)
+  PDE_fokkerplanck_1d_pitch_C(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
