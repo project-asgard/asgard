@@ -3,8 +3,8 @@
 #include "lib_dispatch.hpp"
 #include "tools.hpp"
 
-#ifdef ASGARD_USE_CUDA
-#include <cuda_runtime.h>
+#ifdef ASGARD_USE_HIP
+#include <hip/hip_runtime.h>
 #endif
 
 #ifdef ASGARD_USE_OPENMP

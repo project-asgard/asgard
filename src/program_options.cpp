@@ -211,7 +211,7 @@ parser::parser(int argc, char **argv)
     }
   }
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   if (use_implicit_stepping)
   {
     std::cerr << "GPU acceleration not implemented for implicit stepping\n";

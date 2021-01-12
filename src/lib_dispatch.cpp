@@ -60,9 +60,9 @@ extern "C"
 #pragma GCC diagnostic pop
 #endif
 
-#ifdef ASGARD_USE_CUDA
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
+#ifdef ASGARD_USE_HIP
+#include <hipblas.h>
+#include <hip/hip_runtime.h>
 #endif
 
 #ifdef ASGARD_USE_SCALAPACK
@@ -104,7 +104,7 @@ struct device_handler
 
   void set_device(int const local_rank)
   {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     int num_devices;
     auto success = cudaGetDeviceCount(&num_devices);
 
@@ -133,14 +133,14 @@ struct device_handler
 #endif
   ~device_handler()
   {
-#ifdef ASGARD_USE_CUDA
-    cublasDestroy(handle);
+#ifdef ASGARD_USE_HIP
+    hipblasDestroy(handle);
 #endif
   }
 
 private:
-#ifdef ASGARD_USE_CUDA
-  cublasHandle_t handle;
+#ifdef ASGARD_USE_HIP
+  hipblasHandle_t handle;
 #endif
 };
 static device_handler device;
@@ -155,16 +155,16 @@ void initialize_libraries(int const local_rank)
 #endif
 }
 
-#ifdef ASGARD_USE_CUDA
-inline cublasOperation_t cublas_trans(char trans)
+#ifdef ASGARD_USE_HIP
+inline hipblasOperation_t cublas_trans(char trans)
 {
   if (trans == 'N' || trans == 'n')
   {
-    return CUBLAS_OP_N;
+    return HIPBLAS_OP_N;
   }
   else
   {
-    return CUBLAS_OP_T;
+    return HIPBLAS_OP_T;
   }
 }
 #endif
@@ -182,7 +182,7 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
@@ -219,7 +219,7 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
     P norm;
@@ -272,7 +272,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -323,7 +323,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -379,7 +379,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -429,7 +429,7 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -561,7 +561,7 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -569,14 +569,14 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
+          hipblasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
                       A, *lda, x, *incx, beta, y, *incy);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
+          hipblasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
                       A, *lda, x, *incx, beta, y, *incy);
       expect(success == 0);
     }
@@ -627,21 +627,21 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemm(
+      auto const success = hipblasDgemm(
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemm(
+      auto const success = hipblasSgemm(
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       expect(success == 0);
@@ -686,7 +686,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
 
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
@@ -747,7 +747,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
 
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
@@ -824,7 +824,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -849,7 +849,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemmBatched(
+      auto const success = hipblasDgemmBatched(
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
@@ -858,7 +858,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemmBatched(
+      auto const success = hipblasSgemmBatched(
           device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
           *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
@@ -912,7 +912,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
     char const transb = 'n';
@@ -945,7 +945,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemmBatched(
+      auto const success = hipblasDgemmBatched(
           device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
@@ -955,7 +955,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemmBatched(
+      auto const success = hipblasSgemmBatched(
           device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);

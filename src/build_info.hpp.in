@@ -6,7 +6,7 @@
 #define BUILD_TIME "@BUILD_TIME@"
 
 #cmakedefine ASGARD_IO_HIGHFIVE
-#cmakedefine ASGARD_USE_CUDA
+#cmakedefine ASGARD_USE_HIP
 #cmakedefine ASGARD_USE_OPENMP
 #cmakedefine ASGARD_USE_MPI
 #cmakedefine ASGARD_USE_MATLAB
