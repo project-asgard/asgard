@@ -1,5 +1,5 @@
 #pragma once
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
 #define USE_GPU
 #endif
 #include "distribution.hpp"
