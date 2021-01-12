@@ -137,15 +137,17 @@ int main(int argc, char **argv)
   static auto const default_workspace_cpu_MB = 187000;
 
 #ifdef ASGARD_USE_MATLAB
-  node_out() << "  creating MATLAB session" << '\n';
   matlab_plot ml_plot;
   if (cli_input.get_ml_session_string().compare("none") != 0)
   {
+    node_out() << "  connecting with MATLAB session "
+               << cli_input.get_ml_session_string() << '\n';
     ml_plot.connect(cli_input.get_ml_session_string());
     node_out() << "  connected to MATLAB" << '\n';
   }
   else
   {
+    node_out() << "  creating MATLAB session" << '\n';
     ml_plot.start();
   }
 

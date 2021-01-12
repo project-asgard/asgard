@@ -54,7 +54,7 @@ public:
     // if no name is given. Creates a session if none exist.
     if (!is_open())
     {
-      if (name.empty() || name.compare("none") != 0)
+      if (name.empty() || name.compare("none") == 0)
       {
         this->matlab_inst_ = matlab::engine::connectMATLAB();
       }
