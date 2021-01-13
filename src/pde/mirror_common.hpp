@@ -1,27 +1,31 @@
 #pragma once
 
+#include "build_info.hpp"
 #include "pde_base.hpp"
 
-#include "../build_info.hpp"
 #include "../tensors.hpp"
 
 #include <math.h>
 
 namespace mirror
 {
+
 template<typename P>
 struct parameters
 {
-  static auto constexpr M_E = 9.109 * 10 ^ -31;  // electron mass in kg
-  static auto constexpr M_D = 3.3443 * 10 ^ -27; // deuterium mass in kgs
-  static auto constexpr M_H = 1.6726 * 10 ^ -27; // hydrogen mass in kgs
+
+
+  // _M_E in matlab - _M_E is the constant for e in C++
+  static auto constexpr _M_E = 9.109 * 1e-30;  // electron mass in kg
+  static auto constexpr M_D = 3.3443 * 1e-26; // deuterium mass in kgs
+  static auto constexpr M_H = 1.6726 * 1e-26; // hydrogen mass in kgs
   static auto constexpr K_B =
-      1.380 * 10 ^ -23; // Boltzmann constant in Joules/Kelvin
-  static auto constexpr E = 1.602 * 10 ^ -19; // charge in Coulombs
+      1.380 * 1e-22; // Boltzmann constant in Joules/Kelvin
+  static auto constexpr E = 1.602 * 1e-19; // charge in Coulombs
   static auto constexpr EPS_0 =
-      8.85 * 10 ^ -12; // permittivity of free space in Farad/m
+      8.85 * 1e-11; // permittivity of free space in Farad/m
   static auto constexpr MU_0 =
-      4 * M_PI * 10 ^ -7;            // magnetic permeability in Henries/m
+      4 * M_PI * 1e-6;            // magnetic permeability in Henries/m
   static auto constexpr R_MAG = 0.4; // radius of individual loop in meters
 
   static auto constexpr LN_DELT = 10; // Coulomb logarithm
@@ -41,40 +45,44 @@ struct parameters
   };
 
   // species b: electrons in background
+  
   struct species_b_t
   {
-    static auto constexpr P N  = 4e19;
+    static auto constexpr N  = 4e19;
     static auto constexpr T_EV = 4;
     static auto constexpr Z    = -1;
-    static auto constexpr M    = M_E;
+    static auto constexpr M    = _M_E;
     static auto constexpr V_TH = parameters::V_TH(T_EV, M);
-  } inline static species_b_t constexpr species_b;
+  };
+  inline static species_b_t const species_b;
 
   // species b2: deuterium in background
   struct species_b2_t
   {
-    static auto constexpr P N  = 4e19;
+    static auto constexpr N  = 4e19;
     static auto constexpr T_EV = 4;
     static auto constexpr Z    = 1;
     static auto constexpr M    = M_D;
     static auto constexpr V_TH = parameters::V_TH(T_EV, M);
-  } inline static species_b2_t constexpr species_b2;
+  }; 
+  inline static species_b2_t const species_b2;
 
   // species a: electrons in beam
   struct species_a_t
   {
-    static auto constexpr P N  = 4e19;
+    static auto constexpr N  = 4e19;
     static auto constexpr T_EV = 1e3;
     static auto constexpr Z    = -1;
-    static auto constexpr M    = M_E;
+    static auto constexpr M    = _M_E;
     static auto constexpr V_TH = parameters::V_TH(T_EV, M);
-  } inline static species_a_t constexpr species_b2;
+  }; 
+  inline static species_a_t const species_a;
 
   // normalized velocity to thermal velocity
   static auto constexpr X = [](fk::vector<P> const &v, P const v_th) {
     fk::vector<P> fx(v.size());
     std::transform(v.begin(), v.end(), fx.begin(),
-                   [](P const x) { return x / v_th; });
+                   [v_th](P const x) { return x / v_th; });
     return fx;
   };
 
@@ -97,8 +105,8 @@ struct parameters
 
     std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
       auto const dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(std::pow(-val, 2));
-      auto const f_val = 1.0 / std::pow(2.0 * val, 2) * (PHI(x) - x * dphi_dx);
-      return std::abs(x) < 1e-5 ? 0.0 : fx;
+      auto const f_val = 1.0 / std::pow(2.0 * val, 2) * (PHI(val) - val * dphi_dx);
+      return std::abs(f_val) < 1e-5 ? 0.0 : f_val;
     });
     return fx;
   };
@@ -110,7 +118,7 @@ struct parameters
     auto const denom = 2.0 * M_PI * std::pow(EPS_0, 2) *
                        std::pow(species_a.M, 2) * std::pow(species_b.V_TH, 3);
     return num / denom;
-  };
+  }();
 
   // slowing down frequency
   static auto constexpr NU_S = [](fk::vector<P> const &x) {
@@ -166,17 +174,7 @@ struct parameters
     fk::vector<P> fx(x);
     for (auto &elem : fx)
     {
-                        elem = species_a.N/(std::pow(M_PI, 3)/2.0*std::pow(v_th, 3))*std::exp(-std::pow((elem-offset)/v_th, 2);
-    }
-    return fx;
-  };
-
-  static auto constexpr GAUSS = [](fk::vector<P> const &x, P const offset,
-                                   P const v_th) {
-    fk::vector<P> fx(x);
-    for (auto &elem : fx)
-    {
-                        elem = species_a.N/(std::pow(M_PI, 3)/2.0*std::pow(v_th, 3))*std::exp(-std::pow((elem-offset)/v_th, 2);
+      elem = species_a.N/((std::pow(M_PI, 3)/2.0)*std::pow(v_th, 3))*std::exp(-std::pow((elem-offset)/v_th, 2));
     }
     return fx;
   };
@@ -193,7 +191,7 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(),
+    std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const val) { return std::cos(val) / 2; });
     return fx;
   }
@@ -202,7 +200,7 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(),
+    std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const val) { return std::exp(val); });
     return fx;
   }
@@ -220,7 +218,7 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(),
+    std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const val) { return std::cos(val); });
     return fx;
   }
@@ -229,7 +227,7 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(),
+    std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const val) { return std::exp(val); });
     return fx;
   }
@@ -245,9 +243,9 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(), [](P const val) {
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
       return static_cast<P>(-0.5) *
-             (std::sin(val) + std::cot(val) * std::cos(val));
+             (std::sin(val) + 1.0/std::tan(val) * std::cos(val));
     });
     return fx;
   }
@@ -279,7 +277,7 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(),
+    std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const val) { return std::cos(val / 2.0); });
     return fx;
   }
@@ -288,7 +286,7 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(), [](P const val) {
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
       return species_a.N / std::pow(M_PI, 3) / 2.0 *
              std::pow(V_TH(species_b.T_EV, species_a.M), 3) *
              std::exp(std::pow(-val / V_TH(species_b.T_EV, species_a.M), 2));
@@ -300,17 +298,17 @@ struct parameters
   {
     ignore(t);
     fk::vector<P> fx(x);
-    std::transform(x.begin(), x.end(), fk.begin(),
-                   [](P const val) { return std::exp(s); });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const val) { return std::exp(val); });
     return fx;
   }
 
-} // struct params
+}; // struct parameters
 
 #ifdef ASGARD_USE_DOUBLE_PREC
-static inline parmeters<double> const common;
+inline static parameters<double> const common;
 #else
-static inline parmeters<float> const common;
+inline static parameters<float> const common;
 #endif
 
 } // namespace mirror
