@@ -179,6 +179,14 @@ struct parameters
     return fx;
   };
 
+  static auto constexpr B_FUNC = [](P const s) {
+	return std::exp(s);
+  };
+
+  static auto constexpr DB_DS = [](P const s) {
+	return std::exp(s);
+  };
+
   static fk::vector<P> initial_condition_v(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
@@ -203,6 +211,13 @@ struct parameters
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const val) { return std::exp(val); });
     return fx;
+  }
+
+
+  static fk::vector<P> bc_func_0(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+	return fk::vector<P>(x.size());
   }
 
   // exp(-nu_D(v,a,b).*t);
@@ -304,11 +319,5 @@ struct parameters
   }
 
 }; // struct parameters
-
-#ifdef ASGARD_USE_DOUBLE_PREC
-inline static parameters<double> const common;
-#else
-inline static parameters<float> const common;
-#endif
 
 } // namespace mirror
