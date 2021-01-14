@@ -9,23 +9,20 @@
 
 namespace mirror
 {
-
 template<typename P>
 struct parameters
 {
-
-
   // _M_E in matlab - _M_E is the constant for e in C++
   static auto constexpr _M_E = 9.109 * 1e-30;  // electron mass in kg
-  static auto constexpr M_D = 3.3443 * 1e-26; // deuterium mass in kgs
-  static auto constexpr M_H = 1.6726 * 1e-26; // hydrogen mass in kgs
+  static auto constexpr M_D  = 3.3443 * 1e-26; // deuterium mass in kgs
+  static auto constexpr M_H  = 1.6726 * 1e-26; // hydrogen mass in kgs
   static auto constexpr K_B =
       1.380 * 1e-22; // Boltzmann constant in Joules/Kelvin
   static auto constexpr E = 1.602 * 1e-19; // charge in Coulombs
   static auto constexpr EPS_0 =
       8.85 * 1e-11; // permittivity of free space in Farad/m
   static auto constexpr MU_0 =
-      4 * M_PI * 1e-6;            // magnetic permeability in Henries/m
+      4 * M_PI * 1e-6;               // magnetic permeability in Henries/m
   static auto constexpr R_MAG = 0.4; // radius of individual loop in meters
 
   static auto constexpr LN_DELT = 10; // Coulomb logarithm
@@ -45,37 +42,37 @@ struct parameters
   };
 
   // species b: electrons in background
-  
+
   struct species_b_t
   {
-    static auto constexpr N  = 4e19;
+    static auto constexpr N    = 4e19;
     static auto constexpr T_EV = 4;
     static auto constexpr Z    = -1;
     static auto constexpr M    = _M_E;
-    static auto constexpr V_TH = parameters::V_TH(T_EV, M);
+    static auto constexpr V_TH = []() { return parameters::V_TH(T_EV, M); };
   };
   inline static species_b_t const species_b;
 
   // species b2: deuterium in background
   struct species_b2_t
   {
-    static auto constexpr N  = 4e19;
+    static auto constexpr N    = 4e19;
     static auto constexpr T_EV = 4;
     static auto constexpr Z    = 1;
     static auto constexpr M    = M_D;
-    static auto constexpr V_TH = parameters::V_TH(T_EV, M);
-  }; 
+    static auto constexpr V_TH = []() { return parameters::V_TH(T_EV, M); };
+  };
   inline static species_b2_t const species_b2;
 
   // species a: electrons in beam
   struct species_a_t
   {
-    static auto constexpr N  = 4e19;
+    static auto constexpr N    = 4e19;
     static auto constexpr T_EV = 1e3;
     static auto constexpr Z    = -1;
     static auto constexpr M    = _M_E;
-    static auto constexpr V_TH = parameters::V_TH(T_EV, M);
-  }; 
+    static auto constexpr V_TH = []() { return parameters::V_TH(T_EV, M); };
+  };
   inline static species_a_t const species_a;
 
   // normalized velocity to thermal velocity
@@ -105,7 +102,8 @@ struct parameters
 
     std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
       auto const dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(std::pow(-val, 2));
-      auto const f_val = 1.0 / std::pow(2.0 * val, 2) * (PHI(val) - val * dphi_dx);
+      auto const f_val =
+          1.0 / std::pow(2.0 * val, 2) * (PHI(val) - val * dphi_dx);
       return std::abs(f_val) < 1e-5 ? 0.0 : f_val;
     });
     return fx;
@@ -116,18 +114,18 @@ struct parameters
     auto const num = species_b.N * std::pow(E, 4) * std::pow(species_a.Z, 2) *
                      std::pow(species_b.Z, 2) * LN_DELT;
     auto const denom = 2.0 * M_PI * std::pow(EPS_0, 2) *
-                       std::pow(species_a.M, 2) * std::pow(species_b.V_TH, 3);
+                       std::pow(species_a.M, 2) * std::pow(species_b.V_TH(), 3);
     return num / denom;
-  }();
+  };
 
   // slowing down frequency
   static auto constexpr NU_S = [](fk::vector<P> const &x) {
-    auto num = PSI(X(x, species_b.V_TH));
+    auto num = PSI(X(x, species_b.V_TH()));
     for (auto &val : num)
     {
-      val = val * NU_AB_0 * (1 + species_a.M / species_b.M);
+      val = val * NU_AB_0() * (1 + species_a.M / species_b.M);
     }
-    auto const denom = X(x, species_b.V_TH);
+    auto const denom = X(x, species_b.V_TH());
     fk::vector<P> fx(x.size());
     for (auto i = 0; i < fx.size(); ++i)
     {
@@ -138,8 +136,8 @@ struct parameters
 
   // parallel diffusion frequency
   static auto constexpr NU_PAR = [](fk::vector<P> const &x) {
-    auto const num = PSI(X(x, species_b.V_TH)) * NU_AB_0;
-    auto denom     = X(x, species_b.V_TH);
+    auto const num = PSI(X(x, species_b.V_TH())) * NU_AB_0();
+    auto denom     = X(x, species_b.V_TH());
     for (auto &elem : denom)
     {
       elem = std::pow(elem, 3);
@@ -154,9 +152,9 @@ struct parameters
 
   // deflection frequency in s^-1
   static auto constexpr NU_D = [](fk::vector<P> const &x) {
-    auto const num =
-        (PHI_F(X(x, species_b.V_TH)) * NU_AB_0) - PSI(X(x, species_b.V_TH));
-    auto denom = X(x, species_b.V_TH);
+    auto const num = (PHI_F(X(x, species_b.V_TH())) * NU_AB_0()) -
+                     PSI(X(x, species_b.V_TH()));
+    auto denom = X(x, species_b.V_TH());
     for (auto &elem : denom)
     {
       elem = std::pow(elem, 3);
@@ -174,18 +172,15 @@ struct parameters
     fk::vector<P> fx(x);
     for (auto &elem : fx)
     {
-      elem = species_a.N/((std::pow(M_PI, 3)/2.0)*std::pow(v_th, 3))*std::exp(-std::pow((elem-offset)/v_th, 2));
+      elem = species_a.N / ((std::pow(M_PI, 3) / 2.0) * std::pow(v_th, 3)) *
+             std::exp(-std::pow((elem - offset) / v_th, 2));
     }
     return fx;
   };
 
-  static auto constexpr B_FUNC = [](P const s) {
-	return std::exp(s);
-  };
+  static auto constexpr B_FUNC = [](P const s) { return std::exp(s); };
 
-  static auto constexpr DB_DS = [](P const s) {
-	return std::exp(s);
-  };
+  static auto constexpr DB_DS = [](P const s) { return std::exp(s); };
 
   static fk::vector<P> initial_condition_v(fk::vector<P> const x, P const t = 0)
   {
@@ -213,11 +208,10 @@ struct parameters
     return fx;
   }
 
-
   static fk::vector<P> bc_func_0(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-	return fk::vector<P>(x.size());
+    return fk::vector<P>(x.size());
   }
 
   // exp(-nu_D(v,a,b).*t);
@@ -225,7 +219,7 @@ struct parameters
   {
     ignore(t);
     auto const offset = 0;
-    auto const v_th   = species_b.V_TH;
+    auto const v_th   = species_b.V_TH();
     return MAXWELL(x, offset, v_th);
   }
 
@@ -260,7 +254,7 @@ struct parameters
     fk::vector<P> fx(x);
     std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
       return static_cast<P>(-0.5) *
-             (std::sin(val) + 1.0/std::tan(val) * std::cos(val));
+             (std::sin(val) + 1.0 / std::tan(val) * std::cos(val));
     });
     return fx;
   }

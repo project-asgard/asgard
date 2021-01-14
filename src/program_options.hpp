@@ -120,10 +120,9 @@ static pde_map_t const pde_mapping = {
      PDE_descriptor("2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2",
                     PDE_opts::diffusion_2)},
 
-    {"mirror_3",
-     PDE_descriptor("3D magnetic mirror from the FP paper",
-                    PDE_opts::mirror_3)},
-     };
+    {"mirror_3", PDE_descriptor("3D magnetic mirror from the FP paper",
+                                PDE_opts::mirror_3)},
+};
 
 // class to parse command line input
 class parser
