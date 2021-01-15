@@ -105,8 +105,7 @@ if(ASGARD_USE_CUDA)
 endif()
 
 # build component to interface with Ed's kronmult lib
-##TODO: insert the interface directly inside kronmult dir
-## and manage dependance with cmake targets and interface
+##TODO: link to kronmult as interface library
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_CUDA)
   set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
