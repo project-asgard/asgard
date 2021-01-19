@@ -105,14 +105,15 @@ if(ASGARD_USE_CUDA)
 endif()
 
 # build component to interface with Ed's kronmult lib
+##TODO: link to kronmult as interface library
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_CUDA)
   set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
   set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
   set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
-  set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${KRON_PATH}")
+  set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 endif()
-target_include_directories (kronmult_cuda PRIVATE ${KRON_PATH} ${CMAKE_BINARY_DIR})
+target_include_directories (kronmult_cuda PRIVATE ${CMAKE_SOURCE_DIR}/contrib/kronmult/ ${CMAKE_BINARY_DIR})
 
 if(ASGARD_USE_MKL)
   if(ASGARD_USE_CUDA)
@@ -217,11 +218,7 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-if (ASGARD_USE_CUDA) 
-   target_link_libraries(kronmult_cuda PRIVATE ${KRON_LIB})
-else ()
-   target_link_libraries(kronmult_cuda PRIVATE "-Wl,-rpath,${KRON_PATH} ${KRON_LIB}")
-endif ()
+target_link_libraries(kronmult_cuda PRIVATE kron)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
@@ -236,10 +233,10 @@ if (ASGARD_USE_CUDA)
   target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
 					     ${CUDA_CUBLAS_LIBRARIES})
 endif()
+
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(lib_dispatch PRIVATE OpenMP::OpenMP_CXX)
 endif ()
-
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
 

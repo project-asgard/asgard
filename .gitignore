@@ -18,4 +18,3 @@ contrib/lperftools
 contrib/valgrind
 contrib/hdf5
 contrib/highfive
-contrib/kronmult
