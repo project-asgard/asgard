@@ -213,14 +213,39 @@ TEST_CASE("adaptive time advance")
     time_advance_test(parse, gold_base, tol_factor);
   }
 
-  SECTION("fokkerplanck1_pitch_E explicit")
+  SECTION("fokkerplanck1_pitch_E case1 explicit")
   {
     auto const tol_factor        = 1e-15;
-    std::string const pde_choice = "fokkerplanck_1d_pitch_E";
+    std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_E_ad_sg_l4_d4_t";
+                                  "fokkerplanck1_pitch_E_case1_ad_sg_l4_d4_t";
+
+    auto const full_grid       = false;
+    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
+    auto const do_adapt_levels = true;
+    auto const adapt_threshold = 1e-4;
+
+    parser const parse(pde_choice, levels, degree, cfl, full_grid,
+                       parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                       do_adapt_levels, adapt_threshold);
+
+    // we do not gracefully handle coarsening below number of active ranks yet
+    if (get_num_ranks() == 1)
+    {
+      time_advance_test(parse, gold_base, tol_factor);
+    }
+  }
+
+  SECTION("fokkerplanck1_pitch_E case2 explicit")
+  {
+    auto const tol_factor        = 1e-15;
+    std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
+    auto const degree            = 4;
+    fk::vector<int> const levels{4};
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_pitch_E_case2_ad_sg_l4_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
