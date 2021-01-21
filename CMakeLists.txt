@@ -275,7 +275,7 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
 endif ()
 
 if (ASGARD_USE_MATLAB)
-   target_link_libraries(matlab_plot PRIVATE elements pde quadrature tensors ${Matlab_LIBRARIES})
+   target_link_libraries(matlab_plot PRIVATE elements pde quadrature tensors tools ${Matlab_LIBRARIES})
 endif()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)

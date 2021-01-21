@@ -4,6 +4,7 @@
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 #include <cmath>
 #include <type_traits>
 #include <vector>
@@ -103,7 +104,7 @@ public:
   template<typename T>
   void add_param(const matlab::data::ArrayDimensions dims, T const &t)
   {
-    assert(!std::is_scalar<T>::value);
+    tools::expect(!std::is_scalar<T>::value);
     m_args_.push_back(factory_.createArray(dims, t.begin(), t.end()));
   }
 
@@ -168,7 +169,7 @@ public:
 
   std::string eval(const ml_string &stmt, std::string &err)
   {
-    assert(is_open());
+    tools::expect(is_open());
 
     auto output    = std::make_shared<ml_stringbuf>();
     auto err_utf16 = std::make_shared<ml_stringbuf>();
@@ -267,8 +268,8 @@ public:
         int lev = coords(d);
         int pos = coords(ndims + d);
 
-        assert(lev >= 0);
-        assert(pos >= 0);
+        tools::expect(lev >= 0);
+        tools::expect(pos >= 0);
 
         P x0;
         if (lev > 1)
@@ -344,7 +345,7 @@ public:
   void plot_fval_ml(PDE<P> const &pde, fk::vector<P> const &f_val,
                     fk::vector<P> const &analytic_soln)
   {
-    assert(sol_sizes_.size() > 0);
+    tools::expect(sol_sizes_.size() > 0);
 
     size_t ndims = static_cast<size_t>(pde.num_dims);
 
@@ -365,8 +366,8 @@ public:
   {
     // C++ version of the plot_fval matlab function
 
-    assert(sol_sizes_.size() > 0);
-    assert(nodes_.size() == pde.num_dims);
+    tools::expect(sol_sizes_.size() > 0);
+    tools::expect(nodes_.size() == pde.num_dims);
 
     // Don't plot analytical if the PDE doesn't have one
     if (overplot && !pde.has_analytic_soln)
