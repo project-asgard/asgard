@@ -268,7 +268,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
     // no non-fp blas on device
     tools::expect(std::is_floating_point_v<P>);
 
-    P result;
+    P result = 0.0;
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {

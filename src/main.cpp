@@ -169,7 +169,7 @@ int main(int argc, char **argv)
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
     // take a time advance step
-    auto const time          = i * pde->get_dt();
+    auto const time          = (i + 1) * pde->get_dt();
     auto const update_system = i == 0;
     auto const method = opts.use_implicit_stepping ? time_advance::method::imp
                                                    : time_advance::method::exp;
@@ -185,14 +185,16 @@ int main(int argc, char **argv)
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
+      // get analytic solution at time(step+1)
       auto const subgrid           = adaptive_grid.get_subgrid(get_rank());
+      auto const time_multiplier   = pde->exact_time(time + pde->get_dt());
       auto const analytic_solution = transform_and_combine_dimensions(
           *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
-          subgrid.col_start, subgrid.col_stop, degree);
-      auto const time_multiplier     = pde->exact_time((i + 1) * pde->get_dt());
-      auto const analytic_solution_t = analytic_solution * time_multiplier;
-      auto const diff                = f_val - analytic_solution_t;
-      auto const RMSE                = [&diff]() {
+          subgrid.col_start, subgrid.col_stop, degree, time, time_multiplier);
+
+      // calculate root mean squared error
+      auto const diff = f_val - analytic_solution;
+      auto const RMSE = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
                        [](prec const &elem) { return elem * elem; });
@@ -200,11 +202,11 @@ int main(int argc, char **argv)
                           squared.size();
         return std::sqrt(mean);
       }();
-      auto const relative_error = RMSE / inf_norm(analytic_solution_t) * 100;
+      auto const relative_error = RMSE / inf_norm(analytic_solution) * 100;
       auto const [rmse_errors, relative_errors] =
           gather_errors(RMSE, relative_error);
       tools::expect(rmse_errors.size() == relative_errors.size());
-      for (int i = 0; i < rmse_errors.size(); ++i)
+      for (auto i = 0; i < rmse_errors.size(); ++i)
       {
         node_out() << "Errors for local rank: " << i << '\n';
         node_out() << "RMSE (numeric-analytic) [wavelet]: " << rmse_errors(i)

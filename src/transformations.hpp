@@ -143,7 +143,8 @@ inline fk::vector<P> transform_and_combine_dimensions(
     PDE<P> const &pde, std::vector<vector_func<P>> const &v_functions,
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    int const start, int const stop, int const degree)
+    int const start, int const stop, int const degree, P const time = 0.0,
+    P const time_multiplier = 1.0)
 {
   tools::expect(static_cast<int>(v_functions.size()) == pde.num_dims);
   tools::expect(start <= stop);
@@ -156,10 +157,11 @@ inline fk::vector<P> transform_and_combine_dimensions(
   for (int i = 0; i < pde.num_dims; ++i)
   {
     dimension_components.push_back(forward_transform<P>(
-        pde.get_dimensions()[i], v_functions[i], transformer));
+        pde.get_dimensions()[i], v_functions[i], transformer, time));
   }
 
-  return combine_dimensions(degree, table, start, stop, dimension_components);
+  return combine_dimensions(degree, table, start, stop, dimension_components,
+                            time_multiplier);
 }
 
 template<typename P>
