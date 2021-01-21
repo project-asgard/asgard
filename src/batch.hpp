@@ -91,7 +91,7 @@ inline int calculate_workspace_length(
   for (iter = matrices.rbegin(); iter != matrices.rend(); ++iter)
   {
     c_prod *= iter->ncols();
-    tools::expect(c_prod > 0);
+    expect(c_prod > 0);
     r_prod *= iter->nrows();
     int const size = x_size / c_prod * r_prod;
     greatest       = std::max(greatest, size);

@@ -10,26 +10,26 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
-  tools::expect(tolerance >= std::numeric_limits<P>::epsilon());
-  tools::expect(A.nrows() == A.ncols());
+  expect(tolerance >= std::numeric_limits<P>::epsilon());
+  expect(A.nrows() == A.ncols());
   int const n = A.nrows();
-  tools::expect(b.size() == n);
-  tools::expect(x.size() == n);
+  expect(b.size() == n);
+  expect(x.size() == n);
 
   bool const do_precond = M.size() > 0;
   std::vector<int> precond_pivots(n);
   if (do_precond)
   {
-    tools::expect(M.ncols() == n);
-    tools::expect(M.nrows() == n);
+    expect(M.ncols() == n);
+    expect(M.nrows() == n);
   }
   fk::matrix<P> precond(M);
   bool precond_factored = false;
 
-  tools::expect(restart > 0);
-  tools::expect(restart <= n);
-  tools::expect(max_iter >= restart);
-  tools::expect(max_iter <= n);
+  expect(restart > 0);
+  expect(restart <= n);
+  expect(max_iter >= restart);
+  expect(max_iter <= n);
 
   P const norm_b = [&b]() {
     P const norm_b = fm::nrm2(b);

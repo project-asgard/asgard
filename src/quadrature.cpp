@@ -18,8 +18,8 @@ std::enable_if_t<std::is_floating_point<P>::value, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const domain, int const degree,
          legendre_normalization const normalization)
 {
-  tools::expect(degree >= 0);
-  tools::expect(domain.size() > 0);
+  expect(degree >= 0);
+  expect(domain.size() > 0);
 
   // allocate and zero the output Legendre polynomials, their derivatives
   fk::matrix<P> legendre(domain.size(), std::max(1, degree));
@@ -101,7 +101,7 @@ legendre(fk::vector<P> const domain, int const degree,
       dscale = static_cast<P>(1.0) / std::sqrt(2.0);
     }
 
-    tools::expect(dscale > 0);
+    expect(dscale > 0);
 
     fk::vector<P> const legendre_sub =
         legendre.extract_submatrix(0, i, domain.size(), 1);
@@ -159,8 +159,8 @@ std::array<fk::vector<P>, 2>
 legendre_weights(int const degree, P const lower_bound, P const upper_bound,
                  bool const use_degree_points)
 {
-  tools::expect(degree > 0);
-  tools::expect(lower_bound < upper_bound);
+  expect(degree > 0);
+  expect(lower_bound < upper_bound);
 
   auto const default_quad_number = [](int const degree) {
     static int constexpr minimum_quadrature = 10;

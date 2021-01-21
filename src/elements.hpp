@@ -62,16 +62,16 @@ public:
   // get id of element given its 0,...,n index in active elements
   int64_t get_element_id(int64_t const index) const
   {
-    tools::expect(index >= 0);
-    tools::expect(index < static_cast<int64_t>(active_element_ids_.size()));
+    expect(index >= 0);
+    expect(index < static_cast<int64_t>(active_element_ids_.size()));
     return active_element_ids_[index];
   }
 
   // lookup coords by index
   fk::vector<int> const &get_coords(int64_t const index) const
   {
-    tools::expect(index >= 0);
-    tools::expect(index < size());
+    expect(index >= 0);
+    expect(index < size());
     return id_to_coords_.at(active_element_ids_[index]);
   }
 
@@ -98,7 +98,7 @@ public:
   // returns the number of (active) elements in table
   int64_t size() const
   {
-    tools::expect(active_element_ids_.size() == id_to_coords_.size());
+    expect(active_element_ids_.size() == id_to_coords_.size());
     return active_element_ids_.size();
   }
 

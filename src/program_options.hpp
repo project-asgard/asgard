@@ -210,7 +210,7 @@ private:
     for (auto const &[pde_name, pde_enum_val] : pde_mapping)
     {
       ignore(pde_enum_val);
-      tools::expect(pde_name.size() <= max_name_length);
+      expect(pde_name.size() <= max_name_length);
       std::cerr << std::left << std::setw(max_name_length) << pde_name
                 << pde_mapping.at(pde_name).info << '\n';
     }

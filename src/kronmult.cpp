@@ -47,7 +47,7 @@ inline int
 get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
                  element_subgrid const &grid, int const rank_size_MB)
 {
-  tools::expect(grid.size() > 0);
+  expect(grid.size() > 0);
 
   // determine total problem size
   auto const num_elems        = grid.size();
@@ -56,13 +56,13 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   // determine size of assigned x and y vectors
   auto const elem_size   = element_segment_size(pde);
   auto const num_x_elems = static_cast<int64_t>(grid.nrows()) * elem_size;
-  tools::expect(num_x_elems < INT_MAX);
+  expect(num_x_elems < INT_MAX);
   auto const num_y_elems = static_cast<int64_t>(grid.ncols()) * elem_size;
-  tools::expect(num_y_elems < INT_MAX);
+  expect(num_y_elems < INT_MAX);
   double const xy_space_MB = get_MB<P>(num_y_elems + num_x_elems);
 
   // make sure rank size is something reasonable
-  tools::expect(space_per_elem < (0.5 * rank_size_MB));
+  expect(space_per_elem < (0.5 * rank_size_MB));
 
   // size of workspaces, input, output
   double const problem_size_MB = space_per_elem * num_elems;
@@ -82,7 +82,7 @@ get_num_subgrids(PDE<P> const &pde, elements::table const &elem_table,
   auto const remaining_rank_MB =
       rank_size_MB - coefficients_size_MB - table_size_MB - xy_space_MB;
 
-  tools::expect(remaining_rank_MB > space_per_elem * 4);
+  expect(remaining_rank_MB > space_per_elem * 4);
 
   // determine number of subgrids
   return static_cast<int>(std::ceil(problem_size_MB / remaining_rank_MB));
@@ -94,7 +94,7 @@ inline std::vector<element_subgrid>
 decompose(PDE<P> const &pde, elements::table const &elem_table,
           element_subgrid const &my_subgrid, int const workspace_size_MB)
 {
-  tools::expect(workspace_size_MB > 0);
+  expect(workspace_size_MB > 0);
 
   // min number subgrids
   auto const num_subgrids =
@@ -114,7 +114,7 @@ decompose(PDE<P> const &pde, elements::table const &elem_table,
   // square tile the assigned subgrid
   std::vector<element_subgrid> grids;
   auto const round_up = [](int const to_round, int const multiple) {
-    tools::expect(multiple);
+    expect(multiple);
     return ((to_round + multiple - 1) / multiple) * multiple;
   };
 
@@ -283,9 +283,9 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
 
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
-  tools::expect(output_size == fx.size());
+  expect(output_size == fx.size());
   auto const input_size = my_subgrid.ncols() * deg_to_dim;
-  tools::expect(input_size == x.size());
+  expect(input_size == x.size());
 
   auto const &workspace =
       kronmult_workspace<P>::get_workspace(pde, elem_table, my_subgrid);
@@ -318,7 +318,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
       for (int j = 0; j < pde.num_dims; ++j)
       {
         builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
-        tools::expect(pde.get_coefficients(i, j).nrows() == lda);
+        expect(pde.get_coefficients(i, j).nrows() == lda);
       }
     }
     return builder;
@@ -364,7 +364,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
 
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
-  tools::expect(output_size < INT_MAX);
+  expect(output_size < INT_MAX);
   fk::vector<P, mem_type::owner, resource::device> fx_dev(output_size);
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());

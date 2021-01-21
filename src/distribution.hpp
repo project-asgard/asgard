@@ -46,10 +46,10 @@ public:
       : row_start(row_start), row_stop(row_stop), col_start(col_start),
         col_stop(col_stop)
   {
-    tools::expect(row_start >= 0);
-    tools::expect(row_stop >= row_start);
-    tools::expect(col_start >= 0);
-    tools::expect(col_stop >= col_start);
+    expect(row_start >= 0);
+    expect(row_stop >= row_start);
+    expect(col_start >= 0);
+    expect(col_stop >= col_start);
   };
   element_subgrid(element_subgrid const &e)
       : row_start(e.row_start), row_stop(e.row_stop), col_start(e.col_start),
@@ -71,30 +71,30 @@ public:
   // translation from local/global x and y
   int to_global_row(int const local_row) const
   {
-    tools::expect(local_row >= 0);
-    tools::expect(local_row < nrows());
+    expect(local_row >= 0);
+    expect(local_row < nrows());
     return local_row + row_start;
   }
   int to_global_col(int const local_col) const
   {
-    tools::expect(local_col >= 0);
-    tools::expect(local_col < ncols());
+    expect(local_col >= 0);
+    expect(local_col < ncols());
     return local_col + col_start;
   }
   int to_local_row(int const global_row) const
   {
-    tools::expect(global_row >= 0);
+    expect(global_row >= 0);
     int const local = global_row - row_start;
-    tools::expect(local >= 0);
-    tools::expect(local < nrows());
+    expect(local >= 0);
+    expect(local < nrows());
     return local;
   };
   int to_local_col(int const global_col) const
   {
-    tools::expect(global_col >= 0);
+    expect(global_col >= 0);
     int const local = global_col - col_start;
-    tools::expect(local >= 0);
-    tools::expect(local < ncols());
+    expect(local >= 0);
+    expect(local < ncols());
     return local;
   };
 
@@ -125,7 +125,7 @@ public:
 // possible
 inline int get_num_subgrid_cols(int const num_ranks)
 {
-  tools::expect(num_ranks > 0);
+  expect(num_ranks > 0);
   int trial_factor = static_cast<int>(std::floor(std::sqrt(num_ranks)));
   while (trial_factor > 0)
   {
@@ -137,7 +137,7 @@ inline int get_num_subgrid_cols(int const num_ranks)
     trial_factor++;
   }
   // I believe this is mathematically impossible...
-  tools::expect(false);
+  expect(false);
   return 0;
 }
 
@@ -259,7 +259,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
 template<typename P>
 double get_MB(int64_t const num_elems)
 {
-  tools::expect(num_elems > 0);
+  expect(num_elems > 0);
   double const bytes = num_elems * sizeof(P);
   double const MB    = bytes * 1e-6;
   return MB;
