@@ -11,3 +11,5 @@
 #cmakedefine ASGARD_USE_MPI
 #cmakedefine ASGARD_USE_MATLAB
 #cmakedefine ASGARD_USE_DOUBLE_PREC
+
+#cmakedefine ASGARD_SCRIPTS_DIR "@ASGARD_SCRIPTS_DIR@"

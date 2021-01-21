@@ -62,6 +62,9 @@ option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
+# add scripts directory location
+set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
+
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
 endif()

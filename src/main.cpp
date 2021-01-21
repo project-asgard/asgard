@@ -184,10 +184,8 @@ int main(int argc, char **argv)
         default_workspace_cpu_MB, tmp_wksp, analytic_solution_realspace);
   }
 
-  // TODO: this is the path to the Matlab version of Asgard, or relevent
-  // matlab code used by C++ Asgard
-  std::string asgard_matlab("../src/");
-  ml_plot.add_param(asgard_matlab);
+  // Add the matlab scripts directory to the matlab path
+  ml_plot.add_param(std::string(ASGARD_SCRIPTS_DIR)+"matlab/");
   ml_plot.call("addpath");
 
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());

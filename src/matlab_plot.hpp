@@ -357,7 +357,7 @@ public:
     add_param(sol_sizes_, analytic_soln);
     push_param(elem_coords_);
 
-    call("plot_fval_cpp");
+    call("plot_fval");
   }
 
   template<typename P>
