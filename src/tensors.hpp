@@ -150,13 +150,13 @@ public:
   vector(vector<P, mem, resrc> const &);
   // cannot be templated per C++ spec 12.8
   // instead of disabling w/ sfinae for const_view,
-  // static tools::expect added to definition
+  // static expect added to definition
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> const &);
 
   // move constructor/assignment (required to be same to same)
   vector(vector<P, mem, resrc> &&);
 
-  // as with copy assignment, static tools::expect added
+  // as with copy assignment, static expect added
   // to definition to prevent assignment into
   // const views
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> &&);
@@ -644,13 +644,13 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
   assert(success == cudaSuccess);
   if (num_elems > 0)
   {
-    tools::expect(ptr != nullptr);
+    expect(ptr != nullptr);
   }
 
   if (initialize)
   {
     success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
-    tools::expect(success == cudaSuccess);
+    expect(success == cudaSuccess);
   }
 
 #else
@@ -673,8 +673,7 @@ inline void delete_device(P *const ptr)
   // the device runtime may be unloaded at process shut down
   // (when static storage duration destructors are called)
   // returning a cudartUnloading error code.
-  tools::expect((success == cudaSuccess) ||
-                (success == cudaErrorCudartUnloading));
+  expect((success == cudaSuccess) || (success == cudaErrorCudartUnloading));
 #else
   delete[] ptr;
 #endif
@@ -687,7 +686,7 @@ copy_on_device(P *const dest, P const *const source, int const num_elems)
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
-  tools::expect(success == cudaSuccess);
+  expect(success == cudaSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -700,7 +699,7 @@ copy_to_device(P *const dest, P const *const source, int const num_elems)
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
-  tools::expect(success == cudaSuccess);
+  expect(success == cudaSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -713,7 +712,7 @@ copy_to_host(P *const dest, P const *const source, int const num_elems)
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
-  tools::expect(success == cudaSuccess);
+  expect(success == cudaSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -724,15 +723,15 @@ inline void
 copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
                       fk::matrix<P, omem, resource::device> const &source)
 {
-  tools::expect(source.nrows() == dest.nrows());
-  tools::expect(source.ncols() == dest.ncols());
+  expect(source.nrows() == dest.nrows());
+  expect(source.ncols() == dest.ncols());
 
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
                    source.ncols(), cudaMemcpyDeviceToDevice);
-  tools::expect(success == 0);
+  expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
 #endif
@@ -744,14 +743,14 @@ inline void
 copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
                       fk::matrix<P, omem, resource::host> const &source)
 {
-  tools::expect(source.nrows() == dest.nrows());
-  tools::expect(source.ncols() == dest.ncols());
+  expect(source.nrows() == dest.nrows());
+  expect(source.ncols() == dest.ncols());
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
                    source.ncols(), cudaMemcpyHostToDevice);
-  tools::expect(success == 0);
+  expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
 #endif
@@ -763,14 +762,14 @@ inline void
 copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
                     fk::matrix<P, omem, resource::device> const &source)
 {
-  tools::expect(source.nrows() == dest.nrows());
-  tools::expect(source.ncols() == dest.ncols());
+  expect(source.nrows() == dest.nrows());
+  expect(source.ncols() == dest.ncols());
 #ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
                    source.ncols(), cudaMemcpyDeviceToHost);
-  tools::expect(success == 0);
+  expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
 #endif
@@ -807,7 +806,7 @@ template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(int const size)
     : size_{size}, ref_count_{std::make_shared<int>(0)}
 {
-  tools::expect(size >= 0);
+  expect(size >= 0);
 
   if constexpr (resrc == resource::host)
   {
@@ -949,7 +948,7 @@ fk::vector<P, mem, resrc>::~vector()
 {
   if constexpr (mem == mem_type::owner)
   {
-    tools::expect(ref_count_.use_count() == 1);
+    expect(ref_count_.use_count() == 1);
 
     if constexpr (resrc == resource::host)
     {
@@ -1006,7 +1005,7 @@ operator=(vector<P, mem, resrc> const &a)
   if (&a == this)
     return *this;
 
-  tools::expect(size() == a.size());
+  expect(size() == a.size());
 
   if constexpr (resrc == resource::host)
   {
@@ -1031,7 +1030,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> &&a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    tools::expect(a.ref_count_.use_count() == 1);
+    expect(a.ref_count_.use_count() == 1);
   }
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
@@ -1054,11 +1053,11 @@ operator=(vector<P, mem, resrc> &&a)
 
   if constexpr (mem == mem_type::owner)
   {
-    tools::expect(ref_count_.use_count() == 1);
-    tools::expect(a.ref_count_.use_count() == 1);
+    expect(ref_count_.use_count() == 1);
+    expect(a.ref_count_.use_count() == 1);
   }
 
-  tools::expect(size() == a.size());
+  expect(size() == a.size());
   size_      = a.size_;
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
@@ -1093,7 +1092,7 @@ template<typename PP, mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem> &fk::vector<P, mem, resrc>::
 operator=(vector<PP, omem> const &a)
 {
-  tools::expect(size() == a.size());
+  expect(size() == a.size());
 
   size_ = a.size();
   for (auto i = 0; i < a.size(); ++i)
@@ -1128,7 +1127,7 @@ template<mem_type omem, mem_type, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::
 operator=(vector<P, omem, resrc> const &a)
 {
-  tools::expect(size() == a.size());
+  expect(size() == a.size());
   if constexpr (resrc == resource::host)
   {
     std::memcpy(data_, a.data(), size() * sizeof(P));
@@ -1159,7 +1158,7 @@ template<mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
     fk::vector<P, omem, resource::host> const &a)
 {
-  tools::expect(a.size() == size());
+  expect(a.size() == size());
   copy_to_device(data_, a.data(), a.size());
   return *this;
 }
@@ -1182,7 +1181,7 @@ template<mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::transfer_from(
     vector<P, omem, resource::device> const &a)
 {
-  tools::expect(a.size() == size());
+  expect(a.size() == size());
   copy_to_host(data_, a.data(), a.size());
   return *this;
 }
@@ -1195,7 +1194,7 @@ template<mem_type, typename, resource, typename>
 fk::vector<P, mem> &fk::vector<P, mem, resrc>::
 operator=(std::vector<P> const &v)
 {
-  tools::expect(size() == static_cast<int>(v.size()));
+  expect(size() == static_cast<int>(v.size()));
   std::memcpy(data_, v.data(), v.size() * sizeof(P));
   return *this;
 }
@@ -1218,7 +1217,7 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, resource, typename>
 P &fk::vector<P, mem, resrc>::operator()(int i)
 {
-  tools::expect(i < size_);
+  expect(i < size_);
   return data_[i];
 }
 
@@ -1226,7 +1225,7 @@ template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 P fk::vector<P, mem, resrc>::operator()(int i) const
 {
-  tools::expect(i < size_);
+  expect(i < size_);
   return data_[i];
 }
 
@@ -1282,7 +1281,7 @@ template<mem_type omem, resource, typename>
 fk::vector<P> fk::vector<P, mem, resrc>::
 operator+(vector<P, omem> const &right) const
 {
-  tools::expect(size() == right.size());
+  expect(size() == right.size());
   vector<P> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i) + right(i);
@@ -1297,7 +1296,7 @@ template<mem_type omem, resource, typename>
 fk::vector<P> fk::vector<P, mem, resrc>::
 operator-(vector<P, omem> const &right) const
 {
-  tools::expect(size() == right.size());
+  expect(size() == right.size());
   vector<P> ans(size());
   for (auto i = 0; i < size(); ++i)
     ans(i) = (*this)(i)-right(i);
@@ -1311,7 +1310,7 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, resource, typename>
 P fk::vector<P, mem, resrc>::operator*(vector<P, omem> const &right) const
 {
-  tools::expect(size() == right.size());
+  expect(size() == right.size());
   int n           = size();
   int one         = 1;
   vector const &X = (*this);
@@ -1328,7 +1327,7 @@ fk::vector<P> fk::vector<P, mem, resrc>::
 operator*(fk::matrix<P, omem> const &A) const
 {
   // check dimension compatibility
-  tools::expect(size() == A.nrows());
+  expect(size() == A.nrows());
 
   vector const &X = (*this);
   vector<P> Y(A.ncols());
@@ -1419,7 +1418,7 @@ void fk::vector<P, mem, resrc>::print(std::string const label) const
   else if constexpr (mem == mem_type::const_view)
     std::cout << label << "(const view)" << '\n';
   else
-    tools::expect(false); // above cases should cover all implemented types
+    expect(false); // above cases should cover all implemented types
 
   if constexpr (std::is_floating_point<P>::value)
   {
@@ -1464,7 +1463,7 @@ template<mem_type, typename>
 fk::vector<P, mem_type::owner, resrc> &
 fk::vector<P, mem, resrc>::resize(int const new_size)
 {
-  tools::expect(new_size >= 0);
+  expect(new_size >= 0);
   if (new_size == this->size())
     return *this;
   P *old_data{data_};
@@ -1521,8 +1520,8 @@ fk::vector<P, mem> &
 fk::vector<P, mem, resrc>::set_subvector(int const index,
                                          fk::vector<P, omem> const sub_vector)
 {
-  tools::expect(index >= 0);
-  tools::expect((index + sub_vector.size()) <= this->size());
+  expect(index >= 0);
+  expect((index + sub_vector.size()) <= this->size());
   std::memcpy(&(*this)(index), sub_vector.data(),
               sub_vector.size() * sizeof(P));
   return *this;
@@ -1534,9 +1533,9 @@ template<resource, typename>
 fk::vector<P>
 fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
 {
-  tools::expect(start >= 0);
-  tools::expect(stop < this->size());
-  tools::expect(stop >= start);
+  expect(start >= 0);
+  expect(stop < this->size());
+  expect(stop >= start);
 
   int const sub_size = stop - start + 1;
   fk::vector<P> sub_vector(sub_size);
@@ -1569,9 +1568,9 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &vec,
   size_ = 0;
   if (vec.size() > 0)
   {
-    tools::expect(start_index >= 0);
-    tools::expect(stop_index < vec.size());
-    tools::expect(stop_index >= start_index);
+    expect(start_index >= 0);
+    expect(stop_index < vec.size());
+    expect(stop_index >= start_index);
 
     data_ = vec.data_ + start_index;
     size_ = stop_index - start_index + 1;
@@ -1588,11 +1587,11 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
                                   int const row_stop)
     : ref_count_(source_ref_count)
 {
-  tools::expect(column_index >= 0);
-  tools::expect(column_index < source.ncols());
-  tools::expect(row_start >= 0);
-  tools::expect(row_start <= row_stop);
-  tools::expect(row_stop < source.nrows());
+  expect(column_index >= 0);
+  expect(column_index < source.ncols());
+  expect(row_start >= 0);
+  expect(row_start <= row_stop);
+  expect(row_stop < source.nrows());
 
   data_ = nullptr;
   size_ = row_stop - row_start + 1;
@@ -1626,8 +1625,8 @@ fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
                                                  std::make_shared<int>(0)}
 
 {
-  tools::expect(m >= 0);
-  tools::expect(n >= 0);
+  expect(m >= 0);
+  expect(n >= 0);
 
   if constexpr (resrc == resource::host)
   {
@@ -1733,7 +1732,7 @@ fk::matrix<P, mem, resrc>::~matrix()
 {
   if constexpr (mem == mem_type::owner)
   {
-    tools::expect(ref_count_.use_count() == 1);
+    expect(ref_count_.use_count() == 1);
     if constexpr (resrc == resource::host)
     {
       delete[] data_;
@@ -1790,7 +1789,7 @@ operator=(matrix<P, mem, resrc> const &a)
   if (&a == this)
     return *this;
 
-  tools::expect((nrows() == a.nrows()) && (ncols() == a.ncols()));
+  expect((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
   if constexpr (mem == mem_type::owner)
   {
@@ -1838,8 +1837,8 @@ template<mem_type omem, mem_type, typename>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::
 operator=(matrix<P, omem, resrc> const &a)
 {
-  tools::expect(nrows() == a.nrows());
-  tools::expect(ncols() == a.ncols());
+  expect(nrows() == a.nrows());
+  expect(ncols() == a.ncols());
   if constexpr (resrc == resource::host)
   {
     std::copy(a.begin(), a.end(), begin());
@@ -1878,7 +1877,7 @@ template<typename PP, mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::
 operator=(matrix<PP, omem> const &a)
 {
-  tools::expect((nrows() == a.nrows()) && (ncols() == a.ncols()));
+  expect((nrows() == a.nrows()) && (ncols() == a.ncols()));
 
   nrows_ = a.nrows();
   ncols_ = a.ncols();
@@ -1909,8 +1908,8 @@ template<mem_type omem, resource, typename>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
     fk::matrix<P, omem, resource::host> const &a)
 {
-  tools::expect(a.nrows() == nrows());
-  tools::expect(a.ncols() == ncols());
+  expect(a.nrows() == nrows());
+  expect(a.ncols() == ncols());
 
   copy_matrix_to_device(*this, a);
 
@@ -1935,8 +1934,8 @@ template<mem_type omem, resource, typename>
 fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
     matrix<P, omem, resource::device> const &a)
 {
-  tools::expect(a.nrows() == nrows());
-  tools::expect(a.ncols() == ncols());
+  expect(a.nrows() == nrows());
+  expect(a.ncols() == ncols());
   copy_matrix_to_host(*this, a);
   return *this;
 }
@@ -1952,7 +1951,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> &&a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    tools::expect(a.ref_count_.use_count() == 1);
+    expect(a.ref_count_.use_count() == 1);
   }
 
   ref_count_ = std::make_shared<int>(0);
@@ -1976,13 +1975,13 @@ operator=(matrix<P, mem, resrc> &&a)
   if (&a == this)
     return *this;
 
-  tools::expect((nrows() == a.nrows()) &&
-                (ncols() == a.ncols() && stride() == a.stride()));
+  expect((nrows() == a.nrows()) &&
+         (ncols() == a.ncols() && stride() == a.stride()));
 
   // check for destination orphaning; see below
   if constexpr (mem == mem_type::owner)
   {
-    tools::expect(ref_count_.use_count() == 1 && a.ref_count_.use_count() == 1);
+    expect(ref_count_.use_count() == 1 && a.ref_count_.use_count() == 1);
   }
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
@@ -2002,7 +2001,7 @@ template<mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::
 operator=(fk::vector<P, omem> const &v)
 {
-  tools::expect(nrows() * ncols() == v.size());
+  expect(nrows() * ncols() == v.size());
 
   for (auto j = 0; j < ncols(); ++j)
     for (auto i = 0; i < nrows(); ++i)
@@ -2020,7 +2019,7 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, resource, typename>
 P &fk::matrix<P, mem, resrc>::operator()(int const i, int const j)
 {
-  tools::expect(i < nrows() && j < ncols());
+  expect(i < nrows() && j < ncols());
   return *(data(i, j));
 }
 
@@ -2028,7 +2027,7 @@ template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 P fk::matrix<P, mem, resrc>::operator()(int const i, int const j) const
 {
-  tools::expect(i < nrows() && j < ncols());
+  expect(i < nrows() && j < ncols());
   return *(data(i, j));
 }
 
@@ -2089,7 +2088,7 @@ template<mem_type omem, resource, typename>
 fk::matrix<P> fk::matrix<P, mem, resrc>::
 operator+(matrix<P, omem> const &right) const
 {
-  tools::expect(nrows() == right.nrows() && ncols() == right.ncols());
+  expect(nrows() == right.nrows() && ncols() == right.ncols());
 
   matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
@@ -2110,7 +2109,7 @@ template<mem_type omem, resource, typename>
 fk::matrix<P> fk::matrix<P, mem, resrc>::
 operator-(matrix<P, omem> const &right) const
 {
-  tools::expect(nrows() == right.nrows() && ncols() == right.ncols());
+  expect(nrows() == right.nrows() && ncols() == right.ncols());
 
   matrix<P> ans(nrows(), ncols());
   ans.nrows_ = nrows();
@@ -2150,7 +2149,7 @@ fk::vector<P> fk::matrix<P, mem, resrc>::
 operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
-  tools::expect(ncols() == right.size());
+  expect(ncols() == right.size());
 
   matrix<P, mem> const &A = (*this);
   vector<P> Y(A.nrows());
@@ -2176,7 +2175,7 @@ template<mem_type omem, resource, typename>
 fk::matrix<P> fk::matrix<P, mem, resrc>::
 operator*(matrix<P, omem> const &B) const
 {
-  tools::expect(ncols() == B.nrows()); // k == k
+  expect(ncols() == B.nrows()); // k == k
 
   // just aliases for easier reading
   matrix const &A = (*this);
@@ -2303,7 +2302,7 @@ template<typename P, mem_type mem, resource resrc>
 template<typename U, typename, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::invert()
 {
-  tools::expect(nrows() == ncols());
+  expect(nrows() == ncols());
 
   int *ipiv{new int[ncols()]};
   int lwork{nrows() * ncols()};
@@ -2337,7 +2336,7 @@ template<typename P, mem_type mem, resource resrc>
 template<typename U, typename, resource, typename>
 P fk::matrix<P, mem, resrc>::determinant() const
 {
-  tools::expect(nrows() == ncols());
+  expect(nrows() == ncols());
 
   matrix<P, mem_type::owner> temp(*this); // get temp copy to do LU
   int *ipiv{new int[ncols()]};
@@ -2370,8 +2369,8 @@ fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_col(int const col_idx,
                                       fk::vector<P, omem> const &v)
 {
-  tools::expect(nrows() == static_cast<int>(v.size()));
-  tools::expect(col_idx < ncols());
+  expect(nrows() == static_cast<int>(v.size()));
+  expect(col_idx < ncols());
 
   int n{v.size()};
   int one{1};
@@ -2391,8 +2390,8 @@ fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_col(int const col_idx,
                                       std::vector<P> const &v)
 {
-  tools::expect(nrows() == static_cast<int>(v.size()));
-  tools::expect(col_idx < ncols());
+  expect(nrows() == static_cast<int>(v.size()));
+  expect(col_idx < ncols());
 
   int n{static_cast<int>(v.size())};
   int one{1};
@@ -2414,8 +2413,8 @@ fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_row(int const row_idx,
                                       fk::vector<P, omem> const &v)
 {
-  tools::expect(ncols() == v.size());
-  tools::expect(row_idx < nrows());
+  expect(ncols() == v.size());
+  expect(row_idx < nrows());
 
   int n{v.size()};
   int one{1};
@@ -2435,8 +2434,8 @@ fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::update_row(int const row_idx,
                                       std::vector<P> const &v)
 {
-  tools::expect(ncols() == static_cast<int>(v.size()));
-  tools::expect(row_idx < nrows());
+  expect(ncols() == static_cast<int>(v.size()));
+  expect(row_idx < nrows());
 
   int n{static_cast<int>(v.size())};
   int one{1};
@@ -2456,12 +2455,12 @@ template<mem_type, typename>
 fk::matrix<P, mem_type::owner, resrc> &
 fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
 {
-  tools::expect(ref_count_.use_count() == 1);
+  expect(ref_count_.use_count() == 1);
 
-  tools::expect(rows >= 0);
-  tools::expect(cols >= 0);
+  expect(rows >= 0);
+  expect(cols >= 0);
   if (rows == 0 || cols == 0)
-    tools::expect(cols == rows);
+    expect(cols == rows);
 
   if constexpr (resrc == resource::host)
   {
@@ -2489,10 +2488,10 @@ fk::matrix<P, mem> &
 fk::matrix<P, mem, resrc>::set_submatrix(int const row_idx, int const col_idx,
                                          matrix<P, omem> const &submatrix)
 {
-  tools::expect(row_idx >= 0);
-  tools::expect(col_idx >= 0);
-  tools::expect(row_idx + submatrix.nrows() <= nrows());
-  tools::expect(col_idx + submatrix.ncols() <= ncols());
+  expect(row_idx >= 0);
+  expect(col_idx >= 0);
+  expect(row_idx + submatrix.nrows() <= nrows());
+  expect(col_idx + submatrix.ncols() <= ncols());
 
   matrix &matrix = *this;
   for (auto i = 0; i < submatrix.nrows(); ++i)
@@ -2516,10 +2515,10 @@ fk::matrix<P, mem, resrc>::extract_submatrix(int const row_idx,
                                              int const num_rows,
                                              int const num_cols) const
 {
-  tools::expect(row_idx >= 0);
-  tools::expect(col_idx >= 0);
-  tools::expect(row_idx + num_rows <= nrows());
-  tools::expect(col_idx + num_cols <= ncols());
+  expect(row_idx >= 0);
+  expect(col_idx >= 0);
+  expect(row_idx + num_rows <= nrows());
+  expect(col_idx + num_cols <= ncols());
 
   matrix<P> submatrix(num_rows, num_cols);
   auto matrix = *this;
@@ -2554,7 +2553,7 @@ void fk::matrix<P, mem, resrc>::print(std::string label) const
     std::cout << label << "(const view, "
               << "stride == " << std::to_string(stride()) << ")" << '\n';
   else
-    tools::expect(false); // above cases cover all implemented mem types
+    expect(false); // above cases cover all implemented mem types
 
   for (auto i = 0; i < nrows(); ++i)
   {
@@ -2628,11 +2627,11 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
   int const view_cols = stop_col - start_col + 1;
   if (owner.size() > 0)
   {
-    tools::expect(start_row >= 0);
-    tools::expect(start_col >= 0);
-    tools::expect(stop_col < owner.ncols());
-    tools::expect(stop_row < owner.nrows());
-    tools::expect(stop_row >= start_row);
+    expect(start_row >= 0);
+    expect(start_col >= 0);
+    expect(stop_col < owner.ncols());
+    expect(stop_row < owner.nrows());
+    expect(stop_row >= start_row);
 
     data_   = owner.data(start_row, start_col);
     nrows_  = view_rows;
@@ -2651,12 +2650,12 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
                                   int const start_index)
     : ref_count_(source_ref_count)
 {
-  tools::expect(start_index >= 0);
-  tools::expect(num_rows > 0);
-  tools::expect(num_cols > 0);
+  expect(start_index >= 0);
+  expect(num_rows > 0);
+  expect(num_cols > 0);
 
   int const size = num_rows * num_cols;
-  tools::expect(start_index + size <= source.size());
+  expect(start_index + size <= source.size());
 
   data_   = nullptr;
   nrows_  = 0;
@@ -2730,8 +2729,8 @@ template<typename P, mem_type left_mem, mem_type right_mem>
 void debug_compare(fk::matrix<P, left_mem> const &left,
                    fk::matrix<P, right_mem> const &right)
 {
-  tools::expect(left.nrows() == right.nrows());
-  tools::expect(left.ncols() == right.ncols());
+  expect(left.nrows() == right.nrows());
+  expect(left.ncols() == right.ncols());
 
   static std::string const red("\033[0;31m");
   static std::string const reset("\033[0m");

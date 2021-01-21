@@ -8,7 +8,7 @@
 // for testing the timer
 double shuffle_random(int const num_items)
 {
-  tools::expect(num_items > 0);
+  expect(num_items > 0);
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());
   std::uniform_real_distribution<double> dist(0.1, 1.0);
@@ -34,7 +34,7 @@ TEST_CASE("test timer")
     timer.start(identifier);
     double const val = shuffle_random(items_to_gen);
     timer.stop(identifier);
-    tools::expect(val > 0.0); // to avoid comp. warnings
+    expect(val > 0.0); // to avoid comp. warnings
   }
   std::string const report = timer.report();
 

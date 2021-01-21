@@ -275,8 +275,8 @@ bool options::should_output_realspace(int const i) const
 
 bool options::write_at_step(int const i, int const freq) const
 {
-  tools::expect(i >= 0);
-  tools::expect(freq >= 0);
+  expect(i >= 0);
+  expect(freq >= 0);
 
   if (freq == 0)
   {

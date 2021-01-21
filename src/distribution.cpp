@@ -15,7 +15,7 @@ struct distribution_handler
   void set_global_comm(MPI_Comm const &comm)
   {
     auto const status = MPI_Comm_dup(comm, &global_comm);
-    tools::expect(status == 0);
+    expect(status == 0);
   }
   MPI_Comm get_global_comm() const { return global_comm; }
 
@@ -33,12 +33,12 @@ int get_local_rank()
     auto success = MPI_Comm_split_type(distro_handle.get_global_comm(),
                                        MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                                        &local_comm);
-    tools::expect(success == 0);
+    expect(success == 0);
     int local_rank;
     success = MPI_Comm_rank(local_comm, &local_rank);
-    tools::expect(success == 0);
+    expect(success == 0);
     success = MPI_Comm_free(&local_comm);
-    tools::expect(success == 0);
+    expect(success == 0);
     return local_rank;
   }();
   return rank;
@@ -53,7 +53,7 @@ int get_rank()
     int my_rank;
     auto const status =
         MPI_Comm_rank(distro_handle.get_global_comm(), &my_rank);
-    tools::expect(status == 0);
+    expect(status == 0);
     return my_rank;
   }();
   return rank;
@@ -68,7 +68,7 @@ int get_num_ranks()
     int num_ranks;
     auto const status =
         MPI_Comm_size(distro_handle.get_global_comm(), &num_ranks);
-    tools::expect(status == 0);
+    expect(status == 0);
     return num_ranks;
   }();
   return num_ranks;
@@ -102,20 +102,20 @@ static void terminate_all_ranks(int signum)
 std::array<int, 2> initialize_distribution()
 {
   static bool init_done = false;
-  tools::expect(!init_done);
+  expect(!init_done);
 #ifdef ASGARD_USE_MPI
   signal(SIGABRT, terminate_all_ranks);
   auto status = MPI_Init(NULL, NULL);
 
   init_done = true;
-  tools::expect(status == 0);
+  expect(status == 0);
 
   int num_ranks;
   status = MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-  tools::expect(status == 0);
+  expect(status == 0);
   int my_rank;
   status = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-  tools::expect(status == 0);
+  expect(status == 0);
 
   auto const num_participating = num_effective_ranks(num_ranks);
   bool const participating     = my_rank < num_participating;
@@ -123,10 +123,10 @@ std::array<int, 2> initialize_distribution()
   MPI_Comm effective_communicator;
   auto success = MPI_Comm_split(MPI_COMM_WORLD, comm_color, my_rank,
                                 &effective_communicator);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   status = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-  tools::expect(status == 0);
+  expect(status == 0);
 
   if (effective_communicator != MPI_COMM_NULL)
   {
@@ -145,7 +145,7 @@ void finalize_distribution()
 {
 #ifdef ASGARD_USE_MPI
   auto const status = MPI_Finalize();
-  tools::expect(status == 0);
+  expect(status == 0);
 #endif
 }
 
@@ -155,13 +155,13 @@ void finalize_distribution()
 element_subgrid get_subgrid(int const num_ranks, int const my_rank,
                             elements::table const &table)
 {
-  tools::expect(num_ranks > 0);
+  expect(num_ranks > 0);
 
-  tools::expect(num_ranks % 2 == 0 || num_ranks == 1 ||
-                std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)));
-  tools::expect(my_rank >= 0);
-  tools::expect(my_rank < num_ranks);
-  tools::expect(table.size() >= num_ranks);
+  expect(num_ranks % 2 == 0 || num_ranks == 1 ||
+         std::sqrt(num_ranks) == std::floor(std::sqrt(num_ranks)));
+  expect(my_rank >= 0);
+  expect(my_rank < num_ranks);
+  expect(table.size() >= num_ranks);
 
   if (num_ranks == 1)
   {
@@ -197,8 +197,8 @@ element_subgrid get_subgrid(int const num_ranks, int const my_rank,
 // distribution plan is a mapping from rank -> assigned subgrid
 distribution_plan get_plan(int const num_ranks, elements::table const &table)
 {
-  tools::expect(num_ranks > 0);
-  tools::expect(table.size() > 0);
+  expect(num_ranks > 0);
+  expect(table.size() > 0);
   auto const num_splits = num_effective_ranks(num_ranks);
 
   distribution_plan plan;
@@ -260,9 +260,9 @@ template<typename P>
 void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
                     distribution_plan const &plan, int const my_rank)
 {
-  tools::expect(source.size() == dest.size());
-  tools::expect(my_rank >= 0);
-  tools::expect(my_rank < static_cast<int>(plan.size()));
+  expect(source.size() == dest.size());
+  expect(my_rank >= 0);
+  expect(my_rank < static_cast<int>(plan.size()));
 
 #ifdef ASGARD_USE_MPI
   if (plan.size() == 1)
@@ -282,16 +282,16 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 
   auto success =
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   MPI_Datatype const mpi_type =
       std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
   success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
                           source.size(), mpi_type, MPI_SUM, row_communicator);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   success = MPI_Comm_free(&row_communicator);
-  tools::expect(success == 0);
+  expect(success == 0);
 
 #else
   fm::copy(source, dest);
@@ -338,7 +338,7 @@ std::vector<std::vector<message>> const static dependencies_to_messages(
     std::vector<int> const &row_boundaries,
     std::vector<int> const &column_boundaries)
 {
-  tools::expect(col_dependencies.size() == column_boundaries.size());
+  expect(col_dependencies.size() == column_boundaries.size());
 
   /* initialize a round robin selector for each row */
   std::vector<round_robin_wheel> row_round_robin_wheels;
@@ -413,7 +413,7 @@ generate_messages(distribution_plan const &plan)
   std::vector<int> col_boundaries;
 
   auto const num_cols = get_num_subgrid_cols(plan.size());
-  tools::expect(plan.size() % num_cols == 0);
+  expect(plan.size() % num_cols == 0);
   auto const num_rows = static_cast<int>(plan.size()) / num_cols;
 
   for (int i = 0; i < num_rows; ++i)
@@ -447,7 +447,7 @@ copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
               index_mapper const &source_map, index_mapper const &dest_map,
               message const &message, int const segment_size)
 {
-  tools::expect(segment_size > 0);
+  expect(segment_size > 0);
   if (message.message_dir == message_direction::send)
   {
     auto const source_start =
@@ -482,7 +482,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
                              int const segment_size)
 {
 #ifdef ASGARD_USE_MPI
-  tools::expect(segment_size > 0);
+  expect(segment_size > 0);
 
   MPI_Datatype const mpi_type =
       std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
@@ -504,7 +504,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
     auto const success =
         MPI_Send((void *)window.data(), window.size(), mpi_type, message.target,
                  mpi_tag, communicator);
-    tools::expect(success == 0);
+    expect(success == 0);
   }
   else
   {
@@ -519,7 +519,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
     auto const success =
         MPI_Recv((void *)window.data(), window.size(), mpi_type, message.target,
                  MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
-    tools::expect(success == 0);
+    expect(success == 0);
   }
 #else
 
@@ -528,7 +528,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   ignore(map);
   ignore(message);
   ignore(segment_size);
-  tools::expect(false);
+  expect(false);
 
 #endif
 }
@@ -538,8 +538,8 @@ void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
                       int const segment_size, distribution_plan const &plan,
                       int const my_rank)
 {
-  tools::expect(my_rank >= 0);
-  tools::expect(my_rank < static_cast<int>(plan.size()));
+  expect(my_rank >= 0);
+  expect(my_rank < static_cast<int>(plan.size()));
 #ifdef ASGARD_USE_MPI
 
   if (plan.size() == 1)
@@ -590,17 +590,17 @@ gather_errors(P const root_mean_squared, P const relative)
   auto success =
       MPI_Comm_split_type(distro_handle.get_global_comm(), MPI_COMM_TYPE_SHARED,
                           0, MPI_INFO_NULL, &local_comm);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   MPI_Datatype const mpi_type =
       std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
 
   int local_rank;
   success = MPI_Comm_rank(local_comm, &local_rank);
-  tools::expect(success == 0);
+  expect(success == 0);
   int local_size;
   success = MPI_Comm_size(local_comm, &local_size);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   fk::vector<P> error_vect(local_size * 2);
 
@@ -608,7 +608,7 @@ gather_errors(P const root_mean_squared, P const relative)
              mpi_type, 0, local_comm);
 
   success = MPI_Comm_free(&local_comm);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   if (local_rank == 0)
   {
@@ -633,8 +633,8 @@ std::vector<P>
 gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                int const my_rank, int const element_segment_size)
 {
-  tools::expect(my_rank >= 0);
-  tools::expect(my_rank < static_cast<int>(plan.size()));
+  expect(my_rank >= 0);
+  expect(my_rank < static_cast<int>(plan.size()));
 
   auto const own_results = [&my_results]() {
     std::vector<P> own_results(my_results.size());
@@ -680,7 +680,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
   MPI_Comm first_row_communicator;
   auto success = MPI_Comm_split(global_communicator, comm_color, my_rank,
                                 &first_row_communicator);
-  tools::expect(success == 0);
+  expect(success == 0);
 
   // gather values
   if (first_row_communicator != MPI_COMM_NULL)
@@ -704,7 +704,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
                                     rank_displacements(i)),
                            rank_lengths(i), mpi_type, i, MPI_ANY_TAG,
                            first_row_communicator, MPI_STATUS_IGNORE);
-        tools::expect(success == 0);
+        expect(success == 0);
       }
 
       return results;
@@ -715,7 +715,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
       success = MPI_Send((void *)my_results.data(), my_results.size(), mpi_type,
                          0, mpi_tag, first_row_communicator);
 
-      tools::expect(success == 0);
+      expect(success == 0);
       return own_results();
     }
   }

@@ -17,7 +17,7 @@ void generate_all_coefficients(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
     P const time, bool const rotate)
 {
-  tools::expect(time >= 0.0);
+  expect(time >= 0.0);
 
   for (auto i = 0; i < pde.num_dims; ++i)
   {
@@ -50,9 +50,9 @@ fk::matrix<P> generate_coefficients(
     basis::wavelet_transform<P, resource::host> const &transformer,
     P const time, bool const rotate)
 {
-  tools::expect(time >= 0.0);
-  tools::expect(transformer.degree == dim.get_degree());
-  tools::expect(transformer.max_level >= dim.get_level());
+  expect(time >= 0.0);
+  expect(transformer.degree == dim.get_degree());
+  expect(transformer.max_level >= dim.get_level());
 
   // setup jacobi of variable x and define coeff_mat
   auto const num_points = fm::two_raised_to(transformer.max_level);

@@ -16,7 +16,7 @@
 template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 {
-  tools::expect(degree > 0);
+  expect(degree > 0);
 
   // These are the function outputs
   // g0,g1,h0, and h1 are two-scale coefficients
@@ -359,8 +359,8 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 template<typename R>
 fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
 {
-  tools::expect(degree > 0);
-  tools::expect(num_levels > 1);
+  expect(degree > 0);
+  expect(num_levels > 1);
 
   int const max_level = fm::two_raised_to(num_levels);
 
@@ -502,7 +502,7 @@ wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
                << '\n';
 
   // copy to device if necessary
-  tools::expect(block_builder.size() == dense_blocks_.size());
+  expect(block_builder.size() == dense_blocks_.size());
   for (auto i = 0; i < static_cast<int>(block_builder.size()); ++i)
   {
     if constexpr (resrc == resource::host)
@@ -527,8 +527,8 @@ fk::vector<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     basis::side const transform_side,
     basis::transpose const transform_trans) const
 {
-  tools::expect(level >= 0);
-  tools::expect(level <= max_level);
+  expect(level >= 0);
+  expect(level <= max_level);
 
   auto const ncols =
       transform_side == basis::side::right ? coefficients.size() : 1;
@@ -546,22 +546,22 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     basis::side const transform_side,
     basis::transpose const transform_trans) const
 {
-  tools::expect(level >= 0);
+  expect(level >= 0);
   if (level == 0)
   {
     return fk::matrix<P, mem_type::owner, resrc>(coefficients);
   }
 
-  tools::expect(level <= max_level);
+  expect(level <= max_level);
 
   auto const op_size = fm::two_raised_to(level) * degree;
   if (transform_side == basis::side::right)
   {
-    tools::expect(coefficients.ncols() == op_size);
+    expect(coefficients.ncols() == op_size);
   }
   else
   {
-    tools::expect(coefficients.nrows() == op_size);
+    expect(coefficients.nrows() == op_size);
   }
 
   int const rows_y =

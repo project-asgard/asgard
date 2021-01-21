@@ -205,8 +205,8 @@ int main(int argc, char **argv)
       auto const relative_error = RMSE / inf_norm(analytic_solution) * 100;
       auto const [rmse_errors, relative_errors] =
           gather_errors(RMSE, relative_error);
-      tools::expect(rmse_errors.size() == relative_errors.size());
-      for (auto i = 0; i < rmse_errors.size(); ++i)
+      expect(rmse_errors.size() == relative_errors.size());
+      for (int i = 0; i < rmse_errors.size(); ++i)
       {
         node_out() << "Errors for local rank: " << i << '\n';
         node_out() << "RMSE (numeric-analytic) [wavelet]: " << rmse_errors(i)

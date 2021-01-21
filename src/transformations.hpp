@@ -56,10 +56,10 @@ fk::vector<P> forward_transform(
   P const domain_min   = dim.domain_min;
   P const domain_max   = dim.domain_max;
 
-  tools::expect(num_levels >= 0);
-  tools::expect(num_levels <= transformer.max_level);
-  tools::expect(degree > 0);
-  tools::expect(domain_max > domain_min);
+  expect(num_levels >= 0);
+  expect(num_levels <= transformer.max_level);
+  expect(degree > 0);
+  expect(domain_max > domain_min);
 
   // check to make sure the F function arg is a function type
   // that will accept a vector argument. we have a check for its
@@ -106,7 +106,7 @@ fk::vector<P> forward_transform(
     // get the f(v) initial condition at the quadrature points.
     fk::vector<P> f_here = function(mapped_roots, t);
     // ensuring function returns vector of appropriate size
-    tools::expect(f_here.size() == weights.size());
+    expect(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
                    f_here.begin(), std::multiplies<P>());
 
@@ -146,10 +146,10 @@ inline fk::vector<P> transform_and_combine_dimensions(
     int const start, int const stop, int const degree, P const time = 0.0,
     P const time_multiplier = 1.0)
 {
-  tools::expect(static_cast<int>(v_functions.size()) == pde.num_dims);
-  tools::expect(start <= stop);
-  tools::expect(stop < table.size());
-  tools::expect(degree > 0);
+  expect(static_cast<int>(v_functions.size()) == pde.num_dims);
+  expect(start <= stop);
+  expect(stop < table.size());
+  expect(degree > 0);
 
   std::vector<fk::vector<P>> dimension_components;
   dimension_components.reserve(pde.num_dims);

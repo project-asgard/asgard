@@ -546,18 +546,18 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
                        bool const trans_a = false, bool const trans_b = false,
                        P const alpha = 1.0, P const beta = 0.0)
 {
-  tools::expect(m > 0);
-  tools::expect(n > 0);
-  tools::expect(k > 0);
+  expect(m > 0);
+  expect(n > 0);
+  expect(k > 0);
 
   int const rows_a = trans_a ? k : m;
   int const cols_a = trans_a ? m : k;
-  tools::expect(lda >= rows_a);
-  tools::expect(ldc >= m);
+  expect(lda >= rows_a);
+  expect(ldc >= m);
 
   int const rows_b = trans_b ? n : k;
   int const cols_b = trans_b ? k : n;
-  tools::expect(ldb >= rows_b);
+  expect(ldb >= rows_b);
 
   std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> const
       matrices = [=]() {
@@ -760,9 +760,9 @@ void test_batched_gemv(int const m, int const n, int const lda,
                        int const num_batch = 3, bool const trans_a = false,
                        P const alpha = 1.0, P const beta = 0.0)
 {
-  tools::expect(m > 0);
-  tools::expect(n > 0);
-  tools::expect(lda >= m);
+  expect(m > 0);
+  expect(n > 0);
+  expect(lda >= m);
 
   int const rows_a = trans_a ? n : m;
   int const cols_a = trans_a ? m : n;

@@ -20,9 +20,9 @@ std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const start_element, int const stop_element, P const t_init)
 {
-  tools::expect(start_element >= 0);
-  tools::expect(stop_element < table.size());
-  tools::expect(stop_element >= start_element);
+  expect(start_element >= 0);
+  expect(stop_element < table.size());
+  expect(stop_element >= start_element);
 
   unscaled_bc_parts<P> left_bc_parts;
   unscaled_bc_parts<P> right_bc_parts;
@@ -156,7 +156,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
   P const domain_min    = dim.domain_min;
   P const domain_max    = dim.domain_max;
   P const domain_extent = domain_max - domain_min;
-  tools::expect(domain_extent > 0);
+  expect(domain_extent > 0);
 
   int const level  = dim.get_level();
   int const degree = dim.get_degree();
@@ -177,7 +177,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
     /* If the above modification was not enough, the choice of g_function
        should be re-evaluated */
-    tools::expect(std::isfinite(g));
+    expect(std::isfinite(g));
   }
 
   /* legendre() returns a 1D matrix - must be converted into a vector */
@@ -192,7 +192,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
   fk::vector<P, mem_type::view> destination_slice(bc, 0, degree - 1);
 
-  tools::expect(destination_slice.size() == legendre_polys_at_value.size());
+  expect(destination_slice.size() == legendre_polys_at_value.size());
 
   destination_slice = fk::vector<P>(legendre_polys_at_value);
 
@@ -208,7 +208,7 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
   P const domain_max    = dim.domain_max;
   P const domain_extent = domain_max - domain_min;
 
-  tools::expect(domain_extent > 0);
+  expect(domain_extent > 0);
 
   int const level  = dim.get_level();
   int const degree = dim.get_degree();
@@ -229,7 +229,7 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
 
     /* If the above modification was not enough, the choice of g_function
        should be re-evaluated */
-    tools::expect(std::isfinite(g));
+    expect(std::isfinite(g));
   }
 
   fk::vector<P> legendre_polys_at_value = fk::vector<P>(
@@ -257,7 +257,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     P const time, std::vector<partial_term<P>> const &partial_terms,
     int const p_index, fk::vector<P> &&trace_bc)
 {
-  tools::expect(d_index < static_cast<int>(dimensions.size()));
+  expect(d_index < static_cast<int>(dimensions.size()));
 
   std::vector<fk::vector<P>> partial_bc_vecs;
 

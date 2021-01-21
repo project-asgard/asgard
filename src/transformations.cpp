@@ -30,7 +30,7 @@ template<typename P>
 fk::vector<P>
 kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
 {
-  tools::expect(num_prods > 0);
+  expect(num_prods > 0);
   if (num_prods == 1)
   {
     return operands[0];
@@ -68,8 +68,8 @@ fk::matrix<P>
 recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
                int const index)
 {
-  tools::expect(index >= 0);
-  tools::expect(index < static_cast<int>(kron_matrices.size()));
+  expect(index >= 0);
+  expect(index < static_cast<int>(kron_matrices.size()));
 
   if (index == (static_cast<int>(kron_matrices.size()) - 1))
   {
@@ -135,7 +135,7 @@ void wavelet_to_realspace(
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space)
 {
-  tools::expect(memory_limit_MB > 0);
+  expect(memory_limit_MB > 0);
 
   std::vector<batch_chain<P, resource::host>> chain;
 
@@ -171,7 +171,7 @@ void wavelet_to_realspace(
     }
 
     /* compute the amount of needed memory */
-    tools::expect(kron_matrix_MB(kron_matrices) <= memory_limit_MB);
+    expect(kron_matrix_MB(kron_matrices) <= memory_limit_MB);
 
     /* create a view of a section of the wave space vector */
     fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
@@ -204,17 +204,17 @@ combine_dimensions(int const degree, elements::table const &table,
                    P const time_scale)
 {
   int const num_dims = vectors.size();
-  tools::expect(num_dims > 0);
-  tools::expect(start_element >= 0);
-  tools::expect(stop_element >= start_element);
-  tools::expect(stop_element < table.size());
+  expect(num_dims > 0);
+  expect(start_element >= 0);
+  expect(stop_element >= start_element);
+  expect(stop_element < table.size());
 
   int64_t const vector_size =
       (stop_element - start_element + 1) * std::pow(degree, num_dims);
 
   // FIXME here we want to catch the 64-bit solution vector problem
   // and halt execution if we spill over. there is an open issue for this
-  tools::expect(vector_size < INT_MAX);
+  expect(vector_size < INT_MAX);
   fk::vector<P> combined(vector_size);
 
   for (int i = start_element; i <= stop_element; ++i)

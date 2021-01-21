@@ -12,7 +12,7 @@ template<typename T>
 inline T two_raised_to(T const exponent)
 {
   static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t>);
-  tools::expect(exponent >= 0);
+  expect(exponent >= 0);
   return 1 << exponent;
 }
 
@@ -90,7 +90,7 @@ fk::vector<P, mem, resrc> &
 axpy(fk::vector<P, omem, resrc> const &x, fk::vector<P, mem, resrc> &y,
      P const alpha = 1.0)
 {
-  tools::expect(x.size() == y.size());
+  expect(x.size() == y.size());
   int n    = x.size();
   int one  = 1;
   P alpha_ = alpha;
@@ -103,7 +103,7 @@ template<typename P, mem_type mem, mem_type omem, resource resrc>
 fk::vector<P, mem, resrc> &
 copy(fk::vector<P, omem, resrc> const &x, fk::vector<P, mem, resrc> &y)
 {
-  tools::expect(y.size() >= x.size());
+  expect(y.size() >= x.size());
   int n   = x.size();
   int one = 1;
   lib_dispatch::copy(&n, x.data(), &one, y.data(), &one, resrc);
@@ -132,8 +132,8 @@ gemv(fk::matrix<P, amem, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
   int const rows_A = trans_A ? A.ncols() : A.nrows();
   int const cols_A = trans_A ? A.nrows() : A.ncols();
 
-  tools::expect(rows_A == y.size());
-  tools::expect(cols_A == x.size());
+  expect(rows_A == y.size());
+  expect(cols_A == x.size());
 
   int lda           = A.stride();
   int one           = 1;
@@ -163,9 +163,9 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
   int const rows_B = trans_B ? B.ncols() : B.nrows();
   int const cols_B = trans_B ? B.nrows() : B.ncols();
 
-  tools::expect(C.nrows() == rows_A);
-  tools::expect(C.ncols() == cols_B);
-  tools::expect(cols_A == rows_B);
+  expect(C.nrows() == rows_A);
+  expect(C.ncols() == cols_B);
+  expect(cols_A == rows_B);
 
   int lda           = A.stride();
   int ldb           = B.stride();
@@ -198,8 +198,8 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int cols_B = 1;
 
   int rows_ipiv = ipiv.size();
-  tools::expect(cols_A == rows_B);
-  tools::expect(rows_ipiv == rows_A);
+  expect(cols_A == rows_B);
+  expect(rows_ipiv == rows_A);
 
   int lda = A.stride();
   int ldb = B.size();
@@ -251,8 +251,8 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int cols_B = 1;
 
   int rows_ipiv = ipiv.size();
-  tools::expect(cols_A == rows_B);
-  tools::expect(rows_ipiv == rows_A);
+  expect(cols_A == rows_B);
+  expect(rows_ipiv == rows_A);
 
   char trans = 'N';
   int lda    = A.stride();
