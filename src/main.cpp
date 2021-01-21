@@ -189,7 +189,7 @@ int main(int argc, char **argv)
   ml_plot.call("addpath");
 
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
-  ml_plot.plot_fval_ml(*pde, real, analytic_solution_realspace);
+  ml_plot.plot_fval(*pde, real, analytic_solution_realspace);
 #endif
 
   // -- setup output file and write initial condition
@@ -313,7 +313,7 @@ int main(int argc, char **argv)
                                transformer, default_workspace_cpu_MB, tmp_wksp,
                                real);
 
-    ml_plot.plot_fval_ml(*pde, real, analytic_solution_realspace);
+    ml_plot.plot_fval(*pde, real, analytic_solution_realspace);
 #endif
 
     node_out() << "timestep: " << i << " complete" << '\n';
