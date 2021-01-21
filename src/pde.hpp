@@ -41,6 +41,7 @@
 // ---------------------------------------------------------------------------
 
 template<typename P>
+
 std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
 {
   switch (cli_input.get_selected_pde())
@@ -53,8 +54,12 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_continuity_3d<P>>(cli_input);
   case PDE_opts::continuity_6:
     return std::make_unique<PDE_continuity_6d<P>>(cli_input);
-  case PDE_opts::fokkerplanck_1d_pitch_E:
-    return std::make_unique<PDE_fokkerplanck_1d_pitch_E<P>>(cli_input);
+  case PDE_opts::fokkerplanck_1d_pitch_E_case1:
+    return std::make_unique<
+        PDE_fokkerplanck_1d_pitch_E<P, PDE_case_opts::mod0>>(cli_input);
+  case PDE_opts::fokkerplanck_1d_pitch_E_case2:
+    return std::make_unique<
+        PDE_fokkerplanck_1d_pitch_E<P, PDE_case_opts::mod1>>(cli_input);
   case PDE_opts::fokkerplanck_1d_pitch_C:
     return std::make_unique<PDE_fokkerplanck_1d_pitch_C<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p3:
@@ -114,7 +119,10 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
     case PDE_opts::continuity_6:
       return fk::vector<int>(std::vector<int>(6, level));
 
-    case PDE_opts::fokkerplanck_1d_pitch_E:
+    case PDE_opts::fokkerplanck_1d_pitch_E_case1:
+      return fk::vector<int>(std::vector<int>(1, level));
+
+    case PDE_opts::fokkerplanck_1d_pitch_E_case2:
       return fk::vector<int>(std::vector<int>(1, level));
 
     case PDE_opts::fokkerplanck_1d_pitch_C:

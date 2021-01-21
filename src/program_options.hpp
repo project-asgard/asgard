@@ -30,7 +30,8 @@ enum class PDE_opts
   continuity_2,
   continuity_3,
   continuity_6,
-  fokkerplanck_1d_pitch_E,
+  fokkerplanck_1d_pitch_E_case1,
+  fokkerplanck_1d_pitch_E_case2,
   fokkerplanck_1d_pitch_C,
   fokkerplanck_1d_4p3,
   fokkerplanck_1d_4p4,
@@ -39,6 +40,15 @@ enum class PDE_opts
   diffusion_1,
   diffusion_2,
   // FIXME will need to add the user supplied PDE choice
+};
+
+enum class PDE_case_opts
+{
+  mod0,
+  mod1,
+  mod2,
+  mod_count
+  // FIXME will need to add the user supplied PDE cases choice
 };
 
 class PDE_descriptor
@@ -70,10 +80,16 @@ static pde_map_t const pde_mapping = {
                     PDE_opts::continuity_6)},
     // the following are labelled according to figure number in the runaway
     // electron paper
-    {"fokkerplanck_1d_pitch_E",
+    {"fokkerplanck_1d_pitch_E_case1",
      PDE_descriptor(
-         "1D pitch angle collisional term: df/dt == d/dz ( (1-z^2) df/dz",
-         PDE_opts::fokkerplanck_1d_pitch_E)},
+         "1D pitch angle collisional term: df/dt == d/dz ( (1-z^2) df/dz, f0 is"
+         " constant.",
+         PDE_opts::fokkerplanck_1d_pitch_E_case1)},
+    {"fokkerplanck_1d_pitch_E_case2",
+     PDE_descriptor(
+         "1D pitch angle collisional term: df/dt == d/dz ( (1-z^2) df/dz, f0 is"
+         " gaussian.",
+         PDE_opts::fokkerplanck_1d_pitch_E_case2)},
     {"fokkerplanck_1d_pitch_C",
      PDE_descriptor(
          "1D pitch angle collisional term: df/dt == d/dz ( (1-z^2) df/dz",
@@ -111,18 +127,19 @@ public:
   static auto constexpr NO_USER_VALUE_FP  = std::numeric_limits<double>::min();
   static auto constexpr NO_USER_VALUE_STR = "none";
 
-  static auto constexpr DEFAULT_CFL          = 0.01;
-  static auto constexpr DEFAULT_ADAPT_THRESH = 1e-3;
-  static auto constexpr DEFAULT_MAX_LEVEL    = 8;
-  static auto constexpr DEFAULT_TIME_STEPS   = 10;
-  static auto constexpr DEFAULT_WRITE_FREQ   = 0;
-  static auto constexpr DEFAULT_USE_IMPLICIT = false;
-  static auto constexpr DEFAULT_USE_FG       = false;
-  static auto constexpr DEFAULT_DO_POISSON   = false;
-  static auto constexpr DEFAULT_DO_ADAPT     = false;
-  static auto constexpr DEFAULT_PDE_STR      = "continuity_2";
-  static auto constexpr DEFAULT_PDE_OPT      = PDE_opts::continuity_2;
-  static auto constexpr DEFAULT_SOLVER       = solve_opts::direct;
+  static auto constexpr DEFAULT_CFL               = 0.01;
+  static auto constexpr DEFAULT_ADAPT_THRESH      = 1e-3;
+  static auto constexpr DEFAULT_MAX_LEVEL         = 8;
+  static auto constexpr DEFAULT_TIME_STEPS        = 10;
+  static auto constexpr DEFAULT_WRITE_FREQ        = 0;
+  static auto constexpr DEFAULT_USE_IMPLICIT      = false;
+  static auto constexpr DEFAULT_USE_FG            = false;
+  static auto constexpr DEFAULT_DO_POISSON        = false;
+  static auto constexpr DEFAULT_DO_ADAPT          = false;
+  static auto constexpr DEFAULT_PDE_STR           = "continuity_2";
+  static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::continuity_2;
+  static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
+  static auto constexpr DEFAULT_PDE_SELECTED_CASE = 0;
 
   // construct from command line
   explicit parser(int argc, char **argv);
@@ -185,7 +202,7 @@ public:
 private:
   void print_available_pdes()
   {
-    auto const max_name_length = 25;
+    auto const max_name_length = 50;
     std::cerr << "available pdes (select using -p)"
               << "\n\n";
     std::cerr << std::left << std::setw(max_name_length) << "Argument"
@@ -250,6 +267,7 @@ private:
   std::string pde_str = DEFAULT_PDE_STR;
   // pde to construct/evaluate
   PDE_opts pde_choice = DEFAULT_PDE_OPT;
+  // pde selected case (f0)
 
   // default
   std::string solver_str = NO_USER_VALUE_STR;

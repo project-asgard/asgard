@@ -31,7 +31,7 @@
 // q=df/fz  with homogeneous Dirichlet BC
 //
 // ---------------------------------------------------------------------------
-template<typename P>
+template<typename P, PDE_case_opts user_case = PDE_case_opts::mod0>
 class PDE_fokkerplanck_1d_pitch_E : public PDE<P>
 {
 public:
@@ -68,7 +68,8 @@ private:
   // analytic solution
 
   static P phi(P const z, P const t) { return std::tanh(std::atanh(z) - t); }
-  static P f0(P const z) { return z * 0. + 1; }
+  static P f0_mod0(P const z) { return z * 0. + 1; }
+  static P f0_mod1(P const z) { return exp(-pow(z, 2) / pow(0.1, 2)); }
 
   static fk::vector<P>
   analytic_solution_dim0(fk::vector<P> const z, P const t = 0)
@@ -76,11 +77,15 @@ private:
     fk::vector<P> f(z.size());
     for (int i = 0; i < z.size(); ++i)
     {
-      auto p  = phi(z(i), t);
-      auto t1 = 1 - std::pow(p, 2);
-      auto t2 = 1 - std::pow(z(i), 2);
-      auto t3 = f0(p);
-      f(i)    = t1 / t2 * t3;
+      P p  = phi(z(i), t);
+      P t1 = 1 - std::pow(p, 2);
+      P t2 = 1 - std::pow(z(i), 2);
+      P t3 = 0.;
+      if constexpr (user_case == PDE_case_opts::mod1)
+        t3 = f0_mod1(p);
+      else
+        t3 = f0_mod0(p);
+      f(i) = t1 / t2 * t3;
     }
     return f;
   }

@@ -174,12 +174,30 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E terms", "[coefficients]", double,
-                   float)
+TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
+                   double, float)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E;
+  auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case1;
   auto const gold_path  = "../testing/generated-inputs/coefficients/"
-                         "fokkerplanck1_pitch_E_coefficients";
+                         "fokkerplanck1_pitch_E_case1_coefficients";
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-13 : 1e-5;
+
+  SECTION("level 4, degree 3")
+  {
+    auto const levels = fk::vector<int>{4};
+    auto const degree = 3;
+    parser const test_parse(pde_choice, levels, degree);
+    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case2 terms", "[coefficients]",
+                   double, float)
+{
+  auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case2;
+  auto const gold_path  = "../testing/generated-inputs/coefficients/"
+                         "fokkerplanck1_pitch_E_case2_coefficients";
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-13 : 1e-5;
 
