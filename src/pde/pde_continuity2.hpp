@@ -48,9 +48,8 @@ private:
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [t](P const &x) {
-      return std::cos(PI * x) * std::sin(2.0 * t);
-    });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [t](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
