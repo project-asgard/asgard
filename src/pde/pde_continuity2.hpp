@@ -47,9 +47,10 @@ private:
   static fk::vector<P>
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [t](P const &x) { return std::cos(PI * x); });
+                   [](P const &x) { return std::cos(PI * x); });
     return fx;
   }
 
@@ -57,7 +58,6 @@ private:
   initial_condition_dim1(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
                    [](P const &x) { return std::sin(2.0 * PI * x); });
