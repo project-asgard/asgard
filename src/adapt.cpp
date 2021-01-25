@@ -125,12 +125,13 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   {
     v_functions.push_back(dim.initial_condition);
   }
-
-  auto const initial_unref = [this, &v_functions, &pde, &transformer]() {
+  P const time             = 0;
+  auto const initial_unref = [this, &v_functions, &pde, &transformer, time]() {
     auto const subgrid = this->get_subgrid(get_rank());
     return transform_and_combine_dimensions(
         pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-        subgrid.col_stop, pde.get_dimensions()[0].get_degree());
+        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time,
+        pde.exact_time(time));
   }();
 
   if (!cli_opts.do_adapt_levels)
@@ -149,11 +150,12 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     update_levels(this->get_table(), pde);
 
     // reproject
-    auto const reprojected = [this, &v_functions, &pde, &transformer]() {
+    auto const reprojected = [this, &v_functions, &pde, &transformer, time]() {
       auto const subgrid = this->get_subgrid(get_rank());
       return transform_and_combine_dimensions(
           pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-          subgrid.col_stop, pde.get_dimensions()[0].get_degree());
+          subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time,
+          pde.exact_time(time));
     }();
     refine_y.resize(reprojected.size()) = reprojected;
   }
@@ -163,11 +165,12 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   update_levels(this->get_table(), pde);
 
   // reproject
-  auto const adapted_y = [this, &v_functions, &pde, &transformer]() {
+  auto const adapted_y = [this, &v_functions, &pde, &transformer, time]() {
     auto const subgrid = this->get_subgrid(get_rank());
     return transform_and_combine_dimensions(
         pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-        subgrid.col_stop, pde.get_dimensions()[0].get_degree());
+        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time,
+        pde.exact_time(time));
   }();
 
   return adapted_y;
