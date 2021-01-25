@@ -177,8 +177,8 @@ private:
   // FIXME matlab value is 0.1, but this produces ill-conditioned matrices
   // the math wizards will conjure us a new pde with a better behaved domain
   // soon
-  inline static P const p_domain_min = 1;
-  inline static P const p_domain_max = 20;
+  inline static P const p_domain_min = 0.1;
+  inline static P const p_domain_max = 10;
 
   inline static dimension<P> const dim_p =
       dimension<P>(p_domain_min,        // domain min
