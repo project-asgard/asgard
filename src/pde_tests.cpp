@@ -8,54 +8,84 @@ static auto const pde_eps_multiplier = 1e2;
 
 template<typename P>
 void test_initial_condition(PDE<P> const &pde, std::string const base_dir,
-                            P const test_val)
+                            fk::vector<P> const &x)
 {
-  fk::vector<P> const x = {test_val};
-
-  for (int i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims; ++i)
   {
-    P const gold = read_scalar_from_txt_file(base_dir + "initial_dim" +
-                                             std::to_string(i) + ".dat");
+    auto const gold = fk::vector<P>(read_vector_from_txt_file(
+        base_dir + "initial_dim" + std::to_string(i) + ".dat"));
+    auto const fx   = pde.get_dimensions()[i].initial_condition(x, 0);
 
-    P const fx = pde.get_dimensions()[i].initial_condition(x, 0)(0);
-    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+
+    rmse_comparison(fx, gold, tol_factor);
   }
 }
 
 template<typename P>
 void test_exact_solution(PDE<P> const &pde, std::string const base_dir,
-                         P const test_val)
+                         fk::vector<P> const &x, P const time)
 {
-  fk::vector<P> const x = {test_val};
-
-  for (int i = 0; i < pde.num_dims; ++i)
+  if (!pde.has_analytic_soln)
   {
-    P const gold = read_scalar_from_txt_file(base_dir + "exact_dim" +
-                                             std::to_string(i) + ".dat");
-    P const fx   = pde.exact_vector_funcs[i](x, 0)(0);
-    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    return;
+  }
+
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    auto const gold = fk::vector<P>(read_vector_from_txt_file(
+        base_dir + "exact_dim" + std::to_string(i) + ".dat"));
+    auto const fx   = pde.exact_vector_funcs[i](x, time);
+    rmse_comparison(fx, gold, tol_factor);
   }
 
   P const gold = read_scalar_from_txt_file(base_dir + "exact_time.dat");
-  P const fx   = pde.exact_time(x(0));
+  P const fx   = pde.exact_time(time);
   relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+}
+
+template<typename P>
+void test_source_vectors(PDE<P> const &pde, std::string const base_dir,
+                         fk::vector<P> const &x, P const time)
+{
+  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+
+  for (auto i = 0; i < pde.num_sources; ++i)
+  {
+    auto const source_string = base_dir + "source" + std::to_string(i) + "_";
+    for (auto j = 0; j < pde.num_dims; ++j)
+    {
+      auto const full_path = source_string + "dim" + std::to_string(j) + ".dat";
+      auto const gold = fk::vector<P>(read_vector_from_txt_file(full_path));
+      auto const fx   = pde.sources[i].source_funcs[j](x, time);
+      rmse_comparison(fx, gold, tol_factor);
+    }
+    P const gold  = read_scalar_from_txt_file(source_string + "time.dat");
+    auto const fx = pde.sources[i].time_func(time);
+    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+  }
 }
 
 TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
                    float)
 {
-  auto const pde             = make_PDE<TestType>(PDE_opts::diffusion_2, 3, 2);
-  std::string const base_dir = "../testing/generated-inputs/pde/diffusion_2_";
-  fk::vector<TestType> const x = {4.2};
+  auto const level  = 3;
+  auto const degree = 2;
+  auto const pde    = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+  std::string const base_dir   = "../testing/generated-inputs/pde/diffusion_2_";
+  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+  TestType const time          = 5;
 
   SECTION("diffusion 2 initial condition functions")
   {
-    test_initial_condition<TestType>(*pde, base_dir, 4.2);
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
   SECTION("diffusion 2 exact solution functions")
   {
-    test_exact_solution<TestType>(*pde, base_dir, 4.2);
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
 
   SECTION("diffusion 2 dt")
@@ -69,39 +99,26 @@ TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
 TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
                    float)
 {
-  auto const pde             = make_PDE<TestType>(PDE_opts::diffusion_1, 3, 2);
-  std::string const base_dir = "../testing/generated-inputs/pde/diffusion_1_";
-  fk::vector<TestType> const x = {4.2};
+  auto const level  = 3;
+  auto const degree = 2;
+  auto const pde    = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+  std::string const base_dir   = "../testing/generated-inputs/pde/diffusion_1_";
+  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+  TestType const time          = 5;
 
   SECTION("diffusion 1 initial condition functions")
   {
-    test_initial_condition<TestType>(*pde, base_dir, 4.2);
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
   SECTION("diffusion 1 exact solution functions")
   {
-    test_exact_solution<TestType>(*pde, base_dir, 4.2);
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
 
   SECTION("diffusion 1 source functions")
   {
-    for (int i = 0; i < pde->num_sources; ++i)
-    {
-      std::string const source_string =
-          base_dir + "source" + std::to_string(i) + "_";
-      for (int j = 0; j < pde->num_dims; ++j)
-      {
-        std::string const full_path =
-            source_string + "dim" + std::to_string(j) + ".dat";
-        TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-      }
-      TestType const gold =
-          read_scalar_from_txt_file(source_string + "time.dat");
-      TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_source_vectors(*pde, base_dir, x, time);
   }
 
   SECTION("diffusion 1 dt")
@@ -117,52 +134,22 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
 {
   auto const pde             = make_PDE<TestType>(PDE_opts::continuity_1);
   std::string const base_dir = "../testing/generated-inputs/pde/continuity_1_";
-  fk::vector<TestType> const x = {1.1};
+  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+  TestType const time          = 5;
 
   SECTION("continuity 1 initial condition functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
   SECTION("continuity 1 exact solution functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
-    TestType const gold =
-        read_scalar_from_txt_file(base_dir + "exact_time.dat");
-    TestType const fx = pde->exact_time(x(0));
-    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
+
   SECTION("continuity 1 source functions")
   {
-    for (int i = 0; i < pde->num_sources; ++i)
-    {
-      std::string const source_string =
-          base_dir + "source" + std::to_string(i) + "_";
-      for (int j = 0; j < pde->num_dims; ++j)
-      {
-        std::string const full_path =
-            source_string + "dim" + std::to_string(j) + ".dat";
-        TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-      }
-      TestType const gold =
-          read_scalar_from_txt_file(source_string + "time.dat");
-      TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_source_vectors(*pde, base_dir, x, time);
   }
 
   SECTION("continuity 1 dt")
@@ -175,73 +162,26 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
 TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
                    "[pde]", double, float)
 {
-  int const level  = 5;
-  int const degree = 4;
-  TestType const t = 0;
-  auto const pde   = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+  auto const level  = 5;
+  auto const degree = 4;
+  auto const pde    = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
   std::string const base_dir   = "../testing/generated-inputs/pde/continuity2_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+  TestType const time          = 5;
 
   SECTION("continuity 2 initial condition functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      fk::vector<TestType> const gold(read_vector_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat"));
-      fk::vector<TestType> const fx =
-          pde->get_dimensions()[i].initial_condition(x, t);
-      rmse_comparison(fx, gold, tol_factor);
-    }
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
   SECTION("continuity 2 exact solution functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      fk::vector<TestType> const gold(read_vector_from_txt_file(
-          base_dir + "exact_dim" + std::to_string(i) + ".dat"));
-
-      fk::vector<TestType> const fx = pde->exact_vector_funcs[i](x, t);
-      rmse_comparison(fx, gold, tol_factor);
-    }
-
-    fk::vector<TestType> const gold(
-        read_vector_from_txt_file(base_dir + "exact_time.dat"));
-    fk::vector<TestType> fx(gold.size());
-    std::transform(
-        x.begin(), x.end(), fx.begin(),
-        [&pde](TestType const x) -> TestType { return pde->exact_time(x); });
-    rmse_comparison(fx, gold, tol_factor);
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
 
   SECTION("continuity 2 source functions")
   {
-    for (int i = 0; i < pde->num_sources; ++i)
-    {
-      std::string const source_string =
-          base_dir + "source" + std::to_string(i) + "_";
-      for (int j = 0; j < pde->num_dims; ++j)
-      {
-        std::string const full_path =
-            source_string + "dim" + std::to_string(j) + ".dat";
-        fk::vector<TestType> const gold(read_vector_from_txt_file(full_path));
-        fk::vector<TestType> const fx = pde->sources[i].source_funcs[j](x, t);
-        rmse_comparison(fx, gold, tol_factor);
-      }
-
-      fk::vector<TestType> const gold(
-          read_vector_from_txt_file(source_string + "time.dat"));
-
-      fk::vector<TestType> fx(gold.size());
-      std::transform(x.begin(), x.end(), fx.begin(),
-                     [&pde, i](TestType const x) -> TestType {
-                       return pde->sources[i].time_func(x);
-                     });
-
-      rmse_comparison(fx, gold, tol_factor);
-    }
+    test_source_vectors(*pde, base_dir, x, time);
   }
 
   SECTION("continuity 2 dt")
@@ -255,56 +195,26 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
 TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
                    float)
 {
-  auto const pde             = make_PDE<TestType>(PDE_opts::continuity_3);
+  auto const level  = 5;
+  auto const degree = 4;
+  auto const pde    = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   std::string const base_dir = "../testing/generated-inputs/pde/continuity_3_";
-  fk::vector<TestType> const x = {3.3};
+  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+  TestType const time          = 5;
 
   SECTION("continuity 3 initial condition functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat");
-
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
   SECTION("continuity 3 exact solution functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
-    TestType const gold =
-        read_scalar_from_txt_file(base_dir + "exact_time.dat");
-    TestType const fx = pde->exact_time(x(0));
-    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
+
   SECTION("continuity 3 source functions")
   {
-    for (int i = 0; i < pde->num_sources; ++i)
-    {
-      std::string const source_string =
-          base_dir + "source" + std::to_string(i) + "_";
-      for (int j = 0; j < pde->num_dims; ++j)
-      {
-        std::string const full_path =
-            source_string + "dim" + std::to_string(j) + ".dat";
-        TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-      }
-
-      TestType const gold =
-          read_scalar_from_txt_file(source_string + "time.dat");
-      TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_source_vectors(*pde, base_dir, x, time);
   }
 
   SECTION("continuity 3 dt")
@@ -318,56 +228,25 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
 TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
                    float)
 {
-  auto const pde             = make_PDE<TestType>(PDE_opts::continuity_6);
+  auto const level = 3;
+  auto const pde   = make_PDE<TestType>(PDE_opts::continuity_6, level);
   std::string const base_dir = "../testing/generated-inputs/pde/continuity_6_";
-  fk::vector<TestType> const x = {6.6};
+  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+  TestType const time          = 5;
 
   SECTION("continuity 6 initial condition functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat");
-
-      TestType const fx = pde->get_dimensions()[i].initial_condition(x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
   SECTION("continuity 6 exact solution functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      TestType const gold = read_scalar_from_txt_file(
-          base_dir + "exact_dim" + std::to_string(i) + ".dat");
-      TestType const fx = pde->exact_vector_funcs[i](x, 0)(0);
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
-    TestType const gold =
-        read_scalar_from_txt_file(base_dir + "exact_time.dat");
-    TestType const fx = pde->exact_time(x(0));
-    relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
+
   SECTION("continuity 6 source functions")
   {
-    for (int i = 0; i < pde->num_sources; ++i)
-    {
-      std::string const source_string =
-          base_dir + "source" + std::to_string(i) + "_";
-      for (int j = 0; j < pde->num_dims; ++j)
-      {
-        std::string const full_path =
-            source_string + "dim" + std::to_string(j) + ".dat";
-        TestType const gold = read_scalar_from_txt_file(full_path);
-        TestType const fx   = pde->sources[i].source_funcs[j](x, 0)(0);
-        relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-      }
-
-      TestType const gold =
-          read_scalar_from_txt_file(source_string + "time.dat");
-      TestType const fx = pde->sources[i].time_func(x(0));
-      relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-    }
+    test_source_vectors(*pde, base_dir, x, time);
   }
 
   SECTION("continuity 6 dt")
@@ -389,25 +268,24 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
   std::string const base_dir =
       "../testing/generated-inputs/pde/fokkerplanck2_complete_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+  TestType const time          = 5;
 
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
-
-  SECTION("fokkerplanck2_complete initial condition functions")
+  SECTION("fp2 complete initial condition functions")
   {
-    for (int i = 0; i < pde->num_dims; ++i)
-    {
-      fk::vector<TestType> const gold(read_vector_from_txt_file(
-          base_dir + "initial_dim" + std::to_string(i) + ".dat"));
-
-      fk::vector<TestType> const fx =
-          pde->get_dimensions()[i].initial_condition(x, 0);
-
-      rmse_comparison(fx, gold, tol_factor);
-    }
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 
-  SECTION("fokkerplanck2_complete dt")
+  SECTION("fp2 complete exact solution functions")
+  {
+    test_exact_solution<TestType>(*pde, base_dir, x, time);
+  }
+
+  SECTION("fp2 complete source functions")
+  {
+    test_source_vectors(*pde, base_dir, x, time);
+  }
+
+  SECTION("fp2 complete dt")
   {
     // TestType const gold = read_scalar_from_txt_file(base_dir + "dt.dat");
     // TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
