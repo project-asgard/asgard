@@ -128,10 +128,12 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   P const time             = 0;
   auto const initial_unref = [this, &v_functions, &pde, &transformer, time]() {
     auto const subgrid = this->get_subgrid(get_rank());
+    // TODO temp add scalar time func to initial conditions with multi-D func PR
+    auto const mult =
+        pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
     return transform_and_combine_dimensions(
         pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time,
-        pde.exact_time(time));
+        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time, mult);
   }();
 
   if (!cli_opts.do_adapt_levels)
@@ -152,10 +154,11 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     // reproject
     auto const reprojected = [this, &v_functions, &pde, &transformer, time]() {
       auto const subgrid = this->get_subgrid(get_rank());
+      auto const mult =
+          pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
       return transform_and_combine_dimensions(
           pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-          subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time,
-          pde.exact_time(time));
+          subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time, mult);
     }();
     refine_y.resize(reprojected.size()) = reprojected;
   }
@@ -167,10 +170,11 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   // reproject
   auto const adapted_y = [this, &v_functions, &pde, &transformer, time]() {
     auto const subgrid = this->get_subgrid(get_rank());
+    auto const mult =
+        pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
     return transform_and_combine_dimensions(
         pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time,
-        pde.exact_time(time));
+        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time, mult);
   }();
 
   return adapted_y;
