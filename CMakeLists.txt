@@ -128,7 +128,7 @@ if(ASGARD_USE_MKL)
   if(ASGARD_USE_CUDA)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
   else()
-    target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX) # CMAKE doesn't handle MKL openmp link properly
   endif()
 endif()
 
@@ -365,7 +365,7 @@ if (ASGARD_BUILD_TESTS)
          set(test_ranks ${ASGARD_TESTING_RANKS})
         endif ()
         add_test (NAME ${component}-test-mpi
-                  COMMAND mpirun -n ${test_ranks} ${component}-tests
+                  COMMAND mpirun -n ${test_ranks} ./${component}-tests
                   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
       endif()
     endif ()
