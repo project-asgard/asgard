@@ -128,7 +128,7 @@ if(ASGARD_USE_MKL)
   if(ASGARD_USE_CUDA)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
   else()
-    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX) # CMAKE doesn't handle MKL openmp link properly
+    target_link_libraries( kronmult_cuda PRIVATE OpenMP::OpenMP_CXX) # CMAKE doesn't handle MKL openmp link properly
   endif()
 endif()
 
@@ -178,7 +178,7 @@ foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
   target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
   if(ASGARD_USE_MKL)
-    target_compile_options (${component} PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+    target_link_libraries( ${component} PRIVATE OpenMP::OpenMP_CXX) # CMAKE doesn't handle MKL openmp link properly
   endif()
 endforeach ()
 
