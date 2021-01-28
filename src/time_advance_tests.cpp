@@ -604,21 +604,46 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E", "[time_advance]",
-                   float, double)
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
+                   "[time_advance]", float, double)
 {
-  std::string const pde_choice = "fokkerplanck_1d_pitch_E";
+  std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
   TestType const cfl           = 0.01;
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
   auto const num_dims = 1;
 
-  SECTION("fokkerplanck_1d_pitch_E, level 2, degree 2, sparse grid")
+  SECTION("fokkerplanck_1d_pitch_E_case1, level 2, degree 2, sparse grid")
   {
     int const degree            = 2;
     int const level             = 2;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_E_sg_l2_d2_t";
+                                  "fokkerplanck1_pitch_E_case1_sg_l2_d2_t";
+
+    auto const full_grid = false;
+    parser const parse(
+        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps);
+
+    time_advance_test(parse, gold_base, tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
+                   "[time_advance]", float, double)
+{
+  std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
+  TestType const cfl           = 0.01;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-5;
+  auto const num_dims = 1;
+
+  SECTION("fokkerplanck_1d_pitch_E_case2, level 2, degree 2, sparse grid")
+  {
+    int const degree            = 2;
+    int const level             = 2;
+    std::string const gold_base = "../testing/generated-inputs/time_advance/"
+                                  "fokkerplanck1_pitch_E_case2_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
