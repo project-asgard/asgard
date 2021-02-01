@@ -150,13 +150,13 @@ public:
   vector(vector<P, mem, resrc> const &);
   // cannot be templated per C++ spec 12.8
   // instead of disabling w/ sfinae for const_view,
-  // static expect added to definition
+  // static assert added to definition
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> const &);
 
   // move constructor/assignment (required to be same to same)
   vector(vector<P, mem, resrc> &&);
 
-  // as with copy assignment, static expect added
+  // as with copy assignment, static assert added
   // to definition to prevent assignment into
   // const views
   vector<P, mem, resrc> &operator=(vector<P, mem, resrc> &&);
