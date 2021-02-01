@@ -56,10 +56,10 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_continuity_6d<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_pitch_E_case1:
     return std::make_unique<
-        PDE_fokkerplanck_1d_pitch_E<P, PDE_case_opts::mod0>>(cli_input);
+        PDE_fokkerplanck_1d_pitch_E<P, PDE_case_opts::case0>>(cli_input);
   case PDE_opts::fokkerplanck_1d_pitch_E_case2:
     return std::make_unique<
-        PDE_fokkerplanck_1d_pitch_E<P, PDE_case_opts::mod1>>(cli_input);
+        PDE_fokkerplanck_1d_pitch_E<P, PDE_case_opts::case1>>(cli_input);
   case PDE_opts::fokkerplanck_1d_pitch_C:
     return std::make_unique<PDE_fokkerplanck_1d_pitch_C<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p3:

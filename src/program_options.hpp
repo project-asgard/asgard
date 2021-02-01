@@ -44,10 +44,10 @@ enum class PDE_opts
 
 enum class PDE_case_opts
 {
-  mod0,
-  mod1,
-  mod2,
-  mod_count
+  case0,
+  case1,
+  case2,
+  case_count
   // FIXME will need to add the user supplied PDE cases choice
 };
 
@@ -139,7 +139,7 @@ public:
   static auto constexpr DEFAULT_PDE_STR           = "continuity_2";
   static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::continuity_2;
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
-  static auto constexpr DEFAULT_PDE_SELECTED_CASE = 0;
+  static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;
 
   // construct from command line
   explicit parser(int argc, char **argv);
@@ -267,7 +267,6 @@ private:
   std::string pde_str = DEFAULT_PDE_STR;
   // pde to construct/evaluate
   PDE_opts pde_choice = DEFAULT_PDE_OPT;
-  // pde selected case (f0)
 
   // default
   std::string solver_str = NO_USER_VALUE_STR;
