@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 #include "kronmult_cuda.hpp"
 #include "build_info.hpp"
 
@@ -100,8 +101,8 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
 
   hipLaunchKernelGGL(HIP_KERNEL_NAME(stage_inputs_kronmult_kernel<P>), dim3(num_blocks), dim3(num_threads), 0, 0, x, workspace, num_elems, num_copies);
 
-  auto const stat = cudaDeviceSynchronize();
-  expect(stat == cudaSuccess);
+  auto const stat = hipDeviceSynchronize();
+  expect(stat == hipSuccess);
 #else
   stage_inputs_kronmult_kernel(x, workspace, num_elems, num_copies);
 #endif
@@ -283,8 +284,8 @@ void prepare_kronmult(int const *const flattened_table,
       flattened_table, operators, operator_lda, element_x, element_work, fx,
       operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
       num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
-  auto const stat = cudaDeviceSynchronize();
-  expect(stat == cudaSuccess);
+  auto const stat = hipDeviceSynchronize();
+  expect(stat == hipSuccess);
 #else
   prepare_kronmult_kernel(
       flattened_table, operators, operator_lda, element_x, element_work, fx,
@@ -341,8 +342,8 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     // -------------------------------------------
     // note important to wait for kernel to finish
     // -------------------------------------------
-    auto const stat = cudaDeviceSynchronize();
-    expect(stat == cudaSuccess);
+    auto const stat = hipDeviceSynchronize();
+    expect(stat == hipSuccess);
   }
 #else
 
