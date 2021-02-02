@@ -640,8 +640,8 @@ inline void
 allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 {
 #ifdef ASGARD_USE_CUDA
-  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  assert(success == cudaSuccess);
+  auto success = hipMalloc((void **)&ptr, num_elems * sizeof(P));
+  assert(success == hipSuccess);
   if (num_elems > 0)
   {
     expect(ptr != nullptr);
@@ -649,8 +649,8 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 
   if (initialize)
   {
-    success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
-    expect(success == cudaSuccess);
+    success = hipMemset((void *)ptr, 0, num_elems * sizeof(P));
+    expect(success == hipSuccess);
   }
 
 #else
@@ -669,11 +669,11 @@ template<typename P>
 inline void delete_device(P *const ptr)
 {
 #ifdef ASGARD_USE_CUDA
-  auto const success = cudaFree(ptr);
+  auto const success = hipFree(ptr);
   // the device runtime may be unloaded at process shut down
   // (when static storage duration destructors are called)
   // returning a cudartUnloading error code.
-  expect((success == cudaSuccess) || (success == cudaErrorCudartUnloading));
+  expect((success == hipSuccess) || (success == hipErrorDeinitialized));
 #else
   delete[] ptr;
 #endif
@@ -685,8 +685,8 @@ copy_on_device(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_HIP
   auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
-  expect(success == cudaSuccess);
+      hipMemcpy(dest, source, num_elems * sizeof(P), hipMemcpyDeviceToDevice);
+  expect(success == hipSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -698,8 +698,8 @@ copy_to_device(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_HIP
   auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
-  expect(success == cudaSuccess);
+      hipMemcpy(dest, source, num_elems * sizeof(P), hipMemcpyHostToDevice);
+  expect(success == hipSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -711,8 +711,8 @@ copy_to_host(P *const dest, P const *const source, int const num_elems)
 {
 #ifdef ASGARD_USE_HIP
   auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
-  expect(success == cudaSuccess);
+      hipMemcpy(dest, source, num_elems * sizeof(P), hipMemcpyDeviceToHost);
+  expect(success == hipSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -730,7 +730,7 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
-                   source.ncols(), cudaMemcpyDeviceToDevice);
+                   source.ncols(), hipMemcpyDeviceToDevice);
   expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
@@ -749,7 +749,7 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
-                   source.ncols(), cudaMemcpyHostToDevice);
+                   source.ncols(), hipMemcpyHostToDevice);
   expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
@@ -768,7 +768,7 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
-                   source.ncols(), cudaMemcpyDeviceToHost);
+                   source.ncols(), hipMemcpyDeviceToHost);
   expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
