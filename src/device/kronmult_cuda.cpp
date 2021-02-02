@@ -1,6 +1,6 @@
-#include "hip/hip_runtime.h"
 #include "kronmult_cuda.hpp"
 #include "build_info.hpp"
+#include "hip/hip_runtime.h"
 
 #ifdef ASGARD_USE_HIP
 #include <hip/hip_runtime.h>
@@ -99,7 +99,9 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
   auto const total_copies = static_cast<int64_t>(num_elems) * num_copies;
   auto const num_blocks   = (total_copies + num_threads - 1) / num_threads;
 
-  hipLaunchKernelGGL(HIP_KERNEL_NAME(stage_inputs_kronmult_kernel<P>), dim3(num_blocks), dim3(num_threads), 0, 0, x, workspace, num_elems, num_copies);
+  hipLaunchKernelGGL(HIP_KERNEL_NAME(stage_inputs_kronmult_kernel<P>),
+                     dim3(num_blocks), dim3(num_threads), 0, 0, x, workspace,
+                     num_elems, num_copies);
 
   auto const stat = hipDeviceSynchronize();
   expect(stat == hipSuccess);
@@ -280,10 +282,12 @@ void prepare_kronmult(int const *const flattened_table,
       static_cast<int64_t>(elem_col_stop - elem_col_start + 1) *
       (elem_row_stop - elem_row_start + 1);
   auto const num_blocks = (num_krons / num_threads) + 1;
-  hipLaunchKernelGGL(HIP_KERNEL_NAME(prepare_kronmult_kernel<P>), dim3(num_blocks), dim3(num_threads), 0, 0, 
-      flattened_table, operators, operator_lda, element_x, element_work, fx,
-      operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
-      num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
+  hipLaunchKernelGGL(HIP_KERNEL_NAME(prepare_kronmult_kernel<P>),
+                     dim3(num_blocks), dim3(num_threads), 0, 0, flattened_table,
+                     operators, operator_lda, element_x, element_work, fx,
+                     operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree,
+                     num_terms, num_dims, elem_row_start, elem_row_stop,
+                     elem_col_start, elem_col_stop);
   auto const stat = hipDeviceSynchronize();
   expect(stat == hipSuccess);
 #else
@@ -312,28 +316,40 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     switch (num_dims)
     {
     case 1:
-      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult1_xbatched<P>), dim3(num_krons), dim3(num_threads), 0, 0, 
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult1_xbatched<P>),
+                         dim3(num_krons), dim3(num_threads), 0, 0, n,
+                         operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
+                         num_krons);
       break;
     case 2:
-      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult2_xbatched<P>), dim3(num_krons), dim3(num_threads), 0, 0, 
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult2_xbatched<P>),
+                         dim3(num_krons), dim3(num_threads), 0, 0, n,
+                         operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
+                         num_krons);
       break;
     case 3:
-      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult3_xbatched<P>), dim3(num_krons), dim3(num_threads), 0, 0, 
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult3_xbatched<P>),
+                         dim3(num_krons), dim3(num_threads), 0, 0, n,
+                         operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
+                         num_krons);
       break;
     case 4:
-      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult4_xbatched<P>), dim3(num_krons), dim3(num_threads), 0, 0, 
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult4_xbatched<P>),
+                         dim3(num_krons), dim3(num_threads), 0, 0, n,
+                         operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
+                         num_krons);
       break;
     case 5:
-      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult5_xbatched<P>), dim3(num_krons), dim3(num_threads), 0, 0, 
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult5_xbatched<P>),
+                         dim3(num_krons), dim3(num_threads), 0, 0, n,
+                         operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
+                         num_krons);
       break;
     case 6:
-      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult6_xbatched<P>), dim3(num_krons), dim3(num_threads), 0, 0, 
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      hipLaunchKernelGGL(HIP_KERNEL_NAME(kronmult6_xbatched<P>),
+                         dim3(num_krons), dim3(num_threads), 0, 0, n,
+                         operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs,
+                         num_krons);
       break;
     default:
       expect(false);
