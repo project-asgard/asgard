@@ -161,6 +161,14 @@ public:
     return plt;
   }
 
+  void call_async(std::string const func)
+  {
+    tools::expect(is_open());
+
+    matlab_inst_->fevalAsync(func.c_str(), 0, m_args_);
+    m_args_.clear();
+  }
+
   std::string eval(ml_string const &stmt, std::string &err)
   {
     tools::expect(is_open());
@@ -321,7 +329,7 @@ public:
     add_param(sol_sizes_, analytic_soln);
     push_param(elem_coords_);
 
-    call("plot_fval");
+    call_async("plot_fval");
   }
 
 private:
