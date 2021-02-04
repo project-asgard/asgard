@@ -142,14 +142,9 @@ int main(int argc, char **argv)
   {
     node_out() << "  connecting with MATLAB session "
                << cli_input.get_ml_session_string() << '\n';
-    ml_plot.connect(cli_input.get_ml_session_string());
-    node_out() << "  connected to MATLAB" << '\n';
   }
-  else
-  {
-    node_out() << "  creating MATLAB session" << '\n';
-    ml_plot.start();
-  }
+  ml_plot.connect(cli_input.get_ml_session_string());
+  node_out() << "  connected to MATLAB" << '\n';
 
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
@@ -277,9 +272,12 @@ int main(int argc, char **argv)
       }
 
 #ifdef ASGARD_USE_MATLAB
-      wavelet_to_realspace<prec>(
-          *pde, analytic_solution_t, adaptive_grid.get_table(), transformer,
-          default_workspace_cpu_MB, tmp_wksp, analytic_solution_realspace);
+      if (opts.should_plot(i))
+      {
+        wavelet_to_realspace<prec>(
+            *pde, analytic_solution_t, adaptive_grid.get_table(), transformer,
+            default_workspace_cpu_MB, tmp_wksp, analytic_solution_realspace);
+      }
 #endif
     }
     else
@@ -309,11 +307,14 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ASGARD_USE_MATLAB
-    wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
-                               transformer, default_workspace_cpu_MB, tmp_wksp,
-                               real);
+    if (opts.should_plot(i))
+    {
+      wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
+                                 transformer, default_workspace_cpu_MB,
+                                 tmp_wksp, real);
 
-    ml_plot.plot_fval(*pde, real, analytic_solution_realspace);
+      ml_plot.plot_fval(*pde, real, analytic_solution_realspace);
+    }
 #endif
 
     node_out() << "timestep: " << i << " complete" << '\n';

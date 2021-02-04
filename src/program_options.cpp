@@ -54,6 +54,8 @@ parser::parser(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
   cli |= clara::detail::Opt(matlab_name, "session name")["--matlab_name"](
       "Name of a shared MATLAB session to connect to");
+  cli |= clara::detail::Opt(plot_freq, "0-num_time_steps")["--plot_freq"](
+      "Frequency in steps for displaying plots");
 #endif
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
@@ -268,6 +270,7 @@ solve_opts parser::get_selected_solver() const { return solver; }
 
 #ifdef ASGARD_USE_MATLAB
 std::string parser::get_ml_session_string() const { return matlab_name; }
+int parser::get_plot_freq() const { return plot_freq; }
 #endif
 
 bool parser::is_valid() const { return valid; }
@@ -281,6 +284,13 @@ bool options::should_output_realspace(int const i) const
 {
   return write_at_step(i, realspace_output_freq);
 }
+
+#ifdef ASGARD_USE_MATLAB
+bool options::should_plot(int const i) const
+{
+  return write_at_step(i, plot_freq);
+}
+#endif
 
 bool options::write_at_step(int const i, int const freq) const
 {

@@ -140,6 +140,9 @@ public:
   static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::continuity_2;
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
   static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;
+#ifdef ASGARD_USE_MATLAB
+  static auto constexpr DEFAULT_PLOT_FREQ = 1;
+#endif
 
   // construct from command line
   explicit parser(int argc, char **argv);
@@ -199,6 +202,7 @@ public:
 
 #ifdef ASGARD_USE_MATLAB
   std::string get_ml_session_string() const;
+  int get_plot_freq() const;
 #endif
 
   bool is_valid() const;
@@ -279,6 +283,7 @@ private:
 
 #ifdef ASGARD_USE_MATLAB
   std::string matlab_name = NO_USER_VALUE_STR;
+  int plot_freq           = DEFAULT_PLOT_FREQ;
 #endif
 
   // is there a better (testable) way to handle invalid command-line input?
@@ -296,6 +301,9 @@ public:
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
         realspace_output_freq(user_vals.get_realspace_output_freq()),
+#ifdef ASGARD_USE_MATLAB
+        plot_freq(user_vals.get_plot_freq()),
+#endif
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
@@ -304,7 +312,6 @@ public:
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
-
   fk::vector<int> const starting_levels;
 
   double const adapt_threshold;
@@ -313,6 +320,10 @@ public:
   int const num_time_steps;
   int const wavelet_output_freq;
   int const realspace_output_freq;
+#ifdef ASGARD_USE_MATLAB
+  int const plot_freq;
+  bool should_plot(int const i) const;
+#endif
 
   bool const use_implicit_stepping;
   bool const use_full_grid;
