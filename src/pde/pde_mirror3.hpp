@@ -27,16 +27,17 @@ private:
   {
     if constexpr (user_case == PDE_case_opts::case0)
     {
-      auto constexpr T_eV = 0.05 * common.species_b.T_EV;
-      return [T_eV](fk::vector<P> const x) {
-        auto const offset = 1e6;
-        return common.MAXWELL(x, common.V_TH(T_eV, common.species_a.m), offset);
+      return [](fk::vector<P> const x, P const t) {
+        (void)t;
+        auto constexpr T_eV = 0.05 * common.species_b.T_EV;
+        auto const offset   = 1e6;
+        return common.MAXWELL(x, common.V_TH(T_eV, common.species_a.M), offset);
       };
     }
     else if constexpr (user_case == PDE_case_opts::case1)
     {
-      auto constexpr T_eV = 250 * common.species_b.T_EV;
-      return [T_eV](fk::vector<P> const x) {
+      return [](fk::vector<P> const x, P const t) {
+        (void)t;
         auto const offset = 1e6;
         return common.MAXWELL(x, 0, offset);
       };

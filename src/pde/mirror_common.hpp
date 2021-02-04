@@ -13,16 +13,16 @@ template<typename P>
 struct parameters
 {
   // _M_E in matlab - _M_E is the constant for e in C++
-  static auto constexpr _M_E = 9.109 * 1e-30;  // electron mass in kg
-  static auto constexpr M_D  = 3.3443 * 1e-26; // deuterium mass in kgs
-  static auto constexpr M_H  = 1.6726 * 1e-26; // hydrogen mass in kgs
+  static auto constexpr _M_E = 9.109 * 1e-31;  // electron mass in kg
+  static auto constexpr M_D  = 3.3443 * 1e-27; // deuterium mass in kgs
+  static auto constexpr M_H  = 1.6726 * 1e-27; // hydrogen mass in kgs
   static auto constexpr K_B =
-      1.380 * 1e-22; // Boltzmann constant in Joules/Kelvin
+      1.380 * 1e-23; // Boltzmann constant in Joules/Kelvin
   static auto constexpr E = 1.602 * 1e-19; // charge in Coulombs
   static auto constexpr EPS_0 =
-      8.85 * 1e-11; // permittivity of free space in Farad/m
+      8.85 * 1e-12; // permittivity of free space in Farad/m
   static auto constexpr MU_0 =
-      4 * M_PI * 1e-6;               // magnetic permeability in Henries/m
+      4 * M_PI * 1e-7;               // magnetic permeability in Henries/m
   static auto constexpr R_MAG = 0.4; // radius of individual loop in meters
 
   static auto constexpr LN_DELT = 10; // Coulomb logarithm
@@ -195,7 +195,7 @@ struct parameters
     ignore(t);
     fk::vector<P> fx(x);
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const val) { return std::cos(val) / 2; });
+                   [](P const val) { return std::cos(val / 2); });
     return fx;
   }
 
@@ -296,9 +296,10 @@ struct parameters
     ignore(t);
     fk::vector<P> fx(x);
     std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
-      return species_a.N / std::pow(M_PI, 3) / 2.0 *
-             std::pow(V_TH(species_b.T_EV, species_a.M), 3) *
-             std::exp(std::pow(-val / V_TH(species_b.T_EV, species_a.M), 2));
+      return species_a.N /
+             (std::pow(M_PI, 3) / 2.0 *
+              std::pow(V_TH(species_b.T_EV, species_a.M), 3)) *
+             std::exp(-std::pow(val / V_TH(species_b.T_EV, species_a.M), 2));
     });
     return fx;
   }
