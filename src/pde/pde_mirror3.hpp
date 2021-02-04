@@ -8,21 +8,7 @@
 
 #include "../tensors.hpp"
 
-// TODO do we want this in the C++?
-/*
-switch opts.case_
-    case 1
-        params.a.T_eV = 0.05*params.b.T_eV; %Target temperature in Kelvin
-        params.init_cond_v = @(v,p,t)
-params.maxwell(v,params.v_th(params.a.T_eV,params.a.m),1e6); case 2
-        params.a.T_eV = 250*params.b.T_eV;
-        params.init_cond_v = @(v,p,t) params.maxwell(v,0, 1e6);
-    case 3
-        params.a.T_eV = 1e3;
-end
-*/
-
-template<typename P>
+template<typename P, PDE_case_opts user_case = PDE_case_opts::case0>
 class PDE_mirror_3d : public PDE<P>
 {
 public:
@@ -30,10 +16,42 @@ public:
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
-  {}
+  {
+    static_assert(user_case <= PDE_case_opts::case2, "unsupported case");
+  }
 
 private:
   inline static mirror::parameters<P> const common;
+
+  static constexpr vector_func<P> get_initial_v()
+  {
+    if constexpr (user_case == PDE_case_opts::case0)
+    {
+      auto constexpr T_eV = 0.05 * common.species_b.T_EV;
+      return [T_eV](fk::vector<P> const x) {
+        auto const offset = 1e6;
+        return common.MAXWELL(x, common.V_TH(T_eV, common.species_a.m), offset);
+      };
+    }
+    else if constexpr (user_case == PDE_case_opts::case1)
+    {
+      auto constexpr T_eV = 250 * common.species_b.T_EV;
+      return [T_eV](fk::vector<P> const x) {
+        auto const offset = 1e6;
+        return common.MAXWELL(x, 0, offset);
+      };
+    }
+    else if constexpr (user_case == PDE_case_opts::case2)
+    {
+      return common.initial_condition_v;
+      // unreachable given static assert in constructor
+    }
+    else
+    {
+      expect(false);
+      return common.initial_condition_v;
+    }
+  }
 
   // these fields used to check correctness of specification
   static auto constexpr num_dims_          = 3;
@@ -45,12 +63,12 @@ private:
   // -- define dimensions --
 
   inline static dimension<P> const dim0_ =
-      dimension<P>(0.0,                        // domain min
-                   5e6,                        // domain max
-                   2,                          // levels
-                   2,                          // degree
-                   common.initial_condition_v, // initial condition
-                   "v");                       // name
+      dimension<P>(0.0,             // domain min
+                   5e6,             // domain max
+                   2,               // levels
+                   2,               // degree
+                   get_initial_v(), // initial condition
+                   "v");            // name
 
   inline static dimension<P> const dim1_ =
       dimension<P>(0.0,                        // domain min
