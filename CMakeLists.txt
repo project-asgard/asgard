@@ -129,6 +129,14 @@ if(ASGARD_USE_MKL)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
   else()
     target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
+    if(APPLE) # Need to link against the same openmp library as the MKL.
+      foreach (_lib IN LISTS LINALG_LIBS)
+        if (_lib MATCHES "libiomp5")
+          target_link_libraries(kronmult_cuda PRIVATE ${_lib})
+          break()
+        endif()
+      endforeach()
+    endif()
   endif()
 endif()
 

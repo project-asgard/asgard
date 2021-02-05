@@ -117,7 +117,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
+      std::is_same<TestType, double>::value ? 1e-15 : 1.1e-7;
 
   SECTION("2d - uniform level")
   {
