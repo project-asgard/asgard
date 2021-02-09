@@ -239,14 +239,11 @@ public:
   }
 
   template<typename P>
-  std::vector<P>
-  gen_elem_coords(PDE<P> const &pde, elements::table const &table)
+  fk::vector<P> gen_elem_coords(PDE<P> const &pde, elements::table const &table)
   {
     int ndims = pde.num_dims;
 
-    // TODO: this could be replaced by fk::matrix<P>, but it needs a forward
-    // iterator defined
-    std::vector<P> center_coords;
+    fk::vector<P> center_coords(ndims * table.size());
 
     // Iterate over dimensions first since matlab needs col-major order
     for (int d = 0; d < ndims; d++)
@@ -282,7 +279,7 @@ public:
 
         P x = x0 * rng + min;
 
-        center_coords.push_back(x);
+        center_coords(d * table.size() + i) = x;
       }
     }
 

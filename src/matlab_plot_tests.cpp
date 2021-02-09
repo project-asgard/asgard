@@ -18,8 +18,6 @@ TEST_CASE("create matlab session", ml_plot_tag)
   ml.close();
 }
 
-// TODO: bad global.. need to fix this, but don't want to restart matlab for
-// each test moving this to a singleton class might be slightly better
 static matlab_plot *ml = nullptr;
 
 matlab_plot *get_session(matlab_plot *instance)
@@ -61,29 +59,116 @@ TEMPLATE_TEST_CASE("creating vector params", ml_plot_tag, float, double)
   SECTION("fk::matrix") {}
 }
 
-// TODO: The testing data for the following two test cases needs to be moved to
-// a .dat file
-TEMPLATE_TEST_CASE("generate plotting nodes", ml_plot_tag, float, double)
+TEST_CASE("generate plotting nodes", ml_plot_tag)
 {
-  SECTION("continuity2d, lev = 2") {}
+  std::string const gold_base = "../testing/generated-inputs/matlab_plot/";
+  std::vector<double> const min{-1.0, -2.0, -3.0};
+  std::vector<double> const max{1.0, 2.0, 3.0};
 
-  SECTION("continuity2d, lev = 2, full grid") {}
+  ml = get_session(ml);
 
-  SECTION("continuity2d, lev = 4") {}
+  SECTION("deg = 2, lev = 2")
+  {
+    std::string const gold_file = gold_base + "nodes_continuity2_d2_l2_";
 
-  SECTION("continuity2d, lev = 4, full grid") {}
+    for (int dim = 0; dim < 2; dim++)
+    {
+      fk::vector<double> gold =
+          read_matrix_from_txt_file(gold_file + std::to_string(dim) + ".dat");
+      fk::vector<double> nodes = ml->generate_nodes(2, 2, min[dim], max[dim]);
 
-  SECTION("diffusion2d") {}
+      REQUIRE(nodes == gold);
+    }
+  }
+
+  SECTION("deg = 3, lev = 3")
+  {
+    std::string const gold_file = gold_base + "nodes_continuity3_d3_l3_";
+
+    for (int dim = 0; dim < 3; dim++)
+    {
+      fk::vector<double> gold =
+          read_matrix_from_txt_file(gold_file + std::to_string(dim) + ".dat");
+      fk::vector<double> nodes = ml->generate_nodes(3, 3, min[dim], max[dim]);
+
+      REQUIRE(nodes == gold);
+    }
+  }
 }
 
-TEMPLATE_TEST_CASE("generate element coords for plotting", ml_plot_tag, float,
-                   double)
+TEST_CASE("generate element coords for plotting", ml_plot_tag)
 {
-  SECTION("continuity1d") {}
+  std::string const gold_base = "../testing/generated-inputs/matlab_plot/";
 
-  SECTION("continuity2d") {}
+  ml = get_session(ml);
 
-  SECTION("diffusion2d") {}
+  SECTION("continuity2d, SG")
+  {
+    int const level             = 2;
+    int const degree            = 3;
+    std::string const gold_file = gold_base + "elements_2d_l2_d3_SG.dat";
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(make_options({"-l", std::to_string(level), "-d",
+                                              std::to_string(degree)}),
+                                *pde);
+
+    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
+    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
+
+    REQUIRE(element_coords == gold);
+  }
+
+  SECTION("continuity2d, FG")
+  {
+    int const level             = 2;
+    int const degree            = 3;
+    std::string const gold_file = gold_base + "elements_2d_l2_d3_FG.dat";
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(make_options({"-l", std::to_string(level), "-d",
+                                              std::to_string(degree), "-f"}),
+                                *pde);
+
+    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
+    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
+
+    REQUIRE(element_coords == gold);
+  }
+
+  SECTION("continuity3d, SG")
+  {
+    int const level             = 2;
+    int const degree            = 3;
+    std::string const gold_file = gold_base + "elements_3d_l2_d3_SG.dat";
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(make_options({"-l", std::to_string(level), "-d",
+                                              std::to_string(degree)}),
+                                *pde);
+
+    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
+    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
+
+    REQUIRE(element_coords == gold);
+  }
+
+  SECTION("continuity3d, FG")
+  {
+    int const level             = 2;
+    int const degree            = 3;
+    std::string const gold_file = gold_base + "elements_3d_l2_d3_FG.dat";
+
+    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(make_options({"-l", std::to_string(level), "-d",
+                                              std::to_string(degree), "-f"}),
+                                *pde);
+
+    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
+    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
+
+    REQUIRE(element_coords == gold);
+  }
 }
 
 // This might be a problem if test ordering is not guaranteed..
