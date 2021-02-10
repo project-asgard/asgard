@@ -54,9 +54,17 @@ TEST_CASE("creating scalar params", ml_plot_tag)
 
 TEMPLATE_TEST_CASE("creating vector params", ml_plot_tag, float, double)
 {
-  SECTION("fk::vector") {}
+  ml = get_session(ml);
 
-  SECTION("fk::matrix") {}
+  SECTION("fk::vector")
+  {
+    fk::vector<TestType> testvec(10);
+    std::iota(testvec.begin(), testvec.end(), 1.0);
+
+    REQUIRE_NOTHROW(ml->add_param({1, testvec.size()}, testvec));
+  }
+
+  ml->reset_params();
 }
 
 TEST_CASE("generate plotting nodes", ml_plot_tag)
@@ -96,6 +104,26 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
   }
 }
 
+void test_element_coords(PDE_opts const pde_name, int const level,
+                         int const degree, std::string const gold_file,
+                         bool const fullgrid)
+{
+  auto const pde                = make_PDE<double>(pde_name, level, degree);
+  std::vector<std::string> opts = {"-l", std::to_string(level), "-d",
+                                   std::to_string(degree)};
+  if (fullgrid)
+  {
+    opts.push_back("-f");
+  }
+
+  elements::table const table(make_options(opts), *pde);
+
+  fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
+  fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
+
+  REQUIRE(element_coords == gold);
+}
+
 TEST_CASE("generate element coords for plotting", ml_plot_tag)
 {
   std::string const gold_base = "../testing/generated-inputs/matlab_plot/";
@@ -108,15 +136,8 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
     int const degree            = 3;
     std::string const gold_file = gold_base + "elements_2d_l2_d3_SG.dat";
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(make_options({"-l", std::to_string(level), "-d",
-                                              std::to_string(degree)}),
-                                *pde);
-
-    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
-    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
-
-    REQUIRE(element_coords == gold);
+    test_element_coords(PDE_opts::continuity_2, level, degree, gold_file,
+                        false);
   }
 
   SECTION("continuity2d, FG")
@@ -125,15 +146,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
     int const degree            = 3;
     std::string const gold_file = gold_base + "elements_2d_l2_d3_FG.dat";
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(make_options({"-l", std::to_string(level), "-d",
-                                              std::to_string(degree), "-f"}),
-                                *pde);
-
-    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
-    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
-
-    REQUIRE(element_coords == gold);
+    test_element_coords(PDE_opts::continuity_2, level, degree, gold_file, true);
   }
 
   SECTION("continuity3d, SG")
@@ -142,15 +155,8 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
     int const degree            = 3;
     std::string const gold_file = gold_base + "elements_3d_l2_d3_SG.dat";
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(make_options({"-l", std::to_string(level), "-d",
-                                              std::to_string(degree)}),
-                                *pde);
-
-    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
-    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
-
-    REQUIRE(element_coords == gold);
+    test_element_coords(PDE_opts::continuity_3, level, degree, gold_file,
+                        false);
   }
 
   SECTION("continuity3d, FG")
@@ -159,15 +165,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
     int const degree            = 3;
     std::string const gold_file = gold_base + "elements_3d_l2_d3_FG.dat";
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(make_options({"-l", std::to_string(level), "-d",
-                                              std::to_string(degree), "-f"}),
-                                *pde);
-
-    fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
-    fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
-
-    REQUIRE(element_coords == gold);
+    test_element_coords(PDE_opts::continuity_3, level, degree, gold_file, true);
   }
 }
 
