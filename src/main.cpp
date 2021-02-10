@@ -180,7 +180,7 @@ int main(int argc, char **argv)
   }
 
   // Add the matlab scripts directory to the matlab path
-  ml_plot.add_param(std::string(ASGARD_SCRIPTS_DIR)+"matlab/");
+  ml_plot.add_param(std::string(ASGARD_SCRIPTS_DIR) + "matlab/");
   ml_plot.call("addpath");
 
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
@@ -275,7 +275,7 @@ int main(int argc, char **argv)
       if (opts.should_plot(i))
       {
         wavelet_to_realspace<prec>(
-            *pde, analytic_solution_t, adaptive_grid.get_table(), transformer,
+            *pde, analytic_solution, adaptive_grid.get_table(), transformer,
             default_workspace_cpu_MB, tmp_wksp, analytic_solution_realspace);
       }
 #endif

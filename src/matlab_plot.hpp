@@ -100,7 +100,7 @@ public:
   template<typename T>
   void add_param(matlab::data::ArrayDimensions const dims, T const &t)
   {
-    tools::expect(!std::is_scalar<T>::value);
+    expect(!std::is_scalar<T>::value);
     m_args_.push_back(factory_.createArray(dims, t.begin(), t.end()));
   }
 
@@ -119,7 +119,7 @@ public:
   // parameters, assumes position is scalar for now)
   void subplot(int const &rows, int const &cols, int const &pos)
   {
-    tools::expect(is_open());
+    expect(is_open());
 
     // Temporary workaround.. calling subplot using feval is giving a type error
     // in subplot.m
@@ -133,7 +133,7 @@ public:
   // Simple wrapper for the matlab plot command
   void plot()
   {
-    tools::expect(is_open());
+    expect(is_open());
 
     matlab::data::TypedArray<matlab::data::Object> plt =
         matlab_inst_->feval(u"plot", m_args_);
@@ -144,7 +144,7 @@ public:
 
   void call(std::string const func)
   {
-    tools::expect(is_open());
+    expect(is_open());
 
     matlab_inst_->feval(func.c_str(), 0, m_args_);
     m_args_.clear();
@@ -153,7 +153,7 @@ public:
   std::vector<matlab::data::Array>
   call(std::string const func, int const n_returns)
   {
-    tools::expect(is_open());
+    expect(is_open());
 
     std::vector<matlab::data::Array> plt =
         matlab_inst_->feval(func.c_str(), n_returns, m_args_);
@@ -163,7 +163,7 @@ public:
 
   void call_async(std::string const func)
   {
-    tools::expect(is_open());
+    expect(is_open());
 
     matlab_inst_->fevalAsync(func.c_str(), 0, m_args_);
     m_args_.clear();
@@ -171,7 +171,7 @@ public:
 
   std::string eval(ml_string const &stmt, std::string &err)
   {
-    tools::expect(is_open());
+    expect(is_open());
 
     auto output    = std::make_shared<ml_stringbuf>();
     auto err_utf16 = std::make_shared<ml_stringbuf>();
@@ -188,7 +188,7 @@ public:
   void set_var(std::string const &name, matlab::data::Array const &var,
                ml_wksp_type const type = ml_wksp_type::BASE)
   {
-    tools::expect(is_open());
+    expect(is_open());
     matlab_inst_->setVariable(name, var, type);
   }
 
@@ -259,8 +259,8 @@ public:
         int lev = coords(d);
         int pos = coords(ndims + d);
 
-        tools::expect(lev >= 0);
-        tools::expect(pos >= 0);
+        expect(lev >= 0);
+        expect(pos >= 0);
 
         P x0;
         if (lev > 1)
@@ -314,7 +314,7 @@ public:
   void plot_fval(PDE<P> const &pde, fk::vector<P> const &f_val,
                  fk::vector<P> const &analytic_soln)
   {
-    tools::expect(sol_sizes_.size() > 0);
+    expect(sol_sizes_.size() > 0);
 
     size_t ndims = static_cast<size_t>(pde.num_dims);
 
