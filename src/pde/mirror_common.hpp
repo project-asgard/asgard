@@ -89,10 +89,10 @@ struct parameters
 
   static auto constexpr PHI_F = [](fk::vector<P> const &x) {
     fk::vector<P> fx(x.size());
-    // FIXME -x^2 == x^2?
+
     std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
-      return (val + 1.0 / 2.0 * val) * std::erf(val) +
-             std::exp(std::pow(-val, 2)) / std::sqrt(M_PI);
+      return (val + (1.0 / (2.0 * val))) * std::erf(val) +
+             std::exp(-std::pow(val, 2)) / std::sqrt(M_PI);
     });
     return fx;
   };
@@ -101,10 +101,14 @@ struct parameters
     fk::vector<P> fx(x.size());
 
     std::transform(x.begin(), x.end(), fx.begin(), [](P const val) {
-      auto const dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(std::pow(-val, 2));
+      if (std::abs(val) < 1e-5)
+      {
+        return 0.0;
+      }
+      auto const dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(-std::pow(val, 2));
       auto const f_val =
-          1.0 / std::pow(2.0 * val, 2) * (PHI(val) - val * dphi_dx);
-      return std::abs(f_val) < 1e-5 ? 0.0 : f_val;
+          1.0 / (2.0 * std::pow(val, 2)) * (PHI(val) - val * dphi_dx);
+      return f_val;
     });
     return fx;
   };
@@ -129,6 +133,8 @@ struct parameters
     fk::vector<P> fx(x.size());
     for (auto i = 0; i < fx.size(); ++i)
     {
+      if (denom(i) == 0.0)
+        continue;
       fx(i) = num(i) / denom(i);
     }
     return fx;
@@ -145,6 +151,8 @@ struct parameters
     fk::vector<P> fx(x.size());
     for (auto i = 0; i < fx.size(); ++i)
     {
+      if (denom(i) == 0.0)
+        continue;
       fx(i) = num(i) / denom(i);
     }
     return fx;
@@ -152,8 +160,9 @@ struct parameters
 
   // deflection frequency in s^-1
   static auto constexpr NU_D = [](fk::vector<P> const &x) {
-    auto const num = (PHI_F(X(x, species_b.V_TH())) * NU_AB_0()) -
-                     PSI(X(x, species_b.V_TH()));
+    auto const num =
+        (PHI_F(X(x, species_b.V_TH())) - PSI(X(x, species_b.V_TH()))) *
+        NU_AB_0();
     auto denom = X(x, species_b.V_TH());
     for (auto &elem : denom)
     {
@@ -162,6 +171,8 @@ struct parameters
     fk::vector<P> fx(x.size());
     for (auto i = 0; i < fx.size(); ++i)
     {
+      if (denom(i) == 0.0)
+        continue;
       fx(i) = num(i) / denom(i);
     }
     return fx;
