@@ -5,10 +5,10 @@
 #include "tests_general.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
+#include <fenv.h>
 #include <numeric>
 #include <random>
 #include <sstream>
-#include <fenv.h>
 
 struct distribution_test_init
 {
@@ -27,7 +27,7 @@ template<typename P>
 void time_advance_test(parser const &parse, std::string const &filepath,
                        P const tolerance_factor = 1e-6)
 {
-  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT); 
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
   auto const num_ranks = get_num_ranks();
   if (num_ranks > 1 && parse.using_implicit())
   {
@@ -210,14 +210,13 @@ TEST_CASE("adaptive time advance")
 // no float testing for this problem - coefficient values are out of float range
 TEMPLATE_TEST_CASE("time advance - mirror 3", "[time_advance]", double)
 {
-  TestType const cfl           = 0.01;
-  int const num_dims           = 3;
+  TestType const cfl = 0.01;
+  int const num_dims = 3;
 
   SECTION("mirror3 case 1, explicit, sparse grid, level 3, degree 5")
   {
-
     std::string const pde_choice = "mirror_3_case1";
-    
+
     int const degree = 5;
     int const level  = 3;
 
@@ -236,7 +235,6 @@ TEMPLATE_TEST_CASE("time advance - mirror 3", "[time_advance]", double)
 
   SECTION("mirror3 case 2, explicit, sparse grid, level 3, degree 5")
   {
-
     std::string const pde_choice = "mirror_3_case2";
 
     int const degree = 5;
@@ -258,9 +256,8 @@ TEMPLATE_TEST_CASE("time advance - mirror 3", "[time_advance]", double)
 
   SECTION("mirror3 case 1, explicit, sparse grid, level 3, degree 5")
   {
-
     std::string const pde_choice = "mirror_3_case3";
-    
+
     int const degree = 5;
     int const level  = 3;
 
