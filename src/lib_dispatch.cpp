@@ -93,7 +93,7 @@ struct device_handler
 {
   device_handler()
   {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     auto success = hipblasCreate(&handle);
     expect(success == HIPBLAS_STATUS_SUCCESS);
 
@@ -128,7 +128,7 @@ struct device_handler
 #endif
   }
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   hipblasHandle_t const &get_handle() const { return handle; }
 #endif
   ~device_handler()
@@ -147,7 +147,7 @@ static device_handler device;
 
 void initialize_libraries(int const local_rank)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   expect(local_rank >= 0);
   device.set_device(local_rank);
 #else

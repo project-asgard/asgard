@@ -157,18 +157,26 @@ if(ASGARD_USE_HIP)
   #include_directories(${HIP_INCLUDE_DIRS})
   message(STATUS ${HIP_INCLUDE_DIRS})
 
-  #enable_language(HIP) 
+  #enable_language(HIP) # no cmake support yet?
   #set (CMAKE_CUDA_STANDARD 14)
   #set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+
+  #find_package(hipBLAS)
+  #if (hipBLAS_FOUND)
+  #   message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}")
+  #endif()
+
 endif()
 
 # build component to interface with Ed's kronmult lib
 ##TODO: link to kronmult as interface library
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
-if(ASGARD_USE_CUDA)
-  set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
-  set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
+if(ASGARD_USE_HIP)
+  # there is no hip language property in cmake yet?
+  #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  #set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
+  #set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 
 #  Turn on GPU support in kronmult.
@@ -320,9 +328,10 @@ else ()
   target_link_libraries (lib_dispatch PRIVATE LINALG::LINALG)
 endif ()
 
-if (ASGARD_USE_CUDA)
-  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
-					     ${CUDA_CUBLAS_LIBRARIES})
+if (ASGARD_USE_HIP)
+  target_link_libraries(lib_dispatch PRIVATE ${HIP_LIBRARIES})
+  target_include_directories(lib_dispatch PRIVATE ${HIP_INCLUDE_DIRS})
+  target_include_directories(kronmult_cuda PRIVATE ${HIP_INCLUDE_DIRS})
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -450,7 +459,7 @@ if (ASGARD_BUILD_TESTS)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
       if (${component} IN_LIST mpi_test_components)
         set(test_ranks "4")
-      	if (ASGARD_USE_CUDA)
+        if (ASGARD_USE_HIP)
           set(test_ranks "1")
         endif ()
         if (${ASGARD_TESTING_RANKS})
