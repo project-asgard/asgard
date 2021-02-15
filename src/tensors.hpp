@@ -639,7 +639,7 @@ template<typename P>
 inline void
 allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto success = hipMalloc((void **)&ptr, num_elems * sizeof(P));
   assert(success == hipSuccess);
   if (num_elems > 0)
@@ -668,7 +668,7 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 template<typename P>
 inline void delete_device(P *const ptr)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto const success = hipFree(ptr);
   // the device runtime may be unloaded at process shut down
   // (when static storage duration destructors are called)
@@ -745,7 +745,7 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
@@ -764,7 +764,7 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
