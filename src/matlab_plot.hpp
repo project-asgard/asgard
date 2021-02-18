@@ -19,6 +19,25 @@ using ml_stringbuf = std::basic_stringbuf<char16_t>;
 
 using ml_wksp_type = matlab::engine::WorkspaceType;
 
+// This class provides an interface for communicating with Matlab
+// for sharing data and calling functions. While this class is mainly
+// intended for plotting data in Matlab, this can be used to evaluate
+// different Matlab functions and share data with a Matlab session.
+
+// connect, connect_async, or start should be called first to connect
+// to a Matlab session. connect will try to find running shared sessions
+// before creating a new session.
+
+// for plotting results in Matlab, the init_plotting function should be called.
+// it is a helper function to compute element coordinates and node locations
+// to pass to the plot_fval.m matlab script
+
+// to call a matlab function or evaluate an expression, if any arguments are
+// needed, then they can be created with the add_param function. Function
+// arguments are held internally in an array. call, call_async, and eval
+// will pop off any arguments. If arguments added by add_param are no
+// longer needed, the entire array can be cleared via reset_params().
+
 class matlab_plot
 {
 public:
@@ -65,7 +84,7 @@ public:
           exit(EXIT_FAILURE);
         }
         // convert to utf16 for matlab
-        ml_string name_conv =
+        ml_string const name_conv =
             matlab::engine::convertUTF8StringToUTF16String(name);
         this->matlab_inst_ = matlab::engine::connectMATLAB(name_conv);
       }
@@ -84,7 +103,6 @@ public:
 
   void close()
   {
-    // TODO: process doesn't seem to return properly when this is called
     if (!is_open())
     {
       matlab::engine::terminateEngineClient();
@@ -178,7 +196,7 @@ public:
 
     matlab_inst_->eval(stmt, output, err_utf16);
 
-    std::string output_utf8 =
+    std::string const output_utf8 =
         matlab::engine::convertUTF16StringToUTF8String(output->str());
     err = matlab::engine::convertUTF16StringToUTF8String(err_utf16->str());
 
@@ -193,19 +211,20 @@ public:
   }
 
   template<typename T>
-  fk::vector<T> generate_nodes(int const degree, int level, T min, T max)
+  fk::vector<T> generate_nodes(int const degree, int const level, T const min,
+                               T const max) const
   {
     // Trimmed version of matrix_plot_D.m to get only the nodes
-    int n        = pow(2, level);
-    int mat_dims = degree * n;
-    T h          = (max - min) / n;
+    int const n        = pow(2, level);
+    int const mat_dims = degree * n;
+    T const h          = (max - min) / n;
 
     // TODO: fully implement the output_grid options from matlab (this is just
     // the 'else' case)
-    auto lgwt  = legendre_weights(degree, -1.0, 1.0, true);
-    auto roots = lgwt[0];
+    auto const lgwt  = legendre_weights(degree, -1.0, 1.0, true);
+    auto const roots = lgwt[0];
 
-    unsigned int dof = roots.size();
+    unsigned int const dof = roots.size();
 
     fk::vector<T> nodes(mat_dims);
 
@@ -239,25 +258,26 @@ public:
   }
 
   template<typename P>
-  fk::vector<P> gen_elem_coords(PDE<P> const &pde, elements::table const &table)
+  fk::vector<P>
+  gen_elem_coords(PDE<P> const &pde, elements::table const &table) const
   {
-    int ndims = pde.num_dims;
+    int const ndims = pde.num_dims;
 
     fk::vector<P> center_coords(ndims * table.size());
 
     // Iterate over dimensions first since matlab needs col-major order
     for (int d = 0; d < ndims; d++)
     {
-      P max = pde.get_dimensions()[d].domain_max;
-      P min = pde.get_dimensions()[d].domain_min;
-      P rng = max - min;
+      P const max = pde.get_dimensions()[d].domain_max;
+      P const min = pde.get_dimensions()[d].domain_min;
+      P const rng = max - min;
 
       for (int i = 0; i < table.size(); i++)
       {
-        fk::vector<int> coords = table.get_coords(i);
+        fk::vector<int> const &coords = table.get_coords(i);
 
-        int lev = coords(d);
-        int pos = coords(ndims + d);
+        int const lev = coords(d);
+        int const pos = coords(ndims + d);
 
         expect(lev >= 0);
         expect(pos >= 0);
@@ -265,10 +285,10 @@ public:
         P x0;
         if (lev > 1)
         {
-          P s = pow(2, lev - 1) - 1.0;
-          P h = 1.0 / (pow(2, lev - 1));
-          P w = 1.0 - h;
-          P o = 0.5 * h;
+          P const s = pow(2, lev - 1) - 1.0;
+          P const h = 1.0 / (pow(2, lev - 1));
+          P const w = 1.0 - h;
+          P const o = 0.5 * h;
 
           x0 = pos / s * w + o;
         }
@@ -277,7 +297,7 @@ public:
           x0 = pos + 0.5;
         }
 
-        P x = x0 * rng + min;
+        P const x = x0 * rng + min;
 
         center_coords(d * table.size() + i) = x;
       }
@@ -293,18 +313,18 @@ public:
     sol_sizes_ = get_soln_sizes(pde);
 
     nodes_    = std::vector<matlab::data::Array>(pde.num_dims);
-    auto dims = pde.get_dimensions();
+    auto const dims = pde.get_dimensions();
 
     for (int i = 0; i < pde.num_dims; i++)
     {
       auto const &dim = dims[i];
-      auto node_list  = generate_nodes(dim.get_degree(), dim.get_level(),
-                                      dim.domain_min, dim.domain_max);
+      auto const &node_list = generate_nodes(dim.get_degree(), dim.get_level(),
+                                             dim.domain_min, dim.domain_max);
       nodes_[i] =
           create_array({1, static_cast<size_t>(node_list.size())}, node_list);
     }
 
-    auto elem_coords = gen_elem_coords(pde, table);
+    auto const &elem_coords = gen_elem_coords(pde, table);
     elem_coords_     = create_array(
         {static_cast<size_t>(table.size()), static_cast<size_t>(pde.num_dims)},
         elem_coords);
@@ -316,7 +336,7 @@ public:
   {
     expect(sol_sizes_.size() > 0);
 
-    size_t ndims = static_cast<size_t>(pde.num_dims);
+    size_t const ndims = static_cast<size_t>(pde.num_dims);
 
     m_args_.clear();
     add_param(ndims);
@@ -331,7 +351,8 @@ public:
 
 private:
   template<typename P>
-  fk::vector<P> col_slice(fk::vector<P> const &vec, int const n, int const col)
+  fk::vector<P>
+  col_slice(fk::vector<P> const &vec, int const n, int const col) const
   {
     fk::vector<P> slice(n);
     for (int i = 0; i < n; i++)
@@ -341,10 +362,10 @@ private:
     return slice;
   }
 
-  bool find_session(std::string const &name)
+  bool find_session(std::string const &name) const
   {
     // Check if there is a running matlab session with name
-    std::vector<ml_string> sessions = matlab::engine::findMATLAB();
+    std::vector<ml_string> const &sessions = matlab::engine::findMATLAB();
     if (sessions.size() == 0)
     {
       return false;
@@ -353,7 +374,7 @@ private:
     for (auto const &session : sessions)
     {
       // Convert from UTF16 to UTF8
-      std::string conv =
+      std::string const conv =
           matlab::engine::convertUTF16StringToUTF8String(session);
       if (name.compare(conv) == 0)
       {
@@ -364,7 +385,7 @@ private:
   }
 
   template<typename P>
-  inline std::vector<size_t> get_soln_sizes(PDE<P> const &pde)
+  inline std::vector<size_t> get_soln_sizes(PDE<P> const &pde) const
   {
     // Returns a vector of the solution size for each dimension
     std::vector<size_t> sizes(pde.num_dims);
@@ -377,7 +398,7 @@ private:
   }
 
   template<typename P>
-  inline int get_soln_size(PDE<P> const &pde, int const dim)
+  inline int get_soln_size(PDE<P> const &pde, int const dim) const
   {
     // Gets the solution size for a given dimension (see real_solution_size() in
     // transformations)

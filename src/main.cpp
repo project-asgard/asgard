@@ -317,9 +317,5 @@ int main(int argc, char **argv)
 
   finalize_distribution();
 
-#ifdef ASGARD_USE_MATLAB
-  ml_plot.close();
-#endif
-
   return 0;
 }
