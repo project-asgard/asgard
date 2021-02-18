@@ -18,7 +18,6 @@
 #include "matlab_plot.hpp"
 #endif
 
-#include "boundary_conditions.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"

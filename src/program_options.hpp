@@ -280,7 +280,7 @@ private:
   // name of matlab session to connect
   std::string matlab_name = NO_USER_VALUE_STR;
   // timesteps between plotting
-  int plot_freq           = DEFAULT_PLOT_FREQ;
+  int plot_freq = DEFAULT_PLOT_FREQ;
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
@@ -307,6 +307,7 @@ public:
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
   bool should_plot(int const i) const;
+
   fk::vector<int> const starting_levels;
 
   double const adapt_threshold;

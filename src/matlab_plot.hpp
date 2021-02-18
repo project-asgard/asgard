@@ -312,12 +312,12 @@ public:
     // Generates cell array of nodes and element coordinates needed for plotting
     sol_sizes_ = get_soln_sizes(pde);
 
-    nodes_    = std::vector<matlab::data::Array>(pde.num_dims);
+    nodes_          = std::vector<matlab::data::Array>(pde.num_dims);
     auto const dims = pde.get_dimensions();
 
     for (int i = 0; i < pde.num_dims; i++)
     {
-      auto const &dim = dims[i];
+      auto const &dim       = dims[i];
       auto const &node_list = generate_nodes(dim.get_degree(), dim.get_level(),
                                              dim.domain_min, dim.domain_max);
       nodes_[i] =
@@ -325,7 +325,7 @@ public:
     }
 
     auto const &elem_coords = gen_elem_coords(pde, table);
-    elem_coords_     = create_array(
+    elem_coords_            = create_array(
         {static_cast<size_t>(table.size()), static_cast<size_t>(pde.num_dims)},
         elem_coords);
   }
