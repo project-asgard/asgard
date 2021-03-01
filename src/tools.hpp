@@ -90,5 +90,11 @@ private:
 };
 
 extern simple_timer timer;
+void start(const char* name);
+void stop(const char* name);
+void begin_iteration(const std::string& _name);
+// data-size is some normalization value for int[10] vs. double[20], etc.
+void end_iteration(const std::string& _name, int64_t _data_size, int64_t _num_itr);
+
 
 } // namespace tools

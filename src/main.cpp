@@ -20,6 +20,7 @@
 #include "time_advance.hpp"
 #include "transformations.hpp"
 #include <numeric>
+#include <timemory/timemory.hpp>
 
 #ifdef ASGARD_USE_DOUBLE_PREC
 using prec = double;
@@ -176,11 +177,13 @@ int main(int argc, char **argv)
     auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
                                                      : "explicit_time_advance";
     auto const time_id = tools::timer.start(time_str);
+    tools::start(time_str);
     auto const sol     = time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         default_workspace_MB, update_system);
     f_val.resize(sol.size()) = sol;
     tools::timer.stop(time_id);
+    tools::stop(time_str);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
@@ -255,6 +258,7 @@ int main(int argc, char **argv)
 
   node_out() << tools::timer.report() << '\n';
 
+  tim::timemory_finalize();
   finalize_distribution();
 
   return 0;
