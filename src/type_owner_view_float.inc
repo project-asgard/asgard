@@ -1,0 +1,6 @@
+X(float, owner)
+X(float, view)
+X(float, const_view)
+X(double, owner)
+X(double, view)
+X(double, const_view)
