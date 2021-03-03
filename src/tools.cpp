@@ -7,6 +7,8 @@
 #include <sstream>
 #include <timemory/timemory.hpp>
 #include <timemory/library.h>
+#include <timemory/tools/timemory-mpip.h>
+//TODO make an initialize and finalize function
 
 namespace tools
 {
@@ -54,8 +56,8 @@ namespace tools
         return report.str();
     }
 
-}
 simple_timer timer;
+}
 
 
 void start(const char* name)
@@ -88,9 +90,9 @@ struct asgard : concepts::api {};
 }
 
 using namespace tim::component;
-using namespace tim::concept;
+using namespace tim::concepts;
 using namespace tim::component::operators;
-using iteration_counter = data_tracker<int64_t, api::asgard>;
+using iteration_counter = data_tracker<int64_t, tim::api::asgard>;
 
 TIMEMORY_DECLARE_COMPONENT(iteration_tracker)
 
@@ -98,12 +100,14 @@ TIMEMORY_DECLARE_COMPONENT(iteration_tracker)
 {
     namespace component
     {
-        struct iteration_profiler : base<iteration_profiler, std::pair<double, double>>
+        struct iteration_profiler : base<iteration_profiler, double>
         {
+            // TODO add member functuion to print for pair
+            // get_display
             static std::string label() { return "asgard_iteration_profiler"; }
             static std::string description() { return "normalized iteration data"; }
 
-            void start(int64_t _data_size)
+            void start()
             {
                 m_papi.start();
             }
@@ -114,29 +118,30 @@ TIMEMORY_DECLARE_COMPONENT(iteration_tracker)
 
                 // raw flops and load/stores
                 long long flops = m_papi.get_value().at(0) + m_papi.get_value().at(1);
-                long long ldst = m_papi.get_value().at(2);
+                //long long ldst = m_papi.get_value().at(2);
 
                 // normalized flops per iteration
-                value.first = static_cast<double>(flops) / data_size / nitr;
+                value/*.first*/ = static_cast<double>(flops) / data_size / nitr;
                 // normalized load/stores per iteration
-                value.second = static_cast<double>(ldst) / data_size / nitr;
+                //value.second = static_cast<double>(ldst) / data_size / nitr;
 
                 // when structure is reused, value is last measurement, accum is sum
-                std::tie(accum.first, accum.second) += std::tie(value.first, value.second);
+                //std::tie(accum.first, accum.second) += std::tie(value.first, value.second);
                 accum += value;
             }
 
             private:
-            papi_tuple<PAPI_DP_OPS, PAPI_SP_OPS, PAPI_LST_INS> m_papi;
+            //papi_tuple<PAPI_DP_OPS, PAPI_SP_OPS/*, PAPI_LST_INS*/> m_papi;
+            papi_tuple<PAPI_LD_INS, PAPI_SR_INS> m_papi;
         };
     }
 }
 // create a bundle with wall-clock timer (always on), two custom components,
 // and user_global_bundle for runtime insertion of other components
-using iteration_bundle_t = tim::auto_bundle<api::asgard, wall_clock,
+// auto_bundle bugged --> component_bundle.
+using iteration_bundle_t = tim::component_bundle<tim::api::asgard,//constructe cals start no argument
       iteration_counter,
-      iteration_profiler,
-      user_global_bundle>;
+      iteration_profiler>;
 
 using iteration_data_t = std::unordered_map<std::string, iteration_bundle_t>;
 
@@ -144,25 +149,36 @@ static iteration_data_t iteration_data;
 
 namespace profiling
 {
+    void start(const std::string& _name) { timemory_push_region(_name.c_str()); }
+    void stop(const std::string& _name) { timemory_pop_region(_name.c_str()); }
+
+
     void begin_iteration(const std::string& _name)
     {
-        iteration_data.emplace(_name, iteration_bundle_t{ _name });
+        std::cerr << "START ITERATION" << std::endl;
+        //iteration_data.emplace(_name, iteration_bundle_t{ _name });
+        iteration_data.emplace(_name, iteration_bundle_t{ _name }).first->second.start();
+        start(_name);
     }
 
     void end_iteration(const std::string& _name, int64_t _data_size, int64_t _num_itr)
     {
-        auto itr = iteration_data.at(_name);
+        stop(_name);
+        auto itr = iteration_data.find(_name);
         if(itr == iteration_data.end())
             return;
 
         // this will add num iterations to data tracker
-        itr->store(_num_itr);
+        itr->second.store(_num_itr);
         // create a child entry in data-tracker call-graph with the name "normalized".
-        itr->add_secondary("normalized", _num_itr / _data_size);
+        itr->second.add_secondary("normalized", _num_itr / _data_size);
         // calls stop on all components and passes data-size/iterations to iteration_profiler
-        itr->stop(_data_size, _num_itr);
+        itr->second.stop(_data_size, _num_itr);
+        //itr->second.stop();
         // erase the entry
         iteration_data.erase(itr);
+
+
     }
 }
 

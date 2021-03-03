@@ -324,7 +324,7 @@ target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
 if (ASGARD_USE_TIMEMORY)
     find_package(timemory REQUIRED
-        COMPONENTS headers cxx)
+        COMPONENTS headers cxx OPTIONAL_COMPONENTS mpip-library)
     target_link_libraries(tools PRIVATE timemory::timemory)
     target_link_libraries(asgard PRIVATE timemory::timemory)
     list(APPEND CMAKE_INSTALL_RPATH ${timemory_ROOT_DIR}/lib ${timemory_ROOT_DIR}/lib64)

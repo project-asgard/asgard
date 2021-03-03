@@ -31,6 +31,7 @@ using prec = float;
 int main(int argc, char **argv)
 {
   // -- parse cli
+  tim::timemory_init(argc, argv);
   parser const cli_input(argc, argv);
   if (!cli_input.is_valid())
   {
@@ -167,6 +168,7 @@ int main(int argc, char **argv)
 
   fk::vector<prec> f_val(initial_condition);
   node_out() << "--- begin time loop w/ dt " << pde->get_dt() << " ---\n";
+  profiling::begin_iteration("Main");
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
     // take a time advance step
@@ -177,13 +179,13 @@ int main(int argc, char **argv)
     auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
                                                      : "explicit_time_advance";
     auto const time_id = tools::timer.start(time_str);
-    tools::start(time_str);
+    //tools::start(time_str);
     auto const sol     = time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         default_workspace_MB, update_system);
     f_val.resize(sol.size()) = sol;
     tools::timer.stop(time_id);
-    tools::stop(time_str);
+    //tools::stop(time_str);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
@@ -246,6 +248,7 @@ int main(int argc, char **argv)
 
     node_out() << "timestep: " << i << " complete" << '\n';
   }
+  profiling::end_iteration("Main",default_workspace_MB,opts.num_time_steps);
 
   node_out() << "--- simulation complete ---" << '\n';
 
