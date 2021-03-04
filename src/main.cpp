@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 {
   // -- parse cli
   tim::timemory_init(argc, argv);
+  profiling::start("Initialization");
   parser const cli_input(argc, argv);
   if (!cli_input.is_valid())
   {
@@ -168,6 +169,7 @@ int main(int argc, char **argv)
 
   fk::vector<prec> f_val(initial_condition);
   node_out() << "--- begin time loop w/ dt " << pde->get_dt() << " ---\n";
+  profiling::stop("Initialization");
   profiling::begin_iteration("Main");
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
@@ -179,17 +181,18 @@ int main(int argc, char **argv)
     auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
                                                      : "explicit_time_advance";
     auto const time_id = tools::timer.start(time_str);
-    //tools::start(time_str);
-    auto const sol     = time_advance::adaptive_advance(
+    profiling::start(time_str);
+    auto const sol = time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         default_workspace_MB, update_system);
     f_val.resize(sol.size()) = sol;
     tools::timer.stop(time_id);
-    //tools::stop(time_str);
+    profiling::stop(time_str);
 
     // print root mean squared error from analytic solution
     if (pde->has_analytic_soln)
     {
+      profiling::start("Compute_analytic_solnt");
       // get analytic solution at time(step+1)
       auto const subgrid           = adaptive_grid.get_subgrid(get_rank());
       auto const time_multiplier   = pde->exact_time(time + pde->get_dt());
@@ -219,6 +222,7 @@ int main(int argc, char **argv)
         node_out() << "Relative difference (numeric-analytic) [wavelet]: "
                    << relative_errors(i) << " %" << '\n';
       }
+      profiling::stop("Compute_analytic_solnt");
     }
     else
     {
@@ -248,7 +252,7 @@ int main(int argc, char **argv)
 
     node_out() << "timestep: " << i << " complete" << '\n';
   }
-  profiling::end_iteration("Main",default_workspace_MB,opts.num_time_steps);
+  profiling::end_iteration("Main", default_workspace_MB, opts.num_time_steps);
 
   node_out() << "--- simulation complete ---" << '\n';
 
@@ -256,8 +260,10 @@ int main(int argc, char **argv)
 
   // gather results from all ranks. not currently writing the result anywhere
   // yet, but rank 0 holds the complete result after this call
+  profiling::start("Gather_results");
   auto const final_result = gather_results(
       f_val, adaptive_grid.get_distrib_plan(), my_rank, segment_size);
+  profiling::stop("Gather_results");
 
   node_out() << tools::timer.report() << '\n';
 
