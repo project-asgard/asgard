@@ -61,7 +61,8 @@ TEMPLATE_TEST_CASE("creating vector params", ml_plot_tag, float, double)
     fk::vector<TestType> testvec(10);
     std::iota(testvec.begin(), testvec.end(), 1.0);
 
-    REQUIRE_NOTHROW(ml->add_param({1, testvec.size()}, testvec));
+    REQUIRE_NOTHROW(
+        ml->add_param({1, static_cast<size_t>(testvec.size())}, testvec));
   }
 
   ml->reset_params();

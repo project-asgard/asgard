@@ -76,16 +76,37 @@ public:
       }
       else
       {
+        bool get_name            = false;
+        std::string session_name = name;
         // Check if the named session exists
-        if (!find_session(name))
+        if (!find_session(name, false, session_name))
         {
-          std::cerr << "Specified MATLAB session '" << name
+          std::cerr << "  Specified MATLAB session '" << name
                     << "' does not exist" << '\n';
-          exit(EXIT_FAILURE);
+          // Try to find next session instead of exiting
+          get_name = true;
+        }
+        // If not found, try to connect to first running session
+        if (get_name)
+        {
+          bool found = find_session(name, true, session_name);
+          if (found)
+          {
+            std::cout << "  Found next running MATLAB session '" << session_name
+                      << "'\n";
+          }
+          else
+          {
+            std::cerr << "  Could not find another running MATLAB session.. "
+                         "creating a new one\n";
+            // Make a new shared session in this case
+            this->matlab_inst_ = matlab::engine::connectMATLAB();
+            return;
+          }
         }
         // convert to utf16 for matlab
         ml_string const name_conv =
-            matlab::engine::convertUTF8StringToUTF16String(name);
+            matlab::engine::convertUTF8StringToUTF16String(session_name);
         this->matlab_inst_ = matlab::engine::connectMATLAB(name_conv);
       }
     }
@@ -368,12 +389,14 @@ private:
     return slice;
   }
 
-  bool find_session(std::string const &name) const
+  bool find_session(std::string const &name, bool const find_name,
+                    std::string &session_name) const
   {
     // Check if there is a running matlab session with name
     std::vector<ml_string> const &sessions = matlab::engine::findMATLAB();
     if (sessions.size() == 0)
     {
+      std::cerr << "Found no running matlab sessions.." << '\n';
       return false;
     }
 
@@ -382,6 +405,12 @@ private:
       // Convert from UTF16 to UTF8
       std::string const conv =
           matlab::engine::convertUTF16StringToUTF8String(session);
+      if (find_name)
+      {
+        // Return first found session name
+        session_name = conv;
+        return true;
+      }
       if (name.compare(conv) == 0)
       {
         return true;
