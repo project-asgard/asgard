@@ -331,12 +331,18 @@ public:
   }
 
   template<typename P>
-  void plot_fval(PDE<P> const &pde, fk::vector<P> const &f_val,
-                 fk::vector<P> const &analytic_soln)
+  void plot_fval(PDE<P> const &pde, elements::table const &table,
+                 fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln)
   {
     expect(sol_sizes_.size() > 0);
 
     size_t const ndims = static_cast<size_t>(pde.num_dims);
+
+    if (table.size() * ndims != elem_coords_.getNumberOfElements())
+    {
+      // Regenerate the element coordinates and nodes if the grid was adapted
+      init_plotting(pde, table);
+    }
 
     m_args_.clear();
     add_param(ndims);

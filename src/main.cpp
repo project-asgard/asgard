@@ -187,7 +187,8 @@ int main(int argc, char **argv)
   ml_plot.call("addpath");
 
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
-  ml_plot.plot_fval(*pde, real_space, analytic_solution_realspace);
+  ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                    analytic_solution_realspace);
 #endif
 
   // -- setup output file and write initial condition
@@ -257,9 +258,15 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
       if (opts.should_plot(i))
       {
+        auto transform_wksp = update_transform_workspace<prec>(
+            sol.size(), workspace, tmp_workspace);
+        if (analytic_solution.size() > analytic_solution_realspace.size())
+        {
+          analytic_solution_realspace.resize(analytic_solution.size());
+        }
         wavelet_to_realspace<prec>(*pde, analytic_solution,
                                    adaptive_grid.get_table(), transformer,
-                                   default_workspace_cpu_MB, tmp_workspace,
+                                   default_workspace_cpu_MB, transform_wksp,
                                    analytic_solution_realspace);
       }
 #endif
@@ -272,9 +279,15 @@ int main(int argc, char **argv)
     /* transform from wavelet space to real space */
     if (opts.should_output_realspace(i) || opts.should_plot(i))
     {
+      auto transform_wksp = update_transform_workspace<prec>(
+          sol.size(), workspace, tmp_workspace);
+      if (f_val.size() > real_space.size())
+      {
+        real_space.resize(f_val.size());
+      }
       wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
                                  transformer, default_workspace_cpu_MB,
-                                 tmp_workspace, real_space);
+                                 transform_wksp, real_space);
     }
 #endif
 
@@ -296,7 +309,8 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
     if (opts.should_plot(i))
     {
-      ml_plot.plot_fval(*pde, real_space, analytic_solution_realspace);
+      ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                        analytic_solution_realspace);
     }
 #endif
 
