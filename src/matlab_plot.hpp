@@ -12,6 +12,8 @@
 #include <MatlabDataArray.hpp>
 #include <MatlabEngine.hpp>
 
+namespace ml
+{
 // matlab::data::String is defined as std::basic_string<char16_t>
 using ml_string = matlab::data::String;
 // used to hold results of utf16 strings returned from matlab
@@ -461,3 +463,5 @@ private:
 
   std::vector<size_t> sol_sizes_;
 };
+
+} // namespace ml

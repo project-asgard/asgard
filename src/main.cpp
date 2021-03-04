@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ASGARD_USE_MATLAB
-  matlab_plot ml_plot;
+  ml::matlab_plot ml_plot;
   if (cli_input.get_ml_session_string().compare("none") != 0)
   {
     node_out() << "  connecting with MATLAB session '"

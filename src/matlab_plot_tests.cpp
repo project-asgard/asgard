@@ -7,24 +7,27 @@ const static std::string ml_plot_tag("[matlab_plot]");
 
 TEST_CASE("create matlab session", ml_plot_tag)
 {
-  matlab_plot ml;
+  ml::matlab_plot ml_plot;
 
-  SECTION("using sync connect") { REQUIRE_NOTHROW(ml.connect()); }
+  SECTION("using sync connect") { REQUIRE_NOTHROW(ml_plot.connect()); }
 
-  SECTION("starting new with no cmd line opts") { REQUIRE_NOTHROW(ml.start()); }
+  SECTION("starting new with no cmd line opts")
+  {
+    REQUIRE_NOTHROW(ml_plot.start());
+  }
 
-  REQUIRE(ml.is_open());
+  REQUIRE(ml_plot.is_open());
 
-  ml.close();
+  ml_plot.close();
 }
 
-static matlab_plot *ml = nullptr;
+static ml::matlab_plot *ml_plot = nullptr;
 
-matlab_plot *get_session(matlab_plot *instance)
+ml::matlab_plot *get_session(ml::matlab_plot *instance)
 {
   if (!instance)
   {
-    instance = new matlab_plot();
+    instance = new ml::matlab_plot();
   }
   if (!instance->is_open())
   {
@@ -35,26 +38,26 @@ matlab_plot *get_session(matlab_plot *instance)
 
 TEST_CASE("creating scalar params", ml_plot_tag)
 {
-  ml = get_session(ml);
+  ml_plot = get_session(ml_plot);
 
   SECTION("string")
   {
     std::string test("test string");
-    REQUIRE_NOTHROW(ml->add_param(test));
+    REQUIRE_NOTHROW(ml_plot->add_param(test));
   }
 
   SECTION("integer")
   {
     int test = 25;
-    REQUIRE_NOTHROW(ml->add_param(test));
+    REQUIRE_NOTHROW(ml_plot->add_param(test));
   }
 
-  ml->reset_params();
+  ml_plot->reset_params();
 }
 
 TEMPLATE_TEST_CASE("creating vector params", ml_plot_tag, float, double)
 {
-  ml = get_session(ml);
+  ml_plot = get_session(ml_plot);
 
   SECTION("fk::vector")
   {
@@ -62,10 +65,10 @@ TEMPLATE_TEST_CASE("creating vector params", ml_plot_tag, float, double)
     std::iota(testvec.begin(), testvec.end(), 1.0);
 
     REQUIRE_NOTHROW(
-        ml->add_param({1, static_cast<size_t>(testvec.size())}, testvec));
+        ml_plot->add_param({1, static_cast<size_t>(testvec.size())}, testvec));
   }
 
-  ml->reset_params();
+  ml_plot->reset_params();
 }
 
 TEST_CASE("generate plotting nodes", ml_plot_tag)
@@ -74,7 +77,7 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
   std::vector<double> const min{-1.0, -2.0, -3.0};
   std::vector<double> const max{1.0, 2.0, 3.0};
 
-  ml = get_session(ml);
+  ml_plot = get_session(ml_plot);
 
   SECTION("deg = 2, lev = 2")
   {
@@ -84,7 +87,8 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
     {
       fk::vector<double> gold =
           read_matrix_from_txt_file(gold_file + std::to_string(dim) + ".dat");
-      fk::vector<double> nodes = ml->generate_nodes(2, 2, min[dim], max[dim]);
+      fk::vector<double> nodes =
+          ml_plot->generate_nodes(2, 2, min[dim], max[dim]);
 
       REQUIRE(nodes == gold);
     }
@@ -98,7 +102,8 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
     {
       fk::vector<double> gold =
           read_matrix_from_txt_file(gold_file + std::to_string(dim) + ".dat");
-      fk::vector<double> nodes = ml->generate_nodes(3, 3, min[dim], max[dim]);
+      fk::vector<double> nodes =
+          ml_plot->generate_nodes(3, 3, min[dim], max[dim]);
 
       REQUIRE(nodes == gold);
     }
@@ -120,7 +125,7 @@ void test_element_coords(PDE_opts const pde_name, int const level,
   elements::table const table(make_options(opts), *pde);
 
   fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
-  fk::vector<double> element_coords = ml->gen_elem_coords(*pde, table);
+  fk::vector<double> element_coords = ml_plot->gen_elem_coords(*pde, table);
 
   REQUIRE(element_coords == gold);
 }
@@ -129,7 +134,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
 {
   std::string const gold_base = "../testing/generated-inputs/matlab_plot/";
 
-  ml = get_session(ml);
+  ml_plot = get_session(ml_plot);
 
   SECTION("continuity2d, SG")
   {
@@ -173,9 +178,9 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
 // This might be a problem if test ordering is not guaranteed..
 TEST_CASE("close session")
 {
-  ml = get_session(ml);
+  ml_plot = get_session(ml_plot);
 
-  REQUIRE(ml->is_open());
+  REQUIRE(ml_plot->is_open());
 
-  REQUIRE_NOTHROW(ml->close());
+  REQUIRE_NOTHROW(ml_plot->close());
 }
