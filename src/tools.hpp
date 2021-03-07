@@ -1,8 +1,10 @@
 #pragma once
 #include <cassert>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -90,5 +92,34 @@ private:
 };
 
 extern simple_timer timer;
+
+template<typename T>
+std::string vec2csv(const std::vector<T>& vec) {
+  std::string s;
+  int cnt = 0;
+  for (typename std::vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it) {
+
+    // Simpler, but requires boost and offers minimal formatting control
+    //s += boost::lexical_cast<std::string>(*it);
+
+    // Doesn't require boost, offers more formatting control
+    std::ostringstream ss;
+    if(*it > 1e-15){
+    ss << std::scientific << std::setprecision(16);
+    ss << *it;
+    s += "(";
+    s += std::to_string(cnt);
+    s += ") ";
+    s += ss.str();
+    s += ", ";
+    }
+    cnt++;
+  }
+  if (s.size() >= 2) {   // clear the trailing comma, space
+    s.erase(s.size()-2);
+  }
+  return s;
+}
+
 
 } // namespace tools

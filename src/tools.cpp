@@ -4,7 +4,6 @@
 // #include <format>
 #include <math.h>
 #include <numeric>
-#include <sstream>
 
 namespace tools
 {
