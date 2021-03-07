@@ -3,11 +3,13 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <iomanip>
 #include <map>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <sstream>
 
 // simple profiling object
 // this is NOT thread safe for now - only one thread should be calling class
@@ -120,6 +122,5 @@ std::string vec2csv(const std::vector<T>& vec) {
   }
   return s;
 }
-
 
 } // namespace tools

@@ -194,6 +194,8 @@ int main(int argc, char **argv)
 
       // calculate root mean squared error
       auto const diff = f_val - analytic_solution;
+        std::cerr << "ANALYTIC SOLUTION" << std::endl << tools::vec2csv(analytic_solution.to_std()) << std::endl;
+        std::cerr << "SIMULATED SOLUTION" << std::endl << tools::vec2csv(f_val.to_std()) << std::endl;
       auto const RMSE = [&diff]() {
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
