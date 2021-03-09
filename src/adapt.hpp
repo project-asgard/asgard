@@ -56,6 +56,7 @@ public:
 
   // adaptivity routines, meant to be invoked from driver routines
   // (conceptually private, exposed for testing)
+  // FIXME: could they be private and the testing class friendly?
 
   // the underlying distribution routines for adapt may rely on elements
   // not being "reshuffled", i.e., elements only deleted (coarsening) with
@@ -91,7 +92,7 @@ private:
   remap_elements(std::vector<int64_t> const &deleted_indices,
                  int64_t const new_num_elems);
 
-  // select elements from table given condition and solution vector
+  // select elements from table given condition (function) and solution vector
   template<typename F>
   std::vector<int64_t>
   filter_elements(F const condition, fk::vector<P> const &x)
@@ -100,7 +101,7 @@ private:
     assert(x.size() % my_subgrid.ncols() == 0);
     auto const element_dof = x.size() / my_subgrid.ncols();
 
-    // check each of my rank's assigned elements against a condition
+    // check each of my rank's assigned elements against a condition (function)
     std::vector<int64_t> matching_elements;
     for (int64_t i = 0; i < my_subgrid.ncols(); ++i)
     {
