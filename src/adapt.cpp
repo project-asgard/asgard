@@ -218,9 +218,9 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  auto const max_elem =
+  P const max_elem =
       std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
-  auto const global_max = get_global_max(max_elem, this->plan_);
+  P const global_max = get_global_max(max_elem, this->plan_);
 
   auto const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
@@ -243,19 +243,22 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 {
-  auto const abs_compare = [](auto const a, auto const b) {
+  P const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  auto const max_elem =
+  P const max_elem =
       std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
-  auto const global_max       = get_global_max(max_elem, this->plan_);
-  auto const refine_threshold = cli_opts.adapt_threshold * global_max;
+  // Get max accross all MPI processes (Reduce collective call)
+  P const global_max       = get_global_max(max_elem, this->plan_);
+  P const refine_threshold = cli_opts.adapt_threshold * global_max;
+  // No refinement process: no coarsening either.
   if (refine_threshold <= 0.0)
   {
     return x;
   }
 
-  auto const coarsen_threshold = refine_threshold * 0.1;
+  // Coarsening threshold is arbitrary 10% of refinement threshold
+  P const coarsen_threshold = refine_threshold * (P) 0.1;
   auto const &table            = this->table_;
   auto const coarsen_check =
       [&table, coarsen_threshold,
