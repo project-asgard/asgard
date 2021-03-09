@@ -107,6 +107,16 @@ public:
   // return the cell indices given a level tuple
   static fk::matrix<int> get_cell_index_set(fk::vector<int> const &levels);
 
+  void display(std::string msg)const {
+      std::cerr << msg << std::endl
+          << tools::vec2csv<int64_t>(active_element_ids_)
+          << std::endl
+          //<< tools::vec2csv(id_to_coords.to_std())
+          //<< tools::vec2csv<int>(active_table_d_.to_std()) //FIXME is on device
+          << std::endl;
+
+  };
+
 private:
   // ordering of active elements
   std::vector<int64_t> active_element_ids_;

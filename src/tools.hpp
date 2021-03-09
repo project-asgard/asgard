@@ -97,30 +97,15 @@ extern simple_timer timer;
 
 template<typename T>
 std::string vec2csv(const std::vector<T>& vec) {
-  std::string s;
-  int cnt = 0;
-  for (typename std::vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it) {
-
-    // Simpler, but requires boost and offers minimal formatting control
-    //s += boost::lexical_cast<std::string>(*it);
-
-    // Doesn't require boost, offers more formatting control
-    std::ostringstream ss;
-    if(*it > 1e-15){
-    ss << std::scientific << std::setprecision(16);
-    ss << *it;
-    s += "(";
-    s += std::to_string(cnt);
-    s += ") ";
-    s += ss.str();
-    s += ", ";
+    std::ostringstream s;
+    s << std::scientific << std::setprecision(16);
+    for (unsigned long i=0; i<vec.size();i++){
+        const T x = vec[i];
+        s << "(" << i << ")" << x;
+        if ((1+i) < vec.size())
+            s << ", ";
     }
-    cnt++;
-  }
-  if (s.size() >= 2) {   // clear the trailing comma, space
-    s.erase(s.size()-2);
-  }
-  return s;
+    return s.str();
 }
 
 } // namespace tools
