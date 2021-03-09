@@ -21,10 +21,14 @@
 #include "transformations.hpp"
 #include <numeric>
 
+#ifdef ASGARD_USE_LONG_DOUBLE_PREC
+using prec = long double;
+#else
 #ifdef ASGARD_USE_DOUBLE_PREC
 using prec = double;
 #else
 using prec = float;
+#endif
 #endif
 
 int main(int argc, char **argv)
