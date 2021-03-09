@@ -28,7 +28,7 @@ fk::vector<int>
 map_to_coords(int64_t const id, int const max_level, int const num_dims);
 
 // -----------------------------------------------------------------------------
-// element table
+// element table: set of active elements and their coordinates
 // this object's purpose is:
 // - to maintain a list of active element IDs
 // - to provide a mapping from an assigned index (ordering) of an elements
