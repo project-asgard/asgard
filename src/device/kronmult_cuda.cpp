@@ -80,7 +80,7 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
 }
 
 template<typename P>
-void stage_inputs_kronmult(P const *const x, P *const workspace,
+void stage_inputs_kronmult(P const *const xdata, P *const element_x,
                            int const num_elems, int const num_copies)
 {
   expect(num_elems > 0);
@@ -96,12 +96,12 @@ void stage_inputs_kronmult(P const *const x, P *const workspace,
   auto const num_blocks   = (total_copies + num_threads - 1) / num_threads;
 
   stage_inputs_kronmult_kernel<P>
-      <<<num_blocks, num_threads>>>(x, workspace, num_elems, num_copies);
+      <<<num_blocks, num_threads>>>(xdata, element_x, num_elems, num_copies);
 
   auto const stat = cudaDeviceSynchronize();
   expect(stat == cudaSuccess);
 #else
-  stage_inputs_kronmult_kernel(x, workspace, num_elems, num_copies);
+  stage_inputs_kronmult_kernel(xdata, element_x, num_elems, num_copies);
 #endif
 }
 
@@ -164,6 +164,7 @@ prepare_kronmult_kernel(int const *const flattened_table,
   auto const num_cols = elem_col_stop - elem_col_start + 1;
   auto const num_rows = elem_row_stop - elem_row_start + 1;
 
+  // Due to floating-point rounding error on GPU: +0.1 FIXME maybe cast double?
   auto const deg_to_dim =
       static_cast<int>(pow((float)degree, (float)num_dims) + 0.1);
 

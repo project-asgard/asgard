@@ -45,6 +45,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 {
   if (!program_opts.do_adapt_levels)
   {
+    adaptive_grid.get_table().display("Initial");
     auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
     auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
@@ -58,11 +59,13 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                                   program_opts.solver, update_system);
   }
 
+  adaptive_grid.get_table().display("Initial");
   // coarsen
   auto const old_size = adaptive_grid.size();
   auto y = adaptive_grid.coarsen_solution(pde, x_orig, program_opts);
   node_out() << " adapt -- coarsened grid from " << old_size << " -> "
              << adaptive_grid.size() << " elems\n";
+  adaptive_grid.get_table().display("Coarsening");
 
   // refine
   auto refining = true;
@@ -92,6 +95,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
     node_out() << " adapt -- refined grid from " << old_size << " -> "
                << adaptive_grid.size() << " elems\n";
+  adaptive_grid.get_table().display("Refining");
 
     if (!refining)
     {
@@ -120,9 +124,12 @@ explicit_advance(PDE<P> const &pde,
                  fk::vector<P> const &x_orig, int const workspace_size_MB,
                  P const time)
 {
-  auto const &table    = adaptive_grid.get_table();
-  auto const &plan     = adaptive_grid.get_distrib_plan();
-  auto const &grid     = adaptive_grid.get_subgrid(get_rank());
+  //elements.hpp: map 'active' elements to their coordinate in grid
+  elements::table const &table    = adaptive_grid.get_table();
+  //distribution.hpp: Map from ranks to assigned subgrid
+  distribution_plan const &plan     = adaptive_grid.get_distrib_plan();
+  //distribution.hpp: Rect grid of eltIds correspond to MPI rank
+  element_subgrid const &grid     = adaptive_grid.get_subgrid(get_rank());
   auto const elem_size = element_segment_size(pde);
   auto const dt        = pde.get_dt();
   auto const col_size  = elem_size * static_cast<int64_t>(grid.ncols());

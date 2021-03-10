@@ -204,11 +204,11 @@ int main(int argc, char **argv)
         fk::vector<prec> squared(diff);
         std::transform(squared.begin(), squared.end(), squared.begin(),
                        [](prec const &elem) { return elem * elem; });
-        auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
+        auto const mean = std::accumulate(squared.begin(), squared.end(), (prec)0.0) /
                           squared.size();
         return std::sqrt(mean);
       }();
-      auto const relative_error = RMSE / inf_norm(analytic_solution) * 100;
+      auto const relative_error = RMSE / inf_norm(analytic_solution) * (prec)100;
       auto const [rmse_errors, relative_errors] =
           gather_errors(RMSE, relative_error);
       expect(rmse_errors.size() == relative_errors.size());

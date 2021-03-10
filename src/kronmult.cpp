@@ -262,6 +262,7 @@ private:
   int64_t workspace_size;
   int64_t ptrs_size;
 
+  // FIXME why not using fk:vector?
   P *element_x;
   P *element_work;
   P **input_ptrs;
@@ -275,7 +276,7 @@ template<typename P>
 fk::vector<P, mem_type::view, resource::device>
 execute(PDE<P> const &pde, elements::table const &elem_table,
         options const &program_opts, element_subgrid const &my_subgrid,
-        fk::vector<P, mem_type::const_view, resource::device> const &x,
+        fk::vector<P, mem_type::const_view, resource::device> const &vec_x,
         fk::vector<P, mem_type::view, resource::device> &fx)
 {
   // FIXME code relies on uniform degree across dimensions
@@ -285,7 +286,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const output_size = my_subgrid.nrows() * deg_to_dim;
   expect(output_size == fx.size());
   auto const input_size = my_subgrid.ncols() * deg_to_dim;
-  expect(input_size == x.size());
+  expect(input_size == vec_x.size());
 
   auto const &workspace =
       kronmult_workspace<P>::get_workspace(pde, elem_table, my_subgrid);
@@ -293,7 +294,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   tools::timer.start("kronmult_stage");
   // stage x vector in writable regions for each element
   auto const num_copies = my_subgrid.nrows() * pde.num_terms;
-  stage_inputs_kronmult(x.data(), workspace.get_element_x(), x.size(),
+  stage_inputs_kronmult(vec_x.data(), workspace.get_element_x(), vec_x.size(),
                         num_copies);
   tools::timer.stop("kronmult_stage");
 
@@ -308,8 +309,6 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const real_size =
       degree * fm::two_raised_to(pde.get_dimensions()[0].get_level());
   auto const coeff = pde.get_coefficients(0, 0).clone_onto_host();
-  fk::matrix<P, mem_type::const_view> const blah(coeff, 0, real_size - 1, 0,
-                                                 real_size - 1);
 
   fk::vector<P *> const operators = [&pde, lda] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
@@ -341,11 +340,13 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const flops = pde.num_dims * 2.0 * (std::pow(degree, pde.num_dims + 1)) *
                      total_kronmults;
 
+  // FIXME: reduce precision of workspace arrays here
   tools::timer.start("kronmult");
   call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
                 workspace.get_work_ptrs(), workspace.get_operator_ptrs(), lda,
                 total_kronmults, pde.num_dims);
   tools::timer.stop("kronmult", flops);
+  // FIXME: get back to original precision of workspace arrays here
 
   return fx;
 }
