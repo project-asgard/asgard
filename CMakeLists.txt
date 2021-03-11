@@ -136,6 +136,8 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
+set(ASGARD_PLATFORM_NVCC 0)
+set(ASGARD_PLATFORM_HCC 0)
 if(ASGARD_USE_HIP)
   # find the HIP directory for the cmake files, taken from HIP samples
   if(NOT DEFINED HIP_PATH)
@@ -145,6 +147,34 @@ if(ASGARD_USE_HIP)
       set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
     endif()
   endif()
+
+  find_program(ASGARD_HIPCONFIG_PATH hipconfig HINTS "${HIP_PATH}/bin")
+  if(ASGARD_HIPCONFIG_PATH)
+    execute_process(COMMAND ${ASGARD_HIPCONFIG_PATH} --platform OUTPUT_VARIABLE ASGARD_HIP_PLATFORM)
+  elseif(DEFINED ENV{HIP_PLATFORM})
+    set(ASGARD_HIP_PLATFORM "$ENV{HIP_PLATFORM}")
+  else()
+    message(FATAL_ERROR "Could not determine HIP platform, make sure HIP_PLATFORM is set")
+  endif()
+
+  message(STATUS "HIP Platform configured for ${ASGARD_HIP_PLATFORM}")
+  if(ASGARD_HIP_PLATFORM STREQUAL "hcc")
+    set(ASGARD_PLATFORM_HCC 1)
+  elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc")
+    set(ASGARD_PLATFORM_NVCC 1)
+  endif()
+
+  # double check for cuda path since HIP uses it internally
+  if(ASGARD_PLATFORM_NVCC)
+    if (NOT DEFINED ENV{CUDA_PATH})
+      find_path(ASGARD_HIP_DEFAULT_CUDA_PATH "cuda.h" PATH /usr/local/cuda/include NO_DEFAULT_PATH)
+      if (NOT ASGARD_HIP_DEFAULT_CUDA_PATH)
+        message(FATAL_ERROR "Make sure the CUDA_PATH env is set to locate for HIP")
+      endif()
+    endif()
+    message(STATUS "Found CUDA_PATH: $ENV{CUDA_PATH}")
+  endif()
+
   set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
 
   find_package(HIP 4.0 REQUIRED)
@@ -174,7 +204,7 @@ endif()
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_HIP)
   # there is no hip language property in cmake yet?
-  #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # no .cu extension
   #set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
   #set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
@@ -307,7 +337,11 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-target_link_libraries(kronmult_cuda PUBLIC kron)
+if (ASGARD_USE_HIP)
+  target_link_libraries(kronmult_cuda PUBLIC kron hip::device)
+else ()
+  target_link_libraries(kronmult_cuda PUBLIC kron)
+endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
