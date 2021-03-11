@@ -51,9 +51,9 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
         my_subgrid.row_stop);
     return (step_method == method::exp)
-               ? explicit_advance(sp_pde, pde, adaptive_grid, transformer, program_opts,
+               ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
                                   unscaled_parts, x_orig, workspace_size_MB,
-                                  time)
+                                  time, "No adaptivity")
                : implicit_advance(pde, adaptive_grid, transformer,
                                   unscaled_parts, x_orig, time,
                                   program_opts.solver, update_system);
@@ -80,8 +80,8 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
     // take a probing refinement step
     auto const y_stepped =
         (step_method == method::exp)
-            ? explicit_advance(sp_pde, pde, adaptive_grid, transformer, program_opts,
-                               unscaled_parts, y, workspace_size_MB, time)
+            ? explicit_advance_mp(sp_pde, pde, adaptive_grid, transformer, program_opts,
+                               unscaled_parts, y, workspace_size_MB, time, "Refining")
             : implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
                                y, time, program_opts.solver, update_system);
 
@@ -99,6 +99,12 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
 
     if (!refining)
     {
+        auto const y_stepped =
+            (step_method == method::exp)
+                ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
+                                   unscaled_parts, y, workspace_size_MB, time, "Refining")
+                : implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
+                                   y, time, program_opts.solver, update_system);
       y.resize(y_stepped.size()) = y_stepped;
     }
     else
@@ -112,17 +118,15 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
   return y;
 }
 
-// this function executes an explicit time step using the current solution
-// vector x. on exit, the next solution vector is stored in x.
-template<typename P>
+template<typename P, typename Q>
 fk::vector<P>
-explicit_advance(PDE<float> const &sp_pde,PDE<P> const &pde,
+explicit_advance_mp(PDE<Q> const &sp_pde,PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
                  std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
                  fk::vector<P> const &x_orig, int const workspace_size_MB,
-                 P const time)
+                 P const time, std::string previous)
 {
   //elements.hpp: map 'active' elements to their coordinate in grid
   elements::table const &table    = adaptive_grid.get_table();
@@ -163,7 +167,7 @@ explicit_advance(PDE<float> const &sp_pde,PDE<P> const &pde,
   auto const apply_id = tools::timer.start("kronmult_setup");
   std::cerr << " KRON RK1"<< std::endl;
   auto fx =
-      kronmult::execute(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK 1");
+      kronmult::execute_mp(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK 1");
 
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -188,7 +192,7 @@ explicit_advance(PDE<float> const &sp_pde,PDE<P> const &pde,
   // -- RK step 2
   tools::timer.start(apply_id);
   std::cerr << " KRON RK2"<< std::endl;
-  fx = kronmult::execute(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK2");
+  fx = kronmult::execute_mp(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK2");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -217,7 +221,144 @@ explicit_advance(PDE<float> const &sp_pde,PDE<P> const &pde,
   // -- RK step 3
   tools::timer.start(apply_id);
   std::cerr << " KRON RK3"<< std::endl;
-  fx = kronmult::execute(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK3");
+  fx = kronmult::execute_mp(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK3");
+  tools::timer.stop(apply_id);
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  if (pde.num_sources > 0)
+  {
+    auto const sources =
+        get_sources(pde, adaptive_grid, transformer, time + c3 * dt);
+    fm::axpy(sources, reduced_fx);
+  }
+
+  auto const bc2 = boundary_conditions::generate_scaled_bc(
+      unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
+      time + c3 * dt);
+  fm::axpy(bc2, reduced_fx);
+
+  fk::vector<P> rk_3(x_orig.size());
+  exchange_results(reduced_fx, rk_3, elem_size, plan, get_rank());
+
+  // -- finish
+  fm::copy(x_orig, x);
+  P const scale_1 = dt * b1;
+  P const scale_2 = dt * b2;
+  P const scale_3 = dt * b3;
+
+  fm::axpy(rk_1, x, scale_1);
+  fm::axpy(rk_2, x, scale_2);
+  fm::axpy(rk_3, x, scale_3);
+
+  return x;
+}
+
+// this function executes an explicit time step using the current solution
+// vector x. on exit, the next solution vector is stored in x.
+template<typename P>
+fk::vector<P>
+explicit_advance(PDE<P> const &pde,
+                 adapt::distributed_grid<P> const &adaptive_grid,
+                 basis::wavelet_transform<P, resource::host> const &transformer,
+                 options const &program_opts,
+                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 fk::vector<P> const &x_orig, int const workspace_size_MB,
+                 P const time, std::string previous)
+{
+  //elements.hpp: map 'active' elements to their coordinate in grid
+  elements::table const &table    = adaptive_grid.get_table();
+  //distribution.hpp: Map from ranks to assigned subgrid
+  distribution_plan const &plan     = adaptive_grid.get_distrib_plan();
+  //distribution.hpp: Rect grid of eltIds correspond to MPI rank
+  element_subgrid const &grid     = adaptive_grid.get_subgrid(get_rank());
+  auto const elem_size = element_segment_size(pde);
+  auto const dt        = pde.get_dt();
+  auto const col_size  = elem_size * static_cast<int64_t>(grid.ncols());
+  expect(x_orig.size() == col_size);
+  auto const row_size = elem_size * static_cast<int64_t>(grid.nrows());
+  expect(col_size < INT_MAX);
+  expect(row_size < INT_MAX);
+
+  // time advance working vectors
+  // input vector for apply_A
+  fk::vector<P> x(x_orig);
+  // a buffer for reducing across subgrid row
+  fk::vector<P> reduced_fx(row_size);
+
+  expect(time >= 0);
+  expect(dt > 0);
+
+  // see
+  // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Explicit_Runge%E2%80%93Kutta_methods
+  P const a21 = 0.5;
+  P const a31 = -1.0;
+  P const a32 = 2.0;
+  P const b1  = 1.0 / 6.0;
+  P const b2  = 2.0 / 3.0;
+  P const b3  = 1.0 / 6.0;
+  P const c2  = 1.0 / 2.0;
+  P const c3  = 1.0;
+
+  // FIXME eventually want to extract RK step into function
+  // -- RK step 1
+  auto const apply_id = tools::timer.start("kronmult_setup");
+  std::cerr << " KRON RK1"<< std::endl;
+  auto fx =
+      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x, "RK 1");
+
+  tools::timer.stop(apply_id);
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  if (pde.num_sources > 0)
+  {
+    auto const sources = get_sources(pde, adaptive_grid, transformer, time);
+    fm::axpy(sources, reduced_fx);
+  }
+
+  auto const bc0 = boundary_conditions::generate_scaled_bc(
+      unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
+      time);
+  fm::axpy(bc0, reduced_fx);
+
+  // FIXME I eventually want to return a vect here
+  fk::vector<P> rk_1(x_orig.size());
+  exchange_results(reduced_fx, rk_1, elem_size, plan, get_rank());
+  P const rk_scale_1 = a21 * dt;
+  fm::axpy(rk_1, x, rk_scale_1);
+
+  // -- RK step 2
+  tools::timer.start(apply_id);
+  std::cerr << " KRON RK2"<< std::endl;
+  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x, "RK2");
+  tools::timer.stop(apply_id);
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  if (pde.num_sources > 0)
+  {
+    auto const sources =
+        get_sources(pde, adaptive_grid, transformer, time + c2 * dt);
+    fm::axpy(sources, reduced_fx);
+  }
+
+  fk::vector<P> const bc1 = boundary_conditions::generate_scaled_bc(
+      unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
+      time + c2 * dt);
+  fm::axpy(bc1, reduced_fx);
+
+  fk::vector<P> rk_2(x_orig.size());
+  exchange_results(reduced_fx, rk_2, elem_size, plan, get_rank());
+
+  fm::copy(x_orig, x);
+  P const rk_scale_2a = a31 * dt;
+  P const rk_scale_2b = a32 * dt;
+
+  fm::axpy(rk_1, x, rk_scale_2a);
+  fm::axpy(rk_2, x, rk_scale_2b);
+
+  // -- RK step 3
+  tools::timer.start(apply_id);
+  std::cerr << " KRON RK3"<< std::endl;
+  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x, "RK3");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -359,15 +500,26 @@ implicit_advance(PDE<P> const &pde,
 #include "type_list_float.inc"
 #undef X
 
-
 #define X(T)                                                              \
   template fk::vector<T> explicit_advance(                                \
+     PDE<T> const &pde,                         \
+      adapt::distributed_grid<T> const &adaptive_grid,                \
+      basis::wavelet_transform<T, resource::host> const &transformer,     \
+      options const &program_opts,                                        \
+      std::array<unscaled_bc_parts<T>, 2> const &unscaled_parts,          \
+      fk::vector<T> const &x, int const workspace_size_MB, T const time, std::string);
+#include "type_list_float.inc"
+#undef X
+
+
+#define X(T)                                                              \
+  template fk::vector<T> explicit_advance_mp(                                \
      PDE<float> const &sp_pde, PDE<T> const &pde,                         \
           adapt::distributed_grid<T> const &adaptive_grid,                \
       basis::wavelet_transform<T, resource::host> const &transformer,     \
       options const &program_opts,                                        \
       std::array<unscaled_bc_parts<T>, 2> const &unscaled_parts,          \
-      fk::vector<T> const &x, int const workspace_size_MB, T const time);
+      fk::vector<T> const &x, int const workspace_size_MB, T const time, std::string);
 #include "type_list_float.inc"
 #undef X
 
