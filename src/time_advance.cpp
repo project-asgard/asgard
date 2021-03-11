@@ -65,7 +65,7 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
   auto y = adaptive_grid.coarsen_solution(pde, x_orig, program_opts);
   node_out() << " adapt -- coarsened grid from " << old_size << " -> "
              << adaptive_grid.size() << " elems\n";
-  adaptive_grid.get_table().display("Coarsening");
+  adaptive_grid.get_table().display("Coarsened");
 
   // refine
   auto refining = true;
@@ -95,7 +95,7 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
 
     node_out() << " adapt -- refined grid from " << old_size << " -> "
                << adaptive_grid.size() << " elems\n";
-  adaptive_grid.get_table().display("Refining");
+  adaptive_grid.get_table().display("Refined");
 
     if (!refining)
     {
@@ -165,7 +165,7 @@ explicit_advance_mp(PDE<Q> const &sp_pde,PDE<P> const &pde,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = tools::timer.start("kronmult_setup");
-  std::cerr << " KRON RK1"<< std::endl;
+  //std::cerr << " KRON RK1"<< std::endl;
   auto fx =
       kronmult::execute_mp(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK 1");
 
@@ -191,7 +191,7 @@ explicit_advance_mp(PDE<Q> const &sp_pde,PDE<P> const &pde,
 
   // -- RK step 2
   tools::timer.start(apply_id);
-  std::cerr << " KRON RK2"<< std::endl;
+  //std::cerr << " KRON RK2"<< std::endl;
   fx = kronmult::execute_mp(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK2");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -220,7 +220,7 @@ explicit_advance_mp(PDE<Q> const &sp_pde,PDE<P> const &pde,
 
   // -- RK step 3
   tools::timer.start(apply_id);
-  std::cerr << " KRON RK3"<< std::endl;
+  //std::cerr << " KRON RK3"<< std::endl;
   fx = kronmult::execute_mp(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK3");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -302,7 +302,7 @@ explicit_advance(PDE<P> const &pde,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = tools::timer.start("kronmult_setup");
-  std::cerr << " KRON RK1"<< std::endl;
+  //std::cerr << " KRON RK1"<< std::endl;
   auto fx =
       kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x, "RK 1");
 
@@ -328,7 +328,7 @@ explicit_advance(PDE<P> const &pde,
 
   // -- RK step 2
   tools::timer.start(apply_id);
-  std::cerr << " KRON RK2"<< std::endl;
+  //std::cerr << " KRON RK2"<< std::endl;
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x, "RK2");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -357,7 +357,7 @@ explicit_advance(PDE<P> const &pde,
 
   // -- RK step 3
   tools::timer.start(apply_id);
-  std::cerr << " KRON RK3"<< std::endl;
+  //std::cerr << " KRON RK3"<< std::endl;
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x, "RK3");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());

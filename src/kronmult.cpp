@@ -357,7 +357,7 @@ execute_mp(PDE<float> const &sp_pde,PDE<P> const &pde, elements::table const &el
         fk::vector<P, mem_type::const_view, resource::device> const &vec_x,
         fk::vector<P, mem_type::view, resource::device> &fx, std::string previous)
 {
-  std::cerr << "Executing : " << previous << std::endl;
+  //std::cerr << "Executing : " << previous << std::endl;
   // FIXME code relies on uniform degree across dimensions
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -488,7 +488,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         fk::vector<P, mem_type::const_view, resource::device> const &vec_x,
         fk::vector<P, mem_type::view, resource::device> &fx, std::string previous)
 {
-  std::cerr << "Executing : " << previous << std::endl;
+  //std::cerr << "Executing : " << previous << std::endl;
   // FIXME code relies on uniform degree across dimensions
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));

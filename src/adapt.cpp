@@ -147,6 +147,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   while (refining)
   {
     auto const old_y   = fk::vector<P>(refine_y);
+    //FIXME display the vector arount this->refine: compare Double with Mixed Precision
     auto const refined = this->refine(old_y, cli_opts);
     refining           = old_y.size() != refined.size();
     update_levels(this->get_table(), pde);
