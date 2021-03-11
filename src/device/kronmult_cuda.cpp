@@ -1,5 +1,7 @@
 #include "kronmult_cuda.hpp"
 #include "build_info.hpp"
+#include <string>
+#include <iostream>
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda.h>
@@ -40,7 +42,7 @@ HOST_FUNCTION DEVICE_FUNCTION inline void expect(bool const condition)
 
 template<typename P>
 GLOBAL_FUNCTION void
-stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
+stage_inputs_kronmult_kernel(P const *const xdata, P *const element_x,
                              int const num_elems, int const num_copies)
 {
 #ifdef ASGARD_USE_CUDA
@@ -58,7 +60,7 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
 
   for (int64_t i = start; i < stop; i += increment)
   {
-    workspace[i] = x[i % num_elems];
+    element_x[i] = xdata[i % num_elems];
   }
 
 #else
@@ -72,8 +74,8 @@ stage_inputs_kronmult_kernel(P const *const x, P *const workspace,
 #endif
   for (auto i = start; i < stop; i += increment)
   {
-    auto const dest = workspace + i * num_elems;
-    std::copy(x, x + num_elems, dest);
+    auto const dest = element_x+ i * num_elems;
+    std::copy(xdata, xdata + num_elems, dest);
   }
 
 #endif
@@ -196,6 +198,7 @@ prepare_kronmult_kernel(int const *const flattened_table,
 #endif
   for (int64_t i = start; i < num_elems; i += increment)
   {
+    //std::cerr << "Element " << i << std::endl;
     auto const row = i / num_cols + elem_row_start;
     auto const col = i % num_cols + elem_col_start;
 
@@ -212,7 +215,7 @@ prepare_kronmult_kernel(int const *const flattened_table,
     int const *const col_coords = flattened_table + coord_size * col;
     get_indices(col_coords, operator_col, degree, num_dims);
 
-    auto const x_start =
+    auto const element_x_start =
         element_x + ((row - elem_row_start) * num_terms * x_size +
                      (col - elem_col_start) * deg_to_dim);
 
@@ -223,7 +226,8 @@ prepare_kronmult_kernel(int const *const flattened_table,
                             (col - elem_col_start) * num_terms + t;
 
       // point to inputs
-      input_ptrs[num_kron] = x_start + t * x_size;
+      //fprintf(stderr, "input_ptrs(%d) = &element_x_start[%d]\n",num_kron,t*x_size);
+      input_ptrs[num_kron] = element_x_start + t * x_size;
 
       // point to work/output
       work_ptrs[num_kron]   = element_work + num_kron * deg_to_dim;

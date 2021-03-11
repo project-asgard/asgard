@@ -36,7 +36,7 @@ get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 // FIXME want to change how sources/bcs are handled
 template<typename P>
 fk::vector<P>
-adaptive_advance(method const step_method, PDE<P> &pde,
+adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts, fk::vector<P> const &x_orig,
@@ -51,7 +51,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
         my_subgrid.row_stop);
     return (step_method == method::exp)
-               ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
+               ? explicit_advance(sp_pde, pde, adaptive_grid, transformer, program_opts,
                                   unscaled_parts, x_orig, workspace_size_MB,
                                   time)
                : implicit_advance(pde, adaptive_grid, transformer,
@@ -80,7 +80,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     // take a probing refinement step
     auto const y_stepped =
         (step_method == method::exp)
-            ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
+            ? explicit_advance(sp_pde, pde, adaptive_grid, transformer, program_opts,
                                unscaled_parts, y, workspace_size_MB, time)
             : implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
                                y, time, program_opts.solver, update_system);
@@ -116,7 +116,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_advance(PDE<P> const &pde,
+explicit_advance(PDE<float> const &sp_pde,PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -161,8 +161,9 @@ explicit_advance(PDE<P> const &pde,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = tools::timer.start("kronmult_setup");
+  std::cerr << " KRON RK1"<< std::endl;
   auto fx =
-      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
+      kronmult::execute(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK 1");
 
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -186,7 +187,8 @@ explicit_advance(PDE<P> const &pde,
 
   // -- RK step 2
   tools::timer.start(apply_id);
-  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
+  std::cerr << " KRON RK2"<< std::endl;
+  fx = kronmult::execute(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK2");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -214,7 +216,8 @@ explicit_advance(PDE<P> const &pde,
 
   // -- RK step 3
   tools::timer.start(apply_id);
-  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
+  std::cerr << " KRON RK3"<< std::endl;
+  fx = kronmult::execute(sp_pde, pde, table, program_opts, grid, workspace_size_MB, x, "RK3");
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -348,7 +351,7 @@ implicit_advance(PDE<P> const &pde,
 
 #define X(T)                                                             \
   template fk::vector<T> adaptive_advance(                               \
-      method const step_method, PDE<T> &pde,                             \
+      method const step_method,  PDE<float> &sp_pde, PDE<T> &pde,        \
       adapt::distributed_grid<T> &adaptive_grid,                         \
       basis::wavelet_transform<T, resource::host> const &transformer,    \
       options const &program_opts, fk::vector<T> const &x, T const time, \
@@ -356,9 +359,11 @@ implicit_advance(PDE<P> const &pde,
 #include "type_list_float.inc"
 #undef X
 
+
 #define X(T)                                                              \
   template fk::vector<T> explicit_advance(                                \
-      PDE<T> const &pde, adapt::distributed_grid<T> const &adaptive_grid, \
+     PDE<float> const &sp_pde, PDE<T> const &pde,                         \
+          adapt::distributed_grid<T> const &adaptive_grid,                \
       basis::wavelet_transform<T, resource::host> const &transformer,     \
       options const &program_opts,                                        \
       std::array<unscaled_bc_parts<T>, 2> const &unscaled_parts,          \

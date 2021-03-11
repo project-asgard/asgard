@@ -17,7 +17,7 @@ enum class method
 // make require many "pseudosteps" to refine
 template<typename P>
 fk::vector<P>
-adaptive_advance(method const step_method, PDE<P> &pde,
+adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts, fk::vector<P> const &x,
@@ -29,7 +29,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 // on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_advance(PDE<P> const &pde,
+explicit_advance(PDE<float> const &sp_pde, PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,

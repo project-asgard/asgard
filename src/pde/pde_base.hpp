@@ -65,6 +65,8 @@ auto const element_segment_size = [](auto const &pde) {
 // Dimension: holds all information for a single dimension in the pde
 //
 // ---------------------------------------------------------------------------
+// FIXME are degree and level defined per dimension? in rest of the code
+// FIXME they are defined for all dimensions the same. Not using this class.
 // forward dec
 template<typename P>
 class PDE;

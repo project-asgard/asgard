@@ -243,7 +243,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 {
-  P const abs_compare = [](auto const a, auto const b) {
+  auto const abs_compare = [](P const a, P const b) {
     return (std::abs(a) < std::abs(b));
   };
   P const max_elem =

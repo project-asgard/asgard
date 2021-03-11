@@ -18,6 +18,78 @@
 
 namespace kronmult
 {
+
+ /* Data conversion for adaptivity probing time step Mixed Precision Optim */
+  void allocate_sp_space(
+          int64_t work_size, int64_t output_size,
+          int64_t ptrs_size, int64_t num_dims,
+          float ** sp_input, float ** sp_output,
+          float ** sp_work,
+          float *** sp_input_ptrs, float *** sp_output_ptrs,
+          float *** sp_work_ptrs,  float *** sp_operator_ptrs)
+  {
+
+      // input <--> element_x
+      // output <--> fx
+      // work <--> element_work
+      // operator_ptrs <--> operator
+    bool const init = false;
+    //Arrays
+    fk::allocate_device(*sp_input, work_size, init);
+    fk::allocate_device(*sp_output, output_size, init);
+    fk::allocate_device(*sp_work, work_size, init);
+    //Pointers to arrays: views
+    fk::allocate_device(*sp_input_ptrs, ptrs_size, init);
+    fk::allocate_device(*sp_output_ptrs, ptrs_size, init);
+    fk::allocate_device(*sp_work_ptrs, ptrs_size, init);
+    fk::allocate_device(*sp_operator_ptrs, ptrs_size * num_dims, init);
+  }
+
+  void deallocate_sp_space(
+          float * sp_input, float * sp_output,
+          float * sp_work,
+          float ** sp_input_ptrs, float ** sp_output_ptrs,
+          float ** sp_work_ptrs,  float ** sp_operator_ptrs)
+  {
+    fk::delete_device(sp_input);
+    fk::delete_device(sp_output);
+    fk::delete_device(sp_work);
+    fk::delete_device(sp_input_ptrs);
+    fk::delete_device(sp_output_ptrs);
+    fk::delete_device(sp_work_ptrs);
+    fk::delete_device(sp_operator_ptrs);
+  }
+
+  void convert(
+          int64_t work_size, int64_t output_size,
+          double * dp_input, double * dp_output,
+          double * dp_work,
+          float * sp_input, float * sp_output,
+          float * sp_work)
+  {
+      for(int64_t i =0; i<work_size; i++){
+          sp_input [i] = (float)  dp_input[i];
+          sp_work  [i] = (float)   dp_work[i];
+      }
+      for(int64_t i =0; i<output_size; i++)
+          sp_output[i] = (float) dp_output[i];
+  }
+
+  void convert_back(
+          int64_t work_size, int64_t output_size,
+          double * dp_input, double * dp_output,
+          double * dp_work,
+          float * sp_input, float * sp_output,
+          float * sp_work)
+  {
+      for(int64_t i =0; i<work_size; i++){
+          dp_work  [i] = (double)   sp_work[i];
+          dp_input [i] = (double)  sp_input[i];
+      }
+      for(int64_t i =0; i<output_size; i++)
+         dp_output[i] = (double) sp_output[i];
+  }
+
 // calculate how much workspace we need on device to compute a single connected
 // element
 //
@@ -262,23 +334,30 @@ private:
   int64_t workspace_size;
   int64_t ptrs_size;
 
-  // FIXME why not using fk:vector?
   P *element_x;
   P *element_work;
+  // Array (kron batch) of arrays (element_x)
   P **input_ptrs;
+  // Array (kron batch) of arrays(element_work):
+  // temporary (work) memory space for kronmult computation
   P **work_ptrs;
+  // Array (kron batch) of arrays(fx):
+  //containing the final kronmult result
   P **output_ptrs;
+  //containing the A matrix with the operators to apply to X
+  // kron(A1, A2, ... Andims) \times  X
   P **operator_ptrs;
 };
 
 // private, directly execute one subgrid
 template<typename P>
 fk::vector<P, mem_type::view, resource::device>
-execute(PDE<P> const &pde, elements::table const &elem_table,
+execute(PDE<float> const &sp_pde,PDE<P> const &pde, elements::table const &elem_table,
         options const &program_opts, element_subgrid const &my_subgrid,
         fk::vector<P, mem_type::const_view, resource::device> const &vec_x,
-        fk::vector<P, mem_type::view, resource::device> &fx)
+        fk::vector<P, mem_type::view, resource::device> &fx, std::string previous)
 {
+  std::cerr << "Executing : " << previous << std::endl;
   // FIXME code relies on uniform degree across dimensions
   auto const degree     = pde.get_dimensions()[0].get_degree();
   auto const deg_to_dim = static_cast<int>(std::pow(degree, pde.num_dims));
@@ -306,9 +385,6 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
       degree *
       fm::two_raised_to(
           program_opts.max_level); // leading dimension of coefficient matrices
-  auto const real_size =
-      degree * fm::two_raised_to(pde.get_dimensions()[0].get_level());
-  auto const coeff = pde.get_coefficients(0, 0).clone_onto_host();
 
   fk::vector<P *> const operators = [&pde, lda] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
@@ -325,13 +401,56 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   fk::vector<P *, mem_type::owner, resource::device> const operators_d(
       operators.clone_onto_device());
 
+  fk::vector<float *> const sp_operators = [&sp_pde, lda] {
+    fk::vector<float *> builder(sp_pde.num_terms * sp_pde.num_dims);
+    for (int i = 0; i < sp_pde.num_terms; ++i)
+    {
+      for (int j = 0; j < sp_pde.num_dims; ++j)
+      {
+        builder(i * sp_pde.num_dims + j) = sp_pde.get_coefficients(i, j).data();
+        expect(sp_pde.get_coefficients(i, j).nrows() == lda);
+      }
+    }
+    return builder;
+  }();
+
+  fk::vector<float *, mem_type::owner, resource::device> const sp_operators_d(
+      sp_operators.clone_onto_device());
+  // FIXME: reduce precision of workspace arrays here
+  float *sp_input = NULL;
+  float *sp_work = NULL;
+  float *sp_output = NULL;
+  float **sp_input_ptrs = NULL;
+  float **sp_work_ptrs = NULL;
+  float **sp_output_ptrs = NULL;
+  float **sp_operator_ptrs = NULL;
+  int64_t workspace_size = my_subgrid.size() * deg_to_dim * pde.num_terms;
+  int64_t ptrs_size      = my_subgrid.size() * pde.num_terms;
+  if constexpr (std::is_same<P, double>::value){
+  allocate_sp_space( workspace_size, output_size, ptrs_size, pde.num_dims,
+          &sp_input, &sp_output, &sp_work,
+          &sp_input_ptrs, &sp_output_ptrs, &sp_work_ptrs, &sp_operator_ptrs);
+  convert( workspace_size, output_size,
+          workspace.get_element_x(), fx.data(),
+          workspace.get_element_work(),
+          sp_input, sp_output,
+          sp_work);
+  }
+
   // prepare lists for kronmult, on device if cuda is enabled
   tools::timer.start("kronmult_build");
-  prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
+  /*
+   prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
                    lda, workspace.get_element_x(), workspace.get_element_work(),
                    fx.data(), workspace.get_operator_ptrs(),
                    workspace.get_work_ptrs(), workspace.get_input_ptrs(),
                    workspace.get_output_ptrs(), degree, pde.num_terms,
+  */
+  prepare_kronmult<float>(elem_table.get_active_table().data(), sp_operators_d.data(),
+                   lda, sp_input, sp_work,
+                   sp_output,sp_operator_ptrs,
+                   sp_work_ptrs,sp_input_ptrs,
+                   sp_output_ptrs, degree, pde.num_terms,
                    pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
                    my_subgrid.col_start, my_subgrid.col_stop);
   tools::timer.stop("kronmult_build");
@@ -340,24 +459,34 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const flops = pde.num_dims * 2.0 * (std::pow(degree, pde.num_dims + 1)) *
                      total_kronmults;
 
-  // FIXME: reduce precision of workspace arrays here
   tools::timer.start("kronmult");
-  call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
-                workspace.get_work_ptrs(), workspace.get_operator_ptrs(), lda,
+  /*
+   call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
+               workspace.get_work_ptrs(), workspace.get_operator_ptrs(), lda,
+   */
+  call_kronmult(degree, sp_input_ptrs, sp_output_ptrs,
+                sp_work_ptrs, sp_operator_ptrs, lda,
                 total_kronmults, pde.num_dims);
   tools::timer.stop("kronmult", flops);
-  // FIXME: get back to original precision of workspace arrays here
-
+  if constexpr (std::is_same<P, double>::value){
+  convert_back( workspace_size, output_size,
+          workspace.get_element_x(), fx.data(),
+          workspace.get_element_work(),
+          sp_input, sp_output,
+          sp_work);
+  deallocate_sp_space(sp_input, sp_output, sp_work, sp_input_ptrs,
+          sp_output_ptrs, sp_work_ptrs, sp_operator_ptrs);
+  }
   return fx;
 }
 
 // public, execute a given subgrid by decomposing and running over sub-subgrids
 template<typename P>
 fk::vector<P, mem_type::owner, resource::host>
-execute(PDE<P> const &pde, elements::table const &elem_table,
+execute(PDE<float> const &sp_pde,PDE<P> const &pde, elements::table const &elem_table,
         options const &program_opts, element_subgrid const &my_subgrid,
         int const workspace_size_MB,
-        fk::vector<P, mem_type::owner, resource::host> const &x)
+        fk::vector<P, mem_type::owner, resource::host> const &x, std::string previous)
 {
   auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
 
@@ -370,6 +499,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());
 
+  int cnt=0;
   for (auto const grid : grids)
   {
     auto const col_start = my_subgrid.to_local_col(grid.col_start);
@@ -380,8 +510,10 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         x_dev, col_start * deg_to_dim, (col_end + 1) * deg_to_dim - 1);
     fk::vector<P, mem_type::view, resource::device> fx_dev_grid(
         fx_dev, row_start * deg_to_dim, (row_end + 1) * deg_to_dim - 1);
-    fx_dev_grid = kronmult::execute(pde, elem_table, program_opts, grid,
-                                    x_dev_grid, fx_dev_grid);
+    //std::cerr << "Grid : " << cnt << std::endl;
+    cnt++;
+    fx_dev_grid = kronmult::execute(sp_pde,pde, elem_table, program_opts, grid,
+                                    x_dev_grid, fx_dev_grid,previous);
   }
   return fx_dev.clone_onto_host();
 }
@@ -395,10 +527,10 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
 
 #define X(T)                                                             \
   template fk::vector<T, mem_type::owner, resource::host> execute(       \
-      PDE<T> const &pde, elements::table const &elem_table,              \
+     PDE<float> const &sp_pde, PDE<T> const &pde, elements::table const &elem_table,              \
       options const &program_options, element_subgrid const &my_subgrid, \
       int const workspace_size_MB,                                       \
-      fk::vector<T, mem_type::owner, resource::host> const &x);
+      fk::vector<T, mem_type::owner, resource::host> const &x, std::string );
 #include "type_list_float.inc"
 #undef X
 
