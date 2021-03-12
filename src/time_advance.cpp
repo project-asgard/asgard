@@ -80,8 +80,13 @@ adaptive_advance(method const step_method, PDE<float> &sp_pde, PDE<P> &pde,
     // take a probing refinement step
     auto const y_stepped =
         (step_method == method::exp)
+#ifdef ASGARD_USE_MIXED_PREC
             ? explicit_advance_mp(sp_pde, pde, adaptive_grid, transformer, program_opts,
                                unscaled_parts, y, workspace_size_MB, time, "Refining")
+#else
+            ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
+                               unscaled_parts, y, workspace_size_MB, time, "Refining")
+#endif
             : implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
                                y, time, program_opts.solver, update_system);
 

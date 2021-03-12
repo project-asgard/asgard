@@ -10,4 +10,5 @@
 #cmakedefine ASGARD_USE_OPENMP
 #cmakedefine ASGARD_USE_MPI
 #cmakedefine ASGARD_USE_DOUBLE_PREC
+#cmakedefine ASGARD_USE_MIXED_PREC
 #cmakedefine ASGARD_USE_LONG_DOUBLE_PREC

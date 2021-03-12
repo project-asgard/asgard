@@ -59,6 +59,7 @@ option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 option (ASGARD_USE_SLATE "Use optional slate linear algebra library" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
+option (ASGARD_USE_MIXED_PREC "enable or disable double-precision floating point" ON)
 option (ASGARD_USE_LONG_DOUBLE_PREC "enable or disable double-precision floating point" OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
