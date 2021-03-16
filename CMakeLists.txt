@@ -148,6 +148,14 @@ if(ASGARD_USE_HIP)
     endif()
   endif()
 
+  if(NOT DEFINED HIPBLAS_PATH)
+    if(NOT DEFINED ENV{HIPBLAS_PATH})
+        set(HIPBLAS_PATH "${HIP_PATH}/../hipblas" CACHE PATH "Path to which HIPBLAS has been installed")
+    else()
+        set(HIPBLAS_PATH $ENV{HIPBLAS_PATH} CACHE PATH "Path to which HIPBLAS has been installed")
+    endif()
+endif()
+
   find_program(ASGARD_HIPCONFIG_PATH hipconfig HINTS "${HIP_PATH}/bin")
   if(ASGARD_HIPCONFIG_PATH)
     execute_process(COMMAND ${ASGARD_HIPCONFIG_PATH} --platform OUTPUT_VARIABLE ASGARD_HIP_PLATFORM)
@@ -176,8 +184,10 @@ if(ASGARD_USE_HIP)
   endif()
 
   set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+  list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
 
   find_package(HIP 4.0 REQUIRED)
+  find_package(hipblas REQUIRED)
   # Print some debug info about HIP configuration
   message(STATUS "HIP PLATFORM: ${HIP_PLATFORM}")
   message(STATUS "HIP COMPILER: ${HIP_COMPILER}")
@@ -188,14 +198,16 @@ if(ASGARD_USE_HIP)
   message(STATUS ${HIP_INCLUDE_DIRS})
 
   #enable_language(HIP) # no cmake support yet?
-  #set (CMAKE_CUDA_STANDARD 14)
-  #set (CMAKE_CUDA_STANDARD_REQUIRED ON)
-
+  if(ASGARD_PLATFORM_NVCC)
+    enable_language(CUDA)
+    set (CMAKE_CUDA_STANDARD 14)
+    set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+  endif()
 
   #find_package(hipBLAS)
-  #if (hipBLAS_FOUND)
-  #   message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}")
-  #endif()
+  if (hipBLAS_FOUND)
+     message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}: ${HIPBLAS_INCLUDE_DIRS}")
+  endif()
 
 endif()
 
@@ -203,10 +215,14 @@ endif()
 ##TODO: link to kronmult as interface library
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_HIP)
-  # there is no hip language property in cmake yet?
-  #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # no .cu extension
-  #set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-  #set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
+  if(ASGARD_PLATFORM_HCC)
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # no .cu extension
+  elseif(ASGARD_PLATFORM_NVCC)
+    # there is no hip language property in cmake yet?
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+    set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
+    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
+  endif()
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 
 #  Turn on GPU support in kronmult.
@@ -338,7 +354,7 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
 endif ()
 
 if (ASGARD_USE_HIP)
-  target_link_libraries(kronmult_cuda PUBLIC kron hip::device)
+  target_link_libraries(kronmult_cuda PUBLIC kron)# hip::device)
 else ()
   target_link_libraries(kronmult_cuda PUBLIC kron)
 endif()
@@ -363,9 +379,14 @@ else ()
 endif ()
 
 if (ASGARD_USE_HIP)
-  target_link_libraries(lib_dispatch PRIVATE ${HIP_LIBRARIES})
-  target_include_directories(lib_dispatch PRIVATE ${HIP_INCLUDE_DIRS})
-  target_include_directories(kronmult_cuda PRIVATE ${HIP_INCLUDE_DIRS})
+  if(ASGARD_PLATFORM_HCC)
+    target_link_libraries(lib_dispatch PRIVATE hip::device)
+  elseif(ASGARD_PLATFORM_NVCC)
+    target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
+  endif()
+  target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
+  target_include_directories(lib_dispatch PUBLIC ${HIP_INCLUDE_DIRS} ${HIPBLAS_INCLUDE_DIRS})
+  target_include_directories(kronmult_cuda PUBLIC ${HIP_INCLUDE_DIRS} ${HIPBLAS_INCLUDE_DIRS})
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
