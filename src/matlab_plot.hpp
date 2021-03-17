@@ -375,7 +375,7 @@ public:
     add_param(sol_sizes_, analytic_soln);
     push_param(elem_coords_);
 
-    call_async("plot_fval");
+    call("plot_fval");
   }
 
 private:
