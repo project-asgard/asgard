@@ -279,12 +279,12 @@ int main(int argc, char **argv)
     /* transform from wavelet space to real space */
     if (opts.should_output_realspace(i) || opts.should_plot(i))
     {
-      auto transform_wksp = update_transform_workspace<prec>(
-          sol.size(), workspace, tmp_workspace);
-      if (f_val.size() > real_space.size())
-      {
-        real_space.resize(f_val.size());
-      }
+      // resize transform workspaces if grid size changed due to adaptivity
+      auto const real_size = real_solution_size(*pde);
+      auto transform_wksp =
+          update_transform_workspace<prec>(real_size, workspace, tmp_workspace);
+      real_space.resize(real_size);
+
       wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
                                  transformer, default_workspace_cpu_MB,
                                  transform_wksp, real_space);
