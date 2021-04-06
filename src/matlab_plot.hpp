@@ -49,6 +49,11 @@ public:
   {
     if (is_open())
     {
+      if (started_)
+      {
+        // Call matlab to wait for any open figure handles before closing
+        call("wait_for_plots");
+      }
       this->close();
     }
   }
@@ -74,12 +79,24 @@ public:
     {
       if (name.empty() || name.compare("none") == 0)
       {
+        // add message since this could take awhile if a new MATLAB session
+        // needs to be started
+        std::cout << "  connecting with MATLAB...\n";
+        auto const &sessions = matlab::engine::findMATLAB();
+        if (sessions.size() == 0)
+        {
+          // if there were no shared sessions, set flag to wait for any plots at
+          // the end
+          started_ = true;
+        }
         this->matlab_inst_ = matlab::engine::connectMATLAB();
       }
       else
       {
         bool get_name            = false;
         std::string session_name = name;
+        std::cout << "  connecting with MATLAB session '" << session_name
+                  << "'\n";
         // Check if the named session exists
         if (!find_session(name, false, session_name))
         {
@@ -103,6 +120,7 @@ public:
                          "creating a new one\n";
             // Make a new shared session in this case
             this->matlab_inst_ = matlab::engine::connectMATLAB();
+            started_           = true;
             return;
           }
         }
@@ -396,9 +414,13 @@ private:
   {
     // Check if there is a running matlab session with name
     std::vector<ml_string> const &sessions = matlab::engine::findMATLAB();
-    if (sessions.size() == 0)
+    if (sessions.size() == 0 && !find_name)
     {
-      std::cerr << "Found no running matlab sessions.." << '\n';
+      std::cerr
+          << "  Found no running matlab sessions! Ensure the session has been "
+             "shared by running `matlab.engine.shareEngine` within Matlab and "
+             "check that asgard was linked with the correct version of Matlab."
+          << '\n';
       return false;
     }
 
@@ -462,6 +484,9 @@ private:
   matlab::data::Array elem_coords_;
 
   std::vector<size_t> sol_sizes_;
+
+  // Whether MATLAB was started by asgard - this will wait on any plots
+  bool started_ = false;
 };
 
 } // namespace ml

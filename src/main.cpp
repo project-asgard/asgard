@@ -160,11 +160,6 @@ int main(int argc, char **argv)
 
 #ifdef ASGARD_USE_MATLAB
   ml::matlab_plot ml_plot;
-  if (cli_input.get_ml_session_string().compare("none") != 0)
-  {
-    node_out() << "  connecting with MATLAB session '"
-               << cli_input.get_ml_session_string() << "'\n";
-  }
   ml_plot.connect(cli_input.get_ml_session_string());
   node_out() << "  connected to MATLAB" << '\n';
 
