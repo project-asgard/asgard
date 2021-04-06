@@ -164,56 +164,20 @@ if num_dims==2
         hold off
 
     end
-
-   
-%     figure(9)
-%     clf
-%     [xx,yy] = meshgrid(x,y);
-%     p_par = xx.*yy;
-%     p_pen = (abs(1-yy.^2)).^(1/2).*xx;
-%     f_nD = f_nD_with_noise;
-%     contour(p_par,p_pen,f_nD,10,'LineWidth',2)
 end
 
 if num_dims==3
-    
-%    figure(1000);
-    
     %%
     % Plot a 1D line through the solution
     
     sz = numel(f_nD(1,1,:))/2;
     sy = numel(f_nD(1,:,1))/2;
     sx = numel(f_nD(:,1,1))/2;
-%     
-%     %plotting in x-direction
-%     f1d = f_nD(sz,sy,:);
-%     f1d = f1d(1,:);
+
     x = nodes{1};
     y = nodes{2};
     z = nodes{3};
-%     ax1 = subplot(3,3,1);
-%     plot(x,f1d,'-o');
-%     title('1D slice through velocity dimension');
-%     
-%     %plotting y-direction
-%     f1d = f_nD(sz,:,sx);
-%     x = nodes{1};
-%     y = nodes{2};
-%     z = nodes{3};
-%     ax2 = subplot(3,3,2);
-%     plot(y,f1d,'-o');
-%     title('1D slice through pitch dimension');
-%     
-%     %plotting z-direction
-%     f1d = f_nD(:,sy,sx);
-%     x = nodes{1};
-%     y = nodes{2};
-%     z = nodes{3};
-%     ax3 = subplot(3,3,3);
-%     plot(z,f1d,'-o');
-%     title('1D slice through spatial dimension');
-%     
+
     %%
     % Overplot analytic solution
     
@@ -262,10 +226,6 @@ if num_dims==3
         contourf(y,x,squeeze(f_nD_analytic(sz,:,:))');
         title('2D slice through 3D analytic');
     end
-    
-    
 end
-
-%pause (0.01)
 
 end

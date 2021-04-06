@@ -6,6 +6,7 @@
 #include "tools.hpp"
 #include <MatlabDataArray.hpp>
 #include <MatlabEngine.hpp>
+#include <type_traits>
 #include <vector>
 
 namespace ml
@@ -73,7 +74,7 @@ public:
   template<typename T>
   void add_param(matlab::data::ArrayDimensions const dims, T const &t)
   {
-    expect(!std::is_scalar<T>::value);
+    static_assert(!std::is_scalar<T>::value);
     m_args_.push_back(factory_.createArray(dims, t.begin(), t.end()));
   }
 

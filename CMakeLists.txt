@@ -151,10 +151,6 @@ endif()
 
 if(ASGARD_USE_MATLAB)
   find_package(Matlab REQUIRED) # Should there be a minimum MATLAB version needed?
-  if(Matlab_FOUND)
-    # SYSTEM option to suppress the compiler warnings in Matlab's C++ header files
-    include_directories(matlab_plot SYSTEM ${Matlab_INCLUDE_DIRS})
-  endif()
 endif()
 
 ###############################################################################
@@ -278,7 +274,9 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
 endif ()
 
 if (ASGARD_USE_MATLAB)
-   target_link_libraries(matlab_plot PRIVATE elements pde quadrature tensors tools ${Matlab_LIBRARIES})
+   # SYSTEM option to suppress the compiler warnings in Matlab's C++ header files
+   target_include_directories(matlab_plot SYSTEM PUBLIC ${Matlab_INCLUDE_DIRS})
+   target_link_libraries(matlab_plot PRIVATE ${Matlab_LIBRARIES})
 endif()
 
 target_link_libraries (matlab_utilities PUBLIC tensors)
@@ -335,9 +333,7 @@ if (ASGARD_USE_MATLAB)
   list (APPEND main_app_link_deps matlab_plot)
 endif()
 
-foreach (link_dep IN LISTS main_app_link_deps)
-  target_link_libraries (asgard PRIVATE ${link_dep})
-endforeach ()
+target_link_libraries (asgard PRIVATE ${main_app_link_deps})
 
 # build/link anything needed for profiling if requested
 if (PROFILE_DEPS)
