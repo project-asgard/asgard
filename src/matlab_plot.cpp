@@ -196,21 +196,20 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
     p_val[0] = p_val[0] * sqrt(1.0 / h);
 
-    std::vector<T> xi;
-    for (const T &root : roots)
+    std::vector<T> xi(dof);
+    for (std::size_t j = 0; j < dof; j++)
     {
-      T p_map = (0.5 * (root + 1.0) + i) * h + min;
-      xi.push_back(p_map);
+      xi[j] = (0.5 * (roots(j) + 1.0) + i) * h + min;
     }
 
-    std::vector<int> Iu;
-    for (int j = 0; j < degree - 1; j++)
+    std::vector<int> Iu(degree);
+    for (int j = 0, je = degree - 1; j < je; j++)
     {
-      Iu.push_back(dof * i + j + 1);
+      Iu[j] = dof * i + j + 1;
     }
-    Iu.push_back(dof * (i + 1));
+    Iu[degree - 1] = dof * (i + 1);
 
-    for (unsigned int j = 0; j < xi.size(); j++)
+    for (std::size_t j = 0; j < dof; j++)
     {
       nodes(Iu[j] - 1) = xi[j];
     }
@@ -311,8 +310,7 @@ void matlab_plot::plot_fval(PDE<P> const &pde, elements::table const &table,
   add_param(ndims);
   add_param({1, static_cast<size_t>(analytic_soln.size())}, analytic_soln);
   add_param({1, ndims}, nodes_);
-  add_param(sol_sizes_, f_val);
-  add_param(sol_sizes_, analytic_soln);
+  add_param(sol_sizes_, f_val, analytic_soln);
   push_param(elem_coords_);
 
   call("plot_fval");
