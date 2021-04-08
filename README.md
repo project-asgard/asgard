@@ -40,7 +40,7 @@ National Laboratory.
 # Dependencies
 
 *  C++17
-*  cmake 3.13
+*  cmake 3.19
 *  blas
 
 # Optional depedencies
