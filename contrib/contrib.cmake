@@ -139,7 +139,7 @@ if (NOT LINALG_LIBS_FOUND)
     ExternalProject_Add (openblas-ext
       UPDATE_COMMAND ""
       PREFIX contrib/blas/openblas
-      URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
+      URL https://github.com/xianyi/OpenBLAS/releases/download/v0.3.13/OpenBLAS-0.3.13.tar.gz
       DOWNLOAD_NO_PROGRESS 1
       CONFIGURE_COMMAND ""
       BUILD_COMMAND make USE_OPENMP=1
