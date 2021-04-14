@@ -31,7 +31,7 @@ void rmse_comparison(fk::vector<P, mem> const &v0,
       static_cast<P>(1.0),
       std::max(std::abs(*std::max_element(v0.begin(), v0.end(), abs_compare)),
                std::abs(*std::max_element(v1.begin(), v1.end(), abs_compare))));
-  Catch::StringMaker<P>::precision = 25;
+  Catch::StringMaker<P>::precision = 15;
   REQUIRE((diff_norm / max) < (tolerance * std::sqrt(v0.size())));
 }
 
@@ -147,7 +147,7 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
   using P = typename std::remove_pointer<decltype(first.data())>::type;
   using R = typename std::remove_pointer<decltype(second.data())>::type;
   static_assert(std::is_same<P, R>::value, "containers must hold same type");
-
+  Catch::StringMaker<P>::precision = 15;
   auto first_it                    = first.begin();
   std::for_each(
       second.begin(), second.end(),
