@@ -115,7 +115,7 @@ endif ()
 if (NOT LINALG_LIBS_FOUND)
   # first check if it has already been built
   set (OpenBLAS_PATH ${CMAKE_SOURCE_DIR}/contrib/blas/openblas)
-  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib)
+  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib NO_DEFAULT_PATH)
   if (LINALG_LIBS)
     message (STATUS "OpenBLAS library: ${LINALG_LIBS}")
 
