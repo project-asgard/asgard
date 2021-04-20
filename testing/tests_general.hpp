@@ -31,7 +31,7 @@ void rmse_comparison(fk::vector<P, mem> const &v0,
       static_cast<P>(1.0),
       std::max(std::abs(*std::max_element(v0.begin(), v0.end(), abs_compare)),
                std::abs(*std::max_element(v1.begin(), v1.end(), abs_compare))));
-
+  Catch::StringMaker<P>::precision = 15;
   REQUIRE((diff_norm / max) < (tolerance * std::sqrt(v0.size())));
 }
 

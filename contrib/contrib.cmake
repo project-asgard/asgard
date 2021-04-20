@@ -115,7 +115,7 @@ endif ()
 if (NOT LINALG_LIBS_FOUND)
   # first check if it has already been built
   set (OpenBLAS_PATH ${CMAKE_SOURCE_DIR}/contrib/blas/openblas)
-  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib)
+  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib NO_DEFAULT_PATH)
   if (LINALG_LIBS)
     message (STATUS "OpenBLAS library: ${LINALG_LIBS}")
 
@@ -139,7 +139,7 @@ if (NOT LINALG_LIBS_FOUND)
     ExternalProject_Add (openblas-ext
       UPDATE_COMMAND ""
       PREFIX contrib/blas/openblas
-      URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
+      URL https://github.com/xianyi/OpenBLAS/releases/download/v0.3.13/OpenBLAS-0.3.13.tar.gz
       DOWNLOAD_NO_PROGRESS 1
       CONFIGURE_COMMAND ""
       BUILD_COMMAND make USE_OPENMP=1
