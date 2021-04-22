@@ -2,6 +2,7 @@
 #include <algorithm>
 // FIXME use string format after C++20
 // #include <format>
+#include <iomanip>
 #include <math.h>
 #include <numeric>
 #include <sstream>
@@ -45,9 +46,9 @@ std::string simple_timer::report()
       return std::string("");
     }();
 
-    report << id << " - avg: " << avg << " min: " << min << " max: " << max
-           << " med: " << med << avg_flops << " calls: " << times.size()
-           << '\n';
+    report << std::fixed << std::setprecision(4) << id << " - avg: " << avg
+           << " min: " << min << " max: " << max << " med: " << med << avg_flops
+           << " calls: " << times.size() << '\n';
   }
   return report.str();
 }
