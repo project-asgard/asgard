@@ -136,10 +136,11 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
+# convenience flags for which HIP platform has been setup
 set(ASGARD_PLATFORM_NVCC 0)
 set(ASGARD_PLATFORM_HCC 0)
 if(ASGARD_USE_HIP)
-  # find the HIP directory for the cmake files, taken from HIP samples
+  # search for HIP and libraries
   if(NOT DEFINED HIP_PATH)
     if(NOT DEFINED ENV{HIP_PATH})
       set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
@@ -154,8 +155,9 @@ if(ASGARD_USE_HIP)
     else()
         set(HIPBLAS_PATH $ENV{HIPBLAS_PATH} CACHE PATH "Path to which HIPBLAS has been installed")
     endif()
-endif()
+  endif()
 
+  # try to find hipconfig executable which can help detect platforms and include dirs
   find_program(ASGARD_HIPCONFIG_PATH hipconfig HINTS "${HIP_PATH}/bin")
   if(ASGARD_HIPCONFIG_PATH)
     execute_process(COMMAND ${ASGARD_HIPCONFIG_PATH} --platform OUTPUT_VARIABLE ASGARD_HIP_PLATFORM)
@@ -165,7 +167,7 @@ endif()
     message(FATAL_ERROR "Could not determine HIP platform, make sure HIP_PLATFORM is set")
   endif()
 
-  message(STATUS "HIP Platform configured for ${ASGARD_HIP_PLATFORM}")
+  message(STATUS "HIP platform has been detected as ${ASGARD_HIP_PLATFORM}")
   if(ASGARD_HIP_PLATFORM STREQUAL "hcc")
     set(ASGARD_PLATFORM_HCC 1)
   elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc")
@@ -183,7 +185,12 @@ endif()
     message(STATUS "Found CUDA_PATH: $ENV{CUDA_PATH}")
   endif()
 
-  set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+  # look for HIP cmake configs in different locations
+  list(APPEND CMAKE_MODULE_PATH "${HIP_PATH}/cmake")
+  if(ASGARD_PLATFORM_HCC)
+    # note: causes issues on nvidia, but might be needed on amd platforms?
+    list(APPEND CMAKE_PREFIX_PATH "${HIP_PATH}/lib/cmake")
+  endif()
   list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
 
   find_package(HIP 4.0 REQUIRED)
@@ -192,23 +199,27 @@ endif()
   message(STATUS "HIP PLATFORM: ${HIP_PLATFORM}")
   message(STATUS "HIP COMPILER: ${HIP_COMPILER}")
   message(STATUS "HIP RUNTIME: ${HIP_RUNTIME}")
-  message(STATUS "HIP Include dir: ${HIP_INCLUDE_DIRS}")
+  message(STATUS "HIP Includes: ${HIP_INCLUDE_DIRS}")
   message(STATUS "HIP Libraries: ${HIP_LIBRARIES}")
   #include_directories(${HIP_INCLUDE_DIRS})
-  message(STATUS ${HIP_INCLUDE_DIRS})
 
-  #enable_language(HIP) # no cmake support yet?
   if(ASGARD_PLATFORM_NVCC)
-    enable_language(CUDA)
-    set (CMAKE_CUDA_STANDARD 14)
-    set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+    enable_language(CUDA) # TODO: check if these are necessary with HIP on nvidia?
+    #set (CMAKE_CUDA_STANDARD 14)
+    #set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+  elseif(ASGARD_PLATFORM_HCC)
+    #enable_language(HIP) # not yet added to latest cmake, but should be available soon
   endif()
 
-  #find_package(hipBLAS)
   if (hipBLAS_FOUND)
      message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}: ${HIPBLAS_INCLUDE_DIRS}")
   endif()
 
+  set(ASGARD_HIP_FLAGS "-std=c++14")
+  set(ASGARD_AMD_ARCH "gfx_906")
+  set(ASGARD_AMD_FLAGS "") # amdgpu specific options
+  set(ASGARD_NVCC_ARCH "sm_86")
+  set(ASGARD_NVCC_FLAGS "") # nvcc specific options
 endif()
 
 # build component to interface with Ed's kronmult lib
@@ -216,12 +227,12 @@ endif()
 add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_HCC)
-    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # no .cu extension
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP )
   elseif(ASGARD_PLATFORM_NVCC)
     # there is no hip language property in cmake yet?
     set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
     set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
+    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_86 -g -lineinfo --ptxas-options=-O3")
   endif()
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 
