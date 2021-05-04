@@ -14,9 +14,7 @@ std::string simple_timer::report()
 {
   std::ostringstream report;
   report << "\nperformance report, all times in ms...\n\n";
-  const char * fmt1 = " - avg: %f min: %f max: %f med: %f";
-  const char * fmt2 = " calls: %d \n";
-  std::cout << id_to_times_.size();
+  char const * fmt = "%s - avg: %.4f min: %.3f max: %.3f med: %.4f %s calls: %d \n";
   for (auto [id, times] : id_to_times_)
   {
     auto const avg =
@@ -48,19 +46,11 @@ std::string simple_timer::report()
       }
       return std::string("");
     }();
-    auto size1 = snprintf(NULL, 0, fmt1, (double)avg, (double)min, (double)max, (double)med);
-    auto size2 = snprintf(NULL, 0, fmt2, times.size());
-    std::string out1(size1+1, ' ');
-    std::string out2(size2+1, ' ');
-    snprintf(out1.data(), size1 + 1, fmt1, avg, min, max, med);
-    snprintf(out2.data(), size2 + 1, fmt2, times.size());
-    report << id << out1 << avg_flops << out2;
-    //std::cout << id << out1 << avg_flops << out2;
-    //report << id << " - avg: " << avg << " min: " << min << " max: " << max
-    //       << " med: " << med << avg_flops << " calls: " << times.size()
-    //       << '\n';
+    auto size = snprintf(NULL, 0, fmt, id.c_str(), avg, min, max, med, avg_flops.c_str(), times.size());
+    std::string out(size + 1, ' ');
+    snprintf(out.data(), size + 1, fmt, id.c_str(), avg, min, max, med, avg_flops.c_str(), times.size());
+    report << out;
   }
-  //std::cout << "report:\n" << report.str();
   return report.str();
 }
 simple_timer timer;
