@@ -312,7 +312,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
   auto const new_plan = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_addtl(table_.size() - added);
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
-  plan_               = distribution_plan(new_plan);
+  plan_               = new_plan;
 
   return y;
 }
@@ -338,7 +338,7 @@ fk::vector<P> distributed_grid<P>::remove_elements(
   auto const new_plan = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_delete(all_remove_indices, table_.size());
   auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
-  plan_               = distribution_plan(new_plan);
+  plan_               = new_plan;
   return y;
 }
 
