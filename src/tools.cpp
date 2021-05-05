@@ -3,7 +3,6 @@
 // FIXME use string format after C++20
 // #include <format>
 #include <cstdio>
-#include <iomanip>
 #include <math.h>
 #include <numeric>
 #include <sstream>
@@ -47,7 +46,7 @@ std::string simple_timer::report()
       }
       return std::string("");
     }();
-    auto size = snprintf(NULL, 0, fmt, id.c_str(), avg, min, max, med,
+    auto size = snprintf(nullptr, 0, fmt, id.c_str(), avg, min, max, med,
                          avg_flops.c_str(), times.size());
     std::string out(size + 1, ' ');
     snprintf(out.data(), size + 1, fmt, id.c_str(), avg, min, max, med,
