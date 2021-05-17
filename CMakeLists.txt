@@ -170,7 +170,8 @@ if(ASGARD_USE_HIP)
   message(STATUS "HIP platform has been detected as ${ASGARD_HIP_PLATFORM}")
   if(ASGARD_HIP_PLATFORM STREQUAL "hcc")
     set(ASGARD_PLATFORM_HCC 1)
-  elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc")
+  # hip <= 4.1 uses "nvcc" to identify nvidia platforms, >= 4.2 uses "nvidia"
+  elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc" OR ASGARD_HIP_PLATFORM STREQUAL "nvidia")
     set(ASGARD_PLATFORM_NVCC 1)
   endif()
 
@@ -204,11 +205,15 @@ if(ASGARD_USE_HIP)
   #include_directories(${HIP_INCLUDE_DIRS})
 
   if(ASGARD_PLATFORM_NVCC)
+    find_package(CUDA 9.0 REQUIRED)
+    include_directories(${CUDA_INCLUDE_DIRS})
     enable_language(CUDA) # TODO: check if these are necessary with HIP on nvidia?
-    #set (CMAKE_CUDA_STANDARD 14)
-    #set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set (CMAKE_CUDA_STANDARD 14)
+    set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+    add_compile_definitions(__HIP_PLATFORM_NVCC__)
   elseif(ASGARD_PLATFORM_HCC)
     #enable_language(HIP) # not yet added to latest cmake, but should be available soon
+    add_compile_definitions(__HIP_PLATFORM_AMD__)
   endif()
 
   if (hipBLAS_FOUND)
@@ -220,6 +225,8 @@ if(ASGARD_USE_HIP)
   set(ASGARD_AMD_FLAGS "") # amdgpu specific options
   set(ASGARD_NVCC_ARCH "sm_86")
   set(ASGARD_NVCC_FLAGS "") # nvcc specific options
+
+  #hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 endif()
 
 # build component to interface with Ed's kronmult lib
