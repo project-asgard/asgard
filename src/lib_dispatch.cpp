@@ -156,7 +156,7 @@ void initialize_libraries(int const local_rank)
 }
 
 #ifdef ASGARD_USE_HIP
-inline hipblasOperation_t cublas_trans(char trans)
+inline hipblasOperation_t hipblas_trans(char trans)
 {
   if (trans == 'N' || trans == 'n')
   {
@@ -569,15 +569,15 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          hipblasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
-                       A, *lda, x, *incx, beta, y, *incy);
+          hipblasDgemv(device.get_handle(), hipblas_trans(*trans), *m, *n,
+                       alpha, A, *lda, x, *incx, beta, y, *incy);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          hipblasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
-                       A, *lda, x, *incx, beta, y, *incy);
+          hipblasSgemv(device.get_handle(), hipblas_trans(*trans), *m, *n,
+                       alpha, A, *lda, x, *incx, beta, y, *incy);
       expect(success == 0);
     }
     return;
@@ -635,15 +635,15 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = hipblasDgemm(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = hipblasSgemm(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       expect(success == 0);
     }
     return;
@@ -702,14 +702,14 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
+      auto const success = hipblasDgetrfBatched(device.get_handle(), *n, A_d,
+                                                *lda, ipiv, info, 1);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
+      auto const success = hipblasSgetrfBatched(device.get_handle(), *n, A_d,
+                                                *lda, ipiv, info, 1);
       expect(success == 0);
     }
     return;
@@ -755,7 +755,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     expect(*lwork == (*n) * (*n));
     ignore(lwork);
 
-    P const **A_d;
+    P **A_d; // hipBlas loses const to DgetriBatched
     P **work_d;
     auto stat = hipMalloc((void **)&A_d, sizeof(P *));
     expect(stat == 0);
@@ -770,13 +770,13 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetriBatched(
+      auto const success = hipblasDgetriBatched(
           device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetriBatched(
+      auto const success = hipblasSgetriBatched(
           device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
       expect(success == 0);
     }
@@ -850,8 +850,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = hipblasDgemmBatched(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = hipDeviceSynchronize();
       expect(cuda_stat == 0);
       expect(success == 0);
@@ -859,8 +859,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = hipblasSgemmBatched(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
       auto const cuda_stat = hipDeviceSynchronize();
       expect(cuda_stat == 0);
       expect(success == 0);
@@ -946,7 +946,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = hipblasDgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
+          device.get_handle(), hipblas_trans(*trans), hipblas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
       auto const cuda_stat = hipDeviceSynchronize();
@@ -956,7 +956,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = hipblasSgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
+          device.get_handle(), hipblas_trans(*trans), hipblas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
       auto const cuda_stat = hipDeviceSynchronize();

@@ -226,6 +226,10 @@ if(ASGARD_USE_HIP)
   set(ASGARD_NVCC_ARCH "sm_86")
   set(ASGARD_NVCC_FLAGS "") # nvcc specific options
 
+  # assume this include path since ${HIP_INCLUDE_DIRS} not being set on nvidia platform
+  include_directories("${HIP_PATH}/include")
+  include_directories(${HIPBLAS_INCLUDE_DIRS})
+
   #hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 endif()
 
@@ -403,8 +407,6 @@ if (ASGARD_USE_HIP)
     target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
   endif()
   target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
-  target_include_directories(lib_dispatch PUBLIC ${HIP_INCLUDE_DIRS} ${HIPBLAS_INCLUDE_DIRS})
-  target_include_directories(kronmult_cuda PUBLIC ${HIP_INCLUDE_DIRS} ${HIPBLAS_INCLUDE_DIRS})
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -431,7 +433,12 @@ target_link_libraries (solver PRIVATE distribution fast_math lib_dispatch tensor
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 if (ASGARD_USE_HIP)
-  target_link_libraries (tensors PRIVATE ${HIP_LIBRARIES})
+  if(ASGARD_PLATFORM_HCC)
+    target_link_libraries(tensors PRIVATE hip::device)
+  elseif(ASGARD_PLATFORM_NVCC)
+    target_link_libraries(tensors PRIVATE ${CUDA_LIBRARIES})
+  endif()
+  target_link_libraries (tensors PRIVATE roc::hipblas)
 endif ()
 if (ASGARD_USE_SCALAPACK)	
   add_compile_definitions (ASGARD_USE_SCALAPACK)
