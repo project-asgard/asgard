@@ -20,12 +20,7 @@
 #define HOST_FUNCTION
 #endif
 
-#include "kronmult1_xbatched.hpp"
-#include "kronmult2_xbatched.hpp"
-#include "kronmult3_xbatched.hpp"
-#include "kronmult4_xbatched.hpp"
-#include "kronmult5_xbatched.hpp"
-#include "kronmult6_xbatched.hpp"
+#include "kronmult_gpu/kronmult.cuh"
 
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
@@ -37,7 +32,7 @@ HOST_FUNCTION DEVICE_FUNCTION inline void expect(bool const condition)
 {
   auto const ignore = [](auto ignored) { (void)ignored; };
   ignore(condition);
-  assert(condition);
+  //assert(condition);
 }
 
 template<typename P>
@@ -307,40 +302,8 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 {
 #ifdef ASGARD_USE_CUDA
   {
-    int constexpr warpsize    = 32;
-    int constexpr nwarps      = 1;
-    int constexpr num_threads = nwarps * warpsize;
-
-    switch (num_dims)
-    {
-    case 1:
-      kronmult1_xbatched<P><<<num_krons, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 2:
-      kronmult2_xbatched<P><<<num_krons, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 3:
-      kronmult3_xbatched<P><<<num_krons, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 4:
-      kronmult4_xbatched<P><<<num_krons, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 5:
-      kronmult5_xbatched<P><<<num_krons, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 6:
-      kronmult6_xbatched<P><<<num_krons, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    default:
-      expect(false);
-    };
-
+      kronmult_batched<P>(
+          num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
     // -------------------------------------------
     // note important to wait for kernel to finish
     // -------------------------------------------

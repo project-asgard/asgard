@@ -1,6 +1,4 @@
 X(float, host)
 X(double, host)
-X(long double, host)
 X(float, device)
 X(double, device)
-X(long double, device)

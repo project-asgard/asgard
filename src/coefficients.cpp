@@ -396,11 +396,11 @@ template fk::matrix<double> generate_coefficients<double>(
     basis::wavelet_transform<double, resource::host> const &transformer,
     double const time, bool const rotate);
 
-template fk::matrix<long double> generate_coefficients<long double>(
-    dimension<long double> const &dim, term<long double> const &term_1D,
-    partial_term<long double> const &pterm,
-    basis::wavelet_transform<long double, resource::host> const &transformer,
-    long double const time, bool const rotate);
+//template fk::matrix<long double> generate_coefficients<long double>(
+//    dimension<long double> const &dim, term<long double> const &term_1D,
+//    partial_term<long double> const &pterm,
+//    basis::wavelet_transform<long double, resource::host> const &transformer,
+//    long double const time, bool const rotate);
 
 template void generate_all_coefficients<float>(
     PDE<float> &pde,
@@ -412,7 +412,7 @@ template void generate_all_coefficients<double>(
     basis::wavelet_transform<double, resource::host> const &transformer,
     double const time, bool const rotate);
 
-template void generate_all_coefficients<long double>(
-    PDE<long double> &pde,
-    basis::wavelet_transform<long double, resource::host> const &transformer,
-    long double const time, bool const rotate);
+//template void generate_all_coefficients<long double>(
+//    PDE<long double> &pde,
+//    basis::wavelet_transform<long double, resource::host> const &transformer,
+//    long double const time, bool const rotate);
