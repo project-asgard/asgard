@@ -420,15 +420,17 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
-template std::array<fk::matrix<double>, 6>
-generate_multi_wavelets(int const degree);
-template std::array<fk::matrix<float>, 6>
-generate_multi_wavelets(int const degree);
+#define X(T)\
+    template std::array<fk::matrix<T>, 6>\
+    generate_multi_wavelets(int const degree);
+#include "type_list_float.inc"
+#undef X
 
-template fk::matrix<double>
-operator_two_scale(int const degree, int const num_levels);
-template fk::matrix<float>
-operator_two_scale(int const degree, int const num_levels);
+#define X(T)\
+    template fk::matrix<T>\
+    operator_two_scale(int const degree, int const num_levels);
+#include "type_list_float.inc"
+#undef X
 
 namespace basis
 {

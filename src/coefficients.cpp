@@ -384,35 +384,19 @@ fk::matrix<P> generate_coefficients(
   return coefficients;
 }
 
-template fk::matrix<float> generate_coefficients<float>(
-    dimension<float> const &dim, term<float> const &term_1D,
-    partial_term<float> const &pterm,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, bool const rotate);
+#define X(T) \
+  template fk::matrix<T> generate_coefficients<T>(\
+    dimension<T> const &dim, term<T> const &term_1D,\
+    partial_term<T> const &pterm,\
+    basis::wavelet_transform<T, resource::host> const &transformer,\
+    T const time, bool const rotate);
+#include "type_list_float.inc"
+#undef X
 
-template fk::matrix<double> generate_coefficients<double>(
-    dimension<double> const &dim, term<double> const &term_1D,
-    partial_term<double> const &pterm,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    double const time, bool const rotate);
-
-template fk::matrix<long double> generate_coefficients<long double>(
-    dimension<long double> const &dim, term<long double> const &term_1D,
-    partial_term<long double> const &pterm,
-    basis::wavelet_transform<long double, resource::host> const &transformer,
-    long double const time, bool const rotate);
-
-template void generate_all_coefficients<float>(
-    PDE<float> &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, bool const rotate);
-
-template void generate_all_coefficients<double>(
-    PDE<double> &pde,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    double const time, bool const rotate);
-
-template void generate_all_coefficients<long double>(
-    PDE<long double> &pde,
-    basis::wavelet_transform<long double, resource::host> const &transformer,
-    long double const time, bool const rotate);
+#define X(T)                                                                  \
+  template void generate_all_coefficients<T>(\
+    PDE<T> &pde,\
+    basis::wavelet_transform<T, resource::host> const &transformer,\
+    T const time, bool const rotate);
+#include "type_list_float.inc"
+#undef X

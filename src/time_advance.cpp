@@ -87,7 +87,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     auto const y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
     refining = static_cast<bool>(
-        get_global_max(static_cast<float>(y_stepped.size() != y_refined.size()),
+        get_global_max(static_cast<P>(y_stepped.size() != y_refined.size()),
                        adaptive_grid.get_distrib_plan()));
 
     node_out() << " adapt -- refined grid from " << old_size << " -> "
