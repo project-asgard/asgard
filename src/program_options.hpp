@@ -26,6 +26,10 @@ static solve_map_t const solver_mapping = {{"direct", solve_opts::direct},
 // the choices for supported PDE types
 enum class PDE_opts
 {
+  advect_blob_1,
+  advect_blob_2,
+  advect_blob_3,
+  advect_blob_4,
   continuity_1,
   continuity_2,
   continuity_3,
@@ -65,6 +69,18 @@ public:
 //
 using pde_map_t                    = std::map<std::string, PDE_descriptor>;
 static pde_map_t const pde_mapping = {
+    {"advect_blob_1",
+     PDE_descriptor("1D test case, advect blob equation: df/dt + v.df/dx = 0",
+                    PDE_opts::advect_blob_1)},
+    {"advect_blob_2",
+     PDE_descriptor("2D test case, advect blob equation: df/dt + v.df/dx = 0",
+                    PDE_opts::advect_blob_2)},
+    {"advect_blob_3",
+     PDE_descriptor("3D test case, advect blob equation: df/dt + v.df/dx = 0",
+                    PDE_opts::advect_blob_3)},
+    {"advect_blob_4",
+     PDE_descriptor("4D test case, advect blob equation: df/dt + v.df/dx = 0",
+                    PDE_opts::advect_blob_4)},
     {"continuity_1",
      PDE_descriptor("1D test case, continuity equation: df/dt + df/dx = 0",
                     PDE_opts::continuity_1)},
