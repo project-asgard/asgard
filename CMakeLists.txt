@@ -194,6 +194,16 @@ if(ASGARD_USE_HIP)
   endif()
   list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
 
+  set(ASGARD_HIP_FLAGS "-std=c++14" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
+  set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
+  set(ASGARD_AMD_FLAGS "--amdgpu-target=gfx_${ASGARD_AMD_ARCH}" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
+  set(ASGARD_NVCC_ARCH "86" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
+  set(ASGARD_NVCC_FLAGS "-gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH}" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
+
+  set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
+  set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
+  set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
+
   find_package(HIP 4.0 REQUIRED)
   find_package(hipblas REQUIRED)
   # Print some debug info about HIP configuration
@@ -202,7 +212,6 @@ if(ASGARD_USE_HIP)
   message(STATUS "HIP RUNTIME: ${HIP_RUNTIME}")
   message(STATUS "HIP Includes: ${HIP_INCLUDE_DIRS}")
   message(STATUS "HIP Libraries: ${HIP_LIBRARIES}")
-  #include_directories(${HIP_INCLUDE_DIRS})
 
   if(ASGARD_PLATFORM_NVCC)
     find_package(CUDA 9.0 REQUIRED)
@@ -220,22 +229,21 @@ if(ASGARD_USE_HIP)
      message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}: ${HIPBLAS_INCLUDE_DIRS}")
   endif()
 
-  set(ASGARD_HIP_FLAGS "-std=c++14")
-  set(ASGARD_AMD_ARCH "gfx_906")
-  set(ASGARD_AMD_FLAGS "") # amdgpu specific options
-  set(ASGARD_NVCC_ARCH "sm_86")
-  set(ASGARD_NVCC_FLAGS "") # nvcc specific options
-
-  # assume this include path since ${HIP_INCLUDE_DIRS} not being set on nvidia platform
+  include_directories(${HIP_INCLUDE_DIRS})
+  # assume this include path since HIP_INCLUDE_DIRS is not being set on nvidia platform
   include_directories("${HIP_PATH}/include")
   include_directories(${HIPBLAS_INCLUDE_DIRS})
 
-  #hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
+  hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp
+                  HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                  NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
+                  CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+else()
+  # build component to interface with Ed's kronmult lib
+  ##TODO: link to kronmult as interface library
+  add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 endif()
 
-# build component to interface with Ed's kronmult lib
-##TODO: link to kronmult as interface library
-add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 if(ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_HCC)
     set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP )
