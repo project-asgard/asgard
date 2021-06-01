@@ -3,7 +3,7 @@
 #include "tensors.hpp"
 #include <array>
 
-enum legendre_normalization
+enum class legendre_normalization
 {
   unnormalized,
   lin,

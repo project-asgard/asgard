@@ -132,6 +132,7 @@ public:
   static auto constexpr DEFAULT_MAX_LEVEL         = 8;
   static auto constexpr DEFAULT_TIME_STEPS        = 10;
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
+  static auto constexpr DEFAULT_PLOT_FREQ         = 1;
   static auto constexpr DEFAULT_USE_IMPLICIT      = false;
   static auto constexpr DEFAULT_USE_FG            = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
@@ -196,6 +197,9 @@ public:
 
   PDE_opts get_selected_pde() const;
   solve_opts get_selected_solver() const;
+
+  std::string get_ml_session_string() const;
+  int get_plot_freq() const;
 
   bool is_valid() const;
 
@@ -273,6 +277,11 @@ private:
   // solver to use for implicit timestepping
   solve_opts solver = DEFAULT_SOLVER;
 
+  // name of matlab session to connect
+  std::string matlab_name = NO_USER_VALUE_STR;
+  // timesteps between plotting
+  int plot_freq = DEFAULT_PLOT_FREQ;
+
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
 };
@@ -288,6 +297,7 @@ public:
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
         realspace_output_freq(user_vals.get_realspace_output_freq()),
+        plot_freq(user_vals.get_plot_freq()),
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
@@ -296,6 +306,7 @@ public:
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
+  bool should_plot(int const i) const;
 
   fk::vector<int> const starting_levels;
 
@@ -305,6 +316,7 @@ public:
   int const num_time_steps;
   int const wavelet_output_freq;
   int const realspace_output_freq;
+  int const plot_freq;
 
   bool const use_implicit_stepping;
   bool const use_full_grid;

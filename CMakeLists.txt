@@ -1,15 +1,9 @@
-cmake_minimum_required (VERSION 3.13) # remove cray check below when >= 3.16
+cmake_minimum_required (VERSION 3.19) 
 
 project (asgard
   VERSION 0.3.0
   LANGUAGES CXX
 )
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "CrayLinuxEnvironment")
-  if (CMAKE_VERSION VERSION_LESS "3.16")
-    message (WARNING "To use Cray LibSci instead of building OpenBLAS, you must use CMake >= 3.16.")
-  endif ()
-endif ()
 
 ###############################################################################
 ## Set up the compiler and general global build options
@@ -58,8 +52,12 @@ option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 option (ASGARD_USE_SLATE "Use optional slate linear algebra library" OFF)
+option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
+
+# add scripts directory location
+set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
 
 if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
   set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
@@ -145,6 +143,10 @@ if(ASGARD_USE_MPI)
   include_directories(${MPI_CXX_INCLUDE_DIRS})
 endif()
 
+if(ASGARD_USE_MATLAB)
+  find_package(Matlab REQUIRED) # Should there be a minimum MATLAB version needed?
+endif()
+
 ###############################################################################
 ## Building asgard
 #
@@ -181,6 +183,10 @@ set (components
 if (ASGARD_IO_HIGHFIVE)
   list (APPEND components io)
 endif ()
+
+if (ASGARD_USE_MATLAB)
+  list(APPEND components matlab_plot)
+endif()
 
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
@@ -261,6 +267,12 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(lib_dispatch PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
+if (ASGARD_USE_MATLAB)
+   # SYSTEM option to suppress the compiler warnings in Matlab's C++ header files
+   target_include_directories(matlab_plot SYSTEM PUBLIC ${Matlab_INCLUDE_DIRS})
+   target_link_libraries(matlab_plot PRIVATE ${Matlab_LIBRARIES})
+endif()
+
 target_link_libraries (matlab_utilities PUBLIC tensors)
 
 target_link_libraries (pde PRIVATE basis matlab_utilities tensors)
@@ -311,9 +323,11 @@ if (ASGARD_USE_MPI)
   list (APPEND main_app_link_deps PRIVATE MPI::MPI_CXX)
 endif()
 
-foreach (link_dep IN LISTS main_app_link_deps)
-  target_link_libraries (asgard PRIVATE ${link_dep})
-endforeach ()
+if (ASGARD_USE_MATLAB)
+  list (APPEND main_app_link_deps matlab_plot)
+endif()
+
+target_link_libraries (asgard PRIVATE ${main_app_link_deps})
 
 # build/link anything needed for profiling if requested
 if (PROFILE_DEPS)
