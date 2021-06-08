@@ -289,7 +289,7 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-target_link_libraries(kronmult_cuda PRIVATE kron)
+target_link_libraries(kronmult_cuda PUBLIC kron)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
@@ -390,6 +390,8 @@ configure_file(
 )
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
+
+target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
 
 ###############################################################################
 ## Testing asgard
