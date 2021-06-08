@@ -14,11 +14,12 @@ find_package (Git)
 #  Define a macro to register new projects.
 macro (register_project name dir url default_tag)
     set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
+    set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
 
 #  Set up the sub project repository.
     FetchContent_Declare(
         ${name}
-        GIT_REPOSITORY ${url}
+        GIT_REPOSITORY ${BUILD_REPO_${dir}}
         GIT_TAG origin/${BUILD_TAG_${dir}}
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${dir}
     )
