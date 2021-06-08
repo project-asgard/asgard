@@ -184,26 +184,26 @@ endif ()
 # link to Ed D'Azevedo's kronmult library, or download/build if not present
 #
 ###############################################################################
-if(ASGARD_USE_CUDA)
-    set(USE_GPU 1)
-endif()
+#if(ASGARD_USE_CUDA)
+#    set(USE_GPU 1)
+#endif()
 
-set(KRON_PATH "${CMAKE_CURRENT_BINARY_DIR}/contrib/kronmult/")
-set(KRON_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/contrib/kronmult/")
+#set(KRON_PATH "${CMAKE_CURRENT_BINARY_DIR}/contrib/kronmult/")
+#set(KRON_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/contrib/kronmult/")
 
-if((NOT EXISTS ${KRON_INCLUDE_DIR}/CMakeLists.txt))
-    # we couldn't find the CMakeLists.txt for KRON or they don't exist
-    message("Unable to find kronmult submodule")
+#if((NOT EXISTS ${KRON_INCLUDE_DIR}/CMakeLists.txt))
+#    # we couldn't find the CMakeLists.txt for KRON or they don't exist
+#    message("Unable to find kronmult submodule")
 
-    # we have a submodule setup for kron, assume it is under external/kron
-    # now we need to clone this submodule
+#    # we have a submodule setup for kron, assume it is under external/kron
+#    # now we need to clone this submodule
 #    execute_process(COMMAND git submodule update --init -- contrib/kronmult
 #                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-    set(KRON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/kronmult/
-        CACHE PATH "kronmult include directory")
+#    set(KRON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/kronmult/
+#        CACHE PATH "kronmult include directory")
 
-    # also install it
-    install(DIRECTORY ${KRON_INCLUDE_DIR}/kronmult DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endif()
+#    # also install it
+#    install(DIRECTORY ${KRON_INCLUDE_DIR}/kronmult DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+#endif()
 #    add_subdirectory("${CMAKE_SOURCE_DIR}/contrib/kronmult")
