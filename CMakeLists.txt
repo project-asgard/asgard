@@ -48,7 +48,7 @@ endmacro ()
 
 register_project (kronmult
                   KRONMULT
-                  https://github.com/cianciosa/kronmult.git
+                  https://github.com/project-asgard/kronmult.git
                   master
 )
 
