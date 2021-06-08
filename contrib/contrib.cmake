@@ -197,8 +197,8 @@ if((NOT EXISTS ${KRON_INCLUDE_DIR}/CMakeLists.txt))
 
     # we have a submodule setup for kron, assume it is under external/kron
     # now we need to clone this submodule
-    execute_process(COMMAND git submodule update --init -- contrib/kronmult
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+#    execute_process(COMMAND git submodule update --init -- contrib/kronmult
+#                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     set(KRON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/kronmult/
         CACHE PATH "kronmult include directory")
@@ -206,4 +206,4 @@ if((NOT EXISTS ${KRON_INCLUDE_DIR}/CMakeLists.txt))
     # also install it
     install(DIRECTORY ${KRON_INCLUDE_DIR}/kronmult DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif()
-    add_subdirectory("${CMAKE_SOURCE_DIR}/contrib/kronmult")
+#    add_subdirectory("${CMAKE_SOURCE_DIR}/contrib/kronmult")
