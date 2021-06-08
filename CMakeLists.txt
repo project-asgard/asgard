@@ -29,7 +29,7 @@ function (register_project name dir url default_tag)
         GIT_REPOSITORY ${BUILD_REPO_${dir}}
         GIT_TAG ${BUILD_TAG_${dir}}
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
-	PATCH_COMMAND ${PATCH_COMMAND}
+        PATCH_COMMAND ${PATCH_COMMAND}
     )
     FetchContent_MakeAvailable(${name})
 endfunction ()
