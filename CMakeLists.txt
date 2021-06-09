@@ -194,6 +194,8 @@ if(ASGARD_USE_HIP)
   endif()
   list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
 
+  set(HIP_VERBOSE_BUILD ON CACHE STRING "Verbose compilation for HIP")
+
   set(ASGARD_HIP_FLAGS "-std=c++14" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
   set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
   set(ASGARD_AMD_FLAGS "--amdgpu-target=gfx_${ASGARD_AMD_ARCH}" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
@@ -251,7 +253,7 @@ if(ASGARD_USE_HIP)
     # there is no hip language property in cmake yet?
     set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
     set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_86 -g -lineinfo --ptxas-options=-O3")
+    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
   endif()
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 
@@ -415,6 +417,7 @@ if (ASGARD_USE_HIP)
     target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
   endif()
   target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
+  #set_target_properties(lib_dispatch PROPERTIES LINKER_LANGUAGE HIP)
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -447,6 +450,7 @@ if (ASGARD_USE_HIP)
     target_link_libraries(tensors PRIVATE ${CUDA_LIBRARIES})
   endif()
   target_link_libraries (tensors PRIVATE roc::hipblas)
+  #set_target_properties(tensors PROPERTIES LINKER_LANGUAGE HIP)
 endif ()
 if (ASGARD_USE_SCALAPACK)	
   add_compile_definitions (ASGARD_USE_SCALAPACK)
