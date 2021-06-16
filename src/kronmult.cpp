@@ -369,7 +369,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   fk::vector<P, mem_type::owner, resource::device> const x_dev(
       x.clone_onto_device());
 
-  for (auto const grid : grids)
+  for (auto const &grid : grids)
   {
     auto const col_start = my_subgrid.to_local_col(grid.col_start);
     auto const col_end   = my_subgrid.to_local_col(grid.col_stop);
