@@ -149,6 +149,15 @@ if(ASGARD_USE_HIP)
     endif()
   endif()
 
+  # set HIP_CLANG_PATH for potential installs in non-standard locations (such as rocm with spack)
+  if (NOT DEFINED HIP_CLANG_PATH)
+    if(NOT DEFINED ENV{HIP_CLANG_PATH})
+      set(HIP_CLANG_PATH "${ROCM_PATH}/llvm/bin" CACHE PATH "Path to HIP clang binaries")
+   else()
+      set(HIP_CLANG_PATH $ENV{HIP_CLANG_PATH} CACHE PATH "Path to HIP clang binaries")
+   endif()
+  endif()
+
   if(NOT DEFINED HIPBLAS_PATH)
     if(NOT DEFINED ENV{HIPBLAS_PATH})
         set(HIPBLAS_PATH "${HIP_PATH}/../hipblas" CACHE PATH "Path to which HIPBLAS has been installed")
@@ -187,10 +196,10 @@ if(ASGARD_USE_HIP)
   endif()
 
   # look for HIP cmake configs in different locations
-  list(APPEND CMAKE_MODULE_PATH "${HIP_PATH}/cmake")
+  list(APPEND CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${ROCM_PATH}")
   if(ASGARD_PLATFORM_HCC)
     # note: causes issues on nvidia, but might be needed on amd platforms?
-    list(APPEND CMAKE_PREFIX_PATH "${HIP_PATH}/lib/cmake")
+    list(APPEND CMAKE_PREFIX_PATH "${HIP_PATH}/lib/cmake" "${ROCM_PATH}")
   endif()
   list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
 
