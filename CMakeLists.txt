@@ -151,7 +151,7 @@ if(ASGARD_USE_CUDA)
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 
 #  Turn on GPU support in kronmult.
-  set (USE_GPU ON)
+  set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
 endif()
 
 if(ASGARD_USE_MKL)
