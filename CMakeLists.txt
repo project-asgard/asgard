@@ -12,7 +12,7 @@ include (FetchContent)
 find_package (Git)
 
 #  Define a macro to register new projects.
-macro (register_project name dir url default_tag)
+function (register_project name dir url default_tag)
     set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
     set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
 
@@ -20,32 +20,12 @@ macro (register_project name dir url default_tag)
     FetchContent_Declare(
         ${name}
         GIT_REPOSITORY ${BUILD_REPO_${dir}}
-        GIT_TAG origin/${BUILD_TAG_${dir}}
+        GIT_TAG ${BUILD_TAG_${dir}}
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
     )
 
     FetchContent_MakeAvailable(${name})
-
-    if (GIT_FOUND)
-#  By default cmake clones projects in a headless state. After the repo is
-#  cloned checkout the requested tag so repo is in a working state.
-        execute_process(
-            COMMAND ${GIT_EXECUTABLE} checkout ${BUILD_TAG_${dir}}
-            WORKING_DIRECTORY ${${name}_SOURCE_DIR}
-        )
-
-#  Add a taraget to pull the latest version before building. Note dependency is
-#  registered in the sub project CMakeList.txt. Not sure how this should handle
-#  multiple targets in a project yet. Name must match the subproject pull_
-#  dependency.
-        add_custom_target(
-            pull_${name}
-            ALL
-            COMMAND ${GIT_EXECUTABLE} pull
-            WORKING_DIRECTORY ${${name}_SOURCE_DIR}
-        )
-    endif ()
-endmacro ()
+endfunction ()
 
 #  Changes to the current version of kromult should proceed through a pull
 #  request. By default, a specific tag should be specifed.
@@ -169,8 +149,10 @@ if(ASGARD_USE_CUDA)
   set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
   set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
+
+#  Turn on GPU support in kronmult.
+  set (USE_GPU ON)
 endif()
-#target_include_directories (kronmult_cuda PRIVATE ${CMAKE_SOURCE_DIR}/contrib/kronmult/ ${CMAKE_BINARY_DIR})
 
 if(ASGARD_USE_MKL)
   if(ASGARD_USE_CUDA)
