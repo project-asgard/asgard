@@ -21,7 +21,7 @@ macro (register_project name dir url default_tag)
         ${name}
         GIT_REPOSITORY ${BUILD_REPO_${dir}}
         GIT_TAG origin/${BUILD_TAG_${dir}}
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${dir}
+        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
     )
 
     FetchContent_MakeAvailable(${name})
@@ -47,10 +47,12 @@ macro (register_project name dir url default_tag)
     endif ()
 endmacro ()
 
+#  Changes to the current version of kromult should proceed through a pull
+#  request. By default, a specific tag should be specifed.
 register_project (kronmult
                   KRONMULT
                   https://github.com/project-asgard/kronmult.git
-                  master
+                  431cc12
 )
 
 ###############################################################################
