@@ -186,7 +186,7 @@ if(ASGARD_USE_HIP)
   endif()
 
   message(STATUS "HIP platform has been detected as ${ASGARD_HIP_PLATFORM}")
-  if(ASGARD_HIP_PLATFORM STREQUAL "hcc")
+  if(ASGARD_HIP_PLATFORM STREQUAL "hcc" OR ASGARD_HIP_PLATFORM STREQUAL "amd")
     set(ASGARD_PLATFORM_HCC 1)
   # hip <= 4.1 uses "nvcc" to identify nvidia platforms, >= 4.2 uses "nvidia"
   elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc" OR ASGARD_HIP_PLATFORM STREQUAL "nvidia")
@@ -266,9 +266,9 @@ endif()
 
 if(ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_HCC)
-    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP )
+    #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # should work after cmake 3.21 release?
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
   elseif(ASGARD_PLATFORM_NVCC)
-    # there is no hip language property in cmake yet?
     set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
     set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
     set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
@@ -280,8 +280,8 @@ if(ASGARD_USE_HIP)
 endif()
 
 if(ASGARD_USE_MKL)
-  if(ASGARD_USE_HIP)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
+  if(ASGARD_USE_HIP AND ASGARD_PLATFORM_NVCC)
+      set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
   else()
     target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
     if(APPLE) # Need to link against the same openmp library as the MKL.
@@ -403,8 +403,8 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-if (ASGARD_USE_HIP)
-  target_link_libraries(kronmult_cuda PUBLIC kron)# hip::device)
+if (ASGARD_USE_HIP AND ASGARD_PLATFORM_HCC)
+  target_link_libraries(kronmult_cuda PUBLIC kron hip::device)
 else ()
   target_link_libraries(kronmult_cuda PUBLIC kron)
 endif()
