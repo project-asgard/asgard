@@ -246,6 +246,8 @@ if(ASGARD_USE_HIP)
     # these compile definitions should be added automatically if using amd's clang, but
     # may not necessarily be added if compiling with gcc or others
     add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
+    # temporarily disable warnings generated when using clang
+    add_compile_options("-Wno-dtor-name" "-Wno-gnu-anonymous-struct" "-Wno-nested-anon-types")
   endif()
 
   if (hipBLAS_FOUND)
