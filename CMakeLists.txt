@@ -186,6 +186,7 @@ if(ASGARD_USE_HIP)
   endif()
 
   message(STATUS "HIP platform has been detected as ${ASGARD_HIP_PLATFORM}")
+  # hip >= 4.2 is now using "amd" to identify platform
   if(ASGARD_HIP_PLATFORM STREQUAL "hcc" OR ASGARD_HIP_PLATFORM STREQUAL "amd")
     set(ASGARD_PLATFORM_HCC 1)
   # hip <= 4.1 uses "nvcc" to identify nvidia platforms, >= 4.2 uses "nvidia"
@@ -218,7 +219,7 @@ if(ASGARD_USE_HIP)
   set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
   set(ASGARD_AMD_FLAGS "--amdgpu-target=gfx_${ASGARD_AMD_ARCH}" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
   set(ASGARD_NVCC_ARCH "86" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
-  set(ASGARD_NVCC_FLAGS "-gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH}" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
+  set(ASGARD_NVCC_FLAGS "-gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH};--ptxas-options=-O3;-lineinfo;-g" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
 
   set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
   set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
@@ -236,13 +237,15 @@ if(ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_NVCC)
     find_package(CUDA 9.0 REQUIRED)
     include_directories(${CUDA_INCLUDE_DIRS})
-    enable_language(CUDA) # TODO: check if these are necessary with HIP on nvidia?
+    enable_language(CUDA)
     set (CMAKE_CUDA_STANDARD 14)
     set (CMAKE_CUDA_STANDARD_REQUIRED ON)
-    add_compile_definitions(__HIP_PLATFORM_NVCC__)
+    add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
   elseif(ASGARD_PLATFORM_HCC)
-    #enable_language(HIP) # not yet added to latest cmake, but should be available soon
-    add_compile_definitions(__HIP_PLATFORM_AMD__)
+    #enable_language(HIP) # not yet added to latest cmake, but should be available in 3.21
+    # these compile definitions should be added automatically if using amd's clang, but
+    # may not necessarily be added if compiling with gcc or others
+    add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
   endif()
 
   if (hipBLAS_FOUND)
