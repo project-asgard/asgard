@@ -29,8 +29,8 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
   // setup x vector
-  std::random_device rd;
-  std::mt19937 mersenne_engine(rd());
+  unsigned int seed{666};
+  std::mt19937 mersenne_engine(seed);
   std::uniform_int_distribution<int> dist(-4, 4);
   auto const gen = [&dist, &mersenne_engine]() {
     return dist(mersenne_engine);

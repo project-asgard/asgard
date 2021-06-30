@@ -853,7 +853,7 @@ void generate_messages_remap_test(
   {
     auto const &message_list   = messages[my_rank];
     auto const &my_new_subgrid = new_plan.at(my_rank);
-    for (auto const message : message_list)
+    for (auto const &message : message_list)
     {
       if (message.message_dir == message_direction::send)
       {
@@ -930,7 +930,7 @@ void generate_messages_remap_test(
     ignore(my_subgrid);
     auto const my_row        = my_rank / num_subgrid_cols;
     auto const &message_list = messages[my_rank];
-    for (auto const message : message_list)
+    for (auto const &message : message_list)
     {
       REQUIRE(find_match(my_rank, my_row, messages[message.target], message));
     }
