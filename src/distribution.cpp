@@ -896,7 +896,7 @@ region_messages_remap(distribution_plan const &old_plan,
     }
   }
 
-  assert(dest_subregion_start = dest_region.stop + 1);
+  assert((dest_subregion_start = dest_region.stop + 1));
   return region_messages;
 }
 
