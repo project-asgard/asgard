@@ -215,11 +215,11 @@ if(ASGARD_USE_HIP)
 
   set(HIP_VERBOSE_BUILD ON CACHE STRING "Verbose compilation for HIP")
 
-  set(ASGARD_HIP_FLAGS "-std=c++14 -g" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
+  set(ASGARD_HIP_FLAGS "-std=c++14;-g" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
   set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
-  set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS} --amdgpu-target=gfx${ASGARD_AMD_ARCH} -O3" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
+  set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS}; --amdgpu-target=gfx${ASGARD_AMD_ARCH};-O3" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
   set(ASGARD_NVCC_ARCH "86" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
-  set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS} -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH};--ptxas-options=-O3;-lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
+  set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH};--ptxas-options=-O3;-lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
 
   set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
   set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
@@ -262,6 +262,14 @@ if(ASGARD_USE_HIP)
   include_directories("${HIP_PATH}/include")
   include_directories(${HIPBLAS_INCLUDE_DIRS})
 
+  # set source file language properties
+  if(ASGARD_PLATFORM_HCC)
+    #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # should work after cmake 3.21 release?
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
+  elseif(ASGARD_PLATFORM_NVCC)
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  endif()
+
   hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp
                   HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
                   NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
@@ -273,11 +281,7 @@ else()
 endif()
 
 if(ASGARD_USE_HIP)
-  if(ASGARD_PLATFORM_HCC)
-    #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # should work after cmake 3.21 release?
-    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
-  elseif(ASGARD_PLATFORM_NVCC)
-    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  if(ASGARD_PLATFORM_NVCC)
     set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
     set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
   endif()
