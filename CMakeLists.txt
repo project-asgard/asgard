@@ -5,6 +5,36 @@ project (asgard
   LANGUAGES CXX
 )
 
+#-------------------------------------------------------------------------------
+#  Setup the kromult external project.
+#-------------------------------------------------------------------------------
+include (FetchContent)
+find_package (Git)
+
+#  Define a macro to register new projects.
+function (register_project name dir url default_tag)
+    set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
+    set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
+
+#  Set up the sub project repository.
+    FetchContent_Declare(
+        ${name}
+        GIT_REPOSITORY ${BUILD_REPO_${dir}}
+        GIT_TAG ${BUILD_TAG_${dir}}
+        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
+    )
+
+    FetchContent_MakeAvailable(${name})
+endfunction ()
+
+#  Changes to the current version of kromult should proceed through a pull
+#  request. By default, a specific tag should be specifed.
+register_project (kronmult
+                  KRONMULT
+                  https://github.com/project-asgard/kronmult.git
+                  4738501
+)
+
 ###############################################################################
 ## Set up the compiler and general global build options
 ###############################################################################
@@ -119,8 +149,10 @@ if(ASGARD_USE_CUDA)
   set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
   set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
+
+#  Turn on GPU support in kronmult.
+  set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
 endif()
-target_include_directories (kronmult_cuda PRIVATE ${CMAKE_SOURCE_DIR}/contrib/kronmult/ ${CMAKE_BINARY_DIR})
 
 if(ASGARD_USE_MKL)
   if(ASGARD_USE_CUDA)
@@ -241,7 +273,7 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-target_link_libraries(kronmult_cuda PRIVATE kron)
+target_link_libraries(kronmult_cuda PUBLIC kron)
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
@@ -342,6 +374,8 @@ configure_file(
 )
 # Include the generated build_info.hpp
 target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
+
+target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
 
 ###############################################################################
 ## Testing asgard
