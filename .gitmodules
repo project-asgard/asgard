@@ -1,3 +1,0 @@
-[submodule "contrib/kronmult"]
-	path = contrib/kronmult
-	url = https://github.com/project-asgard/kronmult.git
