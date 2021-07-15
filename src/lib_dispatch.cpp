@@ -55,14 +55,14 @@ struct device_handler
 
     if (handle)
     {
-      auto const cublas_success = hipblasDestroy(handle);
-      expect(cublas_success == HIPBLAS_STATUS_SUCCESS);
+      auto const hipblas_success = hipblasDestroy(handle);
+      expect(hipblas_success == HIPBLAS_STATUS_SUCCESS);
     }
 
     success = hipSetDevice(local_rank);
     expect(success == hipSuccess);
-    auto const cublas_success = hipblasCreate(&handle);
-    expect(cublas_success == HIPBLAS_STATUS_SUCCESS);
+    auto const hipblas_success = hipblasCreate(&handle);
+    expect(hipblas_success == HIPBLAS_STATUS_SUCCESS);
 
 #else
     ignore(local_rank);
@@ -768,8 +768,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
       auto const success = hipblasDgemmBatched(
           device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
           *m, *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
-      auto const cuda_stat = hipDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
@@ -777,8 +777,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
       auto const success = hipblasSgemmBatched(
           device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
           *m, *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
-      auto const cuda_stat = hipDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
 
@@ -865,8 +865,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
           device.get_handle(), hipblas_trans(*trans), hipblas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
-      auto const cuda_stat = hipDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
@@ -875,8 +875,8 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
           device.get_handle(), hipblas_trans(*trans), hipblas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
-      auto const cuda_stat = hipDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
 

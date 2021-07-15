@@ -727,6 +727,9 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
   expect(source.ncols() == dest.ncols());
 
 #ifdef ASGARD_USE_HIP
+  // on AMD, hipMemcpy2D will give throw an error if dpitch or spitch is 0
+  if (source.stride() == 0)
+    return;
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
@@ -746,6 +749,9 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
 #ifdef ASGARD_USE_HIP
+  // on AMD, hipMemcpy2D will give throw an error if dpitch or spitch is 0
+  if (source.stride() == 0)
+    return;
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
@@ -765,6 +771,9 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
 #ifdef ASGARD_USE_HIP
+  // on AMD, hipMemcpy2D will give throw an error if dpitch or spitch is 0
+  if (source.stride() == 0)
+    return;
   auto const success =
       hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
