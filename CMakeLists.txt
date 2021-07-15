@@ -219,7 +219,7 @@ if(ASGARD_USE_HIP)
   set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
   set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS}; --amdgpu-target=gfx${ASGARD_AMD_ARCH};-O3" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
   set(ASGARD_NVCC_ARCH "86" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
-  set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH};--ptxas-options=-O3;-lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
+  set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH} --ptxas-options=-O3 -lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
 
   set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
   set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
