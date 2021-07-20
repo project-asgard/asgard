@@ -78,7 +78,7 @@ option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
-option (ASGARD_USE_HIP "Optional HIP support for asgard" ON)
+option (ASGARD_USE_HIP "Optional HIP support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 include(CMakeDependentOption)
@@ -161,7 +161,8 @@ if(ASGARD_USE_HIP)
   # note: could probably grab this path directly using hipconfig?
   if (NOT DEFINED HIP_CLANG_INCLUDE_PATH)
     if(NOT DEFINED ENV{HIP_CLANG_INCLUDE_PATH})
-      set(HIP_CLANG_INCLUDE_PATH "${HIP_CLANG_PATH}/../lib/clang/12.0.0/include" CACHE PATH "Path to HIP clang include directory")
+      # probably need a better way to get the compiler version.. this will cause non-existent paths for non-clang compilers
+      set(HIP_CLANG_INCLUDE_PATH "${HIP_CLANG_PATH}/../lib/clang/${CMAKE_CXX_COMPILER_VERSION}/include" CACHE PATH "Path to HIP clang include directory")
     else()
       set(HIP_CLANG_INCLUDE_PATH $ENV{HIP_CLANG_INCLUDE_PATH} CACHE PATH "Path to HIP clang include directory")
     endif()
@@ -210,6 +211,11 @@ if(ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_HCC)
     # note: causes issues on nvidia, but might be needed on amd platforms?
     list(APPEND CMAKE_PREFIX_PATH "${HIP_PATH}/lib/cmake" "${ROCM_PATH}")
+
+    # output a warning if compiling for AMD without using amd-clang
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      message(WARNING "Compiling HIP for AMD without using AMD clang might not work. Use -DCMAKE_CXX_COMPILER=clang++")
+    endif()
   endif()
   list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
 
@@ -225,8 +231,8 @@ if(ASGARD_USE_HIP)
   set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
   set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
 
-  set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}")
-  set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}")
+  set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
+  set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
 
   find_package(HIP 4.0 REQUIRED)
   find_package(hipblas REQUIRED)
@@ -249,8 +255,6 @@ if(ASGARD_USE_HIP)
     # these compile definitions should be added automatically if using amd's clang, but
     # may not necessarily be added if compiling with gcc or others
     add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
-    # temporarily disable warnings generated when using clang
-    add_compile_options("-Wno-dtor-name" "-Wno-gnu-anonymous-struct" "-Wno-nested-anon-types")
   endif()
 
   if (hipBLAS_FOUND)
