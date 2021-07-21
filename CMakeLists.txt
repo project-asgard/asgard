@@ -261,9 +261,9 @@ if(ASGARD_USE_HIP)
      message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}: ${HIPBLAS_INCLUDE_DIRS}")
   endif()
 
-  include_directories(${HIP_INCLUDE_DIRS})
+  include_directories(SYSTEM ${HIP_INCLUDE_DIRS})
   # assume this include path since HIP_INCLUDE_DIRS is not being set on nvidia platform
-  include_directories("${HIP_PATH}/include")
+  include_directories(SYSTEM "${HIP_PATH}/include")
   include_directories(${HIPBLAS_INCLUDE_DIRS})
 
   # set source file language properties
