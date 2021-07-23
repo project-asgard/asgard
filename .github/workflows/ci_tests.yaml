@@ -11,15 +11,22 @@ jobs:
                 node: [Release, Debug]
         runs-on: ${{matrix.os}}
         steps:
-            - name: Clone Repo
+            - name: Git checkout
+              uses: actions/checkout@v1
+            - name: Debug
               working-directory: ${{runner.workspace}}
-              run: git clone https://github.com/cianciosa/asgard.git
+              run: ls -la
             - name: Makedir
               working-directory: ${{runner.workspace}}/asgard
               run: cmake -E make_directory build
-            - name: Configure
+            - name: Configure macOS
+              if: ${{runner.workspace}} == macos-latest
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} ../
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
+            - name: Configure Linux
+              if: ${{runner.workspace}} == ubuntu-latest
+              working-directory: ${{runner.workspace}}/asgard/build
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
               run: make
