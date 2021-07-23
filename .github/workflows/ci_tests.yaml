@@ -7,11 +7,7 @@ jobs:
     ci_test:
         strategy:
             matrix:
-#  Disable linux build for now until I can figure out why the clapack header is
-#  not getting picked up.
-#                os: [macos-latest, ubuntu-latest]
-#                node: [Release, Debug]
-                os: [macos-latest]
+                os: [macos-latest, ubuntu-latest]
                 node: [Release, Debug]
         runs-on: ${{matrix.os}}
         steps:
@@ -24,10 +20,10 @@ jobs:
               if: ${{runner.workspace}} == macos-latest
               working-directory: ${{runner.workspace}}/asgard/build
               run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
-#            - name: Configure Linux
-#              if: ${{runner.workspace}} == ubuntu-latest
-#              working-directory: ${{runner.workspace}}/asgard/build
-#              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} ../
+            - name: Configure Linux
+              if: ${{runner.workspace}} == ubuntu-latest
+              working-directory: ${{runner.workspace}}/asgard/build
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
               run: make VERBOSE=1
