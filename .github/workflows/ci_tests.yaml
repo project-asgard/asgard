@@ -13,9 +13,6 @@ jobs:
         steps:
             - name: Git checkout
               uses: actions/checkout@v1
-            - name: Debug
-              working-directory: ${{runner.workspace}}
-              run: ls -la
             - name: Makedir
               working-directory: ${{runner.workspace}}/asgard
               run: cmake -E make_directory build
@@ -26,10 +23,10 @@ jobs:
             - name: Configure Linux
               if: ${{runner.workspace}} == ubuntu-latest
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
-              run: make
+              run: make VERBOSE=1
             - name: Test
               working-directory: ${{runner.workspace}}/asgard/build
               run: make test
