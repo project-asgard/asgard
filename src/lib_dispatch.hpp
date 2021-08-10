@@ -1,43 +1,5 @@
 #pragma once
 
-// ==========================================================================
-// external declarations for calling blas routines linked with -lblas
-// ==========================================================================
-#ifdef __APPLE__
-#include <Accelerate/Accelerate.h>
-#else
-#include <cblas.h>
-
-extern "C"
-{
-  // --------------------------------------------------------------------------
-  // LU decomposition of a general matrix
-  // --------------------------------------------------------------------------
-  void dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
-
-  void sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
-
-  // --------------------------------------------------------------------------
-  // inverse of a matrix given its LU decomposition
-  // --------------------------------------------------------------------------
-  void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work, int *lwork,
-               int *info);
-
-  void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
-               int *info);
-
-  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
-              int *ldb, int *info);
-  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
-              int *ldb, int *info);
-
-  void dgetrs_(char *trans, int *n, int *nrhs, double *A, int *lda, int *ipiv,
-               double *b, int *ldb, int *info);
-  void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
-               float *b, int *ldb, int *info);
-}
-#endif
-
 enum class resource
 {
   host,

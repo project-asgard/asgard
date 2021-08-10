@@ -2,6 +2,50 @@
 #include "build_info.hpp"
 #include "tools.hpp"
 
+// ==========================================================================
+// external declarations for calling blas routines linked with -lblas
+// ==========================================================================
+//  NOTE: The openblas cblas interfers with the OpenMPI library put these in the
+//        implimentation instead of the header to avoid this conflict.
+#ifdef ASGARD_ACCELERATE
+#include <Accelerate/Accelerate.h>
+#else
+#include <cblas.h>
+extern "C"
+{
+//  Openblas predeclares these from an include in cblas.h
+#ifndef ASGARD_OPENBLAS
+  // --------------------------------------------------------------------------
+  // LU decomposition of a general matrix
+  // --------------------------------------------------------------------------
+  void dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
+
+  void sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
+#endif
+
+  // --------------------------------------------------------------------------
+  // inverse of a matrix given its LU decomposition
+  // --------------------------------------------------------------------------
+  void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work, int *lwork,
+               int *info);
+
+  void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
+               int *info);
+
+#ifndef ASGARD_OPENBLAS
+//  Openblas predeclares these from an include in cblas.h
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+              int *ldb, int *info);
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+              int *ldb, int *info);
+  void dgetrs_(char *trans, int *n, int *nrhs, double *A, int *lda, int *ipiv,
+               double *b, int *ldb, int *info);
+  void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
+               float *b, int *ldb, int *info);
+#endif
+}
+#endif
+
 #include <cmath>
 #include <iostream>
 #include <type_traits>

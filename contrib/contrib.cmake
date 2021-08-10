@@ -44,6 +44,7 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+#[==[
 ###############################################################################
 ## Blas/Lapack
 #
@@ -150,6 +151,7 @@ if (NOT LINALG_LIBS_FOUND)
     set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
   endif ()
 endif ()
+#]==]
 
 ###############################################################################
 ## Clara
