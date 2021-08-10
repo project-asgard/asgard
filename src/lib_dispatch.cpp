@@ -1,5 +1,8 @@
 #include "lib_dispatch.hpp"
 #include "build_info.hpp"
+#include "cblacs_grid.hpp"
+#include "distribution.hpp"
+#include "tensors.hpp"
 #include "tools.hpp"
 
 // ==========================================================================
@@ -50,30 +53,37 @@ extern "C"
 #include <iostream>
 #include <type_traits>
 
+#ifdef ASGARD_USE_MPI
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#include "mpi.h"
+#pragma GCC diagnostic pop
+#endif
+
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #endif
 
-#ifdef ASGARD_USE_SLATE
-extern "C" void slate_sgesv_(const int *n, const int *nrhs, float *a,
-                             const int *lda, int *ipiv, float *b,
-                             const int *ldb, int *info);
+#ifdef ASGARD_USE_SCALAPACK
+#include "cblacs_grid.hpp"
+#include "parallel_solver.hpp"
 
-extern "C" void slate_dgesv_(const int *n, const int *nrhs, double *a,
-                             const int *lda, int *ipiv, double *b,
-                             const int *ldb, int *info);
+extern "C" void psgesv_(int *n, int *nrhs, float *a, int *ia, int *ja,
+                        int *desca, int *ipiv, float *b, int *ib, int *jb,
+                        int *descb, int *info);
+extern "C" void pdgesv_(int *n, int *nrhs, double *a, int *ia, int *ja,
+                        int *desca, int *ipiv, double *b, int *ib, int *jb,
+                        int *descb, int *info);
 
-extern "C" void slate_dgetrs_(const char *trans, const int *n, const int *nrhs,
-                              double *A, const int *lda, int *ipiv, double *b,
-                              const int *ldb, int *info);
-
-extern "C" void slate_sgetrs_(const char *trans, const int *n, const int *nrhs,
-                              float *A, const int *lda, int *ipiv, float *b,
-                              const int *ldb, int *info);
+extern "C" void psgetrs_(const char *trans, int *n, int *nrhs, float *a,
+                         int *ia, int *ja, int *desca, int *ipiv, float *b,
+                         int *ib, int *jb, int *descb, int *info);
+extern "C" void pdgetrs_(const char *trans, int *n, int *nrhs, double *a,
+                         int *ia, int *ja, int *desca, int *ipiv, double *b,
+                         int *ib, int *jb, int *descb, int *info);
 #endif
 
-auto const ignore = [](auto ignored) { (void)ignored; };
 struct device_handler
 {
   device_handler()
@@ -1032,60 +1042,61 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
   }
 }
 
-#ifdef ASGARD_USE_SLATE
+#ifdef ASGARD_USE_SCALAPACK
+
 template<typename P>
-void slate_gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-                int *info)
+void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
+                    int *descB, int *info)
 {
   expect(n);
   expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
   expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
+  expect(descB);
   expect(*n >= 0);
+
+  int mp{1}, nq{1}, i_one{1};
   if constexpr (std::is_same<P, double>::value)
   {
-    slate_dgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    pdgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    slate_sgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    psgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
   else
   { // not instantiated; should never be reached
     std::cerr << "gesv not implemented for non-floating types" << '\n';
-    tools::expect(false);
+    expect(false);
   }
 }
 
 template<typename P>
-void slate_getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv,
-                 P *b, int *ldb, int *info)
+void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
+                     int *ipiv, P *b, int *descB, int *info)
 {
   expect(trans);
   expect(n);
   expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
   expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
   expect(*n >= 0);
+
+  int mp{1}, nq{1}, i_one{1};
+  char N{'N'};
   if constexpr (std::is_same<P, double>::value)
   {
-    slate_dgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    pdgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+             info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    slate_sgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    psgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+             info);
   }
   else
   { // not instantiated; should never be reached
@@ -1190,15 +1201,17 @@ template void getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
                     int *ipiv, double *b, int *ldb, int *info);
 template void getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
                     int *ipiv, float *b, int *ldb, int *info);
-#ifdef ASGARD_USE_SLATE
-template void slate_gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv,
-                         double *b, int *ldb, int *info);
-template void slate_gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv,
-                         float *b, int *ldb, int *info);
+#ifdef ASGARD_USE_SCALAPACK
+template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
+                             int *ipiv, double *b, int *descB, int *info);
+template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
+                             float *b, int *descB, int *info);
 
-template void slate_getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
-                          int *ipiv, double *b, int *ldb, int *info);
-template void slate_getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
-                          int *ipiv, float *b, int *ldb, int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, double *A,
+                              int *descA, int *ipiv, double *b, int *descB,
+                              int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, float *A,
+                              int *descA, int *ipiv, float *b, int *descB,
+                              int *info);
 #endif
 } // namespace lib_dispatch
