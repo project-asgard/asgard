@@ -44,7 +44,11 @@ if (NOT ${ASGARD_BUILD_OPENBLAS})
     find_package (LAPACK)
 
     if (NOT ${BLAS_FOUND} OR NOT ${LAPACK_FOUND})
-        set (ASGARD_BUILD_OPENBLAS ON FORCE)
+
+#  Set the ASGARD_BUILD_OPENBLAS option to true in the cmake gui since we now
+#  need to build OpenBLAS.
+        set (ASGARD_BUILD_OPENBLAS ON CACHE BOOL "Download and build our own OpenBLAS" FORCE)
+
     endif ()
 endif ()
 
