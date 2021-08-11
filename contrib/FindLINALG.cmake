@@ -17,8 +17,8 @@ include (FindPackageHandleStandardArgs)
 if (${ASGARD_BUILD_OPENBLAS})
     register_project (openblas
                       OPENBLAS
-                      https://github.com/xianyi/OpenBLAS.git
-                      d909f9f
+                      https://github.com/cianciosa/OpenBLAS.git
+                      develop
     )
 
 #  Fetch content does not run the install phase so the headers for openblas are
