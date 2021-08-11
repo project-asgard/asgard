@@ -12,9 +12,48 @@ Provides the following variables:
 include (FindPackageHandleStandardArgs)
 
 #-------------------------------------------------------------------------------
+#  Setup a menu of BLAS/LAPACK venders.
+#-------------------------------------------------------------------------------
+set (BLA_VENDOR All CACHE STRING "BLAS/LAPACK Vendor")
+set_property (CACHE BLA_VENDOR PROPERTY STRINGS
+              All
+              ACML ACML_MP ACML_GPU
+              Apple NAS
+              Arm Arm_mp Arm_ilp64 Arm_ilp64_mp
+              ATLAS
+              CXML DXML
+              EML EML_mt
+              FLAME
+              FlexiBLAS
+              Fujitsu_SSL2 Fujitsu_SSL2BLAMP
+              Goto GotoBLAS
+              IBMESSL
+              Intel Intel10_32 Intel10_64lp Intel10_64lp_seq Intel10_64ilp Intel10_64ilp_seq Intel10_64_dyn
+              NVHPC
+              OpenBLAS
+              PhiPACK
+              SCSL
+              SGIMATH
+              SunPerf
+)
+
+#  Check for platform provided BLAS and LAPACK libaries. If these were not found
+#  then build the openblas library.
+if (NOT ${ASGARD_BUILD_OPENBLAS})
+    find_package (BLAS)
+    find_package (LAPACK)
+
+    if (NOT ${BLAS_FOUND} OR NOT ${LAPACK_FOUND})
+        set (ASGARD_BUILD_OPENBLAS ON FORCE)
+    endif ()
+endif ()
+
+#-------------------------------------------------------------------------------
 #  Setup and build OpenBLAS if ASGARD_BUILD_OPENBLAS is ON
 #-------------------------------------------------------------------------------
 if (${ASGARD_BUILD_OPENBLAS})
+#  FIXME: Once fixes from the forked OpenBLAS are merged switch the git repo
+#  back to an offical release.
     register_project (openblas
                       OPENBLAS
                       https://github.com/cianciosa/OpenBLAS.git
@@ -89,37 +128,6 @@ if (${ASGARD_BUILD_OPENBLAS})
                                 ASGARD_OPENBLAS
     )
 else ()
-
-#-------------------------------------------------------------------------------
-#  Setup a menu of BLAS/LAPACK venders.
-#-------------------------------------------------------------------------------
-    set (BLA_VENDOR All CACHE STRING "BLAS/LAPACK Vendor" FORCE)
-    set_property (CACHE BLA_VENDOR PROPERTY STRINGS
-                  All
-                  ACML ACML_MP ACML_GPU
-                  Apple NAS
-                  Arm Arm_mp Arm_ilp64 Arm_ilp64_mp
-                  ATLAS
-                  CXML DXML
-                  EML EML_mt
-                  FLAME
-                  FlexiBLAS
-                  Fujitsu_SSL2 Fujitsu_SSL2BLAMP
-                  Goto GotoBLAS
-                  IBMESSL
-                  Intel Intel10_32 Intel10_64lp Intel10_64lp_seq Intel10_64ilp Intel10_64ilp_seq Intel10_64_dyn
-                  NVHPC
-                  OpenBLAS
-                  PhiPACK
-                  SCSL
-                  SGIMATH
-                  SunPerf
-    )
-
-    #  Start by checking for the default installation. A user can override this by
-    find_package (BLAS REQUIRED)
-    find_package (LAPACK REQUIRED)
-
     find_package_handle_standard_args (LINALG
                                        REQUIRED_VARS BLAS_FOUND LAPACK_FOUND)
 
