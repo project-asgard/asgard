@@ -13,8 +13,8 @@
 #include <cblas.h>
 extern "C"
 {
-//  Openblas predeclares these from an include in cblas.h
 #ifndef ASGARD_OPENBLAS
+  //  Openblas predeclares these from an include in cblas.h
   // --------------------------------------------------------------------------
   // LU decomposition of a general matrix
   // --------------------------------------------------------------------------
@@ -33,7 +33,7 @@ extern "C"
                int *info);
 
 #ifndef ASGARD_OPENBLAS
-//  Openblas predeclares these from an include in cblas.h
+  //  Openblas predeclares these from an include in cblas.h
   void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
               int *ldb, int *info);
   void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
