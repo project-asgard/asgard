@@ -1035,6 +1035,90 @@ redistribute_vector(fk::vector<P> const &old_x,
   return y;
 }
 
+template<typename P>
+fk::vector<P> col_to_row_major(fk::vector<P> const &x, int size_r)
+{
+  fk::vector<P> x_new(x);
+  x_new.resize(size_r);
+#ifdef ASGARD_USE_MPI
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+
+  int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
+
+  auto global_comm = distro_handle.get_global_comm();
+  for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
+  {
+    int col_rank = row_rank * num_subgrid_cols;
+    if (get_rank() == row_rank)
+    {
+      MPI_Send(x.data(), x.size(), mpi_type, col_rank, 0, global_comm);
+    }
+    else if (get_rank() == col_rank)
+    {
+      MPI_Recv(x_new.data(), x_new.size(), mpi_type, row_rank, MPI_ANY_TAG,
+               global_comm, MPI_STATUS_IGNORE);
+    }
+  }
+#endif
+  return x_new;
+}
+
+template<typename P>
+fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r)
+{
+  fk::vector<P> x_new(x);
+  x_new.resize(size_r);
+#ifdef ASGARD_USE_MPI
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+  auto global_comm           = distro_handle.get_global_comm();
+  int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
+  for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
+  {
+    int col_rank = row_rank * num_subgrid_cols;
+    if (get_rank() == col_rank)
+    {
+      MPI_Send(x.data(), x.size(), mpi_type, row_rank, 0, global_comm);
+    }
+    else if (get_rank() == row_rank)
+    {
+      MPI_Recv(x_new.data(), x_new.size(), mpi_type, col_rank, MPI_ANY_TAG,
+               global_comm, MPI_STATUS_IGNORE);
+    }
+  }
+
+  for (int col_rank = 0; col_rank < num_subgrid_cols; ++col_rank)
+  {
+    for (int row_rank = col_rank + num_subgrid_cols; row_rank < get_num_ranks();
+         row_rank += num_subgrid_cols)
+    {
+      if (get_rank() == col_rank)
+      {
+        MPI_Send(x_new.data(), x_new.size(), mpi_type, row_rank, 0,
+                 global_comm);
+      }
+      else if (get_rank() == row_rank)
+      {
+        MPI_Recv(x_new.data(), x_new.size(), mpi_type, col_rank, MPI_ANY_TAG,
+                 global_comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
+#endif
+  return x_new;
+}
+
+int bcast(int value, int rank)
+{
+  int distributed_value = value;
+#ifdef ASGARD_USE_MPI
+  MPI_Bcast(&distributed_value, 1, MPI_INT, rank,
+            distro_handle.get_global_comm());
+#endif
+  return distributed_value;
+}
+
 template void reduce_results(fk::vector<float> const &source,
                              fk::vector<float> &dest,
                              distribution_plan const &plan, int const my_rank);
@@ -1082,3 +1166,13 @@ redistribute_vector(fk::vector<double> const &old_x,
                     distribution_plan const &old_plan,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap);
+
+template fk::vector<float>
+row_to_col_major(fk::vector<float> const &x, int size_r);
+template fk::vector<double>
+row_to_col_major(fk::vector<double> const &x, int size_r);
+
+template fk::vector<float>
+col_to_row_major(fk::vector<float> const &x, int size_r);
+template fk::vector<double>
+col_to_row_major(fk::vector<double> const &x, int size_r);

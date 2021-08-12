@@ -243,87 +243,6 @@ explicit_advance(PDE<P> const &pde,
   return x;
 }
 
-#ifdef ASGARD_USE_SCALAPACK
-
-template<typename P>
-static fk::vector<P>
-col_to_row_major(fk::vector<P> const &x_orig,
-                 adapt::distributed_grid<P> const &adaptive_grid,
-                 int const elem_size)
-{
-  fk::vector<P> x(x_orig);
-
-  MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
-
-  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
-  x.resize(size);
-
-  int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
-  for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
-  {
-    int col_rank = row_rank * num_subgrid_cols;
-    if (get_rank() == row_rank)
-    {
-      MPI_Send(x_orig.data(), x_orig.size(), mpi_type, col_rank, 0,
-               MPI_COMM_WORLD);
-    }
-    else if (get_rank() == col_rank)
-    {
-      MPI_Recv(x.data(), x.size(), mpi_type, row_rank, MPI_ANY_TAG,
-               MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-  }
-  return x;
-}
-
-template<typename P>
-static fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r)
-{
-  MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
-  int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
-  fk::vector<P> x_new(size_r);
-  if (get_rank() == 0)
-  {
-    x_new = x;
-  }
-  for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
-  {
-    int col_rank = row_rank * num_subgrid_cols;
-    if (get_rank() == col_rank)
-    {
-      MPI_Send(x.data(), x.size(), mpi_type, row_rank, 0, MPI_COMM_WORLD);
-    }
-    else if (get_rank() == row_rank)
-    {
-      MPI_Recv(x_new.data(), x_new.size(), mpi_type, col_rank, MPI_ANY_TAG,
-               MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-  }
-
-  for (int col_rank = 0; col_rank < num_subgrid_cols; ++col_rank)
-  {
-    for (int row_rank = col_rank + num_subgrid_cols; row_rank < get_num_ranks();
-         row_rank += num_subgrid_cols)
-    {
-      if (get_rank() == col_rank)
-      {
-        MPI_Send(x_new.data(), x_new.size(), mpi_type, row_rank, 0,
-                 MPI_COMM_WORLD);
-      }
-      else if (get_rank() == row_rank)
-      {
-        MPI_Recv(x_new.data(), x_new.size(), mpi_type, col_rank, MPI_ANY_TAG,
-                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      }
-    }
-  }
-  return x_new;
-}
-
-#endif
-
 // this function executes an implicit time step using the current solution
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -349,7 +268,8 @@ implicit_advance(PDE<P> const &pde,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
 
 #ifdef ASGARD_USE_SCALAPACK
-  fk::vector<P> x = col_to_row_major(x_orig, adaptive_grid, elem_size);
+  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
+  fk::vector<P> x = col_to_row_major(x_orig, size);
 #else
   fk::vector<P> x(x_orig);
 #endif
@@ -364,8 +284,7 @@ implicit_advance(PDE<P> const &pde,
   int const A_local_rows = elem_size * grid.nrows();
   int const A_local_cols = elem_size * grid.ncols();
 #ifdef ASGARD_USE_SCALAPACK
-  int nm = A_local_rows;
-  MPI_Bcast(&nm, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  int nm                  = bcast(A_local_rows, 0);
   int const A_global_size = elem_size * table.size();
   assert(x.size() <= nm);
 
