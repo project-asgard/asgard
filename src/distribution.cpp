@@ -1115,6 +1115,8 @@ int bcast(int value, int rank)
 #ifdef ASGARD_USE_MPI
   MPI_Bcast(&distributed_value, 1, MPI_INT, rank,
             distro_handle.get_global_comm());
+#else
+  (void)rank;
 #endif
   return distributed_value;
 }
