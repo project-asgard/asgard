@@ -33,6 +33,9 @@ using prec = float;
 
 int main(int argc, char **argv)
 {
+  // -- set up distribution
+  auto const [my_rank, num_ranks] = initialize_distribution();
+
   // -- parse cli
   parser const cli_input(argc, argv);
   if (!cli_input.is_valid())
@@ -41,9 +44,6 @@ int main(int argc, char **argv)
     exit(-1);
   }
   options const opts(cli_input);
-
-  // -- set up distribution
-  auto const [my_rank, num_ranks] = initialize_distribution();
 
   // kill off unused processes
   if (my_rank >= num_ranks)
