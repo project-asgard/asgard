@@ -284,7 +284,8 @@ implicit_advance(PDE<P> const &pde,
   int const A_local_rows = elem_size * grid.nrows();
   int const A_local_cols = elem_size * grid.ncols();
 #ifdef ASGARD_USE_SCALAPACK
-  int nm                  = bcast(A_local_rows, 0);
+  int nm = A_local_rows;
+  bcast(&nm, 1, 0);
   int const A_global_size = elem_size * table.size();
   assert(x.size() <= nm);
 

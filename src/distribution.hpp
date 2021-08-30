@@ -307,4 +307,4 @@ fk::vector<P> col_to_row_major(fk::vector<P> const &x, int size_r);
 template<typename P>
 fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r);
 
-int bcast(int value, int rank);
+void bcast(int *value, int size, int rank);

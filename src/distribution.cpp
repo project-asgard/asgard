@@ -1109,16 +1109,14 @@ fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r)
   return x_new;
 }
 
-int bcast(int value, int rank)
+void bcast(int *value, int size, int rank)
 {
-  int distributed_value = value;
 #ifdef ASGARD_USE_MPI
-  MPI_Bcast(&distributed_value, 1, MPI_INT, rank,
-            distro_handle.get_global_comm());
+  MPI_Bcast(value, size, MPI_INT, rank, distro_handle.get_global_comm());
 #else
+  (void)size;
   (void)rank;
 #endif
-  return distributed_value;
 }
 
 template void reduce_results(fk::vector<float> const &source,
