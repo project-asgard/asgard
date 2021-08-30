@@ -894,15 +894,7 @@ TEMPLATE_TEST_CASE("", "[parallel_solver]", float, double)
     REQUIRE(A_distr_info.local_rows() * A_distr_info.local_cols() == 4);
   }
 
-  int descA[9];
-  if (myrank == 0)
-  {
-    std::copy_n(A_info.get_desc(), 9, descA);
-  }
-  MPI_Bcast(descA, 9, MPI_INT, 0, MPI_COMM_WORLD);
-
-  lib_dispatch::scatter_matrix(A.data(), descA, A_distr.data(),
-                               A_distr_info.get_desc());
+  fm::scatter(A, A_info, A_distr, A_distr_info);
 
   if (num_ranks == 1)
   {
@@ -939,15 +931,7 @@ TEMPLATE_TEST_CASE("", "[parallel_solver]", float, double)
     REQUIRE(B_distr_info.local_size() == 2);
   }
 
-  int descB[9];
-  if (myrank == 0)
-  {
-    std::copy_n(B_info.get_desc(), 9, descB);
-  }
-
-  MPI_Bcast(descB, 9, MPI_INT, 0, MPI_COMM_WORLD);
-  lib_dispatch::scatter_matrix(B.data(), descB, B_distr.data(),
-                               B_distr_info.get_desc());
+  fm::scatter(B, B_info, B_distr, B_distr_info);
 
   if (num_ranks == 1)
   {

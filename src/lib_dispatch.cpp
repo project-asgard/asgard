@@ -1147,14 +1147,21 @@ void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
   // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
   int n = descA[fk::N_];
   int m = descA[fk::M_];
+
+  int desc[9];
+  if (get_rank() == 0)
+  {
+    std::copy_n(descA, 9, desc);
+  }
+  MPI_Bcast(desc, 9, MPI_INT, 0, MPI_COMM_WORLD);
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, descA, &zero, A_distr, &i_one,
+    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
              &i_one, descA_distr);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, descA, &zero, A_distr, &i_one,
+    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
              &i_one, descA_distr);
   }
   else
