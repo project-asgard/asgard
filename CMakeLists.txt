@@ -220,7 +220,7 @@ if (ASGARD_IO_HIGHFIVE)
 endif ()
 
 if (ASGARD_USE_SCALAPACK)
-  list (APPEND components parallel_solver scalapack_matrix_info scalapack_vector_info cblacs_grid)
+  list (APPEND components scalapack_matrix_info scalapack_vector_info cblacs_grid)
 endif ()
 
 if (ASGARD_USE_MATLAB)
@@ -245,7 +245,7 @@ endif ()
 
 if (ASGARD_USE_SCALAPACK)
   target_link_libraries (tensors PRIVATE scalapack_matrix_info cblacs_grid)
-  target_link_libraries (lib_dispatch PUBLIC scalapack_matrix_info cblacs_grid parallel_solver)
+  target_link_libraries (lib_dispatch PUBLIC scalapack_matrix_info cblacs_grid)
 endif ()
 
 target_link_libraries (adapt PRIVATE distribution elements program_options transformations)
@@ -408,12 +408,11 @@ if (ASGARD_BUILD_TESTS)
   set (mpi_test_components
     adapt
     distribution
-    parallel_solver
     time_advance
   )
 
   if (ASGARD_USE_SCALAPACK)
-    list(APPEND mpi_test_components cblacs_grid fast_math parallel_solver scalapack_matrix_info scalapack_vector_info)
+    list(APPEND mpi_test_components cblacs_grid fast_math scalapack_matrix_info scalapack_vector_info)
   endif()
 
   foreach (component IN LISTS components)

@@ -6,6 +6,20 @@ class cblacs_grid;
 
 namespace fk
 {
+enum DESC_VARS : int
+{
+  DTYPE_ = 0,
+  CTXT_  = 1,
+  M_     = 2,
+  N_     = 3,
+  MB_    = 4,
+  NB_    = 5,
+  RSRC_  = 6,
+  CSRC_  = 7,
+  LLD_   = 8,
+  DLEN_  = 9
+};
+
 class scalapack_matrix_info
 {
 public:
