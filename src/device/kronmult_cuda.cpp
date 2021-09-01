@@ -2,9 +2,6 @@
 #include "build_info.hpp"
 
 #ifdef ASGARD_USE_HIP
-// temporary workaround to use hip only on nvidia
-// this can be removed once the hipified kronmult is used
-#ifdef __HIP_PLATFORM_NVCC__
 #include <hip/hip_runtime.h>
 #define USE_GPU
 #define GLOBAL_FUNCTION __global__
@@ -12,14 +9,6 @@
 #define SHARED_MEMORY __shared__
 #define DEVICE_FUNCTION __device__
 #define HOST_FUNCTION __host__
-#else
-#undef ASGARD_USE_HIP
-#define GLOBAL_FUNCTION
-#define SYNCTHREADS
-#define SHARED_MEMORY
-#define DEVICE_FUNCTION
-#define HOST_FUNCTION
-#endif
 #else
 #define GLOBAL_FUNCTION
 #define SYNCTHREADS
@@ -406,13 +395,6 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
   }
 #endif
 }
-
-// note - temporary workaround for compiling kronmult on amd platforms
-// this needs to be removed when hipified kronmult is used
-#ifndef __HIP_PLATFORM_NVCC__
-// redefine hip flag
-#define ASGARD_USE_HIP
-#endif
 
 template void stage_inputs_kronmult(float const *const x,
                                     float *const workspace, int const num_elems,
