@@ -1114,6 +1114,7 @@ void bcast(int *value, int size, int rank)
 #ifdef ASGARD_USE_MPI
   MPI_Bcast(value, size, MPI_INT, rank, distro_handle.get_global_comm());
 #else
+  (void)value;
   (void)size;
   (void)rank;
 #endif
