@@ -513,18 +513,18 @@ static void basic_gemv(P const *A, bool const trans_A, int const lda,
 //
 static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
 {
-    if (*trans == 'n' || *trans == 'N')
-    {
-        return CblasNoTrans;
-    }
-    else if (*trans == 't' || *trans == 'T')
-    {
-        return CblasTrans;
-    }
-    else
-    {
-        return CblasConjTrans;
-    }
+  if (*trans == 'n' || *trans == 'N')
+  {
+    return CblasNoTrans;
+  }
+  else if (*trans == 't' || *trans == 'T')
+  {
+    return CblasTrans;
+  }
+  else
+  {
+    return CblasConjTrans;
+  }
 }
 
 template<typename P>
@@ -639,14 +639,14 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   if constexpr (std::is_same<P, double>::value)
   {
     cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
-                cblas_transpose_type(transb), *m, *n, *k, *alpha, A,
-                *lda, B, *ldb, *beta, C, *ldc);
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
+                *ldb, *beta, C, *ldc);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
     cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
-                cblas_transpose_type(transb), *m, *n, *k, *alpha, A,
-                *lda, B, *ldb, *beta, C, *ldc);
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
+                *ldb, *beta, C, *ldc);
   }
   else
   {
