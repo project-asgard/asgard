@@ -285,7 +285,7 @@ if (ASGARD_USE_SLATE)
   target_link_libraries (lib_dispatch PRIVATE slate_lapack_api)
   target_compile_definitions (lib_dispatch PUBLIC ASGARD_USE_SLATE)
 else ()
-  target_link_libraries (lib_dispatch PUBLIC LINALG::LINALG)
+  target_link_libraries (lib_dispatch PRIVATE LINALG::LINALG)
 endif ()
 
 if (ASGARD_USE_CUDA)
@@ -432,7 +432,7 @@ if (ASGARD_BUILD_TESTS)
   add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp)
   target_include_directories (kronmult_cuda-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
   target_include_directories (kronmult_cuda-tests PRIVATE ${CMAKE_BINARY_DIR})
-  target_link_libraries (kronmult_cuda-tests PRIVATE coefficients kronmult_cuda tests_general LINALG::LINALG)
+  target_link_libraries (kronmult_cuda-tests PRIVATE coefficients kronmult_cuda tests_general)
   add_test (NAME kronmult_cuda-test
             COMMAND kronmult_cuda-tests
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
