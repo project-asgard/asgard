@@ -21,20 +21,14 @@ set_property (CACHE BLA_VENDOR PROPERTY STRINGS
               Apple NAS
               Arm Arm_mp Arm_ilp64 Arm_ilp64_mp
               ATLAS
-              CXML DXML
-              EML EML_mt
               FLAME
               FlexiBLAS
               Fujitsu_SSL2 Fujitsu_SSL2BLAMP
-              Goto GotoBLAS
               IBMESSL
-              Intel Intel10_32 Intel10_64lp Intel10_64lp_seq Intel10_64ilp Intel10_64ilp_seq Intel10_64_dyn
+              Intel10_32 Intel10_64lp Intel10_64lp_seq Intel10_64ilp Intel10_64ilp_seq Intel10_64_dyn
               NVHPC
               OpenBLAS
-              PhiPACK
               SCSL
-              SGIMATH
-              SunPerf
 )
 
 #  Check for platform provided BLAS and LAPACK libaries. If these were not found
