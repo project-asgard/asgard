@@ -508,6 +508,25 @@ static void basic_gemv(P const *A, bool const trans_A, int const lda,
   }
 }
 
+//
+//  Translate FORTRAN transpose blas arguments to cblas equivalents.
+//
+static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
+{
+    if (*trans == 'n' || *trans == 'N')
+    {
+        return CblasNoTrans;
+    }
+    else if (*trans == 't' || *trans == 'T')
+    {
+        return CblasTrans;
+    }
+    else
+    {
+        return CblasConjTrans;
+    }
+}
+
 template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, resource const resrc)
@@ -550,30 +569,16 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
 #endif
   }
 
-  CBLAS_TRANSPOSE transpose;
-  if (*trans == 'n')
-  {
-    transpose = CblasNoTrans;
-  }
-  else if (*trans == 't')
-  {
-    transpose = CblasTrans;
-  }
-  else
-  {
-    transpose = CblasConjTrans;
-  }
-
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    cblas_dgemv(CblasColMajor, transpose, *m, *n, *alpha, A, *lda, x, *incx,
-                *beta, y, *incy);
+    cblas_dgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
+                *lda, x, *incx, *beta, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    cblas_sgemv(CblasColMajor, transpose, *m, *n, *alpha, A, *lda, x, *incx,
-                *beta, y, *incy);
+    cblas_sgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
+                *lda, x, *incx, *beta, y, *incy);
   }
   else
   {
@@ -630,43 +635,17 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
 #endif
   }
 
-  CBLAS_TRANSPOSE transpose_a;
-  if (*transa == 'n')
-  {
-    transpose_a = CblasNoTrans;
-  }
-  else if (*transa == 't')
-  {
-    transpose_a = CblasTrans;
-  }
-  else
-  {
-    transpose_a = CblasConjTrans;
-  }
-
-  CBLAS_TRANSPOSE transpose_b;
-  if (*transb == 'n')
-  {
-    transpose_b = CblasNoTrans;
-  }
-  else if (*transb == 't')
-  {
-    transpose_b = CblasTrans;
-  }
-  else
-  {
-    transpose_b = CblasConjTrans;
-  }
-
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    cblas_dgemm(CblasColMajor, transpose_a, transpose_b, *m, *n, *k, *alpha, A,
+    cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A,
                 *lda, B, *ldb, *beta, C, *ldc);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    cblas_sgemm(CblasColMajor, transpose_a, transpose_b, *m, *n, *k, *alpha, A,
+    cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A,
                 *lda, B, *ldb, *beta, C, *ldc);
   }
   else
