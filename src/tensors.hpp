@@ -240,10 +240,10 @@ public:
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator-(vector<P, omem> const &right) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  P operator*(vector<P, omem> const &)const;
+  P operator*(vector<P, omem> const &) const;
 
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P> operator*(matrix<P, omem> const &)const;
+  vector<P> operator*(matrix<P, omem> const &) const;
 
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   vector<P> operator*(P const) const;
@@ -475,9 +475,9 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator*(P const) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P> operator*(vector<P, omem> const &)const;
+  vector<P> operator*(vector<P, omem> const &) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  matrix<P> operator*(matrix<P, omem> const &)const;
+  matrix<P> operator*(matrix<P, omem> const &) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P> operator+(matrix<P, omem> const &) const;
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
@@ -1324,7 +1324,7 @@ P fk::vector<P, mem, resrc>::operator*(vector<P, omem> const &right) const
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, resource, typename>
 fk::vector<P>
-    fk::vector<P, mem, resrc>::operator*(fk::matrix<P, omem> const &A) const
+fk::vector<P, mem, resrc>::operator*(fk::matrix<P, omem> const &A) const
 {
   // check dimension compatibility
   expect(size() == A.nrows());
@@ -2146,7 +2146,7 @@ fk::matrix<P> fk::matrix<P, mem, resrc>::operator*(P const right) const
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, resource, typename>
 fk::vector<P>
-    fk::matrix<P, mem, resrc>::operator*(fk::vector<P, omem> const &right) const
+fk::matrix<P, mem, resrc>::operator*(fk::vector<P, omem> const &right) const
 {
   // check dimension compatibility
   expect(ncols() == right.size());
@@ -2173,7 +2173,7 @@ fk::vector<P>
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, resource, typename>
 fk::matrix<P>
-    fk::matrix<P, mem, resrc>::operator*(matrix<P, omem> const &B) const
+fk::matrix<P, mem, resrc>::operator*(matrix<P, omem> const &B) const
 {
   expect(ncols() == B.nrows()); // k == k
 
