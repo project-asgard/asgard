@@ -85,7 +85,11 @@ private:
     return fx;
   }
 
-  static P exact_time(P const time) { return 1.; }
+  static P exact_time(P const time)
+  {
+    ignore(time);
+    return 1.;
+  }
 
   // specify source functions...
 
@@ -94,12 +98,18 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return 0.; });
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const &x) {
+      ignore(x);
+      return 0.;
+    });
     return fx;
   }
 
-  static P source_0_time(P const time) { return 0.; }
+  static P source_0_time(P const time)
+  {
+    ignore(time);
+    return 0.;
+  }
 
   static P get_dt_(dimension<P> const &dim)
   {

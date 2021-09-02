@@ -76,7 +76,7 @@ private:
     std::transform(
         x.begin(), x.end(), fx.begin(),
         // a_y = @(x,p,t)exp(-x.^2/p.sig.^2);
-        [t](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
+        [](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
 
     return fx;
   }
@@ -88,7 +88,7 @@ private:
     std::transform(
         x.begin(), x.end(), fx.begin(),
         // a_y = @(x,p,t)exp(-x.^2/p.sig.^2);
-        [t](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
+        [](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
 
     return fx;
   }
@@ -101,7 +101,7 @@ private:
     std::transform(
         x.begin(), x.end(), fx.begin(),
         // a_y = @(x,p,t)exp(-x.^2/p.sig.^2);
-        [t](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
+        [](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
 
     return fx;
   }
@@ -129,7 +129,7 @@ private:
     std::transform(
         x.begin(), x.end(), fx.begin(),
         // a_y = @(x,p,t)exp(-x.^2/p.sig.^2);
-        [t](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
+        [](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
     return fx;
   }
 
@@ -140,7 +140,7 @@ private:
     std::transform(
         x.begin(), x.end(), fx.begin(),
         // a_y = @(x,p,t)exp(-x.^2/p.sig.^2);
-        [t](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
+        [](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
     return fx;
   }
 
@@ -151,11 +151,15 @@ private:
     std::transform(
         x.begin(), x.end(), fx.begin(),
         // a_y = @(x,p,t)exp(-x.^2/p.sig.^2);
-        [t](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
+        [](P const &x) { return exp(-pow(x, 2) / pow(blob_width_, 2)); });
     return fx;
   }
 
-  static P exact_time(P const time) { return 1.; }
+  static P exact_time(P const time)
+  {
+    ignore(time);
+    return 1.;
+  }
 
   // specify source functions...
 
