@@ -99,7 +99,7 @@ endif()
 ## Pull in external support as needed
 ###############################################################################
 
-set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/contrib)
+list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (LINALG REQUIRED)
 
 # sets OpenBLAS_PATH and LINALG_LIBS
