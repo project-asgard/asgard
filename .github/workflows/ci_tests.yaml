@@ -7,7 +7,7 @@ jobs:
     ci_test:
         strategy:
             matrix:
-                os: [macos-latest, ubuntu-latest]
+                os: [macos-latest]
                 node: [Release, Debug]
         runs-on: ${{matrix.os}}
         steps:
@@ -16,14 +16,9 @@ jobs:
             - name: Makedir
               working-directory: ${{runner.workspace}}/asgard
               run: cmake -E make_directory build
-            - name: Configure macOS
-              if: ${{runner.workspace}} == macos-latest
+            - name: Configure
               working-directory: ${{runner.workspace}}/asgard/build
               run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
-            - name: Configure Linux
-              if: ${{runner.workspace}} == ubuntu-latest
-              working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
               run: make VERBOSE=1
