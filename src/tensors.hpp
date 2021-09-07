@@ -1,8 +1,8 @@
 #pragma once
 #include "build_info.hpp"
 
-#ifdef ASGARD_USE_CUDA
-#include <cuda_runtime.h>
+#ifdef ASGARD_USE_HIP
+#include <hip/hip_runtime.h>
 #endif
 
 #include "lib_dispatch.hpp"
@@ -639,9 +639,9 @@ template<typename P>
 inline void
 allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 {
-#ifdef ASGARD_USE_CUDA
-  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  assert(success == cudaSuccess);
+#ifdef ASGARD_USE_HIP
+  auto success = hipMalloc((void **)&ptr, num_elems * sizeof(P));
+  assert(success == hipSuccess);
   if (num_elems > 0)
   {
     expect(ptr != nullptr);
@@ -649,8 +649,8 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 
   if (initialize)
   {
-    success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
-    expect(success == cudaSuccess);
+    success = hipMemset((void *)ptr, 0, num_elems * sizeof(P));
+    expect(success == hipSuccess);
   }
 
 #else
@@ -668,12 +668,12 @@ allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
 template<typename P>
 inline void delete_device(P *const ptr)
 {
-#ifdef ASGARD_USE_CUDA
-  auto const success = cudaFree(ptr);
+#ifdef ASGARD_USE_HIP
+  auto const success = hipFree(ptr);
   // the device runtime may be unloaded at process shut down
   // (when static storage duration destructors are called)
   // returning a cudartUnloading error code.
-  expect((success == cudaSuccess) || (success == cudaErrorCudartUnloading));
+  expect((success == hipSuccess) || (success == hipErrorDeinitialized));
 #else
   delete[] ptr;
 #endif
@@ -683,10 +683,10 @@ template<typename P>
 inline void
 copy_on_device(P *const dest, P const *const source, int const num_elems)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
-  expect(success == cudaSuccess);
+      hipMemcpy(dest, source, num_elems * sizeof(P), hipMemcpyDeviceToDevice);
+  expect(success == hipSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -696,10 +696,10 @@ template<typename P>
 inline void
 copy_to_device(P *const dest, P const *const source, int const num_elems)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
-  expect(success == cudaSuccess);
+      hipMemcpy(dest, source, num_elems * sizeof(P), hipMemcpyHostToDevice);
+  expect(success == hipSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -709,10 +709,10 @@ template<typename P>
 inline void
 copy_to_host(P *const dest, P const *const source, int const num_elems)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   auto const success =
-      cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
-  expect(success == cudaSuccess);
+      hipMemcpy(dest, source, num_elems * sizeof(P), hipMemcpyDeviceToHost);
+  expect(success == hipSuccess);
 #else
   std::copy(source, source + num_elems, dest);
 #endif
@@ -726,11 +726,14 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
+  // on AMD, hipMemcpy2D will give throw an error if dpitch or spitch is 0
+  if (source.stride() == 0)
+    return;
   auto const success =
-      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
-                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
-                   source.ncols(), cudaMemcpyDeviceToDevice);
+      hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                  source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                  source.ncols(), hipMemcpyDeviceToDevice);
   expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
@@ -745,11 +748,14 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
+  // on AMD, hipMemcpy2D will give throw an error if dpitch or spitch is 0
+  if (source.stride() == 0)
+    return;
   auto const success =
-      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
-                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
-                   source.ncols(), cudaMemcpyHostToDevice);
+      hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                  source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                  source.ncols(), hipMemcpyHostToDevice);
   expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
@@ -764,11 +770,14 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
+  // on AMD, hipMemcpy2D will give throw an error if dpitch or spitch is 0
+  if (source.stride() == 0)
+    return;
   auto const success =
-      cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
-                   source.stride() * sizeof(P), source.nrows() * sizeof(P),
-                   source.ncols(), cudaMemcpyDeviceToHost);
+      hipMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
+                  source.stride() * sizeof(P), source.nrows() * sizeof(P),
+                  source.ncols(), hipMemcpyDeviceToHost);
   expect(success == 0);
 #else
   std::copy(source.begin(), source.end(), dest.begin());
@@ -944,7 +953,7 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
 {}
 
 template<typename P, mem_type mem, resource resrc>
-fk::vector<P, mem, resrc>::~vector()
+fk::vector<P, mem, resrc>::~vector<P, mem, resrc>()
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -1728,7 +1737,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
 
 // destructor
 template<typename P, mem_type mem, resource resrc>
-fk::matrix<P, mem, resrc>::~matrix()
+fk::matrix<P, mem, resrc>::~matrix<P, mem, resrc>()
 {
   if constexpr (mem == mem_type::owner)
   {

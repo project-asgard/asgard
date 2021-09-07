@@ -50,9 +50,9 @@ extern "C"
 #include <iostream>
 #include <type_traits>
 
-#ifdef ASGARD_USE_CUDA
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
+#ifdef ASGARD_USE_HIP
+#include <hip/hip_runtime.h>
+#include <hipblas.h>
 #endif
 
 #ifdef ASGARD_USE_SLATE
@@ -78,61 +78,61 @@ struct device_handler
 {
   device_handler()
   {
-#ifdef ASGARD_USE_CUDA
-    auto success = cublasCreate(&handle);
-    expect(success == CUBLAS_STATUS_SUCCESS);
+#ifdef ASGARD_USE_HIP
+    auto success = hipblasCreate(&handle);
+    expect(success == HIPBLAS_STATUS_SUCCESS);
 
-    success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
-    expect(success == CUBLAS_STATUS_SUCCESS);
+    success = hipblasSetPointerMode(handle, HIPBLAS_POINTER_MODE_HOST);
+    expect(success == HIPBLAS_STATUS_SUCCESS);
 #endif
   }
 
   void set_device(int const local_rank)
   {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     int num_devices;
-    auto success = cudaGetDeviceCount(&num_devices);
+    auto success = hipGetDeviceCount(&num_devices);
 
-    expect(success == cudaSuccess);
+    expect(success == hipSuccess);
     expect(local_rank >= 0);
     expect(local_rank < num_devices);
 
     if (handle)
     {
-      auto const cublas_success = cublasDestroy(handle);
-      expect(cublas_success == CUBLAS_STATUS_SUCCESS);
+      auto const hipblas_success = hipblasDestroy(handle);
+      expect(hipblas_success == HIPBLAS_STATUS_SUCCESS);
     }
 
-    success = cudaSetDevice(local_rank);
-    expect(success == cudaSuccess);
-    auto const cublas_success = cublasCreate(&handle);
-    expect(cublas_success == CUBLAS_STATUS_SUCCESS);
+    success = hipSetDevice(local_rank);
+    expect(success == hipSuccess);
+    auto const hipblas_success = hipblasCreate(&handle);
+    expect(hipblas_success == HIPBLAS_STATUS_SUCCESS);
 
 #else
     ignore(local_rank);
 #endif
   }
 
-#ifdef ASGARD_USE_CUDA
-  cublasHandle_t const &get_handle() const { return handle; }
+#ifdef ASGARD_USE_HIP
+  hipblasHandle_t const &get_handle() const { return handle; }
 #endif
   ~device_handler()
   {
-#ifdef ASGARD_USE_CUDA
-    cublasDestroy(handle);
+#ifdef ASGARD_USE_HIP
+    hipblasDestroy(handle);
 #endif
   }
 
 private:
-#ifdef ASGARD_USE_CUDA
-  cublasHandle_t handle;
+#ifdef ASGARD_USE_HIP
+  hipblasHandle_t handle;
 #endif
 };
 static device_handler device;
 
 void initialize_libraries(int const local_rank)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
   expect(local_rank >= 0);
   device.set_device(local_rank);
 #else
@@ -140,16 +140,16 @@ void initialize_libraries(int const local_rank)
 #endif
 }
 
-#ifdef ASGARD_USE_CUDA
-inline cublasOperation_t cublas_trans(char trans)
+#ifdef ASGARD_USE_HIP
+inline hipblasOperation_t hipblas_trans(char trans)
 {
   if (trans == 'N' || trans == 'n')
   {
-    return CUBLAS_OP_N;
+    return HIPBLAS_OP_N;
   }
   else
   {
-    return CUBLAS_OP_T;
+    return HIPBLAS_OP_T;
   }
 }
 #endif
@@ -167,16 +167,16 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDrotg(device.get_handle(), a, b, c, s);
+      auto const success = hipblasDrotg(device.get_handle(), a, b, c, s);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSrotg(device.get_handle(), a, b, c, s);
+      auto const success = hipblasSrotg(device.get_handle(), a, b, c, s);
       expect(success == 0);
     }
     return;
@@ -204,7 +204,7 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
     P norm;
@@ -212,13 +212,13 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDnrm2(device.get_handle(), *n, x, *incx, &norm);
+          hipblasDnrm2(device.get_handle(), *n, x, *incx, &norm);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSnrm2(device.get_handle(), *n, x, *incx, &norm);
+          hipblasSnrm2(device.get_handle(), *n, x, *incx, &norm);
       expect(success == 0);
     }
     return norm;
@@ -257,7 +257,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -265,13 +265,13 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDcopy(device.get_handle(), *n, x, *incx, y, *incy);
+          hipblasDcopy(device.get_handle(), *n, x, *incx, y, *incy);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasScopy(device.get_handle(), *n, x, *incx, y, *incy);
+          hipblasScopy(device.get_handle(), *n, x, *incx, y, *incy);
       expect(success == 0);
     }
     return;
@@ -308,7 +308,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -317,13 +317,13 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
+          hipblasDdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
+          hipblasSdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
       expect(success == 0);
     }
     return result;
@@ -364,7 +364,7 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -372,13 +372,13 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
+          hipblasDaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
+          hipblasSaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
       expect(success == 0);
     }
     return;
@@ -414,7 +414,7 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -422,13 +422,13 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDscal(device.get_handle(), *n, alpha, x, *incx);
+          hipblasDscal(device.get_handle(), *n, alpha, x, *incx);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSscal(device.get_handle(), *n, alpha, x, *incx);
+          hipblasSscal(device.get_handle(), *n, alpha, x, *incx);
       expect(success == 0);
     }
     return;
@@ -546,7 +546,7 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -554,15 +554,15 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
-                      A, *lda, x, *incx, beta, y, *incy);
+          hipblasDgemv(device.get_handle(), hipblas_trans(*trans), *m, *n,
+                       alpha, A, *lda, x, *incx, beta, y, *incy);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
-                      A, *lda, x, *incx, beta, y, *incy);
+          hipblasSgemv(device.get_handle(), hipblas_trans(*trans), *m, *n,
+                       alpha, A, *lda, x, *incx, beta, y, *incy);
       expect(success == 0);
     }
     return;
@@ -612,23 +612,23 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemm(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
+      auto const success = hipblasDgemm(
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemm(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
+      auto const success = hipblasSgemm(
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
       expect(success == 0);
     }
     return;
@@ -671,7 +671,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
 
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
@@ -679,22 +679,22 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
     ignore(m);
 
     P **A_d;
-    auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
+    auto stat = hipMalloc((void **)&A_d, sizeof(P *));
     expect(stat == 0);
-    stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
+    stat = hipMemcpy(A_d, &A, sizeof(P *), hipMemcpyHostToDevice);
     expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
+      auto const success = hipblasDgetrfBatched(device.get_handle(), *n, A_d,
+                                                *lda, ipiv, info, 1);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
+      auto const success = hipblasSgetrfBatched(device.get_handle(), *n, A_d,
+                                                *lda, ipiv, info, 1);
       expect(success == 0);
     }
     return;
@@ -732,7 +732,7 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
 
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
@@ -740,28 +740,28 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     expect(*lwork == (*n) * (*n));
     ignore(lwork);
 
-    P const **A_d;
+    P **A_d; // hipBlas loses const to DgetriBatched
     P **work_d;
-    auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
+    auto stat = hipMalloc((void **)&A_d, sizeof(P *));
     expect(stat == 0);
-    stat = cudaMalloc((void **)&work_d, sizeof(P *));
+    stat = hipMalloc((void **)&work_d, sizeof(P *));
     expect(stat == 0);
 
-    stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
+    stat = hipMemcpy(A_d, &A, sizeof(P *), hipMemcpyHostToDevice);
     expect(stat == 0);
-    stat = cudaMemcpy(work_d, &work, sizeof(P *), cudaMemcpyHostToDevice);
+    stat = hipMemcpy(work_d, &work, sizeof(P *), hipMemcpyHostToDevice);
     expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetriBatched(
+      auto const success = hipblasDgetriBatched(
           device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetriBatched(
+      auto const success = hipblasSgetriBatched(
           device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
       expect(success == 0);
     }
@@ -809,7 +809,7 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
 
@@ -818,44 +818,44 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     P **c_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
-    auto stat = cudaMalloc((void **)&a_d, list_size);
+    auto stat = hipMalloc((void **)&a_d, list_size);
     expect(stat == 0);
-    stat = cudaMalloc((void **)&b_d, list_size);
+    stat = hipMalloc((void **)&b_d, list_size);
     expect(stat == 0);
-    stat = cudaMalloc((void **)&c_d, list_size);
+    stat = hipMalloc((void **)&c_d, list_size);
     expect(stat == 0);
-    stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
+    stat = hipMemcpy(a_d, a, list_size, hipMemcpyHostToDevice);
     expect(stat == 0);
-    stat = cudaMemcpy(b_d, b, list_size, cudaMemcpyHostToDevice);
+    stat = hipMemcpy(b_d, b, list_size, hipMemcpyHostToDevice);
     expect(stat == 0);
-    stat = cudaMemcpy(c_d, c, list_size, cudaMemcpyHostToDevice);
+    stat = hipMemcpy(c_d, c, list_size, hipMemcpyHostToDevice);
     expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemmBatched(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const success = hipblasDgemmBatched(
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemmBatched(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const success = hipblasSgemmBatched(
+          device.get_handle(), hipblas_trans(*transa), hipblas_trans(*transb),
+          *m, *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
 
-    stat = cudaFree(a_d);
+    stat = hipFree(a_d);
     expect(stat == 0);
-    stat = cudaFree(b_d);
+    stat = hipFree(b_d);
     expect(stat == 0);
-    stat = cudaFree(c_d);
+    stat = hipFree(c_d);
     expect(stat == 0);
 
     return;
@@ -897,7 +897,7 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
   if (resrc == resource::device)
   {
     // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
     // no non-fp blas on device
     expect(std::is_floating_point_v<P>);
     char const transb = 'n';
@@ -914,46 +914,46 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     P **y_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
-    auto stat = cudaMalloc((void **)&a_d, list_size);
+    auto stat = hipMalloc((void **)&a_d, list_size);
     expect(stat == 0);
-    stat = cudaMalloc((void **)&x_d, list_size);
+    stat = hipMalloc((void **)&x_d, list_size);
     expect(stat == 0);
-    stat = cudaMalloc((void **)&y_d, list_size);
+    stat = hipMalloc((void **)&y_d, list_size);
     expect(stat == 0);
-    stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
+    stat = hipMemcpy(a_d, a, list_size, hipMemcpyHostToDevice);
     expect(stat == 0);
-    stat = cudaMemcpy(x_d, x, list_size, cudaMemcpyHostToDevice);
+    stat = hipMemcpy(x_d, x, list_size, hipMemcpyHostToDevice);
     expect(stat == 0);
-    stat = cudaMemcpy(y_d, y, list_size, cudaMemcpyHostToDevice);
+    stat = hipMemcpy(y_d, y, list_size, hipMemcpyHostToDevice);
     expect(stat == 0);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
+      auto const success = hipblasDgemmBatched(
+          device.get_handle(), hipblas_trans(*trans), hipblas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
+      auto const success = hipblasSgemmBatched(
+          device.get_handle(), hipblas_trans(*trans), hipblas_trans(transb),
           gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
           *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
+      auto const hip_stat = hipDeviceSynchronize();
+      expect(hip_stat == 0);
       expect(success == 0);
     }
 
-    stat = cudaFree(a_d);
+    stat = hipFree(a_d);
     expect(stat == 0);
-    stat = cudaFree(x_d);
+    stat = hipFree(x_d);
     expect(stat == 0);
-    stat = cudaFree(y_d);
+    stat = hipFree(y_d);
     expect(stat == 0);
 
     return;

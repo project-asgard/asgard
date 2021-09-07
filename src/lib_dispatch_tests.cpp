@@ -793,7 +793,7 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
 TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
                    "[lib_dispatch]", float, double)
 {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_HIP
 
   fk::matrix<TestType> const test{{0.767135868133925, -0.641484652834663},
                                   {0.641484652834663, 0.767135868133926}};
@@ -810,7 +810,7 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
   lib_dispatch::getrf(&m, &n, test_d.data(), &lda, ipiv_d.data(), info_d.data(),
                       resource::device);
 
-  auto stat = cudaDeviceSynchronize();
+  auto stat = hipDeviceSynchronize();
   REQUIRE(stat == 0);
   fk::vector<int> const info_check(info_d.clone_onto_host());
   REQUIRE(info_check(0) == 0);
@@ -822,7 +822,7 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
   lib_dispatch::getri(&n, test_d.data(), &lda, ipiv_d.data(), work.data(),
                       &size, info_d.data(), resource::device);
 
-  stat = cudaDeviceSynchronize();
+  stat = hipDeviceSynchronize();
   REQUIRE(stat == 0);
   fk::vector<int> const info_check_2(info_d.clone_onto_host());
   REQUIRE(info_check_2(0) == 0);

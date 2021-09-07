@@ -78,7 +78,7 @@ option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
-option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
+option (ASGARD_USE_HIP "Optional HIP support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 option (ASGARD_USE_SLATE "Use optional slate linear algebra library" OFF)
@@ -135,21 +135,159 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
-if(ASGARD_USE_CUDA)
-  find_package(CUDA 9.0 REQUIRED) # eventually want to remove this - how to set min version with enable_language?
-  include_directories(${CUDA_INCLUDE_DIRS})
-  enable_language(CUDA) 
-  set (CMAKE_CUDA_STANDARD 14)
-  set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+# convenience flags for which HIP platform has been setup
+set(ASGARD_PLATFORM_NVCC 0)
+set(ASGARD_PLATFORM_HCC 0)
+if(ASGARD_USE_HIP)
+  # search for HIP and libraries
+  if(NOT DEFINED HIP_PATH)
+    if(NOT DEFINED ENV{HIP_PATH})
+      set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
+    else()
+      set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
+    endif()
+  endif()
+
+  # set HIP_CLANG_PATH for potential installs in non-standard locations (such as rocm with spack)
+  if (NOT DEFINED HIP_CLANG_PATH)
+    if(NOT DEFINED ENV{HIP_CLANG_PATH})
+      set(HIP_CLANG_PATH "${ROCM_PATH}/llvm/bin" CACHE PATH "Path to HIP clang binaries")
+    else()
+      set(HIP_CLANG_PATH $ENV{HIP_CLANG_PATH} CACHE PATH "Path to HIP clang binaries")
+    endif()
+  endif()
+
+  # note: could probably grab this path directly using hipconfig?
+  if (NOT DEFINED HIP_CLANG_INCLUDE_PATH)
+    if(NOT DEFINED ENV{HIP_CLANG_INCLUDE_PATH})
+      # probably need a better way to get the compiler version.. this will cause non-existent paths for non-clang compilers
+      set(HIP_CLANG_INCLUDE_PATH "${HIP_CLANG_PATH}/../lib/clang/${CMAKE_CXX_COMPILER_VERSION}/include" CACHE PATH "Path to HIP clang include directory")
+    else()
+      set(HIP_CLANG_INCLUDE_PATH $ENV{HIP_CLANG_INCLUDE_PATH} CACHE PATH "Path to HIP clang include directory")
+    endif()
+  endif()
+
+  if(NOT DEFINED HIPBLAS_PATH)
+    if(NOT DEFINED ENV{HIPBLAS_PATH})
+        set(HIPBLAS_PATH "${HIP_PATH}/../hipblas" CACHE PATH "Path to which HIPBLAS has been installed")
+    else()
+        set(HIPBLAS_PATH $ENV{HIPBLAS_PATH} CACHE PATH "Path to which HIPBLAS has been installed")
+    endif()
+  endif()
+
+  # try to find hipconfig executable which can help detect platforms and include dirs
+  find_program(ASGARD_HIPCONFIG_PATH hipconfig HINTS "${HIP_PATH}/bin")
+  if(ASGARD_HIPCONFIG_PATH)
+    execute_process(COMMAND ${ASGARD_HIPCONFIG_PATH} --platform OUTPUT_VARIABLE ASGARD_HIP_PLATFORM)
+  elseif(DEFINED ENV{HIP_PLATFORM})
+    set(ASGARD_HIP_PLATFORM "$ENV{HIP_PLATFORM}")
+  else()
+    message(FATAL_ERROR "Could not determine HIP platform, make sure HIP_PLATFORM is set")
+  endif()
+
+  message(STATUS "HIP platform has been detected as ${ASGARD_HIP_PLATFORM}")
+  # hip >= 4.2 is now using "amd" to identify platform
+  if(ASGARD_HIP_PLATFORM STREQUAL "hcc" OR ASGARD_HIP_PLATFORM STREQUAL "amd")
+    set(ASGARD_PLATFORM_HCC 1)
+  # hip <= 4.1 uses "nvcc" to identify nvidia platforms, >= 4.2 uses "nvidia"
+  elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc" OR ASGARD_HIP_PLATFORM STREQUAL "nvidia")
+    set(ASGARD_PLATFORM_NVCC 1)
+  endif()
+
+  # double check for cuda path since HIP uses it internally
+  if(ASGARD_PLATFORM_NVCC)
+    if (NOT DEFINED ENV{CUDA_PATH})
+      find_path(ASGARD_HIP_DEFAULT_CUDA_PATH "cuda.h" PATH /usr/local/cuda/include NO_DEFAULT_PATH)
+      if (NOT ASGARD_HIP_DEFAULT_CUDA_PATH)
+        message(FATAL_ERROR "Make sure the CUDA_PATH env is set to locate for HIP")
+      endif()
+    endif()
+    message(STATUS "Found CUDA_PATH: $ENV{CUDA_PATH}")
+  endif()
+
+  # look for HIP cmake configs in different locations
+  list(APPEND CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${ROCM_PATH}")
+  if(ASGARD_PLATFORM_HCC)
+    # note: causes issues on nvidia, but might be needed on amd platforms?
+    list(APPEND CMAKE_PREFIX_PATH "${HIP_PATH}/lib/cmake" "${ROCM_PATH}")
+
+    # output a warning if compiling for AMD without using amd-clang
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      message(WARNING "Compiling HIP for AMD without using AMD clang might not work. Use -DCMAKE_CXX_COMPILER=clang++")
+    endif()
+  endif()
+  list(APPEND CMAKE_PREFIX_PATH "${HIPBLAS_PATH}/lib/cmake")
+
+  set(HIP_VERBOSE_BUILD ON CACHE STRING "Verbose compilation for HIP")
+
+  set(ASGARD_HIP_FLAGS "-std=c++14;-g" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
+  set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
+  set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS}; --amdgpu-target=gfx${ASGARD_AMD_ARCH};-O3" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
+  set(ASGARD_NVCC_ARCH "86" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
+  set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH} --ptxas-options=-O3 -lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
+
+  set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
+  set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
+  set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
+
+  set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
+  set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
+
+  find_package(HIP 4.0 REQUIRED)
+  find_package(hipblas REQUIRED)
+  # Print some debug info about HIP configuration
+  message(STATUS "HIP PLATFORM: ${HIP_PLATFORM}")
+  message(STATUS "HIP COMPILER: ${HIP_COMPILER}")
+  message(STATUS "HIP RUNTIME: ${HIP_RUNTIME}")
+  message(STATUS "HIP Includes: ${HIP_INCLUDE_DIRS}")
+  message(STATUS "HIP Libraries: ${HIP_LIBRARIES}")
+
+  if(ASGARD_PLATFORM_NVCC)
+    find_package(CUDA 9.0 REQUIRED)
+    include_directories(${CUDA_INCLUDE_DIRS})
+    enable_language(CUDA)
+    set (CMAKE_CUDA_STANDARD 14)
+    set (CMAKE_CUDA_STANDARD_REQUIRED ON)
+    add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
+  elseif(ASGARD_PLATFORM_HCC)
+    #enable_language(HIP) # not yet added to latest cmake, but should be available in 3.21
+    # these compile definitions should be added automatically if using amd's clang, but
+    # may not necessarily be added if compiling with gcc or others
+    add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
+  endif()
+
+  if (hipBLAS_FOUND)
+     message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}: ${HIPBLAS_INCLUDE_DIRS}")
+  endif()
+
+  include_directories(SYSTEM ${HIP_INCLUDE_DIRS})
+  # assume this include path since HIP_INCLUDE_DIRS is not being set on nvidia platform
+  include_directories(SYSTEM "${HIP_PATH}/include")
+  include_directories(${HIPBLAS_INCLUDE_DIRS})
+
+  # set source file language properties
+  if(ASGARD_PLATFORM_HCC)
+    #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # should work after cmake 3.21 release?
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
+  elseif(ASGARD_PLATFORM_NVCC)
+    set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
+  endif()
+
+  hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp
+                  HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                  NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
+                  CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+else()
+  # build component to interface with Ed's kronmult lib
+  ##TODO: link to kronmult as interface library
+  add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 endif()
 
-# build component to interface with Ed's kronmult lib
-##TODO: link to kronmult as interface library
-add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
-if(ASGARD_USE_CUDA)
-  set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
-  set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
+if(ASGARD_USE_HIP)
+  if(ASGARD_PLATFORM_NVCC)
+    set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
+    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
+  endif()
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 
 #  Turn on GPU support in kronmult.
@@ -157,8 +295,8 @@ if(ASGARD_USE_CUDA)
 endif()
 
 if(ASGARD_USE_MKL)
-  if(ASGARD_USE_CUDA)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
+  if(ASGARD_USE_HIP AND ASGARD_PLATFORM_NVCC)
+      set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
   else()
     target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
     if(APPLE) # Need to link against the same openmp library as the MKL.
@@ -271,7 +409,11 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-target_link_libraries(kronmult_cuda PUBLIC kron)
+if (ASGARD_USE_HIP AND ASGARD_PLATFORM_HCC)
+  target_link_libraries(kronmult_cuda PUBLIC kron hip::device)
+else ()
+  target_link_libraries(kronmult_cuda PUBLIC kron)
+endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
@@ -288,9 +430,14 @@ else ()
   target_link_libraries (lib_dispatch PRIVATE LINALG::LINALG)
 endif ()
 
-if (ASGARD_USE_CUDA)
-  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
-					     ${CUDA_CUBLAS_LIBRARIES})
+if (ASGARD_USE_HIP)
+  if(ASGARD_PLATFORM_HCC)
+    target_link_libraries(lib_dispatch PRIVATE hip::device)
+  elseif(ASGARD_PLATFORM_NVCC)
+    target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
+  endif()
+  target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
+  #set_target_properties(lib_dispatch PROPERTIES LINKER_LANGUAGE HIP)
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -316,8 +463,14 @@ target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
 target_link_libraries (solver PRIVATE distribution fast_math lib_dispatch tensors)
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
-if (ASGARD_USE_CUDA)
-  target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
+if (ASGARD_USE_HIP)
+  if(ASGARD_PLATFORM_HCC)
+    target_link_libraries(tensors PRIVATE hip::device)
+  elseif(ASGARD_PLATFORM_NVCC)
+    target_link_libraries(tensors PRIVATE ${CUDA_LIBRARIES})
+  endif()
+  target_link_libraries (tensors PRIVATE roc::hipblas)
+  #set_target_properties(tensors PROPERTIES LINKER_LANGUAGE HIP)
 endif ()
 
 target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors tools boundary_conditions
@@ -412,7 +565,7 @@ if (ASGARD_BUILD_TESTS)
       target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX)
       if (${component} IN_LIST mpi_test_components)
         set(test_ranks "4")
-      	if (ASGARD_USE_CUDA)
+        if (ASGARD_USE_HIP)
           set(test_ranks "1")
         endif ()
         if (${ASGARD_TESTING_RANKS})
