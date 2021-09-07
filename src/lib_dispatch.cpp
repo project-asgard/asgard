@@ -2,6 +2,50 @@
 #include "build_info.hpp"
 #include "tools.hpp"
 
+// ==========================================================================
+// external declarations for calling blas routines linked with -lblas
+// ==========================================================================
+//  NOTE: The openblas cblas interfers with the OpenMPI library put these in the
+//        implimentation instead of the header to avoid this conflict.
+#ifdef ASGARD_ACCELERATE
+#include <Accelerate/Accelerate.h>
+#else
+#include <cblas.h>
+extern "C"
+{
+#ifndef ASGARD_OPENBLAS
+  //  Openblas predeclares these from an include in cblas.h
+  // --------------------------------------------------------------------------
+  // LU decomposition of a general matrix
+  // --------------------------------------------------------------------------
+  void dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
+
+  void sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
+#endif
+
+  // --------------------------------------------------------------------------
+  // inverse of a matrix given its LU decomposition
+  // --------------------------------------------------------------------------
+  void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work, int *lwork,
+               int *info);
+
+  void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
+               int *info);
+
+#ifndef ASGARD_OPENBLAS
+  //  Openblas predeclares these from an include in cblas.h
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+              int *ldb, int *info);
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+              int *ldb, int *info);
+  void dgetrs_(char *trans, int *n, int *nrhs, double *A, int *lda, int *ipiv,
+               double *b, int *ldb, int *info);
+  void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
+               float *b, int *ldb, int *info);
+#endif
+}
+#endif
+
 #include <cmath>
 #include <iostream>
 #include <type_traits>
@@ -142,11 +186,11 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    drotg_(a, b, c, s);
+    cblas_drotg(a, b, c, s);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    srotg_(a, b, c, s);
+    cblas_srotg(a, b, c, s);
   }
 }
 
@@ -184,11 +228,11 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    return dnrm2_(n, x, incx);
+    return cblas_dnrm2(*n, x, *incx);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return snrm2_(n, x, incx);
+    return cblas_snrm2(*n, x, *incx);
   }
   else
   {
@@ -237,11 +281,11 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dcopy_(n, x, incx, y, incy);
+    cblas_dcopy(*n, x, *incx, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    scopy_(n, x, incx, y, incy);
+    cblas_scopy(*n, x, *incx, y, *incy);
   }
   else
   {
@@ -289,11 +333,11 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    return ddot_(n, x, incx, y, incy);
+    return cblas_ddot(*n, x, *incx, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return sdot_(n, x, incx, y, incy);
+    return cblas_sdot(*n, x, *incx, y, *incy);
   }
   else
   {
@@ -344,11 +388,11 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    daxpy_(n, alpha, x, incx, y, incy);
+    cblas_daxpy(*n, *alpha, x, *incx, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    saxpy_(n, alpha, x, incx, y, incy);
+    cblas_saxpy(*n, *alpha, x, *incx, y, *incy);
   }
   else
   {
@@ -394,11 +438,11 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dscal_(n, alpha, x, incx);
+    cblas_dscal(*n, *alpha, x, *incx);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sscal_(n, alpha, x, incx);
+    cblas_sscal(*n, *alpha, x, *incx);
   }
   else
   {
@@ -464,6 +508,25 @@ static void basic_gemv(P const *A, bool const trans_A, int const lda,
   }
 }
 
+//
+//  Translate FORTRAN transpose blas arguments to cblas equivalents.
+//
+static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
+{
+  if (*trans == 'n' || *trans == 'N')
+  {
+    return CblasNoTrans;
+  }
+  else if (*trans == 't' || *trans == 'T')
+  {
+    return CblasTrans;
+  }
+  else
+  {
+    return CblasConjTrans;
+  }
+}
+
 template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, resource const resrc)
@@ -509,11 +572,13 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dgemv_(trans, m, n, alpha, A, lda, x, incx, beta, y, incy);
+    cblas_dgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
+                *lda, x, *incx, *beta, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgemv_(trans, m, n, alpha, A, lda, x, incx, beta, y, incy);
+    cblas_sgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
+                *lda, x, *incx, *beta, y, *incy);
   }
   else
   {
@@ -573,11 +638,15 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dgemm_(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+    cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
+                *ldb, *beta, C, *ldc);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgemm_(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+    cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
+                *ldb, *beta, C, *ldc);
   }
   else
   {

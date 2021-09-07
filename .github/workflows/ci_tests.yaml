@@ -1,0 +1,31 @@
+name: Continuous Integration Test
+on:
+    workflow_dispatch:
+    push:
+    pull_request:
+jobs:
+    ci_test:
+        strategy:
+            matrix:
+                os: [macos-latest]
+                node: [Release, Debug]
+        runs-on: ${{matrix.os}}
+        steps:
+            - name: Git checkout
+              uses: actions/checkout@v1
+            - name: Makedir
+              working-directory: ${{runner.workspace}}/asgard
+              run: cmake -E make_directory build
+            - name: Configure
+              working-directory: ${{runner.workspace}}/asgard/build
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
+            - name: Build
+              working-directory: ${{runner.workspace}}/asgard/build
+              run: make VERBOSE=1
+            - name: Test
+              working-directory: ${{runner.workspace}}/asgard/build
+              run: make test
+            - name: Show Log
+              if: failure()
+              working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+              run: cat LastTest.log

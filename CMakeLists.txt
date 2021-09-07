@@ -99,6 +99,8 @@ endif()
 ## Pull in external support as needed
 ###############################################################################
 
+list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
+find_package (LINALG REQUIRED)
 
 # sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
@@ -232,10 +234,6 @@ if (build_hdf5)
   add_dependencies (io hdf5-ext)
 endif ()
 
-if (build_OpenBLAS)
-  add_dependencies (tensors openblas-ext)
-endif ()
-
 if (build_kron)
   add_dependencies (kronmult_cuda kronmult-ext)
 endif ()
@@ -287,7 +285,7 @@ if (ASGARD_USE_SLATE)
   target_link_libraries (lib_dispatch PRIVATE slate_lapack_api)
   target_compile_definitions (lib_dispatch PUBLIC ASGARD_USE_SLATE)
 else ()
-  target_link_libraries (lib_dispatch PRIVATE ${LINALG_LIBS})
+  target_link_libraries (lib_dispatch PRIVATE LINALG::LINALG)
 endif ()
 
 if (ASGARD_USE_CUDA)
