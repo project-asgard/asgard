@@ -2,6 +2,9 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
+#include "cblacs_grid.hpp"
+#include "scalapack_vector_info.hpp"
+
 struct distribution_test_init
 {
   distribution_test_init()
@@ -1196,5 +1199,75 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 412)}};
     generate_messages_remap_test(old_plan, new_plan, changes);
     redistribute_vector_test<TestType>(old_plan, new_plan, changes);
+  }
+}
+
+TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", double)
+{
+  fk::vector<TestType> B{0., 0., 2., 2.};
+  int m = B.size();
+  if (get_rank() != 0)
+    B.resize(0);
+  auto grid = std::make_shared<cblacs_grid>();
+
+  int meow = get_num_ranks() == 1 ? 4 : 2;
+
+  fk::scalapack_vector_info B_distr_info(m, meow, grid);
+  fk::vector<TestType> B_distr(B_distr_info.local_size());
+
+  if (get_num_ranks() == 1)
+  {
+    B_distr = B;
+  }
+  else
+  {
+    if (get_rank() % 2 == 0)
+    {
+      B_distr(0) = 0.;
+      B_distr(1) = 0.;
+    }
+    else
+    {
+      B_distr(0) = 2.;
+      B_distr(1) = 2.;
+    }
+  }
+
+  auto B_row = col_to_row_major(B_distr, meow);
+
+  if (get_num_ranks() == 1)
+  {
+    for (int i = 0; i < m; ++i)
+    {
+      REQUIRE_THAT(B_row(i),
+                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+    }
+  }
+  else if (get_rank() % 2 == 0)
+  {
+    for (int i = 0; i < 2; ++i)
+    {
+      REQUIRE_THAT(B_row(i),
+                   Catch::Matchers::WithinRel(get_rank(), TestType{0.001}));
+    }
+  }
+
+  auto B_distr_2 = row_to_col_major(B_row, meow);
+
+  if (get_num_ranks() == 1)
+  {
+    for (int i = 0; i < m; ++i)
+    {
+      REQUIRE_THAT(B_distr_2(i),
+                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+    }
+  }
+  else
+  {
+    for (int i = 0; i < 2; ++i)
+    {
+      REQUIRE_THAT(B_distr_2(i),
+                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+    }
   }
 }
