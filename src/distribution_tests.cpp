@@ -1202,72 +1202,70 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
   }
 }
 
+#ifdef ASGARD_USE_SCALAPACK
+
 TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", double)
 {
-  fk::vector<TestType> B{0., 0., 2., 2.};
-  int m = B.size();
-  if (get_rank() != 0)
-    B.resize(0);
+  int m     = 4;
   auto grid = std::make_shared<cblacs_grid>();
 
-  int meow = get_num_ranks() == 1 ? 4 : 2;
+  int local_size = get_num_ranks() == 1 ? m : m / 2;
 
-  fk::scalapack_vector_info B_distr_info(m, meow, grid);
-  fk::vector<TestType> B_distr(B_distr_info.local_size());
+  fk::scalapack_vector_info B_info(m, local_size, grid);
+  REQUIRE(local_size == B_info.local_size());
 
+  fk::vector<TestType> B(local_size);
   if (get_num_ranks() == 1)
   {
-    B_distr = B;
+    B = fk::vector<TestType>{0., 0., 2., 2.};
   }
   else
   {
     if (get_rank() % 2 == 0)
     {
-      B_distr(0) = 0.;
-      B_distr(1) = 0.;
+      B(0) = 0.;
+      B(1) = 0.;
     }
     else
     {
-      B_distr(0) = 2.;
-      B_distr(1) = 2.;
+      B(0) = 2.;
+      B(1) = 2.;
     }
   }
 
-  auto B_row = col_to_row_major(B_distr, meow);
+  auto B_row = col_to_row_major(B, local_size);
 
   if (get_num_ranks() == 1)
   {
     for (int i = 0; i < m; ++i)
     {
-      REQUIRE_THAT(B_row(i),
-                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+      REQUIRE_THAT(B_row(i), Catch::Matchers::WithinRel(B(i), TestType{0.001}));
     }
   }
   else if (get_rank() % 2 == 0)
   {
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < local_size; ++i)
     {
       REQUIRE_THAT(B_row(i),
                    Catch::Matchers::WithinRel(get_rank(), TestType{0.001}));
     }
   }
 
-  auto B_distr_2 = row_to_col_major(B_row, meow);
-
+  auto B2 = row_to_col_major(B_row, local_size);
   if (get_num_ranks() == 1)
   {
     for (int i = 0; i < m; ++i)
     {
-      REQUIRE_THAT(B_distr_2(i),
-                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+      REQUIRE_THAT(B2(i), Catch::Matchers::WithinRel(B(i), TestType{0.001}));
     }
   }
   else
   {
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < local_size; ++i)
     {
-      REQUIRE_THAT(B_distr_2(i),
-                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+      REQUIRE_THAT(B2(i), Catch::Matchers::WithinRel(B(i), TestType{0.001}));
     }
   }
 }
+
+#endif
