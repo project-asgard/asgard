@@ -1267,18 +1267,19 @@ TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", double, float)
     }
   }
 }
+
 #endif
 
 TEST_CASE("bcast", "[distribution]")
 {
   std::array<int, 9> desc;
   if (get_rank() == 0)
-    desc = {0,1,2,3,4,5,6,7,8};
+    desc = {0, 1, 2, 3, 4, 5, 6, 7, 8};
   else
-    desc = {0,0,0,0,0,0,0,0,0};
+    desc = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   bcast(desc.data(), desc.size(), 0);
   for (int i = 0; i < 9; ++i)
   {
-    REQUIRE( desc[i] == i);
+    REQUIRE(desc[i] == i);
   }
 }
