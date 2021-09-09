@@ -118,13 +118,16 @@ void time_advance_simulated_vs_analytic_test(parser const &parse,
     std::cout.setstate(std::ios_base::failbit);
     auto const workspace_limit_MB = 4000;
     auto const time               = i * pde->get_dt();
+    //FIXME: why updating only on time 0?
     auto const update_system      = i == 0;
     auto const method = opts.use_implicit_stepping ? time_advance::method::imp
                                                    : time_advance::method::exp;
     auto const sol = time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         workspace_limit_MB, update_system);
-    //FIXME: f_val.resize(sol.size()) = sol;
+    f_val.resize(sol.size());
+    f_val = sol;
+    // Stop the silent discard of any output: cout working again.
     std::cout.clear();
 
     auto const degree = pde->get_dimensions()[0].get_degree();
