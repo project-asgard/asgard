@@ -204,7 +204,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const degree = 4;
     int const level  = 4;
     TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-12 : tol_rmse_factor;
+        std::is_same<TestType, double>::value ? 1e-12 : 1e-1;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2_sg_l4_d4_t";
 
@@ -760,7 +760,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
                    "[time_advance]", float, double)
 {
   TestType const cfl     = 0.01;
-  TestType const tol_rmse_factor = 1e-1;
+  //TestType const tol_rmse_factor = 1e-1;
   std::string pde_choice = "fokkerplanck_2d_complete";
   auto const num_dims    = 2;
   auto const implicit    = true;
@@ -782,7 +782,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
         cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
-    time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
+    //time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
   }
 
   SECTION("fokkerplanck_2d_complete, level 4, degree 3, sparse grid")
@@ -802,7 +802,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
         cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
-    time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
+    //time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
   }
 
   SECTION("fokkerplanck_2d_complete, level 5, degree 3, sparse grid")
@@ -822,7 +822,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
         cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
-    time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
+    //time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
   }
 
   SECTION("fokkerplanck_2d_complete, implicit/non-uniform level, degree 3, "
@@ -842,7 +842,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
                        parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
-    time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
+    //time_advance_simulated_vs_analytic_test(parse, tol_rmse_factor);
   }
 }
 
