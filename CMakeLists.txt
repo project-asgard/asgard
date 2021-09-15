@@ -138,7 +138,7 @@ endif()
 
 # convenience flags for which HIP platform has been setup
 set(ASGARD_PLATFORM_NVCC 0)
-set(ASGARD_PLATFORM_HCC 0)
+set(ASGARD_PLATFORM_AMD 0)
 if(ASGARD_USE_HIP)
   # search for HIP and libraries
   if(NOT DEFINED HIP_PATH)
@@ -189,7 +189,7 @@ if(ASGARD_USE_HIP)
   message(STATUS "HIP platform has been detected as ${ASGARD_HIP_PLATFORM}")
   # hip >= 4.2 is now using "amd" to identify platform
   if(ASGARD_HIP_PLATFORM STREQUAL "hcc" OR ASGARD_HIP_PLATFORM STREQUAL "amd")
-    set(ASGARD_PLATFORM_HCC 1)
+    set(ASGARD_PLATFORM_AMD 1)
   # hip <= 4.1 uses "nvcc" to identify nvidia platforms, >= 4.2 uses "nvidia"
   elseif(ASGARD_HIP_PLATFORM STREQUAL "nvcc" OR ASGARD_HIP_PLATFORM STREQUAL "nvidia")
     set(ASGARD_PLATFORM_NVCC 1)
@@ -208,7 +208,7 @@ if(ASGARD_USE_HIP)
 
   # look for HIP cmake configs in different locations
   list(APPEND CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${ROCM_PATH}")
-  if(ASGARD_PLATFORM_HCC)
+  if(ASGARD_PLATFORM_AMD)
     # note: causes issues on nvidia, but might be needed on amd platforms?
     list(APPEND CMAKE_PREFIX_PATH "${HIP_PATH}/lib/cmake" "${ROCM_PATH}")
 
@@ -250,7 +250,7 @@ if(ASGARD_USE_HIP)
     set (CMAKE_CUDA_STANDARD 14)
     set (CMAKE_CUDA_STANDARD_REQUIRED ON)
     add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
-  elseif(ASGARD_PLATFORM_HCC)
+  elseif(ASGARD_PLATFORM_AMD)
     #enable_language(HIP) # not yet added to latest cmake, but should be available in 3.21
     # these compile definitions should be added automatically if using amd's clang, but
     # may not necessarily be added if compiling with gcc or others
@@ -267,7 +267,7 @@ if(ASGARD_USE_HIP)
   include_directories(${HIPBLAS_INCLUDE_DIRS})
 
   # set source file language properties
-  if(ASGARD_PLATFORM_HCC)
+  if(ASGARD_PLATFORM_AMD)
     #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # should work after cmake 3.21 release?
     set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
   elseif(ASGARD_PLATFORM_NVCC)
@@ -419,7 +419,7 @@ if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
    target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
 endif ()
 
-if (ASGARD_USE_HIP AND ASGARD_PLATFORM_HCC)
+if (ASGARD_USE_HIP AND ASGARD_PLATFORM_AMD)
   target_link_libraries(kronmult_cuda PUBLIC kron hip::device)
 else ()
   target_link_libraries(kronmult_cuda PUBLIC kron)
@@ -445,7 +445,7 @@ else ()
 endif ()
 
 if (ASGARD_USE_HIP)
-  if(ASGARD_PLATFORM_HCC)
+  if(ASGARD_PLATFORM_AMD)
     target_link_libraries(lib_dispatch PRIVATE hip::device)
   elseif(ASGARD_PLATFORM_NVCC)
     target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
@@ -478,7 +478,7 @@ target_link_libraries (solver PRIVATE distribution fast_math lib_dispatch tensor
 
 target_link_libraries (tensors PRIVATE lib_dispatch)
 if (ASGARD_USE_HIP)
-  if(ASGARD_PLATFORM_HCC)
+  if(ASGARD_PLATFORM_AMD)
     target_link_libraries(tensors PRIVATE hip::device)
   elseif(ASGARD_PLATFORM_NVCC)
     target_link_libraries(tensors PRIVATE ${CUDA_LIBRARIES})
