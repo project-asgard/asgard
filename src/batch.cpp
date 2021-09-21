@@ -1,5 +1,6 @@
 #include "batch.hpp"
 #include "build_info.hpp"
+#include "distribution.hpp"
 #include "elements.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
@@ -528,6 +529,102 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
 // routines with explicit time advance
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
+                         fk::matrix<P> &A, element_subgrid const &grid)
+{
+  // assume uniform degree for now
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+
+  int const A_cols = elem_size * grid.ncols();
+  int const A_rows = elem_size * grid.nrows();
+  expect(A.ncols() == A_cols && A.nrows() == A_rows);
+
+  using key_type = std::pair<int, int>;
+  using val_type = fk::matrix<P, mem_type::owner, resource::host>;
+  std::map<key_type, val_type> coef_cache;
+
+  // copy coefficients to host for subsequent use
+  for (int k = 0; k < pde.num_terms; ++k)
+  {
+    for (int d = 0; d < pde.num_dims; d++)
+    {
+      coef_cache.emplace(key_type(k, d),
+                         pde.get_coefficients(k, d).clone_onto_host());
+    }
+  }
+
+  // loop over elements
+  for (auto i = grid.row_start; i <= grid.row_stop; ++i)
+  {
+    // first, get linearized indices for this element
+    //
+    // calculate from the level/cell indices for each
+    // dimension
+    fk::vector<int> const coords = elem_table.get_coords(i);
+    expect(coords.size() == pde.num_dims * 2);
+    fk::vector<int> const elem_indices = linearize(coords);
+
+    int const global_row = i * elem_size;
+
+    // calculate the row portion of the
+    // operator position used for this
+    // element's gemm calls
+    fk::vector<int> const operator_row =
+        linear_coords_to_indices(pde, degree, elem_indices);
+
+    // loop over connected elements. for now, we assume
+    // full connectivity
+    for (int j = grid.col_start; j <= grid.col_stop; ++j)
+    {
+      // get linearized indices for this connected element
+      fk::vector<int> const coords_nD = elem_table.get_coords(j);
+      expect(coords_nD.size() == pde.num_dims * 2);
+      fk::vector<int> const connected_indices = linearize(coords_nD);
+
+      // calculate the col portion of the
+      // operator position used for this
+      // element's gemm calls
+      fk::vector<int> const operator_col =
+          linear_coords_to_indices(pde, degree, connected_indices);
+
+      for (int k = 0; k < pde.num_terms; ++k)
+      {
+        std::vector<fk::matrix<P>> kron_vals;
+        fk::matrix<P> kron0(1, 1);
+        kron0(0, 0) = 1.0;
+        kron_vals.push_back(kron0);
+        for (int d = 0; d < pde.num_dims; d++)
+        {
+          fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
+              coef_cache[key_type(k, d)], operator_row(d),
+              operator_row(d) + degree - 1, operator_col(d),
+              operator_col(d) + degree - 1);
+          fk::matrix<P> k_new = kron_vals[d].kron(op_view);
+          kron_vals.push_back(k_new);
+        }
+
+        // calculate the position of this element in the
+        // global system matrix
+        int const global_col = j * elem_size;
+        auto const &k_tmp    = kron_vals.back();
+        fk::matrix<P, mem_type::view> A_view(
+            A, global_row - grid.row_start * elem_size,
+            global_row + k_tmp.nrows() - 1 - grid.row_start * elem_size,
+            global_col - grid.col_start * elem_size,
+            global_col + k_tmp.ncols() - 1 - grid.col_start * elem_size);
+
+        A_view = A_view + k_tmp;
+      }
+    }
+  }
+}
+
+// function to allocate and build implicit system.
+// given a problem instance (pde/elem table)
+// does not utilize batching, here because it shares underlying structure and
+// routines with explicit time advance
+template<typename P>
+void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          fk::matrix<P> &A)
 {
   // assume uniform degree for now
@@ -548,8 +645,8 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
   {
     for (int d = 0; d < pde.num_dims; d++)
     {
-      coef_cache.insert(std::pair<key_type, val_type>(
-          key_type(k, d), pde.get_coefficients(k, d).clone_onto_host()));
+      coef_cache.emplace(key_type(k, d),
+                         pde.get_coefficients(k, d).clone_onto_host());
     }
   }
 
@@ -694,6 +791,13 @@ template void batched_gemv(batch<double, resource::host> const &a,
                            batch<double, resource::host> const &b,
                            batch<double, resource::host> const &c,
                            double const alpha, double const beta);
+
+template void
+build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
+                    fk::matrix<double> &A, element_subgrid const &grid);
+template void
+build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
+                    fk::matrix<float> &A, element_subgrid const &grid);
 
 template void build_system_matrix(PDE<double> const &pde,
                                   elements::table const &elem_table,

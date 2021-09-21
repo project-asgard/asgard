@@ -25,7 +25,8 @@ parser::parser(int argc, char **argv)
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
-      clara::detail::Opt(solver_str, "direct|gmres")["-s"]["--solver"](
+      clara::detail::Opt(solver_str,
+                         "direct|gmres|scalapack")["-s"]["--solver"](
           "Solver to use for implicit advance") |
       clara::detail::Opt(starting_levels_str,
                          "e.g. for 2d PDE: \"3 2\"")["-l"]["--levels"](
@@ -181,11 +182,12 @@ parser::parser(int argc, char **argv)
     {
       solver_str = "direct";
     }
-#ifndef ASGARD_USE_SLATE
-    if (solver_str == "slate")
+#ifndef ASGARD_USE_SCALAPACK
+    if (solver_str == "scalapack")
     {
-      std::cerr << "Invalid solver choice; ASGarD not built with SLATE option "
-                   "enabled\n";
+      std::cerr
+          << "Invalid solver choice; ASGarD not built with SCALAPACK option "
+             "enabled\n";
       valid = false;
     }
 #endif

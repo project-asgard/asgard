@@ -49,6 +49,7 @@ National Laboratory.
 * mpi
 * highfive/hdf5
 * MATLAB
+* ScaLAPACK
 
 # Quickstart
 
@@ -90,3 +91,11 @@ matlab.engine.engineName
 to Asgard with the `--matlab_name` option.
 
 Note: do not start MATLAB in the DG-SparseGrid repo when trying to use this for plotting.
+
+## ScaLAPACK Integration
+
+The ASGARD\_USE\_SCALAPACK build option adds the "scalapack" solver option to ASGarD. In the implicit timestep method, this option
+distributes the matrix solve across multiple processes and nodes and enables larger problems that are too large for a single computer.
+
+This build option is only available when ASGARD\_USE\_MPI=ON. Unfortunately, setting ASGARD\_USE\_SCALAPACK alone is not sufficient
+and doesn't change the ASGARD\_USE\_MPI setting.

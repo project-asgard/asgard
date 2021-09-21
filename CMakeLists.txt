@@ -81,7 +81,8 @@ option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
-option (ASGARD_USE_SLATE "Use optional slate linear algebra library" OFF)
+include(CMakeDependentOption)
+cmake_dependent_option(ASGARD_USE_SCALAPACK "Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
 option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
@@ -115,14 +116,14 @@ if(FOUND_MKL GREATER_EQUAL 0)
   set(ASGARD_USE_MKL TRUE)
 endif()
 
-if (ASGARD_USE_SLATE)
-  find_package(slate)
-  set(blaspp_DIR /opt/slate/lib/blaspp/)
-  # Without at least find_package(lapackpp), we get a linking error cannot find "`-llpackpp -llblaspp"
-  find_package(blaspp)
-  set(lapackpp_DIR /opt/slate/lib/lapackpp/)
-  find_package(lapackpp)
-endif ()
+#if (ASGARD_USE_SLATE)
+#  find_package(slate)
+#  set(blaspp_DIR /opt/slate/lib/blaspp/)
+#  # Without at least find_package(lapackpp), we get a linking error cannot find "`-llpackpp -llblaspp"
+#  find_package(blaspp)
+#  set(lapackpp_DIR /opt/slate/lib/lapackpp/)
+#  find_package(lapackpp)
+#endif ()
 
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)  
@@ -218,9 +219,13 @@ if (ASGARD_IO_HIGHFIVE)
   list (APPEND components io)
 endif ()
 
+if (ASGARD_USE_SCALAPACK)
+  list (APPEND components scalapack_matrix_info scalapack_vector_info cblacs_grid)
+endif ()
+
 if (ASGARD_USE_MATLAB)
   list(APPEND components matlab_plot)
-endif()
+endif ()
 
 foreach (component IN LISTS components)
   add_library (${component} src/${component}.cpp)
@@ -236,6 +241,11 @@ endif ()
 
 if (build_kron)
   add_dependencies (kronmult_cuda kronmult-ext)
+endif ()
+
+if (ASGARD_USE_SCALAPACK)
+  target_link_libraries (tensors PRIVATE scalapack_matrix_info cblacs_grid)
+  target_link_libraries (lib_dispatch PUBLIC scalapack_matrix_info cblacs_grid)
 endif ()
 
 target_link_libraries (adapt PRIVATE distribution elements program_options transformations)
@@ -281,9 +291,13 @@ if (ASGARD_IO_HIGHFIVE)
   target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
 endif ()
 
-if (ASGARD_USE_SLATE)
-  target_link_libraries (lib_dispatch PRIVATE slate_lapack_api)
-  target_compile_definitions (lib_dispatch PUBLIC ASGARD_USE_SLATE)
+if (ASGARD_USE_SCALAPACK)
+  find_package(scalapack REQUIRED)
+  # Uncomment and remove following line after issue #23 is fixed
+  # https://bitbucket.org/icl/slate/issues/23
+  # target_link_libraries (lib_dispatch PRIVATE slate_scalapack_api scalapack MPI::MPI_CXX)
+  target_link_libraries (lib_dispatch PRIVATE scalapack MPI::MPI_CXX)
+  target_compile_definitions (lib_dispatch PUBLIC ASGARD_USE_SCALAPACK)
 else ()
   target_link_libraries (lib_dispatch PRIVATE LINALG::LINALG)
 endif ()
@@ -318,6 +332,9 @@ target_link_libraries (solver PRIVATE distribution fast_math lib_dispatch tensor
 target_link_libraries (tensors PRIVATE lib_dispatch)
 if (ASGARD_USE_CUDA)
   target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
+endif ()
+if (ASGARD_USE_SCALAPACK)	
+  add_compile_definitions (ASGARD_USE_SCALAPACK)
 endif ()
 
 target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors tools boundary_conditions
@@ -394,14 +411,17 @@ if (ASGARD_BUILD_TESTS)
     time_advance
   )
 
+  if (ASGARD_USE_SCALAPACK)
+    list(APPEND mpi_test_components cblacs_grid fast_math scalapack_matrix_info scalapack_vector_info)
+  endif()
 
   foreach (component IN LISTS components)
     add_executable (${component}-tests src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
-    if (ASGARD_USE_SLATE)
-      target_compile_definitions (${component}-tests PUBLIC ASGARD_USE_SLATE)
+    if (ASGARD_USE_SCALAPACK)
+      target_compile_definitions (${component}-tests PUBLIC ASGARD_USE_SCALAPACK)
     endif ()
 
     if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
@@ -421,6 +441,7 @@ if (ASGARD_BUILD_TESTS)
         add_test (NAME ${component}-test-mpi
                   COMMAND mpirun -n ${test_ranks} ./${component}-tests
                   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+	set_tests_properties (${component}-test-mpi PROPERTIES PROCESSORS ${test_ranks})
       endif()
     endif ()
 

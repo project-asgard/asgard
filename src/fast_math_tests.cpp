@@ -1,4 +1,7 @@
+#include "cblacs_grid.hpp"
+#include "distribution.hpp"
 #include "fast_math.hpp"
+#include "lib_dispatch.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 #include <cmath>
@@ -744,6 +747,16 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
   }
 }
 
+struct distribution_test_init
+{
+  distribution_test_init() { initialize_distribution(); }
+  ~distribution_test_init() { finalize_distribution(); }
+};
+
+#ifdef ASGARD_USE_MPI
+static distribution_test_init const distrib_test_info;
+#endif
+
 TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 {
   fk::matrix<TestType> const A_gold{
@@ -777,13 +790,15 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 
   fk::matrix<TestType> const LU_gold = L_gold + U_gold - I_gold;
 
+  fk::vector<TestType> const zero_gold{0., 0., 0.};
+
   SECTION("gesv and getrs")
   {
     fk::matrix<TestType> const A_copy = A_gold;
     std::vector<int> ipiv(A_copy.nrows());
     fk::vector<TestType> x = B_gold;
 
-    fm::gesv(A_copy, x, ipiv, solve_opts::direct);
+    fm::gesv(A_copy, x, ipiv);
 
     TestType const tol_factor =
         std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
@@ -791,27 +806,150 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
     rmse_comparison(A_copy, LU_gold, tol_factor);
     rmse_comparison(x, X_gold, tol_factor);
     x = B1_gold;
-    fm::getrs(A_copy, x, ipiv, solve_opts::direct);
+    fm::getrs(A_copy, x, ipiv);
     rmse_comparison(x, X1_gold, tol_factor);
   }
 
-#ifdef ASGARD_USE_SLATE
-  SECTION("slate_gesv and slate_getrs")
+#ifdef ASGARD_USE_SCALAPACK
+  SECTION("scalapack_gesv and scalapack_getrs")
   {
-    fk::matrix<TestType> const A_copy = A_gold;
-    std::vector<int> ipiv(A_copy.nrows());
-    fk::vector<TestType> x = B_gold;
+    std::shared_ptr<cblacs_grid> grid = std::make_shared<cblacs_grid>();
 
-    fm::gesv(A_copy, x, ipiv, solve_opts::slate);
+    fk::matrix<TestType> const A_copy = A_gold;
+    fk::scalapack_matrix_info A_info(A_copy.nrows(), A_copy.ncols());
+
+    fk::scalapack_matrix_info A_distr_info(A_copy.nrows(), A_copy.ncols(), 4, 4,
+                                           grid);
+    fk::matrix<TestType> A_distr(A_distr_info.local_rows(),
+                                 A_distr_info.local_cols());
+
+    lib_dispatch::scatter_matrix(A_copy.data(), A_info.get_desc(),
+                                 A_distr.data(), A_distr_info.get_desc());
+
+    fk::vector<TestType> x = B_gold;
+    fk::scalapack_vector_info x_info(x.size());
+
+    fk::scalapack_vector_info x_distr_info(x.size(), 4, grid);
+    fk::vector<TestType> x_distr(x_distr_info.local_size());
+
+    lib_dispatch::scatter_matrix(x.data(), x_info.get_desc(), x_distr.data(),
+                                 x_distr_info.get_desc());
+
+    std::vector<int> ipiv(A_distr_info.local_rows() + A_distr_info.mb());
 
     TestType const tol_factor =
         std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
 
-    rmse_comparison(A_copy, LU_gold, tol_factor);
-    rmse_comparison(x, X_gold, tol_factor);
-    x = B1_gold;
-    fm::getrs(A_copy, x, ipiv, solve_opts::slate);
-    rmse_comparison(x, X1_gold, tol_factor);
+    fm::gesv(A_distr, A_distr_info, x_distr, x_distr_info, ipiv);
+
+    int rank = get_rank();
+    if (rank == 0)
+    {
+      rmse_comparison(A_distr, LU_gold, tol_factor);
+      rmse_comparison(x_distr, X_gold, tol_factor);
+    }
+
+    lib_dispatch::scatter_matrix(B1_gold.data(), x_info.get_desc(),
+                                 x_distr.data(), x_distr_info.get_desc());
+
+    fm::getrs(A_distr, A_distr_info, x_distr, x_distr_info, ipiv);
+    if (rank == 0)
+    {
+      auto residual = B1_gold - A_gold * x_distr;
+      rmse_comparison(residual, zero_gold, tol_factor);
+    }
   }
-#endif
 }
+
+TEMPLATE_TEST_CASE("", "[parallel_solver]", float, double)
+{
+  int myrank    = get_rank();
+  int num_ranks = get_num_ranks();
+
+  fk::matrix<TestType> A{
+      {0., 0., 1., 1.}, {0., 0., 1., 1.}, {2., 2., 3., 3.}, {2., 2., 3., 3.}};
+
+  if (myrank != 0)
+    A.clear_and_resize(0, 0);
+
+  fk::vector<TestType> B{0., 0., 2., 2.};
+  if (myrank != 0)
+    B.resize(0);
+
+  auto grid = std::make_shared<cblacs_grid>();
+
+  int n = 4;
+  int m = 4;
+  REQUIRE(n == m);
+  fk::scalapack_matrix_info A_info(n, m);
+  fk::scalapack_matrix_info A_distr_info(n, m, 2, 2, grid);
+  fk::matrix<TestType> A_distr(A_distr_info.local_rows(),
+                               A_distr_info.local_cols());
+  if (num_ranks == 1)
+  {
+    REQUIRE(A_distr_info.local_rows() * A_distr_info.local_cols() == A.size());
+  }
+  else
+  {
+    REQUIRE(A_distr_info.local_rows() * A_distr_info.local_cols() == 4);
+  }
+
+  fm::scatter(A, A_info, A_distr, A_distr_info);
+
+  if (num_ranks == 1)
+  {
+    for (int i = 0; i < m; ++i)
+    {
+      for (int j = 0; j < n; ++j)
+      {
+        REQUIRE_THAT(A(i, j), Catch::Matchers::WithinRel(A_distr(i, j),
+                                                         TestType{0.001}));
+      }
+    }
+  }
+  else
+  {
+    for (int i = 0; i < 2; ++i)
+    {
+      for (int j = 0; j < 2; ++j)
+      {
+        REQUIRE_THAT(A_distr(i, j),
+                     Catch::Matchers::WithinRel(myrank, TestType{0.001}));
+      }
+    }
+  }
+
+  fk::scalapack_vector_info B_info(m);
+  fk::scalapack_vector_info B_distr_info(m, 2, grid);
+  fk::vector<TestType> B_distr(B_distr_info.local_size());
+  if (num_ranks == 1)
+  {
+    REQUIRE(B_distr_info.local_size() == B.size());
+  }
+  else
+  {
+    REQUIRE(B_distr_info.local_size() == 2);
+  }
+
+  fm::scatter(B, B_info, B_distr, B_distr_info);
+
+  if (num_ranks == 1)
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      REQUIRE_THAT(B(i),
+                   Catch::Matchers::WithinRel(B_distr(i), TestType{0.001}));
+    }
+  }
+  else if (myrank % 2 == 0)
+  {
+    for (int i = 0; i < 2; ++i)
+    {
+      REQUIRE_THAT(B_distr(i),
+                   Catch::Matchers::WithinRel(myrank, TestType{0.001}));
+    }
+  }
+}
+#else
+}
+#endif
