@@ -163,6 +163,8 @@ int get_local_rank();
 int get_rank();
 // get number of ranks overall
 int get_num_ranks();
+// is rank active.
+bool is_active();
 
 // this struct will use node-local ranks to ensure only
 // one rank prints some input val:
@@ -315,4 +317,42 @@ void bcast(int *value, int size, int rank);
 
 #ifdef ASGARD_USE_SCALAPACK
 std::shared_ptr<cblacs_grid> get_grid();
+
+template<typename P>
+void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr);
+
+template<typename P>
+void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr);
+
+template<typename P, mem_type amem, mem_type bmem>
+void gather(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
+            fk::matrix<P, bmem> &A_distr, fk::scalapack_matrix_info &descAinfo)
+{
+  gather_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
+                descAinfo.get_desc());
+}
+
+template<typename P, mem_type amem, mem_type bmem>
+void gather(fk::vector<P, amem> &A, fk::scalapack_vector_info &ainfo,
+            fk::vector<P, bmem> &A_distr, fk::scalapack_vector_info &descAinfo)
+{
+  gather_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
+                descAinfo.get_desc());
+}
+
+template<typename P, mem_type amem, mem_type bmem>
+void scatter(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
+             fk::matrix<P, bmem> &A_distr, fk::scalapack_matrix_info &descAinfo)
+{
+  scatter_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
+                 descAinfo.get_desc());
+}
+
+template<typename P, mem_type amem, mem_type bmem>
+void scatter(fk::vector<P, amem> &A, fk::scalapack_vector_info &ainfo,
+             fk::vector<P, bmem> &A_distr, fk::scalapack_vector_info &descAinfo)
+{
+  scatter_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
+                 descAinfo.get_desc());
+}
 #endif

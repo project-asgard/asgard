@@ -9,10 +9,15 @@
 // ==========================================================================
 //  NOTE: The openblas cblas interfers with the OpenMPI library put these in the
 //        implimentation instead of the header to avoid this conflict.
-#ifdef ASGARD_ACCELERATE
+#if defined(ASGARD_ACCELERATE) || \
+    defined(__APPLE__) && defined(ASGARD_USE_SCALAPACK)
 #include <Accelerate/Accelerate.h>
 #else
+#ifdef ASGARD_MKL
+#include <mkl_cblas.h>
+#else
 #include <cblas.h>
+#endif
 extern "C"
 {
 #ifndef ASGARD_OPENBLAS
@@ -80,10 +85,6 @@ extern "C"
   void pdgetrs_(const char *trans, int *n, int *nrhs, double *a, int *ia,
                 int *ja, int *desca, int *ipiv, double *b, int *ib, int *jb,
                 int *descb, int *info);
-  void pdgeadd_(char *, int *, int *, double *, double *, int *, int *, int *,
-                double *, double *, int *, int *, int *);
-  void psgeadd_(char *, int *, int *, float *, float *, int *, int *, int *,
-                float *, float *, int *, int *, int *);
 }
 
 #endif
@@ -1108,67 +1109,6 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
     expect(false);
   }
 }
-
-template<typename P>
-void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
-{
-  // Useful constants
-  P zero{0.0}, one{1.0};
-  int i_one{1};
-  char N{'N'};
-  int n = descA[fk::N_];
-  int m = descA[fk::M_];
-  // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
-  if constexpr (std::is_same<P, double>::value)
-  {
-    pdgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
-             &i_one, &i_one, descA);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    psgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
-             &i_one, &i_one, descA);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "geadd not implemented for non-floating types" << '\n';
-    expect(false);
-  }
-}
-
-template<typename P>
-void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
-{
-  // Useful constants
-  P zero{0.0}, one{1.0};
-  int i_one{1};
-  char N{'N'};
-  // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
-  int n = descA[fk::N_];
-  int m = descA[fk::M_];
-
-  int desc[9];
-  if (get_rank() == 0)
-  {
-    std::copy_n(descA, 9, desc);
-  }
-  bcast(desc, 9, 0);
-  if constexpr (std::is_same<P, double>::value)
-  {
-    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
-             &i_one, descA_distr);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
-             &i_one, descA_distr);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "geadd not implemented for non-floating types" << '\n';
-    expect(false);
-  }
-}
 #endif
 
 template void rotg(float *, float *, float *, float *, resource const resrc);
@@ -1278,13 +1218,5 @@ template void scalapack_getrs(char *trans, int *n, int *nrhs, double *A,
 template void scalapack_getrs(char *trans, int *n, int *nrhs, float *A,
                               int *descA, int *ipiv, float *b, int *descB,
                               int *info);
-template void
-gather_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
-template void
-gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
-template void
-scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
-template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
-                                     int *descA_distr);
 #endif
 } // namespace lib_dispatch

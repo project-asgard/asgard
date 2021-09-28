@@ -139,5 +139,6 @@ else ()
                                 INTERFACE
                                 $<$<OR:$<AND:$<PLATFORM_ID:Darwin>,$<STREQUAL:${BLA_VENDOR},All>>,$<STREQUAL:${BLA_VENDOR},Apple>,$<STREQUAL:${BLA_VENDOR},NAS>>:ASGARD_ACCELERATE>
                                 $<$<STREQUAL:${BLA_VENDOR},OpenBLAS>:ASGARD_OPENBLAS>
+                                $<$<OR:$<STREQUAL:${BLA_VENDOR},Intel10_32>,$<STREQUAL:${BLA_VENDOR},Intel10_64lp>,$<STREQUAL:${BLA_VENDOR},Intel10_64lp_seq>,$<STREQUAL:${BLA_VENDOR},Intel10_64ilp>,$<STREQUAL:${BLA_VENDOR},Intel10_64ilp_seq>,$<STREQUAL:${BLA_VENDOR},Intel10_64_dyn>>:ASGARD_MKL>
     )
 endif ()

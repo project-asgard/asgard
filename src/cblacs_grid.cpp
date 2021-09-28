@@ -20,10 +20,9 @@ extern "C"
 cblacs_grid::cblacs_grid(MPI_Comm localCommunicator)
 {
   int i_negone{-1}, i_zero{0};
-  int myid, numproc;
-  Cblacs_pinfo(&myid, &numproc);
-  npcol_ = get_num_subgrid_cols(numproc);
-  nprow_ = numproc / npcol_;
+  int numproc = get_num_ranks();
+  npcol_      = get_num_subgrid_cols(numproc);
+  nprow_      = numproc / npcol_;
   expect((nprow_ >= 1) && (npcol_ >= 1) && (nprow_ * npcol_ == numproc));
   Cblacs_get(i_negone, i_zero, &ictxt_);
   bhandle_ = Csys2blacs_handle(localCommunicator);

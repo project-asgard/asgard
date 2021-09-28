@@ -321,38 +321,6 @@ void getrs(fk::matrix<P, amem> const &A, fk::scalapack_matrix_info &ainfo,
     exit(1);
   }
 }
-
-template<typename P, mem_type amem, mem_type bmem>
-void gather(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
-            fk::matrix<P, bmem> &A_distr, fk::scalapack_matrix_info &descAinfo)
-{
-  lib_dispatch::gather_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
-                              descAinfo.get_desc());
-}
-
-template<typename P, mem_type amem, mem_type bmem>
-void gather(fk::vector<P, amem> &A, fk::scalapack_vector_info &ainfo,
-            fk::vector<P, bmem> &A_distr, fk::scalapack_vector_info &descAinfo)
-{
-  lib_dispatch::gather_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
-                              descAinfo.get_desc());
-}
-
-template<typename P, mem_type amem, mem_type bmem>
-void scatter(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
-             fk::matrix<P, bmem> &A_distr, fk::scalapack_matrix_info &descAinfo)
-{
-  lib_dispatch::scatter_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
-                               descAinfo.get_desc());
-}
-
-template<typename P, mem_type amem, mem_type bmem>
-void scatter(fk::vector<P, amem> &A, fk::scalapack_vector_info &ainfo,
-             fk::vector<P, bmem> &A_distr, fk::scalapack_vector_info &descAinfo)
-{
-  lib_dispatch::scatter_matrix(A.data(), ainfo.get_desc(), A_distr.data(),
-                               descAinfo.get_desc());
-}
 #endif
 
 } // namespace fm
