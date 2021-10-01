@@ -222,8 +222,12 @@ parser::parser(int argc, char **argv)
 #ifdef ASGARD_USE_MPI
   if (use_implicit_stepping && get_num_ranks() > 1)
   {
-    std::cerr << "Distribution not implemented for implicit stepping\n";
-    valid = false;
+    auto const choice = solver_mapping.at(solver_str);
+    if (choice != solve_opts::scalapack)
+    {
+      std::cerr << "Distribution not implemented for implicit stepping\n";
+      valid = false;
+    }
   }
   if (realspace_output_freq > 0)
   {
