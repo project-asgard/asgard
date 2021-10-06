@@ -50,12 +50,10 @@ endif ()
 #  Setup and build OpenBLAS if ASGARD_BUILD_OPENBLAS is ON
 #-------------------------------------------------------------------------------
 if (${ASGARD_BUILD_OPENBLAS})
-#  FIXME: Once fixes from the forked OpenBLAS are merged switch the git repo
-#  back to an offical release.
     register_project (openblas
                       OPENBLAS
-                      https://github.com/cianciosa/OpenBLAS.git
-                      develop
+                      https://github.com/xianyi/OpenBLAS.git
+                      v0.3.18
     )
 
 #  Fetch content does not run the install phase so the headers for openblas are

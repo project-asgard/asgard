@@ -29,6 +29,10 @@
 #include <omp.h>
 #endif
 
+#ifdef expect
+#undef expect
+#endif
+
 // duplicated code from tools component - need host/device assert compiled
 // separately
 HOST_FUNCTION DEVICE_FUNCTION inline void expect(bool const condition)
