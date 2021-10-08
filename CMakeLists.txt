@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.19) 
+cmake_minimum_required (VERSION 3.21)
 
 project (asgard
   VERSION 0.3.0
@@ -198,7 +198,7 @@ if(ASGARD_USE_HIP)
   # double check for cuda path since HIP uses it internally
   if(ASGARD_PLATFORM_NVCC)
     if (NOT DEFINED ENV{CUDA_PATH})
-      find_path(ASGARD_HIP_DEFAULT_CUDA_PATH "cuda.h" PATH /usr/local/cuda/include NO_DEFAULT_PATH)
+      find_path(ASGARD_HIP_DEFAULT_CUDA_PATH "cuda.h" PATH /usr/local/cuda/include)
       if (NOT ASGARD_HIP_DEFAULT_CUDA_PATH)
         message(FATAL_ERROR "Make sure the CUDA_PATH env is set to locate for HIP")
       endif()
@@ -224,7 +224,7 @@ if(ASGARD_USE_HIP)
   set(ASGARD_HIP_FLAGS "-std=c++14;-g" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
   set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
   set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS}; --amdgpu-target=gfx${ASGARD_AMD_ARCH};-O3" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
-  set(ASGARD_NVCC_ARCH "86" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
+  set(ASGARD_NVCC_ARCH "70" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
   set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH} --ptxas-options=-O3 -lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
 
   set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
@@ -234,8 +234,14 @@ if(ASGARD_USE_HIP)
   set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
   set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
 
-  find_package(HIP 4.0 REQUIRED)
-  find_package(hipblas REQUIRED)
+  if(ASGARD_PLATFORM_AMD)
+    # need a much later version for AMD since ipiv=nullptr fix not in hipblas until >4.3.1
+    find_package(HIP 4.3.0 REQUIRED)
+    find_package(hipblas 0.49 REQUIRED)
+  else()
+    find_package(HIP 4.0 REQUIRED)
+    find_package(hipblas REQUIRED)
+  endif()
   # Print some debug info about HIP configuration
   message(STATUS "HIP PLATFORM: ${HIP_PLATFORM}")
   message(STATUS "HIP COMPILER: ${HIP_COMPILER}")
@@ -451,7 +457,6 @@ if (ASGARD_USE_HIP)
     target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
   endif()
   target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
-  #set_target_properties(lib_dispatch PROPERTIES LINKER_LANGUAGE HIP)
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -484,7 +489,6 @@ if (ASGARD_USE_HIP)
     target_link_libraries(tensors PRIVATE ${CUDA_LIBRARIES})
   endif()
   target_link_libraries (tensors PRIVATE roc::hipblas)
-  #set_target_properties(tensors PROPERTIES LINKER_LANGUAGE HIP)
 endif ()
 if (ASGARD_USE_SCALAPACK)	
   add_compile_definitions (ASGARD_USE_SCALAPACK)
