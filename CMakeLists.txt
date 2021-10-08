@@ -441,13 +441,14 @@ if (ASGARD_BUILD_TESTS)
         add_test (NAME ${component}-test-mpi
                   COMMAND mpirun -n ${test_ranks} ./${component}-tests
                   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-	set_tests_properties (${component}-test-mpi PROPERTIES PROCESSORS ${test_ranks})
+        set_tests_properties (${component}-test-mpi PROPERTIES PROCESSORS ${test_ranks} ENVIRONMENT OMP_NUM_THREADS=1)
       endif()
     endif ()
 
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+    set_tests_properties (${component}-test PROPERTIES ENVIRONMENT OMP_NUM_THREADS=1)
   endforeach ()
 
   add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp)
@@ -457,6 +458,7 @@ if (ASGARD_BUILD_TESTS)
   add_test (NAME kronmult_cuda-test
             COMMAND kronmult_cuda-tests
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+  set_tests_properties (kronmult_cuda-test PROPERTIES ENVIRONMENT OMP_NUM_THREADS=1)
 else ()
   message (WARNING "warning: tests will not be built.")
 endif ()
