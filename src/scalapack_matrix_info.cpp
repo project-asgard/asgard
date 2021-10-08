@@ -1,5 +1,6 @@
 #include "scalapack_matrix_info.hpp"
 #include "cblacs_grid.hpp"
+#include <stdexcept>
 
 extern "C"
 {
