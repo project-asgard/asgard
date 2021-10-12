@@ -231,10 +231,10 @@ if(ASGARD_USE_HIP)
   set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
   set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
 
-  set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
-  set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
-
   if(ASGARD_PLATFORM_AMD)
+    set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
+    set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
+
     # need a much later version for AMD since ipiv=nullptr fix not in hipblas until >4.3.1
     find_package(HIP 4.3.0 REQUIRED)
     find_package(hipblas 0.49 REQUIRED)
@@ -299,6 +299,13 @@ if(ASGARD_USE_HIP)
 
 #  Turn on GPU support in kronmult.
   set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
+
+  # pass gpu arch code to kronmult
+  if(ASGARD_PLATFORM_NVCC)
+    set(GPU_ARCH "${ASGARD_NVCC_ARCH}" CACHE STRING "GPU architecture code for AMD/NVIDIA" FORCE)
+  else()
+    set(GPU_ARCH "${ASGARD_AMD_ARCH}" CACHE STRING "GPU architecture code for AMD/NVIDIA" FORCE)
+  endif()
 endif()
 
 if(ASGARD_USE_MKL)
