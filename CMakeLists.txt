@@ -448,7 +448,7 @@ if (ASGARD_BUILD_TESTS)
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-    set_tests_properties (${component}-test PROPERTIES ENVIRONMENT OMP_NUM_THREADS=1)
+    set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
   endforeach ()
 
   add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp)
