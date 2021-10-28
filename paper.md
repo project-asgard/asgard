@@ -9,38 +9,40 @@ tags:
 authors:
   - name: Ed D'Azevedo
     orcid: 0000-0002-6945-3206
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    affiliation: 1
   - name: Wael Elwasif
     orcid: 0000-0003-0554-1036
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    affiliation: 1
   - name: David L. Green
     orcid: 0000-0003-3107-1170
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    affiliation: 1
   - name: Hao Lau
     orcid: 0000-0000-0000-0000
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    affiliation: 1
   - name: Graham Lopez
     orcid: 0000-0002-5375-2105
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    affiliation: 1
   - name: Adam McDaniel
     orcid: 0000-0000-0000-0000
-    affiliation: "1, 4" # (Multiple affiliations must be quoted)
+    affiliation: "1, 4"
   - name: Benjamin T. McDaniel
     orcid: 0000-0000-0000-0000
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
+    affiliation: "1, 2"
   - name: Lin Mu
     orcid: 0000-0002-2669-2696
-    affiliation: "1, 3" # (Multiple affiliations must be quoted)
+    affiliation: "1, 3"
   - name: Timothy Younkin
-    orcid: 0000-0000-0000-0000
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    orcid: 0000-0002-7471-6840
+    affiliation: 1
   - name: Steven E. Hahn
     orcid: 0000-0002-2018-7904
-    affiliation: 1 # (Multiple affiliations must be quoted)
+    affiliation: 1
   - name: Coleman J. Kendrick
     orcid: 0000-0001-8808-9844
-    affiliation: 1 # (Multiple affiliations must be quoted)
-
+    affiliation: 1
+  - name: Mark Cianciosa
+    orcid: 0000-0001-6211-5311
+    affiliation: 1
 affiliations:
  - name: Oak Ridge National Laboratory
    index: 1
@@ -56,7 +58,7 @@ bibliography: paper.bib
 ---
 # Statement of Need
 
-Many areas of science exhibit physical processes which are well described by high dimensional partial differential equations (PDEs), e.g., the 4D, 5D and 6D models describing magnetized fusion plasmas [@Juno:2017], or the ... models describing quantum mechanical interactions of several bodies [@...]. In such problems, the so called "curse of dimensionality" whereby the number of degrees of freedom (or unknowns) required to be solved for scales as $N^D$ where $N$ is the number of grid points in any given dimension. A simple, albeit naive, 6D example with $N=1000$ grid points in each dimension would require more than an exabyte of memory just for store the solution vector, not to mention forming the matrix required to advance such a system in time. While there are methods to simulate such high-dimensional systems, they are mostly based on Monte-Carlo methods which are based on a statistical sampling such that the resulting solutions are noisy. Since the noise in such methods can only be reduced at a rate proportional to $\sqrt{N_p}$ where $N_p$ is the number of Monte-Carlo samples, there is a need for continuum, or grid / mesh based methods for high-dimensional problems which both do not suffer from noise, but which additionally bypass the curse of dimenstionality. Here we present a simulation framework which provides such a method. 
+Many areas of science exhibit physical processes which are well described by high dimensional partial differential equations (PDEs), e.g., the 4D, 5D and 6D models describing magnetized fusion plasmas [@Juno:2017], or the ... models describing quantum mechanical interactions of several bodies [@...]. In such problems, the so called "curse of dimensionality" whereby the number of degrees of freedom (or unknowns) required to be solved for scales as $N^D$ where $N$ is the number of grid points in any given dimension. A simple, albeit naive, 6D example with $N=1000$ grid points in each dimension would require more than an exabyte of memory just for store the solution vector, not to mention forming the matrix required to advance such a system in time. While there are methods to simulate such high-dimensional systems, they are mostly based on Monte-Carlo methods which are based on a statistical sampling such that the resulting solutions are noisy. Since the noise in such methods can only be reduced at a rate proportional to $\sqrt{N_p}$ where $N_p$ is the number of Monte-Carlo samples, there is a need for continuum, or grid / mesh based methods for high-dimensional problems which both do not suffer from noise, but which additionally bypass the curse of dimenstionality. Here we present a simulation framework which provides such a method.
 
 # Summary
 
