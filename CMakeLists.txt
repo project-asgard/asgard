@@ -12,7 +12,7 @@ include (FetchContent)
 find_package (Git)
 
 #  Define a macro to register new projects.
-function (register_project name dir url default_tag)
+function (register_project name dir url default_tag make_avail)
     set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
     set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
 
@@ -24,7 +24,9 @@ function (register_project name dir url default_tag)
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
     )
 
-    FetchContent_MakeAvailable(${name})
+    if (${make_avail})
+      FetchContent_MakeAvailable(${name})
+    endif()
 endfunction ()
 
 #  Changes to the current version of kromult should proceed through a pull
@@ -33,6 +35,7 @@ register_project (kronmult
                   KRONMULT
                   https://github.com/project-asgard/kronmult.git
                   f941819685bbd3026a85145dde286f593683c1f4
+                  OFF
 )
 
 ###############################################################################
@@ -280,23 +283,6 @@ if(ASGARD_USE_HIP)
     set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
   endif()
 
-  hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp
-                  HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
-                  NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
-                  CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
-else()
-  # build component to interface with Ed's kronmult lib
-  ##TODO: link to kronmult as interface library
-  add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
-endif()
-
-if(ASGARD_USE_HIP)
-  if(ASGARD_PLATFORM_NVCC)
-    set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
-  endif()
-  set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
-
 #  Turn on GPU support in kronmult.
   set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
 
@@ -306,6 +292,25 @@ if(ASGARD_USE_HIP)
   else()
     set(GPU_ARCH "${ASGARD_AMD_ARCH}" CACHE STRING "GPU architecture code for AMD/NVIDIA" FORCE)
   endif()
+endif()
+
+# Fetch kronmult after configuring everything, but before adding libraries
+FetchContent_MakeAvailable(kronmult)
+
+if(ASGARD_USE_HIP)
+  hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp
+                  HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                  NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
+                  CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+  if(ASGARD_PLATFORM_NVCC)
+    set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
+    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
+  endif()
+  set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
+else()
+  # build component to interface with Ed's kronmult lib
+  ##TODO: link to kronmult as interface library
+  add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
 endif()
 
 if(ASGARD_USE_MKL)
