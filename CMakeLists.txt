@@ -225,18 +225,11 @@ if(ASGARD_USE_HIP)
   set(HIP_VERBOSE_BUILD ON CACHE STRING "Verbose compilation for HIP")
 
   set(ASGARD_HIP_FLAGS "-std=c++14;-g" CACHE STRING "HIP compiler flags for both AMD and NVIDIA")
-  set(ASGARD_AMD_ARCH "906" CACHE STRING "AMD GPU architecture number")
-  set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS}; --amdgpu-target=gfx${ASGARD_AMD_ARCH};-O3" CACHE STRING "Flags to pass to amd-clang for HIP") # amdgpu specific options
-  set(ASGARD_NVCC_ARCH "70" CACHE STRING "Nvidia architecture number") # -gencode arch=compute_xx,code=compute_xx
-  set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${ASGARD_NVCC_ARCH},code=compute_${ASGARD_NVCC_ARCH} --ptxas-options=-O3 -lineinfo" CACHE STRING "Flags to pass to NVCC") # nvcc specific options
-
-  set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
-  set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
-  set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
+  set(GPU_ARCH "70" CACHE STRING "AMD/NVIDIA GPU architecture number (such as 906 or 70)")
 
   if(ASGARD_PLATFORM_AMD)
-    set(AMDGPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
-    set(GPU_TARGETS "gfx${ASGARD_AMD_ARCH}" CACHE STRING "GPU target architectures to compile for")
+    set(AMDGPU_TARGETS "gfx${GPU_ARCH}" CACHE STRING "GPU target architectures to compile for" FORCE)
+    set(GPU_TARGETS "gfx${GPU_ARCH}" CACHE STRING "GPU target architectures to compile for" FORCE)
 
     # need a much later version for AMD since ipiv=nullptr fix not in hipblas until >4.3.1
     find_package(HIP 4.3.0 REQUIRED)
@@ -259,11 +252,13 @@ if(ASGARD_USE_HIP)
     set (CMAKE_CUDA_STANDARD 14)
     set (CMAKE_CUDA_STANDARD_REQUIRED ON)
     add_compile_definitions(__HIP_PLATFORM_NVCC__ __HIP_PLATFORM_NVIDIA__)
+    set(ASGARD_NVCC_FLAGS "${ASGARD_HIP_FLAGS}; -gencode arch=compute_${GPU_ARCH},code=compute_${GPU_ARCH} --ptxas-options=-O3 -lineinfo" CACHE STRING "Flags to pass to NVCC" FORCE) # nvcc specific options
   elseif(ASGARD_PLATFORM_AMD)
     #enable_language(HIP) # not yet added to latest cmake, but should be available in 3.21
     # these compile definitions should be added automatically if using amd's clang, but
     # may not necessarily be added if compiling with gcc or others
     add_compile_definitions(__HIP_PLATFORM_HCC__ __HIP_PLATFORM_AMD__)
+    set(ASGARD_AMD_FLAGS "${ASGARD_HIP_FLAGS}; --amdgpu-target=gfx${GPU_ARCH};-O3" CACHE STRING "Flags to pass to amd-clang for HIP" FORCE) # amdgpu specific options
   endif()
 
   if (hipBLAS_FOUND)
@@ -285,26 +280,23 @@ if(ASGARD_USE_HIP)
 
 #  Turn on GPU support in kronmult.
   set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
-
-  # pass gpu arch code to kronmult
-  if(ASGARD_PLATFORM_NVCC)
-    set(GPU_ARCH "${ASGARD_NVCC_ARCH}" CACHE STRING "GPU architecture code for AMD/NVIDIA" FORCE)
-  else()
-    set(GPU_ARCH "${ASGARD_AMD_ARCH}" CACHE STRING "GPU architecture code for AMD/NVIDIA" FORCE)
-  endif()
 endif()
 
 # Fetch kronmult after configuring everything, but before adding libraries
 FetchContent_MakeAvailable(kronmult)
 
 if(ASGARD_USE_HIP)
+  set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
+  set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
+  set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
+
   hip_add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp
                   HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
                   NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
                   CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
   if(ASGARD_PLATFORM_NVCC)
     set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${ASGARD_NVCC_ARCH} -g -lineinfo --ptxas-options=-O3")
+    set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${GPU_ARCH} -g -lineinfo --ptxas-options=-O3")
   endif()
   set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
 else()
