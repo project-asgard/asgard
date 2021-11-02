@@ -40,7 +40,7 @@ National Laboratory.
 # Dependencies
 
 *  C++17
-*  cmake 3.13
+*  cmake 3.19
 *  blas
 
 # Optional depedencies
@@ -48,6 +48,8 @@ National Laboratory.
 * cuda
 * mpi
 * highfive/hdf5
+* MATLAB
+* ScaLAPACK
 
 # Quickstart
 
@@ -69,3 +71,31 @@ To see a list of available PDEs, run `./asgard --available_pdes`. The listed PDE
 To see the list of all runtime options, run `./asgard --help`.
 
 For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)
+
+## MATLAB Interface 
+
+Asgard can interface with MATLAB to plot, share data, and run scripts. To enable this, compile with `-DASGARD_USE_MATLAB=ON`. 
+
+If using only for plotting purposes, then Asgard can be run without any additional arguments. However, for 
+sharing data with MATLAB, Asgard will need to connect to a shared session. This can be done in MATLAB by 
+running
+ ```
+ matlab.engine.shareEngine
+ ```
+
+Asgard should automatically connect with this shared session, but the engine name can also be specified
+directly by giving the result of
+```
+matlab.engine.engineName
+```
+to Asgard with the `--matlab_name` option.
+
+Note: do not start MATLAB in the DG-SparseGrid repo when trying to use this for plotting.
+
+## ScaLAPACK Integration
+
+The ASGARD\_USE\_SCALAPACK build option adds the "scalapack" solver option to ASGarD. In the implicit timestep method, this option
+distributes the matrix solve across multiple processes and nodes and enables larger problems that are too large for a single computer.
+
+This build option is only available when ASGARD\_USE\_MPI=ON. Unfortunately, setting ASGARD\_USE\_SCALAPACK alone is not sufficient
+and doesn't change the ASGARD\_USE\_MPI setting.

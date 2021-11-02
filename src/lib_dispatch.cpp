@@ -1,35 +1,94 @@
 #include "lib_dispatch.hpp"
 #include "build_info.hpp"
+#include "cblacs_grid.hpp"
+#include "distribution.hpp"
+#include "tensors.hpp"
 #include "tools.hpp"
+
+// ==========================================================================
+// external declarations for calling blas routines linked with -lblas
+// ==========================================================================
+//  NOTE: The openblas cblas interfers with the OpenMPI library put these in the
+//        implimentation instead of the header to avoid this conflict.
+#ifdef ASGARD_ACCELERATE
+#include <Accelerate/Accelerate.h>
+#else
+#include <cblas.h>
+extern "C"
+{
+#ifndef ASGARD_OPENBLAS
+  //  Openblas predeclares these from an include in cblas.h
+  // --------------------------------------------------------------------------
+  // LU decomposition of a general matrix
+  // --------------------------------------------------------------------------
+  void dgetrf_(int *m, int *n, double *A, int *lda, int *ipiv, int *info);
+
+  void sgetrf_(int *m, int *n, float *A, int *lda, int *ipiv, int *info);
+#endif
+
+  // --------------------------------------------------------------------------
+  // inverse of a matrix given its LU decomposition
+  // --------------------------------------------------------------------------
+  void dgetri_(int *n, double *A, int *lda, int *ipiv, double *work, int *lwork,
+               int *info);
+
+  void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
+               int *info);
+
+#ifndef ASGARD_OPENBLAS
+  //  Openblas predeclares these from an include in cblas.h
+  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+              int *ldb, int *info);
+  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+              int *ldb, int *info);
+  void dgetrs_(char *trans, int *n, int *nrhs, double *A, int *lda, int *ipiv,
+               double *b, int *ldb, int *info);
+  void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
+               float *b, int *ldb, int *info);
+#endif
+}
+#endif
 
 #include <cmath>
 #include <iostream>
 #include <type_traits>
+
+#ifdef ASGARD_USE_MPI
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#include "mpi.h"
+#pragma GCC diagnostic pop
+#endif
 
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #endif
 
-#ifdef ASGARD_USE_SLATE
-extern "C" void slate_sgesv_(const int *n, const int *nrhs, float *a,
-                             const int *lda, int *ipiv, float *b,
-                             const int *ldb, int *info);
+#ifdef ASGARD_USE_SCALAPACK
+#include "cblacs_grid.hpp"
+#include "scalapack_matrix_info.hpp"
+extern "C"
+{
+  void psgesv_(int *n, int *nrhs, float *a, int *ia, int *ja, int *desca,
+               int *ipiv, float *b, int *ib, int *jb, int *descb, int *info);
+  void pdgesv_(int *n, int *nrhs, double *a, int *ia, int *ja, int *desca,
+               int *ipiv, double *b, int *ib, int *jb, int *descb, int *info);
 
-extern "C" void slate_dgesv_(const int *n, const int *nrhs, double *a,
-                             const int *lda, int *ipiv, double *b,
-                             const int *ldb, int *info);
+  void psgetrs_(const char *trans, int *n, int *nrhs, float *a, int *ia,
+                int *ja, int *desca, int *ipiv, float *b, int *ib, int *jb,
+                int *descb, int *info);
+  void pdgetrs_(const char *trans, int *n, int *nrhs, double *a, int *ia,
+                int *ja, int *desca, int *ipiv, double *b, int *ib, int *jb,
+                int *descb, int *info);
+  void pdgeadd_(char *, int *, int *, double *, double *, int *, int *, int *,
+                double *, double *, int *, int *, int *);
+  void psgeadd_(char *, int *, int *, float *, float *, int *, int *, int *,
+                float *, float *, int *, int *, int *);
+}
 
-extern "C" void slate_dgetrs_(const char *trans, const int *n, const int *nrhs,
-                              double *A, const int *lda, int *ipiv, double *b,
-                              const int *ldb, int *info);
-
-extern "C" void slate_sgetrs_(const char *trans, const int *n, const int *nrhs,
-                              float *A, const int *lda, int *ipiv, float *b,
-                              const int *ldb, int *info);
 #endif
 
-auto const ignore = [](auto ignored) { (void)ignored; };
 struct device_handler
 {
   device_handler()
@@ -142,11 +201,11 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    drotg_(a, b, c, s);
+    cblas_drotg(a, b, c, s);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    srotg_(a, b, c, s);
+    cblas_srotg(a, b, c, s);
   }
 }
 
@@ -184,11 +243,11 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    return dnrm2_(n, x, incx);
+    return cblas_dnrm2(*n, x, *incx);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return snrm2_(n, x, incx);
+    return cblas_snrm2(*n, x, *incx);
   }
   else
   {
@@ -237,11 +296,11 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dcopy_(n, x, incx, y, incy);
+    cblas_dcopy(*n, x, *incx, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    scopy_(n, x, incx, y, incy);
+    cblas_scopy(*n, x, *incx, y, *incy);
   }
   else
   {
@@ -289,11 +348,11 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    return ddot_(n, x, incx, y, incy);
+    return cblas_ddot(*n, x, *incx, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return sdot_(n, x, incx, y, incy);
+    return cblas_sdot(*n, x, *incx, y, *incy);
   }
   else
   {
@@ -344,11 +403,11 @@ void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    daxpy_(n, alpha, x, incx, y, incy);
+    cblas_daxpy(*n, *alpha, x, *incx, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    saxpy_(n, alpha, x, incx, y, incy);
+    cblas_saxpy(*n, *alpha, x, *incx, y, *incy);
   }
   else
   {
@@ -394,11 +453,11 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dscal_(n, alpha, x, incx);
+    cblas_dscal(*n, *alpha, x, *incx);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sscal_(n, alpha, x, incx);
+    cblas_sscal(*n, *alpha, x, *incx);
   }
   else
   {
@@ -464,6 +523,25 @@ static void basic_gemv(P const *A, bool const trans_A, int const lda,
   }
 }
 
+//
+//  Translate FORTRAN transpose blas arguments to cblas equivalents.
+//
+static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
+{
+  if (*trans == 'n' || *trans == 'N')
+  {
+    return CblasNoTrans;
+  }
+  else if (*trans == 't' || *trans == 'T')
+  {
+    return CblasTrans;
+  }
+  else
+  {
+    return CblasConjTrans;
+  }
+}
+
 template<typename P>
 void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
           int *incx, P *beta, P *y, int *incy, resource const resrc)
@@ -509,11 +587,13 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dgemv_(trans, m, n, alpha, A, lda, x, incx, beta, y, incy);
+    cblas_dgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
+                *lda, x, *incx, *beta, y, *incy);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgemv_(trans, m, n, alpha, A, lda, x, incx, beta, y, incy);
+    cblas_sgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
+                *lda, x, *incx, *beta, y, *incy);
   }
   else
   {
@@ -573,11 +653,15 @@ void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    dgemm_(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+    cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
+                *ldb, *beta, C, *ldc);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgemm_(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+    cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
+                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
+                *ldb, *beta, C, *ldc);
   }
   else
   {
@@ -963,64 +1047,126 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
   }
 }
 
-#ifdef ASGARD_USE_SLATE
+#ifdef ASGARD_USE_SCALAPACK
+
 template<typename P>
-void slate_gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-                int *info)
+void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
+                    int *descB, int *info)
 {
   expect(n);
   expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
   expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
+  expect(descB);
   expect(*n >= 0);
+
+  int mp{1}, nq{1}, i_one{1};
   if constexpr (std::is_same<P, double>::value)
   {
-    slate_dgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    pdgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    slate_sgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    psgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
   else
   { // not instantiated; should never be reached
     std::cerr << "gesv not implemented for non-floating types" << '\n';
-    tools::expect(false);
+    expect(false);
   }
 }
 
 template<typename P>
-void slate_getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv,
-                 P *b, int *ldb, int *info)
+void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
+                     int *ipiv, P *b, int *descB, int *info)
 {
   expect(trans);
   expect(n);
   expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
   expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
   expect(*n >= 0);
+
+  int mp{1}, nq{1}, i_one{1};
+  char N{'N'};
   if constexpr (std::is_same<P, double>::value)
   {
-    slate_dgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    pdgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+             info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    slate_sgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    psgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+             info);
   }
   else
   { // not instantiated; should never be reached
     std::cerr << "getrs not implemented for non-floating types" << '\n';
+    expect(false);
+  }
+}
+
+template<typename P>
+void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
+{
+  // Useful constants
+  P zero{0.0}, one{1.0};
+  int i_one{1};
+  char N{'N'};
+  int n = descA[fk::N_];
+  int m = descA[fk::M_];
+  // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
+  if constexpr (std::is_same<P, double>::value)
+  {
+    pdgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
+             &i_one, &i_one, descA);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    psgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
+             &i_one, &i_one, descA);
+  }
+  else
+  { // not instantiated; should never be reached
+    std::cerr << "geadd not implemented for non-floating types" << '\n';
+    expect(false);
+  }
+}
+
+template<typename P>
+void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
+{
+  // Useful constants
+  P zero{0.0}, one{1.0};
+  int i_one{1};
+  char N{'N'};
+  // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
+  int n = descA[fk::N_];
+  int m = descA[fk::M_];
+
+  int desc[9];
+  if (get_rank() == 0)
+  {
+    std::copy_n(descA, 9, desc);
+  }
+  bcast(desc, 9, 0);
+  if constexpr (std::is_same<P, double>::value)
+  {
+    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
+             &i_one, descA_distr);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
+             &i_one, descA_distr);
+  }
+  else
+  { // not instantiated; should never be reached
+    std::cerr << "geadd not implemented for non-floating types" << '\n';
     expect(false);
   }
 }
@@ -1121,15 +1267,25 @@ template void getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
                     int *ipiv, double *b, int *ldb, int *info);
 template void getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
                     int *ipiv, float *b, int *ldb, int *info);
-#ifdef ASGARD_USE_SLATE
-template void slate_gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv,
-                         double *b, int *ldb, int *info);
-template void slate_gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv,
-                         float *b, int *ldb, int *info);
+#ifdef ASGARD_USE_SCALAPACK
+template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
+                             int *ipiv, double *b, int *descB, int *info);
+template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
+                             float *b, int *descB, int *info);
 
-template void slate_getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
-                          int *ipiv, double *b, int *ldb, int *info);
-template void slate_getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
-                          int *ipiv, float *b, int *ldb, int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, double *A,
+                              int *descA, int *ipiv, double *b, int *descB,
+                              int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, float *A,
+                              int *descA, int *ipiv, float *b, int *descB,
+                              int *info);
+template void
+gather_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
+template void
+gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
+template void
+scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
+template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
+                                     int *descA_distr);
 #endif
 } // namespace lib_dispatch

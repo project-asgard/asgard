@@ -944,7 +944,7 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
 {}
 
 template<typename P, mem_type mem, resource resrc>
-fk::vector<P, mem, resrc>::~vector()
+fk::vector<P, mem, resrc>::~vector<P, mem, resrc>()
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -1728,7 +1728,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
 
 // destructor
 template<typename P, mem_type mem, resource resrc>
-fk::matrix<P, mem, resrc>::~matrix()
+fk::matrix<P, mem, resrc>::~matrix<P, mem, resrc>()
 {
   if constexpr (mem == mem_type::owner)
   {

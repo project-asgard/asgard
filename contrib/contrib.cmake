@@ -44,6 +44,7 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+#[==[
 ###############################################################################
 ## Blas/Lapack
 #
@@ -115,7 +116,7 @@ endif ()
 if (NOT LINALG_LIBS_FOUND)
   # first check if it has already been built
   set (OpenBLAS_PATH ${CMAKE_SOURCE_DIR}/contrib/blas/openblas)
-  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib)
+  find_library (LINALG_LIBS openblas PATHS ${OpenBLAS_PATH}/lib NO_DEFAULT_PATH)
   if (LINALG_LIBS)
     message (STATUS "OpenBLAS library: ${LINALG_LIBS}")
 
@@ -139,7 +140,7 @@ if (NOT LINALG_LIBS_FOUND)
     ExternalProject_Add (openblas-ext
       UPDATE_COMMAND ""
       PREFIX contrib/blas/openblas
-      URL https://github.com/xianyi/OpenBLAS/archive/v0.3.4.tar.gz
+      URL https://github.com/xianyi/OpenBLAS/releases/download/v0.3.13/OpenBLAS-0.3.13.tar.gz
       DOWNLOAD_NO_PROGRESS 1
       CONFIGURE_COMMAND ""
       BUILD_COMMAND make USE_OPENMP=1
@@ -150,6 +151,7 @@ if (NOT LINALG_LIBS_FOUND)
     set (LINALG_LIBS "-L${OpenBLAS_PATH}/lib -Wl,-rpath,${OpenBLAS_PATH}/lib/ -lopenblas")
   endif ()
 endif ()
+#]==]
 
 ###############################################################################
 ## Clara
@@ -175,35 +177,3 @@ if (ASGARD_BUILD_TESTS)
     ${CMAKE_SOURCE_DIR}
   )
 endif ()
-
-
-
-###############################################################################
-## E.D.'s kronmult library
-#
-# link to Ed D'Azevedo's kronmult library, or download/build if not present
-#
-###############################################################################
-if(ASGARD_USE_CUDA)
-    set(USE_GPU 1)
-endif()
-
-set(KRON_PATH "${CMAKE_CURRENT_BINARY_DIR}/contrib/kronmult/")
-set(KRON_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/contrib/kronmult/")
-
-if((NOT EXISTS ${KRON_INCLUDE_DIR}/CMakeLists.txt))
-    # we couldn't find the CMakeLists.txt for KRON or they don't exist
-    message("Unable to find kronmult submodule")
-
-    # we have a submodule setup for kron, assume it is under external/kron
-    # now we need to clone this submodule
-    execute_process(COMMAND git submodule update --init -- contrib/kronmult
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-    set(KRON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/kronmult/
-        CACHE PATH "kronmult include directory")
-
-    # also install it
-    install(DIRECTORY ${KRON_INCLUDE_DIR}/kronmult DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endif()
-    add_subdirectory("${CMAKE_SOURCE_DIR}/contrib/kronmult")

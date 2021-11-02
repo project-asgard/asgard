@@ -6,6 +6,8 @@
 #include <array>
 #include <numeric>
 
+class element_subgrid;
+
 // wrapper around an array of pointers to matrices or
 // vectors for a call to batch gemm/gemv; i.e., the class
 // represents the information for a batch operand
@@ -143,6 +145,9 @@ private:
 // FIXME issue # 340
 // function to build system matrix for implicit stepping
 // doesn't use batches, but does use many of the same helpers/structure
+template<typename P>
+void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
+                         fk::matrix<P> &A, element_subgrid const &grid);
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          fk::matrix<P> &A);

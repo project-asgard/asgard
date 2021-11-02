@@ -7,7 +7,11 @@
 #include "fast_math.hpp"
 #include "solver.hpp"
 #include "tools.hpp"
-#include <limits.h>
+#ifdef ASGARD_USE_SCALAPACK
+#include "cblacs_grid.hpp"
+#include "scalapack_vector_info.hpp"
+#endif
+#include <climits>
 
 namespace time_advance
 {
@@ -251,7 +255,9 @@ implicit_advance(PDE<P> const &pde,
                  solve_opts const solver, bool const update_system)
 {
   expect(time >= 0);
-
+#ifdef ASGARD_USE_SCALAPACK
+  std::shared_ptr<cblacs_grid> sgrid = std::make_shared<cblacs_grid>();
+#endif
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
   static bool first_time = true;
@@ -260,10 +266,13 @@ implicit_advance(PDE<P> const &pde,
   auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
-  int const A_size    = elem_size * table.size();
 
+#ifdef ASGARD_USE_SCALAPACK
+  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
+  fk::vector<P> x = col_to_row_major(x_orig, size);
+#else
   fk::vector<P> x(x_orig);
-
+#endif
   if (pde.num_sources > 0)
   {
     auto const sources =
@@ -271,9 +280,18 @@ implicit_advance(PDE<P> const &pde,
     fm::axpy(sources, x, dt);
   }
 
-  /* add the boundary condition */
-  auto const &grid = adaptive_grid.get_subgrid(get_rank());
+  auto const &grid       = adaptive_grid.get_subgrid(get_rank());
+  int const A_local_rows = elem_size * grid.nrows();
+  int const A_local_cols = elem_size * grid.ncols();
+#ifdef ASGARD_USE_SCALAPACK
+  int nm = A_local_rows;
+  bcast(&nm, 1, 0);
+  int const A_global_size = elem_size * table.size();
+  assert(x.size() <= nm);
 
+  fk::scalapack_vector_info vinfo(A_global_size, nm, sgrid);
+  fk::scalapack_matrix_info minfo(A_global_size, A_global_size, nm, nm, sgrid);
+#endif
   auto const bc = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + dt);
@@ -283,8 +301,8 @@ implicit_advance(PDE<P> const &pde,
   {
     first_time = false;
 
-    A.clear_and_resize(A_size, A_size);
-    build_system_matrix(pde, table, A);
+    A.clear_and_resize(A_local_rows, A_local_cols);
+    build_system_matrix(pde, table, A, grid);
 
     // AA = I - dt*A;
     for (int i = 0; i < A.nrows(); ++i)
@@ -293,40 +311,70 @@ implicit_advance(PDE<P> const &pde,
       {
         A(i, j) *= -dt;
       }
-      A(i, i) += 1.0;
     }
-
-    switch (solver)
+    if (grid.row_start == grid.col_start)
     {
-    case solve_opts::direct:
-      if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
-        ipiv.resize(A.nrows());
-      fm::gesv(A, x, ipiv, solver);
+      for (int i = 0; i < A.nrows(); ++i)
+      {
+        A(i, i) += 1.0;
+      }
+    }
+    int ipiv_size{0};
+    if (solver == solve_opts::direct)
+    {
+      ipiv_size = A.nrows();
+      if (ipiv.size() != static_cast<unsigned long>(ipiv_size))
+      {
+        ipiv.resize(ipiv_size);
+      }
+      fm::gesv(A, x, ipiv);
       return x;
-      break;
-    case solve_opts::slate:
-      if (ipiv.size() != static_cast<unsigned long>(A.nrows()))
-        ipiv.resize(A.nrows());
-      fm::gesv(A, x, ipiv, solver);
+    }
+    else if (solver == solve_opts::scalapack)
+    {
+#ifdef ASGARD_USE_SCALAPACK
+      ipiv_size = minfo.local_rows() + minfo.mb();
+      if (ipiv.size() != static_cast<unsigned long>(ipiv_size))
+      {
+        ipiv.resize(ipiv_size);
+      }
+      fm::gesv(A, minfo, x, vinfo, ipiv);
+      auto const size_r =
+          elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
+      return row_to_col_major(x, size_r);
+#else
+      printf("Invalid gesv solver library specified\n");
+      exit(1);
       return x;
-      break;
-    case solve_opts::gmres:
+#endif
+    }
+    else if (solver == solve_opts::gmres)
+    {
       ignore(ipiv);
-      break;
+      ignore(ipiv_size);
     }
   } // end first time/update system
 
-  switch (solver)
+  if (solver == solve_opts::direct)
   {
-  case solve_opts::direct:
-    fm::getrs(A, x, ipiv, solver);
+    fm::getrs(A, x, ipiv);
     return x;
-    break;
-  case solve_opts::slate:
-    fm::getrs(A, x, ipiv, solver);
-    return x;
-    break;
-  case solve_opts::gmres:
+  }
+  else if (solver == solve_opts::scalapack)
+  {
+#ifdef ASGARD_USE_SCALAPACK
+    fm::getrs(A, minfo, x, vinfo, ipiv);
+    auto const size_r =
+        elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
+    return row_to_col_major(x, size_r);
+    ;
+#else
+    printf("Invalid getrs solver library specified\n");
+    exit(1);
+#endif
+  }
+  else if (solver == solve_opts::gmres)
+  {
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     int const restart  = A.ncols();
     int const max_iter = A.ncols();
@@ -334,7 +382,6 @@ implicit_advance(PDE<P> const &pde,
     solver::simple_gmres(A, fx, x, fk::matrix<P>(), restart, max_iter,
                          tolerance);
     return fx;
-    break;
   }
   return x;
 }

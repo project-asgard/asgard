@@ -742,7 +742,7 @@ P get_global_max(P const my_max, distribution_plan const &plan)
   auto const my_col                  = my_rank % num_cols;
   auto success =
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
-  assert(success == 0);
+  expect(success == 0);
 
   // get max
   MPI_Datatype const mpi_type =
@@ -751,12 +751,12 @@ P get_global_max(P const my_max, distribution_plan const &plan)
   P global_max;
   success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_MAX,
                           row_communicator);
-  assert(success == 0);
+  expect(success == 0);
   success = MPI_Comm_free(&row_communicator);
-  assert(success == 0);
+  expect(success == 0);
 
 #else
-  assert(plan.size() == 1);
+  expect(plan.size() == 1);
   auto const global_max = my_max;
 #endif
 
@@ -777,14 +777,14 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
   auto const my_rank      = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
     std::vector<int> num_messages(plan.size());
-    assert(my_changes.size() < INT_MAX);
+    expect(my_changes.size() < INT_MAX);
     num_messages[get_rank()] = static_cast<int>(my_changes.size());
-    assert(plan.size() < INT_MAX);
+    expect(plan.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(plan.size()); ++i)
     {
       auto const success = MPI_Bcast(num_messages.data() + i, 1, MPI_INT, i,
                                      distro_handle.get_global_comm());
-      assert(success == 0);
+      expect(success == 0);
     }
     return num_messages;
   }();
@@ -812,13 +812,13 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
       all_changes.data(), num_messages.data(), displacements.data(),
       MPI_INT64_T, distro_handle.get_global_comm());
 
-  assert(success == 0);
+  expect(success == 0);
 
   return all_changes;
 
 #else
   // plan size > 1, MPI off - shouldn't occur
-  assert(false);
+  expect(false);
   return my_changes;
 #endif
 }
@@ -832,7 +832,7 @@ region_messages_remap(distribution_plan const &old_plan,
                       grid_limits const source_region,
                       grid_limits const dest_region, int const rank)
 {
-  assert(rank >= 0);
+  expect(rank >= 0);
 
   // we should only need to communicate with our own (old) row of subgrids
   // each has a full copy of the vector
@@ -851,7 +851,7 @@ region_messages_remap(distribution_plan const &old_plan,
   // of this region.
   auto const my_new_subgrid = new_plan.at(rank);
   auto dest_subregion_start = dest_region.start;
-  assert(dest_subregion_start >= my_new_subgrid.col_start);
+  expect(dest_subregion_start >= my_new_subgrid.col_start);
 
   for (auto i = 0; i < cols; ++i)
   {
@@ -896,7 +896,7 @@ region_messages_remap(distribution_plan const &old_plan,
     }
   }
 
-  assert(dest_subregion_start = dest_region.stop + 1);
+  expect((dest_subregion_start = dest_region.stop + 1));
   return region_messages;
 }
 
@@ -909,7 +909,7 @@ subgrid_messages_remap(distribution_plan const &old_plan,
                        std::map<int64_t, grid_limits> const &elem_index_remap,
                        int const rank)
 {
-  assert(rank >= 0);
+  expect(rank >= 0);
 
   std::vector<std::list<message>> subgrid_messages(new_plan.size());
   auto const rank_subgrid = new_plan.at(rank);
@@ -953,8 +953,8 @@ generate_messages_remap(distribution_plan const &old_plan,
                         distribution_plan const &new_plan,
                         std::map<int64_t, grid_limits> const &elem_index_remap)
 {
-  assert(old_plan.size() == new_plan.size());
-  assert(elem_index_remap.size() != 0);
+  expect(old_plan.size() == new_plan.size());
+  expect(elem_index_remap.size() != 0);
 
   // TODO technically, all these calculations will yield the same set of
   // messages for each subgrid row. if this requires optimization, just perform
@@ -966,7 +966,7 @@ generate_messages_remap(distribution_plan const &old_plan,
     ignore(subgrid);
     auto rank_messages =
         subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
-    assert(rank_messages.size() == new_plan.size());
+    expect(rank_messages.size() == new_plan.size());
     for (auto const &[rank, subgrid] : new_plan)
     {
       ignore(subgrid);
@@ -998,9 +998,9 @@ redistribute_vector(fk::vector<P> const &old_x,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap)
 {
-  assert(old_plan.size() == new_plan.size());
-  assert(check_overlap(elem_remap));
-  assert(elem_remap.size() != 0);
+  expect(old_plan.size() == new_plan.size());
+  expect(check_overlap(elem_remap));
+  expect(elem_remap.size() != 0);
 
   auto const my_rank     = get_rank();
   auto const old_subgrid = old_plan.at(my_rank);
@@ -1008,7 +1008,7 @@ redistribute_vector(fk::vector<P> const &old_x,
 
   // x's size should be num_elements*deg^dim
   // (deg^dim is one element's number of coefficients/ elements in x vector)
-  assert(old_x.size() % old_subgrid.ncols() == 0);
+  expect(old_x.size() % old_subgrid.ncols() == 0);
   auto const segment_size = old_x.size() / old_subgrid.ncols();
   fk::vector<P> y(new_subgrid.ncols() * segment_size);
 
@@ -1033,6 +1033,91 @@ redistribute_vector(fk::vector<P> const &old_x,
     }
   }
   return y;
+}
+
+template<typename P>
+fk::vector<P> col_to_row_major(fk::vector<P> const &x, int size_r)
+{
+  fk::vector<P> x_new(x);
+  x_new.resize(size_r);
+#ifdef ASGARD_USE_MPI
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+
+  int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
+
+  auto global_comm = distro_handle.get_global_comm();
+  for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
+  {
+    int col_rank = row_rank * num_subgrid_cols;
+    if (get_rank() == row_rank)
+    {
+      MPI_Send(x.data(), x.size(), mpi_type, col_rank, 0, global_comm);
+    }
+    else if (get_rank() == col_rank)
+    {
+      MPI_Recv(x_new.data(), x_new.size(), mpi_type, row_rank, MPI_ANY_TAG,
+               global_comm, MPI_STATUS_IGNORE);
+    }
+  }
+#endif
+  return x_new;
+}
+
+template<typename P>
+fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r)
+{
+  fk::vector<P> x_new(x);
+  x_new.resize(size_r);
+#ifdef ASGARD_USE_MPI
+  MPI_Datatype const mpi_type =
+      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+  auto global_comm           = distro_handle.get_global_comm();
+  int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
+  for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
+  {
+    int col_rank = row_rank * num_subgrid_cols;
+    if (get_rank() == col_rank)
+    {
+      MPI_Send(x.data(), x.size(), mpi_type, row_rank, 0, global_comm);
+    }
+    else if (get_rank() == row_rank)
+    {
+      MPI_Recv(x_new.data(), x_new.size(), mpi_type, col_rank, MPI_ANY_TAG,
+               global_comm, MPI_STATUS_IGNORE);
+    }
+  }
+
+  for (int col_rank = 0; col_rank < num_subgrid_cols; ++col_rank)
+  {
+    for (int row_rank = col_rank + num_subgrid_cols; row_rank < get_num_ranks();
+         row_rank += num_subgrid_cols)
+    {
+      if (get_rank() == col_rank)
+      {
+        MPI_Send(x_new.data(), x_new.size(), mpi_type, row_rank, 0,
+                 global_comm);
+      }
+      else if (get_rank() == row_rank)
+      {
+        MPI_Recv(x_new.data(), x_new.size(), mpi_type, col_rank, MPI_ANY_TAG,
+                 global_comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
+#endif
+  return x_new;
+}
+
+void bcast(int *value, int size, int rank)
+{
+#ifdef ASGARD_USE_MPI
+  MPI_Bcast(value, size, MPI_INT, rank, distro_handle.get_global_comm());
+#else
+  (void)value;
+  (void)size;
+  (void)rank;
+#endif
 }
 
 template void reduce_results(fk::vector<float> const &source,
@@ -1082,3 +1167,13 @@ redistribute_vector(fk::vector<double> const &old_x,
                     distribution_plan const &old_plan,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap);
+
+template fk::vector<float>
+row_to_col_major(fk::vector<float> const &x, int size_r);
+template fk::vector<double>
+row_to_col_major(fk::vector<double> const &x, int size_r);
+
+template fk::vector<float>
+col_to_row_major(fk::vector<float> const &x, int size_r);
+template fk::vector<double>
+col_to_row_major(fk::vector<double> const &x, int size_r);

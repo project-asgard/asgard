@@ -25,7 +25,8 @@ parser::parser(int argc, char **argv)
           "Use full grid (vs. sparse grid)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
-      clara::detail::Opt(solver_str, "direct|gmres")["-s"]["--solver"](
+      clara::detail::Opt(solver_str,
+                         "direct|gmres|scalapack")["-s"]["--solver"](
           "Solver to use for implicit advance") |
       clara::detail::Opt(starting_levels_str,
                          "e.g. for 2d PDE: \"3 2\"")["-l"]["--levels"](
@@ -49,7 +50,11 @@ parser::parser(int argc, char **argv)
           "Frequency in steps for writing realspace output") |
       clara::detail::Opt(do_adapt)["--adapt"]("Enable/disable adaptivity") |
       clara::detail::Opt(adapt_threshold, " 0>threshold<1 ")["--thresh"](
-          "Relative threshold for adaptivity");
+          "Relative threshold for adaptivity") |
+      clara::detail::Opt(matlab_name, "session name")["--matlab_name"](
+          "Name of a shared MATLAB session to connect to") |
+      clara::detail::Opt(plot_freq, "0-num_time_steps")["--plot_freq"](
+          "Frequency in steps for displaying plots");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -147,18 +152,19 @@ parser::parser(int argc, char **argv)
     pde_choice = pde_mapping.at(pde_str).pde_choice;
   }
 
-  if (realspace_output_freq < 0 || wavelet_output_freq < 0)
+  if (realspace_output_freq < 0 || wavelet_output_freq < 0 || plot_freq < 0)
   {
-    std::cerr << "Write frequencies must be non-negative" << '\n';
+    std::cerr << "Write and plot frequencies must be non-negative" << '\n';
     valid = false;
   }
 
   if (realspace_output_freq > num_time_steps ||
-      wavelet_output_freq > num_time_steps)
+      wavelet_output_freq > num_time_steps || plot_freq > num_time_steps)
   {
-    std::cerr << "Requested a write frequency > number of steps - no output "
-                 "will be produced"
-              << '\n';
+    std::cerr
+        << "Requested a write or plot frequency > number of steps - no output "
+           "will be produced"
+        << '\n';
     valid = false;
   }
 
@@ -176,11 +182,12 @@ parser::parser(int argc, char **argv)
     {
       solver_str = "direct";
     }
-#ifndef ASGARD_USE_SLATE
-    if (solver_str == "slate")
+#ifndef ASGARD_USE_SCALAPACK
+    if (solver_str == "scalapack")
     {
-      std::cerr << "Invalid solver choice; ASGarD not built with SLATE option "
-                   "enabled\n";
+      std::cerr
+          << "Invalid solver choice; ASGarD not built with SCALAPACK option "
+             "enabled\n";
       valid = false;
     }
 #endif
@@ -215,8 +222,12 @@ parser::parser(int argc, char **argv)
 #ifdef ASGARD_USE_MPI
   if (use_implicit_stepping && get_num_ranks() > 1)
   {
-    std::cerr << "Distribution not implemented for implicit stepping\n";
-    valid = false;
+    auto const choice = solver_mapping.at(solver_str);
+    if (choice != solve_opts::scalapack)
+    {
+      std::cerr << "Distribution not implemented for implicit stepping\n";
+      valid = false;
+    }
   }
   if (realspace_output_freq > 0)
   {
@@ -237,6 +248,19 @@ parser::parser(int argc, char **argv)
               << '\n';
     valid = false;
   }
+
+#ifndef ASGARD_USE_MATLAB
+  if (matlab_name != NO_USER_VALUE_STR)
+  {
+    std::cerr << "Must be built with ASGARD_USE_MATLAB to use Matlab" << '\n';
+    valid = false;
+  }
+  if (plot_freq != DEFAULT_PLOT_FREQ)
+  {
+    std::cerr << "Must be built with ASGARD_USE_MATLAB to plot results" << '\n';
+    valid = false;
+  }
+#endif
 }
 
 bool parser::using_implicit() const { return use_implicit_stepping; }
@@ -261,6 +285,9 @@ std::string parser::get_solver_string() const { return solver_str; }
 PDE_opts parser::get_selected_pde() const { return pde_choice; }
 solve_opts parser::get_selected_solver() const { return solver; }
 
+std::string parser::get_ml_session_string() const { return matlab_name; }
+int parser::get_plot_freq() const { return plot_freq; }
+
 bool parser::is_valid() const { return valid; }
 
 bool options::should_output_wavelet(int const i) const
@@ -271,6 +298,11 @@ bool options::should_output_wavelet(int const i) const
 bool options::should_output_realspace(int const i) const
 {
   return write_at_step(i, realspace_output_freq);
+}
+
+bool options::should_plot(int const i) const
+{
+  return write_at_step(i, plot_freq);
 }
 
 bool options::write_at_step(int const i, int const freq) const

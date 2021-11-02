@@ -14,6 +14,10 @@
 #include <mpi.h>
 #endif
 
+#ifdef ASGARD_USE_MATLAB
+#include "matlab_plot.hpp"
+#endif
+
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -29,6 +33,9 @@ using prec = float;
 
 int main(int argc, char **argv)
 {
+  // -- set up distribution
+  auto const [my_rank, num_ranks] = initialize_distribution();
+
   // -- parse cli
   parser const cli_input(argc, argv);
   if (!cli_input.is_valid())
@@ -37,9 +44,6 @@ int main(int argc, char **argv)
     exit(-1);
   }
   options const opts(cli_input);
-
-  // -- set up distribution
-  auto const [my_rank, num_ranks] = initialize_distribution();
 
   // kill off unused processes
   if (my_rank >= num_ranks)
@@ -131,11 +135,8 @@ int main(int argc, char **argv)
   /* RAM on fusiont5 */
   static auto const default_workspace_cpu_MB = 187000;
 
-  // -- setup output file and write initial condition
-#ifdef ASGARD_IO_HIGHFIVE
-
-  // initialize wavelet output
-  auto output_dataset = initialize_output_file(initial_condition);
+// -- setup realspace transform for file io or for plotting
+#if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_USE_MATLAB)
 
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
@@ -155,6 +156,40 @@ int main(int argc, char **argv)
   wavelet_to_realspace<prec>(*pde, initial_condition, adaptive_grid.get_table(),
                              transformer, default_workspace_cpu_MB,
                              tmp_workspace, real_space);
+#endif
+
+#ifdef ASGARD_USE_MATLAB
+  ml::matlab_plot ml_plot;
+  ml_plot.connect(cli_input.get_ml_session_string());
+  node_out() << "  connected to MATLAB" << '\n';
+
+  fk::vector<prec> analytic_solution_realspace(real_space_size);
+  if (pde->has_analytic_soln)
+  {
+    // generate the analytic solution at t=0
+    auto const subgrid_init           = adaptive_grid.get_subgrid(get_rank());
+    auto const analytic_solution_init = transform_and_combine_dimensions(
+        *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
+        subgrid_init.col_start, subgrid_init.col_stop, degree);
+    // transform analytic solution to realspace
+    wavelet_to_realspace<prec>(
+        *pde, analytic_solution_init, adaptive_grid.get_table(), transformer,
+        default_workspace_cpu_MB, tmp_workspace, analytic_solution_realspace);
+  }
+
+  // Add the matlab scripts directory to the matlab path
+  ml_plot.add_param(std::string(ASGARD_SCRIPTS_DIR) + "matlab/");
+  ml_plot.call("addpath");
+
+  ml_plot.init_plotting(*pde, adaptive_grid.get_table());
+  ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                    analytic_solution_realspace);
+#endif
+
+  // -- setup output file and write initial condition
+#ifdef ASGARD_IO_HIGHFIVE
+  // initialize wavelet output
+  auto output_dataset = initialize_output_file(initial_condition);
 
   // initialize realspace output
   auto const realspace_output_name = "asgard_realspace";
@@ -214,11 +249,42 @@ int main(int argc, char **argv)
         node_out() << "Relative difference (numeric-analytic) [wavelet]: "
                    << relative_errors(i) << " %" << '\n';
       }
+
+#ifdef ASGARD_USE_MATLAB
+      if (opts.should_plot(i))
+      {
+        auto transform_wksp = update_transform_workspace<prec>(
+            sol.size(), workspace, tmp_workspace);
+        if (analytic_solution.size() > analytic_solution_realspace.size())
+        {
+          analytic_solution_realspace.resize(analytic_solution.size());
+        }
+        wavelet_to_realspace<prec>(*pde, analytic_solution,
+                                   adaptive_grid.get_table(), transformer,
+                                   default_workspace_cpu_MB, transform_wksp,
+                                   analytic_solution_realspace);
+      }
+#endif
     }
     else
     {
       node_out() << "No analytic solution found." << '\n';
     }
+#if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_USE_MATLAB)
+    /* transform from wavelet space to real space */
+    if (opts.should_output_realspace(i) || opts.should_plot(i))
+    {
+      // resize transform workspaces if grid size changed due to adaptivity
+      auto const real_size = real_solution_size(*pde);
+      auto transform_wksp =
+          update_transform_workspace<prec>(real_size, workspace, tmp_workspace);
+      real_space.resize(real_size);
+
+      wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
+                                 transformer, default_workspace_cpu_MB,
+                                 transform_wksp, real_space);
+    }
+#endif
 
     // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
@@ -226,19 +292,21 @@ int main(int argc, char **argv)
     {
       update_output_file(output_dataset, f_val);
     }
-
-    /* transform from wavelet space to real space */
     if (opts.should_output_realspace(i))
     {
-      wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
-                                 transformer, default_workspace_cpu_MB,
-                                 tmp_workspace, real_space);
-
       update_output_file(output_dataset_real, real_space,
                          realspace_output_name);
     }
 #else
     ignore(default_workspace_cpu_MB);
+#endif
+
+#ifdef ASGARD_USE_MATLAB
+    if (opts.should_plot(i))
+    {
+      ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                        analytic_solution_realspace);
+    }
 #endif
 
     node_out() << "timestep: " << i << " complete" << '\n';

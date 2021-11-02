@@ -2,6 +2,9 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
+#include "cblacs_grid.hpp"
+#include "scalapack_vector_info.hpp"
+
 struct distribution_test_init
 {
   distribution_test_init()
@@ -853,7 +856,7 @@ void generate_messages_remap_test(
   {
     auto const &message_list   = messages[my_rank];
     auto const &my_new_subgrid = new_plan.at(my_rank);
-    for (auto const message : message_list)
+    for (auto const &message : message_list)
     {
       if (message.message_dir == message_direction::send)
       {
@@ -930,7 +933,7 @@ void generate_messages_remap_test(
     ignore(my_subgrid);
     auto const my_row        = my_rank / num_subgrid_cols;
     auto const &message_list = messages[my_rank];
-    for (auto const message : message_list)
+    for (auto const &message : message_list)
     {
       REQUIRE(find_match(my_rank, my_row, messages[message.target], message));
     }
@@ -1196,5 +1199,87 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 412)}};
     generate_messages_remap_test(old_plan, new_plan, changes);
     redistribute_vector_test<TestType>(old_plan, new_plan, changes);
+  }
+}
+
+#ifdef ASGARD_USE_SCALAPACK
+
+TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", double, float)
+{
+  int m     = 4;
+  auto grid = std::make_shared<cblacs_grid>();
+
+  int local_size = get_num_ranks() == 1 ? m : m / 2;
+
+  fk::scalapack_vector_info B_info(m, local_size, grid);
+  REQUIRE(local_size == B_info.local_size());
+
+  fk::vector<TestType> B(local_size);
+  if (get_num_ranks() == 1)
+  {
+    B = fk::vector<TestType>{0., 0., 2., 2.};
+  }
+  else
+  {
+    if (get_rank() % 2 == 0)
+    {
+      B(0) = 0.;
+      B(1) = 0.;
+    }
+    else
+    {
+      B(0) = 2.;
+      B(1) = 2.;
+    }
+  }
+
+  auto B_row = col_to_row_major(B, local_size);
+
+  if (get_num_ranks() == 1)
+  {
+    for (int i = 0; i < m; ++i)
+    {
+      REQUIRE_THAT(B_row(i), Catch::Matchers::WithinRel(B(i), TestType{0.001}));
+    }
+  }
+  else if (get_rank() % 2 == 0)
+  {
+    for (int i = 0; i < local_size; ++i)
+    {
+      REQUIRE_THAT(B_row(i),
+                   Catch::Matchers::WithinRel(get_rank(), TestType{0.001}));
+    }
+  }
+
+  auto B2 = row_to_col_major(B_row, local_size);
+  if (get_num_ranks() == 1)
+  {
+    for (int i = 0; i < m; ++i)
+    {
+      REQUIRE_THAT(B2(i), Catch::Matchers::WithinRel(B(i), TestType{0.001}));
+    }
+  }
+  else
+  {
+    for (int i = 0; i < local_size; ++i)
+    {
+      REQUIRE_THAT(B2(i), Catch::Matchers::WithinRel(B(i), TestType{0.001}));
+    }
+  }
+}
+
+#endif
+
+TEST_CASE("bcast", "[distribution]")
+{
+  std::array<int, 9> desc;
+  if (get_rank() == 0)
+    desc = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+  else
+    desc = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+  bcast(desc.data(), desc.size(), 0);
+  for (int i = 0; i < 9; ++i)
+  {
+    REQUIRE(desc[i] == i);
   }
 }

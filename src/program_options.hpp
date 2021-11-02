@@ -7,6 +7,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // implemented solvers for implicit stepping
@@ -14,14 +15,16 @@ enum class solve_opts
 {
   direct,
   gmres,
-  slate
+  scalapack
 };
 
 // map those choices to selection strings
-using solve_map_t                       = std::map<std::string, solve_opts>;
-static solve_map_t const solver_mapping = {{"direct", solve_opts::direct},
-                                           {"gmres", solve_opts::gmres},
-                                           {"slate", solve_opts::slate}};
+
+using solve_map_t = std::map<std::string_view, solve_opts>;
+static solve_map_t const solver_mapping = {
+    {"direct", solve_opts::direct},
+    {"gmres", solve_opts::gmres},
+    {"scalapack", solve_opts::scalapack}};
 
 // the choices for supported PDE types
 enum class PDE_opts
@@ -132,6 +135,7 @@ public:
   static auto constexpr DEFAULT_MAX_LEVEL         = 8;
   static auto constexpr DEFAULT_TIME_STEPS        = 10;
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
+  static auto constexpr DEFAULT_PLOT_FREQ         = 1;
   static auto constexpr DEFAULT_USE_IMPLICIT      = false;
   static auto constexpr DEFAULT_USE_FG            = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
@@ -139,6 +143,7 @@ public:
   static auto constexpr DEFAULT_PDE_STR           = "continuity_2";
   static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::continuity_2;
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
+  static auto constexpr DEFAULT_SOLVER_STR        = std::string_view("direct");
   static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;
 
   // construct from command line
@@ -146,32 +151,35 @@ public:
 
   // construct from provided values - to simplify testing
   explicit parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
-                  int const degree             = NO_USER_VALUE,
-                  double const cfl             = DEFAULT_CFL,
-                  bool const use_full_grid     = DEFAULT_USE_FG,
-                  int const max_level          = DEFAULT_MAX_LEVEL,
-                  int const num_steps          = DEFAULT_TIME_STEPS,
-                  bool const use_implicit      = DEFAULT_USE_IMPLICIT,
-                  bool const do_adapt_levels   = DEFAULT_DO_ADAPT,
-                  double const adapt_threshold = DEFAULT_ADAPT_THRESH)
+                  int const degree                  = NO_USER_VALUE,
+                  double const cfl                  = DEFAULT_CFL,
+                  bool const use_full_grid          = DEFAULT_USE_FG,
+                  int const max_level               = DEFAULT_MAX_LEVEL,
+                  int const num_steps               = DEFAULT_TIME_STEPS,
+                  bool const use_implicit           = DEFAULT_USE_IMPLICIT,
+                  bool const do_adapt_levels        = DEFAULT_DO_ADAPT,
+                  double const adapt_threshold      = DEFAULT_ADAPT_THRESH,
+                  std::string_view const solver_str = DEFAULT_SOLVER_STR)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid),
         do_adapt(do_adapt_levels), starting_levels(starting_levels),
         degree(degree), max_level(max_level), num_time_steps(num_steps),
-        cfl(cfl), adapt_threshold(adapt_threshold), pde_choice(pde_choice){};
+        cfl(cfl), adapt_threshold(adapt_threshold), pde_choice(pde_choice),
+        solver_str(solver_str), solver(solver_mapping.at(solver_str)){};
 
   explicit parser(std::string const &pde_choice,
                   fk::vector<int> starting_levels,
-                  int const degree             = NO_USER_VALUE,
-                  double const cfl             = DEFAULT_CFL,
-                  bool const use_full_grid     = DEFAULT_USE_FG,
-                  int const max_level          = DEFAULT_MAX_LEVEL,
-                  int const num_steps          = DEFAULT_TIME_STEPS,
-                  bool const use_implicit      = DEFAULT_USE_IMPLICIT,
-                  bool const do_adapt_levels   = DEFAULT_DO_ADAPT,
-                  double const adapt_threshold = DEFAULT_ADAPT_THRESH)
+                  int const degree                  = NO_USER_VALUE,
+                  double const cfl                  = DEFAULT_CFL,
+                  bool const use_full_grid          = DEFAULT_USE_FG,
+                  int const max_level               = DEFAULT_MAX_LEVEL,
+                  int const num_steps               = DEFAULT_TIME_STEPS,
+                  bool const use_implicit           = DEFAULT_USE_IMPLICIT,
+                  bool const do_adapt_levels        = DEFAULT_DO_ADAPT,
+                  double const adapt_threshold      = DEFAULT_ADAPT_THRESH,
+                  std::string_view const solver_str = DEFAULT_SOLVER_STR)
       : parser(pde_mapping.at(pde_choice).pde_choice, starting_levels, degree,
                cfl, use_full_grid, max_level, num_steps, use_implicit,
-               do_adapt_levels, adapt_threshold){};
+               do_adapt_levels, adapt_threshold, solver_str){};
 
   bool using_implicit() const;
   bool using_full_grid() const;
@@ -196,6 +204,9 @@ public:
 
   PDE_opts get_selected_pde() const;
   solve_opts get_selected_solver() const;
+
+  std::string get_ml_session_string() const;
+  int get_plot_freq() const;
 
   bool is_valid() const;
 
@@ -273,6 +284,11 @@ private:
   // solver to use for implicit timestepping
   solve_opts solver = DEFAULT_SOLVER;
 
+  // name of matlab session to connect
+  std::string matlab_name = NO_USER_VALUE_STR;
+  // timesteps between plotting
+  int plot_freq = DEFAULT_PLOT_FREQ;
+
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
 };
@@ -288,6 +304,7 @@ public:
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
         realspace_output_freq(user_vals.get_realspace_output_freq()),
+        plot_freq(user_vals.get_plot_freq()),
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
@@ -296,6 +313,7 @@ public:
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
+  bool should_plot(int const i) const;
 
   fk::vector<int> const starting_levels;
 
@@ -305,6 +323,7 @@ public:
   int const num_time_steps;
   int const wavelet_output_freq;
   int const realspace_output_freq;
+  int const plot_freq;
 
   bool const use_implicit_stepping;
   bool const use_full_grid;
