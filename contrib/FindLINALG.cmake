@@ -54,6 +54,7 @@ if (${ASGARD_BUILD_OPENBLAS})
                       OPENBLAS
                       https://github.com/xianyi/OpenBLAS.git
                       v0.3.18
+                      ON
     )
 
 #  Fetch content does not run the install phase so the headers for openblas are
