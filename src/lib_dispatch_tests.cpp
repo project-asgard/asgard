@@ -1182,7 +1182,7 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
   TestType tol_factor = 1e-18;
   if constexpr (resrc == resource::device)
   {
-    tol_factor = 1e-8;
+    tol_factor = 1e-7;
   }
 
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
