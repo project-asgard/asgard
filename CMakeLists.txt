@@ -246,8 +246,6 @@ if(ASGARD_USE_HIP)
   message(STATUS "HIP Libraries: ${HIP_LIBRARIES}")
 
   if(ASGARD_PLATFORM_NVCC)
-    find_package(CUDA 9.0 REQUIRED)
-    include_directories(${CUDA_INCLUDE_DIRS})
     enable_language(CUDA)
     set (CMAKE_CUDA_STANDARD 14)
     set (CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -265,11 +263,6 @@ if(ASGARD_USE_HIP)
      message(STATUS "Found rocBLAS version ${rocBLAS_VERSION}: ${HIPBLAS_INCLUDE_DIRS}")
   endif()
 
-  include_directories(SYSTEM ${HIP_INCLUDE_DIRS})
-  # assume this include path since HIP_INCLUDE_DIRS is not being set on nvidia platform
-  include_directories(SYSTEM "${HIP_PATH}/include")
-  include_directories(${HIPBLAS_INCLUDE_DIRS})
-
   # set source file language properties
   if(ASGARD_PLATFORM_AMD)
     #set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE HIP ) # should work after cmake 3.21 release?
@@ -286,6 +279,7 @@ endif()
 FetchContent_MakeAvailable(kronmult)
 
 if(ASGARD_USE_HIP)
+  set(CMAKE_HIP_ARCHITECTURES OFF)
   set(HIP_HIPCC_FLAGS "${HIP_HIPCC_FLAGS} ${ASGARD_HIP_FLAGS}" CACHE STRING "")
   set(HIP_CLANG_FLAGS "${HIP_CLANG_FLAGS} ${ASGARD_AMD_FLAGS}" CACHE STRING "")
   set(HIP_NVCC_FLAGS "${HIP_NVCC_FLAGS} ${ASGARD_NVCC_FLAGS}" CACHE STRING "")
@@ -294,6 +288,10 @@ if(ASGARD_USE_HIP)
                   HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
                   NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
                   CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+  target_include_directories(kronmult_cuda PUBLIC ${HIP_INCLUDE_DIRS})
+  # assume this include path since HIP_INCLUDE_DIRS is not being set on nvidia platform
+  target_include_directories(kronmult_cuda PUBLIC "${HIP_PATH}/include")
+  target_include_directories(kronmult_cuda PUBLIC ${HIPBLAS_INCLUDE_DIRS})
   if(ASGARD_PLATFORM_NVCC)
     set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
     set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_${GPU_ARCH} -g -lineinfo --ptxas-options=-O3")
@@ -376,7 +374,22 @@ if (ASGARD_USE_MATLAB)
 endif ()
 
 foreach (component IN LISTS components)
-  add_library (${component} src/${component}.cpp)
+  if (ASGARD_USE_HIP)
+    hip_add_library (${component} src/${component}.cpp
+                     HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                     NVCC_OPTIONS "${ASGARD_NVCC_FLAGS} -lhipblas"
+                     CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+    set_target_properties(${component} PROPERTIES LINKER_LANGUAGE HIP)
+    target_include_directories(${component} SYSTEM PUBLIC ${HIP_INCLUDE_DIRS})
+    target_include_directories(${component} SYSTEM PUBLIC "${HIP_PATH}/include")
+    target_include_directories(${component} SYSTEM PUBLIC ${HIPBLAS_INCLUDE_DIRS})
+    if(ASGARD_PLATFORM_NVCC)
+      target_include_directories(${component} SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    endif()
+    target_link_directories(${component} PRIVATE ${HIPBLAS_PATH}/lib/) # roc::hipblas target isn't linking properly on nvidia platforms
+  else()
+    add_library (${component} src/${component}.cpp)
+  endif()
   target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
   if(ASGARD_USE_MKL)
     target_compile_options (${component} PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
@@ -455,10 +468,8 @@ endif ()
 if (ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_AMD)
     target_link_libraries(lib_dispatch PRIVATE hip::device)
-  elseif(ASGARD_PLATFORM_NVCC)
-    target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES})
+    target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
   endif()
-  target_link_libraries(lib_dispatch PRIVATE roc::hipblas)
 endif()
 
 if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
@@ -487,10 +498,8 @@ target_link_libraries (tensors PRIVATE lib_dispatch)
 if (ASGARD_USE_HIP)
   if(ASGARD_PLATFORM_AMD)
     target_link_libraries(tensors PRIVATE hip::device)
-  elseif(ASGARD_PLATFORM_NVCC)
-    target_link_libraries(tensors PRIVATE ${CUDA_LIBRARIES})
+    target_link_libraries (tensors PRIVATE roc::hipblas)
   endif()
-  target_link_libraries (tensors PRIVATE roc::hipblas)
 endif ()
 if (ASGARD_USE_SCALAPACK)	
   add_compile_definitions (ASGARD_USE_SCALAPACK)
@@ -504,7 +513,16 @@ target_link_libraries (transformations
   quadrature tensors)
 
 # define the main application and its linking
-add_executable (asgard src/main.cpp)
+if (ASGARD_USE_HIP)
+  hip_add_executable (asgard src/main.cpp
+                      HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                      NVCC_OPTIONS "${ASGARD_NVCC_FLAGS} -lhipblas"
+                      CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+  set_target_properties(asgard PROPERTIES LINKER_LANGUAGE HIP)
+  target_link_directories(asgard PRIVATE ${HIPBLAS_PATH}/lib/)
+else()
+  add_executable (asgard src/main.cpp)
+endif()
 
 # link in components needed directly by main
 set (main_app_link_deps
@@ -559,7 +577,21 @@ if (ASGARD_BUILD_TESTS)
   enable_testing ()
 
   # Define ctest tests and their executables
-  add_library (tests_general testing/tests_general.cpp)
+  if (ASGARD_USE_HIP)
+    hip_add_library (tests_general testing/tests_general.cpp
+                     HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                     NVCC_OPTIONS "${ASGARD_NVCC_FLAGS}"
+                     CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+    target_include_directories(tests_general SYSTEM PUBLIC ${HIP_INCLUDE_DIRS})
+    target_include_directories(tests_general SYSTEM PUBLIC "${HIP_PATH}/include")
+    target_include_directories(tests_general SYSTEM PUBLIC ${HIPBLAS_INCLUDE_DIRS})
+    if (ASGARD_PLATFORM_NVCC)
+      target_include_directories(tests_general SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+      target_link_libraries(tests_general PRIVATE ${CMAKE_CUDA_RUNTIME_LIBRARY})
+    endif()
+  else()
+    add_library (tests_general testing/tests_general.cpp)
+  endif()
   target_link_libraries (tests_general PUBLIC Catch PRIVATE pde program_options )
   target_include_directories(tests_general PRIVATE ${CMAKE_BINARY_DIR})
   
@@ -575,7 +607,22 @@ if (ASGARD_BUILD_TESTS)
   endif()
 
   foreach (component IN LISTS components)
-    add_executable (${component}-tests src/${component}_tests.cpp)
+    if (ASGARD_USE_HIP)
+      hip_add_executable (${component}-tests src/${component}_tests.cpp
+                          HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                          NVCC_OPTIONS "${ASGARD_NVCC_FLAGS} -lhipblas"
+                          CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+      if (ASGARD_PLATFORM_NVCC)
+        target_include_directories(${component}-tests SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+        target_link_libraries(${component}-tests PRIVATE ${CMAKE_CUDA_RUNTIME_LIBRARY})
+        target_link_directories(${component}-tests PRIVATE ${HIPBLAS_PATH}/lib/)
+      endif()
+      target_include_directories(${component}-tests SYSTEM PUBLIC ${HIP_INCLUDE_DIRS})
+      target_include_directories(${component}-tests SYSTEM PUBLIC "${HIP_PATH}/include")
+      target_include_directories(${component}-tests SYSTEM PUBLIC ${HIPBLAS_INCLUDE_DIRS})
+    else()
+      add_executable (${component}-tests src/${component}_tests.cpp)
+    endif()
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
     target_link_libraries (${component}-tests PRIVATE ${component} tests_general)
@@ -609,7 +656,22 @@ if (ASGARD_BUILD_TESTS)
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
   endforeach ()
 
-  add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp)
+  if (ASGARD_USE_HIP)
+    hip_add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp
+                        HIPCC_OPTIONS "${ASGARD_HIP_FLAGS}"
+                        NVCC_OPTIONS "${ASGARD_NVCC_FLAGS} -lhipblas"
+                        CLANG_OPTIONS "${ASGARD_AMD_FLAGS}")
+    if (ASGARD_PLATFORM_NVCC)
+      target_include_directories(kronmult_cuda-tests SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+      target_link_libraries(kronmult_cuda-tests PRIVATE ${CMAKE_CUDA_RUNTIME_LIBRARY})
+      target_link_directories(kronmult_cuda-tests PRIVATE ${HIPBLAS_PATH}/lib/)
+    endif()
+    target_include_directories(kronmult_cuda-tests SYSTEM PUBLIC ${HIP_INCLUDE_DIRS})
+    target_include_directories(kronmult_cuda-tests SYSTEM PUBLIC "${HIP_PATH}/include")
+    target_include_directories(kronmult_cuda-tests SYSTEM PUBLIC ${HIPBLAS_INCLUDE_DIRS})
+  else()
+    add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp)
+  endif()
   target_include_directories (kronmult_cuda-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
   target_include_directories (kronmult_cuda-tests PRIVATE ${CMAKE_BINARY_DIR})
   target_link_libraries (kronmult_cuda-tests PRIVATE coefficients kronmult_cuda tests_general)
