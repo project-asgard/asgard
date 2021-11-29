@@ -778,7 +778,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
   auto const num_messages = [&plan, &my_changes, my_rank]() {
     std::vector<int> num_messages(plan.size());
     expect(my_changes.size() < INT_MAX);
-    num_messages[get_rank()] = static_cast<int>(my_changes.size());
+    num_messages[my_rank] = static_cast<int>(my_changes.size());
     expect(plan.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(plan.size()); ++i)
     {
