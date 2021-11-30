@@ -32,7 +32,7 @@ endfunction ()
 register_project (kronmult
                   KRONMULT
                   https://github.com/project-asgard/kronmult.git
-                  f941819685bbd3026a85145dde286f593683c1f4
+                  1ed1a5e1b3690f66479dcd9cf003dc8a3a0de457
 )
 
 ###############################################################################
