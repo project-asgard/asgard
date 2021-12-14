@@ -815,9 +815,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 #ifdef ASGARD_USE_SCALAPACK
   SECTION("scalapack_gesv and scalapack_getrs")
   {
-    std::shared_ptr<cblacs_grid> grid =
-        get_grid(); // std::make_shared<cblacs_grid>();
-
+    auto grid                         = get_grid();
     fk::matrix<TestType> const A_copy = A_gold;
     fk::scalapack_matrix_info A_info(A_copy.nrows(), A_copy.ncols());
 
@@ -879,7 +877,7 @@ TEMPLATE_TEST_CASE("", "[parallel_solver]", float, double)
   if (myrank != 0)
     B.resize(0);
 
-  auto grid = get_grid(); // std::make_shared<cblacs_grid>();
+  auto grid = get_grid();
 
   int n = 4;
   int m = 4;

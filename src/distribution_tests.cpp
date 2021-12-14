@@ -1209,7 +1209,7 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", double, float)
 {
   int m     = 4;
-  auto grid = get_grid(); // std::make_shared<cblacs_grid>();
+  auto grid = get_grid();
 
   int local_size = get_num_ranks() == 1 ? m : m / 2;
 
