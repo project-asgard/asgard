@@ -2,8 +2,10 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
+#ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"
 #include "scalapack_vector_info.hpp"
+#endif
 
 struct distribution_test_init
 {

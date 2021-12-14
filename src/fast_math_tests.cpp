@@ -1,4 +1,6 @@
+#ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"
+#endif
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "lib_dispatch.hpp"
