@@ -308,3 +308,5 @@ template<typename P>
 fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r);
 
 void bcast(int *value, int size, int rank);
+
+std::shared_ptr<cblacs_grid> get_grid();

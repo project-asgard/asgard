@@ -47,7 +47,7 @@ TEST_CASE("Generating scalapack matrix info serial", "[scalapack_matrix_info]")
 TEST_CASE("Generating scalapack matrix info parallel",
           "[scalapack_matrix_info]")
 {
-  auto grid = std::make_shared<cblacs_grid>();
+  auto grid = get_grid(); // std::make_shared<cblacs_grid>();
   int rows{4}, cols{4};
   int mb{2}, nb{2};
   fk::scalapack_matrix_info info(rows, cols, mb, nb, grid);
