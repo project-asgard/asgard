@@ -9,6 +9,10 @@
 #pragma GCC diagnostic pop
 #endif
 
+#ifdef ASGARD_USE_SCALAPACK
+#include "cblacs_grid.hpp"
+#endif
+
 #include <list>
 #include <map>
 #include <vector>
