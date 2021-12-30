@@ -100,8 +100,7 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                    double, float)
 {
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("transform(2, 2, -1, 1, double)")
   {
@@ -224,8 +223,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/"
         "wavelet_to_realspace_continuity_1.dat";
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-11 : 1e-2;
+    auto constexpr tol_factor = get_tolerance<TestType>(100000);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 
@@ -238,8 +236,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/"
         "wavelet_to_realspace_continuity_2.dat";
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-13 : 1e-4;
+    auto constexpr tol_factor = get_tolerance<TestType>(1000);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 
@@ -252,8 +249,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/"
         "wavelet_to_realspace_continuity_3.dat";
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 }
@@ -293,8 +289,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-12 : 1e-2;
+auto constexpr tol_factor = get_tolerance<TestType>(10000);
     test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 
@@ -307,9 +302,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "continuity_2/"
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-12 : 1e-4;
+    auto constexpr tol_factor = get_tolerance<TestType>(1000);
     test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 
@@ -322,8 +315,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "continuity_3/"
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+    auto constexpr tol_factor = get_tolerance<TestType>(100);
     test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 
@@ -337,8 +329,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-14 : 1e-6;
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
     test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 }

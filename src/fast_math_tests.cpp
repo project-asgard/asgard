@@ -800,8 +800,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 
     fm::gesv(A_copy, x, ipiv);
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     rmse_comparison(A_copy, LU_gold, tol_factor);
     rmse_comparison(x, X_gold, tol_factor);
@@ -837,8 +836,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 
     std::vector<int> ipiv(A_distr_info.local_rows() + A_distr_info.mb());
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     fm::gesv(A_distr, A_distr_info, x_distr, x_distr_info, ipiv);
 

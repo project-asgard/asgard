@@ -6,7 +6,7 @@
 
 template<typename P>
 void test_coefficients(parser const &parse, std::string const &gold_path,
-                       P const tol_factor = 1e-15, bool const rotate = true)
+                       P const tol_factor = get_tolerance<P>(10), bool const rotate = true)
 {
   auto pde = make_PDE<P>(parse);
   options const opts(parse);
@@ -50,7 +50,7 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
   auto const pde_choice = PDE_opts::diffusion_2;
   auto const gold_path =
       "../testing/generated-inputs/coefficients/diffusion2_coefficients";
-  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-13 : 1e-4;
+  auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
   SECTION("level 3, degree 5")
   {
@@ -74,7 +74,7 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
   auto const pde_choice = PDE_opts::diffusion_1;
   auto const gold_path =
       "../testing/generated-inputs/coefficients/diffusion1_coefficients";
-  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-12 : 1e-3;
+  auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
   SECTION("level 5, degree 6")
   {
@@ -91,7 +91,7 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   auto const pde_choice = PDE_opts::continuity_1;
   auto const gold_path =
       "../testing/generated-inputs/coefficients/continuity1_coefficients";
-  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-14 : 1e-4;
+  auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
   SECTION("level 2, degree 2 (default)")
   {
@@ -107,7 +107,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
   auto const pde_choice = PDE_opts::continuity_2;
   auto const gold_path =
       "../testing/generated-inputs/coefficients/continuity2_coefficients";
-  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-14 : 1e-6;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("level 4, degree 3")
   {
@@ -131,7 +131,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
   auto const gold_path =
       "../testing/generated-inputs/coefficients/continuity3_coefficients";
   auto const pde_choice     = PDE_opts::continuity_3;
-  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-14 : 1e-5;
+  auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   SECTION("level 4, degree 4")
   {
@@ -155,7 +155,7 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
   auto const gold_path =
       "../testing/generated-inputs/coefficients/continuity6_coefficients";
   auto const pde_choice     = PDE_opts::continuity_6;
-  TestType const tol_factor = std::is_same_v<double, TestType> ? 1e-14 : 1e-5;
+  auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
   SECTION("level 2, degree 4")
   {
@@ -180,8 +180,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case1;
   auto const gold_path  = "../testing/generated-inputs/coefficients/"
                          "fokkerplanck1_pitch_E_case1_coefficients";
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-13 : 1e-5;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("level 4, degree 3")
   {
@@ -198,8 +197,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case2 terms", "[coefficients]",
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case2;
   auto const gold_path  = "../testing/generated-inputs/coefficients/"
                          "fokkerplanck1_pitch_E_case2_coefficients";
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-13 : 1e-5;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("level 4, degree 3")
   {
