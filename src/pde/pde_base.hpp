@@ -76,13 +76,14 @@ public:
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
+  vector_func<P> const moment_dV;
   std::string const name;
   dimension(P const domain_min, P const domain_max, int const level,
             int const degree, vector_func<P> const initial_condition,
-            std::string const name)
+            vector_func<P> const moment_dV, std::string const name)
 
       : domain_min(domain_min), domain_max(domain_max),
-        initial_condition(initial_condition), name(name)
+        initial_condition(initial_condition), moment_dV(moment_dV), name(name)
   {
     set_level(level);
     set_degree(degree);
@@ -114,6 +115,7 @@ enum class coefficient_type
 {
   grad,
   mass,
+  div,
   diff
 };
 
@@ -153,22 +155,24 @@ public:
   static P null_scalar_func(P const p) { return p; }
 
   partial_term(coefficient_type const coeff_type,
-               g_func_type const g_func       = null_gfunc,
-               flux_type const flux           = flux_type::central,
-               boundary_condition const left  = boundary_condition::neumann,
-               boundary_condition const right = boundary_condition::neumann,
-               homogeneity const left_homo    = homogeneity::homogeneous,
-               homogeneity const right_homo   = homogeneity::homogeneous,
+               g_func_type const g_func        = null_gfunc,
+               g_func_type const lhs_mass_func = null_gfunc,
+               flux_type const flux            = flux_type::central,
+               boundary_condition const left   = boundary_condition::neumann,
+               boundary_condition const right  = boundary_condition::neumann,
+               homogeneity const left_homo     = homogeneity::homogeneous,
+               homogeneity const right_homo    = homogeneity::homogeneous,
                std::vector<vector_func<P>> const left_bc_funcs = {},
                scalar_func<P> const left_bc_time_func = null_scalar_func,
                std::vector<vector_func<P>> const right_bc_funcs = {},
-               scalar_func<P> const right_bc_time_func = null_scalar_func)
+               scalar_func<P> const right_bc_time_func = null_scalar_func,
+               g_func_type const dv_func               = null_gfunc)
 
-      : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
-        right(right), left_homo(left_homo), right_homo(right_homo),
-        left_bc_funcs(left_bc_funcs), right_bc_funcs(right_bc_funcs),
-        left_bc_time_func(left_bc_time_func),
-        right_bc_time_func(right_bc_time_func)
+      : coeff_type(coeff_type), g_func(g_func), lhs_mass_func(lhs_mass_func),
+        flux(flux), left(left), right(right), left_homo(left_homo),
+        right_homo(right_homo), left_bc_funcs(left_bc_funcs),
+        right_bc_funcs(right_bc_funcs), left_bc_time_func(left_bc_time_func),
+        right_bc_time_func(right_bc_time_func), dv_func(dv_func)
   {}
 
   P get_flux_scale() const { return static_cast<P>(flux); };
@@ -176,6 +180,7 @@ public:
   coefficient_type const coeff_type;
 
   g_func_type const g_func;
+  g_func_type const lhs_mass_func;
 
   flux_type const flux;
 
@@ -189,6 +194,8 @@ public:
   std::vector<vector_func<P>> const right_bc_funcs;
   scalar_func<P> const left_bc_time_func;
   scalar_func<P> const right_bc_time_func;
+
+  g_func_type const dv_func;
 
   fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 

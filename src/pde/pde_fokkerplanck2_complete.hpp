@@ -164,6 +164,25 @@ private:
     return ret;
   }
 
+  static fk::vector<P> moment_dV_p(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    // TODO: change this to be more compact
+    auto const function = [](fk::vector<P> const &p) -> fk::vector<P> {
+      fk::vector<P> transformed(p);
+      std::transform(p.begin(), p.end(), transformed.begin(),
+                     [](P const p_elem) -> P { return std::pow(p_elem, 2); });
+      return transformed;
+    };
+    return function(x);
+  }
+
+  static fk::vector<P> moment_dV_z(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    return fk::vector<P>(std::vector<P>(x.size(), 1.0));
+  }
+
   // initial conditionn in z
   static fk::vector<P> initial_condition_z(fk::vector<P> const x, P const t = 0)
   {
@@ -185,7 +204,8 @@ private:
                    2,                   // levels
                    2,                   // degree
                    initial_condition_p, // initial condition
-                   "p");                // name
+                   moment_dV_p,
+                   "p"); // name
 
   // z dimension
   inline static P const z_domain_min = -1;
@@ -196,7 +216,8 @@ private:
                    2,                   // levels
                    2,                   // degree
                    initial_condition_z, // initial condition
-                   "z");                // name
+                   moment_dV_z,
+                   "z"); // name
 
   // assemble dimensions
 
@@ -216,6 +237,30 @@ private:
     ignore(x);
     ignore(time);
     return 1.0;
+  }
+
+  static P dV_p(P const x, P const time)
+  {
+    ignore(time);
+    return std::pow(x, 2);
+  }
+
+  static P dV_p3(P const x, P const time)
+  {
+    ignore(time);
+    return x;
+  }
+
+  static P dV_z(P const x, P const time)
+  {
+    ignore(time);
+    return 1.0;
+  }
+
+  static P dV_z3(P const x, P const time)
+  {
+    ignore(time);
+    return sqrt(1.0 - std::pow(x, 2));
   }
 
   inline static partial_term<P> const pterm_I =
@@ -238,39 +283,43 @@ private:
   static P c1_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return 1.0 / std::pow(x, 2);
-  }
-  static P c1_g2(P const x, P const time = 0)
-  {
-    ignore(time);
-    return std::pow(x, 2) * Ca(x);
-  }
-  static P c1_g3(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
+    return sqrt(Ca(x));
   }
 
   // 1. create partial_terms
-  inline static partial_term<P> const c1_pterm1 =
-      partial_term<P>(coefficient_type::mass, c1_g1);
+  inline static partial_term<P> const c1_pterm1 = partial_term<P>(
+      coefficient_type::div, c1_g1, partial_term<P>::null_gfunc,
+      flux_type::upwind, boundary_condition::dirichlet,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p);
   inline static partial_term<P> const c1_pterm2 = partial_term<P>(
-      coefficient_type::grad, c1_g2, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-  inline static partial_term<P> const c1_pterm3 =
-      partial_term<P>(coefficient_type::grad, c1_g3, flux_type::downwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+      coefficient_type::grad, c1_g1, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::neumann,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p);
+  inline static partial_term<P> const c1_pterm3 = partial_term<P>(
+      coefficient_type::mass, gI, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const c1_term_p =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C1_p",          // name
-              {c1_pterm1, c1_pterm2, c1_pterm3});
+              {c1_pterm1, c1_pterm2});
+  inline static term<P> const c1_term_z =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "C1_z",          // name
+              {c1_pterm3, c1_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static std::vector<term<P>> const termC1 = {c1_term_p, I_};
+  inline static std::vector<term<P>> const termC1 = {c1_term_p, c1_term_z};
 
   // termC2 == 1/p^2*d/dp*p^2*Cf*f
   //
@@ -282,30 +331,37 @@ private:
   static P c2_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return 1.0 / std::pow(x, 2);
-  }
-  static P c2_g2(P const x, P const time = 0)
-  {
-    ignore(time);
-    return std::pow(x, 2) * Cf(x);
+    return Cf(x);
   }
 
   // 1. create partial_terms
-  inline static partial_term<P> const c2_pterm1 =
-      partial_term<P>(coefficient_type::mass, c2_g1);
-  inline static partial_term<P> const c2_pterm2 =
-      partial_term<P>(coefficient_type::grad, c2_g2, flux_type::downwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static partial_term<P> const c2_pterm1 = partial_term<P>(
+      coefficient_type::div, c2_g1, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::neumann,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p);
+  inline static partial_term<P> const c2_pterm2 = partial_term<P>(
+      coefficient_type::mass, gI, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const c2_term_p =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C2_p",          // name
-              {c2_pterm1, c2_pterm2});
+              {c2_pterm1});
+  inline static term<P> const c2_term_z =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "C2_z",          // name
+              {c2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
-  inline static std::vector<term<P>> const termC2 = {c2_term_p, I_};
+  inline static std::vector<term<P>> const termC2 = {c2_term_p, c2_term_z};
 
   // termC3 == Cb(p)/p^4 * d/dz( (1-z^2) * df/dz )
   //
@@ -319,31 +375,35 @@ private:
   static P c3_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return Cb(x) / std::pow(x, 4);
+    return sqrt(Cb(x));
   }
   static P c3_g2(P const x, P const time = 0)
   {
-    ignore(time);
-    return 1.0 - std::pow(x, 2);
-  }
-  static P c3_g3(P const x, P const time = 0)
-  {
-    ignore(x);
     ignore(time);
     return 1.0;
   }
 
   // 1. create partial_terms
-  inline static partial_term<P> const c3_pterm1 =
-      partial_term<P>(coefficient_type::mass, c3_g1);
+  inline static partial_term<P> const c3_pterm1 = partial_term<P>(
+      coefficient_type::mass, c3_g1, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p3);
 
   inline static partial_term<P> const c3_pterm2 = partial_term<P>(
-      coefficient_type::grad, c3_g2, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+      coefficient_type::div, c3_g2, partial_term<P>::null_gfunc,
+      flux_type::upwind, boundary_condition::dirichlet,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z3);
 
-  inline static partial_term<P> const c3_pterm3 =
-      partial_term<P>(coefficient_type::grad, c3_g3, flux_type::downwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static partial_term<P> const c3_pterm3 = partial_term<P>(
+      coefficient_type::grad, c3_g2, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z3);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const c3_term_p =
@@ -371,7 +431,7 @@ private:
   static P e1_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return -1 * x;
+    return -E;
   }
   static P e1_g2(P const x, P const time = 0)
   {
@@ -379,32 +439,32 @@ private:
     expect(x > 0);
     return 1.0 / std::pow(x, 2);
   }
-  static P e1_g3(P const x, P const time = 0)
-  {
-    ignore(time);
-    return E * std::pow(x, 2);
-  }
 
   // 1. create partial_terms
-  inline static partial_term<P> const e1_pterm1 =
-      partial_term<P>(coefficient_type::mass, e1_g1);
-  inline static partial_term<P> const e1_pterm2 =
-      partial_term<P>(coefficient_type::mass, e1_g2);
-  inline static partial_term<P> const e1_pterm3 =
-      partial_term<P>(coefficient_type::grad, e1_g3, flux_type::central,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static partial_term<P> const e1_pterm1 = partial_term<P>(
+      coefficient_type::div, e1_g1, partial_term<P>::null_gfunc,
+      flux_type::upwind, boundary_condition::neumann,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p);
+  inline static partial_term<P> const e1_pterm2 = partial_term<P>(
+      coefficient_type::mass, e1_g2, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const e1_term_p =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "E1_p",          // name
-              {e1_pterm2, e1_pterm3});
+              {e1_pterm1});
   inline static term<P> const e1_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "E1_z",          // name
-              {e1_pterm1});
+              {e1_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termE1 = {e1_term_p, e1_term_z};
@@ -417,20 +477,29 @@ private:
   static P e2_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return -1 / x;
+    return -E;
   }
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return E * (1.0 - std::pow(x, 2));
+    expect(x < 0);
+    return x;
   }
 
   // 1. create partial_terms
-  inline static partial_term<P> const e2_pterm1 =
-      partial_term<P>(coefficient_type::mass, e2_g1);
-  inline static partial_term<P> const e2_pterm2 =
-      partial_term<P>(coefficient_type::grad, e2_g2, flux_type::upwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static partial_term<P> const e2_pterm1 = partial_term<P>(
+      coefficient_type::div, e2_g1, partial_term<P>::null_gfunc,
+      flux_type::upwind, boundary_condition::neumann,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p);
+
+  inline static partial_term<P> const e2_pterm2 = partial_term<P>(
+      coefficient_type::mass, e2_g2, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const e2_term_p =
@@ -447,6 +516,47 @@ private:
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termE2 = {e2_term_p, e2_term_z};
 
+  // TODO: add comments about this term
+  static P e3_g1(P const x, P const time = 0)
+  {
+    ignore(time);
+    return 1.0;
+  }
+  static P e3_g2(P const x, P const time = 0)
+  {
+    ignore(time);
+    return -E * sqrt(1.0 - std::pow(x, 2));
+  }
+
+  // 1. create partial_terms
+  inline static partial_term<P> const e3_pterm1 = partial_term<P>(
+      coefficient_type::mass, e3_g1, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p3);
+  inline static partial_term<P> const e3_pterm2 = partial_term<P>(
+      coefficient_type::div, e3_g2, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z3);
+
+  // 2. combine partial terms into single dimension term
+  inline static term<P> const e3_term_p =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "E3_p",          // name
+              {e3_pterm1});
+  inline static term<P> const e3_term_z =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "E3_z",          // name
+              {e3_pterm2});
+
+  // 3. combine single dimension terms into multi dimension term
+  inline static std::vector<term<P>> const termE3 = {e3_term_p, e3_term_z};
+
   // -div(flux_R) == termR1 + termR2
 
   // clang-format off
@@ -462,39 +572,39 @@ private:
   static P r1_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return 1.0 / std::pow(x, 2);
+    return x * gamma(x) / tau;
   }
   static P r1_g2(P const x, P const time = 0)
-  {
-    ignore(time);
-    return std::pow(x, 3) * gamma(x) / tau;
-  }
-  static P r1_g3(P const x, P const time = 0)
   {
     ignore(time);
     return 1.0 - std::pow(x, 2);
   }
 
   // 1. create partial_terms
-  inline static partial_term<P> const r1_pterm1 =
-      partial_term<P>(coefficient_type::mass, r1_g1);
-  inline static partial_term<P> const r1_pterm2 =
-      partial_term<P>(coefficient_type::grad, r1_g2, flux_type::upwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
-  inline static partial_term<P> const r1_pterm3 =
-      partial_term<P>(coefficient_type::mass, r1_g3);
+  inline static partial_term<P> const r1_pterm1 = partial_term<P>(
+      coefficient_type::div, r1_g1, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::neumann,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p);
+  inline static partial_term<P> const r1_pterm2 = partial_term<P>(
+      coefficient_type::mass, r1_g1, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const r1_term_p =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "R1_p",          // name
-              {r1_pterm1, r1_pterm2});
+              {r1_pterm1});
   inline static term<P> const r1_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "R1_z",          // name
-              {r1_pterm3});
+              {r1_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termR1 = {r1_term_p, r1_term_z};
@@ -511,20 +621,27 @@ private:
   static P r2_g1(P const x, P const time = 0)
   {
     ignore(time);
-    return -1.0 / (tau * gamma(x));
+    return -x / (tau * gamma(x));
   }
   static P r2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return x * (1.0 - std::pow(x, 2));
+    return -x * sqrt(1.0 - std::pow(x, 2));
   }
 
   // 1. create partial_terms
-  inline static partial_term<P> const r2_pterm1 =
-      partial_term<P>(coefficient_type::mass, r2_g1);
-  inline static partial_term<P> const r2_pterm2 =
-      partial_term<P>(coefficient_type::grad, r2_g2, flux_type::central,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static partial_term<P> const r2_pterm1 = partial_term<P>(
+      coefficient_type::mass, r2_g1, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_p3);
+  inline static partial_term<P> const r2_pterm2 = partial_term<P>(
+      coefficient_type::div, r2_g2, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::neumann,
+      boundary_condition::neumann, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_z3);
 
   // 2. combine partial terms into single dimension term
   inline static term<P> const r2_term_p =
@@ -542,8 +659,10 @@ private:
   inline static std::vector<term<P>> const termR2 = {r2_term_p, r2_term_z};
 
   // collect all the terms
-  inline static term_set<P> const terms_ = {termC1, termC2, termC3, termE1,
-                                            termE2, termR1, termR2};
+  // inline static term_set<P> const terms_ = {termC1, termC2, termC3, termE1,
+  //                                          termE2, termE3, termR1, termR2};
+  inline static term_set<P> const terms_ = {termC1, termC2, termC3,
+                                            termE1, termE2, termE3};
 
   // --------------
   //

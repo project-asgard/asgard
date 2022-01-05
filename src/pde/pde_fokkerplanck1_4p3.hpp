@@ -89,6 +89,12 @@ private:
     return 1.0;
   }
 
+  static fk::vector<P> moment_dV(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    return fk::vector<P>(std::vector<P>(x.size(), 1.0));
+  }
+
   // specify source functions...
 
   // N/A
@@ -112,7 +118,8 @@ private:
                    2,                      // levels
                    2,                      // degree
                    initial_condition_dim0, // initial condition
-                   "x");                   // name
+                   moment_dV,
+                   "x"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
@@ -124,12 +131,21 @@ private:
   static P g_func_1(P const x, P const time)
   {
     ignore(time);
-    return -x * (1 - std::pow(x, 2));
+    return -x * sqrt(1 - std::pow(x, 2));
+  }
+
+  static P dV_func(P const x, P const time)
+  {
+    ignore(time);
+    return sqrt(1.0 - std::pow(x, 2));
   }
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::grad, g_func_1, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+      coefficient_type::div, g_func_1, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::dirichlet,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, dV_func);
 
   inline static term<P> const term0_dim0_ =
       term<P>(false,           // time-dependent

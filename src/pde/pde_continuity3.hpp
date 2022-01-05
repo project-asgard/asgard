@@ -93,6 +93,12 @@ private:
     return fx;
   }
 
+  static fk::vector<P> moment_dV(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    return fk::vector<P>(std::vector<P>(x.size(), 1.0));
+  }
+
   static P exact_time(P const time) { return std::sin(2.0 * time); }
 
   // specify source functions...
@@ -268,7 +274,8 @@ private:
                    2,                      // levels
                    2,                      // degree
                    initial_condition_dim0, // initial condition
-                   "x");                   // name
+                   moment_dV,
+                   "x"); // name
 
   inline static dimension<P> const dim1_ =
       dimension<P>(-2.0,                   // domain min
@@ -276,7 +283,8 @@ private:
                    2,                      // levels
                    2,                      // degree
                    initial_condition_dim1, // initial condition
-                   "y");                   // name
+                   moment_dV,
+                   "y"); // name
 
   inline static dimension<P> const dim2_ =
       dimension<P>(-3.0,                   // domain min
@@ -284,7 +292,8 @@ private:
                    2,                      // levels
                    2,                      // degree
                    initial_condition_dim2, // initial condition
-                   "z");                   // name
+                   moment_dV,
+                   "z"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_, dim1_,
                                                                dim2_};
@@ -292,9 +301,10 @@ private:
   // define terms
 
   // default mass matrix (only for lev_x=lev_y=etc)
-  inline static partial_term<P> const partial_term_I_ = partial_term<P>(
-      coefficient_type::mass, g_func_identity, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static partial_term<P> const partial_term_I_ =
+      partial_term<P>(coefficient_type::mass, g_func_identity, g_func_identity,
+                      flux_type::central, boundary_condition::periodic,
+                      boundary_condition::periodic);
 
   inline static term<P> const I_ =
       term<P>(false,           // time-dependent
@@ -304,7 +314,7 @@ private:
 
   // term 0
   inline static partial_term<P> const partial_term_t0_d0 = partial_term<P>(
-      coefficient_type::grad, g_func_t0_d0, flux_type::central,
+      coefficient_type::grad, g_func_t0_d0, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_dim0_ =
@@ -317,7 +327,7 @@ private:
 
   // term 1
   inline static partial_term<P> const partial_term_t1_d1 = partial_term<P>(
-      coefficient_type::grad, g_func_t1_d1, flux_type::central,
+      coefficient_type::grad, g_func_t1_d1, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_dim1_ =
@@ -330,7 +340,7 @@ private:
 
   // term 2
   inline static partial_term<P> const partial_term_t2_d2 = partial_term<P>(
-      coefficient_type::grad, g_func_t2_d2, flux_type::central,
+      coefficient_type::grad, g_func_t2_d2, g_func_identity, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term2_dim2_ =
