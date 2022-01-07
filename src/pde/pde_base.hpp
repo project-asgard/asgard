@@ -169,7 +169,9 @@ public:
                g_func_type const dv_func               = null_gfunc)
 
       : coeff_type(coeff_type), g_func(g_func), lhs_mass_func(lhs_mass_func),
-        flux(flux), left(left), right(right), left_homo(left_homo),
+        flux(set_flux(flux)), left(left), right(right),
+        ileft(set_bilinear_boundary(left)),
+        iright(set_bilinear_boundary(right)), left_homo(left_homo),
         right_homo(right_homo), left_bc_funcs(left_bc_funcs),
         right_bc_funcs(right_bc_funcs), left_bc_time_func(left_bc_time_func),
         right_bc_time_func(right_bc_time_func), dv_func(dv_func)
@@ -188,6 +190,9 @@ public:
 
   boundary_condition const right;
 
+  boundary_condition const ileft;
+  boundary_condition const iright;
+
   homogeneity const left_homo;
   homogeneity const right_homo;
   std::vector<vector_func<P>> const left_bc_funcs;
@@ -203,6 +208,38 @@ public:
   {
     this->coefficients_.clear_and_resize(
         new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
+  }
+
+  boundary_condition set_bilinear_boundary(boundary_condition const bc)
+  {
+    // Since we want the grad matrix to be a negative transpose of a
+    // DIV matrix, we need to swap the wind direction as well as swap
+    // the BCs N<=>D.  However, this swap will affect the BC call.
+    // Instead we have another BC flag IBCL/IBCR which will build the
+    // bilinear form with respect to Dirichlet/Free boundary
+    // conditions while leaving the BC routine unaffected.
+    if (coeff_type == coefficient_type::grad)
+    {
+      if (bc == boundary_condition::dirichlet)
+      {
+        return boundary_condition::neumann;
+      }
+      else if (bc == boundary_condition::neumann)
+      {
+        return boundary_condition::dirichlet;
+      }
+    }
+    return bc;
+  }
+
+  flux_type set_flux(flux_type const flux)
+  {
+    if (coeff_type == coefficient_type::grad)
+    {
+      // Switch the upwinding direction
+      return static_cast<flux_type>(-static_cast<P>(flux));
+    }
+    return flux;
   }
 
 private:

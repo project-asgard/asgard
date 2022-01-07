@@ -59,7 +59,7 @@ private:
 
   static int constexpr num_dims_           = 2;
   static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 7;
+  static int constexpr num_terms_          = 6;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = false;
 
@@ -253,6 +253,7 @@ private:
 
   static P dV_z(P const x, P const time)
   {
+    ignore(x);
     ignore(time);
     return 1.0;
   }
@@ -379,6 +380,7 @@ private:
   }
   static P c3_g2(P const x, P const time = 0)
   {
+    ignore(x);
     ignore(time);
     return 1.0;
   }
@@ -430,13 +432,17 @@ private:
 
   static P e1_g1(P const x, P const time = 0)
   {
+    ignore(x);
     ignore(time);
     return -E;
   }
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    expect(x > 0);
+    if (x < 0)
+    {
+      return 0.0;
+    }
     return 1.0 / std::pow(x, 2);
   }
 
@@ -476,13 +482,21 @@ private:
 
   static P e2_g1(P const x, P const time = 0)
   {
+    ignore(x);
     ignore(time);
     return -E;
   }
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    expect(x < 0);
+    if (x < 0)
+    {
+      return x;
+    }
+    else
+    {
+      return 0.0;
+    }
     return x;
   }
 
@@ -519,6 +533,7 @@ private:
   // TODO: add comments about this term
   static P e3_g1(P const x, P const time = 0)
   {
+    ignore(x);
     ignore(time);
     return 1.0;
   }
@@ -568,7 +583,8 @@ private:
   //   r(z) == g3(z) f(z)       [mass, g3(z) = 1-z^2,                BC N/A]
   //
   // clang-format on
-
+  /*
+  // clang-format off
   static P r1_g1(P const x, P const time = 0)
   {
     ignore(time);
@@ -658,6 +674,8 @@ private:
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termR2 = {r2_term_p, r2_term_z};
 
+  // clang-format on
+  */
   // collect all the terms
   // inline static term_set<P> const terms_ = {termC1, termC2, termC3, termE1,
   //                                          termE2, termE3, termR1, termR2};
