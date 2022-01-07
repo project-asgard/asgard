@@ -289,7 +289,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
         "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
-auto constexpr tol_factor = get_tolerance<TestType>(10000);
+    auto constexpr tol_factor = get_tolerance<TestType>(10000);
     test_gen_realspace_transform(*pde, gold_filename, tol_factor);
   }
 

@@ -210,8 +210,8 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
       adaptive_grid.get_initial_condition(*pde, transformer, opts);
 
   auto constexpr tol_factor = get_tolerance<P>(100);
-  auto const my_subgrid   = adaptive_grid.get_subgrid(get_rank());
-  auto const segment_size = element_segment_size(*pde);
+  auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
+  auto const segment_size   = element_segment_size(*pde);
   fk::vector<P, mem_type::const_view> const my_gold(
       gold, my_subgrid.col_start * segment_size,
       (my_subgrid.col_stop + 1) * segment_size - 1);

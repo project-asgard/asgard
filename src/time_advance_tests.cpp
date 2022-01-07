@@ -124,8 +124,8 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 
   SECTION("diffusion2, explicit, sparse grid, level 3, degree 3")
   {
-    int const degree = 3;
-    int const level  = 3;
+    int const degree          = 3;
+    int const level           = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
@@ -141,9 +141,9 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 
   SECTION("diffusion2, explicit, sparse grid, level 4, degree 4")
   {
-    int const degree = 4;
-    int const level  = 4;
-    auto constexpr tol_factor = get_tolerance<TestType>(1000000);
+    int const degree            = 4;
+    int const level             = 4;
+    auto constexpr tol_factor   = get_tolerance<TestType>(1000000);
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "diffusion2_sg_l4_d4_t";
 
@@ -157,7 +157,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 
   SECTION("diffusion2, explicit/non-uniform level, sparse grid, degree 2")
   {
-    int const degree = 2;
+    int const degree          = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     fk::vector<int> const levels{4, 5};
@@ -345,7 +345,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
   TestType const cfl = 0.01;
 
   auto constexpr tol_factor = get_tolerance<TestType>(10);
- 
+
   auto const num_dims = 1;
 
   SECTION("continuity1, explicit, level 2, degree 2, sparse grid")
@@ -399,8 +399,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
 {
   std::string const pde_choice = "continuity_2";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-  auto const num_dims = 2;
+  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto const num_dims          = 2;
 
   SECTION("continuity2, explicit, level 2, degree 2, sparse grid")
   {
@@ -468,8 +468,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
 {
   std::string const pde_choice = "continuity_3";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-  auto const num_dims = 3;
+  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto const num_dims          = 3;
 
   SECTION("continuity3, explicit, level 2, degree 2, sparse grid")
   {
@@ -525,8 +525,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
 {
   std::string const pde_choice = "continuity_6";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-  auto const num_dims = 6;
+  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto const num_dims          = 6;
 
   SECTION("continuity6, level 2, degree 3, sparse grid")
   {
@@ -564,8 +564,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
 {
   std::string const pde_choice = "fokkerplanck_1d_pitch_C";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-  auto const num_dims = 1;
+  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto const num_dims          = 1;
 
   SECTION("fokkerplanck_1d_pitch_C, level 2, degree 2, sparse grid")
   {
@@ -592,8 +592,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
 
   SECTION("fokkerplanck_1d_4p3, level 2, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 2;
+    int const degree          = 2;
+    int const level           = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     std::string const gold_base =
@@ -613,8 +613,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
 {
   std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-  auto const num_dims = 1;
+  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto const num_dims          = 1;
 
   SECTION("fokkerplanck_1d_pitch_E_case1, level 2, degree 2, sparse grid")
   {
@@ -637,8 +637,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
 {
   std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-  auto const num_dims = 1;
+  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto const num_dims          = 1;
 
   SECTION("fokkerplanck_1d_pitch_E_case2, level 2, degree 2, sparse grid")
   {
@@ -671,8 +671,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 #endif
   SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
   {
-    int const level  = 3;
-    int const degree = 3;
+    int const level           = 3;
+    int const degree          = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
@@ -696,8 +696,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 
   SECTION("fokkerplanck_2d_complete, level 4, degree 3, sparse grid")
   {
-    int const level  = 4;
-    int const degree = 3;
+    int const level           = 4;
+    int const degree          = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
@@ -721,8 +721,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 
   SECTION("fokkerplanck_2d_complete, level 5, degree 3, sparse grid")
   {
-    int const level  = 5;
-    int const degree = 3;
+    int const level           = 5;
+    int const degree          = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
@@ -773,8 +773,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
                    double, float)
 {
-  TestType const cfl     = 0.01;
-  std::string pde_choice = "diffusion_1";
+  TestType const cfl        = 0.01;
+  std::string pde_choice    = "diffusion_1";
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   auto const num_dims = 1;
@@ -812,8 +812,8 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
                    double, float)
 {
-  std::string pde_choice = "diffusion_2";
-  TestType const cfl     = 0.01;
+  std::string pde_choice    = "diffusion_2";
+  TestType const cfl        = 0.01;
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   auto const num_dims = 2;
@@ -919,8 +919,8 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
                    double)
 {
-  std::string pde_choice = "continuity_1";
-  TestType const cfl     = 0.01;
+  std::string pde_choice    = "continuity_1";
+  TestType const cfl        = 0.01;
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   auto const num_dims = 1;
@@ -1004,8 +1004,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
                    float, double)
 {
-  std::string pde_choice = "continuity_2";
-  TestType const cfl     = 0.01;
+  std::string pde_choice    = "continuity_2";
+  TestType const cfl        = 0.01;
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   auto const num_dims = 2;
@@ -1065,8 +1065,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
   SECTION("continuity2, level 4, degree 3, sparse grid, iterative")
   {
-    int const degree = 3;
-    int const level  = 4;
+    int const degree          = 3;
+    int const level           = 4;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     auto const gold_base = "../testing/generated-inputs/time_advance/"

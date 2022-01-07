@@ -6,7 +6,8 @@
 
 template<typename P>
 void test_coefficients(parser const &parse, std::string const &gold_path,
-                       P const tol_factor = get_tolerance<P>(10), bool const rotate = true)
+                       P const tol_factor = get_tolerance<P>(10),
+                       bool const rotate  = true)
 {
   auto pde = make_PDE<P>(parse);
   options const opts(parse);
