@@ -99,7 +99,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
           fk::vector<P> const left_bc =
               boundary_conditions::compute_left_boundary_condition(
-                  p_term.g_func, time, d, p_term.left_bc_funcs[dim_num]);
+                  p_term.g_func, p_term.dv_func, time, d,
+                  p_term.left_bc_funcs[dim_num]);
 
           /* compare to gold left bc */
           fk::vector<P> const gold_left_bc_vector =
@@ -113,7 +114,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
           fk::vector<P> const right_bc =
               boundary_conditions::compute_right_boundary_condition(
-                  p_term.g_func, time, d, p_term.right_bc_funcs[dim_num]);
+                  p_term.g_func, p_term.dv_func, time, d,
+                  p_term.right_bc_funcs[dim_num]);
           /* compare to gold right bc */
 
           std::string const gold_right_filename =
