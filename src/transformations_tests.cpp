@@ -236,7 +236,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
         "../testing/generated-inputs/transformations/"
         "wavelet_to_realspace_continuity_2.dat";
 
-    auto constexpr tol_factor = get_tolerance<TestType>(1000);
+    auto constexpr tol_factor = get_tolerance<TestType>(100000);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
   }
 
