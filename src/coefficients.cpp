@@ -143,7 +143,8 @@ fk::matrix<P> generate_coefficients(
       fk::vector<P> g(quadrature_points_i.size());
       for (auto i = 0; i < quadrature_points_i.size(); ++i)
       {
-        g(i) = pterm.g_func(quadrature_points_i(i), time);
+        g(i) = pterm.g_func(quadrature_points_i(i), time) *
+               pterm.dv_func(quadrature_points_i(i), time);
       }
       return g;
     }();
@@ -166,7 +167,8 @@ fk::matrix<P> generate_coefficients(
       {
         block = legendre_poly_t * tmp;
       }
-      else if (pterm.coeff_type == coefficient_type::grad)
+      else if (pterm.coeff_type == coefficient_type::grad ||
+               pterm.coeff_type == coefficient_type::div)
       {
         block = legendre_prime_t * tmp * (-1);
       }
@@ -181,7 +183,8 @@ fk::matrix<P> generate_coefficients(
         block;
     coefficients.set_submatrix(current, current, curr_block);
 
-    if (pterm.coeff_type == coefficient_type::grad)
+    if (pterm.coeff_type == coefficient_type::grad ||
+        pterm.coeff_type == coefficient_type::div)
     {
       // setup numerical flux choice/boundary conditions
       //
@@ -196,8 +199,10 @@ fk::matrix<P> generate_coefficients(
       // the dat is going to be used in the G function (above it is used as
       // linear multuplication but this is not always true)
 
-      auto const flux_left  = pterm.g_func(x_left, time);
-      auto const flux_right = pterm.g_func(x_right, time);
+      auto const flux_left =
+          pterm.g_func(x_left, time) * pterm.dv_func(x_left, time);
+      auto const flux_right =
+          pterm.g_func(x_right, time) * pterm.dv_func(x_right, time);
 
       // get the "trace" values
       // (values at the left and right of each element for all k)
@@ -221,8 +226,10 @@ fk::matrix<P> generate_coefficients(
       // If dirichelt
       // u^-_LEFT = g(LEFT)
       // u^+_RIGHT = g(RIGHT)
+      boundary_condition const left  = pterm.ileft;
+      boundary_condition const right = pterm.iright;
 
-      if (pterm.left == boundary_condition::dirichlet) // left dirichlet
+      if (left == boundary_condition::dirichlet) // left dirichlet
       {
         if (i == 0)
         {
@@ -241,7 +248,7 @@ fk::matrix<P> generate_coefficients(
         }
       }
 
-      if (pterm.right == boundary_condition::dirichlet) // right dirichlet
+      if (right == boundary_condition::dirichlet) // right dirichlet
       {
         if (i == num_points - 1)
         {
@@ -266,7 +273,7 @@ fk::matrix<P> generate_coefficients(
       // q*num_points = g (=> q = g for 1D variable)
       // only work for derivatives greater than 1
 
-      if (pterm.left == boundary_condition::neumann) // left neumann
+      if (left == boundary_condition::neumann) // left neumann
       {
         if (i == 0)
         {
@@ -285,7 +292,7 @@ fk::matrix<P> generate_coefficients(
         }
       }
 
-      if (pterm.right == boundary_condition::neumann) // right neumann
+      if (right == boundary_condition::neumann) // right neumann
       {
         if (i == num_points - 1)
         {
@@ -304,69 +311,74 @@ fk::matrix<P> generate_coefficients(
         }
       }
 
-      if (pterm.coeff_type == coefficient_type::grad)
+      // Add trace values to matrix
+
+      int row1 = current;
+      int col1 = current - dim.get_degree();
+
+      int row2 = current;
+      int col2 = current;
+
+      int row3 = current;
+      int col3 = current;
+
+      int row4 = current;
+      int col4 = current + dim.get_degree();
+
+      if (left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
       {
-        // Add trace values to matrix
-
-        int row1 = current;
-        int col1 = current - dim.get_degree();
-
-        int row2 = current;
-        int col2 = current;
-
-        int row3 = current;
-        int col3 = current;
-
-        int row4 = current;
-        int col4 = current + dim.get_degree();
-
-        if (pterm.left == boundary_condition::periodic ||
-            pterm.right == boundary_condition::periodic)
+        if (i == 0)
         {
-          if (i == 0)
-          {
-            row1 = current;
-            col1 = last;
-          }
-          if (i == num_points - 1)
-          {
-            row4 = current;
-            col4 = first;
-          }
+          row1 = current;
+          col1 = last;
         }
-
-        if (i != 0 || pterm.left == boundary_condition::periodic ||
-            pterm.right == boundary_condition::periodic)
+        if (i == num_points - 1)
         {
-          // Add trace part 1
-          fk::matrix<P, mem_type::view> block1(
-              coefficients, row1, row1 + dim.get_degree() - 1, col1,
-              col1 + dim.get_degree() - 1);
-          block1 = block1 + trace_value_1;
-        }
-
-        // Add trace part 2
-        fk::matrix<P, mem_type::view> block2(coefficients, row2,
-                                             row2 + dim.get_degree() - 1, col2,
-                                             col2 + dim.get_degree() - 1);
-        block2 = block2 + trace_value_2;
-
-        // Add trace part 3
-        fk::matrix<P, mem_type::view> block3(coefficients, row3,
-                                             row3 + dim.get_degree() - 1, col3,
-                                             col3 + dim.get_degree() - 1);
-        block3 = block3 + trace_value_3;
-        if (i != num_points - 1 || pterm.left == boundary_condition::periodic ||
-            pterm.right == boundary_condition::periodic)
-        {
-          // Add trace part 4
-          fk::matrix<P, mem_type::view> block4(
-              coefficients, row4, row4 + dim.get_degree() - 1, col4,
-              col4 + dim.get_degree() - 1);
-          block4 = block4 + trace_value_4;
+          row4 = current;
+          col4 = first;
         }
       }
+
+      if (i != 0 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 1
+        fk::matrix<P, mem_type::view> block1(coefficients, row1,
+                                             row1 + dim.get_degree() - 1, col1,
+                                             col1 + dim.get_degree() - 1);
+        block1 = block1 + trace_value_1;
+      }
+
+      // Add trace part 2
+      fk::matrix<P, mem_type::view> block2(coefficients, row2,
+                                           row2 + dim.get_degree() - 1, col2,
+                                           col2 + dim.get_degree() - 1);
+      block2 = block2 + trace_value_2;
+
+      // Add trace part 3
+      fk::matrix<P, mem_type::view> block3(coefficients, row3,
+                                           row3 + dim.get_degree() - 1, col3,
+                                           col3 + dim.get_degree() - 1);
+      block3 = block3 + trace_value_3;
+      if (i != num_points - 1 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 4
+        fk::matrix<P, mem_type::view> block4(coefficients, row4,
+                                             row4 + dim.get_degree() - 1, col4,
+                                             col4 + dim.get_degree() - 1);
+        block4 = block4 + trace_value_4;
+      }
     }
+  }
+
+  if (pterm.coeff_type == coefficient_type::grad)
+  {
+    // take the negative transpose of div
+    coefficients.transpose();
+    std::transform(coefficients.begin(), coefficients.end(),
+                   coefficients.begin(), [&](P const elem) { return -elem; });
   }
 
   if (rotate)
