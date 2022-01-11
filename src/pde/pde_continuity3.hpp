@@ -272,7 +272,7 @@ private:
       dimension<P>(-1.0,                   // domain min
                    1.0,                    // domain max
                    2,                      // levels
-                   2,                      // degree
+                   5,                      // degree
                    initial_condition_dim0, // initial condition
                    moment_dV,
                    "x"); // name
@@ -281,7 +281,7 @@ private:
       dimension<P>(-2.0,                   // domain min
                    2.0,                    // domain max
                    2,                      // levels
-                   2,                      // degree
+                   4,                      // degree
                    initial_condition_dim1, // initial condition
                    moment_dV,
                    "y"); // name
@@ -290,7 +290,7 @@ private:
       dimension<P>(-3.0,                   // domain min
                    3.0,                    // domain max
                    2,                      // levels
-                   2,                      // degree
+                   3,                      // degree
                    initial_condition_dim2, // initial condition
                    moment_dV,
                    "z"); // name
@@ -314,7 +314,7 @@ private:
 
   // term 0
   inline static partial_term<P> const partial_term_t0_d0 = partial_term<P>(
-      coefficient_type::grad, g_func_t0_d0, g_func_identity, flux_type::central,
+      coefficient_type::div, g_func_t0_d0, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_dim0_ =
@@ -327,7 +327,7 @@ private:
 
   // term 1
   inline static partial_term<P> const partial_term_t1_d1 = partial_term<P>(
-      coefficient_type::grad, g_func_t1_d1, g_func_identity, flux_type::central,
+      coefficient_type::div, g_func_t1_d1, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_dim1_ =
@@ -340,7 +340,7 @@ private:
 
   // term 2
   inline static partial_term<P> const partial_term_t2_d2 = partial_term<P>(
-      coefficient_type::grad, g_func_t2_d2, g_func_identity, flux_type::central,
+      coefficient_type::div, g_func_t2_d2, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term2_dim2_ =
