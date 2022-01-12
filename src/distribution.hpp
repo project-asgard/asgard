@@ -9,6 +9,10 @@
 #pragma GCC diagnostic pop
 #endif
 
+#ifdef ASGARD_USE_SCALAPACK
+#include "cblacs_grid.hpp"
+#endif
+
 #include <list>
 #include <map>
 #include <vector>
@@ -308,3 +312,7 @@ template<typename P>
 fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r);
 
 void bcast(int *value, int size, int rank);
+
+#ifdef ASGARD_USE_SCALAPACK
+std::shared_ptr<cblacs_grid> get_grid();
+#endif

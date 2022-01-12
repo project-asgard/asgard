@@ -17,14 +17,14 @@ TEST_CASE("Generating a cblacs grid.", "[cblacs_grid]")
   int myrank    = get_rank();
   int num_ranks = get_num_ranks();
   int nprow     = std::sqrt(num_ranks);
-  cblacs_grid grid;
-  int myrow = grid.get_myrow();
-  int mycol = grid.get_mycol();
+  auto grid     = get_grid();
+  int myrow     = grid->get_myrow();
+  int mycol     = grid->get_mycol();
   REQUIRE(myrank / nprow == myrow);
   REQUIRE(myrank % nprow == mycol);
 
-  int local_rows = grid.local_rows(4, 1);
-  int local_cols = grid.local_cols(4, 1);
+  int local_rows = grid->local_rows(4, 1);
+  int local_cols = grid->local_cols(4, 1);
   if (num_ranks == 4)
   {
     // 4 elements on each process
@@ -36,8 +36,8 @@ TEST_CASE("Generating a cblacs grid.", "[cblacs_grid]")
     REQUIRE(local_rows * local_cols == 16);
   }
 
-  local_rows = grid.local_rows(4, 256);
-  local_cols = grid.local_cols(4, 256);
+  local_rows = grid->local_rows(4, 256);
+  local_cols = grid->local_cols(4, 256);
   if (myrank == 0)
   {
     // 16 elements on zeroth proces

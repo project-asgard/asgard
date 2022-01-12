@@ -256,7 +256,7 @@ implicit_advance(PDE<P> const &pde,
 {
   expect(time >= 0);
 #ifdef ASGARD_USE_SCALAPACK
-  std::shared_ptr<cblacs_grid> sgrid = std::make_shared<cblacs_grid>();
+  auto sgrid = get_grid();
 #endif
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;

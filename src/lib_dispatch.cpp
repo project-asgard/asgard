@@ -1,6 +1,5 @@
 #include "lib_dispatch.hpp"
 #include "build_info.hpp"
-#include "cblacs_grid.hpp"
 #include "distribution.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"

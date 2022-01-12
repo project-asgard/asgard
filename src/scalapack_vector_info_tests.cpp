@@ -43,7 +43,7 @@ TEST_CASE("Generating scalapack vector info serial", "[scalapack_vector_info]")
 TEST_CASE("Generating scalapack vector info parallel",
           "[scalapack_vector_info]")
 {
-  auto grid = std::make_shared<cblacs_grid>();
+  auto grid = get_grid();
   int size{4};
   int mb{2};
   fk::scalapack_vector_info info(size, mb, grid);

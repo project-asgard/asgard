@@ -1120,6 +1120,14 @@ void bcast(int *value, int size, int rank)
 #endif
 }
 
+#ifdef ASGARD_USE_SCALAPACK
+std::shared_ptr<cblacs_grid> get_grid()
+{
+  auto grid = std::make_shared<cblacs_grid>(distro_handle.get_global_comm());
+  return grid;
+}
+#endif
+
 template void reduce_results(fk::vector<float> const &source,
                              fk::vector<float> &dest,
                              distribution_plan const &plan, int const my_rank);
