@@ -33,6 +33,8 @@ using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
+using g_func_type = std::function<double(double const, double const)>;
+
 //----------------------------------------------------------------------------
 //
 // Define member classes of the PDE type: dimension, term, source
@@ -76,11 +78,11 @@ public:
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
-  vector_func<P> const moment_dV;
+  g_func_type const moment_dV;
   std::string const name;
   dimension(P const domain_min, P const domain_max, int const level,
             int const degree, vector_func<P> const initial_condition,
-            vector_func<P> const moment_dV, std::string const name)
+            g_func_type const moment_dV, std::string const name)
 
       : domain_min(domain_min), domain_max(domain_max),
         initial_condition(initial_condition), moment_dV(moment_dV), name(name)
@@ -139,7 +141,6 @@ enum class flux_type
 // do dimensions own terms? need dimension info in
 // term construction...
 
-using g_func_type = std::function<double(double const, double const)>;
 
 template<typename P>
 class partial_term
@@ -204,10 +205,17 @@ public:
 
   fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 
+  fk::matrix<P> const &get_lhs_mass() const { return mass_; }
+
   void set_coefficients(fk::matrix<P> const &new_coefficients)
   {
     this->coefficients_.clear_and_resize(
         new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
+  }
+
+  void set_mass(fk::matrix<P> const &new_mass)
+  {
+    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
   }
 
   boundary_condition set_bilinear_boundary(boundary_condition const bc)
@@ -244,6 +252,7 @@ public:
 
 private:
   fk::matrix<P> coefficients_;
+  fk::matrix<P> mass_;
 };
 
 template<typename P>

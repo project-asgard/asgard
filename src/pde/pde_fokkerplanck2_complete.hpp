@@ -164,23 +164,19 @@ private:
     return ret;
   }
 
-  static fk::vector<P> moment_dV_p(fk::vector<P> const x, P const t = 0)
+ static P moment_dV_p(P const x, P const time)
   {
-    ignore(t);
-    // TODO: change this to be more compact
-    auto const function = [](fk::vector<P> const &p) -> fk::vector<P> {
-      fk::vector<P> transformed(p);
-      std::transform(p.begin(), p.end(), transformed.begin(),
-                     [](P const p_elem) -> P { return std::pow(p_elem, 2); });
-      return transformed;
-    };
-    return function(x);
+    // suppress compiler warnings
+    ignore(time);
+    return std::pow(x, 2);
   }
 
-  static fk::vector<P> moment_dV_z(fk::vector<P> const x, P const t = 0)
+  static P moment_dV_z(P const x, P const time)
   {
-    ignore(t);
-    return fk::vector<P>(std::vector<P>(x.size(), 1.0));
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
   }
 
   // initial conditionn in z

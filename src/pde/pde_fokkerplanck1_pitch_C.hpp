@@ -93,10 +93,12 @@ private:
     return 1.0;
   }
 
-  static fk::vector<P> moment_dV(fk::vector<P> const x, P const t = 0)
+  static P moment_dV(P const x, P const time)
   {
-    ignore(t);
-    return fk::vector<P>(std::vector<P>(x.size(), 1.0));
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
   }
 
   // specify source functions...

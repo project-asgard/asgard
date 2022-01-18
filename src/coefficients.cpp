@@ -30,8 +30,23 @@ void generate_all_coefficients(
 
       for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
       {
-        auto const partial_term_coeff = generate_coefficients<P>(
+        auto partial_term_coeff = generate_coefficients<P>(
             dim, term_1D, partial_terms[k], transformer, time, rotate);
+
+        // TODO: refactor these changes, this is slow!
+        partial_term<P> const lhs_mass_pterm = partial_term<P>(
+            coefficient_type::mass, partial_terms[k].lhs_mass_func,
+            partial_term<P>::null_gfunc, flux_type::central,
+            boundary_condition::periodic, boundary_condition::periodic,
+            homogeneity::homogeneous, homogeneity::homogeneous, {},
+            partial_term<P>::null_scalar_func, {},
+            partial_term<P>::null_scalar_func, dim.moment_dV);
+
+        auto mass_coeff = generate_coefficients<P>(dim, term_1D, lhs_mass_pterm,
+                                                   transformer, time, rotate);
+
+        fm::gemm(mass_coeff.invert(), partial_term_coeff, partial_term_coeff);
+
         pde.set_partial_coefficients(j, i, k, partial_term_coeff);
       }
     }
