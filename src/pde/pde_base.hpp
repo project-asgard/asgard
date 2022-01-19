@@ -296,6 +296,13 @@ public:
     partial_terms_[pterm].set_coefficients(coeffs);
   }
 
+  void set_lhs_mass(fk::matrix<P> const &mass, int const pterm)
+  {
+    expect(pterm >= 0);
+    expect(pterm < static_cast<int>(partial_terms_.size()));
+    partial_terms_[pterm].set_mass(mass);
+  }
+
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients() const
   {
@@ -551,6 +558,16 @@ public:
     expect(dim >= 0);
     expect(dim < num_dims);
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
+  }
+
+  void set_lhs_mass(int const term, int const dim, int const pterm,
+                    fk::matrix<P> const &mass)
+  {
+    expect(term >= 0);
+    expect(term < num_terms);
+    expect(dim >= 0);
+    expect(dim < num_dims);
+    terms_[term][dim].set_lhs_mass(mass, pterm);
   }
 
   void update_dimension(int const dim_index, int const new_level)
