@@ -16,7 +16,7 @@ void test_initial_condition(PDE<P> const &pde, std::string const base_dir,
         base_dir + "initial_dim" + std::to_string(i) + ".dat"));
     auto const fx   = pde.get_dimensions()[i].initial_condition(x, 0);
 
-    P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+    auto constexpr tol_factor = get_tolerance<P>(10);
 
     rmse_comparison(fx, gold, tol_factor);
   }
@@ -31,7 +31,7 @@ void test_exact_solution(PDE<P> const &pde, std::string const base_dir,
     return;
   }
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+  auto constexpr tol_factor = get_tolerance<P>(10);
 
   for (auto i = 0; i < pde.num_dims; ++i)
   {
@@ -50,7 +50,7 @@ template<typename P>
 void test_source_vectors(PDE<P> const &pde, std::string const base_dir,
                          fk::vector<P> const &x, P const time)
 {
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+  auto constexpr tol_factor = get_tolerance<P>(10);
 
   for (auto i = 0; i < pde.num_sources; ++i)
   {

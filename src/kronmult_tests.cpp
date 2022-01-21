@@ -61,8 +61,7 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
 
 TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
 {
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-7;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("1d")
   {
@@ -116,8 +115,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
 
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
 {
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1.1e-7;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("2d - uniform level")
   {

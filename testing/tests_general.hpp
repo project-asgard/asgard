@@ -15,6 +15,12 @@
 #include <utility>
 #include <vector>
 
+template<typename P>
+constexpr P get_tolerance(int ulp)
+{
+  return std::numeric_limits<P>::epsilon()*ulp;
+}
+
 /* These functions implement: norm( v0 - v1 ) < tolerance * max( norm(v0),
  * norm(v1) )*/
 template<typename P, mem_type mem, mem_type omem>
@@ -31,7 +37,7 @@ void rmse_comparison(fk::vector<P, mem> const &v0,
       static_cast<P>(1.0),
       std::max(std::abs(*std::max_element(v0.begin(), v0.end(), abs_compare)),
                std::abs(*std::max_element(v1.begin(), v1.end(), abs_compare))));
-  Catch::StringMaker<P>::precision = 15;
+  Catch::StringMaker<P>::precision = 20;
   REQUIRE((diff_norm / max) < (tolerance * std::sqrt(v0.size())));
 }
 

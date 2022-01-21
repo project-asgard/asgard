@@ -16,14 +16,21 @@ function (register_project name dir url default_tag)
     set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
     set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
 
-#  Set up the sub project repository.
+    #Check for optional patch file.
+    set(PATCH_COMMAND "")
+    if(${ARGC} EQUAL 5)
+        find_package(Git)
+        set(_apply_flags --ignore-space-change --whitespace=fix)
+        set(PATCH_COMMAND "${GIT_EXECUTABLE}" reset --hard ${BUILD_TAG_${dir}} COMMAND "${GIT_EXECUTABLE}" apply ${_apply_flags} "${ARGV4}")
+    endif()
+    #  Set up the sub project repository.
     FetchContent_Declare(
         ${name}
         GIT_REPOSITORY ${BUILD_REPO_${dir}}
         GIT_TAG ${BUILD_TAG_${dir}}
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
+	PATCH_COMMAND ${PATCH_COMMAND}
     )
-
     FetchContent_MakeAvailable(${name})
 endfunction ()
 

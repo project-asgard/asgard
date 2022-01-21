@@ -77,8 +77,7 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 {
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+  auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   SECTION("Multiwavelet generation, degree = 1")
   {
@@ -113,7 +112,7 @@ void test_operator_two_scale(int const levels, int const degree)
       std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  P const tol_factor = 1e-14;
+  auto constexpr tol_factor = get_tolerance<P>(10);
 
   rmse_comparison(gold, test, tol_factor);
 }

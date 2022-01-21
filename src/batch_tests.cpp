@@ -641,7 +641,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     return fk::matrix<P, mem_type::const_view>(c, 0, m - 1, 0, n - 1);
   };
 
-  P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-6;
+  auto constexpr tol_factor = get_tolerance<P>(10);
 
   for (int i = 0; i < num_batch; ++i)
   {
@@ -864,7 +864,8 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
   batched_gemv(a_batch, x_batch, y_batch, alpha, beta);
 
-  P const tol_factor = 1e-17;
+  auto constexpr tol_factor = get_tolerance<P>(10);
+
   for (int i = 0; i < num_batch; ++i)
   {
     if constexpr (resrc == resource::host)

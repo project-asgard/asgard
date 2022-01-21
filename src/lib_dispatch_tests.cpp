@@ -950,7 +950,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
     }
     else
     {
-      P const tol_factor = std::is_same<P, double>::value ? 1e-15 : 1e-7;
+      auto constexpr tol_factor = get_tolerance<P>(10);
       rmse_comparison(effect_c(matrices[2][i].clone_onto_host()),
                       effect_c(matrices[3][i].clone_onto_host()), tol_factor);
     }
@@ -1179,7 +1179,7 @@ TEMPLATE_TEST_CASE_SIG("batched gemv", "[lib_dispatch]",
                        (double, resource::host), (double, resource::device),
                        (float, resource::host), (float, resource::device))
 {
-  TestType const tol_factor = 1e-18;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {
@@ -1264,8 +1264,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
     lib_dispatch::gesv(&rows_A, &cols_B, A_copy.data(), &lda, ipiv.data(),
                        x.data(), &ldb, &info);
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-16 : 1e-7;
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     REQUIRE(info == 0);
     rmse_comparison(A_copy, LU_gold, tol_factor);
