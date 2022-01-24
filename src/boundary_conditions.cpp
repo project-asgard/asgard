@@ -63,7 +63,7 @@ std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
 
           std::vector<fk::vector<P>> p_term_left_bcs = generate_partial_bcs(
               dimensions, dim_num, p_term.left_bc_funcs, transformer, t_init,
-              partial_terms, p_num, std::move(trace_bc));
+              terms_vec, partial_terms, p_num, std::move(trace_bc));
 
           fk::vector<P> combined =
               combine_dimensions(d.get_degree(), table, start_element,
@@ -80,7 +80,7 @@ std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
 
           std::vector<fk::vector<P>> p_term_right_bcs = generate_partial_bcs(
               dimensions, dim_num, p_term.right_bc_funcs, transformer, t_init,
-              partial_terms, p_num, std::move(trace_bc));
+              terms_vec, partial_terms, p_num, std::move(trace_bc));
 
           fk::vector<P> combined =
               combine_dimensions(d.get_degree(), table, start_element,
@@ -260,8 +260,9 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const time, std::vector<partial_term<P>> const &partial_terms,
-    int const p_index, fk::vector<P> &&trace_bc)
+    P const time, std::vector<term<P>> const &terms,
+    std::vector<partial_term<P>> const &partial_terms, int const p_index,
+    fk::vector<P> &&trace_bc)
 {
   expect(d_index < static_cast<int>(dimensions.size()));
 
@@ -269,8 +270,38 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
 
   for (int dim_num = 0; dim_num < d_index; ++dim_num)
   {
-    partial_bc_vecs.emplace_back(forward_transform(
-        dimensions[dim_num], bc_funcs[dim_num], transformer, time));
+    auto const &f = bc_funcs[dim_num];
+    auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
+    vector_func<P> const bc_func = [f, g](fk::vector<P> const x, P const t) {
+      // evaluate f(x,t) * g(x,t)
+      fk::vector<P> fx(f(x, t));
+      std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                     [g, t](P f_elem, P const x_elem) -> P {
+                       return f_elem * g(x_elem, t);
+                     });
+      return fx;
+    };
+    // TODO: add dV to forward transform
+    partial_bc_vecs.emplace_back(
+        forward_transform(dimensions[dim_num], bc_func, transformer, time));
+
+    // Apply inverse mat
+    int n = partial_bc_vecs.back().size();
+    std::vector<int> ipiv(n);
+    fk::matrix<P, mem_type::const_view> const lhs_mass(
+        terms[dim_num].get_partial_terms()[p_index].get_lhs_mass(), 0, n - 1, 0,
+        n - 1);
+    // TODO: verify the following call is correct
+    fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
+
+    // Apply previous pterms
+    for (int p_num = 0; p_num < p_index; ++p_num)
+    {
+      fk::matrix<P, mem_type::const_view> const pterm_coeffs(
+          terms[dim_num].get_partial_terms()[p_num].get_coefficients(), 0,
+          n - 1, 0, n - 1);
+      fm::gemv(pterm_coeffs, partial_bc_vecs.back(), partial_bc_vecs.back());
+    }
   }
 
   partial_bc_vecs.emplace_back(std::move(trace_bc));
@@ -278,25 +309,24 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
       transformer.apply(partial_bc_vecs.back(), dimensions[d_index].get_level(),
                         basis::side::left, basis::transpose::no_trans);
 
-  if (p_index > 0)
+  // FIXME assume uniform level across dimensions
+  auto const degrees_freedom_1d =
+      dimensions[d_index].get_degree() *
+      fm::two_raised_to(dimensions[d_index].get_level());
+  fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
+
+  // TODO: apply LHS_mass_mat for this pterm
+
+  for (int p = 0; p < p_index; ++p)
   {
-    // FIXME assume uniform level across dimensions
-    auto const degrees_freedom_1d =
-        dimensions[d_index].get_degree() *
-        fm::two_raised_to(dimensions[d_index].get_level());
-    fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
-
-    for (int p = 0; p < p_index; ++p)
-    {
-      fk::matrix<P, mem_type::const_view> const next_coeff(
-          partial_terms[p].get_coefficients(), 0, degrees_freedom_1d - 1, 0,
-          degrees_freedom_1d - 1);
-      fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
-    }
-
-    fm::gemv(chain, fk::vector<P>(partial_bc_vecs.back()),
-             partial_bc_vecs.back());
+    fk::matrix<P, mem_type::const_view> const next_coeff(
+        partial_terms[p].get_coefficients(), 0, degrees_freedom_1d - 1, 0,
+        degrees_freedom_1d - 1);
+    fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
   }
+
+  fm::gemv(chain, fk::vector<P>(partial_bc_vecs.back()),
+           partial_bc_vecs.back());
 
   for (int dim_num = d_index + 1; dim_num < static_cast<int>(dimensions.size());
        ++dim_num)
@@ -352,12 +382,14 @@ boundary_conditions::generate_partial_bcs(
     std::vector<dimension<double>> const &dimensions, int const d_index,
     std::vector<vector_func<double>> const &bc_funcs,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    double const time, std::vector<partial_term<double>> const &partial_terms,
-    int const p_index, fk::vector<double> &&trace_bc);
+    double const time, std::vector<term<double>> const &terms,
+    std::vector<partial_term<double>> const &partial_terms, int const p_index,
+    fk::vector<double> &&trace_bc);
 template std::vector<fk::vector<float>>
 boundary_conditions::generate_partial_bcs(
     std::vector<dimension<float>> const &dimensions, int const d_index,
     std::vector<vector_func<float>> const &bc_funcs,
     basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, std::vector<partial_term<float>> const &partial_terms,
-    int const p_index, fk::vector<float> &&trace_bc);
+    float const time, std::vector<term<float>> const &terms,
+    std::vector<partial_term<float>> const &partial_terms, int const p_index,
+    fk::vector<float> &&trace_bc);

@@ -42,7 +42,8 @@ std::vector<fk::vector<P>> generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const time, std::vector<partial_term<P>> const &partial_terms,
-    int const p_index, fk::vector<P> &&trace_bc);
+    P const time, std::vector<term<P>> const &terms,
+    std::vector<partial_term<P>> const &partial_terms, int const p_index,
+    fk::vector<P> &&trace_bc);
 
 } // namespace boundary_conditions

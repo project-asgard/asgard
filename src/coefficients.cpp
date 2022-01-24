@@ -45,6 +45,8 @@ void generate_all_coefficients(
         auto mass_coeff = generate_coefficients<P>(dim, term_1D, lhs_mass_pterm,
                                                    transformer, time, rotate);
 
+        pde.set_lhs_mass(j, i, k, mass_coeff);
+
         fm::gemm(mass_coeff.invert(), partial_term_coeff, partial_term_coeff);
 
         pde.set_partial_coefficients(j, i, k, partial_term_coeff);
