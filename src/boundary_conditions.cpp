@@ -315,7 +315,12 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
       fm::two_raised_to(dimensions[d_index].get_level());
   fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
 
-  // TODO: apply LHS_mass_mat for this pterm
+  // Apply LHS_mass_mat for this pterm
+  std::vector<int> ipiv(degrees_freedom_1d);
+  fk::matrix<P, mem_type::const_view> const lhs_mass(
+      terms[d_index].get_partial_terms()[p_index].get_lhs_mass(), 0,
+      degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
+  fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
 
   for (int p = 0; p < p_index; ++p)
   {
