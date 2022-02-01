@@ -281,9 +281,10 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
                      });
       return fx;
     };
-    // TODO: add dV to forward transform
     partial_bc_vecs.emplace_back(
-        forward_transform(dimensions[dim_num], bc_func, transformer, time));
+        forward_transform(dimensions[dim_num], bc_func,
+                          terms[dim_num].get_partial_terms()[p_index].dv_func,
+                          transformer, time));
 
     // Apply inverse mat
     int n = partial_bc_vecs.back().size();
@@ -336,8 +337,9 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
   for (int dim_num = d_index + 1; dim_num < static_cast<int>(dimensions.size());
        ++dim_num)
   {
-    partial_bc_vecs.emplace_back(forward_transform(
-        dimensions[dim_num], bc_funcs[dim_num], transformer, time));
+    partial_bc_vecs.emplace_back(
+        forward_transform(dimensions[dim_num], bc_funcs[dim_num],
+                          partial_term<P>::null_gfunc, transformer, time));
   }
 
   return partial_bc_vecs;
