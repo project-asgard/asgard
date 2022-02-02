@@ -93,6 +93,12 @@ public:
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
+  fk::matrix<P> const &get_mass_matrix() const { return mass_; }
+
+  void set_mass_matrix(fk::matrix<P> const &new_mass)
+  {
+    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
+  }
 
 private:
   void set_level(int const level)
@@ -109,6 +115,7 @@ private:
 
   int level_;
   int degree_;
+  fk::matrix<P> mass_;
 
   friend class PDE<P>;
 };

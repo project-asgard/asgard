@@ -168,7 +168,11 @@ inline fk::vector<P> transform_and_combine_dimensions(
     auto const &dim = dimensions[i];
     dimension_components.push_back(forward_transform<P>(
         dim, v_functions[i], dim.moment_dV, transformer, time));
-    // TODO: add mass_matrix \ fList, md_eval_function:21
+    int const n = dimension_components.back().size();
+    std::vector<int> ipiv(n);
+    fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
+                                                       n - 1, 0, n - 1);
+    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
   }
 
   return combine_dimensions(degree, table, start, stop, dimension_components,

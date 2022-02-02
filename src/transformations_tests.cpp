@@ -158,8 +158,8 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
             "../testing/generated-inputs/transformations/forward_transform_" +
             std::to_string(degree) + "_" + std::to_string(levels) +
             "_neg2_pos2_doubleplus.dat"));
-    fk::vector<TestType> const test =
-        forward_transform<TestType>(dim, double_plus, partial_term<TestType>::null_gfunc, transformer);
+    fk::vector<TestType> const test = forward_transform<TestType>(
+        dim, double_plus, partial_term<TestType>::null_gfunc, transformer);
 
     rmse_comparison(gold, test, tol_factor);
   }
