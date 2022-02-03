@@ -267,8 +267,12 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
   expect(d_index < static_cast<int>(dimensions.size()));
 
   std::vector<fk::vector<P>> partial_bc_vecs;
+  auto const degrees_freedom_1d =
+      dimensions[d_index].get_degree() *
+      fm::two_raised_to(dimensions[d_index].get_level());
 
-  for (int dim_num = 0; dim_num < d_index; ++dim_num)
+  for (int dim_num = 0; dim_num < static_cast<int>(dimensions.size());
+       ++dim_num)
   {
     auto const &f = bc_funcs[dim_num];
     auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
@@ -287,12 +291,10 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
                           transformer, time));
 
     // Apply inverse mat
-    int n = partial_bc_vecs.back().size();
-    std::vector<int> ipiv(n);
+    std::vector<int> ipiv(degrees_freedom_1d);
     fk::matrix<P, mem_type::const_view> const lhs_mass(
-        terms[dim_num].get_partial_terms()[p_index].get_lhs_mass(), 0, n - 1, 0,
-        n - 1);
-    // TODO: verify the following call is correct
+        terms[dim_num].get_partial_terms()[p_index].get_lhs_mass(), 0,
+        degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
     fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
 
     // Apply previous pterms
@@ -300,20 +302,17 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     {
       fk::matrix<P, mem_type::const_view> const pterm_coeffs(
           terms[dim_num].get_partial_terms()[p_num].get_coefficients(), 0,
-          n - 1, 0, n - 1);
+          degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
       fm::gemv(pterm_coeffs, partial_bc_vecs.back(), partial_bc_vecs.back());
     }
   }
 
-  partial_bc_vecs.emplace_back(std::move(trace_bc));
-  partial_bc_vecs.back() =
-      transformer.apply(partial_bc_vecs.back(), dimensions[d_index].get_level(),
-                        basis::side::left, basis::transpose::no_trans);
+  partial_bc_vecs.at(d_index) = std::move(trace_bc);
+  partial_bc_vecs.at(d_index) = transformer.apply(
+      partial_bc_vecs.at(d_index), dimensions[d_index].get_level(),
+      basis::side::left, basis::transpose::no_trans);
 
   // FIXME assume uniform level across dimensions
-  auto const degrees_freedom_1d =
-      dimensions[d_index].get_degree() *
-      fm::two_raised_to(dimensions[d_index].get_level());
   fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
 
   // Apply LHS_mass_mat for this pterm
@@ -321,7 +320,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
   fk::matrix<P, mem_type::const_view> const lhs_mass(
       terms[d_index].get_partial_terms()[p_index].get_lhs_mass(), 0,
       degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
-  fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
+  fm::gesv(lhs_mass, partial_bc_vecs.at(d_index), ipiv);
 
   for (int p = 0; p < p_index; ++p)
   {
@@ -331,16 +330,8 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
   }
 
-  fm::gemv(chain, fk::vector<P>(partial_bc_vecs.back()),
-           partial_bc_vecs.back());
-
-  for (int dim_num = d_index + 1; dim_num < static_cast<int>(dimensions.size());
-       ++dim_num)
-  {
-    partial_bc_vecs.emplace_back(
-        forward_transform(dimensions[dim_num], bc_funcs[dim_num],
-                          partial_term<P>::null_gfunc, transformer, time));
-  }
+  fm::gemv(chain, fk::vector<P>(partial_bc_vecs.at(d_index)),
+           partial_bc_vecs.at(d_index));
 
   return partial_bc_vecs;
 }
