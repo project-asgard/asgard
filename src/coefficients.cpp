@@ -47,9 +47,11 @@ void generate_all_coefficients(
 
         pde.set_lhs_mass(j, i, k, mass_coeff);
 
-        fm::gemm(mass_coeff.invert(), partial_term_coeff, partial_term_coeff);
+        fk::matrix<P> result(partial_term_coeff.nrows(),
+                             partial_term_coeff.ncols());
 
-        pde.set_partial_coefficients(j, i, k, partial_term_coeff);
+        fm::gemm(mass_coeff.invert(), partial_term_coeff, result);
+        pde.set_partial_coefficients(j, i, k, result);
       }
     }
     pde.rechain_dimension(i);
