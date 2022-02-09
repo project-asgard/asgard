@@ -164,7 +164,7 @@ private:
     return ret;
   }
 
- static P moment_dV_p(P const x, P const time)
+  static P moment_dV_p(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(time);
@@ -192,8 +192,8 @@ private:
   // FIXME matlab value is 0.1 - 10, but this produces ill-conditioned matrices
   // the math wizards will conjure us a new pde with a better behaved domain
   // soon
-  inline static P const p_domain_min = 1;
-  inline static P const p_domain_max = 20;
+  inline static P const p_domain_min = 0.0;
+  inline static P const p_domain_max = 10.0;
   inline static dimension<P> const dim_p =
       dimension<P>(p_domain_min,        // domain min
                    p_domain_max,        // domain max
@@ -408,7 +408,7 @@ private:
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "C3_p",          // name
-              {c3_pterm1});
+              {c3_pterm1, c3_pterm1});
   inline static term<P> const c3_term_z =
       term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
@@ -435,18 +435,18 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    if (x < 0)
+    if (x > 0)
     {
-      return 0.0;
+      return x;
     }
-    return 1.0 / std::pow(x, 2);
+    return 0.0;
   }
 
   // 1. create partial_terms
   inline static partial_term<P> const e1_pterm1 = partial_term<P>(
       coefficient_type::div, e1_g1, partial_term<P>::null_gfunc,
-      flux_type::upwind, boundary_condition::neumann,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
+      flux_type::downwind, boundary_condition::dirichlet,
+      boundary_condition::neumann, homogeneity::homogeneous,
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
       partial_term<P>::null_scalar_func, dV_p);
   inline static partial_term<P> const e1_pterm2 = partial_term<P>(
@@ -489,11 +489,7 @@ private:
     {
       return x;
     }
-    else
-    {
-      return 0.0;
-    }
-    return x;
+    return 0.0;
   }
 
   // 1. create partial_terms
@@ -579,8 +575,8 @@ private:
   //   r(z) == g3(z) f(z)       [mass, g3(z) = 1-z^2,                BC N/A]
   //
   // clang-format on
+  /* clang-format off */
   /*
-  // clang-format off
   static P r1_g1(P const x, P const time = 0)
   {
     ignore(time);
