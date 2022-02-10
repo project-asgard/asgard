@@ -58,6 +58,29 @@ void generate_all_coefficients(
   }
 }
 
+template<typename P>
+void generate_dimension_mass_mat(
+    PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer)
+{
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    auto &dim           = pde.get_dimensions()[i];
+    auto const &term_1D = pde.get_terms()[0][i];
+
+    partial_term<P> const lhs_mass_pterm = partial_term<P>(
+        coefficient_type::mass, partial_term<P>::null_gfunc,
+        partial_term<P>::null_gfunc, flux_type::central,
+        boundary_condition::periodic, boundary_condition::periodic,
+        homogeneity::homogeneous, homogeneity::homogeneous, {},
+        partial_term<P>::null_scalar_func, {},
+        partial_term<P>::null_scalar_func, dim.moment_dV);
+    auto mass_mat = generate_coefficients<P>(dim, term_1D, lhs_mass_pterm,
+                                             transformer, 0.0, false);
+
+    pde.update_dimension_mass_mat(i, mass_mat);
+  }
+}
+
 // construct 1D coefficient matrix - new conventions
 // this routine returns a 2D array representing an operator coefficient
 // matrix for a single dimension (1D). Each term in a PDE requires D many
@@ -436,3 +459,11 @@ template void generate_all_coefficients<double>(
     PDE<double> &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
     double const time, bool const rotate);
+
+template void generate_dimension_mass_mat<float>(
+    PDE<float> &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
+
+template void generate_dimension_mass_mat<double>(
+    PDE<double> &pde,
+    basis::wavelet_transform<double, resource::host> const &transformer);

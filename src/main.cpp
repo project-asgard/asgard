@@ -101,6 +101,11 @@ int main(int argc, char **argv)
   auto const quiet = false;
   basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde,
                                                                    quiet);
+
+  // -- generate and store the mass matrices for each dimension
+  node_out() << "  generating: dimension mass matrices..." << '\n';
+  generate_dimension_mass_mat<prec>(*pde, transformer);
+
   // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
   auto const initial_condition =

@@ -95,11 +95,6 @@ public:
   int get_degree() const { return degree_; }
   fk::matrix<P> const &get_mass_matrix() const { return mass_; }
 
-  void set_mass_matrix(fk::matrix<P> const &new_mass)
-  {
-    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
-  }
-
 private:
   void set_level(int const level)
   {
@@ -111,6 +106,11 @@ private:
   {
     expect(degree > 0);
     degree_ = degree;
+  }
+
+  void set_mass_matrix(fk::matrix<P> const &new_mass)
+  {
+    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
   }
 
   int level_;
@@ -147,7 +147,6 @@ enum class flux_type
 // FIXME need to work on relationship with dimension
 // do dimensions own terms? need dimension info in
 // term construction...
-
 
 template<typename P>
 class partial_term
@@ -328,7 +327,8 @@ public:
     auto const new_dof =
         adapted_dim.get_degree() * fm::two_raised_to(adapted_dim.get_level());
     expect(coefficients_.nrows() == coefficients_.ncols());
-    auto new_coeffs = eye<P>(new_dof);
+    // NOTE: the new matlab version seems to be chaining with full matrix size
+    auto new_coeffs = eye<P>(coefficients_.nrows());
 
     for (auto const &pterm : partial_terms_)
     {
@@ -336,14 +336,12 @@ public:
       expect(partial_coeff.size() >
              new_dof); // make sure we built the partial terms to support
                        // new level/degree
-      new_coeffs = new_coeffs *
-                   fk::matrix<P, mem_type::const_view>(
-                       partial_coeff, 0, new_dof - 1, 0,
-                       new_dof - 1); // at some point, we could consider storing
-                                     // these device-side after construction.
+      fm::gemm(fk::matrix<P>(new_coeffs), partial_coeff, new_coeffs);
     }
-    fk::matrix<P, mem_type::view, resource::device>(coefficients_, 0,
-                                                    new_dof - 1, 0, new_dof - 1)
+
+    fk::matrix<P, mem_type::view, resource::device>(
+        coefficients_, 0, coefficients_.nrows() - 1, 0,
+        coefficients_.ncols() - 1)
         .transfer_from(new_coeffs);
   }
 
@@ -594,6 +592,14 @@ public:
     {
       terms_[i][dim_index].rechain_coefficients(dimensions_[dim_index]);
     }
+  }
+
+  void update_dimension_mass_mat(int const dim_index, fk::matrix<P> const &mass)
+  {
+    assert(dim_index >= 0);
+    assert(dim_index < num_dims);
+
+    dimensions_[dim_index].set_mass_matrix(mass);
   }
 
   P get_dt() const { return dt_; };

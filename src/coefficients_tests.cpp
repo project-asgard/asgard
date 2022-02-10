@@ -13,6 +13,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
   options const opts(parse);
   basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
   P const time = 1.0;
+  generate_dimension_mass_mat(*pde, transformer);
   generate_all_coefficients(*pde, transformer, time, rotate);
 
   auto const lev_string = std::accumulate(
