@@ -189,6 +189,8 @@ int main(int argc, char **argv)
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
   ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
                     analytic_solution_realspace);
+
+  ml_plot.copy_pde(*pde);
 #endif
 
   // -- setup output file and write initial condition
