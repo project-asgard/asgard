@@ -115,6 +115,9 @@ int main(int argc, char **argv)
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
              << '\n';
 
+  // -- regen mass mats after init conditions - TODO: check dims/rechaining?
+  generate_dimension_mass_mat<prec>(*pde, transformer);
+
   // -- generate and store coefficient matrices.
   node_out() << "  generating: coefficient matrices..." << '\n';
   generate_all_coefficients<prec>(*pde, transformer);

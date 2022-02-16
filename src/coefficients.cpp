@@ -75,7 +75,7 @@ void generate_dimension_mass_mat(
         partial_term<P>::null_scalar_func, {},
         partial_term<P>::null_scalar_func, dim.moment_dV);
     auto mass_mat = generate_coefficients<P>(dim, term_1D, lhs_mass_pterm,
-                                             transformer, 0.0, false);
+                                             transformer, 0.0, true);
 
     pde.update_dimension_mass_mat(i, mass_mat);
   }
