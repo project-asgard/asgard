@@ -327,8 +327,7 @@ public:
     auto const new_dof =
         adapted_dim.get_degree() * fm::two_raised_to(adapted_dim.get_level());
     expect(coefficients_.nrows() == coefficients_.ncols());
-    // NOTE: the new matlab version seems to be chaining with full matrix size
-    auto new_coeffs = eye<P>(coefficients_.nrows());
+    auto new_coeffs = eye<P>(new_dof);
 
     for (auto const &pterm : partial_terms_)
     {
@@ -336,12 +335,16 @@ public:
       expect(partial_coeff.size() >
              new_dof); // make sure we built the partial terms to support
                        // new level/degree
-      fm::gemm(fk::matrix<P>(new_coeffs), partial_coeff, new_coeffs);
+
+      new_coeffs = new_coeffs *
+                   fk::matrix<P, mem_type::const_view>(
+                       partial_coeff, 0, new_dof - 1, 0,
+                       new_dof - 1); // at some point, we could consider storing
+                                     // these device-side after construction.
     }
 
-    fk::matrix<P, mem_type::view, resource::device>(
-        coefficients_, 0, coefficients_.nrows() - 1, 0,
-        coefficients_.ncols() - 1)
+    fk::matrix<P, mem_type::view, resource::device>(coefficients_, 0,
+                                                    new_dof - 1, 0, new_dof - 1)
         .transfer_from(new_coeffs);
   }
 
