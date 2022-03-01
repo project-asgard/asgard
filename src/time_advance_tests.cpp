@@ -713,7 +713,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
 }
 
 // explicit time advance is not a fruitful approach to this problem
-TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
+TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
                    "[time_advance]", float, double)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
@@ -722,7 +722,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
   }
 
   TestType const cfl     = 0.01;
-  std::string pde_choice = "fokkerplanck_2d_complete";
+  std::string pde_choice = "fokkerplanck_2d_complete_case4";
   auto const num_dims    = 2;
   auto const implicit    = true;
 #ifdef ASGARD_USE_SCALAPACK
@@ -730,7 +730,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
   auto const adapt_threshold = parser::DEFAULT_ADAPT_THRESH;
   auto const solver_str      = std::string_view("scalapack");
 #endif
-  SECTION("fokkerplanck_2d_complete, level 3, degree 3, sparse grid")
+  SECTION("fokkerplanck_2d_complete_case4, level 3, degree 3, sparse grid")
   {
     int const level           = 3;
     int const degree          = 3;
@@ -755,7 +755,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 #endif
   }
 
-  SECTION("fokkerplanck_2d_complete, level 4, degree 3, sparse grid")
+  SECTION("fokkerplanck_2d_complete_case4, level 4, degree 3, sparse grid")
   {
     int const level           = 4;
     int const degree          = 3;
@@ -780,7 +780,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 #endif
   }
 
-  SECTION("fokkerplanck_2d_complete, level 5, degree 3, sparse grid")
+  SECTION("fokkerplanck_2d_complete_case4, level 5, degree 3, sparse grid")
   {
     int const level           = 5;
     int const degree          = 3;
@@ -806,8 +806,9 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete",
 #endif
   }
 
-  SECTION("fokkerplanck_2d_complete, implicit/non-uniform level, degree 3, "
-          "sparse grid")
+  SECTION(
+      "fokkerplanck_2d_complete_case4, implicit/non-uniform level, degree 3, "
+      "sparse grid")
   {
     int const degree = 3;
     fk::vector<int> const levels{2, 3};

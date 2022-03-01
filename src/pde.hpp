@@ -68,8 +68,18 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_fokkerplanck_1d_4p4<P>>(cli_input);
   case PDE_opts::fokkerplanck_1d_4p5:
     return std::make_unique<PDE_fokkerplanck_1d_4p5<P>>(cli_input);
-  case PDE_opts::fokkerplanck_2d_complete:
-    return std::make_unique<PDE_fokkerplanck_2d_complete<P>>(cli_input);
+  case PDE_opts::fokkerplanck_2d_complete_case1:
+    return std::make_unique<
+        PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case1>>(cli_input);
+  case PDE_opts::fokkerplanck_2d_complete_case2:
+    return std::make_unique<
+        PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case2>>(cli_input);
+  case PDE_opts::fokkerplanck_2d_complete_case3:
+    return std::make_unique<
+        PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case3>>(cli_input);
+  case PDE_opts::fokkerplanck_2d_complete_case4:
+    return std::make_unique<
+        PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case4>>(cli_input);
   case PDE_opts::diffusion_1:
     return std::make_unique<PDE_diffusion_1d<P>>(cli_input);
   case PDE_opts::diffusion_2:
@@ -137,7 +147,16 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
     case PDE_opts::fokkerplanck_1d_4p5:
       return fk::vector<int>(std::vector<int>(1, level));
 
-    case PDE_opts::fokkerplanck_2d_complete:
+    case PDE_opts::fokkerplanck_2d_complete_case1:
+      return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::fokkerplanck_2d_complete_case2:
+      return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::fokkerplanck_2d_complete_case3:
+      return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::fokkerplanck_2d_complete_case4:
       return fk::vector<int>(std::vector<int>(2, level));
 
     case PDE_opts::diffusion_1:

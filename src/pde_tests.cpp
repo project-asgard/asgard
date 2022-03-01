@@ -257,14 +257,14 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
-                   double, float)
+TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
+                   "[pde]", double, float)
 {
   int const level  = 5;
   int const degree = 4;
 
-  auto const pde =
-      make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete_case4,
+                                      level, degree);
   std::string const base_dir =
       "../testing/generated-inputs/pde/fokkerplanck2_complete_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};

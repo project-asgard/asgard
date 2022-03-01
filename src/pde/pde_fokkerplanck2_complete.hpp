@@ -43,7 +43,7 @@
 // termR2 == -1/(tau*gam(p)) f(p) * d/dz z(1-z^2) f(z)
 // ---------------------------------------------------------------------------
 
-template<typename P>
+template<typename P, PDE_case_opts user_case = PDE_case_opts::case1>
 class PDE_fokkerplanck_2d_complete : public PDE<P>
 {
 public:
@@ -59,7 +59,7 @@ private:
 
   static int constexpr num_dims_           = 2;
   static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 6;
+  static int constexpr num_terms_          = 3;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = false;
 
@@ -79,11 +79,46 @@ private:
     return ret;
   };
 
-  static P constexpr nuEE     = 1;
-  static P constexpr vT       = 1;
-  static P constexpr delta    = 0.3;
-  static P constexpr Z        = 5;
-  static P constexpr E        = 0.4;
+  static P constexpr nuEE  = 1;
+  static P constexpr vT    = 1;
+  static P constexpr delta = []() {
+    if constexpr (user_case == PDE_case_opts::case4)
+    {
+      return 0.3;
+    }
+    else
+    {
+      return 0.042;
+    }
+  }();
+  static P constexpr Z = []() {
+    if constexpr (user_case == PDE_case_opts::case4)
+    {
+      return 5.0;
+    }
+    else
+    {
+      return 1.0;
+    }
+  }();
+  static P constexpr E = []() {
+    if constexpr (user_case == PDE_case_opts::case1)
+    {
+      return 0.0025;
+    }
+    else if constexpr (user_case == PDE_case_opts::case2)
+    {
+      return 0.25;
+    }
+    else if constexpr (user_case == PDE_case_opts::case3)
+    {
+      return 0.0025;
+    }
+    else if constexpr (user_case == PDE_case_opts::case4)
+    {
+      return 0.4;
+    }
+  }();
   static P constexpr tau      = 1e5;
   static auto constexpr gamma = [](P p) {
     return std::sqrt(1 + std::pow(delta * p, 2));
@@ -112,7 +147,52 @@ private:
   // p dimension
 
   // initial condition in p
-  static fk::vector<P> initial_condition_p(fk::vector<P> const x, P const t = 0)
+  static fk::vector<P>
+  initial_condition_p_case1(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+
+    fk::vector<P> transformed(x);
+    std::transform(x.begin(), x.end(), transformed.begin(),
+                   [](P const x_elem) -> P {
+                     if (x_elem <= 5.0)
+                     {
+                       return 3.0 / (2.0 * std::pow(5, 3));
+                     }
+                     else
+                     {
+                       return 0.0;
+                     }
+                   });
+    return transformed;
+  }
+  static fk::vector<P>
+  initial_condition_p_case2(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+
+    fk::vector<P> transformed(x);
+    std::transform(x.begin(), x.end(), transformed.begin(),
+                   [](P const x_elem) -> P {
+                     return exp(-std::pow(x_elem, 2) / std::pow(2, 3));
+                   });
+    transformed.scale(2.0 / (sqrt(M_PI) * std::pow(2, 3)));
+    return transformed;
+  }
+  static fk::vector<P>
+  initial_condition_p_case3(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+
+    fk::vector<P> transformed(x);
+    std::transform(
+        x.begin(), x.end(), transformed.begin(),
+        [](P const x_elem) -> P { return exp(-std::pow(x_elem, 2)); });
+    transformed.scale(2.0 / (3.0 * sqrt(M_PI)));
+    return transformed;
+  }
+  static fk::vector<P>
+  initial_condition_p_case4(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
 
@@ -164,6 +244,25 @@ private:
     return ret;
   }
 
+  inline static vector_func<P> const initial_condition_p = []() {
+    if constexpr (user_case == PDE_case_opts::case1)
+    {
+      return initial_condition_p_case1;
+    }
+    else if constexpr (user_case == PDE_case_opts::case2)
+    {
+      return initial_condition_p_case2;
+    }
+    else if constexpr (user_case == PDE_case_opts::case3)
+    {
+      return initial_condition_p_case3;
+    }
+    else if constexpr (user_case == PDE_case_opts::case4)
+    {
+      return initial_condition_p_case4;
+    }
+  }();
+
   static P moment_dV_p(P const x, P const time)
   {
     // suppress compiler warnings
@@ -180,13 +279,77 @@ private:
   }
 
   // initial conditionn in z
-  static fk::vector<P> initial_condition_z(fk::vector<P> const x, P const t = 0)
+  static fk::vector<P>
+  initial_condition_z_case1(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> ret(x);
+    std::transform(x.begin(), x.end(), ret.begin(), [](P const x_elem) -> P {
+      if (x_elem <= 0.0)
+      {
+        return 3.0 / (2.0 * std::pow(5, 3));
+      }
+      else
+      {
+        return 0.0;
+      }
+    });
+    return ret;
+  }
+  static fk::vector<P>
+  initial_condition_z_case2(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
     fk::vector<P> ret(x.size());
     std::fill(ret.begin(), ret.end(), 1.0);
     return ret;
   }
+  static fk::vector<P>
+  initial_condition_z_case3(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> f(x.size());
+    std::vector<P> const legendre_coeffs = {3, 0.5, 1, 0.7, 3, 0, 3};
+
+    auto const [P_m, dP_m] =
+        legendre(x, legendre_coeffs.size(), legendre_normalization::matlab);
+    ignore(dP_m);
+
+    for (int i = 0; i < static_cast<int>(legendre_coeffs.size()); ++i)
+    {
+      fk::vector<P> const P_0 = P_m.extract_submatrix(0, i, x.size(), 1);
+      f                       = f + (P_0 * legendre_coeffs[i]);
+    }
+
+    return f;
+  }
+  static fk::vector<P>
+  initial_condition_z_case4(fk::vector<P> const x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> ret(x.size());
+    std::fill(ret.begin(), ret.end(), 1.0);
+    return ret;
+  }
+
+  inline static vector_func<P> const initial_condition_z = []() {
+    if constexpr (user_case == PDE_case_opts::case1)
+    {
+      return initial_condition_z_case1;
+    }
+    else if constexpr (user_case == PDE_case_opts::case2)
+    {
+      return initial_condition_z_case2;
+    }
+    else if constexpr (user_case == PDE_case_opts::case3)
+    {
+      return initial_condition_z_case3;
+    }
+    else if constexpr (user_case == PDE_case_opts::case4)
+    {
+      return initial_condition_z_case4;
+    }
+  }();
 
   // p dimension
   // FIXME matlab value is 0.1 - 10, but this produces ill-conditioned matrices
@@ -671,9 +834,11 @@ private:
   // collect all the terms
   // inline static term_set<P> const terms_ = {termC1, termC2, termC3, termE1,
   //                                          termE2, termE3, termR1, termR2};
+  /*
   inline static term_set<P> const terms_ = {termC1, termC2, termC3,
                                             termE1, termE2, termE3};
-
+  */
+  inline static term_set<P> const terms_ = {termC1, termC2, termC3};
   // --------------
   //
   // define sources

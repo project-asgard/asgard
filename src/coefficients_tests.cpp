@@ -279,13 +279,13 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("fokkerplanck2_complete terms", "[coefficients]", double,
-                   float)
+TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
+                   double, float)
 {
   auto const gold_path = "../testing/generated-inputs/coefficients/"
                          "fokkerplanck2_complete_coefficients";
 
-  auto const pde_choice = PDE_opts::fokkerplanck_2d_complete;
+  auto const pde_choice = PDE_opts::fokkerplanck_2d_complete_case4;
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-12 : 1e-3;
 
