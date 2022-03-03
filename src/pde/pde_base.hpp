@@ -403,14 +403,15 @@ class PDE
 {
 public:
   PDE(parser const &cli_input, int const num_dims, int const num_sources,
-      int const num_terms, std::vector<dimension<P>> const dimensions,
+      int const num_terms_, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
       scalar_func<P> const exact_time, dt_func<P> const get_dt,
       bool const do_poisson_solve = false, bool const has_analytic_soln = false)
-      : num_dims(num_dims), num_sources(num_sources), num_terms(num_terms),
-        sources(sources), exact_vector_funcs(exact_vector_funcs),
-        exact_time(exact_time), do_poisson_solve(do_poisson_solve),
+      : num_dims(num_dims), num_sources(num_sources),
+        num_terms(get_num_terms(cli_input, num_terms_)), sources(sources),
+        exact_vector_funcs(exact_vector_funcs), exact_time(exact_time),
+        do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
         terms_(terms)
   {
@@ -419,7 +420,7 @@ public:
     expect(num_terms > 0);
 
     expect(dimensions.size() == static_cast<unsigned>(num_dims));
-    expect(terms.size() == static_cast<unsigned>(num_terms));
+    expect(terms.size() == static_cast<unsigned>(num_terms_));
     expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -446,6 +447,20 @@ public:
         expect(num_levels > 1);
         d.set_level(num_levels);
       }
+    }
+
+    auto const num_active_terms = cli_input.get_active_terms().size();
+    if (num_active_terms != 0)
+    {
+      auto const active_terms = cli_input.get_active_terms();
+      for (auto i = num_terms_ - 1; i >= 0; --i)
+      {
+        if (active_terms(i) == 0)
+        {
+          terms_.erase(terms_.begin() + i);
+        }
+      }
+      expect(terms_.size() == static_cast<unsigned>(num_terms));
     }
 
     auto const cli_degree = cli_input.get_degree();
@@ -614,6 +629,35 @@ public:
   }
 
 private:
+  int get_num_terms(parser const &cli_input, int const num_terms)
+  {
+    // returns either the number of terms set in the PDE specification, or the
+    // number of terms toggled on by the user
+    auto const num_active_terms = cli_input.get_active_terms().size();
+
+    // verify that the CLI input matches the spec before altering the num_terms
+    // we have
+    if (num_active_terms != 0 && num_active_terms != num_terms)
+    {
+      std::cerr << "failed to parse dimension-many active terms - parsed "
+                << num_active_terms << " terms, expected " << num_terms << "\n";
+      exit(1);
+    }
+    if (num_active_terms == num_terms)
+    {
+      auto const active_terms = cli_input.get_active_terms();
+      int new_num_terms =
+          std::accumulate(active_terms.begin(), active_terms.end(), 0);
+      if (new_num_terms == 0)
+      {
+        std::cerr << "must have at least one term enabled\n";
+        exit(1);
+      }
+      return new_num_terms;
+    }
+    return num_terms;
+  }
+
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
   P dt_;

@@ -59,7 +59,7 @@ private:
 
   static int constexpr num_dims_           = 2;
   static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 3;
+  static int constexpr num_terms_          = 6;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = false;
 
@@ -834,11 +834,8 @@ private:
   // collect all the terms
   // inline static term_set<P> const terms_ = {termC1, termC2, termC3, termE1,
   //                                          termE2, termE3, termR1, termR2};
-  /*
   inline static term_set<P> const terms_ = {termC1, termC2, termC3,
                                             termE1, termE2, termE3};
-  */
-  inline static term_set<P> const terms_ = {termC1, termC2, termC3};
   // --------------
   //
   // define sources

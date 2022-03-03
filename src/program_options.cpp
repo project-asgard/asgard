@@ -54,7 +54,9 @@ parser::parser(int argc, char **argv)
       clara::detail::Opt(matlab_name, "session name")["--matlab_name"](
           "Name of a shared MATLAB session to connect to") |
       clara::detail::Opt(plot_freq, "0-num_time_steps")["--plot_freq"](
-          "Frequency in steps for displaying plots");
+          "Frequency in steps for displaying plots") |
+      clara::detail::Opt(active_terms_str, "e.g. \"1 1 1 0 0 0\"")["--terms"](
+          "Select specific terms to use (1 = on, 0 = off)");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -261,6 +263,25 @@ parser::parser(int argc, char **argv)
     valid = false;
   }
 #endif
+
+  if (active_terms_str != NO_USER_VALUE_STR)
+  {
+    auto const starting_terms = ints_from_string(active_terms_str);
+    if (starting_terms.size() == 0)
+    {
+      std::cerr << "Failed to parse active terms from input argument" << '\n';
+      valid = false;
+    }
+    active_terms.resize(starting_terms.size()) = starting_terms;
+    for (auto const term : active_terms)
+    {
+      if (term != 0 && term != 1)
+      {
+        std::cerr << "Term must be 0 or 1" << '\n';
+        valid = false;
+      }
+    }
+  }
 }
 
 bool parser::using_implicit() const { return use_implicit_stepping; }
@@ -269,6 +290,7 @@ bool parser::do_poisson_solve() const { return do_poisson; }
 bool parser::do_adapt_levels() const { return do_adapt; }
 
 fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
+fk::vector<int> parser::get_active_terms() const { return active_terms; }
 int parser::get_degree() const { return degree; }
 int parser::get_max_level() const { return max_level; }
 int parser::get_time_steps() const { return num_time_steps; }

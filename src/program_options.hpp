@@ -204,6 +204,7 @@ public:
   bool do_adapt_levels() const;
 
   fk::vector<int> get_starting_levels() const;
+  fk::vector<int> get_active_terms() const;
 
   int get_degree() const;
   int get_max_level() const;
@@ -270,6 +271,8 @@ private:
   // if none are provided, default is loaded from pde
   std::string starting_levels_str = NO_USER_VALUE_STR;
   fk::vector<int> starting_levels;
+  std::string active_terms_str = NO_USER_VALUE_STR;
+  fk::vector<int> active_terms;
 
   // deg of legendre basis polys. NO_USER_VALUE
   // loads default in pde
