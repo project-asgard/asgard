@@ -50,7 +50,10 @@ private:
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [](P const &x) { return std::cos(2.0 * PI * x); });
+    return fx;
   }
 
   // specify exact solution vectors/time function...
