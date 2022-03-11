@@ -1,4 +1,5 @@
 #include "adapt.hpp"
+#include "coefficients.hpp"
 #include "program_options.hpp"
 #include "tests_general.hpp"
 
@@ -215,6 +216,7 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
   auto const quiet = true;
   basis::wavelet_transform<P, resource::host> const transformer(opts, *pde,
                                                                 quiet);
+  generate_dimension_mass_mat<P>(*pde, transformer);
   adapt::distributed_grid<P> adaptive_grid(*pde, opts);
 
   auto const test =

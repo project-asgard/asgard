@@ -53,7 +53,7 @@ private:
 
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
-      dimension<P>(0, 1, 2, 2, initial_condition_dim0, moment_dV, "x");
+      dimension<P>(0, 1, 3, 2, initial_condition_dim0, moment_dV, "x");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 
@@ -91,7 +91,7 @@ private:
       bc_time_func, {bc_func}, bc_time_func);
 
   inline static term<P> const term_0 =
-      term<P>(true,            // time-dependent
+      term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
               {partial_term_0, partial_term_1});

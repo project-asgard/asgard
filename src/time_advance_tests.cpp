@@ -52,12 +52,19 @@ void time_advance_test(parser const &parse, std::string const &filepath,
   adapt::distributed_grid adaptive_grid(*pde, opts);
   basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
 
+  // -- compute dimension mass matrices
+  generate_dimension_mass_mat(*pde, transformer);
+
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
 
   // -- generate initial condition vector.
   auto const initial_condition =
       adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  // TODO: look into issue requiring mass mats to be regenerated after init
+  // cond. see problem in main.cpp
+  generate_dimension_mass_mat(*pde, transformer);
 
   fk::vector<P> f_val(initial_condition);
 

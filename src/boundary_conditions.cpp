@@ -173,6 +173,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
   P g  = g_func(domain_min, time);
   P dV = dv_func(domain_min, time);
+  expect(std::isfinite(dV));
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
@@ -227,6 +228,7 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
 
   P g  = g_func(domain_max, time);
   P dV = dv_func(domain_max, time);
+  expect(std::isfinite(dV));
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
@@ -274,6 +276,9 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
   for (int dim_num = 0; dim_num < static_cast<int>(dimensions.size());
        ++dim_num)
   {
+    auto const degrees_freedom_1d_other =
+        dimensions[dim_num].get_degree() *
+        fm::two_raised_to(dimensions[dim_num].get_level());
     auto const &f = bc_funcs[dim_num];
     auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
     vector_func<P> const bc_func = [f, g](fk::vector<P> const x, P const t) {
@@ -291,10 +296,10 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
                           transformer, time));
 
     // Apply inverse mat
-    std::vector<int> ipiv(degrees_freedom_1d);
+    std::vector<int> ipiv(degrees_freedom_1d_other);
     fk::matrix<P, mem_type::const_view> const lhs_mass(
         terms[dim_num].get_partial_terms()[p_index].get_lhs_mass(), 0,
-        degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
+        degrees_freedom_1d_other - 1, 0, degrees_freedom_1d_other - 1);
     fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
 
     // Apply previous pterms
@@ -302,7 +307,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     {
       fk::matrix<P, mem_type::const_view> const pterm_coeffs(
           terms[dim_num].get_partial_terms()[p_num].get_coefficients(), 0,
-          degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
+          degrees_freedom_1d_other - 1, 0, degrees_freedom_1d_other - 1);
       fm::gemv(pterm_coeffs, partial_bc_vecs.back(), partial_bc_vecs.back());
     }
   }

@@ -108,7 +108,8 @@ fk::vector<P> forward_transform(
 
     // apply dv to f(v)
     std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
-                   f_here.begin(), [dv_func, t](P f_elem, P const x_elem) -> P {
+                   f_here.begin(),
+                   [dv_func, t](P &f_elem, P const &x_elem) -> P {
                      return f_elem * dv_func(x_elem, t);
                    });
 
@@ -172,6 +173,8 @@ inline fk::vector<P> transform_and_combine_dimensions(
     std::vector<int> ipiv(n);
     fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
                                                        n - 1, 0, n - 1);
+    expect(lhs_mass.nrows() == n);
+    expect(lhs_mass.ncols() == n);
     fm::gesv(lhs_mass, dimension_components.back(), ipiv);
   }
 
@@ -205,7 +208,8 @@ update_transform_workspace(
   {
     workspace.resize(sol_size * 2);
     return std::array<fk::vector<P, mem_type::view, resource::host>, 2>{
-        fk::vector<P, mem_type::view, resource::host>(workspace, 0, sol_size),
+        fk::vector<P, mem_type::view, resource::host>(workspace, 0,
+                                                      sol_size - 1),
         fk::vector<P, mem_type::view, resource::host>(workspace, sol_size,
                                                       sol_size * 2 - 1)};
   }
