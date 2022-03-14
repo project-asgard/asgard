@@ -78,11 +78,5 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
 template<typename P>
 void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
                      int *ipiv, P *b, int *descB, int *info);
-
-template<typename P>
-void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr);
-
-template<typename P>
-void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr);
 #endif
 } // namespace lib_dispatch

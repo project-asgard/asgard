@@ -11,6 +11,11 @@ jobs:
                 node: [Release, Debug]
         runs-on: ${{matrix.os}}
         steps:
+            - name: CPU Infor
+              run: |
+                sysctl -n machdep.cpu.brand_string
+                sysctl -n machdep.cpu.features
+                (echo "Number of Cores:"; sysctl -n machdep.cpu.core_count) |tr '\n' '\t' && echo ''
             - name: Git checkout
               uses: actions/checkout@v1
             - name: Makedir

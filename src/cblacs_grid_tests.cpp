@@ -2,26 +2,35 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
-struct distribution_test_init
+int main(int argc, char *argv[])
 {
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
+  initialize_distribution();
 
-#ifdef ASGARD_USE_MPI
-static distribution_test_init const distrib_test_info;
-#endif
+  int result = Catch::Session().run(argc, argv);
+
+  finalize_distribution();
+
+  return result;
+}
 
 TEST_CASE("Generating a cblacs grid.", "[cblacs_grid]")
 {
+  if (!is_active())
+  {
+    return;
+  }
+
   int myrank    = get_rank();
   int num_ranks = get_num_ranks();
   int nprow     = std::sqrt(num_ranks);
   auto grid     = get_grid();
   int myrow     = grid->get_myrow();
   int mycol     = grid->get_mycol();
-  REQUIRE(myrank / nprow == myrow);
-  REQUIRE(myrank % nprow == mycol);
+  if (get_num_ranks() != 2 && get_num_ranks() != 3)
+  {
+    REQUIRE(myrank / nprow == myrow);
+    REQUIRE(myrank % nprow == mycol);
+  }
 
   int local_rows = grid->local_rows(4, 1);
   int local_cols = grid->local_cols(4, 1);
@@ -30,7 +39,7 @@ TEST_CASE("Generating a cblacs grid.", "[cblacs_grid]")
     // 4 elements on each process
     REQUIRE(local_rows * local_cols == 4);
   }
-  else
+  else if (get_num_ranks() != 2 && get_num_ranks() != 3)
   {
     // 16 elements on one process
     REQUIRE(local_rows * local_cols == 16);

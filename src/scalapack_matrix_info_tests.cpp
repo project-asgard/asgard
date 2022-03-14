@@ -5,18 +5,24 @@
 
 #include <array>
 
-struct distribution_test_init
+int main(int argc, char *argv[])
 {
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
+  initialize_distribution();
 
-#ifdef ASGARD_USE_MPI
-static distribution_test_init const distrib_test_info;
-#endif
+  int result = Catch::Session().run(argc, argv);
+
+  finalize_distribution();
+
+  return result;
+}
 
 TEST_CASE("Generating scalapack matrix info serial", "[scalapack_matrix_info]")
 {
+  if (!is_active())
+  {
+    return;
+  }
+
   int rows{4}, cols{8};
   fk::scalapack_matrix_info info(rows, cols);
   REQUIRE(info.local_rows() == rows);
@@ -47,6 +53,11 @@ TEST_CASE("Generating scalapack matrix info serial", "[scalapack_matrix_info]")
 TEST_CASE("Generating scalapack matrix info parallel",
           "[scalapack_matrix_info]")
 {
+  if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
+  {
+    return;
+  }
+
   auto grid = get_grid();
   int rows{4}, cols{4};
   int mb{2}, nb{2};

@@ -2,28 +2,14 @@
 #include "program_options.hpp"
 #include "tests_general.hpp"
 
+#include <catch2/catch_session.hpp>
+
 static auto constexpr adapt_thresh = 1e-4;
 
 struct distribution_test_init
 {
-  distribution_test_init()
-  {
-#ifdef ASGARD_USE_MPI
-    auto const [rank, total_ranks] = initialize_distribution();
-    my_rank                        = rank;
-    num_ranks                      = total_ranks;
-#else
-    my_rank   = 0;
-    num_ranks = 1;
-#endif
-  }
-  ~distribution_test_init()
-  {
-#ifdef ASGARD_USE_MPI
-    finalize_distribution();
-#endif
-  }
-
+  void set_my_rank(const int rank) { my_rank = rank; }
+  void set_num_ranks(const int size) { num_ranks = size; }
   int get_my_rank() const { return my_rank; }
   int get_num_ranks() const { return num_ranks; }
 
@@ -31,8 +17,20 @@ private:
   int my_rank;
   int num_ranks;
 };
+static distribution_test_init distrib_test_info;
 
-static distribution_test_init const distrib_test_info;
+int main(int argc, char *argv[])
+{
+  auto const [rank, total_ranks] = initialize_distribution();
+  distrib_test_info.set_my_rank(rank);
+  distrib_test_info.set_num_ranks(total_ranks);
+
+  int result = Catch::Session().run(argc, argv);
+
+  finalize_distribution();
+
+  return result;
+}
 
 template<typename P>
 void test_adapt(parser const &problem, std::string const &gold_base)
@@ -109,6 +107,11 @@ void test_adapt(parser const &problem, std::string const &gold_base)
 TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
                    float)
 {
+  if (!is_active())
+  {
+    return;
+  }
+
   auto const degree = 3;
   auto const level  = 4;
 
@@ -134,6 +137,10 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
 
 TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
 {
+  if (!is_active())
+  {
+    return;
+  }
   auto const degree = 2;
   auto const level  = 5;
 
@@ -160,6 +167,10 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
 TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
                    double, float)
 {
+  if (!is_active())
+  {
+    return;
+  }
   auto const degree = 4;
   auto const level  = 4;
 
@@ -249,6 +260,10 @@ TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
 
 TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", double, float)
 {
+  if (!is_active())
+  {
+    return;
+  }
   auto const degree = 3;
   auto const level  = 2;
 
