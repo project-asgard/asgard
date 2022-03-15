@@ -1,4 +1,4 @@
-# Created from matlab git hash a1a8dbd37a0f9ba671c9d2084bb54c87f518fd94
+# Created from matlab git hash 556516dafcaa227df91506054ff00cbe561eb55e
 # name: foo
 # type: matrix
 # rows: 8
@@ -9,5 +9,5 @@
 0
 0
 0
-1.999900000833331
-3.463928411500368
+1.224646799147353e-16
+2.121150477449814e-16
