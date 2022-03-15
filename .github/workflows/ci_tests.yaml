@@ -20,7 +20,7 @@ jobs:
             - name: Install MPI
               if: ${{matrix.features}} == MPI
               working-directory: ${{runner.workspace}}
-	      run: brew install open-mpi
+              run: brew install open-mpi
             - name: Install ScaLAPACK
               if: ${{matrix.features}} == ScaLAPACK 
               working-directory: ${{runner.workspace}}
