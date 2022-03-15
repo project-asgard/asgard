@@ -18,11 +18,11 @@ jobs:
                 sysctl -n machdep.cpu.features
                 (echo "Number of Cores:"; sysctl -n machdep.cpu.core_count) |tr '\n' '\t' && echo ''
             - name: Install MPI
-              if: ${{matrix.features}} == MPI
+              if: ${{matrix.features == MPI}}
               working-directory: ${{runner.workspace}}
               run: brew install open-mpi
             - name: Install ScaLAPACK
-              if: ${{matrix.features}} == ScaLAPACK 
+              if: ${{matrix.features == ScaLAPACK}}
               working-directory: ${{runner.workspace}}
               run: brew install scalapack
             - name: Git checkout
@@ -31,15 +31,15 @@ jobs:
               working-directory: ${{runner.workspace}}/asgard
               run: cmake -E make_directory build
             - name: Configure Default
-              if: ${{matrix.features}} == Default
+              if: ${{matrix.features  == Default}}
               working-directory: ${{runner.workspace}}/asgard/build
               run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
             - name: Configure MPI
-              if: ${{matrix.features}} == MPI
+              if: ${{matrix.features == MPI}}
               working-directory: ${{runner.workspace}}/asgard/build
               run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF -DASGARD_USE_MPI=ON ../
             - name: Configure ScaLAPACK
-              if: ${{matrix.features}} == ScaLAPACK
+              if: ${{matrix.features == ScaLAPACK}}
               working-directory: ${{runner.workspace}}/asgard/build
               run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF -DASGARD_USE_MPI=ON -DASGARD_USE_SCALAPACK=ON -DCMAKE_Fortran_COMPILER=/usr/local/opt/gfortran/bin/gfortran ../
             - name: Build
