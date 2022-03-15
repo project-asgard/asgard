@@ -181,7 +181,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case1;
   auto const gold_path  = "../testing/generated-inputs/coefficients/"
-                         "fokkerplanck1_pitch_E_case1_coefficients";
+                         "fokkerplanck1_4p1a_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("level 4, degree 3")
@@ -215,7 +215,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", double,
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_C;
   auto const gold_path  = "../testing/generated-inputs/coefficients/"
-                         "fokkerplanck1_pitch_C_coefficients";
+                         "fokkerplanck1_4p2_coefficients";
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
 

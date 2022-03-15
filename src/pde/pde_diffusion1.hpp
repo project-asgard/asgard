@@ -31,15 +31,10 @@ private:
   static fk::vector<P>
   initial_condition_dim0(fk::vector<P> const &x, P const t = 0)
   {
-    static double const p = -2.0 * nu * nu;
-    P const coefficient   = std::exp(p * t);
-
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_value) -> P {
-                     return coefficient * std::cos(nu * x_value);
-                   });
-
+                   [](P const &x) { return std::cos(nu * x); });
     return fx;
   }
 

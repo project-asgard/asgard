@@ -332,7 +332,7 @@ void matlab_plot::plot_fval(PDE<P> const &pde, elements::table const &table,
 
 // copies data about a PDE object to a matlab workspace
 template<typename P>
-void matlab_plot::copy_pde(PDE<P> const &pde)
+void matlab_plot::copy_pde(PDE<P> const &pde, std::string const name)
 {
   expect(is_open());
 
@@ -374,7 +374,7 @@ void matlab_plot::copy_pde(PDE<P> const &pde)
   ml_pde[0]["dt"] = factory_.createScalar<P>(pde.get_dt());
 
   // push the pde struct to the matlab workspace
-  matlab_inst_->setVariable("pde", ml_pde);
+  matlab_inst_->setVariable(name, ml_pde);
 }
 
 template<typename P>
@@ -582,8 +582,10 @@ template void matlab_plot::plot_fval(PDE<float> const &pde,
                                      fk::vector<float> const &f_val,
                                      fk::vector<float> const &analytic_soln);
 
-template void matlab_plot::copy_pde(PDE<float> const &pde);
-template void matlab_plot::copy_pde(PDE<double> const &pde);
+template void
+matlab_plot::copy_pde(PDE<float> const &pde, std::string const name);
+template void
+matlab_plot::copy_pde(PDE<double> const &pde, std::string const name);
 
 template matlab::data::StructArray
 matlab_plot::make_term(term<float> const &term);

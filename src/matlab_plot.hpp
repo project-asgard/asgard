@@ -155,7 +155,7 @@ public:
             fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln);
 
   template<typename P>
-  void copy_pde(PDE<P> const &pde);
+  void copy_pde(PDE<P> const &pde, std::string const name = std::string("pde"));
 
   template<typename P>
   matlab::data::StructArray make_term(term<P> const &term);
