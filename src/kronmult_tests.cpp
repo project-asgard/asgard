@@ -66,7 +66,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
   SECTION("1d")
   {
     auto const pde_choice = PDE_opts::continuity_1;
-    auto const degree     = 4;
+    auto const degree     = 2;
     auto const levels     = fk::vector<int>{3};
     parser const test_parse(pde_choice, levels, degree);
     auto const workspace_size_MB = 1000;
@@ -105,7 +105,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
   SECTION("6d - non-uniform level")
   {
     auto const pde_choice = PDE_opts::continuity_6;
-    auto const degree     = 2;
+    auto const degree     = 1;
     auto const levels     = fk::vector<int>{2, 2, 2, 3, 2, 2};
     parser const test_parse(pde_choice, levels, degree);
     auto const workspace_size_MB = 1000;
@@ -120,7 +120,7 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
   SECTION("2d - uniform level")
   {
     auto const pde_choice = PDE_opts::continuity_2;
-    auto const degree     = 6;
+    auto const degree     = 2;
     auto const levels     = fk::vector<int>{6, 6};
     parser const test_parse(pde_choice, levels, degree);
     auto const workspace_size_MB = 80; // small enough to decompose the problem
@@ -130,8 +130,8 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
   SECTION("2d - non-uniform level")
   {
     auto const pde_choice = PDE_opts::continuity_2;
-    auto const degree     = 6;
-    auto const levels     = fk::vector<int>{7, 6};
+    auto const degree     = 2;
+    auto const levels     = fk::vector<int>{6, 5};
     parser const test_parse(pde_choice, levels, degree);
     auto const workspace_size_MB = 80; // small enough to decompose the problem
     test_kronmult(test_parse, workspace_size_MB, tol_factor);

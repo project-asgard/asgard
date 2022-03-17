@@ -41,7 +41,7 @@ endfunction ()
 register_project (kronmult
                   KRONMULT
                   https://github.com/project-asgard/kronmult.git
-                  1ed1a5e1b3690f66479dcd9cf003dc8a3a0de457
+                  be1ef32b9e4d75f977c066b8917e6b9adce58a03
 )
 
 #  Catch two testing framework.
@@ -54,8 +54,8 @@ register_project (Catch2
 ###############################################################################
 ## Set up the compiler and general global build options
 ###############################################################################
-set (CMAKE_CXX_STANDARD 17)
-set (CMAKE_CXX_STANDARD_REQUIRED ON)
+#set (CMAKE_CXX_STANDARD 17)
+#set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set a default build type if none was specified
 # https://blog.kitware.com/cmake-and-the-default-build-type/
@@ -101,7 +101,12 @@ include(CMakeDependentOption)
 cmake_dependent_option(ASGARD_USE_SCALAPACK "Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
 option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
+option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
+
+if (${ASGARD_USE_PCH})
+  set (USE_PCH ON CACHE BOOL "Turn on kronmult precompiled header support" FORCE)
+endif()
 
 # add scripts directory location
 set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
@@ -142,7 +147,12 @@ endif()
 #endif ()
 
 if(ASGARD_USE_OPENMP)
-  find_package(OpenMP REQUIRED)  
+  find_package(OpenMP)
+  
+  if (NOT ${OpenMP_FOUND})
+    set (ASGARD_USE_OPENMP OFF CACHE BOOL "Optional openMP support for asgard" FORCE)
+  endif ()
+  
   if(ASGARD_USE_MKL)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	message(FATAL_ERROR 
@@ -152,160 +162,12 @@ if(ASGARD_USE_OPENMP)
   endif()
 endif()
 
-if(ASGARD_USE_CUDA)
-  find_package(CUDA 9.0 REQUIRED) # eventually want to remove this - how to set min version with enable_language?
-  include_directories(${CUDA_INCLUDE_DIRS})
-  enable_language(CUDA) 
-  set (CMAKE_CUDA_STANDARD 14)
-  set (CMAKE_CUDA_STANDARD_REQUIRED ON)
-endif()
-
-# build component to interface with Ed's kronmult lib
-##TODO: link to kronmult as interface library
-add_library(kronmult_cuda SHARED src/device/kronmult_cuda.cpp)
-if(ASGARD_USE_CUDA)
-  set_source_files_properties( src/device/kronmult_cuda.cpp PROPERTIES LANGUAGE CUDA ) # no .cu extension
-  set_target_properties( kronmult_cuda PROPERTIES CUDA_ARCHITECTURES OFF)
-  set_target_properties( kronmult_cuda PROPERTIES COMPILE_FLAGS "-arch sm_70 -g -lineinfo --ptxas-options=-O3")
-  set_target_properties( kronmult_cuda PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_BINARY_DIR}")
-
-#  Turn on GPU support in kronmult.
-  set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
-endif()
-
-if(ASGARD_USE_MKL)
-  if(ASGARD_USE_CUDA)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
-  else()
-    target_compile_options (kronmult_cuda PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
-    if(APPLE) # Need to link against the same openmp library as the MKL.
-      foreach (_lib IN LISTS LINALG_LIBS)
-        if (_lib MATCHES "libiomp5")
-          target_link_libraries(kronmult_cuda PRIVATE ${_lib})
-          break()
-        endif()
-      endforeach()
-    endif()
-  endif()
-endif()
-
-if(ASGARD_USE_MPI)
-  find_package(MPI REQUIRED)
-  include_directories(${MPI_CXX_INCLUDE_DIRS})
-endif()
-
-if(ASGARD_USE_MATLAB)
-  find_package(Matlab REQUIRED) # Should there be a minimum MATLAB version needed?
-endif()
-
-###############################################################################
-## Building asgard
-#
-# KEEP EVERYTHING LISTED IN ALPHABETICAL ORDER
-#
-# to add a component:
-# 1) define the component in the components list
-# 2) define any link dependencies if needed
-###############################################################################
-
-# define the components and how to build and link the components together
-set (components
-  adapt
-  basis
-  batch
-  boundary_conditions
-  coefficients
-  distribution
-  elements
-  fast_math
-  kronmult
-  lib_dispatch
-  matlab_utilities
-  pde
-  permutations
-  program_options
-  quadrature
-  solver
-  tensors
-  time_advance
-  tools
-  transformations
-)
-if (ASGARD_IO_HIGHFIVE)
-  list (APPEND components io)
-endif ()
-
-if (ASGARD_USE_SCALAPACK)
-  list (APPEND components scalapack_matrix_info scalapack_vector_info cblacs_grid)
-endif ()
-
 if (ASGARD_USE_MATLAB)
-  list(APPEND components matlab_plot)
+    find_package(Matlab REQUIRED) # Should there be a minimum MATLAB version needed?
 endif ()
 
-foreach (component IN LISTS components)
-  add_library (${component} src/${component}.cpp)
-  target_include_directories (${component} PRIVATE ${CMAKE_BINARY_DIR})
-  if(ASGARD_USE_MKL)
-    target_compile_options (${component} PRIVATE "-fopenmp") # CMAKE doesn't handle MKL openmp link properly
-  endif()
-endforeach ()
-
-if (build_hdf5)
-  add_dependencies (io hdf5-ext)
-endif ()
-
-if (build_kron)
-  add_dependencies (kronmult_cuda kronmult-ext)
-endif ()
-
-if (ASGARD_USE_SCALAPACK)
-  target_link_libraries (tensors PRIVATE scalapack_matrix_info cblacs_grid)
-  target_link_libraries (lib_dispatch PUBLIC scalapack_matrix_info cblacs_grid)
-endif ()
-
-target_link_libraries (adapt PRIVATE distribution elements program_options transformations)
-
-target_link_libraries (basis PRIVATE matlab_utilities quadrature tensors)
-
-target_link_libraries (batch PRIVATE coefficients elements lib_dispatch pde tensors)
-
-target_link_libraries (boundary_conditions PRIVATE coefficients elements transformations
-                       matlab_utilities fast_math )
-
-if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
-   target_link_libraries(batch PRIVATE OpenMP::OpenMP_CXX)
-endif ()
-
-target_link_libraries (coefficients
-  PRIVATE pde matlab_utilities quadrature tensors transformations)
-
-target_link_libraries(distribution PRIVATE elements lib_dispatch)
 if (ASGARD_USE_MPI)
-  target_link_libraries(distribution PRIVATE MPI::MPI_CXX)
-  target_link_libraries(lib_dispatch PRIVATE MPI::MPI_CXX)
-endif ()
-
-target_link_libraries (elements
-  PRIVATE permutations program_options tensors)
-
-target_link_libraries (fast_math
-  PRIVATE lib_dispatch tensors)
-
-target_link_libraries(kronmult PRIVATE batch elements kronmult_cuda tools)
-
-if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
-   target_link_libraries(kronmult PRIVATE OpenMP::OpenMP_CXX)
-endif ()
-
-target_link_libraries(kronmult_cuda PUBLIC kron)
-
-if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
-   target_link_libraries(kronmult_cuda PRIVATE OpenMP::OpenMP_CXX)
-endif ()
-
-if (ASGARD_IO_HIGHFIVE)
-  target_link_libraries (io PUBLIC highfive tensors PRIVATE hdf5)
+    find_package(MPI REQUIRED)
 endif ()
 
 if (ASGARD_USE_SCALAPACK)
@@ -314,109 +176,154 @@ if (ASGARD_USE_SCALAPACK)
 #  with gfortran but asgard is being linked with clang, clang will fail to
 #  include GNU runtime libraries. Enabling the Fortran language allows the run
 #  time libraries to be included at link time.
-  enable_language (Fortran)
-
-  find_package(scalapack REQUIRED)
-  # Uncomment and remove following line after issue #23 is fixed
-  # https://bitbucket.org/icl/slate/issues/23
-  # target_link_libraries (lib_dispatch PRIVATE slate_scalapack_api scalapack MPI::MPI_CXX)
-  target_link_libraries (lib_dispatch PRIVATE scalapack)
-  target_compile_definitions (lib_dispatch PUBLIC ASGARD_USE_SCALAPACK)
-else ()
-  target_link_libraries (lib_dispatch PRIVATE LINALG::LINALG)
+    enable_language (Fortran)
+    find_package (scalapack REQUIRED)
 endif ()
 
-if (ASGARD_USE_CUDA)
-  target_link_libraries(lib_dispatch PRIVATE ${CUDA_LIBRARIES}
-					     ${CUDA_CUBLAS_LIBRARIES})
-endif()
-
-if (ASGARD_USE_OPENMP AND NOT ASGARD_USE_MKL)
-   target_link_libraries(lib_dispatch PRIVATE OpenMP::OpenMP_CXX)
-endif ()
-
-if (ASGARD_USE_MATLAB)
-   # SYSTEM option to suppress the compiler warnings in Matlab's C++ header files
-   target_include_directories(matlab_plot SYSTEM PUBLIC ${Matlab_INCLUDE_DIRS})
-   target_link_libraries(matlab_plot PRIVATE ${Matlab_LIBRARIES})
-endif()
-
-target_link_libraries (matlab_utilities PUBLIC tensors)
-
-target_link_libraries (pde PRIVATE basis matlab_utilities tensors)
-
-target_link_libraries (permutations PRIVATE matlab_utilities tensors)
-
-target_link_libraries (program_options PRIVATE clara distribution)
-
-target_link_libraries (quadrature PRIVATE matlab_utilities tensors)
-
-target_link_libraries (solver PRIVATE distribution fast_math lib_dispatch tensors)
-
-target_link_libraries (tensors PRIVATE lib_dispatch)
-if (ASGARD_USE_CUDA)
-  target_link_libraries (tensors PRIVATE ${CUDA_LIBRARIES})
-endif ()
-if (ASGARD_USE_SCALAPACK)	
-  add_compile_definitions (ASGARD_USE_SCALAPACK)
-endif ()
-
-target_link_libraries (time_advance PRIVATE adapt fast_math pde kronmult solver tensors tools boundary_conditions
-                                    INTERFACE elements)
-
-target_link_libraries (transformations
-  PRIVATE basis batch distribution matlab_utilities pde program_options
-  quadrature tensors)
-
-# define the main application and its linking
-add_executable (asgard src/main.cpp)
-
-# link in components needed directly by main
-set (main_app_link_deps
-  adapt
-  coefficients
-  distribution
-  elements
-  matlab_utilities
-  pde
-  program_options
-  quadrature
-  tensors
-  time_advance
-  tools
-  transformations
-)
-if (ASGARD_IO_HIGHFIVE)
-  list (APPEND main_app_link_deps io)
-endif()
-
-if (ASGARD_USE_MPI)
-  list (APPEND main_app_link_deps PRIVATE MPI::MPI_CXX)
-endif()
-
-if (ASGARD_USE_MATLAB)
-  list (APPEND main_app_link_deps matlab_plot)
-endif()
-
-target_link_libraries (asgard PRIVATE ${main_app_link_deps})
-
-# build/link anything needed for profiling if requested
-if (PROFILE_DEPS)
-  add_dependencies (asgard ${PROFILE_DEPS})
-endif ()
-target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
-
+#-------------------------------------------------------------------------------
+#  Define the asgard library.
+#-------------------------------------------------------------------------------
 set(ASGARD_GOLD_BASE_DIR "${PROJECT_SOURCE_DIR}/testing/generated-inputs")
 
-# Generate header file from src/build_info.hpp.in
 configure_file(
   src/build_info.hpp.in
-  ${CMAKE_BINARY_DIR}/build_info.hpp
+  ${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp
 )
-# Include the generated build_info.hpp
-target_include_directories (asgard PRIVATE ${CMAKE_BINARY_DIR})
 
-target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
+add_library (asgard_obj)
+
+if (build_hdf5)
+    add_dependencies (asgard_obj hdf5-ext)
+endif ()
+
+target_compile_features (asgard_obj PUBLIC cxx_std_17)
+set (components
+     adapt
+     basis
+     batch
+     boundary_conditions
+     coefficients
+     distribution
+     elements
+     fast_math
+     kronmult
+     lib_dispatch
+     matlab_utilities
+     pde
+     permutations
+     program_options
+     quadrature
+     solver
+     tensors
+     time_advance
+     tools
+     transformations
+)
+
+if (ASGARD_IO_HIGHFIVE)
+    list (APPEND components io)
+endif ()
+
+if (ASGARD_USE_SCALAPACK)
+    list (APPEND components scalapack_matrix_info scalapack_vector_info cblacs_grid)
+endif ()
+
+if (ASGARD_USE_MATLAB)
+    list(APPEND components matlab_plot)
+endif ()
+
+foreach (component IN LISTS components)
+    target_sources (asgard_obj
+                    PRIVATE
+                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp>
+    )
+    target_precompile_headers (asgard_obj
+                               PUBLIC
+                               $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
+    )
+endforeach ()
+target_sources (asgard_obj
+                PRIVATE
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp>
+)
+target_precompile_headers (asgard_obj
+                           PUBLIC
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_base.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_continuity1.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_continuity2.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_continuity3.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_continuity6.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_diffusion1.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_diffusion2.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck1_4p3.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck1_4p4.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck1_4p5.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck1_pitch_C.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck1_pitch_E.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck2_complete.hpp>>
+)
+target_link_libraries (asgard_obj
+                       PUBLIC
+                       $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
+                       $<$<BOOL:${scalapack_FOUND}>:scalapack>
+                       $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
+                       $<$<BOOL:${LINALG_FOUND}>:LINALG::LINALG>
+                       kron
+                       clara
+                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
+                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>
+)
+target_include_directories (asgard_obj
+                            PUBLIC
+                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+                            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+)
+target_compile_definitions (asgard_obj
+                            PUBLIC
+                            $<BUILD_INTERFACE:$<$<BOOL:${ASGARD_USE_SCALAPACK}>:ASGARD_USE_SCALAPACK>>
+)
+
+if (ASGARD_USE_CUDA)
+    enable_language (CUDA)
+
+    find_package (CUDAToolkit REQUIRED)
+
+    set_target_properties (asgard_obj PROPERTIES CUDA_ARCHITECTURES 70)
+    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp
+                                 PROPERTIES LANGUAGE CUDA)
+
+#  Turn on GPU support in kronmult.
+    set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
+
+    target_compile_options (asgard_obj
+                            PUBLIC
+                            $<$<COMPILE_LANGUAGE:CUDA>:-g -lineinfo --ptxas-options=-O3>
+    )
+    target_compile_features (asgard_obj PUBLIC cuda_std_14)
+    target_link_options (asgard_obj
+                         PUBLIC
+                         $<$<COMPILE_LANGUAGE:CUDA>:-Wl,-rpath,${CMAKE_BINARY_DIR}>
+    )
+    target_link_libraries (asgard_obj
+                           PUBLIC
+                           CUDA::cudart
+                           CUDA::cublas
+    )
+endif ()
+
+#-------------------------------------------------------------------------------
+#  Define a asgard executable library.
+#-------------------------------------------------------------------------------
+add_executable (asgard)
+target_sources (asgard
+                PRIVATE
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp>
+)
+target_link_libraries (asgard PRIVATE asgard_obj)
+if (${ASGARD_USE_PCH})
+    target_precompile_headers (asgard REUSE_FROM asgard_obj)
+endif ()
 
 ###############################################################################
 ## Testing asgard
@@ -425,19 +332,38 @@ target_include_directories (kronmult_cuda PRIVATE ${CMAKE_BINARY_DIR})
 if (ASGARD_BUILD_TESTS)
   enable_testing ()
 
+  set (main_app_link_deps
+       adapt
+       coefficients
+       distribution
+       elements
+       matlab_utilities
+       pde
+       program_options
+       quadrature
+       tensors
+       time_advance
+       tools
+       transformations
+  )
+
   # Define ctest tests and their executables. The _main variant of these targets
   # uses the default main function from the catch two framework. The non _main
   # variant uses a custom defined main in MPI based tests.
   add_library (tests_general testing/tests_general.cpp)
   add_library (tests_general_main testing/tests_general.cpp)
-  target_link_libraries (tests_general PRIVATE pde program_options PUBLIC Catch2::Catch2)
-  target_link_libraries (tests_general_main PRIVATE pde program_options PUBLIC Catch2::Catch2WithMain)
+  target_link_libraries (tests_general PUBLIC asgard_obj Catch2::Catch2)
+  target_link_libraries (tests_general_main PUBLIC asgard_obj Catch2::Catch2WithMain)
   target_include_directories(tests_general
                              PRIVATE ${CMAKE_BINARY_DIR}
                              PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   target_include_directories(tests_general_main
                              PRIVATE ${CMAKE_BINARY_DIR}
                              PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  if (${ASGARD_USE_PCH})
+    target_precompile_headers (tests_general REUSE_FROM asgard_obj)
+    target_precompile_headers (tests_general_main REUSE_FROM asgard_obj)
+  endif ()
 
   # components with MPI-enabled testing
   set (mpi_test_components
@@ -451,20 +377,17 @@ if (ASGARD_BUILD_TESTS)
   endif()
 
   foreach (component IN LISTS components)
-    add_executable (${component}-tests src/${component}_tests.cpp)
+    add_executable (${component}-tests)
+    target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
-    if (ASGARD_USE_SCALAPACK)
-      target_compile_definitions (${component}-tests PUBLIC ASGARD_USE_SCALAPACK)
-    endif ()
-
-    if (ASGARD_IO_HIGHFIVE AND "${component}" STREQUAL "io")
-      target_link_libraries (io-tests PRIVATE highfive hdf5 tensors)
-    endif ()
 
     if (ASGARD_USE_MPI)
       if (${component} IN_LIST mpi_test_components)
-        target_link_libraries (${component}-tests PRIVATE ${component} MPI::MPI_CXX PUBLIC tests_general)
+        target_link_libraries (${component}-tests PUBLIC tests_general)
+        if (${ASGARD_USE_PCH})
+            target_precompile_headers (${component}-tests REUSE_FROM tests_general)
+        endif ()
 
         set(test_ranks "4")
       	if (ASGARD_USE_CUDA)
@@ -491,22 +414,37 @@ if (ASGARD_BUILD_TESTS)
                                                                          TIMEOUT 600)
         endforeach ()
       else ()
-        target_link_libraries (${component}-tests PRIVATE ${component} PUBLIC tests_general_main)
+        target_link_libraries (${component}-tests PUBLIC tests_general_main)
+        if (${ASGARD_USE_PCH})
+            target_precompile_headers (${component}-tests REUSE_FROM tests_general_main)
+        endif ()
       endif ()
     else ()
-      target_link_libraries (${component}-tests PRIVATE ${component} PUBLIC tests_general_main)
+      target_link_libraries (${component}-tests PUBLIC tests_general_main)
+      if (${ASGARD_USE_PCH})
+        target_precompile_headers (${component}-tests REUSE_FROM tests_general_main)
+      endif ()
     endif ()
 
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
-              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
   endforeach ()
 
-  add_executable (kronmult_cuda-tests src/device/kronmult_cuda_tests.cpp)
-  target_include_directories (kronmult_cuda-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-  target_include_directories (kronmult_cuda-tests PRIVATE ${CMAKE_BINARY_DIR})
-  target_link_libraries (kronmult_cuda-tests PRIVATE coefficients kronmult_cuda tests_general_main)
+  add_executable (kronmult_cuda-tests)
+  target_sources (kronmult_cuda-tests
+                  PRIVATE
+                  $<BUILD_INTERFACE:src/device/kronmult_cuda_tests.cpp>)
+  target_include_directories (kronmult_cuda-tests
+                              PRIVATE
+                              ${CMAKE_SOURCE_DIR}/testing
+                              ${CMAKE_BINARY_DIR}
+  )
+  target_link_libraries (kronmult_cuda-tests PUBLIC tests_general_main)
+  if (${ASGARD_USE_PCH})
+    target_precompile_headers (kronmult_cuda-tests REUSE_FROM tests_general_main)
+  endif ()
   add_test (NAME kronmult_cuda-test
             COMMAND kronmult_cuda-tests
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
