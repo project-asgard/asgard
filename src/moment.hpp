@@ -8,12 +8,12 @@ class moment
 {
 public:
   moment(std::vector<vector_func<P>> md_func);
-  //createFlist();
-  //createMomentVector()
+  // createFlist();
+  // createMomentVector()
 private:
   std::vector<vector_func<P>> md_func_;
-  //fList;
-  //vector;
-  //moment_fval_integral;
-  //moment_analytic_integral;
+  // fList;
+  // vector;
+  // moment_fval_integral;
+  // moment_analytic_integral;
 };
