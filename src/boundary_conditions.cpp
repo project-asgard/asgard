@@ -308,7 +308,8 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
       fk::matrix<P, mem_type::const_view> const pterm_coeffs(
           terms[dim_num].get_partial_terms()[p_num].get_coefficients(), 0,
           degrees_freedom_1d_other - 1, 0, degrees_freedom_1d_other - 1);
-      fm::gemv(pterm_coeffs, partial_bc_vecs.back(), partial_bc_vecs.back());
+      fm::gemv(pterm_coeffs, fk::vector<P>(partial_bc_vecs.back()),
+               partial_bc_vecs.back());
     }
   }
 

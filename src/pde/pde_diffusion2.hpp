@@ -22,7 +22,7 @@ private:
   static int constexpr num_terms_          = 2;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = true;
-  static int constexpr default_level       = 2;
+  static int constexpr default_level       = 3;
   static int constexpr default_degree      = 2;
   static int constexpr domain_min          = 0;
   static int constexpr domain_max          = 1;

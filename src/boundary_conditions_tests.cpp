@@ -19,6 +19,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
   elements::table const table(opts, pde);
 
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
+  generate_dimension_mass_mat(pde, transformer);
   generate_all_coefficients<P>(pde, transformer);
 
   /* initialize bc vector at test_time */
@@ -274,6 +275,18 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
+
+  SECTION("diffusion_2 level 3 degree 3")
+  {
+    int const level  = 3;
+    int const degree = 3;
+    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    std::string const gold_prefix = "../testing/generated-inputs/"
+                                    "boundary_conditions/compute_diffusion2";
+
+    test_compute_boundary_condition(*pde, gold_prefix, tol_factor);
+  }
 }
 
 TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
@@ -319,6 +332,21 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     std::string const gold_filename = "../testing/generated-inputs/"
                                       "boundary_conditions/"
                                       "vector_diffusion1_l" +
+                                      std::to_string(level) + "_d" +
+                                      std::to_string(degree) + ".dat";
+
+    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
+  }
+
+  SECTION("diffusion_2 level 3 degree 3")
+  {
+    int const level  = 3;
+    int const degree = 3;
+    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    std::string const gold_filename = "../testing/generated-inputs/"
+                                      "boundary_conditions/"
+                                      "vector_diffusion2_l" +
                                       std::to_string(level) + "_d" +
                                       std::to_string(degree) + ".dat";
 
