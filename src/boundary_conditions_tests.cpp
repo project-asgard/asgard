@@ -19,7 +19,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
   elements::table const table(opts, pde);
 
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
-  generate_dimension_mass_mat(pde, transformer);
+  generate_dimension_mass_mat<P>(pde, transformer);
   generate_all_coefficients<P>(pde, transformer);
 
   /* initialize bc vector at test_time */
@@ -152,7 +152,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
-    generate_dimension_mass_mat(*pde, transformer);
+    generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */
@@ -197,7 +197,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
-    generate_dimension_mass_mat(*pde, transformer);
+    generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */

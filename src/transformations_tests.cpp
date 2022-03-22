@@ -110,7 +110,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
       ignore(t);
       return x * static_cast<TestType>(2.0);
     };
-    g_func_type const tenth_func = [](TestType x, TestType t) {
+    g_func_type<TestType> const tenth_func = [](TestType x, TestType t) {
       ignore(t);
       return x * 0.1;
     };
@@ -143,7 +143,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
       ignore(t);
       return x + (x * static_cast<TestType>(2.0));
     };
-    g_func_type const tenth_func = [](TestType x, TestType t) {
+    g_func_type<TestType> const tenth_func = [](TestType x, TestType t) {
       ignore(t);
       return x * 0.1;
     };

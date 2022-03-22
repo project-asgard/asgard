@@ -25,7 +25,7 @@
 // for RAII compliance and readability
 
 // same pi used by matlab
-static double const PI = 3.141592653589793;
+static constexpr double const PI = 3.141592653589793;
 
 // for passing around vector/scalar-valued functions used by the PDE
 template<typename P>
@@ -33,7 +33,8 @@ using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
-using g_func_type = std::function<double(double const, double const)>;
+template<typename P>
+using g_func_type = std::function<P(P const, P const)>;
 
 //----------------------------------------------------------------------------
 //
@@ -78,11 +79,11 @@ public:
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
-  g_func_type const moment_dV;
+  g_func_type<P> const moment_dV;
   std::string const name;
   dimension(P const domain_min, P const domain_max, int const level,
             int const degree, vector_func<P> const initial_condition,
-            g_func_type const moment_dV, std::string const name)
+            g_func_type<P> const moment_dV, std::string const name)
 
       : domain_min(domain_min), domain_max(domain_max),
         initial_condition(initial_condition), moment_dV(moment_dV), name(name)
@@ -162,18 +163,18 @@ public:
   static P null_scalar_func(P const p) { return p; }
 
   partial_term(coefficient_type const coeff_type,
-               g_func_type const g_func        = null_gfunc,
-               g_func_type const lhs_mass_func = null_gfunc,
-               flux_type const flux            = flux_type::central,
-               boundary_condition const left   = boundary_condition::neumann,
-               boundary_condition const right  = boundary_condition::neumann,
-               homogeneity const left_homo     = homogeneity::homogeneous,
-               homogeneity const right_homo    = homogeneity::homogeneous,
+               g_func_type<P> const g_func        = null_gfunc,
+               g_func_type<P> const lhs_mass_func = null_gfunc,
+               flux_type const flux               = flux_type::central,
+               boundary_condition const left      = boundary_condition::neumann,
+               boundary_condition const right     = boundary_condition::neumann,
+               homogeneity const left_homo        = homogeneity::homogeneous,
+               homogeneity const right_homo       = homogeneity::homogeneous,
                std::vector<vector_func<P>> const left_bc_funcs = {},
                scalar_func<P> const left_bc_time_func = null_scalar_func,
                std::vector<vector_func<P>> const right_bc_funcs = {},
                scalar_func<P> const right_bc_time_func = null_scalar_func,
-               g_func_type const dv_func               = null_gfunc)
+               g_func_type<P> const dv_func            = null_gfunc)
 
       : coeff_type(coeff_type), g_func(g_func), lhs_mass_func(lhs_mass_func),
         flux(set_flux(flux)), left(left), right(right),
@@ -188,8 +189,8 @@ public:
 
   coefficient_type const coeff_type;
 
-  g_func_type const g_func;
-  g_func_type const lhs_mass_func;
+  g_func_type<P> const g_func;
+  g_func_type<P> const lhs_mass_func;
 
   flux_type const flux;
 
@@ -207,7 +208,7 @@ public:
   scalar_func<P> const left_bc_time_func;
   scalar_func<P> const right_bc_time_func;
 
-  g_func_type const dv_func;
+  g_func_type<P> const dv_func;
 
   fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 

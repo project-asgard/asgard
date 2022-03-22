@@ -25,15 +25,15 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 
 template<typename P>
 fk::vector<P>
-compute_left_boundary_condition(g_func_type const g_func,
-                                g_func_type const dv_func, P const time,
+compute_left_boundary_condition(g_func_type<P> const g_func,
+                                g_func_type<P> const dv_func, P const time,
                                 dimension<P> const &dim,
                                 vector_func<P> const bc_func);
 
 template<typename P>
 fk::vector<P>
-compute_right_boundary_condition(g_func_type const g_func,
-                                 g_func_type const dv_func, P const time,
+compute_right_boundary_condition(g_func_type<P> const g_func,
+                                 g_func_type<P> const dv_func, P const time,
                                  dimension<P> const &dim,
                                  vector_func<P> const bc_func);
 

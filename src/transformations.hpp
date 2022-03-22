@@ -47,7 +47,7 @@ combine_dimensions(int const, elements::table const &, int const, int const,
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(
-    dimension<P> const &dim, F function, g_func_type const dv_func,
+    dimension<P> const &dim, F function, g_func_type<P> const dv_func,
     basis::wavelet_transform<P, resource::host> const &transformer,
     P const t = 0)
 {
