@@ -445,7 +445,8 @@ matlab_plot::make_partial_term(partial_term<P> const &pterm)
   ml_pterm[0]["type"] =
       factory_.createCharArray(get_coeff_str(pterm.coeff_type));
 
-  ml_pterm[0]["mat"]          = matrix_to_array(pterm.get_coefficients());
+  ml_pterm[0]["mat"] =
+      matrix_to_array(pterm.get_coefficients(pterm.get_lhs_mass().nrows()));
   ml_pterm[0]["LHS_mass_mat"] = matrix_to_array(pterm.get_lhs_mass());
 
   return ml_pterm;

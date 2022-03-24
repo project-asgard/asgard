@@ -210,7 +210,23 @@ public:
 
   g_func_type<P> const dv_func;
 
-  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
+  fk::matrix<P> const get_coefficients(int const dof) const
+  {
+    // returns inv(mass) * coeff as square matrix of size dof
+    // TODO: this could be like transformer, where each step is precomputed for
+    // different levels
+    expect(dof <= mass_.ncols());
+    expect(dof <= mass_.nrows());
+
+    fk::matrix<P> result(dof, dof);
+    auto mass_tmp = mass_.extract_submatrix(0, 0, dof, dof);
+
+    fm::gemm(mass_tmp.invert(),
+             fk::matrix<P, mem_type::const_view>(coefficients_, 0, dof - 1, 0,
+                                                 dof - 1),
+             result);
+    return result;
+  }
 
   fk::matrix<P> const &get_lhs_mass() const { return mass_; }
 
@@ -332,16 +348,14 @@ public:
 
     for (auto const &pterm : partial_terms_)
     {
-      auto const &partial_coeff = pterm.get_coefficients();
-      expect(partial_coeff.size() >
+      auto const &partial_coeff = pterm.get_coefficients(new_dof);
+      expect(partial_coeff.size() >=
              new_dof); // make sure we built the partial terms to support
                        // new level/degree
 
       new_coeffs = new_coeffs *
-                   fk::matrix<P, mem_type::const_view>(
-                       partial_coeff, 0, new_dof - 1, 0,
-                       new_dof - 1); // at some point, we could consider storing
-                                     // these device-side after construction.
+                   partial_coeff; // at some point, we could consider storing
+                                  // these device-side after construction.
     }
 
     fk::matrix<P, mem_type::view, resource::device>(coefficients_, 0,
