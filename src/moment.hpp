@@ -8,7 +8,7 @@ class moment
 {
 public:
   moment(std::vector<vector_func<P>> md_func);
-  // createFlist();
+  // createFlist(std::vector<std::unique_ptr<PDE<P>>> pde);
   // createMomentVector()
 private:
   std::vector<vector_func<P>> md_func_;
