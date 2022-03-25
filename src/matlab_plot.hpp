@@ -158,10 +158,11 @@ public:
   void copy_pde(PDE<P> const &pde, std::string const name = std::string("pde"));
 
   template<typename P>
-  matlab::data::StructArray make_term(term<P> const &term);
+  matlab::data::StructArray make_term(term<P> const &term, int const max_lev);
 
   template<typename P>
-  matlab::data::StructArray make_partial_term(partial_term<P> const &pterm);
+  matlab::data::StructArray
+  make_partial_term(partial_term<P> const &pterm, int const max_lev);
 
   template<typename P>
   matlab::data::StructArray make_dimension(dimension<P> const &dim);

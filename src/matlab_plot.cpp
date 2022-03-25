@@ -366,7 +366,7 @@ void matlab_plot::copy_pde(PDE<P> const &pde, std::string const name)
   {
     for (auto j = 0; j < pde.num_terms; ++j)
     {
-      ml_terms[i][j] = make_term(pde.get_terms()[j][i]);
+      ml_terms[i][j] = make_term(pde.get_terms()[j][i], pde.max_level);
     }
   }
   ml_pde[0]["terms"] = ml_terms;
@@ -378,7 +378,8 @@ void matlab_plot::copy_pde(PDE<P> const &pde, std::string const name)
 }
 
 template<typename P>
-matlab::data::StructArray matlab_plot::make_term(term<P> const &term)
+matlab::data::StructArray
+matlab_plot::make_term(term<P> const &term, int const max_lev)
 {
   std::vector<std::string> names    = {"time_dependent", "name", "data",
                                     "coefficients", "pterms"};
@@ -398,7 +399,7 @@ matlab::data::StructArray matlab_plot::make_term(term<P> const &term)
       factory_.createCellArray({1, static_cast<size_t>(pterms.size())});
   for (auto i = 0; i < static_cast<int>(pterms.size()); ++i)
   {
-    ml_pterms[0][i] = make_partial_term(pterms[i]);
+    ml_pterms[0][i] = make_partial_term(pterms[i], max_lev);
   }
   ml_term[0]["pterms"] = ml_pterms;
 
@@ -407,10 +408,14 @@ matlab::data::StructArray matlab_plot::make_term(term<P> const &term)
 
 template<typename P>
 matlab::data::StructArray
-matlab_plot::make_partial_term(partial_term<P> const &pterm)
+matlab_plot::make_partial_term(partial_term<P> const &pterm, int const max_lev)
 {
-  std::vector<std::string> names     = {"LF",   "BCL",  "BCR", "IBCL",
-                                    "IBCR", "type", "mat", "LHS_mass_mat"};
+  std::vector<std::string> names = {"LF",   "BCL",  "BCR",         "IBCL",
+                                    "IBCR", "type", "LHS_mass_mat"};
+  for (int i = 1; i <= max_lev; ++i)
+  {
+    names.push_back("mat" + std::to_string(i));
+  }
   matlab::data::StructArray ml_pterm = factory_.createStructArray({1}, names);
 
   auto const get_bc_str = [](boundary_condition const &type) -> std::string {
@@ -445,8 +450,12 @@ matlab_plot::make_partial_term(partial_term<P> const &pterm)
   ml_pterm[0]["type"] =
       factory_.createCharArray(get_coeff_str(pterm.coeff_type));
 
-  ml_pterm[0]["mat"] =
-      matrix_to_array(pterm.get_coefficients(pterm.get_lhs_mass().nrows()));
+  // get the pterm coefficients that are stored for each level
+  for (int i = 1; i <= max_lev; ++i)
+  {
+    ml_pterm[0]["mat" + std::to_string(i)] =
+        matrix_to_array(pterm.get_coefficients(i));
+  }
   ml_pterm[0]["LHS_mass_mat"] = matrix_to_array(pterm.get_lhs_mass());
 
   return ml_pterm;
@@ -589,14 +598,16 @@ template void
 matlab_plot::copy_pde(PDE<double> const &pde, std::string const name);
 
 template matlab::data::StructArray
-matlab_plot::make_term(term<float> const &term);
+matlab_plot::make_term(term<float> const &term, int const max_lev);
 template matlab::data::StructArray
-matlab_plot::make_term(term<double> const &term);
+matlab_plot::make_term(term<double> const &term, int const max_lev);
 
 template matlab::data::StructArray
-matlab_plot::make_partial_term(partial_term<float> const &pterm);
+matlab_plot::make_partial_term(partial_term<float> const &pterm,
+                               int const max_lev);
 template matlab::data::StructArray
-matlab_plot::make_partial_term(partial_term<double> const &pterm);
+matlab_plot::make_partial_term(partial_term<double> const &pterm,
+                               int const max_lev);
 
 template matlab::data::StructArray
 matlab_plot::make_dimension(dimension<float> const &dim);

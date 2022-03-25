@@ -307,7 +307,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     {
       fk::matrix<P> const pterm_coeffs =
           terms[dim_num].get_partial_terms()[p_num].get_coefficients(
-              degrees_freedom_1d_other);
+              dimensions[dim_num].get_level());
       fm::gemv(pterm_coeffs, fk::vector<P>(partial_bc_vecs.back()),
                partial_bc_vecs.back());
     }
@@ -331,7 +331,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
   for (int p = 0; p < p_index; ++p)
   {
     fk::matrix<P> const next_coeff =
-        partial_terms[p].get_coefficients(degrees_freedom_1d);
+        partial_terms[p].get_coefficients(dimensions[d_index].get_level());
     fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
   }
 

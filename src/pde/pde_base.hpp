@@ -210,30 +210,33 @@ public:
 
   g_func_type<P> const dv_func;
 
-  fk::matrix<P> const get_coefficients(int const dof) const
+  fk::matrix<P> const get_coefficients(int const level) const
   {
-    // returns inv(mass) * coeff as square matrix of size dof
-    // TODO: this could be like transformer, where each step is precomputed for
-    // different levels
-    expect(dof <= mass_.ncols());
-    expect(dof <= mass_.nrows());
-
-    fk::matrix<P> result(dof, dof);
-    auto mass_tmp = mass_.extract_submatrix(0, 0, dof, dof);
-
-    fm::gemm(mass_tmp.invert(),
-             fk::matrix<P, mem_type::const_view>(coefficients_, 0, dof - 1, 0,
-                                                 dof - 1),
-             result);
-    return result;
+    // returns precomputed inv(mass) * coeff for this level
+    expect(static_cast<int>(coefficients_.size()) >= level - 1);
+    return coefficients_[level - 1];
   }
 
   fk::matrix<P> const &get_lhs_mass() const { return mass_; }
 
-  void set_coefficients(fk::matrix<P> const &new_coefficients)
+  void set_coefficients(fk::matrix<P> const &new_coefficients, int const deg,
+                        int const max_level)
   {
-    this->coefficients_.clear_and_resize(
-        new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
+    coefficients_.clear();
+
+    // precompute inv(mass) * coeff for each level up to max level
+    for (int level = 1; level <= max_level; ++level)
+    {
+      auto const dof = deg * fm::two_raised_to(level);
+      fk::matrix<P> result(dof, dof);
+      auto mass_tmp = mass_.extract_submatrix(0, 0, dof, dof);
+
+      fm::gemm(mass_tmp.invert(),
+               fk::matrix<P, mem_type::const_view>(new_coefficients, 0, dof - 1,
+                                                   0, dof - 1),
+               result);
+      coefficients_.emplace_back(result);
+    }
   }
 
   void set_mass(fk::matrix<P> const &new_mass)
@@ -274,7 +277,7 @@ public:
   }
 
 private:
-  fk::matrix<P> coefficients_;
+  std::vector<fk::matrix<P>> coefficients_;
   fk::matrix<P> mass_;
 };
 
@@ -312,11 +315,12 @@ public:
         new_coefficients.clone_onto_device();
   }
 
-  void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
+  void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm,
+                                int const deg, int const max_lev)
   {
     expect(pterm >= 0);
     expect(pterm < static_cast<int>(partial_terms_.size()));
-    partial_terms_[pterm].set_coefficients(coeffs);
+    partial_terms_[pterm].set_coefficients(coeffs, deg, max_lev);
   }
 
   void set_lhs_mass(fk::matrix<P> const &mass, int const pterm)
@@ -348,7 +352,8 @@ public:
 
     for (auto const &pterm : partial_terms_)
     {
-      auto const &partial_coeff = pterm.get_coefficients(new_dof);
+      auto const &partial_coeff =
+          pterm.get_coefficients(adapted_dim.get_level());
       expect(partial_coeff.size() >=
              new_dof); // make sure we built the partial terms to support
                        // new level/degree
@@ -424,7 +429,8 @@ public:
       scalar_func<P> const exact_time, dt_func<P> const get_dt,
       bool const do_poisson_solve = false, bool const has_analytic_soln = false)
       : num_dims(num_dims), num_sources(num_sources),
-        num_terms(get_num_terms(cli_input, num_terms_)), sources(sources),
+        num_terms(get_num_terms(cli_input, num_terms_)),
+        max_level(cli_input.get_max_level()), sources(sources),
         exact_vector_funcs(exact_vector_funcs), exact_time(exact_time),
         do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
@@ -560,6 +566,7 @@ public:
   int const num_dims;
   int const num_sources;
   int const num_terms;
+  int const max_level;
 
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
@@ -605,7 +612,8 @@ public:
     expect(term < num_terms);
     expect(dim >= 0);
     expect(dim < num_dims);
-    terms_[term][dim].set_partial_coefficients(coeffs, pterm);
+    terms_[term][dim].set_partial_coefficients(
+        coeffs, pterm, dimensions_[dim].get_degree(), max_level);
   }
 
   void set_lhs_mass(int const term, int const dim, int const pterm,
