@@ -303,7 +303,6 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
     int row = 0;
     for (auto i = 0; i < pde->num_dims; ++i)
     {
-      auto const &dim = pde->get_dimensions()[i];
       for (auto j = 0; j < pde->num_terms; ++j)
       {
         auto const &term_1D       = pde->get_terms()[j][i];

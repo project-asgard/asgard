@@ -213,8 +213,9 @@ public:
   fk::matrix<P> const get_coefficients(int const level) const
   {
     // returns precomputed inv(mass) * coeff for this level
-    expect(static_cast<int>(coefficients_.size()) >= level - 1);
-    return coefficients_[level - 1];
+    expect(static_cast<int>(coefficients_.size()) >= level);
+    expect(level >= 0);
+    return coefficients_[level];
   }
 
   fk::matrix<P> const &get_lhs_mass() const { return mass_; }
@@ -225,7 +226,7 @@ public:
     coefficients_.clear();
 
     // precompute inv(mass) * coeff for each level up to max level
-    for (int level = 1; level <= max_level; ++level)
+    for (int level = 0; level <= max_level; ++level)
     {
       auto const dof = deg * fm::two_raised_to(level);
       fk::matrix<P> result(dof, dof);
@@ -354,7 +355,7 @@ public:
     {
       auto const &partial_coeff =
           pterm.get_coefficients(adapted_dim.get_level());
-      expect(partial_coeff.size() >=
+      expect(partial_coeff.ncols() ==
              new_dof); // make sure we built the partial terms to support
                        // new level/degree
 
