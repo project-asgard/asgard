@@ -91,6 +91,7 @@ void time_advance_test(parser const &parse, std::string const &filepath,
     auto const dof =
         static_cast<int>(std::pow(parse.get_degree(), pde->num_dims));
     auto const subgrid = adaptive_grid.get_subgrid(get_rank());
+    REQUIRE((subgrid.col_stop + 1) * dof - 1 <= gold.size());
     auto const my_gold = fk::vector<P, mem_type::const_view>(
         gold, subgrid.col_start * dof, (subgrid.col_stop + 1) * dof - 1);
     rmse_comparison(my_gold, f_val, tolerance_factor);
@@ -246,12 +247,12 @@ TEST_CASE("adaptive time advance")
 
   SECTION("fokkerplanck1_pitch_E case1 explicit")
   {
-    auto const tol_factor        = 1e-15;
+    auto constexpr tol_factor    = get_tolerance<double>(100);
     std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_E_case1_ad_sg_l4_d4_t";
+                                  "fokkerplanck1_4p1a_ad_sg_l4_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
@@ -612,7 +613,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
 
   std::string const pde_choice = "fokkerplanck_1d_pitch_C";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto constexpr tol_factor    = get_tolerance<TestType>(200);
   auto const num_dims          = 1;
 
   SECTION("fokkerplanck_1d_pitch_C, level 2, degree 2, sparse grid")
@@ -620,7 +621,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
     int const degree            = 2;
     int const level             = 2;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_C_sg_l2_d2_t";
+                                  "fokkerplanck1_4p2_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -671,7 +672,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
 
   std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
   TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(10);
+  auto constexpr tol_factor    = get_tolerance<TestType>(100);
   auto const num_dims          = 1;
 
   SECTION("fokkerplanck_1d_pitch_E_case1, level 2, degree 2, sparse grid")
@@ -679,7 +680,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
     int const degree            = 2;
     int const level             = 2;
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_E_case1_sg_l2_d2_t";
+                                  "fokkerplanck1_4p1a_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -741,7 +742,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   {
     int const level           = 3;
     int const degree          = 3;
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck2_complete_implicit_sg_l3_d3_t";
@@ -766,7 +767,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   {
     int const level           = 4;
     int const degree          = 3;
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck2_complete_implicit_sg_l4_d3_t";
@@ -791,7 +792,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   {
     int const level           = 5;
     int const degree          = 3;
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck2_complete_implicit_sg_l5_d3_t";
@@ -819,7 +820,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   {
     int const degree = 3;
     fk::vector<int> const levels{2, 3};
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     std::string const gold_base = "../testing/generated-inputs/time_advance/"
                                   "fokkerplanck2_complete_implicit_sg_l" +

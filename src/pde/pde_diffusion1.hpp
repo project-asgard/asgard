@@ -86,7 +86,7 @@ private:
       bc_time_func, {bc_func}, bc_time_func);
 
   inline static term<P> const term_0 =
-      term<P>(false,           // time-dependent
+      term<P>(true,            // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
               {partial_term_0, partial_term_1});
