@@ -319,4 +319,48 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
+
+  SECTION("pterm lhs mass")
+  {
+    auto const gold = fk::matrix<TestType>(
+        read_matrix_from_txt_file(std::string(gold_path) + "_lhsmass.dat"));
+
+    auto const levels = fk::vector<int>{4, 4};
+    int const degree  = 4;
+
+    parser const test_parse(pde_choice, levels, degree);
+    auto pde = make_PDE<TestType>(test_parse);
+    options const opts(test_parse);
+
+    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                         *pde);
+    TestType const time = 1.0;
+    generate_dimension_mass_mat(*pde, transformer);
+    generate_all_coefficients(*pde, transformer, time, true);
+
+    int row = 0;
+    for (auto i = 0; i < pde->num_dims; ++i)
+    {
+      for (auto j = 0; j < pde->num_terms; ++j)
+      {
+        auto const &term_1D       = pde->get_terms()[j][i];
+        auto const &partial_terms = term_1D.get_partial_terms();
+        for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
+        {
+          int const dof = degree * fm::two_raised_to(levels(i));
+
+          auto const mass =
+              partial_terms[k].get_lhs_mass().extract_submatrix(0, 0, dof, dof);
+
+          fk::matrix<TestType> gold_mass(
+              gold.extract_submatrix(row, 0, dof, dof));
+
+          auto constexpr tol_factor = get_tolerance<TestType>(10);
+          rmse_comparison(mass, gold_mass, tol_factor);
+
+          row += dof;
+        }
+      }
+    }
+  }
 }

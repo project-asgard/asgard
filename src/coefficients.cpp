@@ -30,9 +30,6 @@ void generate_all_coefficients(
 
       for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
       {
-        auto partial_term_coeff = generate_coefficients<P>(
-            dim, term_1D, partial_terms[k], transformer, time, rotate);
-
         // TODO: refactor these changes, this is slow!
         partial_term<P> const lhs_mass_pterm = partial_term<P>(
             coefficient_type::mass, partial_terms[k].lhs_mass_func,
@@ -42,11 +39,27 @@ void generate_all_coefficients(
             partial_term<P>::null_scalar_func, {},
             partial_term<P>::null_scalar_func, dim.moment_dV);
 
-        auto mass_coeff = generate_coefficients<P>(dim, term_1D, lhs_mass_pterm,
-                                                   transformer, time, rotate);
+        auto mass_coeff =
+            generate_coefficients<P>(dim, term_1D, lhs_mass_pterm, transformer,
+                                     pde.max_level, time, rotate);
+
+        // precompute inv(mass) * coeff for each level up to max level
+        std::vector<fk::matrix<P>> pterm_coeffs;
+        for (int level = 0; level <= pde.max_level; ++level)
+        {
+          auto const dof = dim.get_degree() * fm::two_raised_to(level);
+          fk::matrix<P> result(dof, dof);
+          auto mass_tmp = mass_coeff.extract_submatrix(0, 0, dof, dof);
+
+          auto pterm_coeff = generate_coefficients<P>(
+              dim, term_1D, partial_terms[k], transformer, level, time, rotate);
+
+          fm::gemm(mass_tmp.invert(), pterm_coeff, result);
+          pterm_coeffs.emplace_back(result);
+        }
 
         pde.set_lhs_mass(j, i, k, mass_coeff);
-        pde.set_partial_coefficients(j, i, k, partial_term_coeff);
+        pde.set_partial_coefficients(j, i, k, pterm_coeffs);
       }
     }
     pde.rechain_dimension(i);
@@ -69,8 +82,8 @@ void generate_dimension_mass_mat(
         homogeneity::homogeneous, homogeneity::homogeneous, {},
         partial_term<P>::null_scalar_func, {},
         partial_term<P>::null_scalar_func, dim.moment_dV);
-    auto mass_mat = generate_coefficients<P>(dim, term_1D, lhs_mass_pterm,
-                                             transformer, 0.0, true);
+    auto mass_mat = generate_coefficients<P>(
+        dim, term_1D, lhs_mass_pterm, transformer, pde.max_level, 0.0, true);
 
     pde.update_dimension_mass_mat(i, mass_mat);
   }
@@ -85,14 +98,15 @@ fk::matrix<P> generate_coefficients(
     dimension<P> const &dim, term<P> const &term_1D,
     partial_term<P> const &pterm,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const time, bool const rotate)
+    int const level, P const time, bool const rotate)
 {
   expect(time >= 0.0);
   expect(transformer.degree == dim.get_degree());
   expect(transformer.max_level >= dim.get_level());
+  expect(level <= transformer.max_level);
 
   // setup jacobi of variable x and define coeff_mat
-  auto const num_points = fm::two_raised_to(transformer.max_level);
+  auto const num_points = fm::two_raised_to(level);
 
   auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_points;
   auto const degrees_freedom_1d = dim.get_degree() * num_points;
@@ -142,8 +156,8 @@ fk::matrix<P> generate_coefficients(
   fk::vector<P, mem_type::const_view> const data(term_data, 0,
                                                  degrees_freedom_1d - 1);
 
-  auto const data_real = transformer.apply(
-      data, transformer.max_level, basis::side::left, basis::transpose::trans);
+  auto const data_real = transformer.apply(data, level, basis::side::left,
+                                           basis::transpose::trans);
 
   for (auto i = 0; i < num_points; ++i)
   {
@@ -425,9 +439,9 @@ fk::matrix<P> generate_coefficients(
     // These routines do the following operation:
     // coefficients = forward_trans * coefficients * forward_trans_transpose;
     coefficients = transformer.apply(
-        transformer.apply(coefficients, transformer.max_level,
-                          basis::side::right, basis::transpose::trans),
-        transformer.max_level, basis::side::left, basis::transpose::no_trans);
+        transformer.apply(coefficients, level, basis::side::right,
+                          basis::transpose::trans),
+        level, basis::side::left, basis::transpose::no_trans);
   }
 
   return coefficients;
@@ -437,13 +451,13 @@ template fk::matrix<float> generate_coefficients<float>(
     dimension<float> const &dim, term<float> const &term_1D,
     partial_term<float> const &pterm,
     basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, bool const rotate);
+    int const level, float const time, bool const rotate);
 
 template fk::matrix<double> generate_coefficients<double>(
     dimension<double> const &dim, term<double> const &term_1D,
     partial_term<double> const &pterm,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    double const time, bool const rotate);
+    int const level, double const time, bool const rotate);
 
 template void generate_all_coefficients<float>(
     PDE<float> &pde,

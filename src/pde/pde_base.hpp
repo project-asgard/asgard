@@ -240,6 +240,13 @@ public:
     }
   }
 
+  void set_coefficients(std::vector<fk::matrix<P>> const &new_coefficients)
+  {
+    expect(new_coefficients.size() > 0);
+    coefficients_.clear();
+    coefficients_ = new_coefficients;
+  }
+
   void set_mass(fk::matrix<P> const &new_mass)
   {
     this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
@@ -322,6 +329,14 @@ public:
     expect(pterm >= 0);
     expect(pterm < static_cast<int>(partial_terms_.size()));
     partial_terms_[pterm].set_coefficients(coeffs, deg, max_lev);
+  }
+
+  void set_partial_coefficients(std::vector<fk::matrix<P>> const &coeffs,
+                                int const pterm)
+  {
+    expect(pterm >= 0);
+    expect(pterm < static_cast<int>(partial_terms_.size()));
+    partial_terms_[pterm].set_coefficients(coeffs);
   }
 
   void set_lhs_mass(fk::matrix<P> const &mass, int const pterm)
@@ -431,7 +446,7 @@ public:
       bool const do_poisson_solve = false, bool const has_analytic_soln = false)
       : num_dims(num_dims), num_sources(num_sources),
         num_terms(get_num_terms(cli_input, num_terms_)),
-        max_level(cli_input.get_max_level()), sources(sources),
+        max_level(get_max_level(cli_input)), sources(sources),
         exact_vector_funcs(exact_vector_funcs), exact_time(exact_time),
         do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
@@ -617,6 +632,16 @@ public:
         coeffs, pterm, dimensions_[dim].get_degree(), max_level);
   }
 
+  void set_partial_coefficients(int const term, int const dim, int const pterm,
+                                std::vector<fk::matrix<P>> const &coeffs)
+  {
+    expect(term >= 0);
+    expect(term < num_terms);
+    expect(dim >= 0);
+    expect(dim < num_dims);
+    terms_[term][dim].set_partial_coefficients(coeffs, pterm);
+  }
+
   void set_lhs_mass(int const term, int const dim, int const pterm,
                     fk::matrix<P> const &mass)
   {
@@ -690,6 +715,28 @@ private:
       return new_num_terms;
     }
     return num_terms;
+  }
+
+  int get_max_level(parser const &cli_input)
+  {
+    // set maximum level to generate term coefficients
+    if (cli_input.do_adapt_levels())
+    {
+      return cli_input.get_max_level();
+    }
+    else
+    {
+      // if adaptivity is not used, only generate to the highest dim level
+      int lev = 0;
+      for (int l : cli_input.get_starting_levels())
+      {
+        if (l > lev)
+        {
+          lev = l;
+        }
+      }
+      return lev;
+    }
   }
 
   std::vector<dimension<P>> dimensions_;
