@@ -266,7 +266,7 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
         auto const coords    = table.get_coords(elem_index);
         auto const min_level = *std::min_element(
             coords.begin(), coords.begin() + coords.size() / 2);
-        return std::abs(max_elem) <= coarsen_threshold && min_level >= 1;
+        return std::abs(max_elem) <= coarsen_threshold && min_level >= 0;
       };
 
   auto const to_coarsen = filter_elements(coarsen_check, x);
