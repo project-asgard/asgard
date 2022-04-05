@@ -325,8 +325,9 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
     auto const gold = fk::matrix<TestType>(
         read_matrix_from_txt_file(std::string(gold_path) + "_lhsmass.dat"));
 
-    auto const levels = fk::vector<int>{4, 4};
-    int const degree  = 4;
+    auto constexpr tol_factor = get_tolerance<TestType>(100);
+    auto const levels         = fk::vector<int>{4, 4};
+    int const degree          = 4;
 
     parser const test_parse(pde_choice, levels, degree);
     auto pde = make_PDE<TestType>(test_parse);
@@ -355,7 +356,6 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
           fk::matrix<TestType> gold_mass(
               gold.extract_submatrix(row, 0, dof, dof));
 
-          auto constexpr tol_factor = get_tolerance<TestType>(10);
           rmse_comparison(mass, gold_mass, tol_factor);
 
           row += dof;

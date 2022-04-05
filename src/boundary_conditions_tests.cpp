@@ -232,7 +232,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);
 
-      auto constexpr tol_factor = get_tolerance<TestType>(10);
+      auto constexpr tol_factor = get_tolerance<TestType>(1e4);
 
       rmse_comparison(bc_section, bc_advanced, tol_factor);
 
