@@ -162,7 +162,11 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
                      cfl, use_full_grid, max_level, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
-  test_adapt<double>(parse, gold_base);
+  // temporarily disable test for MPI due to table elements < num ranks
+  if (get_num_ranks() == 1)
+  {
+    test_adapt<double>(parse, gold_base);
+  }
 }
 
 TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
