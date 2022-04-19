@@ -35,11 +35,6 @@ void wavelet_to_realspace(
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space);
 
-template<typename P>
-fk::vector<P>
-combine_dimensions(int const, elements::table const &element_table,
-                   std::vector<fk::vector<P>> const &, P const = 1.0);
-
 // overload - get only the elements of the combined vector that fall within a
 // specified range
 template<typename P>

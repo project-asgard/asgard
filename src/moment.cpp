@@ -34,5 +34,25 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
   }
 }
 
+// Actually contstructs the moment vector using fList.
+// Calculate only if adapt is true or the vector field is empty
+template<typename P>
+void moment<P>::createMomentVector(parser const &opts,
+                                   elements::table const &hash_table)
+{
+  if (this->vector.size() == 0 || opts.do_adapt_levels())
+  {
+    distribution_plan const plan = get_plan(get_num_ranks(), hash_table);
+    auto rank = get_rank();
+    this->vector = combine_dimensions(opts.get_degree(), hash_table, plan.at(rank).row_start, plan.at(rank).row_stop, this->fList[0]);
+    auto num_md_funcs = md_funcs.size();
+    for (std::size_t s = 1; s < num_md_funcs; ++s)
+    {
+      auto tmp = combine_dimensions(opts.get_degree(), hash_table, plan.at(rank).row_start, plan.at(rank).row_stop, this->fList[s]);
+      std::transform(tmp.begin(), tmp.end(), this->vector.begin(), this->vector.begin(), std::plus<>{});
+    }
+  }
+}
+
 template class moment<float>;
 template class moment<double>;
