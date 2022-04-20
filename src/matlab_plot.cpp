@@ -369,7 +369,7 @@ void matlab_plot::copy_pde(PDE<P> const &pde, std::string const name)
       ml_terms[i][j] = make_term(pde.get_terms()[j][i], pde.max_level);
     }
   }
-  ml_pde[0]["terms"] = ml_terms;
+  ml_pde[0]["terms"] = std::move(ml_terms);
 
   ml_pde[0]["dt"] = factory_.createScalar<P>(pde.get_dt());
 

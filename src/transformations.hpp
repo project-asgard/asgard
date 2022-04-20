@@ -131,11 +131,12 @@ fk::vector<P> forward_transform(
                         basis::transpose::no_trans);
 
   // zero out near-zero values resulting from transform to wavelet space
-  std::transform(
-      transformed.begin(), transformed.end(), transformed.begin(), [](P &elem) {
-        P const compare = [] { return std::numeric_limits<P>::epsilon(); }();
-        return std::abs(elem) < compare ? static_cast<P>(0.0) : elem;
-      });
+  std::transform(transformed.begin(), transformed.end(), transformed.begin(),
+                 [](P &elem) {
+                   return std::abs(elem) < std::numeric_limits<P>::epsilon()
+                              ? static_cast<P>(0.0)
+                              : elem;
+                 });
 
   return transformed;
 }

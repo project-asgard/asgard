@@ -236,7 +236,7 @@ public:
                fk::matrix<P, mem_type::const_view>(new_coefficients, 0, dof - 1,
                                                    0, dof - 1),
                result);
-      coefficients_.emplace_back(result);
+      coefficients_.push_back(result);
     }
   }
 

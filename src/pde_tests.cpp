@@ -317,7 +317,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
                          });
           fk::vector<TestType> gold_pterm(
               gold.extract_submatrix(row, 0, 1, x.size()));
-          auto constexpr tol_factor = get_tolerance<TestType>(10);
+          auto constexpr tol_factor = get_tolerance<TestType>(100);
           rmse_comparison(transformed, gold_pterm, tol_factor);
 
           fk::vector<TestType> dv(x);

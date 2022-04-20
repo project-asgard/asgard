@@ -55,7 +55,7 @@ void generate_all_coefficients(
               dim, term_1D, partial_terms[k], transformer, level, time, rotate);
 
           fm::gemm(mass_tmp.invert(), pterm_coeff, result);
-          pterm_coeffs.emplace_back(result);
+          pterm_coeffs.emplace_back(std::move(result));
         }
 
         pde.set_lhs_mass(j, i, k, mass_coeff);
