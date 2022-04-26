@@ -198,7 +198,7 @@ int main(int argc, char **argv)
   for (int i = 0; i < pde->num_dims; i++)
   {
     sizes[i] = pde->get_dimensions()[i].get_degree() *
-               std::pow(2, pde->get_dimensions()[i].get_level());
+               fm::two_raised_to(pde->get_dimensions()[i].get_level());
   }
   ml_plot.set_var("initial_condition",
                   ml_plot.create_array(sizes, initial_condition));

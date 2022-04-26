@@ -173,7 +173,6 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
   P g  = g_func(domain_min, time);
   P dV = dv_func(domain_min, time);
-  expect(std::isfinite(dV));
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
@@ -183,6 +182,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
     /* If the above modification was not enough, the choice of g_function
        should be re-evaluated */
     expect(std::isfinite(g));
+    expect(std::isfinite(dV));
   }
 
   /* legendre() returns a 1D matrix - must be converted into a vector */
@@ -191,7 +191,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
   P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
                          bc_func(fk::vector<P>({domain_min}), time)(0) * g *
-                         dV * -1.0;
+                         std::negate{}(dV);
 
   legendre_polys_at_value.scale(scale_factor);
 
@@ -281,11 +281,11 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
         fm::two_raised_to(dimensions[dim_num].get_level());
     auto const &f = bc_funcs[dim_num];
     auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
-    vector_func<P> const bc_func = [f, g](fk::vector<P> const x, P const t) {
+    vector_func<P> const bc_func = [f, g](fk::vector<P> const &x, P const &t) {
       // evaluate f(x,t) * g(x,t)
       fk::vector<P> fx(f(x, t));
       std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                     [g, t](P f_elem, P const x_elem) -> P {
+                     [g, t](P &f_elem, P const &x_elem) -> P {
                        return f_elem * g(x_elem, t);
                      });
       return fx;
@@ -313,9 +313,9 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     }
   }
 
-  partial_bc_vecs.at(d_index) = std::move(trace_bc);
-  partial_bc_vecs.at(d_index) = transformer.apply(
-      partial_bc_vecs.at(d_index), dimensions[d_index].get_level(),
+  partial_bc_vecs[d_index] = std::move(trace_bc);
+  partial_bc_vecs[d_index] = transformer.apply(
+      partial_bc_vecs[d_index], dimensions[d_index].get_level(),
       basis::side::left, basis::transpose::no_trans);
 
   // FIXME assume uniform level across dimensions
@@ -335,8 +335,8 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
   }
 
-  fm::gemv(chain, fk::vector<P>(partial_bc_vecs.at(d_index)),
-           partial_bc_vecs.at(d_index));
+  fm::gemv(chain, fk::vector<P>(partial_bc_vecs[d_index]),
+           partial_bc_vecs[d_index]);
 
   return partial_bc_vecs;
 }

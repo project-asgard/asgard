@@ -429,7 +429,7 @@ fk::matrix<P> generate_coefficients(
     // take the negative transpose of div
     coefficients.transpose();
     std::transform(coefficients.begin(), coefficients.end(),
-                   coefficients.begin(), [&](P const elem) { return -elem; });
+                   coefficients.begin(), std::negate<P>());
   }
 
   if (rotate)
