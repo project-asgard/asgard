@@ -419,21 +419,16 @@ matlab_plot::make_partial_term(partial_term<P> const &pterm, int const max_lev)
   matlab::data::StructArray ml_pterm = factory_.createStructArray({1}, names);
 
   auto const get_bc_str = [](boundary_condition const &type) -> std::string {
-    if (type == boundary_condition::periodic)
+    switch (type)
     {
+    case boundary_condition::periodic:
       return "P";
-    }
-    else if (type == boundary_condition::dirichlet)
-    {
+    case boundary_condition::dirichlet:
       return "D";
-    }
-    else if (type == boundary_condition::neumann)
-    {
+    case boundary_condition::neumann:
       return "N";
-    }
-    else
-    {
-      return " ";
+    default:
+      return "";
     }
   };
 

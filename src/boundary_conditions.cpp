@@ -326,7 +326,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
   fk::matrix<P, mem_type::const_view> const lhs_mass(
       terms[d_index].get_partial_terms()[p_index].get_lhs_mass(), 0,
       degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
-  fm::gesv(lhs_mass, partial_bc_vecs.at(d_index), ipiv);
+  fm::gesv(lhs_mass, partial_bc_vecs[d_index], ipiv);
 
   for (int p = 0; p < p_index; ++p)
   {
