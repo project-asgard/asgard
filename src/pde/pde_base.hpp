@@ -236,7 +236,7 @@ public:
                fk::matrix<P, mem_type::const_view>(new_coefficients, 0, dof - 1,
                                                    0, dof - 1),
                result);
-      coefficients_.push_back(result);
+      coefficients_.push_back(std::move(result));
     }
   }
 
@@ -446,7 +446,7 @@ public:
       bool const do_poisson_solve = false, bool const has_analytic_soln = false)
       : num_dims(num_dims), num_sources(num_sources),
         num_terms(get_num_terms(cli_input, num_terms_)),
-        max_level(get_max_level(cli_input)), sources(sources),
+        max_level(get_max_level(cli_input, dimensions)), sources(sources),
         exact_vector_funcs(exact_vector_funcs), exact_time(exact_time),
         do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
@@ -688,7 +688,7 @@ public:
   }
 
 private:
-  int get_num_terms(parser const &cli_input, int const num_terms)
+  int get_num_terms(parser const &cli_input, int const num_terms) const
   {
     // returns either the number of terms set in the PDE specification, or the
     // number of terms toggled on by the user
@@ -717,7 +717,8 @@ private:
     return num_terms;
   }
 
-  int get_max_level(parser const &cli_input)
+  int get_max_level(parser const &cli_input,
+                    std::vector<dimension<P>> const &dims) const
   {
     // set maximum level to generate term coefficients
     if (cli_input.do_adapt_levels())
@@ -727,15 +728,15 @@ private:
     else
     {
       // if adaptivity is not used, only generate to the highest dim level
-      int lev = 0;
-      for (int l : cli_input.get_starting_levels())
-      {
-        if (l > lev)
-        {
-          lev = l;
-        }
-      }
-      return lev;
+      auto const levels = cli_input.get_starting_levels();
+      return levels.size() > 0
+                 ? *std::max_element(levels.begin(), levels.end())
+                 : std::max_element(
+                       dims.begin(), dims.end(),
+                       [](dimension<P> const &a, dimension<P> const &b) {
+                         return a.get_level() > b.get_level();
+                       })
+                       ->get_level();
     }
   }
 
