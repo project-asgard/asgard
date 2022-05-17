@@ -25,13 +25,16 @@
 // for RAII compliance and readability
 
 // same pi used by matlab
-static double const PI = 3.141592653589793;
+static constexpr double const PI = 3.141592653589793;
 
 // for passing around vector/scalar-valued functions used by the PDE
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
+
+template<typename P>
+using g_func_type = std::function<P(P const, P const)>;
 
 //----------------------------------------------------------------------------
 //
@@ -76,13 +79,14 @@ public:
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
+  g_func_type<P> const moment_dV;
   std::string const name;
   dimension(P const domain_min, P const domain_max, int const level,
             int const degree, vector_func<P> const initial_condition,
-            std::string const name)
+            g_func_type<P> const moment_dV, std::string const name)
 
       : domain_min(domain_min), domain_max(domain_max),
-        initial_condition(initial_condition), name(name)
+        initial_condition(initial_condition), moment_dV(moment_dV), name(name)
   {
     set_level(level);
     set_degree(degree);
@@ -90,6 +94,7 @@ public:
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
+  fk::matrix<P> const &get_mass_matrix() const { return mass_; }
 
 private:
   void set_level(int const level)
@@ -104,8 +109,14 @@ private:
     degree_ = degree;
   }
 
+  void set_mass_matrix(fk::matrix<P> const &new_mass)
+  {
+    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
+  }
+
   int level_;
   int degree_;
+  fk::matrix<P> mass_;
 
   friend class PDE<P>;
 };
@@ -114,6 +125,7 @@ enum class coefficient_type
 {
   grad,
   mass,
+  div,
   diff
 };
 
@@ -137,8 +149,6 @@ enum class flux_type
 // do dimensions own terms? need dimension info in
 // term construction...
 
-using g_func_type = std::function<double(double const, double const)>;
-
 template<typename P>
 class partial_term
 {
@@ -153,35 +163,43 @@ public:
   static P null_scalar_func(P const p) { return p; }
 
   partial_term(coefficient_type const coeff_type,
-               g_func_type const g_func       = null_gfunc,
-               flux_type const flux           = flux_type::central,
-               boundary_condition const left  = boundary_condition::neumann,
-               boundary_condition const right = boundary_condition::neumann,
-               homogeneity const left_homo    = homogeneity::homogeneous,
-               homogeneity const right_homo   = homogeneity::homogeneous,
+               g_func_type<P> const g_func        = null_gfunc,
+               g_func_type<P> const lhs_mass_func = null_gfunc,
+               flux_type const flux               = flux_type::central,
+               boundary_condition const left      = boundary_condition::neumann,
+               boundary_condition const right     = boundary_condition::neumann,
+               homogeneity const left_homo        = homogeneity::homogeneous,
+               homogeneity const right_homo       = homogeneity::homogeneous,
                std::vector<vector_func<P>> const left_bc_funcs = {},
                scalar_func<P> const left_bc_time_func = null_scalar_func,
                std::vector<vector_func<P>> const right_bc_funcs = {},
-               scalar_func<P> const right_bc_time_func = null_scalar_func)
+               scalar_func<P> const right_bc_time_func = null_scalar_func,
+               g_func_type<P> const dv_func            = null_gfunc)
 
-      : coeff_type(coeff_type), g_func(g_func), flux(flux), left(left),
-        right(right), left_homo(left_homo), right_homo(right_homo),
-        left_bc_funcs(left_bc_funcs), right_bc_funcs(right_bc_funcs),
-        left_bc_time_func(left_bc_time_func),
-        right_bc_time_func(right_bc_time_func)
+      : coeff_type(coeff_type), g_func(g_func), lhs_mass_func(lhs_mass_func),
+        flux(set_flux(flux)), left(left), right(right),
+        ileft(set_bilinear_boundary(left)),
+        iright(set_bilinear_boundary(right)), left_homo(left_homo),
+        right_homo(right_homo), left_bc_funcs(left_bc_funcs),
+        right_bc_funcs(right_bc_funcs), left_bc_time_func(left_bc_time_func),
+        right_bc_time_func(right_bc_time_func), dv_func(dv_func)
   {}
 
   P get_flux_scale() const { return static_cast<P>(flux); };
 
   coefficient_type const coeff_type;
 
-  g_func_type const g_func;
+  g_func_type<P> const g_func;
+  g_func_type<P> const lhs_mass_func;
 
   flux_type const flux;
 
   boundary_condition const left;
 
   boundary_condition const right;
+
+  boundary_condition const ileft;
+  boundary_condition const iright;
 
   homogeneity const left_homo;
   homogeneity const right_homo;
@@ -190,16 +208,85 @@ public:
   scalar_func<P> const left_bc_time_func;
   scalar_func<P> const right_bc_time_func;
 
-  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
+  g_func_type<P> const dv_func;
 
-  void set_coefficients(fk::matrix<P> const &new_coefficients)
+  fk::matrix<P> const get_coefficients(int const level) const
   {
-    this->coefficients_.clear_and_resize(
-        new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
+    // returns precomputed inv(mass) * coeff for this level
+    expect(static_cast<int>(coefficients_.size()) >= level);
+    expect(level >= 0);
+    return coefficients_[level];
+  }
+
+  fk::matrix<P> const &get_lhs_mass() const { return mass_; }
+
+  void set_coefficients(fk::matrix<P> const &new_coefficients, int const deg,
+                        int const max_level)
+  {
+    coefficients_.clear();
+
+    // precompute inv(mass) * coeff for each level up to max level
+    for (int level = 0; level <= max_level; ++level)
+    {
+      auto const dof = deg * fm::two_raised_to(level);
+      fk::matrix<P> result(dof, dof);
+      auto mass_tmp = mass_.extract_submatrix(0, 0, dof, dof);
+
+      fm::gemm(mass_tmp.invert(),
+               fk::matrix<P, mem_type::const_view>(new_coefficients, 0, dof - 1,
+                                                   0, dof - 1),
+               result);
+      coefficients_.push_back(std::move(result));
+    }
+  }
+
+  void set_coefficients(std::vector<fk::matrix<P>> const &new_coefficients)
+  {
+    expect(new_coefficients.size() > 0);
+    coefficients_.clear();
+    coefficients_ = new_coefficients;
+  }
+
+  void set_mass(fk::matrix<P> const &new_mass)
+  {
+    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
+  }
+
+  boundary_condition set_bilinear_boundary(boundary_condition const bc)
+  {
+    // Since we want the grad matrix to be a negative transpose of a
+    // DIV matrix, we need to swap the wind direction as well as swap
+    // the BCs N<=>D.  However, this swap will affect the BC call.
+    // Instead we have another BC flag IBCL/IBCR which will build the
+    // bilinear form with respect to Dirichlet/Free boundary
+    // conditions while leaving the BC routine unaffected.
+    if (coeff_type == coefficient_type::grad)
+    {
+      if (bc == boundary_condition::dirichlet)
+      {
+        return boundary_condition::neumann;
+      }
+      else if (bc == boundary_condition::neumann)
+      {
+        return boundary_condition::dirichlet;
+      }
+    }
+    return bc;
+  }
+
+  flux_type set_flux(flux_type const flux)
+  {
+    if (coeff_type == coefficient_type::grad)
+    {
+      // Switch the upwinding direction
+      return static_cast<flux_type>(-static_cast<P>(flux));
+    }
+    return flux;
   }
 
 private:
-  fk::matrix<P> coefficients_;
+  std::vector<fk::matrix<P>> coefficients_;
+  fk::matrix<P> mass_;
 };
 
 template<typename P>
@@ -236,11 +323,27 @@ public:
         new_coefficients.clone_onto_device();
   }
 
-  void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm)
+  void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm,
+                                int const deg, int const max_lev)
+  {
+    expect(pterm >= 0);
+    expect(pterm < static_cast<int>(partial_terms_.size()));
+    partial_terms_[pterm].set_coefficients(coeffs, deg, max_lev);
+  }
+
+  void set_partial_coefficients(std::vector<fk::matrix<P>> const &coeffs,
+                                int const pterm)
   {
     expect(pterm >= 0);
     expect(pterm < static_cast<int>(partial_terms_.size()));
     partial_terms_[pterm].set_coefficients(coeffs);
+  }
+
+  void set_lhs_mass(fk::matrix<P> const &mass, int const pterm)
+  {
+    expect(pterm >= 0);
+    expect(pterm < static_cast<int>(partial_terms_.size()));
+    partial_terms_[pterm].set_mass(mass);
   }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
@@ -265,16 +368,17 @@ public:
 
     for (auto const &pterm : partial_terms_)
     {
-      auto const &partial_coeff = pterm.get_coefficients();
-      expect(partial_coeff.size() >
+      auto const &partial_coeff =
+          pterm.get_coefficients(adapted_dim.get_level());
+      expect(partial_coeff.ncols() ==
              new_dof); // make sure we built the partial terms to support
                        // new level/degree
+
       new_coeffs = new_coeffs *
-                   fk::matrix<P, mem_type::const_view>(
-                       partial_coeff, 0, new_dof - 1, 0,
-                       new_dof - 1); // at some point, we could consider storing
-                                     // these device-side after construction.
+                   partial_coeff; // at some point, we could consider storing
+                                  // these device-side after construction.
     }
+
     fk::matrix<P, mem_type::view, resource::device>(coefficients_, 0,
                                                     new_dof - 1, 0, new_dof - 1)
         .transfer_from(new_coeffs);
@@ -335,14 +439,16 @@ class PDE
 {
 public:
   PDE(parser const &cli_input, int const num_dims, int const num_sources,
-      int const num_terms, std::vector<dimension<P>> const dimensions,
+      int const num_terms_, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources,
       std::vector<vector_func<P>> const exact_vector_funcs,
       scalar_func<P> const exact_time, dt_func<P> const get_dt,
       bool const do_poisson_solve = false, bool const has_analytic_soln = false)
-      : num_dims(num_dims), num_sources(num_sources), num_terms(num_terms),
-        sources(sources), exact_vector_funcs(exact_vector_funcs),
-        exact_time(exact_time), do_poisson_solve(do_poisson_solve),
+      : num_dims(num_dims), num_sources(num_sources),
+        num_terms(get_num_terms(cli_input, num_terms_)),
+        max_level(get_max_level(cli_input, dimensions)), sources(sources),
+        exact_vector_funcs(exact_vector_funcs), exact_time(exact_time),
+        do_poisson_solve(do_poisson_solve),
         has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
         terms_(terms)
   {
@@ -351,7 +457,7 @@ public:
     expect(num_terms > 0);
 
     expect(dimensions.size() == static_cast<unsigned>(num_dims));
-    expect(terms.size() == static_cast<unsigned>(num_terms));
+    expect(terms.size() == static_cast<unsigned>(num_terms_));
     expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -378,6 +484,20 @@ public:
         expect(num_levels > 1);
         d.set_level(num_levels);
       }
+    }
+
+    auto const num_active_terms = cli_input.get_active_terms().size();
+    if (num_active_terms != 0)
+    {
+      auto const active_terms = cli_input.get_active_terms();
+      for (auto i = num_terms_ - 1; i >= 0; --i)
+      {
+        if (active_terms(i) == 0)
+        {
+          terms_.erase(terms_.begin() + i);
+        }
+      }
+      expect(terms_.size() == static_cast<unsigned>(num_terms));
     }
 
     auto const cli_degree = cli_input.get_degree();
@@ -431,6 +551,16 @@ public:
       expect(d.domain_max > d.domain_min);
     }
 
+    // initialize mass matrices to a default value
+    for (auto i = 0; i < num_dims; ++i)
+    {
+      auto const max_dof =
+          fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
+          degree;
+      expect(max_dof < INT_MAX);
+      update_dimension_mass_mat(i, eye<P>(max_dof));
+    }
+
     // check all sources
     for (auto const &s : sources)
     {
@@ -452,6 +582,7 @@ public:
   int const num_dims;
   int const num_sources;
   int const num_terms;
+  int const max_level;
 
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
@@ -497,7 +628,28 @@ public:
     expect(term < num_terms);
     expect(dim >= 0);
     expect(dim < num_dims);
+    terms_[term][dim].set_partial_coefficients(
+        coeffs, pterm, dimensions_[dim].get_degree(), max_level);
+  }
+
+  void set_partial_coefficients(int const term, int const dim, int const pterm,
+                                std::vector<fk::matrix<P>> const &coeffs)
+  {
+    expect(term >= 0);
+    expect(term < num_terms);
+    expect(dim >= 0);
+    expect(dim < num_dims);
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
+  }
+
+  void set_lhs_mass(int const term, int const dim, int const pterm,
+                    fk::matrix<P> const &mass)
+  {
+    expect(term >= 0);
+    expect(term < num_terms);
+    expect(dim >= 0);
+    expect(dim < num_dims);
+    terms_[term][dim].set_lhs_mass(mass, pterm);
   }
 
   void update_dimension(int const dim_index, int const new_level)
@@ -519,6 +671,14 @@ public:
     }
   }
 
+  void update_dimension_mass_mat(int const dim_index, fk::matrix<P> const &mass)
+  {
+    assert(dim_index >= 0);
+    assert(dim_index < num_dims);
+
+    dimensions_[dim_index].set_mass_matrix(mass);
+  }
+
   P get_dt() const { return dt_; };
 
   void set_dt(P const dt)
@@ -528,6 +688,58 @@ public:
   }
 
 private:
+  int get_num_terms(parser const &cli_input, int const num_terms) const
+  {
+    // returns either the number of terms set in the PDE specification, or the
+    // number of terms toggled on by the user
+    auto const num_active_terms = cli_input.get_active_terms().size();
+
+    // verify that the CLI input matches the spec before altering the num_terms
+    // we have
+    if (num_active_terms != 0 && num_active_terms != num_terms)
+    {
+      std::cerr << "failed to parse dimension-many active terms - parsed "
+                << num_active_terms << " terms, expected " << num_terms << "\n";
+      exit(1);
+    }
+    if (num_active_terms == num_terms)
+    {
+      auto const active_terms = cli_input.get_active_terms();
+      int new_num_terms =
+          std::accumulate(active_terms.begin(), active_terms.end(), 0);
+      if (new_num_terms == 0)
+      {
+        std::cerr << "must have at least one term enabled\n";
+        exit(1);
+      }
+      return new_num_terms;
+    }
+    return num_terms;
+  }
+
+  int get_max_level(parser const &cli_input,
+                    std::vector<dimension<P>> const &dims) const
+  {
+    // set maximum level to generate term coefficients
+    if (cli_input.do_adapt_levels())
+    {
+      return cli_input.get_max_level();
+    }
+    else
+    {
+      // if adaptivity is not used, only generate to the highest dim level
+      auto const levels = cli_input.get_starting_levels();
+      return levels.size() > 0
+                 ? *std::max_element(levels.begin(), levels.end())
+                 : std::max_element(
+                       dims.begin(), dims.end(),
+                       [](dimension<P> const &a, dimension<P> const &b) {
+                         return a.get_level() > b.get_level();
+                       })
+                       ->get_level();
+    }
+  }
+
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
   P dt_;

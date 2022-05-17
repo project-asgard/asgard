@@ -58,11 +58,12 @@ std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
         if (p_term.left_homo == homogeneity::inhomogeneous)
         {
           fk::vector<P> trace_bc = compute_left_boundary_condition(
-              p_term.g_func, t_init, d, p_term.left_bc_funcs[dim_num]);
+              p_term.g_func, p_term.dv_func, t_init, d,
+              p_term.left_bc_funcs[dim_num]);
 
           std::vector<fk::vector<P>> p_term_left_bcs = generate_partial_bcs(
               dimensions, dim_num, p_term.left_bc_funcs, transformer, t_init,
-              partial_terms, p_num, std::move(trace_bc));
+              terms_vec, partial_terms, p_num, std::move(trace_bc));
 
           fk::vector<P> combined =
               combine_dimensions(d.get_degree(), table, start_element,
@@ -74,11 +75,12 @@ std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
         if (p_term.right_homo == homogeneity::inhomogeneous)
         {
           fk::vector<P> trace_bc = compute_right_boundary_condition(
-              p_term.g_func, t_init, d, p_term.right_bc_funcs[dim_num]);
+              p_term.g_func, p_term.dv_func, t_init, d,
+              p_term.right_bc_funcs[dim_num]);
 
           std::vector<fk::vector<P>> p_term_right_bcs = generate_partial_bcs(
               dimensions, dim_num, p_term.right_bc_funcs, transformer, t_init,
-              partial_terms, p_num, std::move(trace_bc));
+              terms_vec, partial_terms, p_num, std::move(trace_bc));
 
           fk::vector<P> combined =
               combine_dimensions(d.get_degree(), table, start_element,
@@ -150,8 +152,8 @@ fk::vector<P> boundary_conditions::generate_scaled_bc(
 
 template<typename P>
 fk::vector<P> boundary_conditions::compute_left_boundary_condition(
-    g_func_type const g_func, P const time, dimension<P> const &dim,
-    vector_func<P> const bc_func)
+    g_func_type<P> const g_func, g_func_type<P> const dv_func, P const time,
+    dimension<P> const &dim, vector_func<P> const bc_func)
 {
   P const domain_min    = dim.domain_min;
   P const domain_max    = dim.domain_max;
@@ -169,15 +171,18 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
   fk::vector<P> bc(dof);
 
-  P g = g_func(domain_min, time);
+  P g  = g_func(domain_min, time);
+  P dV = dv_func(domain_min, time);
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
     g                = g_func(domain_min + small_dx, time);
+    dV               = dv_func(domain_min + small_dx, time);
 
     /* If the above modification was not enough, the choice of g_function
        should be re-evaluated */
     expect(std::isfinite(g));
+    expect(std::isfinite(dV));
   }
 
   /* legendre() returns a 1D matrix - must be converted into a vector */
@@ -186,7 +191,7 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
   P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
                          bc_func(fk::vector<P>({domain_min}), time)(0) * g *
-                         -1.0;
+                         std::negate{}(dV);
 
   legendre_polys_at_value.scale(scale_factor);
 
@@ -201,8 +206,8 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 
 template<typename P>
 fk::vector<P> boundary_conditions::compute_right_boundary_condition(
-    g_func_type const g_func, P const time, dimension<P> const &dim,
-    vector_func<P> const bc_func)
+    g_func_type<P> const g_func, g_func_type<P> const dv_func, P const time,
+    dimension<P> const &dim, vector_func<P> const bc_func)
 {
   P const domain_min    = dim.domain_min;
   P const domain_max    = dim.domain_max;
@@ -221,11 +226,14 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
 
   fk::vector<P> bc(dof);
 
-  P g = g_func(domain_max, time);
+  P g  = g_func(domain_max, time);
+  P dV = dv_func(domain_max, time);
+  expect(std::isfinite(dV));
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
     g                = g_func(domain_max - small_dx, time);
+    dV               = dv_func(domain_max - small_dx, time);
 
     /* If the above modification was not enough, the choice of g_function
        should be re-evaluated */
@@ -236,7 +244,7 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
       legendre(fk::vector<P>{1}, degree, legendre_normalization::lin)[0]);
 
   P const scale_factor = (1.0 / std::sqrt(domain_per_cell)) *
-                         bc_func(fk::vector<P>({domain_max}), time)(0) * g;
+                         bc_func(fk::vector<P>({domain_max}), time)(0) * g * dV;
 
   legendre_polys_at_value.scale(scale_factor);
 
@@ -254,50 +262,81 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const time, std::vector<partial_term<P>> const &partial_terms,
-    int const p_index, fk::vector<P> &&trace_bc)
+    P const time, std::vector<term<P>> const &terms,
+    std::vector<partial_term<P>> const &partial_terms, int const p_index,
+    fk::vector<P> &&trace_bc)
 {
   expect(d_index < static_cast<int>(dimensions.size()));
 
   std::vector<fk::vector<P>> partial_bc_vecs;
+  auto const degrees_freedom_1d =
+      dimensions[d_index].get_degree() *
+      fm::two_raised_to(dimensions[d_index].get_level());
 
-  for (int dim_num = 0; dim_num < d_index; ++dim_num)
-  {
-    partial_bc_vecs.emplace_back(forward_transform(
-        dimensions[dim_num], bc_funcs[dim_num], transformer, time));
-  }
-
-  partial_bc_vecs.emplace_back(std::move(trace_bc));
-  partial_bc_vecs.back() =
-      transformer.apply(partial_bc_vecs.back(), dimensions[d_index].get_level(),
-                        basis::side::left, basis::transpose::no_trans);
-
-  if (p_index > 0)
-  {
-    // FIXME assume uniform level across dimensions
-    auto const degrees_freedom_1d =
-        dimensions[d_index].get_degree() *
-        fm::two_raised_to(dimensions[d_index].get_level());
-    fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
-
-    for (int p = 0; p < p_index; ++p)
-    {
-      fk::matrix<P, mem_type::const_view> const next_coeff(
-          partial_terms[p].get_coefficients(), 0, degrees_freedom_1d - 1, 0,
-          degrees_freedom_1d - 1);
-      fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
-    }
-
-    fm::gemv(chain, fk::vector<P>(partial_bc_vecs.back()),
-             partial_bc_vecs.back());
-  }
-
-  for (int dim_num = d_index + 1; dim_num < static_cast<int>(dimensions.size());
+  for (int dim_num = 0; dim_num < static_cast<int>(dimensions.size());
        ++dim_num)
   {
-    partial_bc_vecs.emplace_back(forward_transform(
-        dimensions[dim_num], bc_funcs[dim_num], transformer, time));
+    auto const degrees_freedom_1d_other =
+        dimensions[dim_num].get_degree() *
+        fm::two_raised_to(dimensions[dim_num].get_level());
+    auto const &f = bc_funcs[dim_num];
+    auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
+    vector_func<P> const bc_func = [f, g](fk::vector<P> const &x, P const &t) {
+      // evaluate f(x,t) * g(x,t)
+      fk::vector<P> fx(f(x, t));
+      std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                     [g, t](P &f_elem, P const &x_elem) -> P {
+                       return f_elem * g(x_elem, t);
+                     });
+      return fx;
+    };
+    partial_bc_vecs.emplace_back(
+        forward_transform(dimensions[dim_num], bc_func,
+                          terms[dim_num].get_partial_terms()[p_index].dv_func,
+                          transformer, time));
+
+    // Apply inverse mat
+    std::vector<int> ipiv(degrees_freedom_1d_other);
+    fk::matrix<P, mem_type::const_view> const lhs_mass(
+        terms[dim_num].get_partial_terms()[p_index].get_lhs_mass(), 0,
+        degrees_freedom_1d_other - 1, 0, degrees_freedom_1d_other - 1);
+    fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
+
+    // Apply previous pterms
+    for (int p_num = 0; p_num < p_index; ++p_num)
+    {
+      fk::matrix<P> const pterm_coeffs =
+          terms[dim_num].get_partial_terms()[p_num].get_coefficients(
+              dimensions[dim_num].get_level());
+      fm::gemv(pterm_coeffs, fk::vector<P>(partial_bc_vecs.back()),
+               partial_bc_vecs.back());
+    }
   }
+
+  partial_bc_vecs[d_index] = std::move(trace_bc);
+  partial_bc_vecs[d_index] = transformer.apply(
+      partial_bc_vecs[d_index], dimensions[d_index].get_level(),
+      basis::side::left, basis::transpose::no_trans);
+
+  // FIXME assume uniform level across dimensions
+  fk::matrix<P> chain = eye<P>(degrees_freedom_1d, degrees_freedom_1d);
+
+  // Apply LHS_mass_mat for this pterm
+  std::vector<int> ipiv(degrees_freedom_1d);
+  fk::matrix<P, mem_type::const_view> const lhs_mass(
+      terms[d_index].get_partial_terms()[p_index].get_lhs_mass(), 0,
+      degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
+  fm::gesv(lhs_mass, partial_bc_vecs[d_index], ipiv);
+
+  for (int p = 0; p < p_index; ++p)
+  {
+    fk::matrix<P> const next_coeff =
+        partial_terms[p].get_coefficients(dimensions[d_index].get_level());
+    fm::gemm(fk::matrix<P>(chain), next_coeff, chain);
+  }
+
+  fm::gemv(chain, fk::vector<P>(partial_bc_vecs[d_index]),
+           partial_bc_vecs[d_index]);
 
   return partial_bc_vecs;
 }
@@ -326,19 +365,23 @@ template fk::vector<float> boundary_conditions::generate_scaled_bc(
 
 template fk::vector<double>
 boundary_conditions::compute_left_boundary_condition(
-    g_func_type const g_func, double const time, dimension<double> const &dim,
+    g_func_type<double> const g_func, g_func_type<double> const dv_func,
+    double const time, dimension<double> const &dim,
     vector_func<double> const bc_func);
 template fk::vector<float> boundary_conditions::compute_left_boundary_condition(
-    g_func_type const g_func, float const time, dimension<float> const &dim,
+    g_func_type<float> const g_func, g_func_type<float> const dv_func,
+    float const time, dimension<float> const &dim,
     vector_func<float> const bc_func);
 
 template fk::vector<double>
 boundary_conditions::compute_right_boundary_condition(
-    g_func_type const g_func, double const time, dimension<double> const &dim,
+    g_func_type<double> const g_func, g_func_type<double> const dv_func,
+    double const time, dimension<double> const &dim,
     vector_func<double> const bc_func);
 template fk::vector<float>
 boundary_conditions::compute_right_boundary_condition(
-    g_func_type const g_func, float const time, dimension<float> const &dim,
+    g_func_type<float> const g_func, g_func_type<float> const dv_func,
+    float const time, dimension<float> const &dim,
     vector_func<float> const bc_func);
 
 template std::vector<fk::vector<double>>
@@ -346,12 +389,14 @@ boundary_conditions::generate_partial_bcs(
     std::vector<dimension<double>> const &dimensions, int const d_index,
     std::vector<vector_func<double>> const &bc_funcs,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    double const time, std::vector<partial_term<double>> const &partial_terms,
-    int const p_index, fk::vector<double> &&trace_bc);
+    double const time, std::vector<term<double>> const &terms,
+    std::vector<partial_term<double>> const &partial_terms, int const p_index,
+    fk::vector<double> &&trace_bc);
 template std::vector<fk::vector<float>>
 boundary_conditions::generate_partial_bcs(
     std::vector<dimension<float>> const &dimensions, int const d_index,
     std::vector<vector_func<float>> const &bc_funcs,
     basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, std::vector<partial_term<float>> const &partial_terms,
-    int const p_index, fk::vector<float> &&trace_bc);
+    float const time, std::vector<term<float>> const &terms,
+    std::vector<partial_term<float>> const &partial_terms, int const p_index,
+    fk::vector<float> &&trace_bc);

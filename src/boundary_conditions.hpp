@@ -25,13 +25,15 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 
 template<typename P>
 fk::vector<P>
-compute_left_boundary_condition(g_func_type const g_func, P const time,
+compute_left_boundary_condition(g_func_type<P> const g_func,
+                                g_func_type<P> const dv_func, P const time,
                                 dimension<P> const &dim,
                                 vector_func<P> const bc_func);
 
 template<typename P>
 fk::vector<P>
-compute_right_boundary_condition(g_func_type const g_func, P const time,
+compute_right_boundary_condition(g_func_type<P> const g_func,
+                                 g_func_type<P> const dv_func, P const time,
                                  dimension<P> const &dim,
                                  vector_func<P> const bc_func);
 
@@ -40,7 +42,8 @@ std::vector<fk::vector<P>> generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const time, std::vector<partial_term<P>> const &partial_terms,
-    int const p_index, fk::vector<P> &&trace_bc);
+    P const time, std::vector<term<P>> const &terms,
+    std::vector<partial_term<P>> const &partial_terms, int const p_index,
+    fk::vector<P> &&trace_bc);
 
 } // namespace boundary_conditions

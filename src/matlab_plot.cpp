@@ -172,6 +172,20 @@ void matlab_plot::set_var(std::string const &name,
   matlab_inst_->setVariable(name, var, type);
 }
 
+// pushes a matrix to a matlab workspace with the given name
+template<typename T>
+void matlab_plot::push(std::string const &name, fk::matrix<T> const &data,
+                       ml_wksp_type const type)
+{
+  // create a matlab array object
+  auto const &v = fk::vector<T>(data);
+  auto ml_array = create_array(
+      {static_cast<size_t>(data.ncols()), static_cast<size_t>(data.nrows())},
+      v);
+
+  set_var(name, ml_array, type);
+}
+
 template<typename T>
 fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
                                           T const min, T const max) const
@@ -316,6 +330,154 @@ void matlab_plot::plot_fval(PDE<P> const &pde, elements::table const &table,
   call("plot_fval");
 }
 
+// copies data about a PDE object to a matlab workspace
+template<typename P>
+void matlab_plot::copy_pde(PDE<P> const &pde, std::string const name)
+{
+  expect(is_open());
+
+  std::vector<std::string> pde_names = {"solvePoisson",
+                                        "hasAnalyticSoln",
+                                        "coefficients",
+                                        "dims",
+                                        "terms",
+                                        "sources",
+                                        "dt"};
+
+  matlab::data::StructArray ml_pde = factory_.createStructArray({1}, pde_names);
+
+  ml_pde[0]["solvePoisson"] = factory_.createScalar<bool>(pde.do_poisson_solve);
+  ml_pde[0]["hasAnalyticSoln"] =
+      factory_.createScalar<bool>(pde.has_analytic_soln);
+
+  // create the dimensions cell
+  matlab::data::CellArray ml_dims =
+      factory_.createCellArray({1, static_cast<size_t>(pde.num_dims)});
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    ml_dims[0][i] = make_dimension(pde.get_dimensions()[i]);
+  }
+  ml_pde[0]["dims"] = ml_dims;
+
+  // create the terms cell
+  matlab::data::CellArray ml_terms = factory_.createCellArray(
+      {static_cast<size_t>(pde.num_dims), static_cast<size_t>(pde.num_terms)});
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    for (auto j = 0; j < pde.num_terms; ++j)
+    {
+      ml_terms[i][j] = make_term(pde.get_terms()[j][i], pde.max_level);
+    }
+  }
+  ml_pde[0]["terms"] = std::move(ml_terms);
+
+  ml_pde[0]["dt"] = factory_.createScalar<P>(pde.get_dt());
+
+  // push the pde struct to the matlab workspace
+  matlab_inst_->setVariable(name, ml_pde);
+}
+
+template<typename P>
+matlab::data::StructArray
+matlab_plot::make_term(term<P> const &term, int const max_lev)
+{
+  std::vector<std::string> names    = {"time_dependent", "name", "data",
+                                    "coefficients", "pterms"};
+  matlab::data::StructArray ml_term = factory_.createStructArray({1}, names);
+
+  ml_term[0]["time_dependent"] =
+      factory_.createScalar<bool>(term.time_dependent);
+  ml_term[0]["name"]    = factory_.createCharArray(term.name);
+  auto const &term_data = term.get_data();
+  ml_term[0]["data"] =
+      create_array({1, static_cast<size_t>(term_data.size())}, term_data);
+  auto const &coeffs         = term.get_coefficients().clone_onto_host();
+  ml_term[0]["coefficients"] = matrix_to_array(coeffs);
+
+  auto const &pterms = term.get_partial_terms();
+  matlab::data::CellArray ml_pterms =
+      factory_.createCellArray({1, static_cast<size_t>(pterms.size())});
+  for (auto i = 0; i < static_cast<int>(pterms.size()); ++i)
+  {
+    ml_pterms[0][i] = make_partial_term(pterms[i], max_lev);
+  }
+  ml_term[0]["pterms"] = ml_pterms;
+
+  return ml_term;
+}
+
+template<typename P>
+matlab::data::StructArray
+matlab_plot::make_partial_term(partial_term<P> const &pterm, int const max_lev)
+{
+  std::vector<std::string> names = {"LF",   "BCL",  "BCR",         "IBCL",
+                                    "IBCR", "type", "LHS_mass_mat"};
+  for (int i = 1; i <= max_lev; ++i)
+  {
+    names.push_back("mat" + std::to_string(i));
+  }
+  matlab::data::StructArray ml_pterm = factory_.createStructArray({1}, names);
+
+  auto const get_bc_str = [](boundary_condition const &type) -> std::string {
+    switch (type)
+    {
+    case boundary_condition::periodic:
+      return "P";
+    case boundary_condition::dirichlet:
+      return "D";
+    case boundary_condition::neumann:
+      return "N";
+    default:
+      return "";
+    }
+  };
+
+  auto const get_coeff_str = [](coefficient_type const &type) -> std::string {
+    std::vector<std::string> types = {"grad", "mass", "div", "diff"};
+    return types[static_cast<int>(type)];
+  };
+
+  ml_pterm[0]["LF"]   = factory_.createScalar<P>(pterm.get_flux_scale());
+  ml_pterm[0]["BCL"]  = factory_.createCharArray(get_bc_str(pterm.left));
+  ml_pterm[0]["BCR"]  = factory_.createCharArray(get_bc_str(pterm.right));
+  ml_pterm[0]["IBCL"] = factory_.createCharArray(get_bc_str(pterm.ileft));
+  ml_pterm[0]["IBCR"] = factory_.createCharArray(get_bc_str(pterm.iright));
+  ml_pterm[0]["type"] =
+      factory_.createCharArray(get_coeff_str(pterm.coeff_type));
+
+  // get the pterm coefficients that are stored for each level
+  for (int i = 1; i <= max_lev; ++i)
+  {
+    ml_pterm[0]["mat" + std::to_string(i)] =
+        matrix_to_array(pterm.get_coefficients(i));
+  }
+  ml_pterm[0]["LHS_mass_mat"] = matrix_to_array(pterm.get_lhs_mass());
+
+  return ml_pterm;
+}
+
+template<typename P>
+matlab::data::StructArray matlab_plot::make_dimension(dimension<P> const &dim)
+{
+  std::vector<std::string> names = {
+      "name", "min", "max", "lev", "init_cond_fn", "moment_dV", "mass_mat"};
+  matlab::data::StructArray ml_dim = factory_.createStructArray({1}, names);
+
+  ml_dim[0]["name"] = factory_.createCharArray(dim.name);
+  ml_dim[0]["min"]  = factory_.createScalar<P>(dim.domain_min);
+  ml_dim[0]["max"]  = factory_.createScalar<P>(dim.domain_max);
+  ml_dim[0]["lev"]  = factory_.createScalar<int>(dim.get_level());
+  // TODO: find a better way to represent these functions?
+  ml_dim[0]["init_cond_fn"] =
+      factory_.createCharArray(dim.initial_condition.target_type().name());
+  ml_dim[0]["moment_dV"] =
+      factory_.createCharArray(dim.moment_dV.target_type().name());
+
+  ml_dim[0]["mass_mat"] = matrix_to_array(dim.get_mass_matrix());
+
+  return ml_dim;
+}
+
 template<typename P>
 fk::vector<P> matlab_plot::col_slice(fk::vector<P> const &vec, int const n,
                                      int const col) const
@@ -385,6 +547,14 @@ inline int matlab_plot::get_soln_size(PDE<P> const &pde, int const dim) const
 }
 
 /* explicit instantiations */
+template void matlab_plot::push(std::string const &name,
+                                fk::matrix<float> const &data,
+                                ml_wksp_type const type);
+
+template void matlab_plot::push(std::string const &name,
+                                fk::matrix<double> const &data,
+                                ml_wksp_type const type);
+
 template fk::vector<double>
 matlab_plot::generate_nodes(int const degree, int const level, double const min,
                             double const max) const;
@@ -416,6 +586,28 @@ template void matlab_plot::plot_fval(PDE<float> const &pde,
                                      elements::table const &table,
                                      fk::vector<float> const &f_val,
                                      fk::vector<float> const &analytic_soln);
+
+template void
+matlab_plot::copy_pde(PDE<float> const &pde, std::string const name);
+template void
+matlab_plot::copy_pde(PDE<double> const &pde, std::string const name);
+
+template matlab::data::StructArray
+matlab_plot::make_term(term<float> const &term, int const max_lev);
+template matlab::data::StructArray
+matlab_plot::make_term(term<double> const &term, int const max_lev);
+
+template matlab::data::StructArray
+matlab_plot::make_partial_term(partial_term<float> const &pterm,
+                               int const max_lev);
+template matlab::data::StructArray
+matlab_plot::make_partial_term(partial_term<double> const &pterm,
+                               int const max_lev);
+
+template matlab::data::StructArray
+matlab_plot::make_dimension(dimension<float> const &dim);
+template matlab::data::StructArray
+matlab_plot::make_dimension(dimension<double> const &dim);
 
 template fk::vector<double>
 matlab_plot::col_slice(fk::vector<double> const &vec, int const n,

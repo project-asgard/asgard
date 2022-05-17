@@ -257,14 +257,14 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
-                   double, float)
+TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
+                   "[pde]", double, float)
 {
   int const level  = 5;
   int const degree = 4;
 
-  auto const pde =
-      make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete, level, degree);
+  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete_case4,
+                                      level, degree);
   std::string const base_dir =
       "../testing/generated-inputs/pde/fokkerplanck2_complete_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
@@ -291,5 +291,48 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete implementations", "[pde]",
     // TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
     // REQUIRE(dt == gold); // not testing this for now
     // different domain mins between matlab/C++ will produce different dts
+  }
+
+  SECTION("fp2 complete pterm funcs")
+  {
+    auto const gold = fk::matrix<TestType>(
+        read_matrix_from_txt_file(base_dir + "gfuncs.dat"));
+    auto const gold_dvs = fk::matrix<TestType>(
+        read_matrix_from_txt_file(base_dir + "dvfuncs.dat"));
+
+    int row = 0;
+    for (auto i = 0; i < pde->num_dims; ++i)
+    {
+      for (auto j = 0; j < pde->num_terms; ++j)
+      {
+        auto const &term_1D       = pde->get_terms()[j][i];
+        auto const &partial_terms = term_1D.get_partial_terms();
+        for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
+        {
+          fk::vector<TestType> transformed(x);
+          g_func_type<TestType> g_func = partial_terms[k].g_func;
+          std::transform(x.begin(), x.end(), transformed.begin(),
+                         [g_func, time](TestType const x_elem) -> TestType {
+                           return g_func(x_elem, time);
+                         });
+          fk::vector<TestType> gold_pterm(
+              gold.extract_submatrix(row, 0, 1, x.size()));
+          auto constexpr tol_factor = get_tolerance<TestType>(100);
+          rmse_comparison(transformed, gold_pterm, tol_factor);
+
+          fk::vector<TestType> dv(x);
+          g_func_type<TestType> dv_func = partial_terms[k].dv_func;
+          std::transform(x.begin(), x.end(), dv.begin(),
+                         [dv_func, time](TestType const x_elem) -> TestType {
+                           return dv_func(x_elem, time);
+                         });
+          fk::vector<TestType> gold_dvfunc(
+              gold_dvs.extract_submatrix(row, 0, 1, x.size()));
+          rmse_comparison(dv, gold_dvfunc, tol_factor);
+
+          row++;
+        }
+      }
+    }
   }
 }

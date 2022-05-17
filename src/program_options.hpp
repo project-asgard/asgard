@@ -39,7 +39,10 @@ enum class PDE_opts
   fokkerplanck_1d_4p3,
   fokkerplanck_1d_4p4,
   fokkerplanck_1d_4p5,
-  fokkerplanck_2d_complete,
+  fokkerplanck_2d_complete_case1,
+  fokkerplanck_2d_complete_case2,
+  fokkerplanck_2d_complete_case3,
+  fokkerplanck_2d_complete_case4,
   diffusion_1,
   diffusion_2,
   // FIXME will need to add the user supplied PDE choice
@@ -50,6 +53,8 @@ enum class PDE_case_opts
   case0,
   case1,
   case2,
+  case3,
+  case4,
   case_count
   // FIXME will need to add the user supplied PDE cases choice
 };
@@ -112,10 +117,22 @@ static pde_map_t const pde_mapping = {
          "+ C d/dz((1-z^2) df/dz) - R d/dz(z(1-z^2) f)",
          PDE_opts::fokkerplanck_1d_4p5)},
 
-    {"fokkerplanck_2d_complete",
+    {"fokkerplanck_2d_complete_case1",
      PDE_descriptor("Full PDE from the 2D runaway electron paper: d/dt f(p,z) "
-                    "== -div(flux_C + flux_E + flux_R)",
-                    PDE_opts::fokkerplanck_2d_complete)},
+                    "== -div(flux_C + flux_E + flux_R), case 1",
+                    PDE_opts::fokkerplanck_2d_complete_case1)},
+    {"fokkerplanck_2d_complete_case2",
+     PDE_descriptor("Full PDE from the 2D runaway electron paper: d/dt f(p,z) "
+                    "== -div(flux_C + flux_E + flux_R), case 2",
+                    PDE_opts::fokkerplanck_2d_complete_case2)},
+    {"fokkerplanck_2d_complete_case3",
+     PDE_descriptor("Full PDE from the 2D runaway electron paper: d/dt f(p,z) "
+                    "== -div(flux_C + flux_E + flux_R), case 3",
+                    PDE_opts::fokkerplanck_2d_complete_case3)},
+    {"fokkerplanck_2d_complete_case4",
+     PDE_descriptor("Full PDE from the 2D runaway electron paper: d/dt f(p,z) "
+                    "== -div(flux_C + flux_E + flux_R), case 4",
+                    PDE_opts::fokkerplanck_2d_complete_case4)},
     {"diffusion_1", PDE_descriptor("1D diffusion equation: df/dt = d^2 f/dx^2",
                                    PDE_opts::diffusion_1)},
     {"diffusion_2",
@@ -187,6 +204,7 @@ public:
   bool do_adapt_levels() const;
 
   fk::vector<int> get_starting_levels() const;
+  fk::vector<int> get_active_terms() const;
 
   int get_degree() const;
   int get_max_level() const;
@@ -253,6 +271,8 @@ private:
   // if none are provided, default is loaded from pde
   std::string starting_levels_str = NO_USER_VALUE_STR;
   fk::vector<int> starting_levels;
+  std::string active_terms_str = NO_USER_VALUE_STR;
+  fk::vector<int> active_terms;
 
   // deg of legendre basis polys. NO_USER_VALUE
   // loads default in pde

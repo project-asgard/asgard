@@ -22,7 +22,7 @@ private:
   static int constexpr num_terms_          = 2;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = true;
-  static int constexpr default_level       = 2;
+  static int constexpr default_level       = 3;
   static int constexpr default_degree      = 2;
   static int constexpr domain_min          = 0;
   static int constexpr domain_max          = 1;
@@ -42,37 +42,35 @@ private:
     return fx;
   }
 
+  static P moment_dV(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
       dimension<P>(domain_min, domain_max, default_level, default_degree,
-                   initial_condition_dim, "x");
+                   initial_condition_dim, moment_dV, "x");
 
   inline static dimension<P> const dim_1 =
       dimension<P>(domain_min, domain_max, default_level, default_degree,
-                   initial_condition_dim, "y");
+                   initial_condition_dim, moment_dV, "y");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
   /* build the terms */
   inline static partial_term<P> const partial_term_I_ = partial_term<P>(
-      coefficient_type::mass, partial_term<P>::null_gfunc, flux_type::central,
+      coefficient_type::mass, partial_term<P>::null_gfunc,
+      partial_term<P>::null_gfunc, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const I_0 =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "massY",         // name
-              {partial_term_I_});
-
-  inline static term<P> const I_1 =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "massY",         // name
-              {partial_term_I_});
-
-  inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::neumann);
+  inline static const partial_term<P> partial_term_0 =
+      partial_term<P>(coefficient_type::div, partial_term<P>::null_gfunc,
+                      partial_term<P>::null_gfunc, flux_type::upwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
@@ -93,25 +91,27 @@ private:
   }
 
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
-      coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::downwind,
+      coefficient_type::grad, partial_term<P>::null_gfunc,
+      partial_term<P>::null_gfunc, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::inhomogeneous, homogeneity::inhomogeneous,
-      {bc_func, bc_func}, bc_time_func, {bc_func, bc_func}, bc_time_func);
+      {bc_func, bc_func}, bc_time_func, {bc_func, bc_func}, bc_time_func,
+      partial_term<P>::null_gfunc);
 
   inline static term<P> const term_0 =
-      term<P>(true,            // time-dependent
+      term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
               {partial_term_0, partial_term_1});
 
   inline static term<P> const term_1 =
-      term<P>(true,            // time-dependent
+      term<P>(false,           // time-dependent
               fk::vector<P>(), // additional data vector
               "",              // name
-              {partial_term_0, partial_term_1});
+              {partial_term_I_, partial_term_I_});
 
-  inline static std::vector<term<P>> const terms_0 = {term_0, I_0};
-  inline static std::vector<term<P>> const terms_1 = {I_1, term_1};
+  inline static std::vector<term<P>> const terms_0 = {term_0, term_1};
+  inline static std::vector<term<P>> const terms_1 = {term_1, term_0};
 
   inline static term_set<P> const terms_ = {terms_0, terms_1};
 

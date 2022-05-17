@@ -101,6 +101,11 @@ int main(int argc, char **argv)
   auto const quiet = false;
   basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde,
                                                                    quiet);
+
+  // -- generate and store the mass matrices for each dimension
+  node_out() << "  generating: dimension mass matrices..." << '\n';
+  generate_dimension_mass_mat<prec>(*pde, transformer);
+
   // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
   auto const initial_condition =
@@ -109,6 +114,9 @@ int main(int argc, char **argv)
              << adaptive_grid.size() *
                     static_cast<uint64_t>(std::pow(degree, pde->num_dims))
              << '\n';
+
+  // -- regen mass mats after init conditions - TODO: check dims/rechaining?
+  generate_dimension_mass_mat<prec>(*pde, transformer);
 
   // -- generate and store coefficient matrices.
   node_out() << "  generating: coefficient matrices..." << '\n';
@@ -149,7 +157,7 @@ int main(int argc, char **argv)
   std::array<fk::vector<prec, mem_type::view, resource::host>, 2>
       tmp_workspace = {
           fk::vector<prec, mem_type::view, resource::host>(workspace, 0,
-                                                           real_space_size),
+                                                           real_space_size - 1),
           fk::vector<prec, mem_type::view, resource::host>(
               workspace, real_space_size, real_space_size * 2 - 1)};
   // transform initial condition to realspace
@@ -184,6 +192,18 @@ int main(int argc, char **argv)
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
   ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
                     analytic_solution_realspace);
+
+  // send initial condition to matlab
+  std::vector<size_t> sizes(pde->num_dims);
+  for (int i = 0; i < pde->num_dims; i++)
+  {
+    sizes[i] = pde->get_dimensions()[i].get_degree() *
+               fm::two_raised_to(pde->get_dimensions()[i].get_level());
+  }
+  ml_plot.set_var("initial_condition",
+                  ml_plot.create_array(sizes, initial_condition));
+
+  ml_plot.copy_pde(*pde);
 #endif
 
   // -- setup output file and write initial condition
@@ -253,11 +273,12 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
       if (opts.should_plot(i))
       {
-        auto transform_wksp = update_transform_workspace<prec>(
-            sol.size(), workspace, tmp_workspace);
-        if (analytic_solution.size() > analytic_solution_realspace.size())
+        auto const real_size = real_solution_size(*pde);
+        auto transform_wksp  = update_transform_workspace<prec>(
+            real_size, workspace, tmp_workspace);
+        if (real_size > analytic_solution_realspace.size())
         {
-          analytic_solution_realspace.resize(analytic_solution.size());
+          analytic_solution_realspace.resize(real_size);
         }
         wavelet_to_realspace<prec>(*pde, analytic_solution,
                                    adaptive_grid.get_table(), transformer,

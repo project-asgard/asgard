@@ -110,6 +110,10 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
       ignore(t);
       return x * static_cast<TestType>(2.0);
     };
+    g_func_type<TestType> const tenth_func = [](TestType x, TestType t) {
+      ignore(t);
+      return x * 0.1;
+    };
 
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, levels, degree);
     auto const dim = pde->get_dimensions()[0];
@@ -126,7 +130,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
         "_neg1_pos1_double.dat"));
 
     fk::vector<TestType> const test =
-        forward_transform<TestType>(dim, double_it, transformer);
+        forward_transform<TestType>(dim, double_it, tenth_func, transformer);
 
     rmse_comparison(gold, test, tol_factor);
   }
@@ -138,6 +142,10 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     auto const double_plus = [](fk::vector<TestType> x, TestType t) {
       ignore(t);
       return x + (x * static_cast<TestType>(2.0));
+    };
+    g_func_type<TestType> const tenth_func = [](TestType x, TestType t) {
+      ignore(t);
+      return x * 0.1;
     };
 
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, levels, degree);
@@ -155,7 +163,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
             std::to_string(degree) + "_" + std::to_string(levels) +
             "_neg2_pos2_doubleplus.dat"));
     fk::vector<TestType> const test =
-        forward_transform<TestType>(dim, double_plus, transformer);
+        forward_transform<TestType>(dim, double_plus, tenth_func, transformer);
 
     rmse_comparison(gold, test, tol_factor);
   }

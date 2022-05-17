@@ -19,6 +19,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
   elements::table const table(opts, pde);
 
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
+  generate_dimension_mass_mat<P>(pde, transformer);
   generate_all_coefficients<P>(pde, transformer);
 
   /* initialize bc vector at test_time */
@@ -99,7 +100,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
           fk::vector<P> const left_bc =
               boundary_conditions::compute_left_boundary_condition(
-                  p_term.g_func, time, d, p_term.left_bc_funcs[dim_num]);
+                  p_term.g_func, p_term.dv_func, time, d,
+                  p_term.left_bc_funcs[dim_num]);
 
           /* compare to gold left bc */
           fk::vector<P> const gold_left_bc_vector =
@@ -113,7 +115,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
           fk::vector<P> const right_bc =
               boundary_conditions::compute_right_boundary_condition(
-                  p_term.g_func, time, d, p_term.right_bc_funcs[dim_num]);
+                  p_term.g_func, p_term.dv_func, time, d,
+                  p_term.right_bc_funcs[dim_num]);
           /* compare to gold right bc */
 
           std::string const gold_right_filename =
@@ -149,6 +152,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
+    generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */
@@ -193,6 +197,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
+    generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
     /* initialize bc vector at test_time */
@@ -227,7 +232,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);
 
-      auto constexpr tol_factor = get_tolerance<TestType>(10);
+      auto constexpr tol_factor = get_tolerance<TestType>(1e4);
 
       rmse_comparison(bc_section, bc_advanced, tol_factor);
 
@@ -269,6 +274,18 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
+  }
+
+  SECTION("diffusion_2 level 3 degree 3")
+  {
+    int const level  = 3;
+    int const degree = 3;
+    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    std::string const gold_prefix = "../testing/generated-inputs/"
+                                    "boundary_conditions/compute_diffusion2";
+
+    test_compute_boundary_condition(*pde, gold_prefix, tol_factor);
   }
 }
 
@@ -315,6 +332,21 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     std::string const gold_filename = "../testing/generated-inputs/"
                                       "boundary_conditions/"
                                       "vector_diffusion1_l" +
+                                      std::to_string(level) + "_d" +
+                                      std::to_string(degree) + ".dat";
+
+    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
+  }
+
+  SECTION("diffusion_2 level 3 degree 3")
+  {
+    int const level  = 3;
+    int const degree = 3;
+    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+
+    std::string const gold_filename = "../testing/generated-inputs/"
+                                      "boundary_conditions/"
+                                      "vector_diffusion2_l" +
                                       std::to_string(level) + "_d" +
                                       std::to_string(degree) + ".dat";
 

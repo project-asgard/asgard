@@ -22,37 +22,41 @@ private:
 
   static int constexpr num_dims_           = 1;
   static int constexpr num_sources_        = 1;
-  static int constexpr num_terms_          = 1;
+  static int constexpr num_terms_          = 3;
   static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = true;
 
-  static P constexpr nu = 0.01;
+  static P constexpr nu = M_PI_2;
 
   static fk::vector<P>
   initial_condition_dim0(fk::vector<P> const &x, P const t = 0)
   {
-    static double const p = -2.0 * nu * nu;
-    P const coefficient   = std::exp(p * t);
-
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_value) -> P {
-                     return coefficient * std::cos(nu * x_value);
-                   });
-
+                   [](P const &x) { return std::cos(nu * x); });
     return fx;
+  }
+
+  static P moment_dV(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return 1.0;
   }
 
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
-      dimension<P>(0, 1, 2, 2, initial_condition_dim0, "x");
+      dimension<P>(0, 1, 3, 2, initial_condition_dim0, moment_dV, "x");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 
   /* Define terms */
-  inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::neumann);
+  inline static const partial_term<P> partial_term_0 =
+      partial_term<P>(coefficient_type::div, partial_term<P>::null_gfunc,
+                      partial_term<P>::null_gfunc, flux_type::downwind,
+                      boundary_condition::neumann, boundary_condition::neumann);
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
@@ -72,8 +76,11 @@ private:
     return std::exp(p * t);
   }
 
+  // TODO: Add interior penalty terms?
+  // TODO: update nu value, check initial conditions
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
-      coefficient_type::grad, partial_term<P>::null_gfunc, flux_type::downwind,
+      coefficient_type::grad, partial_term<P>::null_gfunc,
+      partial_term<P>::null_gfunc, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::inhomogeneous, homogeneity::inhomogeneous, {bc_func},
       bc_time_func, {bc_func}, bc_time_func);
@@ -84,8 +91,52 @@ private:
               "",              // name
               {partial_term_0, partial_term_1});
 
+  // Interior penalty terms
+  static P constexpr penalty = 0.0;
+  static P g3(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return penalty;
+  }
+  static P g4(P const x, P const time)
+  {
+    // suppress compiler warnings
+    ignore(x);
+    ignore(time);
+    return penalty;
+  }
+  inline static const partial_term<P> partial_term_2 = partial_term<P>(
+      coefficient_type::div, g3, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::dirichlet,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, moment_dV);
+
+  inline static term<P> const term_1 =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
+              {partial_term_2});
+
+  inline static const partial_term<P> partial_term_3 = partial_term<P>(
+      coefficient_type::div, g4, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::dirichlet,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+      partial_term<P>::null_scalar_func, moment_dV);
+
+  inline static term<P> const term_2 =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
+              {partial_term_3});
+
   inline static std::vector<term<P>> const terms_0 = {term_0};
-  inline static term_set<P> const terms_           = {terms_0};
+  inline static std::vector<term<P>> const terms_1 = {term_1};
+  inline static std::vector<term<P>> const terms_2 = {term_2};
+  inline static term_set<P> const terms_ = {terms_0, terms_1, terms_2};
 
   /* Create sources */
   static fk::vector<P> source_0_x(fk::vector<P> const x, P const t)

@@ -47,7 +47,7 @@ combine_dimensions(int const, elements::table const &, int const, int const,
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(
-    dimension<P> const &dim, F function,
+    dimension<P> const &dim, F function, g_func_type<P> const dv_func,
     basis::wavelet_transform<P, resource::host> const &transformer,
     P const t = 0)
 {
@@ -105,6 +105,14 @@ fk::vector<P> forward_transform(
 
     // get the f(v) initial condition at the quadrature points.
     fk::vector<P> f_here = function(mapped_roots, t);
+
+    // apply dv to f(v)
+    std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
+                   f_here.begin(),
+                   [dv_func, t](P &f_elem, P const &x_elem) -> P {
+                     return f_elem * dv_func(x_elem, t);
+                   });
+
     // ensuring function returns vector of appropriate size
     expect(f_here.size() == weights.size());
     std::transform(f_here.begin(), f_here.end(), weights.begin(),
@@ -125,14 +133,9 @@ fk::vector<P> forward_transform(
   // zero out near-zero values resulting from transform to wavelet space
   std::transform(transformed.begin(), transformed.end(), transformed.begin(),
                  [](P &elem) {
-                   P const compare = [] {
-                     if constexpr (std::is_same<P, double>::value)
-                     {
-                       return static_cast<P>(1e-12);
-                     }
-                     return static_cast<P>(1e-4);
-                   }();
-                   return std::abs(elem) < compare ? static_cast<P>(0.0) : elem;
+                   return std::abs(elem) < std::numeric_limits<P>::epsilon()
+                              ? static_cast<P>(0.0)
+                              : elem;
                  });
 
   return transformed;
@@ -154,10 +157,20 @@ inline fk::vector<P> transform_and_combine_dimensions(
   std::vector<fk::vector<P>> dimension_components;
   dimension_components.reserve(pde.num_dims);
 
+  auto const &dimensions = pde.get_dimensions();
+
   for (int i = 0; i < pde.num_dims; ++i)
   {
+    auto const &dim = dimensions[i];
     dimension_components.push_back(forward_transform<P>(
-        pde.get_dimensions()[i], v_functions[i], transformer, time));
+        dim, v_functions[i], dim.moment_dV, transformer, time));
+    int const n = dimension_components.back().size();
+    std::vector<int> ipiv(n);
+    fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
+                                                       n - 1, 0, n - 1);
+    expect(lhs_mass.nrows() == n);
+    expect(lhs_mass.ncols() == n);
+    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
   }
 
   return combine_dimensions(degree, table, start, stop, dimension_components,
@@ -190,7 +203,8 @@ update_transform_workspace(
   {
     workspace.resize(sol_size * 2);
     return std::array<fk::vector<P, mem_type::view, resource::host>, 2>{
-        fk::vector<P, mem_type::view, resource::host>(workspace, 0, sol_size),
+        fk::vector<P, mem_type::view, resource::host>(workspace, 0,
+                                                      sol_size - 1),
         fk::vector<P, mem_type::view, resource::host>(workspace, sol_size,
                                                       sol_size * 2 - 1)};
   }

@@ -84,7 +84,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
             ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
                                unscaled_parts, y, workspace_size_MB, time)
             : implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
-                               y, time, program_opts.solver, update_system);
+                               y, time, program_opts.solver, refining);
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
     auto const old_size = adaptive_grid.size();

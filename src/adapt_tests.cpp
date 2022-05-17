@@ -1,4 +1,5 @@
 #include "adapt.hpp"
+#include "coefficients.hpp"
 #include "program_options.hpp"
 #include "tests_general.hpp"
 
@@ -161,7 +162,11 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
                      cfl, use_full_grid, max_level, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
-  test_adapt<double>(parse, gold_base);
+  // temporarily disable test for MPI due to table elements < num ranks
+  if (get_num_ranks() == 1)
+  {
+    test_adapt<double>(parse, gold_base);
+  }
 }
 
 TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
@@ -216,9 +221,12 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
   basis::wavelet_transform<P, resource::host> const transformer(opts, *pde,
                                                                 quiet);
   adapt::distributed_grid<P> adaptive_grid(*pde, opts);
+  generate_dimension_mass_mat<P>(*pde, transformer);
 
   auto const test =
       adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  REQUIRE(gold.size() >= test.size());
 
   auto constexpr tol_factor = get_tolerance<P>(100);
   auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());

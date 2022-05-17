@@ -105,6 +105,16 @@ public:
     return factory_.createArray(dims, t.begin(), t.end());
   }
 
+  template<typename T>
+  matlab::data::Array matrix_to_array(fk::matrix<T> const &mat)
+  {
+    // temporary workaround: convert to vector so matlab can use its iterator
+    auto const &vec = fk::vector<T>(mat);
+    return create_array(
+        {static_cast<size_t>(mat.ncols()), static_cast<size_t>(mat.nrows())},
+        vec);
+  }
+
   // Simple wrapper for the subplot command (doesn't handle pos or ax
   // parameters, assumes position is scalar for now)
   void subplot(int const &rows, int const &cols, int const &pos);
@@ -125,6 +135,10 @@ public:
                ml_wksp_type const type = ml_wksp_type::BASE);
 
   template<typename T>
+  void push(std::string const &name, fk::matrix<T> const &data,
+            ml_wksp_type const type = ml_wksp_type::BASE);
+
+  template<typename T>
   fk::vector<T> generate_nodes(int const degree, int const level, T const min,
                                T const max) const;
 
@@ -139,6 +153,19 @@ public:
   void
   plot_fval(PDE<P> const &pde, elements::table const &table,
             fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln);
+
+  template<typename P>
+  void copy_pde(PDE<P> const &pde, std::string const name = std::string("pde"));
+
+  template<typename P>
+  matlab::data::StructArray make_term(term<P> const &term, int const max_lev);
+
+  template<typename P>
+  matlab::data::StructArray
+  make_partial_term(partial_term<P> const &pterm, int const max_lev);
+
+  template<typename P>
+  matlab::data::StructArray make_dimension(dimension<P> const &dim);
 
 private:
   template<typename P>

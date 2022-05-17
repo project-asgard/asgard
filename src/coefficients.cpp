@@ -30,12 +30,62 @@ void generate_all_coefficients(
 
       for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
       {
-        auto const partial_term_coeff = generate_coefficients<P>(
-            dim, term_1D, partial_terms[k], transformer, time, rotate);
-        pde.set_partial_coefficients(j, i, k, partial_term_coeff);
+        // TODO: refactor these changes, this is slow!
+        partial_term<P> const lhs_mass_pterm = partial_term<P>(
+            coefficient_type::mass, partial_terms[k].lhs_mass_func,
+            partial_term<P>::null_gfunc, flux_type::central,
+            boundary_condition::periodic, boundary_condition::periodic,
+            homogeneity::homogeneous, homogeneity::homogeneous, {},
+            partial_term<P>::null_scalar_func, {},
+            partial_term<P>::null_scalar_func, dim.moment_dV);
+
+        auto mass_coeff =
+            generate_coefficients<P>(dim, term_1D, lhs_mass_pterm, transformer,
+                                     pde.max_level, time, rotate);
+
+        // precompute inv(mass) * coeff for each level up to max level
+        std::vector<fk::matrix<P>> pterm_coeffs;
+        for (int level = 0; level <= pde.max_level; ++level)
+        {
+          auto const dof = dim.get_degree() * fm::two_raised_to(level);
+          fk::matrix<P> result(dof, dof);
+          auto mass_tmp = mass_coeff.extract_submatrix(0, 0, dof, dof);
+
+          auto pterm_coeff = generate_coefficients<P>(
+              dim, term_1D, partial_terms[k], transformer, level, time, rotate);
+
+          fm::gemm(mass_tmp.invert(), pterm_coeff, result);
+          pterm_coeffs.emplace_back(std::move(result));
+        }
+
+        pde.set_lhs_mass(j, i, k, mass_coeff);
+        pde.set_partial_coefficients(j, i, k, pterm_coeffs);
       }
     }
     pde.rechain_dimension(i);
+  }
+}
+
+template<typename P>
+void generate_dimension_mass_mat(
+    PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer)
+{
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    auto &dim           = pde.get_dimensions()[i];
+    auto const &term_1D = pde.get_terms()[0][i];
+
+    partial_term<P> const lhs_mass_pterm = partial_term<P>(
+        coefficient_type::mass, partial_term<P>::null_gfunc,
+        partial_term<P>::null_gfunc, flux_type::central,
+        boundary_condition::periodic, boundary_condition::periodic,
+        homogeneity::homogeneous, homogeneity::homogeneous, {},
+        partial_term<P>::null_scalar_func, {},
+        partial_term<P>::null_scalar_func, dim.moment_dV);
+    auto mass_mat = generate_coefficients<P>(
+        dim, term_1D, lhs_mass_pterm, transformer, pde.max_level, 0.0, true);
+
+    pde.update_dimension_mass_mat(i, mass_mat);
   }
 }
 
@@ -48,14 +98,15 @@ fk::matrix<P> generate_coefficients(
     dimension<P> const &dim, term<P> const &term_1D,
     partial_term<P> const &pterm,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const time, bool const rotate)
+    int const level, P const time, bool const rotate)
 {
   expect(time >= 0.0);
   expect(transformer.degree == dim.get_degree());
   expect(transformer.max_level >= dim.get_level());
+  expect(level <= transformer.max_level);
 
   // setup jacobi of variable x and define coeff_mat
-  auto const num_points = fm::two_raised_to(transformer.max_level);
+  auto const num_points = fm::two_raised_to(level);
 
   auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_points;
   auto const degrees_freedom_1d = dim.get_degree() * num_points;
@@ -105,8 +156,8 @@ fk::matrix<P> generate_coefficients(
   fk::vector<P, mem_type::const_view> const data(term_data, 0,
                                                  degrees_freedom_1d - 1);
 
-  auto const data_real = transformer.apply(
-      data, transformer.max_level, basis::side::left, basis::transpose::trans);
+  auto const data_real = transformer.apply(data, level, basis::side::left,
+                                           basis::transpose::trans);
 
   for (auto i = 0; i < num_points; ++i)
   {
@@ -143,7 +194,8 @@ fk::matrix<P> generate_coefficients(
       fk::vector<P> g(quadrature_points_i.size());
       for (auto i = 0; i < quadrature_points_i.size(); ++i)
       {
-        g(i) = pterm.g_func(quadrature_points_i(i), time);
+        g(i) = pterm.g_func(quadrature_points_i(i), time) *
+               pterm.dv_func(quadrature_points_i(i), time);
       }
       return g;
     }();
@@ -166,7 +218,8 @@ fk::matrix<P> generate_coefficients(
       {
         block = legendre_poly_t * tmp;
       }
-      else if (pterm.coeff_type == coefficient_type::grad)
+      else if (pterm.coeff_type == coefficient_type::grad ||
+               pterm.coeff_type == coefficient_type::div)
       {
         block = legendre_prime_t * tmp * (-1);
       }
@@ -181,7 +234,8 @@ fk::matrix<P> generate_coefficients(
         block;
     coefficients.set_submatrix(current, current, curr_block);
 
-    if (pterm.coeff_type == coefficient_type::grad)
+    if (pterm.coeff_type == coefficient_type::grad ||
+        pterm.coeff_type == coefficient_type::div)
     {
       // setup numerical flux choice/boundary conditions
       //
@@ -196,8 +250,10 @@ fk::matrix<P> generate_coefficients(
       // the dat is going to be used in the G function (above it is used as
       // linear multuplication but this is not always true)
 
-      auto const flux_left  = pterm.g_func(x_left, time);
-      auto const flux_right = pterm.g_func(x_right, time);
+      auto const flux_left =
+          pterm.g_func(x_left, time) * pterm.dv_func(x_left, time);
+      auto const flux_right =
+          pterm.g_func(x_right, time) * pterm.dv_func(x_right, time);
 
       // get the "trace" values
       // (values at the left and right of each element for all k)
@@ -221,8 +277,10 @@ fk::matrix<P> generate_coefficients(
       // If dirichelt
       // u^-_LEFT = g(LEFT)
       // u^+_RIGHT = g(RIGHT)
+      boundary_condition const left  = pterm.ileft;
+      boundary_condition const right = pterm.iright;
 
-      if (pterm.left == boundary_condition::dirichlet) // left dirichlet
+      if (left == boundary_condition::dirichlet) // left dirichlet
       {
         if (i == 0)
         {
@@ -241,7 +299,7 @@ fk::matrix<P> generate_coefficients(
         }
       }
 
-      if (pterm.right == boundary_condition::dirichlet) // right dirichlet
+      if (right == boundary_condition::dirichlet) // right dirichlet
       {
         if (i == num_points - 1)
         {
@@ -266,7 +324,7 @@ fk::matrix<P> generate_coefficients(
       // q*num_points = g (=> q = g for 1D variable)
       // only work for derivatives greater than 1
 
-      if (pterm.left == boundary_condition::neumann) // left neumann
+      if (left == boundary_condition::neumann) // left neumann
       {
         if (i == 0)
         {
@@ -285,7 +343,7 @@ fk::matrix<P> generate_coefficients(
         }
       }
 
-      if (pterm.right == boundary_condition::neumann) // right neumann
+      if (right == boundary_condition::neumann) // right neumann
       {
         if (i == num_points - 1)
         {
@@ -304,69 +362,74 @@ fk::matrix<P> generate_coefficients(
         }
       }
 
-      if (pterm.coeff_type == coefficient_type::grad)
+      // Add trace values to matrix
+
+      int row1 = current;
+      int col1 = current - dim.get_degree();
+
+      int row2 = current;
+      int col2 = current;
+
+      int row3 = current;
+      int col3 = current;
+
+      int row4 = current;
+      int col4 = current + dim.get_degree();
+
+      if (left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
       {
-        // Add trace values to matrix
-
-        int row1 = current;
-        int col1 = current - dim.get_degree();
-
-        int row2 = current;
-        int col2 = current;
-
-        int row3 = current;
-        int col3 = current;
-
-        int row4 = current;
-        int col4 = current + dim.get_degree();
-
-        if (pterm.left == boundary_condition::periodic ||
-            pterm.right == boundary_condition::periodic)
+        if (i == 0)
         {
-          if (i == 0)
-          {
-            row1 = current;
-            col1 = last;
-          }
-          if (i == num_points - 1)
-          {
-            row4 = current;
-            col4 = first;
-          }
+          row1 = current;
+          col1 = last;
         }
-
-        if (i != 0 || pterm.left == boundary_condition::periodic ||
-            pterm.right == boundary_condition::periodic)
+        if (i == num_points - 1)
         {
-          // Add trace part 1
-          fk::matrix<P, mem_type::view> block1(
-              coefficients, row1, row1 + dim.get_degree() - 1, col1,
-              col1 + dim.get_degree() - 1);
-          block1 = block1 + trace_value_1;
-        }
-
-        // Add trace part 2
-        fk::matrix<P, mem_type::view> block2(coefficients, row2,
-                                             row2 + dim.get_degree() - 1, col2,
-                                             col2 + dim.get_degree() - 1);
-        block2 = block2 + trace_value_2;
-
-        // Add trace part 3
-        fk::matrix<P, mem_type::view> block3(coefficients, row3,
-                                             row3 + dim.get_degree() - 1, col3,
-                                             col3 + dim.get_degree() - 1);
-        block3 = block3 + trace_value_3;
-        if (i != num_points - 1 || pterm.left == boundary_condition::periodic ||
-            pterm.right == boundary_condition::periodic)
-        {
-          // Add trace part 4
-          fk::matrix<P, mem_type::view> block4(
-              coefficients, row4, row4 + dim.get_degree() - 1, col4,
-              col4 + dim.get_degree() - 1);
-          block4 = block4 + trace_value_4;
+          row4 = current;
+          col4 = first;
         }
       }
+
+      if (i != 0 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 1
+        fk::matrix<P, mem_type::view> block1(coefficients, row1,
+                                             row1 + dim.get_degree() - 1, col1,
+                                             col1 + dim.get_degree() - 1);
+        block1 = block1 + trace_value_1;
+      }
+
+      // Add trace part 2
+      fk::matrix<P, mem_type::view> block2(coefficients, row2,
+                                           row2 + dim.get_degree() - 1, col2,
+                                           col2 + dim.get_degree() - 1);
+      block2 = block2 + trace_value_2;
+
+      // Add trace part 3
+      fk::matrix<P, mem_type::view> block3(coefficients, row3,
+                                           row3 + dim.get_degree() - 1, col3,
+                                           col3 + dim.get_degree() - 1);
+      block3 = block3 + trace_value_3;
+      if (i != num_points - 1 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 4
+        fk::matrix<P, mem_type::view> block4(coefficients, row4,
+                                             row4 + dim.get_degree() - 1, col4,
+                                             col4 + dim.get_degree() - 1);
+        block4 = block4 + trace_value_4;
+      }
     }
+  }
+
+  if (pterm.coeff_type == coefficient_type::grad)
+  {
+    // take the negative transpose of div
+    coefficients.transpose();
+    std::transform(coefficients.begin(), coefficients.end(),
+                   coefficients.begin(), std::negate<P>());
   }
 
   if (rotate)
@@ -376,9 +439,9 @@ fk::matrix<P> generate_coefficients(
     // These routines do the following operation:
     // coefficients = forward_trans * coefficients * forward_trans_transpose;
     coefficients = transformer.apply(
-        transformer.apply(coefficients, transformer.max_level,
-                          basis::side::right, basis::transpose::trans),
-        transformer.max_level, basis::side::left, basis::transpose::no_trans);
+        transformer.apply(coefficients, level, basis::side::right,
+                          basis::transpose::trans),
+        level, basis::side::left, basis::transpose::no_trans);
   }
 
   return coefficients;
@@ -388,13 +451,13 @@ template fk::matrix<float> generate_coefficients<float>(
     dimension<float> const &dim, term<float> const &term_1D,
     partial_term<float> const &pterm,
     basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, bool const rotate);
+    int const level, float const time, bool const rotate);
 
 template fk::matrix<double> generate_coefficients<double>(
     dimension<double> const &dim, term<double> const &term_1D,
     partial_term<double> const &pterm,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    double const time, bool const rotate);
+    int const level, double const time, bool const rotate);
 
 template void generate_all_coefficients<float>(
     PDE<float> &pde,
@@ -405,3 +468,11 @@ template void generate_all_coefficients<double>(
     PDE<double> &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
     double const time, bool const rotate);
+
+template void generate_dimension_mass_mat<float>(
+    PDE<float> &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
+
+template void generate_dimension_mass_mat<double>(
+    PDE<double> &pde,
+    basis::wavelet_transform<double, resource::host> const &transformer);
