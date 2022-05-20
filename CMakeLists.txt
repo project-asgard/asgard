@@ -48,7 +48,7 @@ register_project (kronmult
 register_project (Catch2
                   CATCH2
                   https://github.com/catchorg/Catch2.git
-                  v3.0.0-preview4
+                  v3.0.1
 )
 
 ###############################################################################
