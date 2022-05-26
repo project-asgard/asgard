@@ -388,6 +388,47 @@ implicit_advance(PDE<P> const &pde,
   return x;
 }
 
+// this function executes an implicit-explicit (imex) time step using the
+// current solution vector x. on exit, the next solution vector is stored in fx.
+template<typename P>
+fk::vector<P>
+imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
+             basis::wavelet_transform<P, resource::host> const &transformer,
+             std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+             fk::vector<P> const &x_orig, P const time, solve_opts const solver,
+             bool const update_system)
+{
+  // BEFE = 0 case
+  expect(time >= 0);
+
+  static fk::matrix<P, mem_type::owner, resource::host> A;
+  static std::vector<int> ipiv;
+  static bool first_time = true;
+
+  auto const &table   = adaptive_grid.get_table();
+  auto const dt       = pde.get_dt();
+  int const degree    = pde.get_dimensions()[0].get_degree();
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+
+  fk::vector<P> x(x_orig);
+
+  auto const &grid       = adaptive_grid.get_subgrid(get_rank());
+  int const A_local_rows = elem_size * grid.nrows();
+  int const A_local_cols = elem_size * grid.ncols();
+
+  // TODO: get moment matrices
+
+  if (first_time || update_system)
+  {
+    first_time = false;
+
+    A.clear_and_resize(A_local_rows, A_local_cols);
+    build_system_matrix(pde, table, A, grid);
+  }
+
+  return x;
+}
+
 template fk::vector<double> adaptive_advance(
     method const step_method, PDE<double> &pde,
     adapt::distributed_grid<double> &adaptive_grid,
@@ -436,5 +477,21 @@ template fk::vector<float> implicit_advance(
         &unscaled_parts,
     fk::vector<float> const &x, float const time, solve_opts const solver,
     bool const update_system);
+
+template fk::vector<double> imex_advance(
+    PDE<double> const &pde,
+    adapt::distributed_grid<double> const &adaptive_grid,
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
+    fk::vector<double> const &x_orig, double const time,
+    solve_opts const solver, bool const update_system);
+
+template fk::vector<float>
+imex_advance(PDE<float> const &pde,
+             adapt::distributed_grid<float> const &adaptive_grid,
+             basis::wavelet_transform<float, resource::host> const &transformer,
+             std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
+             fk::vector<float> const &x_orig, float const time,
+             solve_opts const solver, bool const update_system);
 
 } // namespace asgard::time_advance

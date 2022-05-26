@@ -10,7 +10,8 @@ namespace asgard::time_advance
 enum class method
 {
   imp,
-  exp // explicit is reserved keyword
+  exp, // explicit is reserved keyword
+  imex
 };
 
 // take an adaptivity-enabled timestep
@@ -47,5 +48,13 @@ implicit_advance(PDE<P> const &pde,
                      &unscaled_parts,
                  fk::vector<P> const &x, P const time, solve_opts const solver,
                  bool const update_system = true);
+
+template<typename P>
+fk::vector<P>
+imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
+             basis::wavelet_transform<P, resource::host> const &transformer,
+             std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+             fk::vector<P> const &x_orig, P const time, solve_opts const solver,
+             bool const update_system = true);
 
 } // namespace asgard::time_advance
