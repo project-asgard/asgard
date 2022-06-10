@@ -4,9 +4,13 @@
 #include "tests_general.hpp"
 
 #include <regex>
+
+static auto const boundary_conditions_base_dir =
+    gold_base_dir / "boundary_conditions";
+
 template<typename P>
 void test_boundary_condition_vector(PDE<P> &pde,
-                                    std::string const &gold_filename,
+                                    std::filesystem::path const &gold_filename,
                                     P const tol_factor)
 {
   /* setup stuff */
@@ -246,9 +250,9 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-  std::string const gold_filename_prefix =
-      "../testing/generated-inputs/"
-      "boundary_conditions/compute_diffusion1";
+  auto const gold_filename_prefix =
+      boundary_conditions_base_dir / "compute_diffusion1";
+
   SECTION("diffusion_1 level 2 degree 2")
   {
     int const level  = 2;
@@ -282,8 +286,8 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
     int const degree = 3;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
-    std::string const gold_prefix = "../testing/generated-inputs/"
-                                    "boundary_conditions/compute_diffusion2";
+    auto const gold_prefix =
+        boundary_conditions_base_dir / "compute_diffusion2";
 
     test_compute_boundary_condition(*pde, gold_prefix, tol_factor);
   }
@@ -300,11 +304,9 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 2;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename = "../testing/generated-inputs/"
-                                      "boundary_conditions/"
-                                      "vector_diffusion1_l" +
-                                      std::to_string(level) + "_d" +
-                                      std::to_string(degree) + ".dat";
+    auto const gold_filename = boundary_conditions_base_dir /
+                               ("vector_diffusion1_l" + std::to_string(level) +
+                                "_d" + std::to_string(degree) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
@@ -315,11 +317,9 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 4;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename = "../testing/generated-inputs/"
-                                      "boundary_conditions/"
-                                      "vector_diffusion1_l" +
-                                      std::to_string(level) + "_d" +
-                                      std::to_string(degree) + ".dat";
+    auto const gold_filename = boundary_conditions_base_dir /
+                               ("vector_diffusion1_l" + std::to_string(level) +
+                                "_d" + std::to_string(degree) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
@@ -329,11 +329,9 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 5;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
-    std::string const gold_filename = "../testing/generated-inputs/"
-                                      "boundary_conditions/"
-                                      "vector_diffusion1_l" +
-                                      std::to_string(level) + "_d" +
-                                      std::to_string(degree) + ".dat";
+    auto const gold_filename = boundary_conditions_base_dir /
+                               ("vector_diffusion1_l" + std::to_string(level) +
+                                "_d" + std::to_string(degree) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
@@ -344,11 +342,9 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
     int const degree = 3;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
-    std::string const gold_filename = "../testing/generated-inputs/"
-                                      "boundary_conditions/"
-                                      "vector_diffusion2_l" +
-                                      std::to_string(level) + "_d" +
-                                      std::to_string(degree) + ".dat";
+    auto const gold_filename = boundary_conditions_base_dir /
+                               ("vector_diffusion2_l" + std::to_string(level) +
+                                "_d" + std::to_string(degree) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }

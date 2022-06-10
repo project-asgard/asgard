@@ -6,6 +6,8 @@
 #include <string>
 #include <unordered_set>
 
+static auto const elements_base_dir = gold_base_dir / "element_table";
+
 void test_element_table(PDE_opts const pde_choice,
                         fk::vector<int> const &levels,
                         std::string const &gold_filename,
@@ -245,10 +247,8 @@ TEST_CASE("element table object", "[element_table]")
   std::vector<PDE_opts> const test_pdes{
       PDE_opts::continuity_1, PDE_opts::continuity_2, PDE_opts::continuity_3};
 
-  std::string const gold_base =
-      "../testing/generated-inputs/element_table/table_";
-  std::string const child_gold_base =
-      "../testing/generated-inputs/element_table/child_ids_";
+  std::string const gold_base       = "table_";
+  std::string const child_gold_base = "child_ids_";
 
   SECTION("test table construction/mapping")
   {
@@ -260,13 +260,15 @@ TEST_CASE("element table object", "[element_table]")
       auto const choice = test_pdes[i];
 
       auto const full_gold_str =
-          gold_base + std::to_string(test_levels[i].size()) + "d_FG.dat";
+          elements_base_dir /
+          (gold_base + std::to_string(test_levels[i].size()) + "d_FG.dat");
       auto const use_full_grid = true;
       test_element_table(choice, levels, full_gold_str, max_level,
                          use_full_grid);
 
       auto const sparse_gold_str =
-          gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat";
+          elements_base_dir /
+          (gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat");
       test_element_table(choice, levels, sparse_gold_str, max_level);
     }
   }
@@ -281,7 +283,9 @@ TEST_CASE("element table object", "[element_table]")
       auto const choice = test_pdes[i];
 
       auto const full_gold_str =
-          child_gold_base + std::to_string(test_levels[i].size()) + "d_FG.dat";
+          elements_base_dir /
+          (child_gold_base + std::to_string(test_levels[i].size()) +
+           "d_FG.dat");
       auto const use_full_grid = true;
       test_child_discovery(choice, levels, full_gold_str, max_level,
                            use_full_grid);
@@ -289,7 +293,9 @@ TEST_CASE("element table object", "[element_table]")
       test_element_deletion(choice, levels, max_level, use_full_grid);
 
       auto const sparse_gold_str =
-          child_gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat";
+          elements_base_dir /
+          (child_gold_base + std::to_string(test_levels[i].size()) +
+           "d_SG.dat");
       test_child_discovery(choice, levels, sparse_gold_str, max_level);
       test_element_addition(choice, levels, max_level);
       test_element_deletion(choice, levels, max_level);
@@ -301,15 +307,15 @@ TEST_CASE("1d mapping functions", "[element_table]")
 {
   std::vector<fk::vector<int>> const pairs = {{0, 0}, {1, 0}, {2, 1}, {12, 5},
                                               {7, 0}, {4, 6}, {9, 3}, {30, 20}};
-  std::string const gold_base =
-      "../testing/generated-inputs/element_table/1d_index_";
+  std::string const gold_base              = "1d_index_";
   for (auto const &pair : pairs)
   {
     REQUIRE(pair.size() == 2);
-    auto const id   = elements::get_1d_index(pair(0), pair(1));
+    auto const id              = elements::get_1d_index(pair(0), pair(1));
+    std::string const filename = gold_base + std::to_string(pair(0)) + "_" +
+                                 std::to_string(pair(1)) + ".dat";
     auto const gold = static_cast<int64_t>(
-        read_scalar_from_txt_file(gold_base + std::to_string(pair(0)) + "_" +
-                                  std::to_string(pair(1)) + ".dat"));
+        read_scalar_from_txt_file(elements_base_dir / filename));
     REQUIRE(id + 1 == gold);
 
     // map back to pair

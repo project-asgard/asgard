@@ -406,6 +406,8 @@ if (PROFILE_DEPS)
 endif ()
 target_link_libraries (asgard PRIVATE ${PROFILE_LIBS})
 
+set(ASGARD_GOLD_BASE_DIR "${PROJECT_SOURCE_DIR}/testing/generated-inputs")
+
 # Generate header file from src/build_info.hpp.in
 configure_file(
   src/build_info.hpp.in

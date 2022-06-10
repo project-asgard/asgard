@@ -8,7 +8,9 @@ compile_commands.json
 profiling/perf_predict/internal_data
 
 # ignore some of contrib
-contrib/blas/openblas
+contrib/CATCH2
+contrib/KRONMULT
+contrib/OPENBLAS
 contrib/graphviz
 contrib/gprof2dot
 contrib/FlameGraph

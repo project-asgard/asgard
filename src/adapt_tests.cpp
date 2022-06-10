@@ -7,6 +7,8 @@
 
 static auto constexpr adapt_thresh = 1e-4;
 
+static auto const adapt_base_dir = gold_base_dir / "adapt";
+
 struct distribution_test_init
 {
   void set_my_rank(const int rank) { my_rank = rank; }
@@ -34,13 +36,15 @@ int main(int argc, char *argv[])
 }
 
 template<typename P>
-void test_adapt(parser const &problem, std::string const &gold_base)
+void test_adapt(parser const &problem, std::filesystem::path gold_base)
 {
-  auto const fval_orig_path    = gold_base + "orig.dat";
-  auto const fval_refine_path  = gold_base + "refine.dat";
-  auto const fval_coarse_path  = gold_base + "coarse.dat";
-  auto const table_refine_path = gold_base + "refine_table.dat";
-  auto const table_coarse_path = gold_base + "coarse_table.dat";
+  auto const prefix = gold_base.filename().string();
+  gold_base.remove_filename();
+  auto const fval_orig_path    = gold_base / (prefix + "orig.dat");
+  auto const fval_refine_path  = gold_base / (prefix + "refine.dat");
+  auto const fval_coarse_path  = gold_base / (prefix + "coarse.dat");
+  auto const table_refine_path = gold_base / (prefix + "refine_table.dat");
+  auto const table_coarse_path = gold_base / (prefix + "coarse_table.dat");
 
   auto const fval_orig =
       fk::vector<P>(read_vector_from_txt_file(fval_orig_path));
@@ -113,12 +117,8 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
     return;
   }
 
-  auto const degree = 3;
-  auto const level  = 4;
-
-  std::string const gold_base = "../testing/generated-inputs/adapt/"
-                                "continuity1_l4_d3_";
-
+  auto const degree          = 3;
+  auto const level           = 4;
   auto const pde_choice      = PDE_opts::continuity_1;
   auto const num_dims        = 1;
   auto const cfl             = parser::DEFAULT_CFL;
@@ -133,7 +133,7 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
                      cfl, use_full_grid, max_level, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
-  test_adapt<TestType>(parse, gold_base);
+  test_adapt<TestType>(parse, adapt_base_dir / "continuity1_l4_d3_");
 }
 
 TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
@@ -142,12 +142,8 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
   {
     return;
   }
-  auto const degree = 2;
-  auto const level  = 5;
-
-  std::string const gold_base = "../testing/generated-inputs/adapt/"
-                                "continuity2_l5_d2_";
-
+  auto const degree          = 2;
+  auto const level           = 5;
   auto const pde_choice      = PDE_opts::continuity_2;
   auto const num_dims        = 2;
   auto const cfl             = parser::DEFAULT_CFL;
@@ -165,7 +161,7 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
   // temporarily disable test for MPI due to table elements < num ranks
   if (get_num_ranks() == 1)
   {
-    test_adapt<double>(parse, gold_base);
+    test_adapt<double>(parse, adapt_base_dir / "continuity2_l5_d2_");
   }
 }
 
@@ -176,12 +172,8 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
   {
     return;
   }
-  auto const degree = 4;
-  auto const level  = 4;
-
-  std::string const gold_base = "../testing/generated-inputs/adapt/"
-                                "continuity3_l4_d4_";
-
+  auto const degree          = 4;
+  auto const level           = 4;
   auto const pde_choice      = PDE_opts::continuity_3;
   auto const num_dims        = 3;
   auto const cfl             = parser::DEFAULT_CFL;
@@ -196,7 +188,7 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
                      cfl, use_full_grid, max_level, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
-  test_adapt<TestType>(parse, gold_base);
+  test_adapt<TestType>(parse, adapt_base_dir / "continuity3_l4_d4_");
 }
 
 template<typename P>
@@ -239,12 +231,8 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
 
 TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
 {
-  auto const degree = 4;
-  auto const level  = 3;
-
-  std::string const gold_path = "../testing/generated-inputs/adapt/"
-                                "diffusion1_l3_d4_initial.dat";
-
+  auto const degree          = 4;
+  auto const level           = 3;
   auto const pde_choice      = PDE_opts::diffusion_1;
   auto const num_dims        = 1;
   auto const cfl             = parser::DEFAULT_CFL;
@@ -262,7 +250,8 @@ TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
   // don't test this in the MPI case -- too small to split table
   if (get_num_ranks() == 1)
   {
-    test_initial<TestType>(parse, gold_path);
+    test_initial<TestType>(parse,
+                           adapt_base_dir / "diffusion1_l3_d4_initial.dat");
   }
 }
 
@@ -272,12 +261,8 @@ TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", double, float)
   {
     return;
   }
-  auto const degree = 3;
-  auto const level  = 2;
-
-  std::string const gold_path = "../testing/generated-inputs/adapt/"
-                                "diffusion2_l2_d3_initial.dat";
-
+  auto const degree          = 3;
+  auto const level           = 2;
   auto const pde_choice      = PDE_opts::diffusion_2;
   auto const num_dims        = 2;
   auto const cfl             = parser::DEFAULT_CFL;
@@ -292,5 +277,6 @@ TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", double, float)
                      cfl, use_full_grid, max_level, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
-  test_initial<TestType>(parse, gold_path);
+  test_initial<TestType>(parse,
+                         adapt_base_dir / "diffusion2_l2_d3_initial.dat");
 }

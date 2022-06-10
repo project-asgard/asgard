@@ -196,7 +196,7 @@ P inf_norm(fk::vector<P> const &vec)
 // end
 //
 //-----------------------------------------------------------------------------
-fk::vector<double> read_vector_from_bin_file(std::string const &path)
+fk::vector<double> read_vector_from_bin_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -238,7 +238,7 @@ fk::vector<double> read_vector_from_bin_file(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-double read_scalar_from_txt_file(std::string const &path)
+double read_scalar_from_txt_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -280,7 +280,7 @@ double read_scalar_from_txt_file(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::vector<double> read_vector_from_txt_file(std::string const &path)
+fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -347,7 +347,7 @@ fk::vector<double> read_vector_from_txt_file(std::string const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::matrix<double> read_matrix_from_txt_file(std::string const &path)
+fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;

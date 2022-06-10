@@ -3,6 +3,8 @@
 #include "tests_general.hpp"
 #include <vector>
 
+static auto const permutations_base_dir = gold_base_dir / "permutations";
+
 TEST_CASE("Permutations builders", "[permutations]")
 {
   std::string const zero = "0";
@@ -13,8 +15,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("permutations eq")
   {
-    std::string const out_base =
-        "../testing/generated-inputs/permutations/perm_eq_";
+    std::string const out_base = "perm_eq_";
     for (int i = 0; i < static_cast<int>(dims.size()); ++i)
     {
       std::string const file_base = out_base + std::to_string(dims[i]) + "_" +
@@ -27,15 +28,16 @@ TEST_CASE("Permutations builders", "[permutations]")
       fk::matrix<int> const gold = [=] {
         if (i == 0)
         {
-          int const gold_val =
-              static_cast<int>(read_scalar_from_txt_file(file_path));
+          int const gold_val = static_cast<int>(
+              read_scalar_from_txt_file(permutations_base_dir / file_path));
           return fk::matrix<int>{{gold_val}};
         }
-        return fk::matrix<int>(read_matrix_from_txt_file(file_path));
+        return fk::matrix<int>(
+            read_matrix_from_txt_file(permutations_base_dir / file_path));
       }();
 
-      int const count_gold =
-          static_cast<int>(read_scalar_from_txt_file(count_path));
+      int const count_gold = static_cast<int>(
+          read_scalar_from_txt_file(permutations_base_dir / count_path));
       REQUIRE(permutations::get_equal(dims[i], ns[i], ord_by_ns[i]) == gold);
       REQUIRE(permutations::count_equal(dims[i], ns[i]) == count_gold);
     }
@@ -43,8 +45,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("permutations leq")
   {
-    std::string const out_base =
-        "../testing/generated-inputs/permutations/perm_leq_";
+    std::string const out_base = "perm_leq_";
     for (int i = 0; i < static_cast<int>(dims.size()); ++i)
     {
       std::string const file_base = out_base + std::to_string(dims[i]) + "_" +
@@ -52,10 +53,10 @@ TEST_CASE("Permutations builders", "[permutations]")
                                     (ord_by_ns[i] ? one : zero);
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
-      fk::matrix<int> const gold =
-          fk::matrix<int>(read_matrix_from_txt_file(file_path));
-      int const count_gold =
-          static_cast<int>(read_scalar_from_txt_file(count_path));
+      fk::matrix<int> const gold   = fk::matrix<int>(
+          read_matrix_from_txt_file(permutations_base_dir / file_path));
+      int const count_gold = static_cast<int>(
+          read_scalar_from_txt_file(permutations_base_dir / count_path));
       REQUIRE(permutations::get_lequal(dims[i], ns[i], ord_by_ns[i]) == gold);
       REQUIRE(permutations::count_lequal(dims[i], ns[i]) == count_gold);
     }
@@ -63,8 +64,7 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("permutations max")
   {
-    std::string const out_base =
-        "../testing/generated-inputs/permutations/perm_max_";
+    std::string const out_base = "perm_max_";
     for (int i = 0; i < static_cast<int>(dims.size()); ++i)
     {
       std::string const file_base = out_base + std::to_string(dims[i]) + "_" +
@@ -72,10 +72,10 @@ TEST_CASE("Permutations builders", "[permutations]")
                                     (ord_by_ns[i] ? one : zero);
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
-      fk::matrix<int> const gold =
-          fk::matrix<int>(read_matrix_from_txt_file(file_path));
-      int const count_gold =
-          static_cast<int>(read_scalar_from_txt_file(count_path));
+      fk::matrix<int> const gold   = fk::matrix<int>(
+          read_matrix_from_txt_file(permutations_base_dir / file_path));
+      int const count_gold = static_cast<int>(
+          read_scalar_from_txt_file(permutations_base_dir / count_path));
       REQUIRE(permutations::get_max(dims[i], ns[i], ord_by_ns[i]) == gold);
       REQUIRE(permutations::count_max(dims[i], ns[i]) == count_gold);
     }
@@ -103,22 +103,20 @@ TEST_CASE("Permutations builders", "[permutations]")
 
   SECTION("index leq max - matlab computed example")
   {
-    std::string const gold_path =
-        "../testing/generated-inputs/permutations/index_leq_max_4d_10s_4m.dat";
-    std::string const count_path = "../testing/generated-inputs/permutations/"
-                                   "index_leq_max_4d_10s_4m_count.dat";
+    std::string const gold_path  = "index_leq_max_4d_10s_4m.dat";
+    std::string const count_path = "index_leq_max_4d_10s_4m_count.dat";
 
     fk::matrix<int> const gold = [=] {
-      fk::matrix<int> indices =
-          fk::matrix<int>(read_matrix_from_txt_file(gold_path));
+      fk::matrix<int> indices = fk::matrix<int>(
+          read_matrix_from_txt_file(permutations_base_dir / gold_path));
 
       // output values are indices; must adjust for matlab 1-indexing
       std::transform(indices.begin(), indices.end(), indices.begin(),
                      [](int &elem) { return elem - 1; });
       return indices;
     }();
-    int const count_gold =
-        static_cast<int>(read_scalar_from_txt_file(count_path));
+    int const count_gold = static_cast<int>(
+        read_scalar_from_txt_file(permutations_base_dir / count_path));
 
     // clang-format off
     permutations::list_set const lists{{2, 3}, 
@@ -153,8 +151,7 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
 
   SECTION("permutations eq")
   {
-    std::string const out_base =
-        "../testing/generated-inputs/permutations/perm_eq_d_";
+    std::string const out_base = "perm_eq_d_";
 
     for (int i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
@@ -165,10 +162,11 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
 
-      auto const gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
+      auto const gold = fk::matrix<int>(
+          read_matrix_from_txt_file(permutations_base_dir / file_path));
 
-      auto const count_gold =
-          static_cast<int>(read_scalar_from_txt_file(count_path));
+      auto const count_gold = static_cast<int>(
+          read_scalar_from_txt_file(permutations_base_dir / count_path));
       auto const max_level =
           *std::max_element(test_levels[i].begin(), test_levels[i].end());
 
@@ -184,8 +182,7 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
 
   SECTION("permutations leq")
   {
-    std::string const out_base =
-        "../testing/generated-inputs/permutations/perm_leq_d_";
+    std::string const out_base = "perm_leq_d_";
 
     for (int i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
@@ -196,10 +193,11 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
 
-      auto const gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
+      auto const gold = fk::matrix<int>(
+          read_matrix_from_txt_file(permutations_base_dir / file_path));
 
-      auto const count_gold =
-          static_cast<int>(read_scalar_from_txt_file(count_path));
+      auto const count_gold = static_cast<int>(
+          read_scalar_from_txt_file(permutations_base_dir / count_path));
       auto const max_level =
           *std::max_element(test_levels[i].begin(), test_levels[i].end());
 
@@ -215,8 +213,7 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
 
   SECTION("permutations max")
   {
-    std::string const out_base =
-        "../testing/generated-inputs/permutations/perm_max_d_";
+    std::string const out_base = "perm_max_d_";
 
     for (int i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
@@ -225,7 +222,8 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
                                     std::to_string(test_levels[i].size()) +
                                     "_" + (sort ? one : zero) + ".dat";
 
-      auto const gold = fk::matrix<int>(read_matrix_from_txt_file(file_path));
+      auto const gold = fk::matrix<int>(
+          read_matrix_from_txt_file(permutations_base_dir / file_path));
 
       REQUIRE(permutations::get_max_multi(test_levels[i], test_levels[i].size(),
                                           sort) == gold);
