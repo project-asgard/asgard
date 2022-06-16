@@ -3,6 +3,7 @@
 #include "fast_math.hpp"
 #include "tensors.hpp"
 #include <algorithm>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -117,17 +118,17 @@ fk::matrix<int> find(fk::matrix<P> const matrix, Func pred)
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-fk::vector<double> read_vector_from_bin_file(std::string const &path);
+fk::vector<double> read_vector_from_bin_file(std::filesystem::path const &path);
 
 // read an octave double from text file
-double read_scalar_from_txt_file(std::string const &path);
+double read_scalar_from_txt_file(std::filesystem::path const &path);
 
 // read an octave vector from text file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-fk::vector<double> read_vector_from_txt_file(std::string const &path);
+fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path);
 
 // read an octave matrix from text file into a fk::matrix
-fk::matrix<double> read_matrix_from_txt_file(std::string const &path);
+fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path);
 
 // stitch matrices having equal # of rows together horizontally
 template<typename P>

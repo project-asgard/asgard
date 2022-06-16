@@ -8,6 +8,8 @@
 #include <climits>
 #include <numeric>
 
+static auto const transformations_base_dir = gold_base_dir / "transformations";
+
 template<typename P>
 void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
                              int const num_ranks  = 1,
@@ -21,9 +23,8 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   int const deg       = dim.get_degree();
 
   std::string const filename =
-      "../testing/generated-inputs/transformations/combine_dim_dim" +
-      std::to_string(dims) + "_deg" + std::to_string(deg) + "_lev" +
-      std::to_string(lev) + "_" + (full_grid ? "fg" : "sg") + ".dat";
+      "combine_dim_dim" + std::to_string(dims) + "_deg" + std::to_string(deg) +
+      "_lev" + std::to_string(lev) + "_" + (full_grid ? "fg" : "sg") + ".dat";
 
   std::string const grid_str = full_grid ? "-f" : "";
   options const o            = make_options(
@@ -46,7 +47,8 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   }
   distribution_plan const plan = get_plan(num_ranks, t);
 
-  fk::vector<P> const gold = fk::vector<P>(read_vector_from_txt_file(filename));
+  fk::vector<P> const gold = fk::vector<P>(
+      read_vector_from_txt_file(transformations_base_dir / filename));
   fk::vector<P> test(gold.size());
   for (auto const &[rank, grid] : plan)
   {
@@ -125,9 +127,9 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                                                                          *pde);
 
     auto const gold = fk::vector<TestType>(read_vector_from_txt_file(
-        "../testing/generated-inputs/transformations/forward_transform_" +
-        std::to_string(degree) + "_" + std::to_string(levels) +
-        "_neg1_pos1_double.dat"));
+        transformations_base_dir /
+        ("forward_transform_" + std::to_string(degree) + "_" +
+         std::to_string(levels) + "_neg1_pos1_double.dat")));
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it, tenth_func, transformer);
@@ -159,9 +161,9 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     fk::vector<TestType> const gold =
         fk::vector<TestType>(read_vector_from_txt_file(
-            "../testing/generated-inputs/transformations/forward_transform_" +
-            std::to_string(degree) + "_" + std::to_string(levels) +
-            "_neg2_pos2_doubleplus.dat"));
+            transformations_base_dir /
+            ("forward_transform_" + std::to_string(degree) + "_" +
+             std::to_string(levels) + "_neg2_pos2_doubleplus.dat")));
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus, tenth_func, transformer);
 
@@ -227,9 +229,8 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const level  = 8;
     int const degree = 7;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/"
-        "wavelet_to_realspace_continuity_1.dat";
+    auto const gold_filename =
+        transformations_base_dir / "wavelet_to_realspace_continuity_1.dat";
 
     auto constexpr tol_factor = get_tolerance<TestType>(100000);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
@@ -240,9 +241,8 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const level  = 4;
     int const degree = 5;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/"
-        "wavelet_to_realspace_continuity_2.dat";
+    auto const gold_filename =
+        transformations_base_dir / "wavelet_to_realspace_continuity_2.dat";
 
     auto constexpr tol_factor = get_tolerance<TestType>(100000);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
@@ -253,9 +253,8 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
     int const level  = 3;
     int const degree = 4;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/"
-        "wavelet_to_realspace_continuity_3.dat";
+    auto const gold_filename =
+        transformations_base_dir / "wavelet_to_realspace_continuity_3.dat";
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
     test_wavelet_to_realspace(*pde, gold_filename, tol_factor);
@@ -264,6 +263,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
 
 template<typename P>
 void test_gen_realspace_transform(PDE<P> const &pde,
+                                  std::filesystem::path const &gold_directory,
                                   std::string const &gold_filename,
                                   P const tol_factor)
 {
@@ -278,8 +278,8 @@ void test_gen_realspace_transform(PDE<P> const &pde,
 
   for (int i = 0; i < static_cast<int>(transforms.size()); ++i)
   {
-    fk::matrix<P> const gold = fk::matrix<P>(
-        read_matrix_from_txt_file(gold_filename + std::to_string(i) + ".dat"));
+    fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(
+        gold_directory / (gold_filename + std::to_string(i) + ".dat")));
     rmse_comparison(gold, transforms[i], tol_factor);
   }
 }
@@ -291,53 +291,53 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
   {
     int const level  = 7;
     int const degree = 7;
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/matrix_plot_D/"
-        "continuity_1/"
-        "matrix_plot_D_";
+    auto const gold_directory =
+        transformations_base_dir / "matrix_plot_D/continuity_1";
+    std::string const gold_filename = "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
 
     auto constexpr tol_factor = get_tolerance<TestType>(10000);
-    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
+    test_gen_realspace_transform(*pde, gold_directory, gold_filename,
+                                 tol_factor);
   }
 
   SECTION("gen_realspace_transform_2")
   {
     int const level  = 7;
     int const degree = 6;
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/matrix_plot_D/"
-        "continuity_2/"
-        "matrix_plot_D_";
+    auto const gold_directory =
+        transformations_base_dir / "matrix_plot_D/continuity_2";
+    std::string const gold_filename = "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     auto constexpr tol_factor = get_tolerance<TestType>(1000);
-    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
+    test_gen_realspace_transform(*pde, gold_directory, gold_filename,
+                                 tol_factor);
   }
 
   SECTION("gen_realspace_transform_3")
   {
     int const level  = 6;
     int const degree = 5;
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/matrix_plot_D/"
-        "continuity_3/"
-        "matrix_plot_D_";
+    auto const gold_directory =
+        transformations_base_dir / "matrix_plot_D/continuity_3/";
+    std::string const gold_filename = "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
     auto constexpr tol_factor = get_tolerance<TestType>(100);
-    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
+    test_gen_realspace_transform(*pde, gold_directory, gold_filename,
+                                 tol_factor);
   }
 
   SECTION("gen_realspace_transform_6")
   {
     int const level  = 2;
     int const degree = 3;
-    std::string const gold_filename =
-        "../testing/generated-inputs/transformations/matrix_plot_D/"
-        "continuity_6/"
-        "matrix_plot_D_";
+    auto const gold_directory =
+        transformations_base_dir / "matrix_plot_D/continuity_6";
+    std::string const gold_filename = "matrix_plot_D_";
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_6, level, degree);
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
-    test_gen_realspace_transform(*pde, gold_filename, tol_factor);
+    test_gen_realspace_transform(*pde, gold_directory, gold_filename,
+                                 tol_factor);
   }
 }

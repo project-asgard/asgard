@@ -6,6 +6,8 @@
 #include <numeric>
 #include <random>
 
+static auto const transformations_base_dir = gold_base_dir / "transformations";
+
 struct distribution_test_init
 {
   distribution_test_init() { initialize_distribution(); }
@@ -19,20 +21,18 @@ static distribution_test_init const distrib_test_info;
 template<typename P>
 void test_multiwavelet_gen(int const degree, P const tol_factor)
 {
-  std::string const out_base =
-      "../testing/generated-inputs/transformations/multiwavelet_" +
-      std::to_string(degree) + "_";
+  std::string const out_base = "multiwavelet_" + std::to_string(degree) + "_";
 
   auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
       generate_multi_wavelets<P>(degree);
 
   auto const [h0, h1, g0, g1, scale_co] = [&out_base, degree]() {
-    std::string const h0_string    = out_base + "h0.dat";
-    std::string const h1_string    = out_base + "h1.dat";
-    std::string const g0_string    = out_base + "g0.dat";
-    std::string const g1_string    = out_base + "g1.dat";
-    std::string const scale_string = out_base + "scale_co.dat";
-
+    auto const h0_string = transformations_base_dir / (out_base + "h0.dat");
+    auto const h1_string = transformations_base_dir / (out_base + "h1.dat");
+    auto const g0_string = transformations_base_dir / (out_base + "g0.dat");
+    auto const g1_string = transformations_base_dir / (out_base + "g1.dat");
+    auto const scale_string =
+        transformations_base_dir / (out_base + "scale_co.dat");
     if (degree < 2)
     {
       auto const h0 =
@@ -64,8 +64,8 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
   }();
 
   std::string const phi_string = out_base + "phi_co.dat";
-  fk::matrix<P> const phi_co =
-      fk::matrix<P>(read_matrix_from_txt_file(phi_string));
+  fk::matrix<P> const phi_co   = fk::matrix<P>(
+      read_matrix_from_txt_file(transformations_base_dir / phi_string));
 
   rmse_comparison(h0, m_h0, tol_factor);
   rmse_comparison(h1, m_h1, tol_factor);
@@ -107,9 +107,10 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 template<typename P>
 void test_operator_two_scale(int const levels, int const degree)
 {
-  fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(
-      "../testing/generated-inputs/transformations/operator_two_scale_" +
-      std::to_string(degree) + "_" + std::to_string(levels) + ".dat"));
+  auto filename = transformations_base_dir /
+                  ("operator_two_scale_" + std::to_string(degree) + "_" +
+                   std::to_string(levels) + ".dat");
+  fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(filename));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
   auto constexpr tol_factor = get_tolerance<P>(10);
@@ -175,11 +176,12 @@ void test_fmwt_block_generation(int const level, int const degree)
   auto ctr = 0;
   for (auto const &block : blocks)
   {
-    std::string const gold_str =
-        "../testing/generated-inputs/basis/transform_blocks_l" +
-        std::to_string(level) + "_d" + std::to_string(degree) + "_" +
-        std::to_string(++ctr) + ".dat";
-    auto const gold = fk::matrix<P>(read_matrix_from_txt_file(gold_str));
+    auto basis_base_dir        = gold_base_dir / "basis";
+    std::string const gold_str = "transform_blocks_l" + std::to_string(level) +
+                                 "_d" + std::to_string(degree) + "_" +
+                                 std::to_string(++ctr) + ".dat";
+    auto const gold =
+        fk::matrix<P>(read_matrix_from_txt_file(basis_base_dir / gold_str));
 
     if constexpr (resrc == resource::host)
     {

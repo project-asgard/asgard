@@ -3,6 +3,9 @@
 #include "tests_general.hpp"
 #include <vector>
 
+static auto const matlab_utilities_base_dir =
+    gold_base_dir / "matlab_utilities";
+
 TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
                    float, double)
 {
@@ -13,27 +16,27 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   }
   SECTION("linspace(-1,1,9)")
   {
-    fk::vector<TestType> const gold = fk::vector<
-        TestType>(read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_9.dat"));
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(
+            matlab_utilities_base_dir / "linspace_neg1_1_9.dat"));
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(1,-1,9)")
   {
-    fk::vector<TestType> const gold = fk::vector<
-        TestType>(read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/linspace_1_neg1_9.dat"));
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(
+            matlab_utilities_base_dir / "linspace_1_neg1_9.dat"));
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(-1,1,8)")
   {
-    fk::vector<TestType> const gold = fk::vector<
-        TestType>(read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/linspace_neg1_1_8.dat"));
+    fk::vector<TestType> const gold =
+        fk::vector<TestType>(read_vector_from_txt_file(
+            matlab_utilities_base_dir / "linspace_neg1_1_8.dat"));
     REQUIRE(gold.size() == 8);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);
@@ -254,16 +257,14 @@ TEST_CASE("read_vector_from_bin_file returns expected vector", "[matlab]")
   {
     fk::vector<double> const gold = linspace<double>(-1, 1);
     fk::vector<double> const test = read_vector_from_bin_file(
-        "../testing/generated-inputs/matlab_utilities/"
-        "read_vector_bin_neg1_1_100.dat");
+        matlab_utilities_base_dir / "read_vector_bin_neg1_1_100.dat");
     REQUIRE(test == gold);
   }
   SECTION("read_vector_from_bin_file gets 100-element column vector")
   {
     fk::vector<double> const gold = linspace<double>(-1, 1);
     fk::vector<double> const test = read_vector_from_bin_file(
-        "../testing/generated-inputs/matlab_utilities/"
-        "read_vector_bin_neg1_1_100T.dat");
+        matlab_utilities_base_dir / "read_vector_bin_neg1_1_100T.dat");
     REQUIRE(test == gold);
   }
 }
@@ -274,16 +275,14 @@ TEST_CASE("read_vector_from_txt_file returns expected vector", "[matlab]")
   {
     fk::vector<double> gold = linspace<double>(-1, 1);
     fk::vector<double> test = read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/"
-        "read_vector_txt_neg1_1_100.dat");
+        matlab_utilities_base_dir / "read_vector_txt_neg1_1_100.dat");
     REQUIRE(test == gold);
   }
   SECTION("read_vector_from_txt_file gets 100-element column vector")
   {
     fk::vector<double> const gold = linspace<double>(-1, 1);
     fk::vector<double> const test = read_vector_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/"
-        "read_vector_txt_neg1_1_100T.dat");
+        matlab_utilities_base_dir / "read_vector_txt_neg1_1_100T.dat");
     REQUIRE(test == gold);
   }
 }
@@ -299,7 +298,7 @@ TEST_CASE("read_matrix_from_txt_file returns expected vector", "[matlab]")
         gold(i, j) = 17.0 / (i + 1 + j);
 
     fk::matrix<double> const test = read_matrix_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/read_matrix_txt_5x5.dat");
+        matlab_utilities_base_dir / "read_matrix_txt_5x5.dat");
     REQUIRE(test == gold);
   }
 }
@@ -309,8 +308,8 @@ TEST_CASE("read_scalar_from_txt_file returns expected value", "[matlab]")
   SECTION("get stored scalar")
   {
     double const gold = 42;
-    double const test = read_scalar_from_txt_file(
-        "../testing/generated-inputs/matlab_utilities/read_scalar_42.dat");
+    double const test = read_scalar_from_txt_file(matlab_utilities_base_dir /
+                                                  "read_scalar_42.dat");
     REQUIRE(gold == test);
   }
 }

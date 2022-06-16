@@ -6,14 +6,18 @@
 
 #pragma once
 
+#include "build_info.hpp"
 #include "src/fast_math.hpp"
 #include "src/pde.hpp"
 #include "src/program_options.hpp"
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 #include <catch2/catch_all.hpp>
+
+static inline const std::filesystem::path gold_base_dir{ASGARD_GOLD_BASE_DIR};
 
 template<typename P>
 constexpr P get_tolerance(int ulp)

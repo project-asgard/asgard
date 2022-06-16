@@ -23,8 +23,11 @@ int main(int argc, char *argv[])
 // settings for time advance testing
 static auto constexpr num_steps = 5;
 
+static auto const time_advance_base_dir = gold_base_dir / "time_advance";
+
 template<typename P>
-void time_advance_test(parser const &parse, std::string const &filepath,
+void time_advance_test(parser const &parse,
+                       std::filesystem::path const &filepath,
                        P const tolerance_factor)
 {
   auto const num_ranks = get_num_ranks();
@@ -84,8 +87,10 @@ void time_advance_test(parser const &parse, std::string const &filepath,
     f_val.resize(sol.size()) = sol;
     std::cout.clear();
 
-    auto const file_path = filepath + std::to_string(i) + ".dat";
-    auto const gold      = fk::vector<P>(read_vector_from_txt_file(file_path));
+    auto const file_path =
+        filepath.parent_path() /
+        (filepath.filename().string() + std::to_string(i) + ".dat");
+    auto const gold = fk::vector<P>(read_vector_from_txt_file(file_path));
 
     // each rank generates partial answer
     auto const dof =
@@ -125,8 +130,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_sg_l2_d2_t";
+    auto const gold_base = time_advance_base_dir / "diffusion2_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -142,8 +146,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     int const level           = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_sg_l3_d3_t";
+    auto const gold_base = time_advance_base_dir / "diffusion2_sg_l3_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -155,11 +158,10 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
 
   SECTION("diffusion2, explicit, sparse grid, level 4, degree 4")
   {
-    int const degree            = 4;
-    int const level             = 4;
-    auto constexpr tol_factor   = get_tolerance<TestType>(1000000);
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_sg_l4_d4_t";
+    int const degree          = 4;
+    int const level           = 4;
+    auto constexpr tol_factor = get_tolerance<TestType>(1000000);
+    auto const gold_base      = time_advance_base_dir / "diffusion2_sg_l4_d4_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -175,9 +177,9 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     fk::vector<int> const levels{4, 5};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_sg_l" +
-                                  get_level_string(levels) + "d2_t";
+    auto const gold_base =
+        time_advance_base_dir /
+        ("diffusion2_sg_l" + get_level_string(levels) + "d2_t");
 
     auto const full_grid = false;
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
@@ -201,8 +203,8 @@ TEST_CASE("adaptive time advance")
     std::string const pde_choice = "diffusion_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_ad_implicit_sg_l3_d4_t";
+    auto const gold_base =
+        time_advance_base_dir / "diffusion2_ad_implicit_sg_l3_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = true;
@@ -238,8 +240,7 @@ TEST_CASE("adaptive time advance")
     std::string const pde_choice = "diffusion_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_ad_sg_l3_d4_t";
+    auto const gold_base = time_advance_base_dir / "diffusion2_ad_sg_l3_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
@@ -262,8 +263,8 @@ TEST_CASE("adaptive time advance")
     std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p1a_ad_sg_l4_d4_t";
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck1_4p1a_ad_sg_l4_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
@@ -287,8 +288,8 @@ TEST_CASE("adaptive time advance")
     std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_E_case2_ad_sg_l4_d4_t";
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck1_pitch_E_case2_ad_sg_l4_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
@@ -312,8 +313,7 @@ TEST_CASE("adaptive time advance")
     std::string const pde_choice = "continuity_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "continuity2_ad_sg_l3_d4_t";
+    auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
 
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
@@ -341,10 +341,9 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
 
   SECTION("diffusion1, explicit, sparse grid, level 3, degree 3")
   {
-    int const degree            = 3;
-    int const level             = 3;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1_sg_l3_d3_t";
+    int const degree          = 3;
+    int const level           = 3;
+    auto const gold_base      = time_advance_base_dir / "diffusion1_sg_l3_d3_t";
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     auto const full_grid = false;
@@ -357,10 +356,9 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
 
   SECTION("diffusion1, explicit, sparse grid, level 4, degree 4")
   {
-    int const degree            = 4;
-    int const level             = 4;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1_sg_l4_d4_t";
+    int const degree      = 4;
+    int const level       = 4;
+    auto const gold_base  = time_advance_base_dir / "diffusion1_sg_l4_d4_t";
     auto const tol_factor = get_tolerance<TestType>(100000);
 
     auto const full_grid = false;
@@ -390,10 +388,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
 
   SECTION("continuity1, explicit, level 2, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity1_sg_l2_d2_t";
+    int const degree     = 2;
+    int const level      = 2;
+    auto const gold_base = time_advance_base_dir / "continuity1_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -405,10 +402,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
 
   SECTION("continuity1, explicit, level 2, degree 2, full grid")
   {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity1_fg_l2_d2_t";
+    int const degree     = 2;
+    int const level      = 2;
+    auto const gold_base = time_advance_base_dir / "continuity1_fg_l2_d2_t";
 
     auto const full_grid = true;
     parser const parse(
@@ -420,10 +416,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
 
   SECTION("continuity1, explicit, level 4, degree 3, sparse grid")
   {
-    int const degree = 3;
-    int const level  = 4;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity1_sg_l4_d3_t";
+    int const degree     = 3;
+    int const level      = 4;
+    auto const gold_base = time_advance_base_dir / "continuity1_sg_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -449,10 +444,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
 
   SECTION("continuity2, explicit, level 2, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity2_sg_l2_d2_t";
+    int const degree     = 2;
+    int const level      = 2;
+    auto const gold_base = time_advance_base_dir / "continuity2_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -464,10 +458,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
 
   SECTION("continuity2, explicit, level 2, degree 2, full grid")
   {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity2_fg_l2_d2_t";
+    int const degree     = 2;
+    int const level      = 2;
+    auto const gold_base = time_advance_base_dir / "continuity2_fg_l2_d2_t";
 
     auto const full_grid = true;
     parser const parse(
@@ -479,10 +472,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
 
   SECTION("continuity2, explicit, level 4, degree 3, sparse grid")
   {
-    int const degree = 3;
-    int const level  = 4;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity2_sg_l4_d3_t";
+    int const degree     = 3;
+    int const level      = 4;
+    auto const gold_base = time_advance_base_dir / "continuity2_sg_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -497,9 +489,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     int const degree = 3;
 
     fk::vector<int> const levels{3, 4};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "continuity2_fg_l" +
-                                  get_level_string(levels) + "d3_t";
+    auto const gold_base =
+        time_advance_base_dir /
+        ("continuity2_fg_l" + get_level_string(levels) + "d3_t");
     auto const full_grid = true;
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps);
@@ -523,10 +515,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
 
   SECTION("continuity3, explicit, level 2, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity3_sg_l2_d2_t";
+    int const degree     = 2;
+    int const level      = 2;
+    auto const gold_base = time_advance_base_dir / "continuity3_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -538,10 +529,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
 
   SECTION("continuity3, explicit, level 4, degree 3, sparse grid")
   {
-    int const degree = 3;
-    int const level  = 4;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity3_sg_l4_d3_t";
+    int const degree     = 3;
+    int const level      = 4;
+    auto const gold_base = time_advance_base_dir / "continuity3_sg_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -556,9 +546,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     int const degree = 4;
 
     fk::vector<int> const levels{3, 4, 2};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "continuity3_sg_l" +
-                                  get_level_string(levels) + "d4_t";
+    auto const gold_base =
+        time_advance_base_dir /
+        ("continuity3_sg_l" + get_level_string(levels) + "d4_t");
     auto const full_grid = false;
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
@@ -585,10 +575,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
 
   SECTION("continuity6, level 2, degree 3, sparse grid")
   {
-    int const degree = 3;
-    int const level  = 2;
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/continuity6_sg_l2_d3_t";
+    int const degree     = 3;
+    int const level      = 2;
+    auto const gold_base = time_advance_base_dir / "continuity6_sg_l2_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -603,9 +592,9 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     int const degree = 2;
 
     fk::vector<int> const levels{2, 3, 2, 3, 3, 2};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "continuity6_sg_l" +
-                                  get_level_string(levels) + "d2_t";
+    auto const gold_base =
+        time_advance_base_dir /
+        ("continuity6_sg_l" + get_level_string(levels) + "d2_t");
     auto const full_grid = false;
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps);
@@ -629,10 +618,10 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
 
   SECTION("fokkerplanck_1d_pitch_C, level 2, degree 2, sparse grid")
   {
-    int const degree            = 2;
-    int const level             = 2;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p2_sg_l2_d2_t";
+    int const degree = 2;
+    int const level  = 2;
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck1_4p2_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -661,8 +650,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     int const level           = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-    std::string const gold_base =
-        "../testing/generated-inputs/time_advance/fokkerplanck1_4p3_sg_l2_d2_t";
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck1_4p3_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -688,10 +677,10 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
 
   SECTION("fokkerplanck_1d_pitch_E_case1, level 2, degree 2, sparse grid")
   {
-    int const degree            = 2;
-    int const level             = 2;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_4p1a_sg_l2_d2_t";
+    int const degree = 2;
+    int const level  = 2;
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck1_4p1a_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -717,10 +706,10 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
 
   SECTION("fokkerplanck_1d_pitch_E_case2, level 2, degree 2, sparse grid")
   {
-    int const degree            = 2;
-    int const level             = 2;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck1_pitch_E_case2_sg_l2_d2_t";
+    int const degree = 2;
+    int const level  = 2;
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck1_pitch_E_case2_sg_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -755,8 +744,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     int const degree          = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_implicit_sg_l3_d3_t";
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l3_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -780,8 +769,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     int const degree          = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_implicit_sg_l4_d3_t";
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -805,8 +794,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     int const degree          = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_implicit_sg_l5_d3_t";
+    auto const gold_base =
+        time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l5_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -833,9 +822,9 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     fk::vector<int> const levels{2, 3};
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "fokkerplanck2_complete_implicit_sg_l" +
-                                  get_level_string(levels) + "d3_t";
+    auto const gold_base =
+        time_advance_base_dir / ("fokkerplanck2_complete_implicit_sg_l" +
+                                 get_level_string(levels) + "d3_t");
     auto const full_grid = false;
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
@@ -872,10 +861,10 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 #endif
   SECTION("diffusion1, implicit, sparse grid, level 4, degree 4")
   {
-    int const degree            = 4;
-    int const level             = 4;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion1_implicit_sg_l4_d4_t";
+    int const degree = 4;
+    int const level  = 4;
+    auto const gold_base =
+        time_advance_base_dir / "diffusion1_implicit_sg_l4_d4_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -917,10 +906,10 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 3")
   {
-    int const degree            = 3;
-    int const level             = 3;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_implicit_sg_l3_d3_t";
+    int const degree = 3;
+    int const level  = 3;
+    auto const gold_base =
+        time_advance_base_dir / "diffusion2_implicit_sg_l3_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -940,10 +929,10 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
   SECTION("diffusion2, implicit, sparse grid, level 4, degree 3")
   {
-    int const degree            = 3;
-    int const level             = 4;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_implicit_sg_l4_d3_t";
+    int const degree = 3;
+    int const level  = 4;
+    auto const gold_base =
+        time_advance_base_dir / "diffusion2_implicit_sg_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -963,10 +952,10 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
   SECTION("diffusion2, implicit, sparse grid, level 5, degree 3")
   {
-    int const degree            = 3;
-    int const level             = 5;
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_implicit_sg_l5_d3_t";
+    int const degree = 3;
+    int const level  = 5;
+    auto const gold_base =
+        time_advance_base_dir / "diffusion2_implicit_sg_l5_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -989,9 +978,9 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     int const degree = 2;
 
     fk::vector<int> const levels{4, 5};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "diffusion2_implicit_sg_l" +
-                                  get_level_string(levels) + "d2_t";
+    auto const gold_base =
+        time_advance_base_dir /
+        ("diffusion2_implicit_sg_l" + get_level_string(levels) + "d2_t");
     auto const full_grid = false;
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
@@ -1028,10 +1017,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 #endif
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
-    int const degree     = 2;
-    int const level      = 2;
-    auto const gold_base = "../testing/generated-inputs/time_advance/"
-                           "continuity1_implicit_l2_d2_t";
+    int const degree = 2;
+    int const level  = 2;
+    auto const gold_base =
+        time_advance_base_dir / "continuity1_implicit_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -1054,8 +1043,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     int const degree = 3;
     int const level  = 4;
 
-    auto const gold_base = "../testing/generated-inputs/time_advance/"
-                           "continuity1_implicit_l4_d3_t";
+    auto const gold_base =
+        time_advance_base_dir / "continuity1_implicit_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -1075,10 +1064,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 
   SECTION("continuity1, level 4, degree 3, sparse grid, iterative")
   {
-    int const degree     = 3;
-    int const level      = 4;
-    auto const gold_base = "../testing/generated-inputs/time_advance/"
-                           "continuity1_implicit_l4_d3_t";
+    int const degree = 3;
+    int const level  = 4;
+    auto const gold_base =
+        time_advance_base_dir / "continuity1_implicit_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -1121,8 +1110,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     int const degree = 2;
     int const level  = 2;
 
-    auto const gold_base = "../testing/generated-inputs/time_advance/"
-                           "continuity2_implicit_l2_d2_t";
+    auto const gold_base =
+        time_advance_base_dir / "continuity2_implicit_l2_d2_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -1145,8 +1134,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     int const degree = 3;
     int const level  = 4;
 
-    auto const gold_base = "../testing/generated-inputs/time_advance/"
-                           "continuity2_implicit_l4_d3_t";
+    auto const gold_base =
+        time_advance_base_dir / "continuity2_implicit_l4_d3_t";
 
     auto const full_grid = false;
     parser const parse(
@@ -1170,8 +1159,8 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     int const level           = 4;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-    auto const gold_base = "../testing/generated-inputs/time_advance/"
-                           "continuity2_implicit_l4_d3_t";
+    auto const gold_base =
+        time_advance_base_dir / "continuity2_implicit_l4_d3_t";
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
@@ -1192,9 +1181,9 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     int const degree = 3;
 
     fk::vector<int> const levels{3, 4};
-    std::string const gold_base = "../testing/generated-inputs/time_advance/"
-                                  "continuity2_implicit_fg_l" +
-                                  get_level_string(levels) + "d3_t";
+    auto const gold_base =
+        time_advance_base_dir /
+        ("continuity2_implicit_fg_l" + get_level_string(levels) + "d3_t");
     auto const full_grid = true;
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps, implicit);

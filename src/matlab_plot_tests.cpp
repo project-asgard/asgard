@@ -3,6 +3,8 @@
 #include "tests_general.hpp"
 #include <string_view>
 
+static auto const matlab_plot_base_dir = gold_base_dir / "matlab_plot";
+
 const static std::string ml_plot_tag("[matlab_plot]");
 
 TEST_CASE("create matlab session", ml_plot_tag)
@@ -73,7 +75,6 @@ TEMPLATE_TEST_CASE("creating vector params", ml_plot_tag, float, double)
 
 TEST_CASE("generate plotting nodes", ml_plot_tag)
 {
-  std::string const gold_base = "../testing/generated-inputs/matlab_plot/";
   std::vector<double> const min{-1.0, -2.0, -3.0};
   std::vector<double> const max{1.0, 2.0, 3.0};
 
@@ -81,12 +82,12 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
 
   SECTION("deg = 2, lev = 2")
   {
-    std::string const gold_file = gold_base + "nodes_continuity2_d2_l2_";
+    std::string const gold_file = "nodes_continuity2_d2_l2_";
 
     for (int dim = 0; dim < 2; dim++)
     {
-      fk::vector<double> gold =
-          read_matrix_from_txt_file(gold_file + std::to_string(dim) + ".dat");
+      fk::vector<double> gold = read_matrix_from_txt_file(
+          matlab_plot_base_dir / (gold_file + std::to_string(dim) + ".dat"));
       fk::vector<double> nodes =
           ml_plot->generate_nodes(2, 2, min[dim], max[dim]);
 
@@ -96,12 +97,12 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
 
   SECTION("deg = 3, lev = 3")
   {
-    std::string const gold_file = gold_base + "nodes_continuity3_d3_l3_";
+    std::string const gold_file = "nodes_continuity3_d3_l3_";
 
     for (int dim = 0; dim < 3; dim++)
     {
-      fk::vector<double> gold =
-          read_matrix_from_txt_file(gold_file + std::to_string(dim) + ".dat");
+      fk::vector<double> gold = read_matrix_from_txt_file(
+          matlab_plot_base_dir / (gold_file + std::to_string(dim) + ".dat"));
       fk::vector<double> nodes =
           ml_plot->generate_nodes(3, 3, min[dim], max[dim]);
 
@@ -132,15 +133,13 @@ void test_element_coords(PDE_opts const pde_name, int const level,
 
 TEST_CASE("generate element coords for plotting", ml_plot_tag)
 {
-  std::string const gold_base = "../testing/generated-inputs/matlab_plot/";
-
   ml_plot = get_session(ml_plot);
 
   SECTION("continuity2d, SG")
   {
-    int const level             = 2;
-    int const degree            = 3;
-    std::string const gold_file = gold_base + "elements_2d_l2_d3_SG.dat";
+    int const level      = 2;
+    int const degree     = 3;
+    auto const gold_file = matlab_plot_base_dir / "elements_2d_l2_d3_SG.dat";
 
     test_element_coords(PDE_opts::continuity_2, level, degree, gold_file,
                         false);
@@ -148,18 +147,18 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
 
   SECTION("continuity2d, FG")
   {
-    int const level             = 2;
-    int const degree            = 3;
-    std::string const gold_file = gold_base + "elements_2d_l2_d3_FG.dat";
+    int const level      = 2;
+    int const degree     = 3;
+    auto const gold_file = matlab_plot_base_dir / "elements_2d_l2_d3_FG.dat";
 
     test_element_coords(PDE_opts::continuity_2, level, degree, gold_file, true);
   }
 
   SECTION("continuity3d, SG")
   {
-    int const level             = 2;
-    int const degree            = 3;
-    std::string const gold_file = gold_base + "elements_3d_l2_d3_SG.dat";
+    int const level      = 2;
+    int const degree     = 3;
+    auto const gold_file = matlab_plot_base_dir / "elements_3d_l2_d3_SG.dat";
 
     test_element_coords(PDE_opts::continuity_3, level, degree, gold_file,
                         false);
@@ -167,9 +166,9 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
 
   SECTION("continuity3d, FG")
   {
-    int const level             = 2;
-    int const degree            = 3;
-    std::string const gold_file = gold_base + "elements_3d_l2_d3_FG.dat";
+    int const level      = 2;
+    int const degree     = 3;
+    auto const gold_file = matlab_plot_base_dir / "elements_3d_l2_d3_FG.dat";
 
     test_element_coords(PDE_opts::continuity_3, level, degree, gold_file, true);
   }
