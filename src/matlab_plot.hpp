@@ -66,7 +66,7 @@ public:
   void close();
 
   template<typename T, typename... Args>
-  void add_param(T const &t, Args &&... args)
+  void add_param(T const &t, Args &&...args)
   {
     m_args_.push_back(factory_.createScalar(t));
     add_param(args...);
@@ -80,7 +80,7 @@ public:
 
   template<typename T, typename... Args>
   void add_param(matlab::data::ArrayDimensions const dims, T const &t,
-                 Args &&... args)
+                 Args &&...args)
   {
     static_assert(!std::is_scalar<T>::value);
     m_args_.push_back(factory_.createArray(dims, t.begin(), t.end()));
