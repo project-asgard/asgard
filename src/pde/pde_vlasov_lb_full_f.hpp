@@ -15,7 +15,7 @@ public:
   PDE_vlasov_lb(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_)
+               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
   {}
 
 private:

@@ -13,6 +13,7 @@
 
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
+#include "../moment.hpp"
 #include "../program_options.hpp"
 #include "../tensors.hpp"
 #include "../tools.hpp"
@@ -73,6 +74,9 @@ auto const element_segment_size = [](auto const &pde) {
 // forward dec
 template<typename P>
 class PDE;
+
+template<typename P>
+class moment;
 
 template<typename P>
 class dimension
@@ -429,13 +433,14 @@ public:
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
       scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
-      bool const do_poisson_solve_in  = false,
-      bool const has_analytic_soln_in = false)
+      bool const do_poisson_solve_in          = false,
+      bool const has_analytic_soln_in         = false,
+      std::vector<moment<P>> const moments_in = {})
       : num_dims(num_dims_in), num_sources(num_sources_in),
         num_terms(get_num_terms(cli_input, num_terms_in)),
         max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
-        exact_vector_funcs(exact_vector_funcs_in), exact_time(exact_time_in),
-        do_poisson_solve(do_poisson_solve_in),
+        exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
+        exact_time(exact_time_in), do_poisson_solve(do_poisson_solve_in),
         has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
         terms_(terms)
   {
@@ -572,6 +577,7 @@ public:
 
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
+  std::vector<moment<P>> const moments;
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;
   bool const has_analytic_soln;

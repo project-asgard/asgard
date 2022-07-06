@@ -1,9 +1,21 @@
 #pragma once
+
+template<typename P>
+class PDE;
+
 #include "elements.hpp"
 #include "pde/pde_base.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 #include <vector>
+
+template<typename P>
+using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
+
+namespace elements
+{
+class table;
+}
 
 template<typename P>
 class moment
