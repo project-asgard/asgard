@@ -26,6 +26,8 @@ public:
   void
   createMomentVector(parser const &opts, elements::table const &hash_table);
 
+  std::vector<vector_func<P>> const &get_md_funcs() const { return md_funcs; }
+
 private:
   std::vector<vector_func<P>> md_funcs;
   std::vector<std::vector<fk::vector<P>>> fList;

@@ -567,6 +567,13 @@ public:
     {
       dt_ = cli_input.get_dt();
     }
+
+    // check the moments
+    for (auto const &m : moments)
+    {
+      // each moment should have ndim + 1 functions
+      expect(m.get_md_funcs().size() == static_cast<unsigned>(num_dims) + 1);
+    }
   }
 
   // public but const data.
