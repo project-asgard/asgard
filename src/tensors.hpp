@@ -263,7 +263,7 @@ public:
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   // this can be offsetted for views
-  P *data(int const elem = 0) const { return &data_[elem]; }
+  P *data(int const elem = 0) const { return data_ + elem; }
 
   // this is to allow specific other types to access the private ref counter of
   // owners - specifically, we want to allow a matrix<view> to be made from a
@@ -520,8 +520,8 @@ public:
   // use subscript operators for general purpose access
   P *data(int const i = 0, int const j = 0) const
   {
-    // return &data_[i * stride() + j]; // row-major
-    return &data_[j * stride() + i]; // column-major
+    // return data_ + i * stride() + j; // row-major
+    return data_ + j * stride() + i; // column-major
   }
 
   //
@@ -944,7 +944,11 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
 {}
 
 template<typename P, mem_type mem, resource resrc>
+#ifdef __clang__
+fk::vector<P, mem, resrc>::~vector<P, mem, resrc>()
+#else
 fk::vector<P, mem, resrc>::~vector()
+#endif
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -1372,9 +1376,9 @@ fk::vector<P> fk::vector<P, mem, resrc>::single_column_kron(
     vector<P, omem> const &right) const
 {
   fk::vector<P> product((*this).size() * right.size());
-  for (int i = 0; i < (*this).size(); ++i)
+  for (int j = 0; j < right.size(); ++j)
   {
-    for (int j = 0; j < right.size(); ++j)
+    for (int i = 0; i < (*this).size(); ++i)
     {
       product(i * right.size() + j) = (*this)(i)*right(j);
     }
@@ -1728,7 +1732,11 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
 
 // destructor
 template<typename P, mem_type mem, resource resrc>
+#ifdef __clang__
+fk::matrix<P, mem, resrc>::~matrix<P, mem, resrc>()
+#else
 fk::matrix<P, mem, resrc>::~matrix()
+#endif
 {
   if constexpr (mem == mem_type::owner)
   {
@@ -2017,7 +2025,7 @@ fk::matrix<P, mem, resrc>::operator=(fk::vector<P, omem> const &v)
 //
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, resource, typename>
-P &fk::matrix<P, mem, resrc>::operator()(int const i, int const j)
+inline P &fk::matrix<P, mem, resrc>::operator()(int const i, int const j)
 {
   expect(i < nrows() && j < ncols());
   return *(data(i, j));
@@ -2025,7 +2033,7 @@ P &fk::matrix<P, mem, resrc>::operator()(int const i, int const j)
 
 template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
-P fk::matrix<P, mem, resrc>::operator()(int const i, int const j) const
+inline P fk::matrix<P, mem, resrc>::operator()(int const i, int const j) const
 {
   expect(i < nrows() && j < ncols());
   return *(data(i, j));
@@ -2276,16 +2284,24 @@ template<mem_type omem, resource, typename>
 fk::matrix<P> fk::matrix<P, mem, resrc>::kron(matrix<P, omem> const &B) const
 {
   fk::matrix<P> C(nrows() * B.nrows(), ncols() * B.ncols());
-  for (auto i = 0; i < nrows(); ++i)
+
+  auto const ie = nrows();
+  auto const je = ncols();
+  auto const ke = B.nrows();
+  auto const le = B.ncols();
+
+  //  Matrix data(i,j) assume column major ordering. So j and l should be the
+  //  slowest iterating index for best cache utilization. Swap these for row
+  //  major order.
+  for (auto j = 0; j < je; ++j)
   {
-    for (auto j = 0; j < ncols(); ++j)
+    for (auto i = 0; i < ie; ++i)
     {
-      for (auto k = 0; k < B.nrows(); ++k)
+      for (auto l = 0; l < le; ++l)
       {
-        for (auto l = 0; l < B.ncols(); ++l)
+        for (auto k = 0; k < ke; ++k)
         {
-          C((i * B.nrows() + k), (j * B.ncols() + l)) +=
-              (*this)(i, j) * B(k, l);
+          C((i * ke + k), (j * le + l)) += (*this)(i, j) * B(k, l);
         }
       }
     }
@@ -2494,9 +2510,9 @@ fk::matrix<P, mem, resrc>::set_submatrix(int const row_idx, int const col_idx,
   expect(col_idx + submatrix.ncols() <= ncols());
 
   matrix &matrix = *this;
-  for (auto i = 0; i < submatrix.nrows(); ++i)
+  for (auto j = 0; j < submatrix.ncols(); ++j)
   {
-    for (auto j = 0; j < submatrix.ncols(); ++j)
+    for (auto i = 0; i < submatrix.nrows(); ++i)
     {
       matrix(i + row_idx, j + col_idx) = submatrix(i, j);
     }
@@ -2522,9 +2538,9 @@ fk::matrix<P, mem, resrc>::extract_submatrix(int const row_idx,
 
   matrix<P> submatrix(num_rows, num_cols);
   auto matrix = *this;
-  for (auto i = 0; i < num_rows; ++i)
+  for (auto j = 0; j < num_cols; ++j)
   {
-    for (auto j = 0; j < num_cols; ++j)
+    for (auto i = 0; i < num_rows; ++i)
     {
       submatrix(i, j) = matrix(i + row_idx, j + col_idx);
     }
@@ -2555,6 +2571,7 @@ void fk::matrix<P, mem, resrc>::print(std::string label) const
   else
     expect(false); // above cases cover all implemented mem types
 
+  //  Print these out as row major even though stored in memory as column major.
   for (auto i = 0; i < nrows(); ++i)
   {
     for (auto j = 0; j < ncols(); ++j)
@@ -2589,6 +2606,7 @@ void fk::matrix<P, mem, resrc>::dump_to_octave(char const *filename) const
 {
   std::ofstream ofile(filename);
   auto coutbuf = std::cout.rdbuf(ofile.rdbuf());
+  //  Print these out as row major even though stored in memory as column major.
   for (auto i = 0; i < nrows(); ++i)
   {
     for (auto j = 0; j < ncols(); ++j)
@@ -2690,15 +2708,13 @@ public:
   {
     difference_type const next_pos = ptr_ - start_ + 1;
 
-    if (next_pos % rows_ != 0)
-    {
-      return 1;
-    }
-    else
+    if (!(next_pos % rows_))
     {
       start_ += stride_;
       return stride_ - rows_ + 1;
     }
+
+    return 1;
   }
 
   self_type operator++(int)
@@ -2735,6 +2751,7 @@ void debug_compare(fk::matrix<P, left_mem> const &left,
   static std::string const red("\033[0;31m");
   static std::string const reset("\033[0m");
 
+  //  Print these out as row major even though stored in memory as column major.
   for (auto i = 0; i < left.nrows(); ++i)
   {
     for (auto j = 0; j < left.ncols(); ++j)

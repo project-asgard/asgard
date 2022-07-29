@@ -33,15 +33,15 @@ jobs:
             - name: Configure Default
               if: ${{matrix.features  == 'Default'}}
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF ../
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_PCH=ON ../
             - name: Configure MPI
               if: ${{matrix.features == 'MPI'}}
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF -DASGARD_USE_MPI=ON ../
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_MPI=ON -DASGARD_USE_PCH=ON ../
             - name: Configure ScaLAPACK
               if: ${{matrix.features == 'ScaLAPACK'}}
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_OPENMP=OFF -DASGARD_USE_MPI=ON -DASGARD_USE_SCALAPACK=ON -DCMAKE_Fortran_COMPILER=/usr/local/opt/gfortran/bin/gfortran ../
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_USE_MPI=ON -DASGARD_USE_SCALAPACK=ON -DCMAKE_Fortran_COMPILER=/usr/local/opt/gfortran/bin/gfortran -DASGARD_USE_PCH=ON ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
               run: make VERBOSE=1
