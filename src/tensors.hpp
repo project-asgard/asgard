@@ -855,22 +855,9 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(
     fk::matrix<P, mem_type::owner, resrc> const &mat)
-    : ref_count_{std::make_shared<int>(0)}
+    : data_(nullptr), size_(mat.size()), ref_count_{std::make_shared<int>(0)}
 {
-  size_ = mat.size();
-  if ((*this).size() == 0)
-  {
-    if constexpr (resrc == resource::host)
-    {
-      delete[] data_;
-    }
-    else
-    {
-      delete_device(data_);
-    }
-    data_ = nullptr;
-  }
-  else
+  if (size_ != 0)
   {
     if constexpr (resrc == resource::host)
     {

@@ -69,6 +69,11 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     // fk::vector<TestType, mem_type::view> test_2_v(mat_2); // disabled
     REQUIRE(test_2 == gold_2);
 
+    // check for problems when constructing from an empty matrix
+    fk::matrix<TestType> const mat_empty;
+    fk::vector<TestType> const test_empty(mat_empty);
+    REQUIRE(test_empty.size() == 0);
+
     // enable on device...
     fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
         mat.clone_onto_device());
