@@ -47,7 +47,7 @@ National Laboratory.
 
 * cuda
 * mpi
-* highfive/hdf5
+* HighFive/hdf5
 * MATLAB
 * ScaLAPACK
 
@@ -71,6 +71,13 @@ To see a list of available PDEs, run `./asgard --available_pdes`. The listed PDE
 To see the list of all runtime options, run `./asgard --help`.
 
 For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)
+
+## HighFive/HDF5 IO
+
+To enable HDF5 wavelet and realspace output, pass the `-DASGARD_IO_HIGHFIVE=ON`. 
+
+Pass `-DASGARD_BUILD_HDF5=TRUE` and ASGarD will download and build HDF5 and HighFive libraries. If HIGHFIVE and/or HDF5 are already 
+available, pass `-DASGARD_HIGHFIVE_PATH=<path to HighFive>` and/or `-DASGARD_HDF5_PATH=<path to HDF5>`.
 
 ## MATLAB Interface 
 

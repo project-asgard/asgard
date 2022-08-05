@@ -44,8 +44,9 @@ function (get_hdf5)
         PREFIX contrib/hdf5
         URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
         DOWNLOAD_NO_PROGRESS 1
-        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
-        BUILD_COMMAND make
+        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/autogen.sh
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
+	BUILD_COMMAND make
         BUILD_IN_SOURCE 1
         INSTALL_COMMAND make install
       )
@@ -75,29 +76,14 @@ if (ASGARD_IO_HIGHFIVE)
   get_hdf5()
 
   # now HighFive itself
-
-  set (highfive_PATH ${CMAKE_SOURCE_DIR}/contrib/highfive)
-  if (NOT EXISTS ${highfive_PATH}/include/highfive/H5Easy.hpp)
-    execute_process (COMMAND rm -rf ${highfive_PATH})
-    execute_process (COMMAND mkdir ${highfive_PATH})
-
-    message (STATUS "downloading HighFive from github")
-    execute_process (
-      COMMAND git clone https://github.com/BlueBrain/HighFive .
-      WORKING_DIRECTORY ${highfive_PATH}
-      RESULT_VARIABLE download
-      OUTPUT_QUIET
-      ERROR_QUIET
-      )
-    if (download)
-      message (FATAL_ERROR "could not download highfive")
-    endif ()
-  else ()
-    message (STATUS "using contrib HighFive at ${highfive_PATH}")
-  endif ()
-
-  add_library (highfive INTERFACE)
-  target_include_directories (highfive INTERFACE ${highfive_PATH}/include)
-  target_link_libraries (highfive INTERFACE hdf5)
-
+  if(ASGARD_HIGHFIVE_PATH AND NOT ASGARD_BUILD_HDF5)
+    find_library(Highfive PATHS ${hdf5_contrib_path} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
+  else()
+    set(HIGHFIVE_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(HIGHFIVE_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(HIGHFIVE_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+    set(HIGHFIVE_USE_BOOST OFF CACHE BOOL "" FORCE)
+    register_project(highfive HIGHFIVE https://github.com/BlueBrain/HighFive v2.4.1)
+    message (STATUS "using contrib HighFive at ${HighFive_BINARY_DIR}")
+  endif()
 endif()

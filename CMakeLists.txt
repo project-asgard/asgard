@@ -51,6 +51,15 @@ register_project (Catch2
                   v3.0.1
 )
 
+#Mark CATCH variables as advanced.
+get_cmake_property(_variableNames VARIABLES)
+foreach (_variableName ${_variableNames})
+    string(FIND "${_variableName}" "CATCH_" out)
+    if("${out}" EQUAL 0)
+        mark_as_advanced(${_variableName})
+    endif()
+endforeach()
+
 ###############################################################################
 ## Set up the compiler and general global build options
 ###############################################################################
@@ -79,10 +88,13 @@ endif ()
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic")
 
 # set up possible commandline input variable defaults (override with -D)
+include(CMakeDependentOption)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
+option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
-option (ASGARD_HDF5_PATH "optional location of lib/ containing HDF5" "")
+option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
+option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
 option (ASGARD_BUILD_PROFILE_DEPS "Download and build our own tools (e.g.  graphviz)" OFF)
 option (ASGARD_LAPACK_PATH "optional location of include/ and lib/ containing LAPACK" "")
 option (ASGARD_BLAS_PATH "optional location of include/ and lib/ containing BLAS" "")
@@ -93,12 +105,10 @@ option (ASGARD_PROFILE_GPERF_MEM "enable memory profiling support using gperftoo
 option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
-option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
-include(CMakeDependentOption)
-cmake_dependent_option(ASGARD_USE_SCALAPACK "Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
+cmake_dependent_option (ASGARD_USE_SCALAPACK "Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
 option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
@@ -117,6 +127,14 @@ endif()
 if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
   set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
 endif()
+
+#Enable HighFive IO if any of the following variables are defined
+if(NOT ASGARD_IO_HIGHFIVE)
+  if(ASGARD_HDF5_PATH OR ASGARD_BUILD_HDF5 OR ASGARD_HIGHFIVE_PATH)
+    set(ASGARD_IO_HIGHFIVE ON CACHE BOOL "" FORCE)
+  endif()
+endif()
+
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
@@ -271,7 +289,7 @@ target_link_libraries (asgard_obj
                        $<$<BOOL:${LINALG_FOUND}>:LINALG::LINALG>
                        kron
                        clara
-                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
+                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:HighFive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>
 )
 target_include_directories (asgard_obj
