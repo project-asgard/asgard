@@ -32,42 +32,49 @@ function (get_hdf5)
 
   # if cmake couldn't find other hdf5, or the user asked to build it
   if (NOT HDF5_FOUND)
-    set (hdf5_contrib_path ${CMAKE_SOURCE_DIR}/contrib/HDF5)
+    set (hdf5_contrib_path ${CMAKE_SOURCE_DIR}/contrib/hdf5)
     find_library (hdf5_search hdf5
       PATHS ${hdf5_contrib_path} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
     if (NOT hdf5_search)
       message (STATUS "libhdf5 not found. We'll build it from source.")
-      set( HDF5_TEST_CPP OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_EXAMPLES OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_FORTRAN OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_JAVA OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_PARALLEL OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_PASSTHROUGH_VOL OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_SERIAL OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_SWMR OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_TOOLS OFF CACHE BOOL "" FORCE)
-      set( HDF5_TEST_VFD OFF CACHE BOOL "" FORCE)
-      register_project(hdf5 HDF5 https://github.com/HDFGroup/hdf5 hdf5-1_12_2)
-      unset(CMAKE_RUNTIME_OUTPUT_DIRECTORY CACHE)
-      #Mark CATCH variables as advanced.
-      get_cmake_property(_variableNames VARIABLES)
-      foreach (_variableName ${_variableNames})
-	string(FIND "${_variableName}" "HDF5_" out)
-        if("${out}" EQUAL 0)
-          mark_as_advanced(${_variableName})
-        endif()
-      endforeach()
+
+      include (ExternalProject)
+      if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR and CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
+	# Get HDF5 to build on Apple silicon      
+        ExternalProject_Add (hdf5-ext
+          UPDATE_COMMAND ""
+          PREFIX contrib/hdf5
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+	  CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/autogen.sh
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
+          BUILD_COMMAND make
+          BUILD_IN_SOURCE 1
+          INSTALL_COMMAND make install
+        )
+      else()
+	ExternalProject_Add (hdf5-ext
+          UPDATE_COMMAND ""
+          PREFIX contrib/hdf5
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
+          BUILD_COMMAND make
+          BUILD_IN_SOURCE 1
+          INSTALL_COMMAND make install
+        )
+      endif()
       set (build_hdf5 TRUE PARENT_SCOPE)
-      set (hdf5_include ${HDF5_INCLUDE_DIRS})
-      set (hdf5_lib ${HDF5_LIBRARIES})
     else ()
       message (STATUS "using contrib HDF5 found at ${hdf5_search}")
     endif ()
     # either it was already here, or we just built it here
-    target_include_directories (hdf5 INTERFACE ${hdf5_include})
-    target_link_libraries (hdf5 INTERFACE ${hdf5_lib})
-
+    set (hdf5_include ${hdf5_contrib_path}/include)
+    set (hdf5_lib "-L${hdf5_contrib_path}/lib -Wl,-rpath,${hdf5_contrib_path}/lib/ -lhdf5")
   endif ()
+
+  target_include_directories (hdf5 INTERFACE ${hdf5_include})
+  target_link_libraries (hdf5 INTERFACE ${hdf5_lib})
 endfunction()
 
 ###############################################################################
@@ -83,14 +90,29 @@ if (ASGARD_IO_HIGHFIVE)
   get_hdf5()
 
   # now HighFive itself
-  if(ASGARD_HIGHFIVE_PATH AND NOT ASGARD_BUILD_HDF5)
-    find_library(Highfive PATHS ${hdf5_contrib_path} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
-  else()
-    set(HIGHFIVE_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-    set(HIGHFIVE_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(HIGHFIVE_UNIT_TESTS OFF CACHE BOOL "" FORCE)
-    set(HIGHFIVE_USE_BOOST OFF CACHE BOOL "" FORCE)
-    register_project(highfive HIGHFIVE https://github.com/BlueBrain/HighFive v2.4.1)
-    message (STATUS "using contrib HighFive at ${HighFive_BINARY_DIR}")
-  endif()
+
+  set (highfive_PATH ${CMAKE_SOURCE_DIR}/contrib/highfive)
+  if (NOT EXISTS ${highfive_PATH}/include/highfive/H5Easy.hpp)
+    execute_process (COMMAND rm -rf ${highfive_PATH})
+    execute_process (COMMAND mkdir ${highfive_PATH})
+
+    message (STATUS "downloading HighFive from github")
+    execute_process (
+      COMMAND git clone https://github.com/BlueBrain/HighFive .
+      WORKING_DIRECTORY ${highfive_PATH}
+      RESULT_VARIABLE download
+      OUTPUT_QUIET
+      ERROR_QUIET
+      )
+    if (download)
+      message (FATAL_ERROR "could not download highfive")
+    endif ()
+  else ()
+    message (STATUS "using contrib HighFive at ${highfive_PATH}")
+  endif ()
+
+  add_library (highfive INTERFACE)
+  target_include_directories (highfive INTERFACE ${highfive_PATH}/include)
+  target_link_libraries (highfive INTERFACE hdf5)
+
 endif()

@@ -210,6 +210,10 @@ configure_file(
 
 add_library (asgard_obj)
 
+if (build_hdf5)
+    add_dependencies (asgard_obj hdf5-ext)
+endif ()
+
 target_compile_features (asgard_obj PUBLIC cxx_std_17)
 set (components
      adapt
@@ -285,7 +289,7 @@ target_link_libraries (asgard_obj
                        $<$<BOOL:${LINALG_FOUND}>:LINALG::LINALG>
                        kron
                        clara
-                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:HighFive>
+                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>
 )
 target_include_directories (asgard_obj
