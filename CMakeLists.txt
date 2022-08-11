@@ -210,10 +210,6 @@ configure_file(
 
 add_library (asgard_obj)
 
-if (build_hdf5)
-    add_dependencies (asgard_obj hdf5-ext)
-endif ()
-
 target_compile_features (asgard_obj PUBLIC cxx_std_17)
 set (components
      adapt
