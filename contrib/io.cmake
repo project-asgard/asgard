@@ -39,7 +39,7 @@ function (get_hdf5)
       message (STATUS "libhdf5 not found. We'll build it from source.")
 
       include (ExternalProject)
-      if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR and CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
+      if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
         # Get HDF5 to build on Apple silicon
         ExternalProject_Add (hdf5-ext
           UPDATE_COMMAND ""
@@ -53,7 +53,7 @@ function (get_hdf5)
           INSTALL_COMMAND make install
         )
       else()
-	ExternalProject_Add (hdf5-ext
+        ExternalProject_Add (hdf5-ext
           UPDATE_COMMAND ""
           PREFIX contrib/hdf5
           URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
