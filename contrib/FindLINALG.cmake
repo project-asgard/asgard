@@ -53,8 +53,7 @@ if (${ASGARD_BUILD_OPENBLAS})
     register_project (openblas
                       OPENBLAS
                       https://github.com/xianyi/OpenBLAS.git
-                      v0.3.19
-                      ${CMAKE_SOURCE_DIR}/contrib/openblas.patch
+                      v0.3.21
     )
 
 #  Fetch content does not run the install phase so the headers for openblas are
