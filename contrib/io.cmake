@@ -39,16 +39,31 @@ function (get_hdf5)
       message (STATUS "libhdf5 not found. We'll build it from source.")
 
       include (ExternalProject)
-      ExternalProject_Add (hdf5-ext
-        UPDATE_COMMAND ""
-        PREFIX contrib/hdf5
-        URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
-        DOWNLOAD_NO_PROGRESS 1
-        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
-        BUILD_COMMAND make
-        BUILD_IN_SOURCE 1
-        INSTALL_COMMAND make install
-      )
+      if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
+        # Get HDF5 to build on Apple silicon
+        ExternalProject_Add (hdf5-ext
+          UPDATE_COMMAND ""
+          PREFIX contrib/hdf5
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/autogen.sh
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
+          BUILD_COMMAND make
+          BUILD_IN_SOURCE 1
+          INSTALL_COMMAND make install
+        )
+      else()
+        ExternalProject_Add (hdf5-ext
+          UPDATE_COMMAND ""
+          PREFIX contrib/hdf5
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
+          BUILD_COMMAND make
+          BUILD_IN_SOURCE 1
+          INSTALL_COMMAND make install
+        )
+      endif()
       set (build_hdf5 TRUE PARENT_SCOPE)
     else ()
       message (STATUS "using contrib HDF5 found at ${hdf5_search}")
