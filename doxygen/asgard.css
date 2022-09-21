@@ -1,0 +1,27 @@
+/*
+ *  Global font and page justify
+ */
+html *{
+    font-size: 1em;
+    color: #000;
+}
+
+div.contents {
+    max-width: 60em;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+#doc-content {
+    background: #F5F5F5;
+}
+
+#nav-tree {
+    background: #F5F5F5;
+}
+
+#projectname {
+    font-size: 1.25em;
+    color: #000;
+    text-shadow: #000 6px 4px 50px;
+}
