@@ -1,7 +1,7 @@
-cmake_minimum_required (VERSION 3.19) 
+cmake_minimum_required (VERSION 3.19)
 
 project (asgard
-  VERSION 0.3.0
+  VERSION 0.5.0
   LANGUAGES CXX
 )
 
@@ -166,15 +166,15 @@ endif()
 
 if(ASGARD_USE_OPENMP)
   find_package(OpenMP)
-  
+
   if (NOT ${OpenMP_FOUND})
     set (ASGARD_USE_OPENMP OFF CACHE BOOL "Optional openMP support for asgard" FORCE)
   endif ()
-  
+
   if(ASGARD_USE_MKL)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-	message(FATAL_ERROR 
-	  "MKL and apple clang++ require conflicting 
+	message(FATAL_ERROR
+	  "MKL and apple clang++ require conflicting
 	  openmp flags - build configuration not supported")
     endif()
   endif()
