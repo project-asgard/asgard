@@ -114,6 +114,8 @@ option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating poin
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
+option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
+
 if (${ASGARD_USE_PCH})
   set (USE_PCH ON CACHE BOOL "Turn on kronmult precompiled header support" FORCE)
 endif()
@@ -342,6 +344,13 @@ target_link_libraries (asgard PRIVATE asgard_obj)
 if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard REUSE_FROM asgard_obj)
 endif ()
+
+#-------------------------------------------------------------------------------
+# Builds the documentation, must come after asgard target is defined
+#-------------------------------------------------------------------------------
+if (ASGARD_BUILD_DOCS)
+  add_subdirectory(doxygen)
+endif()
 
 ###############################################################################
 ## Testing asgard
