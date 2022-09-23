@@ -359,6 +359,12 @@ endif()
 if (ASGARD_BUILD_TESTS)
   enable_testing ()
 
+  # add sandbox executable, i.e., an executable that is part of the build system
+  # contain all the appropriate link flags and dependencies, but does nothing
+  # other than play with some code
+  add_executable(sandbox ./testing/sandbox.cpp)
+  target_link_libraries (sandbox PUBLIC asgard_obj Catch2::Catch2)
+
   # Define ctest tests and their executables. The _main variant of these targets
   # uses the default main function from the catch two framework. The non _main
   # variant uses a custom defined main in MPI based tests.
@@ -373,6 +379,7 @@ if (ASGARD_BUILD_TESTS)
                              PRIVATE ${CMAKE_BINARY_DIR}
                              PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   if (${ASGARD_USE_PCH})
+    target_precompile_headers (sandbox REUSE_FROM asgard_obj)
     target_precompile_headers (tests_general REUSE_FROM asgard_obj)
     target_precompile_headers (tests_general_main REUSE_FROM asgard_obj)
   endif ()
