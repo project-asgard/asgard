@@ -22,8 +22,11 @@ Issues are a great way to discuss all aspects of the ASGarD project, whether it
 is to ask a general question, request a new feature, or propose a contribution
 to the code base.
 
-The ASGarD project is led by David Green (greendl1@ornl.gov) at Oak Ridge
+The ASGarD project is led by David Green at Oak Ridge
 National Laboratory.
+
+For technical questions, contact Miroslav Stoyanov (stoyanovmk@ornl.gov) at
+Oak Ridge National Laboratory.
 
 ## Automated Test Status
 
