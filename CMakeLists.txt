@@ -359,21 +359,6 @@ endif()
 if (ASGARD_BUILD_TESTS)
   enable_testing ()
 
-  set (main_app_link_deps
-       adapt
-       coefficients
-       distribution
-       elements
-       matlab_utilities
-       pde
-       program_options
-       quadrature
-       tensors
-       time_advance
-       tools
-       transformations
-  )
-
   # Define ctest tests and their executables. The _main variant of these targets
   # uses the default main function from the catch two framework. The non _main
   # variant uses a custom defined main in MPI based tests.
