@@ -41,7 +41,7 @@ endfunction ()
 register_project (kronmult
                   KRONMULT
                   https://github.com/project-asgard/kronmult.git
-                  be1ef32b9e4d75f977c066b8917e6b9adce58a03
+                  83ebb07bcda4dc30c58ce7d8b2bf7575d88192e0
 )
 
 #  Catch two testing framework.
