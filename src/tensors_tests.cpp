@@ -2626,8 +2626,8 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
     {16, 26, 36},
   }; // clang-format on
 
-  fk::matrix<TestType> gold_copy(gold);
-  fk::matrix<TestType, mem_type::view> const gold_v(gold_copy);
+  fk::matrix<TestType> gold_mutable(gold);
+  fk::matrix<TestType, mem_type::view> const gold_v(gold_mutable);
   fk::matrix<TestType, mem_type::const_view> const gold_cv(gold);
 
   SECTION("matrix update_col(fk::vector)")

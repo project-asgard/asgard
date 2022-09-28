@@ -121,7 +121,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(PI * x); });
+                   [](P const &x_v) { return std::cos(PI * x_v); });
     return fx;
   }
 
