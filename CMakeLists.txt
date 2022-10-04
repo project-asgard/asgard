@@ -84,9 +84,6 @@ else ()
   message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 endif ()
 
-# add compiler flags we always want to use
-string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic")
-
 # set up possible commandline input variable defaults (override with -D)
 include(CMakeDependentOption)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -119,6 +116,11 @@ option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 if (${ASGARD_USE_PCH})
   set (USE_PCH ON CACHE BOOL "Turn on kronmult precompiled header support" FORCE)
+endif()
+
+if (ASGARD_RECOMMENDED_DEFAULTS)
+  # add compiler flags we always want to use
+  string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic")
 endif()
 
 # add scripts directory location
