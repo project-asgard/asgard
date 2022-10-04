@@ -106,7 +106,7 @@ option (ASGARD_PROFILE_PERF "enable profiling support for using linux perf" "")
 option (ASGARD_PROFILE_VALGRIND "enable profiling support for using valgrind" "")
 option (ASGARD_GRAPHVIZ_PATH "optional location of bin/ containing dot executable" "")
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
-option (ASGARD_USE_OPENMP "Optional openMP support for asgard" ON)
+option (ASGARD_USE_OPENMP "Optional OpenMP support for asgard" OFF)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 cmake_dependent_option (ASGARD_USE_SCALAPACK "Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
 option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
@@ -114,6 +114,7 @@ option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating poin
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
+option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 if (${ASGARD_USE_PCH})
@@ -166,20 +167,24 @@ endif()
 #  find_package(lapackpp)
 #endif ()
 
-if(ASGARD_USE_OPENMP)
+if(ASGARD_USE_OPENMP OR ASGARD_RECOMMENDED_DEFAULTS)
   find_package(OpenMP)
 
-  if (NOT ${OpenMP_FOUND})
-    set (ASGARD_USE_OPENMP OFF CACHE BOOL "Optional openMP support for asgard" FORCE)
-  endif ()
-
-  if(ASGARD_USE_MKL)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-	message(FATAL_ERROR
-	  "MKL and apple clang++ require conflicting
-	  openmp flags - build configuration not supported")
+  if (OpenMP_FOUND)
+    set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
+    if(ASGARD_USE_MKL)
+      if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+        message(FATAL_ERROR
+          "MKL and apple clang++ require conflicting
+           openmp flags - build configuration not supported")
+      endif()
+    endif()
+  else()
+    if(ASGARD_USE_OPENMP)
+      message(FATAL_ERROR "CMake could not find OpenMP flags")
     endif()
   endif()
+
 endif()
 
 if (ASGARD_USE_MATLAB)
