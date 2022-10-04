@@ -93,8 +93,6 @@ option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
 option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
 option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
 option (ASGARD_BUILD_PROFILE_DEPS "Download and build our own tools (e.g.  graphviz)" OFF)
-option (ASGARD_LAPACK_PATH "optional location of include/ and lib/ containing LAPACK" "")
-option (ASGARD_BLAS_PATH "optional location of include/ and lib/ containing BLAS" "")
 option (ASGARD_PROFILE_GPROF "enable profiling support for using gprof" "")
 option (ASGARD_PROFILE_XRAY "enable profiling support for using LLVM XRAY" "")
 option (ASGARD_PROFILE_GPERF_CPU "enable cpu profiling support using gperftools" "")
@@ -125,13 +123,6 @@ endif()
 
 # add scripts directory location
 set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
-
-if (NOT ASGARD_BLAS_PATH AND ASGARD_LAPACK_PATH)
-  set (ASGARD_BLAS_PATH ${ASGARD_LAPACK_PATH})
-endif()
-if (NOT ASGARD_LAPACK_PATH AND ASGARD_BLAS_PATH)
-  set (ASGARD_LAPACK_PATH ${ASGARD_BLAS_PATH})
-endif()
 
 #Enable HighFive IO if any of the following variables are defined
 if(NOT ASGARD_IO_HIGHFIVE)
