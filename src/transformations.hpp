@@ -94,13 +94,13 @@ fk::vector<P> forward_transform(
     // map quad_x from [-1,+1] to [domain_min,domain_max] physical domain.
     fk::vector<P> const mapped_roots = [&roots = roots, normalize, domain_min,
                                         i]() {
-      fk::vector<P> mapped_roots(roots.size());
-      std::transform(mapped_roots.begin(), mapped_roots.end(), roots.begin(),
-                     mapped_roots.begin(), [&](P &elem, P const &root) {
+      fk::vector<P> out(roots.size());
+      std::transform(out.begin(), out.end(), roots.begin(), out.begin(),
+                     [&](P &elem, P const &root) {
                        return elem + (normalize * (root / 2.0 + 1.0 / 2.0 + i) +
                                       domain_min);
                      });
-      return mapped_roots;
+      return out;
     }();
 
     // get the f(v) initial condition at the quadrature points.

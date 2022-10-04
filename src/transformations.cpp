@@ -146,8 +146,8 @@ void wavelet_to_realspace(
 
   // FIXME Assume the degree in the first dimension is equal across all the
   // remaining dimensions
-  auto const degree = pde.get_dimensions()[0].get_degree();
-  auto const stride = std::pow(degree, pde.num_dims);
+  auto const stride =
+      std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims);
 
   fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(

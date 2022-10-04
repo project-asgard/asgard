@@ -50,7 +50,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(PI * x); });
+                   [](P const &x_v) { return std::cos(PI * x_v); });
     return fx;
   }
 
@@ -60,7 +60,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * PI * x); });
+                   [](P const &x_v) { return std::sin(2.0 * PI * x_v); });
 
     return fx;
   }
@@ -71,7 +71,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(PI * x); });
+                   [](P const &x_v) { return std::cos(PI * x_v); });
     return fx;
   }
   static fk::vector<P> exact_solution_dim1(fk::vector<P> const x, P const t = 0)
@@ -79,7 +79,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * PI * x); });
+                   [](P const &x_v) { return std::sin(2.0 * PI * x_v); });
     return fx;
   }
 
@@ -109,7 +109,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(PI * x); });
+                   [](P const &x_v) { return std::cos(PI * x_v); });
     return fx;
   }
 
@@ -118,7 +118,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * PI * x); });
+                   [](P const &x_v) { return std::sin(2.0 * PI * x_v); });
     return fx;
   }
 
@@ -130,7 +130,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(PI * x); });
+                   [](P const &x_v) { return std::cos(PI * x_v); });
     return fx;
   }
 
@@ -139,7 +139,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(2.0 * PI * x); });
+                   [](P const &x_v) { return std::cos(2.0 * PI * x_v); });
     return fx;
   }
 
@@ -154,7 +154,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(PI * x); });
+                   [](P const &x_v) { return std::sin(PI * x_v); });
     return fx;
   }
 
@@ -163,7 +163,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::sin(2.0 * PI * x); });
+                   [](P const &x_v) { return std::sin(2.0 * PI * x_v); });
     return fx;
   }
 

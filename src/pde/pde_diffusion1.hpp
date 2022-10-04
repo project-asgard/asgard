@@ -34,7 +34,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(nu * x); });
+                   [](P const &x_v) { return std::cos(nu * x_v); });
     return fx;
   }
 
@@ -64,7 +64,7 @@ private:
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const x_value) -> P { return std::cos(nu * x_value); });
+                   [](P const x_v) -> P { return std::cos(nu * x_v); });
 
     return fx;
   }
@@ -145,8 +145,8 @@ private:
     static double const coefficient = -1.0 * nu * nu;
 
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_value) -> P {
-      return coefficient * std::cos(nu * x_value);
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+      return coefficient * std::cos(nu * x_v);
     });
 
     return fx;
@@ -169,7 +169,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x) { return std::cos(nu * x); });
+                   [](P const &x_v) { return std::cos(nu * x_v); });
     return fx;
   }
 

@@ -2496,15 +2496,15 @@ fk::matrix<P, mem, resrc>::set_submatrix(int const row_idx, int const col_idx,
   expect(row_idx + submatrix.nrows() <= nrows());
   expect(col_idx + submatrix.ncols() <= ncols());
 
-  matrix &matrix = *this;
+  matrix &mat = *this;
   for (auto j = 0; j < submatrix.ncols(); ++j)
   {
     for (auto i = 0; i < submatrix.nrows(); ++i)
     {
-      matrix(i + row_idx, j + col_idx) = submatrix(i, j);
+      mat(i + row_idx, j + col_idx) = submatrix(i, j);
     }
   }
-  return matrix;
+  return mat;
 }
 
 //
@@ -2524,12 +2524,12 @@ fk::matrix<P, mem, resrc>::extract_submatrix(int const row_idx,
   expect(col_idx + num_cols <= ncols());
 
   matrix<P> submatrix(num_rows, num_cols);
-  auto matrix = *this;
+  matrix const &mat = *this;
   for (auto j = 0; j < num_cols; ++j)
   {
     for (auto i = 0; i < num_rows; ++i)
     {
-      submatrix(i, j) = matrix(i + row_idx, j + col_idx);
+      submatrix(i, j) = mat(i + row_idx, j + col_idx);
     }
   }
 
