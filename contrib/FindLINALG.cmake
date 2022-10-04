@@ -39,10 +39,15 @@ if (NOT ${ASGARD_BUILD_OPENBLAS})
 
     if (NOT ${BLAS_FOUND} OR NOT ${LAPACK_FOUND})
 
-#  Set the ASGARD_BUILD_OPENBLAS option to true in the cmake gui since we now
-#  need to build OpenBLAS.
-        set (ASGARD_BUILD_OPENBLAS ON CACHE BOOL "Download and build our own OpenBLAS" FORCE)
-
+        if (ASGARD_RECOMMENDED_DEFAULTS)
+        #  Set the ASGARD_BUILD_OPENBLAS option to true in cmake since we now
+        #  need to build OpenBLAS.
+            set (ASGARD_BUILD_OPENBLAS ON CACHE BOOL "Download and build our own OpenBLAS" FORCE)
+        else()
+        #  without ASGARD_RECOMMENDED_DEFAULTS, assume that the user has
+        #  system BLAS/LAPACK that the user wants to utilize
+            message(FATAL_ERROR "Could not find system BLAS or LAPACK, use -DASGARD_BUILD_OPENBLAS=ON to download/compile OpenBLAS")
+        endif ()
     endif ()
 endif ()
 
