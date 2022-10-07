@@ -467,7 +467,7 @@ matlab::data::StructArray matlab_plot::make_dimension(dimension<P> const &dim)
   ml_dim[0]["lev"]  = factory_.createScalar<int>(dim.get_level());
   // TODO: find a better way to represent these functions?
   ml_dim[0]["init_cond_fn"] =
-      factory_.createCharArray(dim.initial_condition.target_type().name());
+      factory_.createCharArray(dim.initial_condition[0].target_type().name());
   ml_dim[0]["volume_jacobian_dV"] =
       factory_.createCharArray(dim.volume_jacobian_dV.target_type().name());
 

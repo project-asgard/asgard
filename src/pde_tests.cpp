@@ -20,7 +20,7 @@ void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
     auto const gold =
         fk::vector<P>(read_vector_from_txt_file(base_dir.replace_filename(
             filename + "initial_dim" + std::to_string(i) + ".dat")));
-    auto const fx = pde.get_dimensions()[i].initial_condition(x, 0);
+    auto const fx = pde.get_dimensions()[i].initial_condition[0](x, 0);
 
     auto constexpr tol_factor = get_tolerance<P>(10);
 

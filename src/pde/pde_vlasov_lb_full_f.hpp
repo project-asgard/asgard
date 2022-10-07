@@ -77,10 +77,10 @@ private:
 
   /* Define the dimension */
   inline static dimension<P> const dim_0 = dimension<P>(
-      -1.0, 1.0, 8, default_degree, initial_condition_dim_x, dV, "x");
+      -1.0, 1.0, 8, default_degree, {initial_condition_dim_x}, dV, "x");
 
   inline static dimension<P> const dim_1 = dimension<P>(
-      -6.0, 6.0, 3, default_degree, initial_condition_dim_v, dV, "v");
+      -6.0, 6.0, 3, default_degree, {initial_condition_dim_v}, dV, "v");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 

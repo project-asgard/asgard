@@ -675,7 +675,7 @@ private:
                                                      1.0,  // domain max
                                                      2,    // levels
                                                      2,    // degree
-                                                     f0,   // initial condition
+                                                     {f0}, // initial condition
                                                      volume_jacobian_dV,
                                                      "x"); // name
 
@@ -683,7 +683,7 @@ private:
                                                      2.0,  // domain max
                                                      2,    // levels
                                                      2,    // degree
-                                                     f0,   // initial condition
+                                                     {f0}, // initial condition
                                                      volume_jacobian_dV,
                                                      "y"); // name
 
@@ -691,7 +691,7 @@ private:
                                                      3.0,  // domain max
                                                      2,    // levels
                                                      2,    // degree
-                                                     f0,   // initial condition
+                                                     {f0}, // initial condition
                                                      volume_jacobian_dV,
                                                      "z"); // name
 
@@ -699,7 +699,7 @@ private:
                                                       10.0,  // domain max
                                                       2,     // levels
                                                       2,     // degree
-                                                      f0, // initial condition
+                                                      {f0}, // initial condition
                                                       volume_jacobian_dV,
                                                       "vx"); // name
 
@@ -707,7 +707,7 @@ private:
                                                       20.0,  // domain max
                                                       2,     // levels
                                                       2,     // degree
-                                                      f0, // initial condition
+                                                      {f0}, // initial condition
                                                       volume_jacobian_dV,
                                                       "vy"); // name
 
@@ -715,7 +715,7 @@ private:
                                                       30.0,  // domain max
                                                       2,     // levels
                                                       2,     // degree
-                                                      f0, // initial condition
+                                                      {f0}, // initial condition
                                                       volume_jacobian_dV,
                                                       "z"); // name
 

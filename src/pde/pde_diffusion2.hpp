@@ -55,11 +55,11 @@ private:
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
       dimension<P>(domain_min, domain_max, default_level, default_degree,
-                   initial_condition_dim, volume_jacobian_dV, "x");
+                   {initial_condition_dim}, volume_jacobian_dV, "x");
 
   inline static dimension<P> const dim_1 =
       dimension<P>(domain_min, domain_max, default_level, default_degree,
-                   initial_condition_dim, volume_jacobian_dV, "y");
+                   {initial_condition_dim}, volume_jacobian_dV, "y");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 

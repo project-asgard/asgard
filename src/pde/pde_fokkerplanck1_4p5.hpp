@@ -133,11 +133,11 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(-1.0,   // domain min
-                   1.0,    // domain max
-                   2,      // levels
-                   2,      // degree
-                   f0_vec, // initial condition
+      dimension<P>(-1.0,     // domain min
+                   1.0,      // domain max
+                   2,        // levels
+                   2,        // degree
+                   {f0_vec}, // initial condition
                    volume_jacobian_dV,
                    "x"); // name
 

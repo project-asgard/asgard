@@ -29,7 +29,8 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
     auto const &md_func = this->md_funcs[s];
     for (std::size_t d = 0; d < num_dims; ++d)
     {
-      fList[s][d] = forward_transform<P>(dims[d], md_func, dims[d].moment_dV, transformer);
+      fList[s][d] = forward_transform<P>(
+          dims[d], md_func, dims[d].volume_jacobian_dV, transformer);
     }
   }
 }

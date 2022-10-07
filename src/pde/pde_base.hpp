@@ -84,16 +84,16 @@ class dimension
 public:
   P const domain_min;
   P const domain_max;
-  vector_func<P> const initial_condition;
+  std::vector<vector_func<P>> const initial_condition;
   g_func_type<P> const volume_jacobian_dV;
   std::string const name;
   dimension(P const d_min, P const d_max, int const level, int const degree,
-            vector_func<P> const initial_condition_in,
+            std::vector<vector_func<P>> const initial_condition_in,
             g_func_type<P> const volume_jacobian_dV_in,
             std::string const name_in)
 
       : domain_min(d_min), domain_max(d_max),
-        initial_condition(initial_condition_in),
+        initial_condition(std::move(initial_condition_in)),
         volume_jacobian_dV(volume_jacobian_dV_in), name(name_in)
   {
     set_level(level);
@@ -168,6 +168,14 @@ public:
   }
 
   static P null_scalar_func(P const p) { return p; }
+
+  static fk::vector<P> null_vector_func(fk::vector<P> x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> fx(x.size());
+    std::fill(fx.begin(), fx.end(), 1.0);
+    return fx;
+  }
 
   partial_term(coefficient_type const coeff_type_in,
                g_func_type<P> const g_func_in        = null_gfunc,
