@@ -562,8 +562,8 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> const
       matrices = [=]() {
         // {a, b, c, gold}
-        std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>>
-            matrices(4);
+        std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> output(
+            4);
 
         std::random_device rd;
         std::mt19937 mersenne_engine(rd());
@@ -583,15 +583,15 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
           if constexpr (resrc == resource::host)
           {
-            matrices[0].push_back(a);
-            matrices[1].push_back(b);
-            matrices[2].push_back(c);
+            output[0].push_back(a);
+            output[1].push_back(b);
+            output[2].push_back(c);
           }
           else
           {
-            matrices[0].push_back(a.clone_onto_device());
-            matrices[1].push_back(b.clone_onto_device());
-            matrices[2].push_back(c.clone_onto_device());
+            output[0].push_back(a.clone_onto_device());
+            output[1].push_back(b.clone_onto_device());
+            output[2].push_back(c.clone_onto_device());
           }
 
           fk::matrix<P, mem_type::view> const effective_a(a, 0, rows_a - 1, 0,
@@ -604,14 +604,14 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
           if constexpr (resrc == resource::host)
           {
-            matrices[3].push_back(fk::matrix<P>(effective_c));
+            output[3].push_back(fk::matrix<P>(effective_c));
           }
           else
           {
-            matrices[3].push_back(effective_c.clone_onto_device());
+            output[3].push_back(effective_c.clone_onto_device());
           }
         }
-        return matrices;
+        return output;
       }();
 
   auto const batch_build =
@@ -775,7 +775,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
   };
 
   std::vector<fk::matrix<P, mem_type::owner, resrc>> const a_mats = [=]() {
-    std::vector<fk::matrix<P, mem_type::owner, resrc>> a_mats;
+    std::vector<fk::matrix<P, mem_type::owner, resrc>> output;
 
     for (int i = 0; i < num_batch; ++i)
     {
@@ -784,20 +784,20 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
       if constexpr (resrc == resource::host)
       {
-        a_mats.push_back(a);
+        output.push_back(a);
       }
       else
       {
-        a_mats.push_back(a.clone_onto_device());
+        output.push_back(a.clone_onto_device());
       }
     }
-    return a_mats;
+    return output;
   }();
 
   std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> const
       vectors = [=, &a_mats]() {
         // {x, y, gold}
-        std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> vectors(
+        std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> output(
             3);
 
         for (int i = 0; i < num_batch; ++i)
@@ -809,22 +809,22 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
           if constexpr (resrc == resource::host)
           {
-            vectors[0].push_back(x);
-            vectors[1].push_back(y);
+            output[0].push_back(x);
+            output[1].push_back(y);
           }
           else
           {
-            vectors[0].push_back(x.clone_onto_device());
-            vectors[1].push_back(y.clone_onto_device());
+            output[0].push_back(x.clone_onto_device());
+            output[1].push_back(y.clone_onto_device());
           }
 
           fk::matrix<P, mem_type::const_view, resrc> const effective_a(
               a_mats[i], 0, m - 1, 0, n - 1);
-          fk::vector<P, mem_type::owner, resrc> gold(vectors[1].back());
-          fm::gemv(effective_a, vectors[0].back(), gold, trans_a, alpha, beta);
-          vectors[2].push_back(gold);
+          fk::vector<P, mem_type::owner, resrc> gold(output[1].back());
+          fm::gemv(effective_a, output[0].back(), gold, trans_a, alpha, beta);
+          output[2].push_back(gold);
         }
-        return vectors;
+        return output;
       }();
 
   auto const batch_build =

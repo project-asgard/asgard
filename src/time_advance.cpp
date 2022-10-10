@@ -63,8 +63,8 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   }
 
   // coarsen
-  auto const old_size = adaptive_grid.size();
-  auto y = adaptive_grid.coarsen_solution(pde, x_orig, program_opts);
+  auto old_size = adaptive_grid.size();
+  auto y        = adaptive_grid.coarsen_solution(pde, x_orig, program_opts);
   node_out() << " adapt -- coarsened grid from " << old_size << " -> "
              << adaptive_grid.size() << " elems\n";
 
@@ -87,7 +87,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                                y, time, program_opts.solver, refining);
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
-    auto const old_size = adaptive_grid.size();
+    old_size            = adaptive_grid.size();
     auto const y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
     refining = static_cast<bool>(

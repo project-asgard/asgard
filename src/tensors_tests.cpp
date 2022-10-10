@@ -629,19 +629,19 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     fk::vector<TestType> test_vect(gold);
     fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
     fk::vector<TestType, mem_type::const_view> const test_vect_cv(test_vect);
-    fk::vector<TestType> const gold{290, 490, 690};
+    fk::vector<TestType> const gold_result{290, 490, 690};
 
-    REQUIRE((test_vect * test_mat) == gold);
-    REQUIRE((test_vect_v * test_mat) == gold);
-    REQUIRE((test_vect_cv * test_mat) == gold);
+    REQUIRE((test_vect * test_mat) == gold_result);
+    REQUIRE((test_vect_v * test_mat) == gold_result);
+    REQUIRE((test_vect_cv * test_mat) == gold_result);
 
-    REQUIRE((test_vect * test_mat_v) == gold);
-    REQUIRE((test_vect_v * test_mat_v) == gold);
-    REQUIRE((test_vect_cv * test_mat_v) == gold);
+    REQUIRE((test_vect * test_mat_v) == gold_result);
+    REQUIRE((test_vect_v * test_mat_v) == gold_result);
+    REQUIRE((test_vect_cv * test_mat_v) == gold_result);
 
-    REQUIRE((test_vect * test_mat_cv) == gold);
-    REQUIRE((test_vect_v * test_mat_cv) == gold);
-    REQUIRE((test_vect_cv * test_mat_cv) == gold);
+    REQUIRE((test_vect * test_mat_cv) == gold_result);
+    REQUIRE((test_vect_v * test_mat_cv) == gold_result);
+    REQUIRE((test_vect_cv * test_mat_cv) == gold_result);
   }
 
   SECTION("vector*scalar operator")
@@ -883,18 +883,13 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     // because you can't concat on an owner w/ outstanding views
     fk::vector<TestType> empty_copy(empty);
     fk::vector<TestType, mem_type::view> empty_v(empty_copy);
-    fk::vector<TestType> gold_copy(gold);
-    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+    fk::vector<TestType> gold_data_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_data_v(gold_data_copy);
 
     REQUIRE(empty.concat(gold) == gold);
     empty.resize(0);
-    REQUIRE(empty.concat(gold_v) == gold);
+    REQUIRE(empty.concat(gold_data_v) == gold);
     empty.resize(0);
-
-    // REQUIRE(empty_v.concat(gold) == gold);
-    // empty_v.resize(0);
-    // REQUIRE(empty_v.concat(gold_v) == gold);
-    // empty_v.resize(0);
 
     // non-const gold copy I can concat with
     fk::vector<TestType> gold_2(gold);
@@ -902,9 +897,6 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     gold_2.resize(gold.size()) = gold;
     REQUIRE(gold_2.concat(empty_v) == gold);
     gold_2.resize(gold.size()) = gold;
-    // REQUIRE(gold_copy_v.concat(empty) == gold);
-    // gold_copy_v = gold_copy;
-    // REQUIRE(gold_copy_v.concat(empty_v) == gold);
   }
 
   SECTION("vector set")
@@ -2366,20 +2358,20 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
     fk::vector<TestType, mem_type::view> const testv_v(testv);
     fk::vector<TestType, mem_type::const_view> const testv_cv(testv);
 
-    fk::vector<TestType> const gold{218, 227, 236, 245, 254};
-    REQUIRE((testm * testv) == gold);
-    REQUIRE((testm * testv_v) == gold);
-    REQUIRE((testm * testv_cv) == gold);
+    fk::vector<TestType> const gold_data{218, 227, 236, 245, 254};
+    REQUIRE((testm * testv) == gold_data);
+    REQUIRE((testm * testv_v) == gold_data);
+    REQUIRE((testm * testv_cv) == gold_data);
 
-    REQUIRE((testm_v * testv) == gold);
-    REQUIRE((testm_v * testv_v) == gold);
-    REQUIRE((testm_v * testv_cv) == gold);
+    REQUIRE((testm_v * testv) == gold_data);
+    REQUIRE((testm_v * testv_v) == gold_data);
+    REQUIRE((testm_v * testv_cv) == gold_data);
 
-    REQUIRE((testm_cv * testv) == gold);
-    REQUIRE((testm_cv * testv_v) == gold);
-    REQUIRE((testm_cv * testv_cv) == gold);
+    REQUIRE((testm_cv * testv) == gold_data);
+    REQUIRE((testm_cv * testv_v) == gold_data);
+    REQUIRE((testm_cv * testv_cv) == gold_data);
 
-    fk::vector<TestType> const gold_p = gold.extract(1, 2);
+    fk::vector<TestType> const gold_p = gold_data.extract(1, 2);
     REQUIRE((testm_v_p * testv_v) == gold_p);
     REQUIRE((testm_v_p * testv) == gold_p);
   }
@@ -2563,12 +2555,12 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
       fk::matrix<TestType, mem_type::view> const in_v(in);
       fk::matrix<TestType, mem_type::const_view> const in_cv(in);
 
-      TestType const gold       = -0.020200;
+      TestType const gold_value = -0.020200;
       TestType const tol_factor = 1e2;
-      relaxed_fp_comparison(in.determinant(), gold, tol_factor);
-      relaxed_fp_comparison(in_v.determinant(), gold, tol_factor);
-      relaxed_fp_comparison(in_cv.determinant(), gold, tol_factor);
-      relaxed_fp_comparison(in_v_p.determinant(), gold, tol_factor);
+      relaxed_fp_comparison(in.determinant(), gold_value, tol_factor);
+      relaxed_fp_comparison(in_v.determinant(), gold_value, tol_factor);
+      relaxed_fp_comparison(in_cv.determinant(), gold_value, tol_factor);
+      relaxed_fp_comparison(in_v_p.determinant(), gold_value, tol_factor);
 
       // we haven't implemented a determinant routine for integral types; as
       // with inversion, code won't compile if this routine is invoked on a

@@ -41,8 +41,8 @@ std::string simple_timer::report()
         {
           return std::string(" avg gflops: inf");
         }
-        auto const avg = sum / flops.size();
-        return std::string(" avg gflops: ") + std::to_string(avg);
+        auto const average = sum / flops.size();
+        return std::string(" avg gflops: ") + std::to_string(average);
       }
       return std::string("");
     }();

@@ -405,14 +405,14 @@ fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
 {
   expect(matrices.size() > 0);
   auto const [nrows, ncols] = [&]() {
-    int col_accum   = 0;
-    int const nrows = matrices[0].nrows();
+    int col_accum            = 0;
+    int const matrices_nrows = matrices[0].nrows();
     for (auto const &mat : matrices)
     {
       col_accum += mat.ncols();
-      expect(mat.nrows() == nrows);
+      expect(mat.nrows() == matrices_nrows);
     }
-    return std::array<int, 2>{nrows, col_accum};
+    return std::array<int, 2>{matrices_nrows, col_accum};
   }();
   fk::matrix<P> concat(nrows, ncols);
   int col_index = 0;
@@ -440,9 +440,9 @@ fk::matrix<int> meshgrid(int const start, int const length)
   expect(length > 0);
   fk::matrix<int> mesh(length, length);
   fk::vector<int> const row = [=]() {
-    fk::vector<int> row(length);
-    std::iota(row.begin(), row.end(), start);
-    return row;
+    fk::vector<int> output(length);
+    std::iota(output.begin(), output.end(), start);
+    return output;
   }();
   for (int i = 0; i < mesh.nrows(); ++i)
   {

@@ -162,9 +162,9 @@ legendre_weights(int const degree, P const lower_bound, P const upper_bound,
   expect(degree > 0);
   expect(lower_bound < upper_bound);
 
-  auto const default_quad_number = [](int const degree) {
+  auto const default_quad_number = [](int const degree_in) {
     static int constexpr minimum_quadrature = 10;
-    return std::max(minimum_quadrature, degree + 1);
+    return std::max(minimum_quadrature, degree_in + 1);
   };
 
   int const num_points =

@@ -95,7 +95,6 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until c++20)
-  auto const ignore = [](auto ignored) { (void)ignored; };
   ignore(weights_neg1to1);
 
   auto const get_row = [](fk::matrix<P> const mat,
@@ -366,7 +365,6 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
 
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until c++20)
-  auto const ignore = [](auto ignored) { (void)ignored; };
   auto const [h0, h1, g0, g1, phi_co, scale_co] =
       generate_multi_wavelets<R>(degree);
   ignore(phi_co);

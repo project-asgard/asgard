@@ -231,9 +231,9 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   auto const refine_check =
       [refine_threshold, abs_compare](
           int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
-        auto const max_elem =
+        auto const refined_max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
-        return std::abs(max_elem) >= refine_threshold;
+        return std::abs(refined_max_elem) >= refine_threshold;
       };
   auto const to_refine = filter_elements(refine_check, x);
   return this->refine_elements(to_refine, cli_opts, x);
@@ -261,12 +261,13 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
       [&table, coarsen_threshold,
        abs_compare](int64_t const elem_index,
                     fk::vector<P, mem_type::const_view> const &element_x) {
-        auto const max_elem =
+        auto const coarsened_max_elem =
             *std::max_element(element_x.begin(), element_x.end(), abs_compare);
         auto const coords    = table.get_coords(elem_index);
         auto const min_level = *std::min_element(
             coords.begin(), coords.begin() + coords.size() / 2);
-        return std::abs(max_elem) <= coarsen_threshold && min_level >= 0;
+        return std::abs(coarsened_max_elem) <= coarsen_threshold &&
+               min_level >= 0;
       };
 
   auto const to_coarsen = filter_elements(coarsen_check, x);

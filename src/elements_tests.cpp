@@ -79,12 +79,12 @@ void test_child_discovery(PDE_opts const pde_choice,
                                     gold_child_vect.end());
 
   auto const child_ids = [&elem_table, &opts]() {
-    std::list<int64_t> child_ids;
+    std::list<int64_t> output;
     for (int64_t i = 0; i < elem_table.size(); ++i)
     {
-      child_ids.splice(child_ids.end(), elem_table.get_child_elements(i, opts));
+      output.splice(output.end(), elem_table.get_child_elements(i, opts));
     }
-    return child_ids;
+    return output;
   }();
 
   REQUIRE(child_ids == gold_child_ids);
@@ -104,13 +104,13 @@ void test_element_addition(PDE_opts const pde_choice,
 
   // store existing ids
   auto const active_ids = [&elem_table]() {
-    std::vector<int64_t> active_ids;
-    active_ids.reserve(elem_table.size());
+    std::vector<int64_t> output;
+    output.reserve(elem_table.size());
     for (int64_t i = 0; i < elem_table.size(); ++i)
     {
-      active_ids.push_back(elem_table.get_element_id(i));
+      output.push_back(elem_table.get_element_id(i));
     }
-    return active_ids;
+    return output;
   }();
 
   // store existing flat table

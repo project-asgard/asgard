@@ -40,26 +40,26 @@ TEST_CASE("subgrid struct", "[distribution]")
     return;
   }
 
-  int const row_start = 0;
-  int const row_stop  = 4;
-  int const col_start = 1;
-  int const col_stop  = 3;
-  element_subgrid const e(row_start, row_stop, col_start, col_stop);
+  int const e_row_start = 0;
+  int const e_row_stop  = 4;
+  int const e_col_start = 1;
+  int const e_col_stop  = 3;
+  element_subgrid const e(e_row_start, e_row_stop, e_col_start, e_col_stop);
 
   SECTION("construct/copy construct")
   {
-    REQUIRE(e.row_start == row_start);
-    REQUIRE(e.row_stop == row_stop);
-    REQUIRE(e.col_start == col_start);
-    REQUIRE(e.col_stop == col_stop);
+    REQUIRE(e.row_start == e_row_start);
+    REQUIRE(e.row_stop == e_row_stop);
+    REQUIRE(e.col_start == e_col_start);
+    REQUIRE(e.col_stop == e_col_stop);
 
     element_subgrid const e2(e);
     REQUIRE(e == e2);
 
-    REQUIRE(e2.row_start == row_start);
-    REQUIRE(e2.row_stop == row_stop);
-    REQUIRE(e2.col_start == col_start);
-    REQUIRE(e2.col_stop == col_stop);
+    REQUIRE(e2.row_start == e_row_start);
+    REQUIRE(e2.row_stop == e_row_stop);
+    REQUIRE(e2.col_start == e_col_start);
+    REQUIRE(e2.col_stop == e_col_stop);
   }
 
   SECTION("dimensions functions")
@@ -76,11 +76,12 @@ TEST_CASE("subgrid struct", "[distribution]")
     REQUIRE(e.to_local_row(0) == 0);
     REQUIRE(e.to_local_col(1) == 0);
 
-    int const row_start = 2;
-    int const row_stop  = 5;
-    int const col_start = 0;
-    int const col_stop  = 4;
-    element_subgrid const e2(row_start, row_stop, col_start, col_stop);
+    int const e2_row_start = 2;
+    int const e2_row_stop  = 5;
+    int const e2_col_start = 0;
+    int const e2_col_stop  = 4;
+    element_subgrid const e2(e2_row_start, e2_row_stop, e2_col_start,
+                             e2_col_stop);
 
     REQUIRE(e2.to_global_row(3) == 5);
     REQUIRE(e2.to_global_col(0) == 0);
@@ -682,9 +683,9 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
       }
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
-        fk::vector<TestType> fx(table.size() * segment_size);
-        std::iota(fx.begin(), fx.end(), -1e6);
-        return fx;
+        fk::vector<TestType> output(table.size() * segment_size);
+        std::iota(output.begin(), output.end(), -1e6);
+        return output;
       }();
 
       auto const plan = get_plan(num_ranks, table);
@@ -756,9 +757,9 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
 
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
-        fk::vector<TestType> fx(table.size() * segment_size);
-        std::iota(fx.begin(), fx.end(), -1e6);
-        return fx;
+        fk::vector<TestType> output(table.size() * segment_size);
+        std::iota(output.begin(), output.end(), -1e6);
+        return output;
       }();
 
       auto const grid = plan.at(my_rank);
@@ -831,19 +832,19 @@ TEST_CASE("distribute table tests", "[distribution]")
     auto const num_ranks = distrib_test_info.get_num_ranks();
 
     auto const plan = [num_ranks]() {
-      distribution_plan plan;
+      distribution_plan output;
       for (auto i = 0; i < num_ranks; ++i)
       {
         // values here don't matter - plan is just used
         // to determine number of ranks
-        plan.emplace(i, element_subgrid(0, 1, 2, 3));
+        output.emplace(i, element_subgrid(0, 1, 2, 3));
       }
-      return plan;
+      return output;
     }();
     auto const my_changes = [my_rank]() {
-      std::vector<int64_t> my_changes(std::max(my_rank * 2, 1));
-      std::iota(my_changes.begin(), my_changes.end(), my_rank);
-      return my_changes;
+      std::vector<int64_t> output(std::max(my_rank * 2, 1));
+      std::iota(output.begin(), output.end(), my_rank);
+      return output;
     }();
     auto const result_gold = [num_ranks]() {
       std::vector<int64_t> all_changes;

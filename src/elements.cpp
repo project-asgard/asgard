@@ -116,8 +116,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
                                &active_element_ids_ = active_element_ids_]() {
     // don't delete all the elements
     expect(active_element_ids_.size() > to_delete.size());
-    std::vector<int64_t> new_active_ids(active_element_ids_.size() -
-                                        to_delete.size());
+    std::vector<int64_t> output(active_element_ids_.size() - to_delete.size());
     auto count = 0;
     expect(active_element_ids_.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(active_element_ids_.size()); ++i)
@@ -126,10 +125,10 @@ void table::remove_elements(std::vector<int64_t> const &indices)
       {
         continue;
       }
-      new_active_ids[count++] = active_element_ids_[i];
+      output[count++] = active_element_ids_[i];
     }
-    expect(count == static_cast<int>(new_active_ids.size()));
-    return new_active_ids;
+    expect(count == static_cast<int>(output.size()));
+    return output;
   }();
 
   // form new active table from retained elements in old table

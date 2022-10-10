@@ -551,12 +551,10 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
         ("continuity3_sg_l" + get_level_string(levels) + "d4_t");
     auto const full_grid = false;
 
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
-
     parser const parse(pde_choice, levels, degree, cfl, full_grid,
                        parser::DEFAULT_MAX_LEVEL, num_steps);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(parse, gold_base, get_tolerance<TestType>(10));
   }
 }
 
@@ -1155,25 +1153,25 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
   SECTION("continuity2, level 4, degree 3, sparse grid, iterative")
   {
-    int const degree          = 3;
-    int const level           = 4;
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    int const degree               = 3;
+    int const level                = 4;
+    auto constexpr temp_tol_factor = get_tolerance<TestType>(10);
 
-    auto const gold_base =
+    auto const continuity2_base_dir =
         time_advance_base_dir / "continuity2_implicit_l4_d3_t";
     auto const full_grid = false;
     parser const parse(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(parse, continuity2_base_dir, temp_tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, parser::DEFAULT_MAX_LEVEL, num_steps, implicit,
         do_adapt_levels, adapt_threshold, solver_str);
 
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    time_advance_test(parse_scalapack, continuity2_base_dir, temp_tol_factor);
 #endif
   }
   SECTION("continuity2, implicit/non-uniform level, degree 3, full grid")

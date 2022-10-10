@@ -37,9 +37,9 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
   };
   auto const elem_size  = static_cast<int>(std::pow(degree, pde->num_dims));
   fk::vector<P> const x = [&table, gen, elem_size]() {
-    fk::vector<P> x(elem_size * table.size());
-    std::generate(x.begin(), x.end(), gen);
-    return x;
+    fk::vector<P> output(elem_size * table.size());
+    std::generate(output.begin(), output.end(), gen);
+    return output;
   }();
 
   // perform kron product + gemv for gold data

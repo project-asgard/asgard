@@ -79,11 +79,10 @@ int get_num_ranks()
 {
 #ifdef ASGARD_USE_MPI
   static int const num_ranks = []() {
-    int num_ranks;
-    auto const status =
-        MPI_Comm_size(distro_handle.get_global_comm(), &num_ranks);
+    int output;
+    auto const status = MPI_Comm_size(distro_handle.get_global_comm(), &output);
     expect(status == 0);
-    return num_ranks;
+    return output;
   }();
   return num_ranks;
 #endif
@@ -336,21 +335,21 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
 class round_robin_wheel
 {
 public:
-  round_robin_wheel(int const size) : size(size), current_index(0) {}
+  round_robin_wheel(int const size) : size_(size), current_index_(0) {}
 
   int spin()
   {
-    int const n = current_index++;
+    int const n = current_index_++;
 
-    if (current_index == size)
-      current_index = 0;
+    if (current_index_ == size_)
+      current_index_ = 0;
 
     return n;
   }
 
 private:
-  int const size;
-  int current_index;
+  int const size_;
+  int current_index_;
 };
 
 /* this function takes the dependencies for each subgrid column,
@@ -639,13 +638,13 @@ gather_errors(P const root_mean_squared, P const relative)
   if (local_rank == 0)
   {
     bool odd = false;
-    std::vector<P> rmse, relative;
+    std::vector<P> rmse_vect, relative_vect;
     // split the even and odd elements into seperate vectors -
     // unpackage from MPI call
-    std::partition_copy(error_vect.begin(), error_vect.end(),
-                        std::back_inserter(rmse), std::back_inserter(relative),
-                        [&odd](P) { return odd = !odd; });
-    return {fk::vector<P>(rmse), fk::vector<P>(relative)};
+    std::partition_copy(
+        error_vect.begin(), error_vect.end(), std::back_inserter(rmse_vect),
+        std::back_inserter(relative_vect), [&odd](P) { return odd = !odd; });
+    return {fk::vector<P>(rmse_vect), fk::vector<P>(relative_vect)};
   }
 
   return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
@@ -657,15 +656,15 @@ gather_errors(P const root_mean_squared, P const relative)
 template<typename P>
 std::vector<P>
 gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
-               int const my_rank, int const element_segment_size)
+               int const my_rank, int const element_segment_size_in)
 {
   expect(my_rank >= 0);
   expect(my_rank < static_cast<int>(plan.size()));
 
   auto const own_results = [&my_results]() {
-    std::vector<P> own_results(my_results.size());
-    std::copy(my_results.begin(), my_results.end(), own_results.begin());
-    return own_results;
+    std::vector<P> output(my_results.size());
+    std::copy(my_results.begin(), my_results.end(), output.begin());
+    return output;
   };
 #ifdef ASGARD_USE_MPI
 
@@ -678,25 +677,25 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
 
   // get the length and displacement of non-root, first row ranks
   fk::vector<int> const rank_lengths = [&plan, num_subgrid_cols,
-                                        element_segment_size]() {
-    fk::vector<int> rank_lengths(num_subgrid_cols);
-    for (int i = 1; i < static_cast<int>(rank_lengths.size()); ++i)
+                                        element_segment_size_in]() {
+    fk::vector<int> output(num_subgrid_cols);
+    for (int i = 1; i < static_cast<int>(output.size()); ++i)
     {
-      rank_lengths(i) = plan.at(i).ncols() * element_segment_size;
+      output(i) = plan.at(i).ncols() * element_segment_size_in;
     }
-    return rank_lengths;
+    return output;
   }();
 
   fk::vector<int> const rank_displacements = [&rank_lengths]() {
-    fk::vector<int> rank_displacements(rank_lengths.size());
+    fk::vector<int> output(rank_lengths.size());
 
     int64_t running_total = 0;
     for (int i = 0; i < rank_lengths.size(); ++i)
     {
-      rank_displacements(i) = running_total;
+      output(i) = running_total;
       running_total += rank_lengths(i);
     }
-    return rank_displacements;
+    return output;
   }();
 
   // split the communicator - only need the first row
@@ -749,7 +748,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
   return own_results();
 
 #else
-  ignore(element_segment_size);
+  ignore(element_segment_size_in);
   return own_results();
 #endif
 }
@@ -802,21 +801,21 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
   // determine size of everyone's messages
   auto const my_rank      = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
-    std::vector<int> num_messages(plan.size());
+    std::vector<int> output(plan.size());
     expect(my_changes.size() < INT_MAX);
-    num_messages[my_rank] = static_cast<int>(my_changes.size());
+    output[my_rank] = static_cast<int>(my_changes.size());
     expect(plan.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(plan.size()); ++i)
     {
-      auto const success = MPI_Bcast(num_messages.data() + i, 1, MPI_INT, i,
+      auto const success = MPI_Bcast(output.data() + i, 1, MPI_INT, i,
                                      distro_handle.get_global_comm());
       expect(success == 0);
     }
-    return num_messages;
+    return output;
   }();
 
   auto const displacements = [&num_messages]() {
-    std::vector<int> displacements(num_messages.size());
+    std::vector<int> output(num_messages.size());
 
     // some compilers don't support this yet...//FIXME
     // std::exclusive_scan(num_messages.begin(), num_messages.end(),
@@ -824,9 +823,9 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
     // do it manually instead...
     for (auto i = 1; i < static_cast<int>(num_messages.size()); ++i)
     {
-      displacements[i] = displacements[i - 1] + num_messages[i - 1];
+      output[i] = output[i - 1] + num_messages[i - 1];
     }
-    return displacements;
+    return output;
   }();
 
   // now distribute changes
@@ -866,10 +865,10 @@ region_messages_remap(distribution_plan const &old_plan,
   auto const row  = rank / cols;
 
   std::unordered_map<int, std::list<message>> region_messages;
-  auto const queue_msg = [&region_messages](int const rank,
+  auto const queue_msg = [&region_messages](int const rank_in,
                                             message const &msg) {
-    region_messages.try_emplace(rank, std::list<message>());
-    region_messages[rank].push_back(msg);
+    region_messages.try_emplace(rank_in, std::list<message>());
+    region_messages[rank_in].push_back(msg);
   };
 
   // iterate over columns in the subgrid
@@ -966,9 +965,9 @@ subgrid_messages_remap(distribution_plan const &old_plan,
     auto region_messages = region_messages_remap(
         old_plan, new_plan, source_region, dest_region, rank);
 
-    for (auto &[rank, msgs] : region_messages)
+    for (auto &[rank_in, msgs] : region_messages)
     {
-      subgrid_messages[rank].splice(subgrid_messages[rank].end(), msgs);
+      subgrid_messages[rank_in].splice(subgrid_messages[rank_in].end(), msgs);
     }
   }
   return subgrid_messages;
@@ -993,11 +992,11 @@ generate_messages_remap(distribution_plan const &old_plan,
     auto rank_messages =
         subgrid_messages_remap(old_plan, new_plan, elem_index_remap, rank);
     expect(rank_messages.size() == new_plan.size());
-    for (auto const &[rank, subgrid] : new_plan)
+    for (auto const &[rank_in, subgrid_in] : new_plan)
     {
-      ignore(subgrid);
-      redis_messages[rank].splice(redis_messages[rank].end(),
-                                  rank_messages[rank]);
+      ignore(subgrid_in);
+      redis_messages[rank_in].splice(redis_messages[rank_in].end(),
+                                     rank_messages[rank_in]);
     }
   }
   return redis_messages;

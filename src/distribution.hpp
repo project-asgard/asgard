@@ -2,12 +2,7 @@
 #include "build_info.hpp"
 #include "elements.hpp"
 
-#ifdef ASGARD_USE_MPI
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#include "mpi.h"
-#pragma GCC diagnostic pop
-#endif
+#include "asgard_mpi.h"
 
 #ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"
@@ -20,9 +15,8 @@
 // simple struct for representing a range within the element grid
 struct grid_limits
 {
-  grid_limits(int const start, int const stop) : start(start), stop(stop){};
-  grid_limits(grid_limits const &l) : start(l.start), stop(l.stop){};
-  grid_limits(grid_limits const &&l) : start(l.start), stop(l.stop){};
+  grid_limits(int const start_in, int const stop_in)
+      : start(start_in), stop(stop_in){};
 
   int size() const { return stop - start + 1; }
   bool operator==(grid_limits const &rhs) const
@@ -48,10 +42,10 @@ using index_mapper = std::function<int(int const)>;
 class element_subgrid
 {
 public:
-  element_subgrid(int const row_start, int const row_stop, int const col_start,
-                  int const col_stop)
-      : row_start(row_start), row_stop(row_stop), col_start(col_start),
-        col_stop(col_stop)
+  element_subgrid(int const row_start_in, int const row_stop_in,
+                  int const col_start_in, int const col_stop_in)
+      : row_start(row_start_in), row_stop(row_stop_in), col_start(col_start_in),
+        col_stop(col_stop_in)
   {
     expect(row_start >= 0);
     expect(row_stop >= row_start);
@@ -207,19 +201,19 @@ enum class message_direction
 // new range describes the global indices (inclusive) for receiving
 struct message
 {
-  message(message_direction const message_dir, int const target,
-          grid_limits const &source_range, grid_limits const &dest_range)
-      : message_dir(message_dir), target(target), source_range(source_range),
-        dest_range(dest_range)
+  message(message_direction const message_dir_in, int const target_in,
+          grid_limits const &source_range_in, grid_limits const &dest_range_in)
+      : message_dir(message_dir_in), target(target_in),
+        source_range(source_range_in), dest_range(dest_range_in)
   {
     assert(source_range.size() == dest_range.size());
   }
   // within the same distro plan, only need one range
   // global indices are consistent
-  message(message_direction const message_dir, int const target,
-          grid_limits const source_range)
-      : message_dir(message_dir), target(target), source_range(source_range),
-        dest_range(source_range)
+  message(message_direction const message_dir_in, int const target_in,
+          grid_limits const source_range_in)
+      : message_dir(message_dir_in), target(target_in),
+        source_range(source_range_in), dest_range(source_range_in)
   {}
 
   message(message const &other) = default;

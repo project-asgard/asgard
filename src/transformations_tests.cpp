@@ -195,13 +195,13 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     auto const wave_space_size =
         static_cast<uint64_t>(table.size()) * std::pow(degree, pde.num_dims);
     expect(wave_space_size < INT_MAX);
-    fk::vector<P> wave_space(wave_space_size);
+    fk::vector<P> wave_space_in(wave_space_size);
 
-    for (int i = 0; i < wave_space.size(); ++i)
+    for (int i = 0; i < wave_space_in.size(); ++i)
     {
-      wave_space(i) = arbitrary_func(i);
+      wave_space_in(i) = arbitrary_func(i);
     }
-    return wave_space;
+    return wave_space_in;
   }();
 
   auto const real_space_size = real_solution_size(pde);
