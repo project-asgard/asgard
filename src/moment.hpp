@@ -27,11 +27,17 @@ public:
   createMomentVector(parser const &opts, elements::table const &hash_table);
 
   std::vector<vector_func<P>> const &get_md_funcs() const { return md_funcs; }
+  fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
+
+  void createMomentReducedMatrix(PDE<P> const &pde, options const &opts,
+                                 elements::table const &hash_table,
+                                 int const moment_idx);
 
 private:
   std::vector<vector_func<P>> md_funcs;
   std::vector<std::vector<fk::vector<P>>> fList;
   fk::vector<P> vector;
+  fk::matrix<P> moment_matrix;
   // moment_fval_integral;
   // moment_analytic_integral;
 };
