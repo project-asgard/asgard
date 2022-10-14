@@ -57,12 +57,7 @@ extern "C"
 #include <iostream>
 #include <type_traits>
 
-#ifdef ASGARD_USE_MPI
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#include "mpi.h"
-#pragma GCC diagnostic pop
-#endif
+#include "asgard_mpi.h"
 
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>

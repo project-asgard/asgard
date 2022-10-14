@@ -32,8 +32,8 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   expect(max_iter <= n);
 
   P const norm_b = [&b]() {
-    P const norm_b = fm::nrm2(b);
-    return (norm_b == 0.0) ? static_cast<P>(1.0) : norm_b;
+    P const norm = fm::nrm2(b);
+    return (norm == 0.0) ? static_cast<P>(1.0) : norm;
   }();
 
   fk::vector<P> residual(b);
@@ -60,8 +60,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
               << " inner iterations\n";
   };
 
-  P const norm_r = compute_residual();
-  P error        = norm_r / norm_b;
+  P error = compute_residual() / norm_b;
   if (error < tolerance)
   {
     done(error, 0, 0);

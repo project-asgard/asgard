@@ -35,31 +35,33 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
         transformations_base_dir / (out_base + "scale_co.dat");
     if (degree < 2)
     {
-      auto const h0 =
+      auto const h0_out =
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(h0_string))}};
-      auto const h1 =
+      auto const h1_out =
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(h1_string))}};
-      auto const g0 =
+      auto const g0_out =
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(g0_string))}};
-      auto const g1 =
+      auto const g1_out =
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(g1_string))}};
-      auto const scale_co = fk::matrix<P>{
+      auto const scale_co_out = fk::matrix<P>{
           {static_cast<P>(read_scalar_from_txt_file(scale_string))}};
-      return std::array<fk::matrix<P>, 5>{h0, h1, g0, g1, scale_co};
+      return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out,
+                                          scale_co_out};
     }
     else
     {
-      fk::matrix<P> const h0 =
+      fk::matrix<P> const h0_out =
           fk::matrix<P>(read_matrix_from_txt_file(h0_string));
-      fk::matrix<P> const h1 =
+      fk::matrix<P> const h1_out =
           fk::matrix<P>(read_matrix_from_txt_file(h1_string));
-      fk::matrix<P> const g0 =
+      fk::matrix<P> const g0_out =
           fk::matrix<P>(read_matrix_from_txt_file(g0_string));
-      fk::matrix<P> const g1 =
+      fk::matrix<P> const g1_out =
           fk::matrix<P>(read_matrix_from_txt_file(g1_string));
-      fk::matrix<P> const scale_co =
+      fk::matrix<P> const scale_co_out =
           fk::matrix<P>(read_matrix_from_txt_file(scale_string));
-      return std::array<fk::matrix<P>, 5>{h0, h1, g0, g1, scale_co};
+      return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out,
+                                          scale_co_out};
     }
   }();
 
@@ -249,10 +251,10 @@ void test_fmwt_application(int const level, int const degree)
     return dist(mersenne_engine);
   };
 
-  for (auto level = 2; level <= forward_transform.max_level; ++level)
+  for (auto l = 2; l <= forward_transform.max_level; ++l)
   {
     auto const degrees_freedom =
-        fm::two_raised_to(level) * forward_transform.degree;
+        fm::two_raised_to(l) * forward_transform.degree;
     auto const to_transform = [&gen, degrees_freedom]() {
       fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
       std::generate(matrix.begin(), matrix.end(), gen);
@@ -265,7 +267,7 @@ void test_fmwt_application(int const level, int const degree)
       return vector;
     }();
 
-    auto const fmwt = operator_two_scale<P>(forward_transform.degree, level);
+    auto const fmwt = operator_two_scale<P>(forward_transform.degree, l);
     auto const fmwt_transpose = fk::matrix<P>(fmwt).transpose();
 
     auto const left_gold        = fmwt * to_transform;
@@ -281,23 +283,22 @@ void test_fmwt_application(int const level, int const degree)
     if constexpr (resrc == resource::host)
     {
       auto const left_test = forward_transform.apply(
-          to_transform, level, basis::side::left, basis::transpose::no_trans);
+          to_transform, l, basis::side::left, basis::transpose::no_trans);
       auto const right_test = forward_transform.apply(
-          to_transform, level, basis::side::right, basis::transpose::no_trans);
+          to_transform, l, basis::side::right, basis::transpose::no_trans);
       auto const left_trans_test = forward_transform.apply(
-          to_transform, level, basis::side::left, basis::transpose::trans);
+          to_transform, l, basis::side::left, basis::transpose::trans);
       auto const right_trans_test = forward_transform.apply(
-          to_transform, level, basis::side::right, basis::transpose::trans);
+          to_transform, l, basis::side::right, basis::transpose::trans);
 
       auto const left_test_v = forward_transform.apply(
-          to_transform_v, level, basis::side::left, basis::transpose::no_trans);
-      auto const right_test_v =
-          forward_transform.apply(to_transform_v, level, basis::side::right,
-                                  basis::transpose::no_trans);
+          to_transform_v, l, basis::side::left, basis::transpose::no_trans);
+      auto const right_test_v = forward_transform.apply(
+          to_transform_v, l, basis::side::right, basis::transpose::no_trans);
       auto const left_trans_test_v = forward_transform.apply(
-          to_transform_v, level, basis::side::left, basis::transpose::trans);
+          to_transform_v, l, basis::side::left, basis::transpose::trans);
       auto const right_trans_test_v = forward_transform.apply(
-          to_transform_v, level, basis::side::right, basis::transpose::trans);
+          to_transform_v, l, basis::side::right, basis::transpose::trans);
 
       rmse_comparison(left_test, left_gold, tol);
       rmse_comparison(right_test, right_gold, tol);
@@ -313,43 +314,40 @@ void test_fmwt_application(int const level, int const degree)
     {
       auto const transform_d = to_transform.clone_onto_device();
       auto const left_test   = forward_transform
-                                 .apply(transform_d, level, basis::side::left,
+                                 .apply(transform_d, l, basis::side::left,
                                         basis::transpose::no_trans)
                                  .clone_onto_host();
       auto const right_test = forward_transform
-                                  .apply(transform_d, level, basis::side::right,
+                                  .apply(transform_d, l, basis::side::right,
                                          basis::transpose::no_trans)
                                   .clone_onto_host();
       auto const left_trans_test =
           forward_transform
-              .apply(transform_d, level, basis::side::left,
-                     basis::transpose::trans)
+              .apply(transform_d, l, basis::side::left, basis::transpose::trans)
               .clone_onto_host();
       auto const right_trans_test =
           forward_transform
-              .apply(transform_d, level, basis::side::right,
+              .apply(transform_d, l, basis::side::right,
                      basis::transpose::trans)
               .clone_onto_host();
 
       auto const transform_dv = to_transform_v.clone_onto_device();
-      auto const left_test_dv =
-          forward_transform
-              .apply(transform_dv, level, basis::side::left,
-                     basis::transpose::no_trans)
-              .clone_onto_host();
-      auto const right_test_dv =
-          forward_transform
-              .apply(transform_dv, level, basis::side::right,
-                     basis::transpose::no_trans)
-              .clone_onto_host();
+      auto const left_test_dv = forward_transform
+                                    .apply(transform_dv, l, basis::side::left,
+                                           basis::transpose::no_trans)
+                                    .clone_onto_host();
+      auto const right_test_dv = forward_transform
+                                     .apply(transform_dv, l, basis::side::right,
+                                            basis::transpose::no_trans)
+                                     .clone_onto_host();
       auto const left_trans_test_dv =
           forward_transform
-              .apply(transform_dv, level, basis::side::left,
+              .apply(transform_dv, l, basis::side::left,
                      basis::transpose::trans)
               .clone_onto_host();
       auto const right_trans_test_dv =
           forward_transform
-              .apply(transform_dv, level, basis::side::right,
+              .apply(transform_dv, l, basis::side::right,
                      basis::transpose::trans)
               .clone_onto_host();
 

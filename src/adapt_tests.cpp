@@ -194,18 +194,14 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
 template<typename P>
 void test_initial(parser const &problem, std::string const &gold_filepath)
 {
-  auto const gold = [gold_filepath]() {
-    auto gold = fk::vector<P>(read_vector_from_txt_file(gold_filepath));
-    for (auto i = 0; i < gold.size(); ++i)
-    {
-      // matlab stores new refined coefficients as 1e-15 (0 deletes from sparse
-      // vect)
-      if (std::abs(gold(i)) < 1e-14)
-      {
-        gold(i) = 0.0;
-      }
-    }
-    return gold;
+  auto const gold = [&gold_filepath]() {
+    auto raw = fk::vector<P>(read_vector_from_txt_file(gold_filepath));
+    // matlab stores new refined coefficients as 1e-15 (0 deletes from sparse
+    // vector)
+    std::replace_if(
+        raw.begin(), raw.end(),
+        [](P old_value) { return std::abs(old_value) < 1.e-14; }, 0.0);
+    return raw;
   }();
   auto const pde = make_PDE<P>(problem);
   options const opts(problem);

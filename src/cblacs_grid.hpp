@@ -1,9 +1,6 @@
 #pragma once
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#include "mpi.h"
-#pragma GCC diagnostic pop
+#include "asgard_mpi.h"
 
 class cblacs_grid
 {

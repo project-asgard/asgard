@@ -177,12 +177,12 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     std::fill(result.begin(), result.end(), 1.0);
 
     fk::matrix<TestType> const gold = [&] {
-      fk::matrix<TestType> ans = (in1 * in2) * 2.0;
+      fk::matrix<TestType> answer = (in1 * in2) * 2.0;
       std::transform(
-          ans.begin(), ans.end(), ans.begin(),
+          answer.begin(), answer.end(), answer.begin(),
           [](TestType const elem) -> TestType { return elem + 1.0; });
 
-      return ans;
+      return answer;
     }();
 
     TestType alpha     = 2.0;
@@ -210,12 +210,12 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
           result.clone_onto_device());
 
       fk::matrix<TestType> const gold = [&] {
-        fk::matrix<TestType> ans = (in1 * in2) * 2.0;
+        fk::matrix<TestType> answer = (in1 * in2) * 2.0;
         std::transform(
-            ans.begin(), ans.end(), ans.begin(),
+            answer.begin(), answer.end(), answer.begin(),
             [](TestType const elem) -> TestType { return elem + 1.0; });
 
-        return ans;
+        return answer;
       }();
 
       TestType alpha     = 2.0;
@@ -419,12 +419,12 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     std::fill(result.begin(), result.end(), 1.0);
 
     fk::vector<TestType> const gold = [&] {
-      fk::vector<TestType> ans = (A * x) * 2.0;
+      fk::vector<TestType> answer = (A * x) * 2.0;
       std::transform(
-          ans.begin(), ans.end(), ans.begin(),
+          answer.begin(), answer.end(), answer.begin(),
           [](TestType const elem) -> TestType { return elem + 1.0; });
 
-      return ans;
+      return answer;
     }();
     TestType alpha     = 2.0;
     TestType beta      = 1.0;
@@ -449,12 +449,12 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
           result.clone_onto_device());
 
       fk::vector<TestType> const gold = [&] {
-        fk::vector<TestType> ans = (A * x) * 2.0;
+        fk::vector<TestType> answer = (A * x) * 2.0;
         std::transform(
-            ans.begin(), ans.end(), ans.begin(),
+            answer.begin(), answer.end(), answer.begin(),
             [](TestType const elem) -> TestType { return elem + 1.0; });
 
-        return ans;
+        return answer;
       }();
 
       TestType alpha     = 2.0;
@@ -857,8 +857,8 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> const
       matrices = [=]() {
         // {a, b, c, gold}
-        std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>>
-            matrices(4);
+        std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> output(
+            4);
 
         std::random_device rd;
         std::mt19937 mersenne_engine(rd());
@@ -878,15 +878,15 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
           if constexpr (resrc == resource::host)
           {
-            matrices[0].push_back(a);
-            matrices[1].push_back(b);
-            matrices[2].push_back(c);
+            output[0].push_back(a);
+            output[1].push_back(b);
+            output[2].push_back(c);
           }
           else
           {
-            matrices[0].push_back(a.clone_onto_device());
-            matrices[1].push_back(b.clone_onto_device());
-            matrices[2].push_back(c.clone_onto_device());
+            output[0].push_back(a.clone_onto_device());
+            output[1].push_back(b.clone_onto_device());
+            output[2].push_back(c.clone_onto_device());
           }
 
           fk::matrix<P, mem_type::const_view> const effective_a(
@@ -899,25 +899,25 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
           if constexpr (resrc == resource::host)
           {
-            matrices[3].push_back(fk::matrix<P>(effective_c));
+            output[3].push_back(fk::matrix<P>(effective_c));
           }
           else
           {
-            matrices[3].push_back(effective_c.clone_onto_device());
+            output[3].push_back(effective_c.clone_onto_device());
           }
         }
-        return matrices;
+        return output;
       }();
 
   std::vector<std::vector<P *>> ptrs = [=, &matrices]() {
-    std::vector<std::vector<P *>> ptrs(3);
+    std::vector<std::vector<P *>> output(3);
     for (int i = 0; i < num_batch; ++i)
     {
-      ptrs[0].push_back(matrices[0][i].data());
-      ptrs[1].push_back(matrices[1][i].data());
-      ptrs[2].push_back(matrices[2][i].data());
+      output[0].push_back(matrices[0][i].data());
+      output[1].push_back(matrices[1][i].data());
+      output[2].push_back(matrices[2][i].data());
     }
-    return ptrs;
+    return output;
   }();
 
   int lda_          = lda;
@@ -1074,7 +1074,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
   };
 
   std::vector<fk::matrix<P, mem_type::owner, resrc>> const a_mats = [=]() {
-    std::vector<fk::matrix<P, mem_type::owner, resrc>> a_mats;
+    std::vector<fk::matrix<P, mem_type::owner, resrc>> output;
 
     for (int i = 0; i < num_batch; ++i)
     {
@@ -1083,29 +1083,22 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
       if constexpr (resrc == resource::host)
       {
-        a_mats.push_back(a);
+        output.push_back(a);
       }
       else
       {
-        a_mats.push_back(a.clone_onto_device());
+        output.push_back(a.clone_onto_device());
       }
     }
 
-    return a_mats;
+    return output;
   }();
 
   std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> const
       vectors = [=, &a_mats]() {
         // {x, y, gold}
-        std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> vectors(
+        std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> output(
             3);
-
-        std::random_device rd;
-        std::mt19937 mersenne_engine(rd());
-        std::uniform_real_distribution<P> dist(-2.0, 2.0);
-        auto const gen = [&dist, &mersenne_engine]() {
-          return dist(mersenne_engine);
-        };
 
         for (int i = 0; i < num_batch; ++i)
         {
@@ -1116,33 +1109,33 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
           if constexpr (resrc == resource::host)
           {
-            vectors[0].push_back(x);
-            vectors[1].push_back(y);
+            output[0].push_back(x);
+            output[1].push_back(y);
           }
           else
           {
-            vectors[0].push_back(x.clone_onto_device());
-            vectors[1].push_back(y.clone_onto_device());
+            output[0].push_back(x.clone_onto_device());
+            output[1].push_back(y.clone_onto_device());
           }
 
           fk::matrix<P, mem_type::const_view, resrc> const effective_a(
               a_mats[i], 0, m - 1, 0, n - 1);
-          fk::vector<P, mem_type::owner, resrc> gold(vectors[1].back());
-          fm::gemv(effective_a, vectors[0].back(), gold, trans_a, alpha, beta);
-          vectors[2].push_back(gold);
+          fk::vector<P, mem_type::owner, resrc> gold(output[1].back());
+          fm::gemv(effective_a, output[0].back(), gold, trans_a, alpha, beta);
+          output[2].push_back(gold);
         }
-        return vectors;
+        return output;
       }();
 
   std::vector<std::vector<P *>> ptrs = [=, &a_mats, &vectors]() {
-    std::vector<std::vector<P *>> ptrs(3);
+    std::vector<std::vector<P *>> output(3);
     for (int i = 0; i < num_batch; ++i)
     {
-      ptrs[0].push_back(a_mats[i].data());
-      ptrs[1].push_back(vectors[0][i].data());
-      ptrs[2].push_back(vectors[1][i].data());
+      output[0].push_back(a_mats[i].data());
+      output[1].push_back(vectors[0][i].data());
+      output[2].push_back(vectors[1][i].data());
     }
-    return ptrs;
+    return output;
   }();
 
   int lda_ = lda;

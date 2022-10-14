@@ -41,7 +41,7 @@ endfunction ()
 register_project (kronmult
                   KRONMULT
                   https://github.com/project-asgard/kronmult.git
-                  83ebb07bcda4dc30c58ce7d8b2bf7575d88192e0
+                  580c6cbd20d21f445799ab51a20c8857f6afebfc
 )
 
 #  Catch two testing framework.
@@ -118,7 +118,7 @@ endif()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
-  string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic")
+  string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic -Wshadow")
 endif()
 
 # add scripts directory location

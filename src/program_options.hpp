@@ -62,8 +62,8 @@ enum class PDE_case_opts
 class PDE_descriptor
 {
 public:
-  PDE_descriptor(std::string const info, PDE_opts const pde_choice)
-      : info(info), pde_choice(pde_choice){};
+  PDE_descriptor(std::string const info_in, PDE_opts const pde_choice_in)
+      : info(info_in), pde_choice(pde_choice_in){};
   std::string const info;
   PDE_opts const pde_choice;
 };
@@ -167,36 +167,39 @@ public:
   explicit parser(int argc, char **argv);
 
   // construct from provided values - to simplify testing
-  explicit parser(PDE_opts const pde_choice, fk::vector<int> starting_levels,
-                  int const degree                  = NO_USER_VALUE,
-                  double const cfl                  = DEFAULT_CFL,
-                  bool const use_full_grid          = DEFAULT_USE_FG,
-                  int const max_level               = DEFAULT_MAX_LEVEL,
-                  int const num_steps               = DEFAULT_TIME_STEPS,
-                  bool const use_implicit           = DEFAULT_USE_IMPLICIT,
-                  bool const do_adapt_levels        = DEFAULT_DO_ADAPT,
-                  double const adapt_threshold      = DEFAULT_ADAPT_THRESH,
-                  std::string_view const solver_str = DEFAULT_SOLVER_STR)
-      : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid),
-        do_adapt(do_adapt_levels), starting_levels(starting_levels),
-        degree(degree), max_level(max_level), num_time_steps(num_steps),
-        cfl(cfl), adapt_threshold(adapt_threshold), pde_choice(pde_choice),
-        solver_str(solver_str), solver(solver_mapping.at(solver_str)){};
+  explicit parser(PDE_opts const pde_choice_in,
+                  fk::vector<int> starting_levels_in,
+                  int const degree_in                  = NO_USER_VALUE,
+                  double const cfl_in                  = DEFAULT_CFL,
+                  bool const use_full_grid_in          = DEFAULT_USE_FG,
+                  int const max_level_in               = DEFAULT_MAX_LEVEL,
+                  int const num_steps                  = DEFAULT_TIME_STEPS,
+                  bool const use_implicit              = DEFAULT_USE_IMPLICIT,
+                  bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
+                  double const adapt_threshold_in      = DEFAULT_ADAPT_THRESH,
+                  std::string_view const solver_str_in = DEFAULT_SOLVER_STR)
+      : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
+        do_adapt(do_adapt_levels), starting_levels(starting_levels_in),
+        degree(degree_in), max_level(max_level_in), num_time_steps(num_steps),
+        cfl(cfl_in), adapt_threshold(adapt_threshold_in),
+        pde_choice(pde_choice_in), solver_str(solver_str_in),
+        solver(solver_mapping.at(solver_str_in)){};
 
-  explicit parser(std::string const &pde_choice,
-                  fk::vector<int> starting_levels,
-                  int const degree                  = NO_USER_VALUE,
-                  double const cfl                  = DEFAULT_CFL,
-                  bool const use_full_grid          = DEFAULT_USE_FG,
-                  int const max_level               = DEFAULT_MAX_LEVEL,
-                  int const num_steps               = DEFAULT_TIME_STEPS,
-                  bool const use_implicit           = DEFAULT_USE_IMPLICIT,
-                  bool const do_adapt_levels        = DEFAULT_DO_ADAPT,
-                  double const adapt_threshold      = DEFAULT_ADAPT_THRESH,
-                  std::string_view const solver_str = DEFAULT_SOLVER_STR)
-      : parser(pde_mapping.at(pde_choice).pde_choice, starting_levels, degree,
-               cfl, use_full_grid, max_level, num_steps, use_implicit,
-               do_adapt_levels, adapt_threshold, solver_str){};
+  explicit parser(std::string const &pde_choice_in,
+                  fk::vector<int> starting_levels_in,
+                  int const degree_in                  = NO_USER_VALUE,
+                  double const cfl_in                  = DEFAULT_CFL,
+                  bool const use_full_grid_in          = DEFAULT_USE_FG,
+                  int const max_level_in               = DEFAULT_MAX_LEVEL,
+                  int const num_steps                  = DEFAULT_TIME_STEPS,
+                  bool const use_implicit              = DEFAULT_USE_IMPLICIT,
+                  bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
+                  double const adapt_threshold_in      = DEFAULT_ADAPT_THRESH,
+                  std::string_view const solver_str_in = DEFAULT_SOLVER_STR)
+      : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
+               degree_in, cfl_in, use_full_grid_in, max_level_in, num_steps,
+               use_implicit, do_adapt_levels, adapt_threshold_in,
+               solver_str_in){};
 
   bool using_implicit() const;
   bool using_full_grid() const;

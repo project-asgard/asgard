@@ -81,12 +81,13 @@ public:
   vector_func<P> const initial_condition;
   g_func_type<P> const moment_dV;
   std::string const name;
-  dimension(P const domain_min, P const domain_max, int const level,
-            int const degree, vector_func<P> const initial_condition,
-            g_func_type<P> const moment_dV, std::string const name)
+  dimension(P const d_min, P const d_max, int const level, int const degree,
+            vector_func<P> const initial_condition_in,
+            g_func_type<P> const moment_dV_in, std::string const name_in)
 
-      : domain_min(domain_min), domain_max(domain_max),
-        initial_condition(initial_condition), moment_dV(moment_dV), name(name)
+      : domain_min(d_min), domain_max(d_max),
+        initial_condition(initial_condition_in), moment_dV(moment_dV_in),
+        name(name_in)
   {
     set_level(level);
     set_degree(degree);
@@ -162,27 +163,28 @@ public:
 
   static P null_scalar_func(P const p) { return p; }
 
-  partial_term(coefficient_type const coeff_type,
-               g_func_type<P> const g_func        = null_gfunc,
-               g_func_type<P> const lhs_mass_func = null_gfunc,
-               flux_type const flux               = flux_type::central,
-               boundary_condition const left      = boundary_condition::neumann,
-               boundary_condition const right     = boundary_condition::neumann,
-               homogeneity const left_homo        = homogeneity::homogeneous,
-               homogeneity const right_homo       = homogeneity::homogeneous,
-               std::vector<vector_func<P>> const left_bc_funcs = {},
-               scalar_func<P> const left_bc_time_func = null_scalar_func,
-               std::vector<vector_func<P>> const right_bc_funcs = {},
-               scalar_func<P> const right_bc_time_func = null_scalar_func,
-               g_func_type<P> const dv_func            = null_gfunc)
+  partial_term(coefficient_type const coeff_type_in,
+               g_func_type<P> const g_func_in        = null_gfunc,
+               g_func_type<P> const lhs_mass_func_in = null_gfunc,
+               flux_type const flux_in               = flux_type::central,
+               boundary_condition const left_in  = boundary_condition::neumann,
+               boundary_condition const right_in = boundary_condition::neumann,
+               homogeneity const left_homo_in    = homogeneity::homogeneous,
+               homogeneity const right_homo_in   = homogeneity::homogeneous,
+               std::vector<vector_func<P>> const left_bc_funcs_in = {},
+               scalar_func<P> const left_bc_time_func_in = null_scalar_func,
+               std::vector<vector_func<P>> const right_bc_funcs_in = {},
+               scalar_func<P> const right_bc_time_func_in = null_scalar_func,
+               g_func_type<P> const dv_func_in            = null_gfunc)
 
-      : coeff_type(coeff_type), g_func(g_func), lhs_mass_func(lhs_mass_func),
-        flux(set_flux(flux)), left(left), right(right),
-        ileft(set_bilinear_boundary(left)),
-        iright(set_bilinear_boundary(right)), left_homo(left_homo),
-        right_homo(right_homo), left_bc_funcs(left_bc_funcs),
-        right_bc_funcs(right_bc_funcs), left_bc_time_func(left_bc_time_func),
-        right_bc_time_func(right_bc_time_func), dv_func(dv_func)
+      : coeff_type(coeff_type_in), g_func(g_func_in),
+        lhs_mass_func(lhs_mass_func_in), flux(set_flux(flux_in)), left(left_in),
+        right(right_in), ileft(set_bilinear_boundary(left_in)),
+        iright(set_bilinear_boundary(right_in)), left_homo(left_homo_in),
+        right_homo(right_homo_in), left_bc_funcs(left_bc_funcs_in),
+        right_bc_funcs(right_bc_funcs_in),
+        left_bc_time_func(left_bc_time_func_in),
+        right_bc_time_func(right_bc_time_func_in), dv_func(dv_func_in)
   {}
 
   P get_flux_scale() const { return static_cast<P>(flux); };
@@ -274,14 +276,14 @@ public:
     return bc;
   }
 
-  flux_type set_flux(flux_type const flux)
+  flux_type set_flux(flux_type const flux_in)
   {
     if (coeff_type == coefficient_type::grad)
     {
       // Switch the upwinding direction
-      return static_cast<flux_type>(-static_cast<P>(flux));
+      return static_cast<flux_type>(-static_cast<P>(flux_in));
     }
-    return flux;
+    return flux_in;
   }
 
 private:
@@ -301,10 +303,10 @@ class term
   }
 
 public:
-  term(bool const time_dependent, fk::vector<P> const data,
-       std::string const name,
+  term(bool const time_dependent_in, fk::vector<P> const data,
+       std::string const name_in,
        std::initializer_list<partial_term<P>> const partial_terms)
-      : time_dependent(time_dependent), name(name),
+      : time_dependent(time_dependent_in), name(name_in),
         partial_terms_(partial_terms), data_(data)
 
   {}
@@ -413,10 +415,10 @@ template<typename P>
 class source
 {
 public:
-  source(std::vector<vector_func<P>> const source_funcs,
-         scalar_func<P> const time_func)
+  source(std::vector<vector_func<P>> const source_funcs_in,
+         scalar_func<P> const time_func_in)
 
-      : source_funcs(source_funcs), time_func(time_func)
+      : source_funcs(source_funcs_in), time_func(time_func_in)
   {}
 
   // public but const data. no getters
@@ -438,18 +440,19 @@ template<typename P>
 class PDE
 {
 public:
-  PDE(parser const &cli_input, int const num_dims, int const num_sources,
-      int const num_terms_, std::vector<dimension<P>> const dimensions,
-      term_set<P> const terms, std::vector<source<P>> const sources,
-      std::vector<vector_func<P>> const exact_vector_funcs,
-      scalar_func<P> const exact_time, dt_func<P> const get_dt,
-      bool const do_poisson_solve = false, bool const has_analytic_soln = false)
-      : num_dims(num_dims), num_sources(num_sources),
-        num_terms(get_num_terms(cli_input, num_terms_)),
-        max_level(get_max_level(cli_input, dimensions)), sources(sources),
-        exact_vector_funcs(exact_vector_funcs), exact_time(exact_time),
-        do_poisson_solve(do_poisson_solve),
-        has_analytic_soln(has_analytic_soln), dimensions_(dimensions),
+  PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+      int const num_terms_in, std::vector<dimension<P>> const dimensions,
+      term_set<P> const terms, std::vector<source<P>> const sources_in,
+      std::vector<vector_func<P>> const exact_vector_funcs_in,
+      scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
+      bool const do_poisson_solve_in  = false,
+      bool const has_analytic_soln_in = false)
+      : num_dims(num_dims_in), num_sources(num_sources_in),
+        num_terms(get_num_terms(cli_input, num_terms_in)),
+        max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
+        exact_vector_funcs(exact_vector_funcs_in), exact_time(exact_time_in),
+        do_poisson_solve(do_poisson_solve_in),
+        has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
         terms_(terms)
   {
     expect(num_dims > 0);
@@ -457,7 +460,7 @@ public:
     expect(num_terms > 0);
 
     expect(dimensions.size() == static_cast<unsigned>(num_dims));
-    expect(terms.size() == static_cast<unsigned>(num_terms_));
+    expect(terms.size() == static_cast<unsigned>(num_terms));
     expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -490,7 +493,7 @@ public:
     if (num_active_terms != 0)
     {
       auto const active_terms = cli_input.get_active_terms();
-      for (auto i = num_terms_ - 1; i >= 0; --i)
+      for (auto i = num_terms - 1; i >= 0; --i)
       {
         if (active_terms(i) == 0)
         {
@@ -688,7 +691,7 @@ public:
   }
 
 private:
-  int get_num_terms(parser const &cli_input, int const num_terms) const
+  int get_num_terms(parser const &cli_input, int const num_terms_in) const
   {
     // returns either the number of terms set in the PDE specification, or the
     // number of terms toggled on by the user
@@ -696,13 +699,13 @@ private:
 
     // verify that the CLI input matches the spec before altering the num_terms
     // we have
-    if (num_active_terms != 0 && num_active_terms != num_terms)
+    if (num_active_terms != 0 && num_active_terms != num_terms_in)
     {
       std::cerr << "failed to parse dimension-many active terms - parsed "
                 << num_active_terms << " terms, expected " << num_terms << "\n";
       exit(1);
     }
-    if (num_active_terms == num_terms)
+    if (num_active_terms == num_terms_in)
     {
       auto const active_terms = cli_input.get_active_terms();
       int new_num_terms =
@@ -714,7 +717,7 @@ private:
       }
       return new_num_terms;
     }
-    return num_terms;
+    return num_terms_in;
   }
 
   int get_max_level(parser const &cli_input,

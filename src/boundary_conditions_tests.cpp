@@ -53,11 +53,9 @@ void test_compute_boundary_condition(PDE<P> &pde,
                                      std::string gold_filename_prefix,
                                      P const tol_factor)
 {
-  dimension<P> const &d = pde.get_dimensions()[0];
-
   // FIXME assume uniform degree
-  int const level  = d.get_level();
-  int const degree = d.get_degree();
+  int const level  = pde.get_dimensions()[0].get_level();
+  int const degree = pde.get_dimensions()[0].get_degree();
 
   auto const opts =
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});

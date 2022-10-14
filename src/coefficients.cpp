@@ -123,7 +123,6 @@ fk::matrix<P> generate_coefficients(
     auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, dim.get_degree());
     lP_R               = lP_R * (1 / std::sqrt(grid_spacing));
     // this is to get around unused warnings (until c++20)
-    auto const ignore = [](auto ignored) { (void)ignored; };
     ignore(lPP_L);
     ignore(lPP_R);
     return std::array<fk::matrix<P>, 2>{lP_L, lP_R};
@@ -192,10 +191,10 @@ fk::matrix<P> generate_coefficients(
       // get g(x,t,dat)
       // FIXME : add dat as a argument to the G functions
       fk::vector<P> g(quadrature_points_i.size());
-      for (auto i = 0; i < quadrature_points_i.size(); ++i)
+      for (auto j = 0; j < quadrature_points_i.size(); ++j)
       {
-        g(i) = pterm.g_func(quadrature_points_i(i), time) *
-               pterm.dv_func(quadrature_points_i(i), time);
+        g(j) = pterm.g_func(quadrature_points_i(j), time) *
+               pterm.dv_func(quadrature_points_i(j), time);
       }
       return g;
     }();
@@ -204,26 +203,26 @@ fk::matrix<P> generate_coefficients(
                         quadrature_weights = quadrature_weights]() {
       fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
-      for (int i = 0; i <= tmp.nrows() - 1; i++)
+      for (int j = 0; j < tmp.nrows(); j++)
       {
-        for (int j = 0; j <= tmp.ncols() - 1; j++)
+        for (int k = 0; k < tmp.ncols(); k++)
         {
-          tmp(i, j) =
-              g_func(i) * legendre_poly(i, j) * quadrature_weights(i) * jacobi;
+          tmp(j, k) =
+              g_func(j) * legendre_poly(j, k) * quadrature_weights(j) * jacobi;
         }
       }
-      fk::matrix<P> block(dim.get_degree(), dim.get_degree());
+      fk::matrix<P> output(dim.get_degree(), dim.get_degree());
 
       if (pterm.coeff_type == coefficient_type::mass)
       {
-        block = legendre_poly_t * tmp;
+        output = legendre_poly_t * tmp;
       }
       else if (pterm.coeff_type == coefficient_type::grad ||
                pterm.coeff_type == coefficient_type::div)
       {
-        block = legendre_prime_t * tmp * (-1);
+        output = legendre_prime_t * tmp * (-1);
       }
-      return block;
+      return output;
     }();
 
     // set the block at the correct position

@@ -351,12 +351,12 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     std::fill(result.begin(), result.end(), 1.0);
 
     fk::matrix<TestType> const gold = [&] {
-      fk::matrix<TestType> ans = (in1 * in2) * 2.0;
+      fk::matrix<TestType> answer = (in1 * in2) * 2.0;
       std::transform(
-          ans.begin(), ans.end(), ans.begin(),
+          answer.begin(), answer.end(), answer.begin(),
           [](TestType const elem) -> TestType { return elem + 1.0; });
 
-      return ans;
+      return answer;
     }();
 
     bool const trans_A   = false;
@@ -378,12 +378,12 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
           result.clone_onto_device());
 
       fk::matrix<TestType> const gold = [&] {
-        fk::matrix<TestType> ans = (in1 * in2) * 2.0;
+        fk::matrix<TestType> answer = (in1 * in2) * 2.0;
         std::transform(
-            ans.begin(), ans.end(), ans.begin(),
+            answer.begin(), answer.end(), answer.begin(),
             [](TestType const elem) -> TestType { return elem + 1.0; });
 
-        return ans;
+        return answer;
       }();
 
       bool const trans_A   = false;
@@ -524,12 +524,12 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
     std::fill(result.begin(), result.end(), 1.0);
 
     fk::vector<TestType> const gold = [&] {
-      fk::vector<TestType> ans = (A * x) * 2.0;
+      fk::vector<TestType> answer = (A * x) * 2.0;
       std::transform(
-          ans.begin(), ans.end(), ans.begin(),
+          answer.begin(), answer.end(), answer.begin(),
           [](TestType const elem) -> TestType { return elem + 1.0; });
 
-      return ans;
+      return answer;
     }();
 
     bool const trans_A   = false;
@@ -550,12 +550,12 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
           result.clone_onto_device());
 
       fk::vector<TestType> const gold = [&] {
-        fk::vector<TestType> ans = (A * x) * 2.0;
+        fk::vector<TestType> answer = (A * x) * 2.0;
         std::transform(
-            ans.begin(), ans.end(), ans.begin(),
+            answer.begin(), answer.end(), answer.begin(),
             [](TestType const elem) -> TestType { return elem + 1.0; });
 
-        return ans;
+        return answer;
       }();
 
       bool const trans_A   = false;

@@ -17,9 +17,9 @@ void test_kronmult_staging(int const num_elems, int const num_copies)
 
   fk::vector<P, mem_type::owner, resource::device> const x = [gen,
                                                               num_elems]() {
-    fk::vector<P> x(num_elems);
-    std::generate(x.begin(), x.end(), gen);
-    return x.clone_onto_device();
+    fk::vector<P> x_in(num_elems);
+    std::generate(x_in.begin(), x_in.end(), gen);
+    return x_in.clone_onto_device();
   }();
   fk::vector<P> const gold(x.clone_onto_host());
 

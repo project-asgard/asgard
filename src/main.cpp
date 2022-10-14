@@ -261,13 +261,13 @@ int main(int argc, char **argv)
       auto const [rmse_errors, relative_errors] =
           gather_errors(RMSE, relative_error);
       expect(rmse_errors.size() == relative_errors.size());
-      for (int i = 0; i < rmse_errors.size(); ++i)
+      for (int j = 0; j < rmse_errors.size(); ++j)
       {
-        node_out() << "Errors for local rank: " << i << '\n';
-        node_out() << "RMSE (numeric-analytic) [wavelet]: " << rmse_errors(i)
+        node_out() << "Errors for local rank: " << j << '\n';
+        node_out() << "RMSE (numeric-analytic) [wavelet]: " << rmse_errors(j)
                    << '\n';
         node_out() << "Relative difference (numeric-analytic) [wavelet]: "
-                   << relative_errors(i) << " %" << '\n';
+                   << relative_errors(j) << " %" << '\n';
       }
 
 #ifdef ASGARD_USE_MATLAB

@@ -1,6 +1,9 @@
 #include "program_options.hpp"
 #include "build_info.hpp"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
 #include "clara.hpp"
+#pragma GCC diagnostic pop
 #include "distribution.hpp"
 #include "tools.hpp"
 
@@ -142,18 +145,17 @@ parser::parser(int argc, char **argv)
     valid = false;
   }
 
-  auto const choice = pde_mapping.find(pde_str);
-  if (choice == pde_mapping.end())
+  if (auto const choice = pde_mapping.find(pde_str);
+      choice != pde_mapping.end())
+  {
+    pde_choice = choice->second.pde_choice;
+  }
+  else
   {
     std::cerr << "Invalid pde choice; see options.hpp for valid choices"
               << '\n';
     valid = false;
   }
-  else
-  {
-    pde_choice = pde_mapping.at(pde_str).pde_choice;
-  }
-
   if (realspace_output_freq < 0 || wavelet_output_freq < 0 || plot_freq < 0)
   {
     std::cerr << "Write and plot frequencies must be non-negative" << '\n';
@@ -193,15 +195,15 @@ parser::parser(int argc, char **argv)
       valid = false;
     }
 #endif
-    auto const choice = solver_mapping.find(solver_str);
-    if (choice == solver_mapping.end())
+    if (auto const choice = solver_mapping.find(solver_str);
+        choice != solver_mapping.end())
     {
-      std::cerr << "Invalid solver choice; see options.hpp for valid choices\n";
-      valid = false;
+      solver = choice->second;
     }
     else
     {
-      solver = solver_mapping.at(solver_str);
+      std::cerr << "Invalid solver choice; see options.hpp for valid choices\n";
+      valid = false;
     }
   }
   else // explicit time advance
