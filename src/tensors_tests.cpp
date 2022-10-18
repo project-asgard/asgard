@@ -849,9 +849,9 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
         (std::istreambuf_iterator<char>(data_stream_cv)),
         std::istreambuf_iterator<char>());
 
-    std::remove("test_out.dat");
-    std::remove("test_out_v.dat");
-    std::remove("test_out_cv.dat");
+    REQUIRE(std::filesystem::remove("test_out.dat"));
+    REQUIRE(std::filesystem::remove("test_out_v.dat"));
+    REQUIRE(std::filesystem::remove("test_out_cv.dat"));
 
     std::string golden_string;
     if constexpr (std::is_floating_point<TestType>::value)
@@ -3014,10 +3014,10 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
         (std::istreambuf_iterator<char>(data_stream_v_p)),
         std::istreambuf_iterator<char>());
 
-    std::remove("test_out.dat");
-    std::remove("test_out_v.dat");
-    std::remove("test_out_cv.dat");
-    std::remove("test_out_v_p.dat");
+    REQUIRE(std::filesystem::remove("test_out.dat"));
+    REQUIRE(std::filesystem::remove("test_out_v.dat"));
+    REQUIRE(std::filesystem::remove("test_out_cv.dat"));
+    REQUIRE(std::filesystem::remove("test_out_v_p.dat"));
 
     std::string golden_string, golden_string_p;
 
