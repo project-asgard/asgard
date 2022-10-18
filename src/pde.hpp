@@ -13,6 +13,8 @@
 #include "quadrature.hpp"
 
 #include "pde/pde_base.hpp"
+
+#include "pde/pde_advection1.hpp"
 #include "pde/pde_continuity1.hpp"
 #include "pde/pde_continuity2.hpp"
 #include "pde/pde_continuity3.hpp"
@@ -84,6 +86,8 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_diffusion_1d<P>>(cli_input);
   case PDE_opts::diffusion_2:
     return std::make_unique<PDE_diffusion_2d<P>>(cli_input);
+  case PDE_opts::advection_1:
+    return std::make_unique<PDE_advection_1d<P>>(cli_input);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);
@@ -164,6 +168,9 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
 
     case PDE_opts::diffusion_2:
       return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::advection_1:
+      return fk::vector<int>(std::vector<int>(1, level));
 
     default:
       std::cout << "Invalid pde choice" << std::endl;
