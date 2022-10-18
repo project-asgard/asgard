@@ -29,16 +29,14 @@ private:
   static P constexpr nu = 1e3;
 
   static fk::vector<P>
-  initial_condition_dim_x(fk::vector<P> const &x, P const t = 0)
+  initial_condition_dim_x_0(fk::vector<P> const &x, P const t = 0)
   {
-    // TODO: fix this - needs multi-dimensional func ability
-    P const coefficient = 1.0 / std::sqrt(2.0 * PI);
-
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x) -> P {
       if (std::abs(x) > 0.5)
       {
-        return coefficient * std::exp(-0.5 * std::pow(x, 2));
+        return 1.0;
       }
       else
       {
@@ -49,22 +47,50 @@ private:
   }
 
   static fk::vector<P>
-  initial_condition_dim_v(fk::vector<P> const &x, P const t = 0)
+  initial_condition_dim_x_1(fk::vector<P> const &x, P const t = 0)
   {
-    // TODO: fix this - needs multi-dimensional func ability
-    P const coefficient = (1.0 / 8.0) / std::sqrt(2.0 * PI * (4.0 / 5.0));
-
+    ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x) -> P {
-      if (x <= 0.5)
+      if (std::abs(x) <= 0.5)
       {
-        return coefficient * std::exp(-std::pow(x, 2) / (2.0 * (4.0 / 5.0)));
+        return 1.0;
       }
       else
       {
         return 0.0;
       }
     });
+    return fx;
+  }
+
+  static fk::vector<P>
+  initial_condition_dim_v_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI);
+
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [coefficient](P const x) -> P {
+                     return coefficient * std::exp(-std::pow(x, 2) / 2.0);
+                   });
+    return fx;
+  }
+
+  static fk::vector<P>
+  initial_condition_dim_v_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    P const coefficient = (1.0 / 8.0) / std::sqrt(2.0 * PI * (4.0 / 5.0));
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient](P const x) -> P {
+          return coefficient * std::exp(-std::pow(x, 2) / (2.0 * (4.0 / 5.0)));
+        });
     return fx;
   }
 
@@ -77,16 +103,20 @@ private:
 
   /* Define the dimension */
   inline static dimension<P> const dim_0 = dimension<P>(
-      -1.0, 1.0, 8, default_degree, {initial_condition_dim_x}, dV, "x");
+      -1.0, 1.0, 8, default_degree,
+      {initial_condition_dim_x_0, initial_condition_dim_x_1}, dV, "x");
 
   inline static dimension<P> const dim_1 = dimension<P>(
-      -6.0, 6.0, 3, default_degree, {initial_condition_dim_v}, dV, "v");
+      -6.0, 6.0, 3, default_degree,
+      {initial_condition_dim_v_0, initial_condition_dim_v_1}, dV, "v");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
   /* Define the moments */
   static fk::vector<P> moment0_f1(fk::vector<P> const &x, P const t = 0)
   {
+    ignore(t);
+
     fk::vector<P> f(x.size());
     std::fill(f.begin(), f.end(), 1.0);
     return f;
@@ -94,24 +124,26 @@ private:
 
   static fk::vector<P> moment1_f1(fk::vector<P> const &x, P const t = 0)
   {
+    ignore(t);
     return fk::vector<P>(x);
   }
 
   static fk::vector<P> moment2_f1(fk::vector<P> const &x, P const t = 0)
   {
+    ignore(t);
+
     fk::vector<P> f(x.size());
     std::transform(x.begin(), x.end(), f.begin(),
                    [](P const &x) -> P { return std::pow(x, 2); });
     return f;
   }
 
-  // inline static std::vector<vector_func<P>> const moment0
-  inline static moment<P> const moment0 =
-      moment<P>({moment0_f1, moment0_f1, moment0_f1});
-  inline static moment<P> const moment1 =
-      moment<P>({moment0_f1, moment1_f1, moment0_f1});
-  inline static moment<P> const moment2 =
-      moment<P>({moment0_f1, moment2_f1, moment0_f1});
+  inline static moment<P> const moment0 = moment<P>(
+      std::vector<vector_func<P>>({moment0_f1, moment0_f1, moment0_f1}));
+  inline static moment<P> const moment1 = moment<P>(
+      std::vector<vector_func<P>>({moment0_f1, moment1_f1, moment0_f1}));
+  inline static moment<P> const moment2 = moment<P>(
+      std::vector<vector_func<P>>({moment0_f1, moment2_f1, moment0_f1}));
 
   inline static std::vector<moment<P>> const moments_ = {moment0, moment1,
                                                          moment2};
@@ -126,9 +158,9 @@ private:
   {
     ignore(t);
 
-    P const first  = x < -0.5 ? x : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (1.0 / 8.0) * x : 0.0;
-    P const third  = x > 0.5 ? x : 0.0;
+    P const first  = x < -0.5 ? 1.0 : 0.0;
+    P const second = (x >= -0.5 && x <= 0.5) ? (1.0 / 8.0) : 0.0;
+    P const third  = x > 0.5 ? 1.0 : 0.0;
     return first + second + third;
   }
 
@@ -143,9 +175,9 @@ private:
   {
     ignore(t);
 
-    P const first  = x < -0.5 ? x : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (4.0 / 5.0) * x : 0.0;
-    P const third  = x > 0.5 ? x : 0.0;
+    P const first  = x < -0.5 ? 1.0 : 0.0;
+    P const second = (x >= -0.5 && x <= 0.5) ? (4.0 / 5.0) : 0.0;
+    P const third  = x > 0.5 ? 1.0 : 0.0;
     return first + second + third;
   }
 
@@ -332,6 +364,7 @@ private:
 
   static P i2_g2(P const x, P const time = 0)
   {
+    ignore(x);
     ignore(time);
     return nu;
   }
@@ -436,6 +469,7 @@ private:
 
   static P get_dt_(dimension<P> const &dim)
   {
+    ignore(dim);
     /* return dx; this will be scaled by CFL from command line */
     // return std::pow(0.25, dim.get_level());
 
