@@ -733,22 +733,18 @@ private:
       partial_term<P>(coefficient_type::mass, g_func_identity, g_func_identity,
                       flux_type::central, boundary_condition::periodic,
                       boundary_condition::periodic);
-  inline static term<P> const I_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "massY",         // name
-              {partial_term_I_});
+  inline static term<P> const I_ = term<P>(false,   // time-dependent
+                                           "massY", // name
+                                           {partial_term_I_});
 
   // term 0
   inline static partial_term<P> const partial_term_0_x_ = partial_term<P>(
       coefficient_type::div, gx, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const term0_x_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "v_x.d_dx",      // name
-              {partial_term_0_x_});
+  inline static term<P> const term0_x_ = term<P>(false,      // time-dependent
+                                                 "v_x.d_dx", // name
+                                                 {partial_term_0_x_});
   inline static std::vector<term<P>> const terms0_ = {term0_x_, I_, I_,
                                                       I_,       I_, I_};
   // term 1
@@ -756,11 +752,9 @@ private:
       coefficient_type::div, gy, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const term1_y_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "v_y.d_dy",      // name
-              {partial_term_1_y_});
+  inline static term<P> const term1_y_ = term<P>(false,      // time-dependent
+                                                 "v_y.d_dy", // name
+                                                 {partial_term_1_y_});
   inline static std::vector<term<P>> const terms1_ = {I_, term1_y_, I_,
                                                       I_, I_,       I_};
   // term 2
@@ -768,11 +762,9 @@ private:
       coefficient_type::div, gz, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const term2_z_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "v_z.d_dz",      // name
-              {partial_term_2_z_});
+  inline static term<P> const term2_z_ = term<P>(false,      // time-dependent
+                                                 "v_z.d_dz", // name
+                                                 {partial_term_2_z_});
 
   inline static std::vector<term<P>> const terms2_ = {I_, I_, term2_z_,
                                                       I_, I_, I_};
@@ -781,11 +773,9 @@ private:
       coefficient_type::div, gvx, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const term3_vx_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "a_x.d_dvx",     // name
-              {partial_term_3_vx_});
+  inline static term<P> const term3_vx_ = term<P>(false,       // time-dependent
+                                                  "a_x.d_dvx", // name
+                                                  {partial_term_3_vx_});
 
   inline static std::vector<term<P>> const terms3_ = {I_,        I_, I_,
                                                       term3_vx_, I_, I_};
@@ -794,11 +784,9 @@ private:
       coefficient_type::div, gvy, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const term4_vy_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "a_y.d_dvy",     // name
-              {partial_term_4_vy_});
+  inline static term<P> const term4_vy_ = term<P>(false,       // time-dependent
+                                                  "a_y.d_dvy", // name
+                                                  {partial_term_4_vy_});
 
   inline static std::vector<term<P>> const terms4_ = {I_, I_,        I_,
                                                       I_, term4_vy_, I_};
@@ -807,11 +795,9 @@ private:
       coefficient_type::div, gvz, g_func_identity, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const term5_vz_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "a_z.d_dvz",     // name
-              {partial_term_5_vz_});
+  inline static term<P> const term5_vz_ = term<P>(false,       // time-dependent
+                                                  "a_z.d_dvz", // name
+                                                  {partial_term_5_vz_});
 
   inline static std::vector<term<P>> const terms5_ = {I_, I_, I_,
                                                       I_, I_, term5_vz_};

@@ -467,16 +467,12 @@ private:
       partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
-  inline static term<P> const c1_term_p =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "C1_p",          // name
-              {c1_pterm1, c1_pterm2});
-  inline static term<P> const c1_term_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "C1_z",          // name
-              {c1_pterm3, c1_pterm3});
+  inline static term<P> const c1_term_p = term<P>(false,  // time-dependent
+                                                  "C1_p", // name
+                                                  {c1_pterm1, c1_pterm2});
+  inline static term<P> const c1_term_z = term<P>(false,  // time-dependent
+                                                  "C1_z", // name
+                                                  {c1_pterm3, c1_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termC1 = {c1_term_p, c1_term_z};
@@ -509,16 +505,12 @@ private:
       partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
-  inline static term<P> const c2_term_p =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "C2_p",          // name
-              {c2_pterm1});
-  inline static term<P> const c2_term_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "C2_z",          // name
-              {c2_pterm2});
+  inline static term<P> const c2_term_p = term<P>(false,  // time-dependent
+                                                  "C2_p", // name
+                                                  {c2_pterm1});
+  inline static term<P> const c2_term_z = term<P>(false,  // time-dependent
+                                                  "C2_z", // name
+                                                  {c2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termC2 = {c2_term_p, c2_term_z};
@@ -567,16 +559,12 @@ private:
       partial_term<P>::null_scalar_func, dV_z3);
 
   // 2. combine partial terms into single dimension term
-  inline static term<P> const c3_term_p =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "C3_p",          // name
-              {c3_pterm1, c3_pterm1});
-  inline static term<P> const c3_term_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "C3_z",          // name
-              {c3_pterm2, c3_pterm3});
+  inline static term<P> const c3_term_p = term<P>(false,  // time-dependent
+                                                  "C3_p", // name
+                                                  {c3_pterm1, c3_pterm1});
+  inline static term<P> const c3_term_z = term<P>(false,  // time-dependent
+                                                  "C3_z", // name
+                                                  {c3_pterm2, c3_pterm3});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termC3 = {c3_term_p, c3_term_z};
@@ -620,16 +608,12 @@ private:
       partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
-  inline static term<P> const e1_term_p =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E1_p",          // name
-              {e1_pterm1});
-  inline static term<P> const e1_term_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E1_z",          // name
-              {e1_pterm2});
+  inline static term<P> const e1_term_p = term<P>(false,  // time-dependent
+                                                  "E1_p", // name
+                                                  {e1_pterm1});
+  inline static term<P> const e1_term_z = term<P>(false,  // time-dependent
+                                                  "E1_z", // name
+                                                  {e1_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termE1 = {e1_term_p, e1_term_z};
@@ -671,16 +655,12 @@ private:
       partial_term<P>::null_scalar_func, dV_z);
 
   // 2. combine partial terms into single dimension term
-  inline static term<P> const e2_term_p =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E2_p",          // name
-              {e2_pterm1});
-  inline static term<P> const e2_term_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E2_z",          // name
-              {e2_pterm2});
+  inline static term<P> const e2_term_p = term<P>(false,  // time-dependent
+                                                  "E2_p", // name
+                                                  {e2_pterm1});
+  inline static term<P> const e2_term_z = term<P>(false,  // time-dependent
+                                                  "E2_z", // name
+                                                  {e2_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termE2 = {e2_term_p, e2_term_z};
@@ -713,16 +693,12 @@ private:
       partial_term<P>::null_scalar_func, dV_z3);
 
   // 2. combine partial terms into single dimension term
-  inline static term<P> const e3_term_p =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E3_p",          // name
-              {e3_pterm1});
-  inline static term<P> const e3_term_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E3_z",          // name
-              {e3_pterm2});
+  inline static term<P> const e3_term_p = term<P>(false,  // time-dependent
+                                                  "E3_p", // name
+                                                  {e3_pterm1});
+  inline static term<P> const e3_term_z = term<P>(false,  // time-dependent
+                                                  "E3_z", // name
+                                                  {e3_pterm2});
 
   // 3. combine single dimension terms into multi dimension term
   inline static std::vector<term<P>> const termE3 = {e3_term_p, e3_term_z};
@@ -734,7 +710,7 @@ private:
   // termR1 == 1/p^2 d/dp p^2 gamma(p) p / tau f(p) * (1-z^2) * f(z)
   //        == q(p) * r(z)
   //   q(p) == g1(p) u(p)       [mass, g1(p) = 1/p^2,                BC N/A]
-  //   u(p) == d/dp g2(p) f(p)  [grad, g2(p) = p^3 * gamma(p) / tau, BCL=N,BCR=D] 
+  //   u(p) == d/dp g2(p) f(p)  [grad, g2(p) = p^3 * gamma(p) / tau, BCL=N,BCR=D]
   //   r(z) == g3(z) f(z)       [mass, g3(z) = 1-z^2,                BC N/A]
   //
   // clang-format on

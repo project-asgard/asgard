@@ -166,11 +166,9 @@ private:
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
       partial_term<P>::null_scalar_func, dV_z);
 
-  inline static term<P> const termE_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "d_dx",          // name
-              {partial_term_0});
+  inline static term<P> const termE_z = term<P>(false,  // time-dependent
+                                                "d_dx", // name
+                                                {partial_term_0});
 
   inline static std::vector<term<P>> const termE = {termE_z};
 
@@ -211,9 +209,8 @@ private:
       partial_term<P>::null_scalar_func, dV_z);
 
   inline static term<P> const termC_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "d_dx",          // name
+      term<P>(false,  // time-dependent
+              "d_dx", // name
               {partial_term_1, partial_term_2});
 
   inline static std::vector<term<P>> const termC = {termC_z};
@@ -235,11 +232,9 @@ private:
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
       partial_term<P>::null_scalar_func, dV_z);
 
-  inline static term<P> const termR_z =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "d_dx",          // name
-              {partial_term_3});
+  inline static term<P> const termR_z = term<P>(false,  // time-dependent
+                                                "d_dx", // name
+                                                {partial_term_3});
 
   inline static std::vector<term<P>> const termR = {termR_z};
 

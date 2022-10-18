@@ -39,9 +39,8 @@ void generate_all_coefficients(
             partial_term<P>::null_scalar_func, {},
             partial_term<P>::null_scalar_func, dim.moment_dV);
 
-        auto mass_coeff =
-            generate_coefficients<P>(dim, term_1D, lhs_mass_pterm, transformer,
-                                     pde.max_level, time, rotate);
+        auto mass_coeff = generate_coefficients<P>(
+            dim, lhs_mass_pterm, transformer, pde.max_level, time, rotate);
 
         // precompute inv(mass) * coeff for each level up to max level
         std::vector<fk::matrix<P>> pterm_coeffs;
@@ -52,7 +51,7 @@ void generate_all_coefficients(
           auto mass_tmp = mass_coeff.extract_submatrix(0, 0, dof, dof);
 
           auto pterm_coeff = generate_coefficients<P>(
-              dim, term_1D, partial_terms[k], transformer, level, time, rotate);
+              dim, partial_terms[k], transformer, level, time, rotate);
 
           fm::gemm(mass_tmp.invert(), pterm_coeff, result);
           pterm_coeffs.emplace_back(std::move(result));
@@ -72,8 +71,7 @@ void generate_dimension_mass_mat(
 {
   for (auto i = 0; i < pde.num_dims; ++i)
   {
-    auto &dim           = pde.get_dimensions()[i];
-    auto const &term_1D = pde.get_terms()[0][i];
+    auto &dim = pde.get_dimensions()[i];
 
     partial_term<P> const lhs_mass_pterm = partial_term<P>(
         coefficient_type::mass, partial_term<P>::null_gfunc,
@@ -82,8 +80,8 @@ void generate_dimension_mass_mat(
         homogeneity::homogeneous, homogeneity::homogeneous, {},
         partial_term<P>::null_scalar_func, {},
         partial_term<P>::null_scalar_func, dim.moment_dV);
-    auto mass_mat = generate_coefficients<P>(
-        dim, term_1D, lhs_mass_pterm, transformer, pde.max_level, 0.0, true);
+    auto mass_mat = generate_coefficients<P>(dim, lhs_mass_pterm, transformer,
+                                             pde.max_level, 0.0, true);
 
     pde.update_dimension_mass_mat(i, mass_mat);
   }
@@ -95,8 +93,7 @@ void generate_dimension_mass_mat(
 // coefficient matricies
 template<typename P>
 fk::matrix<P> generate_coefficients(
-    dimension<P> const &dim, term<P> const &term_1D,
-    partial_term<P> const &pterm,
+    dimension<P> const &dim, partial_term<P> const &pterm,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const level, P const time, bool const rotate)
 {
@@ -149,15 +146,6 @@ fk::matrix<P> generate_coefficients(
   // get jacobian
   auto const jacobi = grid_spacing / 2;
 
-  // convert term input data from wavelet space to realspace
-  // FIXME during PDE rework, fix term's RAII issues...
-  auto const &term_data = term_1D.get_data();
-  fk::vector<P, mem_type::const_view> const data(term_data, 0,
-                                                 degrees_freedom_1d - 1);
-
-  auto const data_real = transformer.apply(data, level, basis::side::left,
-                                           basis::transpose::trans);
-
   for (auto i = 0; i < num_points; ++i)
   {
     // get left and right locations for this element
@@ -182,14 +170,6 @@ fk::matrix<P> generate_coefficients(
     }();
 
     fk::vector<P> const g_func = [&, legendre_poly = legendre_poly]() {
-      // get realspace data at quadrature points
-      // NOTE : this is unused pending updating G functions to accept "dat"
-      fk::vector<P> data_real_quad =
-          legendre_poly *
-          fk::vector<P, mem_type::const_view>(data_real, current,
-                                              current + dim.get_degree() - 1);
-      // get g(x,t,dat)
-      // FIXME : add dat as a argument to the G functions
       fk::vector<P> g(quadrature_points_i.size());
       for (auto j = 0; j < quadrature_points_i.size(); ++j)
       {
@@ -447,14 +427,12 @@ fk::matrix<P> generate_coefficients(
 }
 
 template fk::matrix<float> generate_coefficients<float>(
-    dimension<float> const &dim, term<float> const &term_1D,
-    partial_term<float> const &pterm,
+    dimension<float> const &dim, partial_term<float> const &pterm,
     basis::wavelet_transform<float, resource::host> const &transformer,
     int const level, float const time, bool const rotate);
 
 template fk::matrix<double> generate_coefficients<double>(
-    dimension<double> const &dim, term<double> const &term_1D,
-    partial_term<double> const &pterm,
+    dimension<double> const &dim, partial_term<double> const &pterm,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const level, double const time, bool const rotate);
 

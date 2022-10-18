@@ -303,20 +303,12 @@ class term
   }
 
 public:
-  term(bool const time_dependent_in, fk::vector<P> const data,
-       std::string const name_in,
+  term(bool const time_dependent_in, std::string const name_in,
        std::initializer_list<partial_term<P>> const partial_terms)
       : time_dependent(time_dependent_in), name(name_in),
-        partial_terms_(partial_terms), data_(data)
+        partial_terms_(partial_terms)
 
   {}
-
-  void set_data(fk::vector<P> const &data)
-  {
-    this->data_.resize(data.size()) = data;
-  }
-
-  fk::vector<P> get_data() const & { return data_; };
 
   void set_coefficients(fk::matrix<P> const &new_coefficients)
   {
@@ -392,13 +384,6 @@ public:
 
 private:
   std::vector<partial_term<P>> partial_terms_;
-
-  // this is to hold data that may change over the course of the simulation,
-  // from any source, that is used in operator construction.
-  //
-  // initialized to one if not provided at instantiation, which performs an
-  // identity operation where this is used, until set by outside source.
-  fk::vector<P> data_;
 
   // operator matrix for this term at a single dimension
   fk::matrix<P, mem_type::owner, resource::device> coefficients_;
@@ -528,7 +513,6 @@ public:
             degree;
         expect(max_dof < INT_MAX);
 
-        term_1D.set_data(fk::vector<P>(std::vector<P>(max_dof, 1.0)));
         term_1D.set_coefficients(eye<P>(max_dof));
 
         for (auto &p : term_1D.get_partial_terms())
