@@ -102,6 +102,8 @@ fk::matrix<P> generate_coefficients(
   expect(transformer.max_level >= dim.get_level());
   expect(level <= transformer.max_level);
 
+  // test the ci
+
   // setup jacobi of variable x and define coeff_mat
   auto const num_points = fm::two_raised_to(level);
 
