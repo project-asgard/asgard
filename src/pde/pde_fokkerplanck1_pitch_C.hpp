@@ -187,9 +187,8 @@ private:
       partial_term<P>::null_scalar_func, dV_z);
 
   inline static term<P> const term0_dim0_ =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "d_dx",          // name
+      term<P>(false,  // time-dependent
+              "d_dx", // name
               {partial_term_0, partial_term_1});
 
   inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
