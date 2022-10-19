@@ -86,8 +86,9 @@ private:
       bc_time_func, {bc_func}, bc_time_func);
 
   inline static term<P> const term_0 =
-      term<P>(true, // time-dependent
-              "",   // name
+      term<P>(true,            // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
               {partial_term_0, partial_term_1});
 
   // Interior penalty terms
@@ -113,9 +114,11 @@ private:
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
       partial_term<P>::null_scalar_func, moment_dV);
 
-  inline static term<P> const term_1 = term<P>(false, // time-dependent
-                                               "",    // name
-                                               {partial_term_2});
+  inline static term<P> const term_1 =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
+              {partial_term_2});
 
   inline static const partial_term<P> partial_term_3 = partial_term<P>(
       coefficient_type::div, g4, partial_term<P>::null_gfunc,
@@ -124,9 +127,11 @@ private:
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
       partial_term<P>::null_scalar_func, moment_dV);
 
-  inline static term<P> const term_2 = term<P>(false, // time-dependent
-                                               "",    // name
-                                               {partial_term_3});
+  inline static term<P> const term_2 =
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
+              {partial_term_3});
 
   inline static std::vector<term<P>> const terms_0 = {term_0};
   inline static std::vector<term<P>> const terms_1 = {term_1};

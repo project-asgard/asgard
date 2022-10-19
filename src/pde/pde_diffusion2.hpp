@@ -99,13 +99,15 @@ private:
       partial_term<P>::null_gfunc);
 
   inline static term<P> const term_0 =
-      term<P>(false, // time-dependent
-              "",    // name
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
               {partial_term_0, partial_term_1});
 
   inline static term<P> const term_1 =
-      term<P>(false, // time-dependent
-              "",    // name
+      term<P>(false,           // time-dependent
+              fk::vector<P>(), // additional data vector
+              "",              // name
               {partial_term_I_, partial_term_I_});
 
   inline static std::vector<term<P>> const terms_0 = {term_0, term_1};
