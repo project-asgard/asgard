@@ -127,7 +127,6 @@ enum class coefficient_type
   grad,
   mass,
   div,
-  diff
 };
 
 enum class flux_type
