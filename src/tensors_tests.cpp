@@ -485,6 +485,33 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
     REQUIRE(gold_cv(4) == 6);
   }
 
+  SECTION("array index operator (modifying)")
+  {
+    fk::vector<TestType> test(5);
+    fk::vector<TestType> own(5);
+    fk::vector<TestType, mem_type::view> test_v(own);
+    // clang-format off
+    test[0] = 2; test[1] = 3; test[2] = 4; test[3] = 5; test[4] = 6;
+    test_v[0] = 2; test_v[1] = 3; test_v[2] = 4; test_v[3] = 5; test_v[4] = 6;
+    // clang-format on
+    REQUIRE(test == gold);
+    REQUIRE(test_v == gold);
+    TestType const val   = test[4];
+    TestType const val_v = test_v[4];
+    REQUIRE(val == 6);
+    REQUIRE(val_v == 6);
+  }
+
+  SECTION("array index operator (const)")
+  {
+    REQUIRE(gold[4] == 6);
+    fk::vector<TestType> gold_copy(gold);
+    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
+    REQUIRE(gold_v[4] == 6);
+    fk::vector<TestType, mem_type::const_view> const gold_cv(gold);
+    REQUIRE(gold_cv[4] == 6);
+  }
+
   SECTION("comparison operator") // this gets used in every REQUIRE
 
   SECTION("comparison (negated) operator")
