@@ -12,6 +12,9 @@ class PDE;
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 
+template<typename P>
+using md_func_type = std::vector<vector_func<P>>;
+
 namespace elements
 {
 class table;
@@ -21,20 +24,19 @@ template<typename P>
 class moment
 {
 public:
-  moment(std::vector<vector_func<P>> md_funcs_);
+  moment(std::vector<md_func_type<P>> md_funcs_);
   void createFlist(PDE<P> const &pde, options const &opts);
   void
   createMomentVector(parser const &opts, elements::table const &hash_table);
 
-  std::vector<vector_func<P>> const &get_md_funcs() const { return md_funcs; }
+  std::vector<md_func_type<P>> const &get_md_funcs() const { return md_funcs; }
   fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
 
-  void createMomentReducedMatrix(PDE<P> const &pde, options const &opts,
-                                 elements::table const &hash_table,
-                                 int const moment_idx);
+  void createMomentReducedMatrix(PDE<P> const &pde,
+                                 elements::table const &hash_table);
 
 private:
-  std::vector<vector_func<P>> md_funcs;
+  std::vector<md_func_type<P>> md_funcs;
   std::vector<std::vector<fk::vector<P>>> fList;
   fk::vector<P> vector;
   fk::matrix<P> moment_matrix;

@@ -3,7 +3,7 @@
 #include "transformations.hpp"
 
 template<typename P>
-moment<P>::moment(std::vector<vector_func<P>> md_funcs_)
+moment<P>::moment(std::vector<md_func_type<P>> md_funcs_)
     : md_funcs(std::move(md_funcs_))
 {}
 
@@ -27,7 +27,7 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
     for (std::size_t d = 0; d < num_dims; ++d)
     {
       fList[s].push_back(forward_transform<P>(
-          dims[d], md_func, dims[d].volume_jacobian_dV, transformer));
+          dims[d], md_func[d], dims[d].volume_jacobian_dV, transformer));
     }
   }
 }
@@ -88,14 +88,13 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
 
 template<typename P>
 void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
-                                          options const &opts,
-                                          elements::table const &hash_table,
-                                          int const moment_idx)
+                                          elements::table const &hash_table)
 {
   int const num_ele = hash_table.size();
 
-  int const x_dim = 0; // hardcoded for now, needs to change
-  int const v_dim = 1;
+  int const moment_idx = 0;
+  int const x_dim      = 0; // hardcoded for now, needs to change
+  int const v_dim      = 1;
 
   expect(static_cast<int>(this->fList.size()) >= moment_idx);
   expect(this->fList[moment_idx].size() >= v_dim);

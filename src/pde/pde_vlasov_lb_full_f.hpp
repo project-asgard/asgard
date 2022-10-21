@@ -139,11 +139,11 @@ private:
   }
 
   inline static moment<P> const moment0 = moment<P>(
-      std::vector<vector_func<P>>({moment0_f1, moment0_f1, moment0_f1}));
+      std::vector<md_func_type<P>>({{moment0_f1, moment0_f1, moment0_f1}}));
   inline static moment<P> const moment1 = moment<P>(
-      std::vector<vector_func<P>>({moment0_f1, moment1_f1, moment0_f1}));
+      std::vector<md_func_type<P>>({{moment0_f1, moment1_f1, moment0_f1}}));
   inline static moment<P> const moment2 = moment<P>(
-      std::vector<vector_func<P>>({moment0_f1, moment2_f1, moment0_f1}));
+      std::vector<md_func_type<P>>({{moment0_f1, moment2_f1, moment0_f1}}));
 
   inline static std::vector<moment<P>> const moments_ = {moment0, moment1,
                                                          moment2};
@@ -254,17 +254,13 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const term_e1x =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E1_x",          // name
-              {e1_pterm_x});
+  inline static term<P> const term_e1x = term<P>(false,  // time-dependent
+                                                 "E1_x", // name
+                                                 {e1_pterm_x});
 
-  inline static term<P> const term_e1v =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E1_v",          // name
-              {e1_pterm_v});
+  inline static term<P> const term_e1v = term<P>(false,  // time-dependent
+                                                 "E1_v", // name
+                                                 {e1_pterm_v});
 
   inline static std::vector<term<P>> const terms_1 = {term_e1x, term_e1v};
 
@@ -298,17 +294,13 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const term_e2x =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E2_x",          // name
-              {e2_pterm_x});
+  inline static term<P> const term_e2x = term<P>(false,  // time-dependent
+                                                 "E2_x", // name
+                                                 {e2_pterm_x});
 
-  inline static term<P> const term_e2v =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "E2_v",          // name
-              {e2_pterm_v});
+  inline static term<P> const term_e2v = term<P>(false,  // time-dependent
+                                                 "E2_v", // name
+                                                 {e2_pterm_v});
 
   inline static std::vector<term<P>> const terms_2 = {term_e2x, term_e2v};
 
@@ -338,17 +330,13 @@ private:
                       flux_type::downwind, boundary_condition::dirichlet,
                       boundary_condition::dirichlet);
 
-  inline static term<P> const term_i1x =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "I1_x",          // name
-              {i1_pterm_x});
+  inline static term<P> const term_i1x = term<P>(false,  // time-dependent
+                                                 "I1_x", // name
+                                                 {i1_pterm_x});
 
-  inline static term<P> const term_i1v =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "I1_v",          // name
-              {i1_pterm_v});
+  inline static term<P> const term_i1v = term<P>(false,  // time-dependent
+                                                 "I1_v", // name
+                                                 {i1_pterm_v});
 
   inline static std::vector<term<P>> const terms_3 = {term_i1x, term_i1v};
 
@@ -379,17 +367,13 @@ private:
                       flux_type::central, boundary_condition::dirichlet,
                       boundary_condition::dirichlet);
 
-  inline static term<P> const term_i2x =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "I2_x",          // name
-              {i2_pterm_x});
+  inline static term<P> const term_i2x = term<P>(false,  // time-dependent
+                                                 "I2_x", // name
+                                                 {i2_pterm_x});
 
-  inline static term<P> const term_i2v =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "I2_v",          // name
-              {i2_pterm_v});
+  inline static term<P> const term_i2v = term<P>(false,  // time-dependent
+                                                 "I2_v", // name
+                                                 {i2_pterm_v});
 
   inline static std::vector<term<P>> const terms_4 = {term_i2x, term_i2v};
 
@@ -423,11 +407,9 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const term_i3x =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "I3_x",          // name
-              {i3_pterm_x1, i3_pterm_x2});
+  inline static term<P> const term_i3x = term<P>(false,  // time-dependent
+                                                 "I3_x", // name
+                                                 {i3_pterm_x1, i3_pterm_x2});
 
   static P i3_g3(P const x, P const time = 0)
   {
@@ -453,11 +435,9 @@ private:
       flux_type::central, boundary_condition::dirichlet,
       boundary_condition::dirichlet);
 
-  inline static term<P> const term_i3v =
-      term<P>(false,           // time-dependent
-              fk::vector<P>(), // additional data vector
-              "I3_v",          // name
-              {i3_pterm_v1, i3_pterm_v2});
+  inline static term<P> const term_i3v = term<P>(false,  // time-dependent
+                                                 "I3_v", // name
+                                                 {i3_pterm_v1, i3_pterm_v2});
 
   inline static std::vector<term<P>> const terms_5 = {term_i3x, term_i3v};
 

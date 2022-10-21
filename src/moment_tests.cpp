@@ -38,7 +38,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
 
 
   std::vector<vector_func<TestType>> md_func;
-  SECTION("Constructor") { moment<TestType> mymoment(md_func); }
+  SECTION("Constructor") { moment<TestType> mymoment({md_func}); }
 }
 
 TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
@@ -81,7 +81,7 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
   {
     moments[i].createFlist(*pde, opts);
     moments[i].createMomentVector(parse, check);
-    moments[i].createMomentReducedMatrix(*pde, opts, check, i);
+    moments[i].createMomentReducedMatrix(*pde, check);
 
     auto const gold_filename =
         moment_base_dir /

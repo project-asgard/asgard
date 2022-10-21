@@ -166,13 +166,13 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(-1.0,                      // domain min
-                   1.0,                       // domain max
-                   2,                         // levels
-                   2,                         // degree
-                   {initial_condition_dim0},  // initial condition
-                   volume_jacobian_dV_dim0,   // volume portion
-                   "x");                      // name
+      dimension<P>(-1.0,                     // domain min
+                   1.0,                      // domain max
+                   2,                        // levels
+                   2,                        // degree
+                   {initial_condition_dim0}, // initial condition
+                   volume_jacobian_dV_dim0,  // volume portion
+                   "x");                     // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 

@@ -39,6 +39,8 @@ using scalar_func = std::function<P(P const)>;
 template<typename P>
 using g_func_type = std::function<P(P const, P const)>;
 
+template<typename P>
+using md_func_type = std::vector<vector_func<P>>;
 //----------------------------------------------------------------------------
 //
 // Define member classes of the PDE type: dimension, term, source
@@ -580,7 +582,11 @@ public:
     for (auto const &m : moments)
     {
       // each moment should have ndim + 1 functions
-      expect(m.get_md_funcs().size() == static_cast<unsigned>(num_dims) + 1);
+      auto md_funcs = m.get_md_funcs();
+      for (auto md_func : md_funcs)
+      {
+        expect(md_func.size() == static_cast<unsigned>(num_dims) + 1);
+      }
     }
   }
 
