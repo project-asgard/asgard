@@ -117,22 +117,13 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
 
     for (int j = 0; j < deg; j++)
     {
-      fk::vector<int> temp_i(deg);
-      for (int d = 0; d < deg; d++)
-      {
-        temp_i(d) = elem_indices(x_dim) * deg + j;
-      }
-
-      fk::vector<int> temp_j(deg);
-      for (int d = 0; d < deg; d++)
-      {
-        temp_j(d) = i * std::pow(deg, 2) + j * deg + d;
-      }
+      int const g_vec_index = elem_indices(v_dim) * deg;
+      int const ind_i       = elem_indices(x_dim) * deg + j;
+      int const ind_j       = i * std::pow(deg, 2) + j * deg;
 
       for (int d = 0; d < deg; d++)
       {
-        int const g_vec_index               = elem_indices(v_dim) * deg + d;
-        moment_matrix(temp_i(d), temp_j(d)) = g_vec(g_vec_index);
+        moment_matrix(ind_i, ind_j + d) = g_vec(g_vec_index + d);
       }
     }
   }
