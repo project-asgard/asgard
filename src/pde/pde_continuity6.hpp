@@ -123,7 +123,7 @@ private:
     return fx;
   }
 
-  static P moment_dV(P const x, P const time)
+  static P volume_jacobian_dV(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
@@ -674,7 +674,7 @@ private:
                                                      2,    // levels
                                                      2,    // degree
                                                      f0,   // initial condition
-                                                     moment_dV,
+                                                     volume_jacobian_dV,
                                                      "x"); // name
 
   inline static dimension<P> const y_ = dimension<P>(-2.0, // domain min
@@ -682,7 +682,7 @@ private:
                                                      2,    // levels
                                                      2,    // degree
                                                      f0,   // initial condition
-                                                     moment_dV,
+                                                     volume_jacobian_dV,
                                                      "y"); // name
 
   inline static dimension<P> const z_ = dimension<P>(-3.0, // domain min
@@ -690,7 +690,7 @@ private:
                                                      2,    // levels
                                                      2,    // degree
                                                      f0,   // initial condition
-                                                     moment_dV,
+                                                     volume_jacobian_dV,
                                                      "z"); // name
 
   inline static dimension<P> const vx_ = dimension<P>(-10.0, // domain min
@@ -698,7 +698,7 @@ private:
                                                       2,     // levels
                                                       2,     // degree
                                                       f0, // initial condition
-                                                      moment_dV,
+                                                      volume_jacobian_dV,
                                                       "vx"); // name
 
   inline static dimension<P> const vy_ = dimension<P>(-20.0, // domain min
@@ -706,7 +706,7 @@ private:
                                                       2,     // levels
                                                       2,     // degree
                                                       f0, // initial condition
-                                                      moment_dV,
+                                                      volume_jacobian_dV,
                                                       "vy"); // name
 
   inline static dimension<P> const vz_ = dimension<P>(-30.0, // domain min
@@ -714,7 +714,7 @@ private:
                                                       2,     // levels
                                                       2,     // degree
                                                       f0, // initial condition
-                                                      moment_dV,
+                                                      volume_jacobian_dV,
                                                       "z"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {x_,  y_,  z_,

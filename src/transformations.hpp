@@ -163,7 +163,7 @@ inline fk::vector<P> transform_and_combine_dimensions(
   {
     auto const &dim = dimensions[i];
     dimension_components.push_back(forward_transform<P>(
-        dim, v_functions[i], dim.moment_dV, transformer, time));
+        dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
     int const n = dimension_components.back().size();
     std::vector<int> ipiv(n);
     fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,

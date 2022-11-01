@@ -460,7 +460,8 @@ template<typename P>
 matlab::data::StructArray matlab_plot::make_dimension(dimension<P> const &dim)
 {
   std::vector<std::string> names = {
-      "name", "min", "max", "lev", "init_cond_fn", "moment_dV", "mass_mat"};
+      "name",    "min", "max", "lev", "init_cond_fn", "volume_jacobian_dV",
+      "mass_mat"};
   matlab::data::StructArray ml_dim = factory_.createStructArray({1}, names);
 
   ml_dim[0]["name"] = factory_.createCharArray(dim.name);
@@ -470,8 +471,8 @@ matlab::data::StructArray matlab_plot::make_dimension(dimension<P> const &dim)
   // TODO: find a better way to represent these functions?
   ml_dim[0]["init_cond_fn"] =
       factory_.createCharArray(dim.initial_condition.target_type().name());
-  ml_dim[0]["moment_dV"] =
-      factory_.createCharArray(dim.moment_dV.target_type().name());
+  ml_dim[0]["volume_jacobian_dV"] =
+      factory_.createCharArray(dim.volume_jacobian_dV.target_type().name());
 
   ml_dim[0]["mass_mat"] = matrix_to_array(dim.get_mass_matrix());
 

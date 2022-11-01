@@ -38,7 +38,7 @@ private:
     return fx;
   }
 
-  static P moment_dV(P const x, P const time)
+  static P volume_jacobian_dV(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
@@ -48,7 +48,7 @@ private:
 
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
-      dimension<P>(0, 1, 3, 2, initial_condition_dim0, moment_dV, "x");
+      dimension<P>(0, 1, 3, 2, initial_condition_dim0, volume_jacobian_dV, "x");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 
@@ -111,7 +111,7 @@ private:
       flux_type::downwind, boundary_condition::dirichlet,
       boundary_condition::dirichlet, homogeneity::homogeneous,
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, moment_dV);
+      partial_term<P>::null_scalar_func, volume_jacobian_dV);
 
   inline static term<P> const term_1 = term<P>(false, // time-dependent
                                                "",    // name
@@ -122,7 +122,7 @@ private:
       flux_type::central, boundary_condition::dirichlet,
       boundary_condition::dirichlet, homogeneity::homogeneous,
       homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, moment_dV);
+      partial_term<P>::null_scalar_func, volume_jacobian_dV);
 
   inline static term<P> const term_2 = term<P>(false, // time-dependent
                                                "",    // name

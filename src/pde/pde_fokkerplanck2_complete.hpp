@@ -263,14 +263,14 @@ private:
     }
   }();
 
-  static P moment_dV_p(P const x, P const time)
+  static P volume_jacobian_dV_p(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(time);
     return std::pow(x, 2);
   }
 
-  static P moment_dV_z(P const x, P const time)
+  static P volume_jacobian_dV_z(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
@@ -363,7 +363,7 @@ private:
                    2,                   // levels
                    2,                   // degree
                    initial_condition_p, // initial condition
-                   moment_dV_p,
+                   volume_jacobian_dV_p,
                    "p"); // name
 
   // z dimension
@@ -375,7 +375,7 @@ private:
                    2,                   // levels
                    2,                   // degree
                    initial_condition_z, // initial condition
-                   moment_dV_z,
+                   volume_jacobian_dV_z,
                    "z"); // name
 
   // assemble dimensions
