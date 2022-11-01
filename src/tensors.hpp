@@ -213,14 +213,33 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   std::vector<P> to_std() const;
 
-  //
-  // subscripting operators
-  //
+  /*! subscript operator
+   * \param i position of the element to return
+   * \returns reference to the requested element.
+   */
   template<mem_type m_ = mem, typename = disable_for_const_view<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   P &operator()(int const);
+  /*! subscript operator
+   * \param i position of the element to return
+   * \returns const reference to the requested element.
+   */
   template<resource r_ = resrc, typename = enable_for_host<r_>>
-  P operator()(int const) const;
+  P const &operator()(int const) const;
+
+  /*! array index operator
+   * \param i position of the element to return
+   * \returns reference to the requested element.
+   */
+  template<mem_type m_ = mem, typename = disable_for_const_view<m_>,
+           resource r_ = resrc, typename = enable_for_host<r_>>
+  P &operator[](int const i);
+  /*! array index operator
+   * \param i position of the element to return
+   * \returns const reference to the requested element.
+   */
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  P const &operator[](int const i) const;
 
   //
   // comparison operators
@@ -1214,7 +1233,23 @@ P &fk::vector<P, mem, resrc>::operator()(int i)
 
 template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
-P fk::vector<P, mem, resrc>::operator()(int i) const
+P const &fk::vector<P, mem, resrc>::operator()(int i) const
+{
+  expect(i < size_);
+  return data_[i];
+}
+
+// array index operators
+template<typename P, mem_type mem, resource resrc>
+template<mem_type, typename, resource, typename>
+P &fk::vector<P, mem, resrc>::operator[](int i)
+{
+  expect(i < size_);
+  return data_[i];
+}
+template<typename P, mem_type mem, resource resrc>
+template<resource, typename>
+P const &fk::vector<P, mem, resrc>::operator[](int i) const
 {
   expect(i < size_);
   return data_[i];

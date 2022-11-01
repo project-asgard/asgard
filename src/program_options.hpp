@@ -29,6 +29,7 @@ static solve_map_t const solver_mapping = {
 // the choices for supported PDE types
 enum class PDE_opts
 {
+  advection_1,
   continuity_1,
   continuity_2,
   continuity_3,
@@ -137,7 +138,11 @@ static pde_map_t const pde_mapping = {
                                    PDE_opts::diffusion_1)},
     {"diffusion_2",
      PDE_descriptor("2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2",
-                    PDE_opts::diffusion_2)}};
+                    PDE_opts::diffusion_2)},
+    {"advection_1",
+     PDE_descriptor(
+         "1D test using continuity equation. df/dt == -2*df/dx - 2*sin(x)",
+         PDE_opts::advection_1)}};
 
 // class to parse command line input
 class parser
