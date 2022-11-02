@@ -93,7 +93,7 @@ private:
     return fx;
   }
 
-  static P moment_dV(P const x, P const time)
+  static P volume_jacobian_dV(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
@@ -276,7 +276,7 @@ private:
                    2,                      // levels
                    5,                      // degree
                    initial_condition_dim0, // initial condition
-                   moment_dV,
+                   volume_jacobian_dV,
                    "x"); // name
 
   inline static dimension<P> const dim1_ =
@@ -285,7 +285,7 @@ private:
                    2,                      // levels
                    4,                      // degree
                    initial_condition_dim1, // initial condition
-                   moment_dV,
+                   volume_jacobian_dV,
                    "y"); // name
 
   inline static dimension<P> const dim2_ =
@@ -294,7 +294,7 @@ private:
                    2,                      // levels
                    3,                      // degree
                    initial_condition_dim2, // initial condition
-                   moment_dV,
+                   volume_jacobian_dV,
                    "z"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_, dim1_,

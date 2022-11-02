@@ -79,15 +79,16 @@ public:
   P const domain_min;
   P const domain_max;
   vector_func<P> const initial_condition;
-  g_func_type<P> const moment_dV;
+  g_func_type<P> const volume_jacobian_dV;
   std::string const name;
   dimension(P const d_min, P const d_max, int const level, int const degree,
             vector_func<P> const initial_condition_in,
-            g_func_type<P> const moment_dV_in, std::string const name_in)
+            g_func_type<P> const volume_jacobian_dV_in,
+            std::string const name_in)
 
       : domain_min(d_min), domain_max(d_max),
-        initial_condition(initial_condition_in), moment_dV(moment_dV_in),
-        name(name_in)
+        initial_condition(initial_condition_in),
+        volume_jacobian_dV(volume_jacobian_dV_in), name(name_in)
   {
     set_level(level);
     set_degree(degree);

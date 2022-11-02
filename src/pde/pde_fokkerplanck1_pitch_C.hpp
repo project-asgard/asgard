@@ -93,7 +93,7 @@ private:
     return 1.0;
   }
 
-  static P moment_dV(P const x, P const time)
+  static P volume_jacobian_dV(P const x, P const time)
   {
     // suppress compiler warnings
     ignore(x);
@@ -152,7 +152,7 @@ private:
                    2,                      // levels
                    2,                      // degree
                    initial_condition_dim0, // initial condition
-                   moment_dV,
+                   volume_jacobian_dV,
                    "x"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
