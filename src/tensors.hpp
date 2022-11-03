@@ -412,6 +412,7 @@ public:
   std::shared_ptr<int>
   get_ref_count(access_badge<matrix<P, mem_type::view, resrc>> const access)
   {
+    ignore(access);
     return ref_count_;
   }
   /*! this is to allow specific other types to access the private ref counter of
@@ -422,6 +423,7 @@ public:
   std::shared_ptr<int> get_ref_count(
       access_badge<matrix<P, mem_type::const_view, resrc>> const access) const
   {
+    ignore(access);
     return ref_count_;
   }
 
