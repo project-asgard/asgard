@@ -33,7 +33,7 @@ if (NOT ASGARD_BUILD_PROFILE_DEPS)
     find_program (GRAPHVIZ_DOT_PATH dot PATHS /usr/ /usr/local/
       PATH_SUFFIXES bin NO_DEFAULT_PATH)
     if (GRAPHVIZ_DOT_PATH)
-      set (graphviz_PATH ${GRAPHVIZ_DOT_PATH})
+      set (graphviz_PATH ${GRAPHVIZ_DOT_PATH} CACHE STRING "optional location of bin/ containing dot executable" FORCE)
     endif ()
   endif ()
 
