@@ -152,7 +152,7 @@ public:
                   int const stop_index);
   /*! copy constructor
    * overloads for default case - whole vector
-   * \param other vector
+   * \param owner vector
    */
   template<mem_type m_ = mem, typename = enable_for_view<m_>, mem_type omem,
            mem_type om_ = omem, typename = disable_for_const_view<om_>>
@@ -160,7 +160,7 @@ public:
 
   /*! copy constructor
    * overloads for default case - whole vector
-   * \param other vector
+   * \param owner vector
    */
   template<mem_type m_ = mem, typename = enable_for_const_view<m_>,
            mem_type omem>
@@ -323,7 +323,8 @@ public:
 
   /*! Checks if the contents of this and other are equal. They must have the
    *  same number of elements and each element compares equal with the element
-   * at the same position. \param other vector this is to be compared against
+   *  at the same position.
+   *  \param other vector this is to be compared against
    *  \return true if vectors are equal
    */
   template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
@@ -405,9 +406,10 @@ public:
   P *data(int const elem = 0) const { return data_ + elem; }
 
   /*! this is to allow specific other types to access the private ref counter of
-   * owners - specifically, we want to allow a matrix<view> to be made from a
-   * vector<owner/view> \param access badge limiting public access. \return
-   * return reference count of owners.
+   *  owners - specifically, we want to allow a matrix<view> to be made from a
+   *  vector<owner/view>
+   *  \param access badge limiting public access.
+   *  \return reference count of owners.
    */
   std::shared_ptr<int>
   get_ref_count(access_badge<matrix<P, mem_type::view, resrc>> const access)
@@ -416,9 +418,10 @@ public:
     return ref_count_;
   }
   /*! this is to allow specific other types to access the private ref counter of
-   * owners - specifically, we want to allow a matrix<view> to be made from a
-   * vector<owner/view> \param access badge limiting public access. \return
-   * return reference count of owners.
+   *  owners - specifically, we want to allow a matrix<view> to be made from a
+   *  vector<owner/view>
+   *  \param access badge limiting public access.
+   *  \return reference count of owners.
    */
   std::shared_ptr<int> get_ref_count(
       access_badge<matrix<P, mem_type::const_view, resrc>> const access) const
@@ -430,14 +433,13 @@ public:
   // utility functions
 
   /*! Prints out the values of a vector
-   *
-   * /param label a string label printed with the output
+   *  \param label a string label printed with the output
    */
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void print(std::string_view const label = "") const;
 
   /*! Dumps to file a vector that can be read straight into octave
-   * \param filename name
+   *  \param filename name
    */
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void dump_to_octave(std::filesystem::path const &filename) const;
