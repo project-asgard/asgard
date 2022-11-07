@@ -33,8 +33,8 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x) -> P {
-      if (std::abs(x) > 0.5)
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+      if (std::abs(x_v) > 0.5)
       {
         return 1.0;
       }
@@ -51,8 +51,8 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x) -> P {
-      if (std::abs(x) <= 0.5)
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+      if (std::abs(x_v) <= 0.5)
       {
         return 1.0;
       }
@@ -73,8 +73,8 @@ private:
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x) -> P {
-                     return coefficient * std::exp(-std::pow(x, 2) / 2.0);
+                   [coefficient](P const x_v) -> P {
+                     return coefficient * std::exp(-std::pow(x_v, 2) / 2.0);
                    });
     return fx;
   }
@@ -87,10 +87,11 @@ private:
     P const coefficient = (1.0 / 8.0) / std::sqrt(2.0 * PI * (4.0 / 5.0));
 
     fk::vector<P> fx(x.size());
-    std::transform(
-        x.begin(), x.end(), fx.begin(), [coefficient](P const x) -> P {
-          return coefficient * std::exp(-std::pow(x, 2) / (2.0 * (4.0 / 5.0)));
-        });
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [coefficient](P const x_v) -> P {
+                     return coefficient *
+                            std::exp(-std::pow(x_v, 2) / (2.0 * (4.0 / 5.0)));
+                   });
     return fx;
   }
 
@@ -134,7 +135,7 @@ private:
 
     fk::vector<P> f(x.size());
     std::transform(x.begin(), x.end(), f.begin(),
-                   [](P const &x) -> P { return std::pow(x, 2); });
+                   [](P const &x_v) -> P { return std::pow(x_v, 2); });
     return f;
   }
 
@@ -149,11 +150,6 @@ private:
                                                          moment2};
 
   /* Construct (n, u, theta) */
-
-  // params.n  = @(x) 1*(x<-0.5) + 1/8*(x >= -0.5).*(x <= 0.5) + 1*(x>0.5);
-  // params.u  = @(x) 0;
-  // params.th = @(x) 1*(x<-0.5) + 4/5*(x >= -0.5).*(x <= 0.5) + 1*(x>0.5);
-
   static P n(P const &x, P const t = 0)
   {
     ignore(t);
@@ -180,47 +176,6 @@ private:
     P const third  = x > 0.5 ? 1.0 : 0.0;
     return first + second + third;
   }
-
-  /*
-  static fk::vector<P> n(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::transform(x.begin(), x.end(), f.begin(), [](P const &x) -> P {
-      P const first = x < -0.5 ? x : 0.0;
-      P const second = (x >= -0.5 && x <= 0.5) ? (1.0/8.0) * x : 0.0;
-      P const third = x > 0.5 ? x : 0.0;
-      return first + second + third;
-    });
-
-    return f;
-  }
-
-  static fk::vector<P> u(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::fill(f.begin(), f.end(), 0.0);
-    return f;
-  }
-
-  static fk::vector<P> theta(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::transform(x.begin(), x.end(), f.begin(), [](P const &x) -> P {
-      P const first = x < -0.5 ? x : 0.0;
-      P const second = (x >= -0.5 && x <= 0.5) ? (4.0/5.0) * x : 0.0;
-      P const third = x > 0.5 ? x : 0.0;
-      return first + second + third;
-    });
-
-    return f;
-  }
-  */
 
   /* build the terms */
 
