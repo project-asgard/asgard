@@ -291,6 +291,8 @@ target_link_libraries (asgard_obj
                        clara
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>
+                       $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_ENGINE_LIBRARY}>
+                       $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_DATAARRAY_LIBRARY}>
 )
 target_include_directories (asgard_obj
                             PUBLIC
@@ -329,6 +331,13 @@ if (ASGARD_USE_CUDA)
                            CUDA::cublas
     )
 endif ()
+
+if (ASGARD_USE_MATLAB)
+    target_include_directories (asgard_obj
+                                SYSTEM PUBLIC
+                                $<BUILD_INTERFACE:${Matlab_INCLUDE_DIRS}>
+    )
+endif()
 
 #-------------------------------------------------------------------------------
 #  Define a asgard executable library.
