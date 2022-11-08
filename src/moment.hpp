@@ -26,8 +26,8 @@ class moment
 public:
   moment(std::vector<md_func_type<P>> md_funcs_);
   void createFlist(PDE<P> const &pde, options const &opts);
-  void
-  createMomentVector(parser const &opts, elements::table const &hash_table);
+  void createMomentVector(PDE<P> const &pde, parser const &opts,
+                          elements::table const &hash_table);
 
   std::vector<md_func_type<P>> const &get_md_funcs() const { return md_funcs; }
   fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
