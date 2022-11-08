@@ -381,16 +381,13 @@ template<typename P>
 matlab::data::StructArray
 matlab_plot::make_term(term<P> const &term, int const max_lev)
 {
-  std::vector<std::string> names    = {"time_dependent", "name", "data",
-                                    "coefficients", "pterms"};
+  std::vector<std::string> names    = {"time_dependent", "name", "coefficients",
+                                    "pterms"};
   matlab::data::StructArray ml_term = factory_.createStructArray({1}, names);
 
   ml_term[0]["time_dependent"] =
       factory_.createScalar<bool>(term.time_dependent);
-  ml_term[0]["name"]    = factory_.createCharArray(term.name);
-  auto const &term_data = term.get_data();
-  ml_term[0]["data"] =
-      create_array({1, static_cast<size_t>(term_data.size())}, term_data);
+  ml_term[0]["name"]         = factory_.createCharArray(term.name);
   auto const &coeffs         = term.get_coefficients().clone_onto_host();
   ml_term[0]["coefficients"] = matrix_to_array(coeffs);
 
