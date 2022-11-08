@@ -747,7 +747,7 @@ private:
                  : std::max_element(
                        dims.begin(), dims.end(),
                        [](dimension<P> const &a, dimension<P> const &b) {
-                         return a.get_level() > b.get_level();
+                         return a.get_level() < b.get_level();
                        })
                        ->get_level();
     }
