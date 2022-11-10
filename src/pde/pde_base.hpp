@@ -77,13 +77,43 @@ auto const element_segment_size = [](auto const &pde) {
 template<typename P>
 class PDE;
 
+/*!
+ * \brief Contains the user provided description of a dimension.
+ *
+ * The \b dimension_name will be used to identify when the dimension is used for each field.
+ */
 template<typename P>
+struct dimension_description {
+  dimension_description(P const domain_min, P const domain_max,
+                        int const grid_level, int const basis_degree,
+                        std::string const dimension_name) :
+    d_min(domain_min), d_max(domain_max),
+    level(grid_level), degree(basis_degree),
+    name(dimension_name)
+  {
+    // note that the constructor that is user facing will use the most descriptive and clear names
+    //      also the longest names for each variable/parameter
+    //      the internal variables will use short-hand names
+    expect(d_max > d_min);
+    expect(level > 0);
+    expect(degree > 1); // must fix this one, degree should count from zero
+    expect(name.length() > 0);
+  }
+  P const d_min;
+  P const d_max;
+  int const level;
+  int const degree;
+  std::string const name;
+};
+
 class moment;
 
+// Note (from Miro): there is nothing inside this class that requires internal consistency of the input data
+// Why have private members when you can freely modify every one of them?
+// Make a struct to keep related data together and have simple direct access to the data.
 template<typename P>
-class dimension
+struct dimension
 {
-public:
   P const domain_min;
   P const domain_max;
   std::vector<vector_func<P>> const initial_condition;
@@ -111,12 +141,28 @@ public:
     set_level(level);
     set_degree(degree);
   }
+  dimension(dimension_description<P> const desc,
+            vector_func<P> const initial_condition_in,
+            g_func_type<P> const volume_jacobian_dV_in)
+      : domain_min(desc.d_min), domain_max(desc.d_max),
+        initial_condition(initial_condition_in),
+        volume_jacobian_dV(volume_jacobian_dV_in), name(desc.name),
+        level_(desc.level), degree_(desc.degree)
+  {
+    // initialize mass matrices to a default value
+    // if we put the mass-matrices into the dimensions class, then we can init here
+    // however, we will end up having extra copies, since each field has it's own set of dimension objects
+//     auto const max_dof =
+//         fm::two_raised_to(static_cast<int64_t>(level_)) *
+//         degree_;
+//     expect(max_dof < INT_MAX);
+//     mass_ = eye<P>(max_dof);
+  }
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
   fk::matrix<P> const &get_mass_matrix() const { return mass_; }
 
-private:
   void set_level(int const level)
   {
     expect(level >= 0);
@@ -137,8 +183,6 @@ private:
   int level_;
   int degree_;
   fk::matrix<P> mass_;
-
-  friend class PDE<P>;
 };
 
 enum class coefficient_type

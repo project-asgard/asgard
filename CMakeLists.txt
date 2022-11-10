@@ -237,6 +237,8 @@ set (components
      time_advance
      tools
      transformations
+     asgard_field
+     asgard_pde_system
 )
 
 if (ASGARD_IO_HIGHFIVE)
