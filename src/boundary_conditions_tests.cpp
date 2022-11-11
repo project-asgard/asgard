@@ -8,6 +8,9 @@
 static auto const boundary_conditions_base_dir =
     gold_base_dir / "boundary_conditions";
 
+using namespace asgard;
+using namespace asgard::boundary_conditions;
+
 template<typename P>
 void test_boundary_condition_vector(PDE<P> &pde,
                                     std::filesystem::path const &gold_filename,

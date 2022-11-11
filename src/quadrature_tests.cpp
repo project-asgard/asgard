@@ -6,6 +6,8 @@
 
 static auto const quadrature_base_dir = gold_base_dir / "quadrature";
 
+using namespace asgard;
+
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", double,
                    float)
 {

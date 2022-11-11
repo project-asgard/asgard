@@ -12,6 +12,8 @@
 #include "../tensors.hpp"
 #include "pde_base.hpp"
 
+namespace asgard
+{
 // ---------------------------------------------------------------------------
 //
 // the "fokkerplanck 1d - problem 4.2" pde
@@ -206,3 +208,4 @@ private:
   inline static scalar_func<P> const exact_scalar_func_ =
       analytic_solution_time;
 };
+} // namespace asgard

@@ -14,6 +14,8 @@
 #include <type_traits>
 #include <vector>
 
+namespace asgard
+{
 template<typename P>
 fk::matrix<P>
 recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
@@ -213,3 +215,4 @@ update_transform_workspace(
   expect(transform_wksp[1].size() >= sol_size);
   return transform_wksp;
 }
+} // namespace asgard

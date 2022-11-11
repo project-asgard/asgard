@@ -1,5 +1,7 @@
 #pragma once
 
+namespace asgard
+{
 template<typename P>
 void stage_inputs_kronmult(P const *const x, P *const workspace,
                            int const num_elems, int const num_copies);
@@ -18,3 +20,4 @@ template<typename P>
 void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
                    P const *const operator_ptrs[], int const lda,
                    int const num_krons, int const num_dims);
+} // namespace asgard

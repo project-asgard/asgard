@@ -10,6 +10,8 @@
 
 static auto const transformations_base_dir = gold_base_dir / "transformations";
 
+using namespace asgard;
+
 template<typename P>
 void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
                              int const num_ranks  = 1,

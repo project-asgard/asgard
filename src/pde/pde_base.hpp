@@ -17,6 +17,8 @@
 #include "../tensors.hpp"
 #include "../tools.hpp"
 
+namespace asgard
+{
 //
 // This file contains all of the interface and object definitions for our
 // representation of a PDE
@@ -731,3 +733,4 @@ private:
   term_set<P> terms_;
   P dt_;
 };
+} // namespace asgard

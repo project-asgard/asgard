@@ -8,7 +8,7 @@
 #endif
 #include <numeric>
 
-namespace fm
+namespace asgard::fm
 {
 // a non-matlab one-liner that had no better home - compute 2^arg
 template<typename T>
@@ -323,4 +323,4 @@ void getrs(fk::matrix<P, amem> const &A, fk::scalapack_matrix_info &ainfo,
 }
 #endif
 
-} // namespace fm
+} // namespace asgard::fm

@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace ml
+namespace asgard::ml
 {
 // matlab::data::String is defined as std::basic_string<char16_t>
 using ml_string = matlab::data::String;
@@ -205,4 +205,4 @@ private:
   bool started_ = false;
 };
 
-} // namespace ml
+} // namespace asgard::ml

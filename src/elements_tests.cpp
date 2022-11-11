@@ -8,6 +8,8 @@
 
 static auto const elements_base_dir = gold_base_dir / "element_table";
 
+using namespace asgard;
+
 void test_element_table(PDE_opts const pde_choice,
                         fk::vector<int> const &levels,
                         std::string const &gold_filename,

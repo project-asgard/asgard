@@ -1,16 +1,17 @@
 #pragma once
-
+namespace asgard
+{
 enum class resource
 {
   host,
   device
 };
 
-void initialize_libraries(int const local_rank);
-
 // -- precision/execution resource wrapper for blas --
 namespace lib_dispatch
 {
+void initialize_libraries(int const local_rank);
+
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
 
@@ -80,3 +81,4 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
                      int *ipiv, P *b, int *descB, int *info);
 #endif
 } // namespace lib_dispatch
+} // namespace asgard

@@ -5,6 +5,8 @@
 
 static auto const permutations_base_dir = gold_base_dir / "permutations";
 
+using namespace asgard;
+
 TEST_CASE("Permutations builders", "[permutations]")
 {
   std::string const zero = "0";

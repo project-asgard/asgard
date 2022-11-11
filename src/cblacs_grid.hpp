@@ -1,7 +1,8 @@
 #pragma once
 
 #include "asgard_mpi.h"
-
+namespace asgard
+{
 class cblacs_grid
 {
 public:
@@ -16,3 +17,4 @@ public:
 private:
   int bhandle_, ictxt_, nprow_{1}, npcol_, myrow_, mycol_;
 };
+} // namespace asgard

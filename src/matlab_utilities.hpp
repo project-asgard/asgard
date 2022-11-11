@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+namespace asgard
+{
 //-----------------------------------------------------------------------------
 //
 // a collection of utility functions to make working with matlab-like
@@ -139,3 +141,4 @@ fk::matrix<int> meshgrid(int const start, int const length);
 
 template<typename P, mem_type mem>
 fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol);
+} // namespace asgard

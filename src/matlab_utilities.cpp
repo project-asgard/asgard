@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+namespace asgard
+{
 // matlab's "linspace(start, end, N)" function
 //-----------------------------------------------------------------------------
 //
@@ -511,3 +513,4 @@ template fk::matrix<float>
 reshape(fk::matrix<float> mat, int const nrow, int const ncol);
 template fk::matrix<int>
 reshape(fk::matrix<int> mat, int const nrow, int const ncol);
+} // namespace asgard

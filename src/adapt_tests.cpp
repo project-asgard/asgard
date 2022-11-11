@@ -9,6 +9,8 @@ static auto constexpr adapt_thresh = 1e-4;
 
 static auto const adapt_base_dir = gold_base_dir / "adapt";
 
+using namespace asgard;
+
 struct distribution_test_init
 {
   void set_my_rank(const int rank) { my_rank = rank; }

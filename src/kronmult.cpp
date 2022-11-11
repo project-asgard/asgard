@@ -16,7 +16,7 @@
 #include <mutex>
 #include <vector>
 
-namespace kronmult
+namespace asgard::kronmult
 {
 // calculate how much workspace we need on device to compute a single connected
 // element
@@ -405,4 +405,4 @@ execute(PDE<double> const &pde, elements::table const &elem_table,
         int const workspace_size_MB,
         fk::vector<double, mem_type::owner, resource::host> const &x);
 
-} // namespace kronmult
+} // namespace asgard::kronmult

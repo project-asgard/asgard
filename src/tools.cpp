@@ -7,7 +7,7 @@
 #include <numeric>
 #include <sstream>
 
-namespace tools
+namespace asgard::tools
 {
 std::string simple_timer::report()
 {
@@ -57,4 +57,4 @@ std::string simple_timer::report()
 }
 simple_timer timer;
 
-} // namespace tools
+} // namespace asgard::tools

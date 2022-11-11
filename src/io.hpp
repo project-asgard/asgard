@@ -7,7 +7,8 @@
 #include <numeric>
 #include <highfive/H5Easy.hpp>
 // clang-format on
-
+namespace asgard
+{
 template<typename P>
 HighFive::DataSet
 initialize_output_file(fk::vector<P> const &vec,
@@ -53,3 +54,4 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
   // Write the latest vec into the new row
   dataset.select({dataset_size[0], 0}, {1, vec_size}).write(vec.to_std());
 }
+} // namespace asgard

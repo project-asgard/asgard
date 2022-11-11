@@ -20,6 +20,8 @@ private:
 };
 static distribution_test_init distrib_test_info;
 
+using namespace asgard;
+
 int main(int argc, char *argv[])
 {
   auto const [rank, total_ranks] = initialize_distribution();

@@ -12,6 +12,8 @@
 #include "../tensors.hpp"
 #include "pde_base.hpp"
 
+namespace asgard
+{
 template<typename P>
 class PDE_advection_1d : public PDE<P>
 {
@@ -180,3 +182,4 @@ private:
     return dx;
   }
 };
+} // namespace asgard

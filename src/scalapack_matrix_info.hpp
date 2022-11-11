@@ -2,9 +2,12 @@
 #include <array>
 #include <memory>
 
+namespace asgard
+{
 class cblacs_grid;
+}
 
-namespace fk
+namespace asgard::fk
 {
 enum DESC_VARS : int
 {
@@ -45,4 +48,4 @@ private:
   std::shared_ptr<cblacs_grid> grid_;
 };
 
-} // namespace fk
+} // namespace asgard::fk

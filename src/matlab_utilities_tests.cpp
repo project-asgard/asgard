@@ -6,6 +6,8 @@
 static auto const matlab_utilities_base_dir =
     gold_base_dir / "matlab_utilities";
 
+using namespace asgard;
+
 TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
                    float, double)
 {

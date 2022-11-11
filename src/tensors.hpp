@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+namespace asgard
+{
 /* tolerance for answer comparisons */
 #define TOL std::numeric_limits<P>::epsilon() * 2
 
@@ -971,6 +973,7 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
 }
 
 } // namespace fk
+} // namespace asgard
 
 //
 // This would otherwise be the start of the tensors.cpp, if we were still doing
@@ -984,6 +987,8 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
 #include <iomanip>
 #include <iostream>
 
+namespace asgard
+{
 //-----------------------------------------------------------------------------
 //
 // fk::vector class implementation starts here
@@ -2979,3 +2984,4 @@ void debug_compare(fk::matrix<P, left_mem> const &left,
     std::cout << '\n';
   }
 }
+} // namespace asgard

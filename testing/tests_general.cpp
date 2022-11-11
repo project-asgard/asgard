@@ -13,12 +13,12 @@
 #include <string>
 #include <vector>
 
-options make_options(std::vector<std::string> const arguments)
+asgard::options make_options(std::vector<std::string> const arguments)
 {
-  return options(make_parser(arguments));
+  return asgard::options(make_parser(arguments));
 }
 
-parser make_parser(std::vector<std::string> const arguments)
+asgard::parser make_parser(std::vector<std::string> const arguments)
 {
   std::vector<char *> argv;
   argv.push_back(const_cast<char *>("asgard"));
@@ -28,5 +28,5 @@ parser make_parser(std::vector<std::string> const arguments)
   }
   argv.push_back(nullptr);
 
-  return parser(argv.size() - 1, argv.data());
+  return asgard::parser(argv.size() - 1, argv.data());
 }

@@ -8,7 +8,7 @@ extern "C"
                  int *icsrc, int *ictxt, int *lld, int *info);
 }
 
-namespace fk
+namespace asgard::fk
 {
 scalapack_matrix_info::scalapack_matrix_info(int rows, int cols)
     : rows_{rows}, cols_{cols}, local_rows_{rows}, local_cols_{cols}, mb_{rows},
@@ -56,4 +56,4 @@ void scalapack_matrix_info::resize(int rows, int cols)
     local_cols_ = cols_;
   }
 }
-} // namespace fk
+} // namespace asgard::fk

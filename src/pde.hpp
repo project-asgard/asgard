@@ -29,6 +29,8 @@
 #include "pde/pde_fokkerplanck2_complete.hpp"
 #include "tensors.hpp"
 
+namespace asgard
+{
 //
 // this file contains the PDE factory and the utilities to
 // select the PDEs being made available by the included
@@ -180,3 +182,4 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
 
   return make_PDE<P>(parser(pde_choice, levels, degree, cfl));
 }
+} // namespace asgard

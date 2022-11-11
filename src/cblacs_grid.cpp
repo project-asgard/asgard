@@ -16,7 +16,8 @@ extern "C"
   void Cblacs_pinfo(int *, int *);
   void Cblacs_exit(int);
 }
-
+namespace asgard
+{
 cblacs_grid::cblacs_grid(MPI_Comm localCommunicator)
 {
   int i_negone{-1}, i_zero{0};
@@ -48,3 +49,4 @@ cblacs_grid::~cblacs_grid()
   Cfree_blacs_system_handle(bhandle_);
   Cblacs_gridexit(ictxt_);
 }
+} // namespace asgard

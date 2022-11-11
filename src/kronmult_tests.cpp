@@ -3,6 +3,8 @@
 #include "kronmult.hpp"
 #include "tests_general.hpp"
 
+using namespace asgard;
+
 struct distribution_test_init
 {
   distribution_test_init() { initialize_distribution(); }

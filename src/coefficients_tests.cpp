@@ -6,6 +6,8 @@
 
 static auto const coefficients_base_dir = gold_base_dir / "coefficients";
 
+using namespace asgard;
+
 template<typename P>
 void test_coefficients(parser const &parse, std::string const &gold_path,
                        P const tol_factor = get_tolerance<P>(10),

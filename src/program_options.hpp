@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+namespace asgard
+{
 // implemented solvers for implicit stepping
 enum class solve_opts
 {
@@ -364,3 +366,4 @@ private:
   // helper for output writing
   bool write_at_step(int const i, int const freq) const;
 };
+} // namespace asgard

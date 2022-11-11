@@ -5,7 +5,7 @@
 #include "pde.hpp"
 #include "program_options.hpp"
 
-namespace adapt
+namespace asgard::adapt
 {
 // this class bundles
 // 1) the element table (set of active elements and their coordinates) and
@@ -121,4 +121,4 @@ private:
   distribution_plan plan_;
 };
 
-} // namespace adapt
+} // namespace asgard::adapt

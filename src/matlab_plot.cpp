@@ -3,7 +3,7 @@
 #include "quadrature.hpp"
 #include <cmath>
 #include <type_traits>
-namespace ml
+namespace asgard::ml
 {
 void matlab_plot::connect_async()
 {
@@ -615,4 +615,4 @@ template fk::vector<float> matlab_plot::col_slice(fk::vector<float> const &vec,
                                                   int const n,
                                                   int const col) const;
 
-} // namespace ml
+} // namespace asgard::ml

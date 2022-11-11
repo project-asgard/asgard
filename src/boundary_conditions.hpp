@@ -5,12 +5,13 @@
 #include "pde/pde_base.hpp"
 #include "transformations.hpp"
 
-template<typename P>
-using unscaled_bc_parts = std::vector<std::vector<std::vector<fk::vector<P>>>>;
-
 // FIXME refactor this component
-namespace boundary_conditions
+namespace asgard::boundary_conditions
 {
+template<typename P>
+using unscaled_bc_parts =
+    std::vector<std::vector<std::vector<asgard::fk::vector<P>>>>;
+
 template<typename P>
 std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
     PDE<P> const &pde, elements::table const &table,
@@ -29,7 +30,6 @@ compute_left_boundary_condition(g_func_type<P> const g_func,
                                 g_func_type<P> const dv_func, P const time,
                                 dimension<P> const &dim,
                                 vector_func<P> const bc_func);
-
 template<typename P>
 fk::vector<P>
 compute_right_boundary_condition(g_func_type<P> const g_func,
@@ -46,4 +46,4 @@ std::vector<fk::vector<P>> generate_partial_bcs(
     std::vector<partial_term<P>> const &partial_terms, int const p_index,
     fk::vector<P> &&trace_bc);
 
-} // namespace boundary_conditions
+} // namespace asgard::boundary_conditions

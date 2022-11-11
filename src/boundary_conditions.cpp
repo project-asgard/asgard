@@ -12,10 +12,11 @@ These two outputs need only be calculated once and can then be used at any time
 value "t" to generate the complete boundary condition vector at time "t".
 
 */
-
+namespace asgard::boundary_conditions
+{
 // FIXME refactor this component. the whole thing.
 template<typename P>
-std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
+std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
     PDE<P> const &pde, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const start_element, int const stop_element, P const t_init)
@@ -102,10 +103,10 @@ std::array<unscaled_bc_parts<P>, 2> boundary_conditions::make_unscaled_bc_parts(
 }
 
 template<typename P>
-fk::vector<P> boundary_conditions::generate_scaled_bc(
-    unscaled_bc_parts<P> const &left_bc_parts,
-    unscaled_bc_parts<P> const &right_bc_parts, PDE<P> const &pde,
-    int const start_element, int const stop_element, P const time)
+fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
+                                 unscaled_bc_parts<P> const &right_bc_parts,
+                                 PDE<P> const &pde, int const start_element,
+                                 int const stop_element, P const time)
 {
   fk::vector<P> bc(
       (stop_element - start_element + 1) *
@@ -151,9 +152,11 @@ fk::vector<P> boundary_conditions::generate_scaled_bc(
 }
 
 template<typename P>
-fk::vector<P> boundary_conditions::compute_left_boundary_condition(
-    g_func_type<P> const g_func, g_func_type<P> const dv_func, P const time,
-    dimension<P> const &dim, vector_func<P> const bc_func)
+fk::vector<P>
+compute_left_boundary_condition(g_func_type<P> const g_func,
+                                g_func_type<P> const dv_func, P const time,
+                                dimension<P> const &dim,
+                                vector_func<P> const bc_func)
 {
   P const domain_min    = dim.domain_min;
   P const domain_max    = dim.domain_max;
@@ -205,9 +208,11 @@ fk::vector<P> boundary_conditions::compute_left_boundary_condition(
 }
 
 template<typename P>
-fk::vector<P> boundary_conditions::compute_right_boundary_condition(
-    g_func_type<P> const g_func, g_func_type<P> const dv_func, P const time,
-    dimension<P> const &dim, vector_func<P> const bc_func)
+fk::vector<P>
+compute_right_boundary_condition(g_func_type<P> const g_func,
+                                 g_func_type<P> const dv_func, P const time,
+                                 dimension<P> const &dim,
+                                 vector_func<P> const bc_func)
 {
   P const domain_min    = dim.domain_min;
   P const domain_max    = dim.domain_max;
@@ -258,7 +263,7 @@ fk::vector<P> boundary_conditions::compute_right_boundary_condition(
 }
 
 template<typename P>
-std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
+std::vector<fk::vector<P>> generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
     basis::wavelet_transform<P, resource::host> const &transformer,
@@ -342,8 +347,7 @@ std::vector<fk::vector<P>> boundary_conditions::generate_partial_bcs(
 }
 
 /* explicit instantiations */
-template std::array<unscaled_bc_parts<double>, 2>
-boundary_conditions::make_unscaled_bc_parts(
+template std::array<unscaled_bc_parts<double>, 2> make_unscaled_bc_parts(
     PDE<double> const &pde, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const start_element, int const stop_element, double const t_init = 0);
@@ -400,3 +404,4 @@ boundary_conditions::generate_partial_bcs(
     float const time, std::vector<term<float>> const &terms,
     std::vector<partial_term<float>> const &partial_terms, int const p_index,
     fk::vector<float> &&trace_bc);
+} // namespace asgard::boundary_conditions

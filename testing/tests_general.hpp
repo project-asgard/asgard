@@ -27,11 +27,11 @@ constexpr P get_tolerance(int ulp)
 
 /* These functions implement: norm( v0 - v1 ) < tolerance * max( norm(v0),
  * norm(v1) )*/
-template<typename P, mem_type mem, mem_type omem>
-void rmse_comparison(fk::vector<P, mem> const &v0,
-                     fk::vector<P, omem> const &v1, P const tolerance)
+template<typename P, asgard::mem_type mem, asgard::mem_type omem>
+void rmse_comparison(asgard::fk::vector<P, mem> const &v0,
+                     asgard::fk::vector<P, omem> const &v1, P const tolerance)
 {
-  auto const diff_norm = fm::nrm2(v0 - v1);
+  auto const diff_norm = asgard::fm::nrm2(v0 - v1);
 
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
@@ -45,11 +45,11 @@ void rmse_comparison(fk::vector<P, mem> const &v0,
   REQUIRE((diff_norm / max) < (tolerance * std::sqrt(v0.size())));
 }
 
-template<typename P, mem_type mem, mem_type omem>
-void rmse_comparison(fk::matrix<P, mem> const &m0,
-                     fk::matrix<P, omem> const &m1, P const tolerance)
+template<typename P, asgard::mem_type mem, asgard::mem_type omem>
+void rmse_comparison(asgard::fk::matrix<P, mem> const &m0,
+                     asgard::fk::matrix<P, omem> const &m1, P const tolerance)
 {
-  auto const diff_norm = fm::frobenius(m0 - m1);
+  auto const diff_norm = asgard::fm::frobenius(m0 - m1);
 
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
@@ -96,28 +96,32 @@ void compare_2d_vectors(std::vector<std::vector<P>> a,
 }
 
 template<typename P>
-fk::vector<P> default_initial_condition(fk::vector<P> const vect)
+asgard::fk::vector<P>
+default_initial_condition(asgard::fk::vector<P> const vect)
 {
   return vect;
 }
 
 template<typename P>
-dimension<P> make_dummy_dim(
-    int const level = 0, int const degree = 0, P const domain_min = 0.0,
-    P const domain_max                     = 0.0,
-    boundary_condition const left          = boundary_condition::periodic,
-    boundary_condition const right         = boundary_condition::periodic,
-    vector_func<P> const initial_condition = default_initial_condition<P>,
-    std::string const name                 = "")
+asgard::dimension<P>
+make_dummy_dim(int const level = 0, int const degree = 0,
+               P const domain_min = 0.0, P const domain_max = 0.0,
+               asgard::boundary_condition const left =
+                   asgard::boundary_condition::periodic,
+               asgard::boundary_condition const right =
+                   asgard::boundary_condition::periodic,
+               asgard::vector_func<P> const initial_condition =
+                   default_initial_condition<P>,
+               std::string const name = "")
 {
-  return dimension<P>(left, right, domain_min, domain_max, level, degree,
-                      initial_condition, name);
+  return asgard::dimension<P>(left, right, domain_min, domain_max, level,
+                              degree, initial_condition, name);
 }
 
 // WARNING for tests only!
 // features rely on options, parser, and PDE constructed w/ same arguments
-options make_options(std::vector<std::string> const arguments);
-parser make_parser(std::vector<std::string> const arguments);
+asgard::options make_options(std::vector<std::string> const arguments);
+asgard::parser make_parser(std::vector<std::string> const arguments);
 
 template<typename T>
 std::string to_string_with_precision(T const a_value, int const precision = 6)

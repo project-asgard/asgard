@@ -9,6 +9,8 @@
 #include <cmath>
 #include <numeric>
 
+namespace asgard
+{
 //
 // set the range specified by first and last,
 // starting with the supplied value and incrementing
@@ -283,3 +285,4 @@ combine_dimensions(int const, elements::table const &, int const, int const,
 template fk::vector<float>
 combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
+} // namespace asgard

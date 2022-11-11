@@ -8,7 +8,7 @@
 #include <numeric>
 #include <vector>
 
-namespace permutations
+namespace asgard::permutations
 {
 // Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and their sum <= 'limit'. Each
@@ -196,4 +196,4 @@ fk::matrix<int> get_leq_max_indices(list_set const &lists, int const num_dims,
   return result;
 }
 
-} // end namespace permutations
+} // end namespace asgard::permutations

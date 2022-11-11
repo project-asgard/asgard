@@ -4,6 +4,8 @@
 #include <random>
 #include <sstream>
 
+using namespace asgard;
+
 // function that does nothing productive, but takes some time...
 // for testing the timer
 double shuffle_random(int const num_items)

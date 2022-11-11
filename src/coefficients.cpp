@@ -10,6 +10,8 @@
 #include "transformations.hpp"
 #include <numeric>
 
+namespace asgard
+{
 // generate coefficient matrices for each 1D term in each dimension and
 // underlying partial term coefficients matrices
 template<typename P>
@@ -453,3 +455,4 @@ template void generate_dimension_mass_mat<float>(
 template void generate_dimension_mass_mat<double>(
     PDE<double> &pde,
     basis::wavelet_transform<double, resource::host> const &transformer);
+} // namespace asgard
