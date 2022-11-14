@@ -7,6 +7,8 @@
 #include <numeric>
 #include <random>
 
+using namespace asgard;
+
 // FIXME name etc.
 template<typename P, resource resrc>
 void test_kron(

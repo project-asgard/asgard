@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <vector>
 
+namespace asgard
+{
 template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree);
 
@@ -69,3 +71,4 @@ private:
 };
 
 } // namespace basis
+} // namespace asgard

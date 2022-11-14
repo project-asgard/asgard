@@ -2,6 +2,8 @@
 #include "distribution.hpp"
 #include "tests_general.hpp"
 
+using namespace asgard;
+
 int main(int argc, char *argv[])
 {
   initialize_distribution();

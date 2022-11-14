@@ -5,6 +5,8 @@
 #include "kronmult_cuda.hpp"
 #include "tests_general.hpp"
 
+using namespace asgard;
+
 template<typename P>
 void test_kronmult_staging(int const num_elems, int const num_copies)
 {

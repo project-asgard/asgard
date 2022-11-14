@@ -15,6 +15,8 @@
 #include "../tools.hpp"
 #include "pde_base.hpp"
 
+namespace asgard
+{
 // ---------------------------------------------------------------------------
 // Full PDE from the 2D runaway electron paper
 //
@@ -844,3 +846,4 @@ private:
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
   inline static scalar_func<P> const exact_scalar_func_               = {};
 };
+} // namespace asgard

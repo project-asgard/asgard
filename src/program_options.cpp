@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+namespace asgard
+{
 parser::parser(int argc, char **argv)
 {
   bool show_help = false;
@@ -348,3 +350,4 @@ bool options::write_at_step(int const i, int const freq) const
   }
   return false;
 }
+} // namespace asgard

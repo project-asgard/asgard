@@ -5,7 +5,7 @@
 #include "program_options.hpp"
 #include "tensors.hpp"
 
-namespace time_advance
+namespace asgard::time_advance
 {
 enum class method
 {
@@ -33,7 +33,8 @@ explicit_advance(PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
-                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
+                     &unscaled_parts,
                  fk::vector<P> const &x, int const workspace_size_MB,
                  P const time);
 
@@ -42,8 +43,9 @@ fk::vector<P>
 implicit_advance(PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
-                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
+                     &unscaled_parts,
                  fk::vector<P> const &x, P const time, solve_opts const solver,
                  bool const update_system = true);
 
-} // namespace time_advance
+} // namespace asgard::time_advance

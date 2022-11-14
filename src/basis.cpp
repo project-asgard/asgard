@@ -9,6 +9,8 @@
 #include <cmath>
 #include <numeric>
 
+namespace asgard
+{
 // generate_multi_wavelets routine creates wavelet basis (phi_co)
 // then uses these to generate the two-scale coefficients which can be
 // used (outside of this routine) to construct the forward multi-wavelet
@@ -782,3 +784,4 @@ wavelet_transform<float, resource::device>::apply(
     basis::transpose const transform_trans) const;
 
 } // namespace basis
+} // namespace asgard

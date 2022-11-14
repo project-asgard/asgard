@@ -15,7 +15,7 @@
  * with different order and selection criteria.
  */
 
-namespace permutations
+namespace asgard::permutations
 {
 /*!
  * \ingroup permuts
@@ -286,4 +286,4 @@ int count_leq_max_indices(list_set const &lists, int const num_dims,
 fk::matrix<int> get_leq_max_indices(list_set const &lists, int const num_dims,
                                     int const max_sum, int const max_val);
 
-} // end namespace permutations
+} // namespace asgard::permutations

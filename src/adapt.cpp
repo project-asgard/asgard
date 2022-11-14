@@ -4,7 +4,7 @@
 
 #include <unordered_set>
 
-namespace adapt
+namespace asgard::adapt
 {
 static std::map<int64_t, grid_limits>
 remap_for_addtl(int64_t const old_num_elems)
@@ -356,4 +356,4 @@ fk::vector<P> distributed_grid<P>::remove_elements(
 template class distributed_grid<float>;
 template class distributed_grid<double>;
 
-} // namespace adapt
+} // namespace asgard::adapt

@@ -1,6 +1,8 @@
 #include "solver.hpp"
 #include "tests_general.hpp"
 
+using namespace asgard;
+
 TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
 {
   fk::matrix<TestType> const A_gold{

@@ -33,6 +33,8 @@
 #undef expect
 #endif
 
+namespace asgard
+{
 // duplicated code from tools component - need host/device assert compiled
 // separately
 HOST_FUNCTION DEVICE_FUNCTION inline void expect(bool const condition)
@@ -415,3 +417,4 @@ template void call_kronmult(int const n, double *x_ptrs[],
                             double *output_ptrs[], double *work_ptrs[],
                             double const *const operator_ptrs[], int const lda,
                             int const num_krons, int const num_dims);
+} // namespace asgard

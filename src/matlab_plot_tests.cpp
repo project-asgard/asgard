@@ -7,6 +7,8 @@ static auto const matlab_plot_base_dir = gold_base_dir / "matlab_plot";
 
 const static std::string ml_plot_tag("[matlab_plot]");
 
+using namespace asgard;
+
 TEST_CASE("create matlab session", ml_plot_tag)
 {
   ml::matlab_plot ml_plot;

@@ -84,6 +84,10 @@ extern "C"
 
 #endif
 
+namespace asgard::lib_dispatch
+{
+namespace
+{
 struct device_handler
 {
   device_handler()
@@ -119,7 +123,7 @@ struct device_handler
     expect(cublas_success == CUBLAS_STATUS_SUCCESS);
 
 #else
-    ignore(local_rank);
+    asgard::ignore(local_rank);
 #endif
   }
 
@@ -140,16 +144,6 @@ private:
 };
 static device_handler device;
 
-void initialize_libraries(int const local_rank)
-{
-#ifdef ASGARD_USE_CUDA
-  expect(local_rank >= 0);
-  device.set_device(local_rank);
-#else
-  ignore(local_rank);
-#endif
-}
-
 #ifdef ASGARD_USE_CUDA
 inline cublasOperation_t cublas_trans(char trans)
 {
@@ -163,9 +157,18 @@ inline cublasOperation_t cublas_trans(char trans)
   }
 }
 #endif
+} // namespace
 
-namespace lib_dispatch
+void initialize_libraries(int const local_rank)
 {
+#ifdef ASGARD_USE_CUDA
+  expect(local_rank >= 0);
+  device.set_device(local_rank);
+#else
+  asgard::ignore(local_rank);
+#endif
+}
+
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s, resource const resrc)
 {
@@ -1214,4 +1217,4 @@ template void scalapack_getrs(char *trans, int *n, int *nrhs, float *A,
                               int *descA, int *ipiv, float *b, int *descB,
                               int *info);
 #endif
-} // namespace lib_dispatch
+} // namespace asgard::lib_dispatch

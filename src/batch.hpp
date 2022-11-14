@@ -6,6 +6,8 @@
 #include <array>
 #include <numeric>
 
+namespace asgard
+{
 class element_subgrid;
 
 // wrapper around an array of pointers to matrices or
@@ -151,3 +153,4 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          fk::matrix<P> &A);
+} // namespace asgard

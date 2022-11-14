@@ -1,6 +1,8 @@
 #pragma once
 #include "pde_base.hpp"
 
+namespace asgard
+{
 // Example PDE using the 1D Diffusion Equation. This example PDE is
 // time dependent (although not all the terms are time dependent). This
 // implies the need for an initial condition.
@@ -183,3 +185,4 @@ private:
     return std::pow(0.25, dim.get_level());
   }
 };
+}; // namespace asgard

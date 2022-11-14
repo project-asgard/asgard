@@ -17,6 +17,8 @@ extern "C"
 }
 #endif
 
+namespace asgard
+{
 #ifdef ASGARD_USE_MPI
 struct distribution_handler
 {
@@ -152,7 +154,7 @@ std::array<int, 2> initialize_distribution()
   if (effective_communicator != MPI_COMM_NULL)
   {
     distro_handle.set_global_comm(effective_communicator);
-    initialize_libraries(get_local_rank());
+    lib_dispatch::initialize_libraries(get_local_rank());
   }
   else
   {
@@ -1284,3 +1286,4 @@ scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
 template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
                                      int *descA_distr);
 #endif
+} // namespace asgard

@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace elements
+namespace asgard::elements
 {
 // yield single-d linear index for level/cell combo
 int64_t get_1d_index(int const level, int const cell);
@@ -118,4 +118,4 @@ private:
   fk::vector<int, mem_type::owner, resource::device> active_table_d_;
 };
 
-} // end namespace elements
+} // end namespace asgard::elements

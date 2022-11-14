@@ -11,6 +11,8 @@
 #endif
 #include <limits.h>
 
+namespace asgard
+{
 // utilized as the primary data structure for other functions
 // within this component.
 template<typename P, resource resrc>
@@ -849,3 +851,4 @@ template batch_chain<double, resource::device, chain_method::realspace>::
         std::array<fk::vector<double, mem_type::view, resource::device>, 2>
             &workspace,
         fk::vector<double, mem_type::view, resource::device> &final_output);
+} // namespace asgard

@@ -1,6 +1,8 @@
 #pragma once
 #include "pde_base.hpp"
 
+namespace asgard
+{
 // Example PDE using the 2D (1x-1y) Heat Equation. This example PDE is
 // time dependent (although not all the terms are time dependent). This
 // implies the need for an initial condition.
@@ -153,3 +155,4 @@ private:
   /* problem contains no sources */
   inline static std::vector<source<P>> const sources_ = {};
 };
+} // namespace asgard

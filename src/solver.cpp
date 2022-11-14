@@ -2,7 +2,7 @@
 #include "fast_math.hpp"
 #include "tools.hpp"
 
-namespace solver
+namespace asgard::solver
 {
 // simple, node-local test version
 template<typename P>
@@ -174,4 +174,4 @@ template double simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
                              fk::matrix<double> const &M, int const restart,
                              int const max_iter, double const tolerance);
 
-} // namespace solver
+} // namespace asgard::solver

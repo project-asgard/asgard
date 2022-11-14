@@ -10,7 +10,7 @@
 // simple profiling object
 // this is NOT thread safe for now - only one thread should be calling class
 // funcs at a time, if we need this, just need to wrap map access with locks
-namespace tools
+namespace asgard::tools
 {
 #ifndef NDEBUG
 #define expect(cond) assert(cond)
@@ -91,4 +91,4 @@ private:
 
 extern simple_timer timer;
 
-} // namespace tools
+} // namespace asgard::tools

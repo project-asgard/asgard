@@ -10,7 +10,7 @@
 // this component is designed to interface with E. D'Azevedo's
 // kronmult library (in contrib, built as dependency).
 
-namespace kronmult
+namespace asgard::kronmult
 {
 // execute one subgrid by breaking into smaller subgrids to
 // fit workspace limit MB
@@ -21,4 +21,4 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x);
 
-} // namespace kronmult
+} // namespace asgard::kronmult

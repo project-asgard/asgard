@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace elements
+namespace asgard::elements
 {
 // map number of dimensions to max supported level
 // FIXME these limits are created by mapping element
@@ -364,4 +364,4 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
 template table::table(options const &program_opts, PDE<float> const &pde);
 template table::table(options const &program_opts, PDE<double> const &pde);
 
-} // namespace elements
+} // namespace asgard::elements

@@ -8,6 +8,8 @@
 
 static auto const transformations_base_dir = gold_base_dir / "transformations";
 
+using namespace asgard;
+
 struct distribution_test_init
 {
   distribution_test_init() { initialize_distribution(); }

@@ -6,6 +6,9 @@
 #include <array>
 #include <cmath>
 #include <functional>
+
+namespace asgard
+{
 // Evaluate Legendre polynomials on an input domain, trimmed to [-1,1]
 // Virtually a direct translation of Ed's dlegendre2.m code
 //
@@ -369,3 +372,4 @@ legendre_weights(int const degree, float const lower_bound,
 template std::array<fk::vector<double>, 2>
 legendre_weights(int const degree, double const lower_bound,
                  double const upper_bound, bool const use_degree_points);
+} // namespace asgard

@@ -10,6 +10,7 @@ profiling/perf_predict/internal_data
 # ignore vscode
 .vscode
 .cache
+.clangd
 
 # ignore some of contrib
 contrib/CATCH2

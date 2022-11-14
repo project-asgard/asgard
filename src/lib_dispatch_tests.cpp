@@ -3,6 +3,8 @@
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
+using namespace asgard;
+
 // in general, these component tests are only applied to functions
 // with non-blas call paths to support integer operations.
 //

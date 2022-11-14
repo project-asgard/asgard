@@ -7,6 +7,8 @@
 #include <iostream>
 #include <string>
 
+using namespace asgard;
+
 struct distribution_test_init
 {
   distribution_test_init() { initialize_distribution(); }

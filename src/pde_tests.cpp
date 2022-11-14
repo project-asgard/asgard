@@ -8,6 +8,8 @@ static auto const pde_eps_multiplier = 1e2;
 
 static auto const pde_base_dir = gold_base_dir / "pde";
 
+using namespace asgard;
+
 template<typename P>
 void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
                             fk::vector<P> const &x)

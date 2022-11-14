@@ -12,6 +12,8 @@
 #include <map>
 #include <vector>
 
+namespace asgard
+{
 // simple struct for representing a range within the element grid
 struct grid_limits
 {
@@ -350,3 +352,4 @@ void scatter(fk::vector<P, amem> &A, fk::scalapack_vector_info &ainfo,
                  descAinfo.get_desc());
 }
 #endif
+} // namespace asgard

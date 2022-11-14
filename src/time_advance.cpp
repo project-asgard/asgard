@@ -13,7 +13,7 @@
 #endif
 #include <climits>
 
-namespace time_advance
+namespace asgard::time_advance
 {
 template<typename P>
 static fk::vector<P>
@@ -120,7 +120,8 @@ explicit_advance(PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
-                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
+                     &unscaled_parts,
                  fk::vector<P> const &x_orig, int const workspace_size_MB,
                  P const time)
 {
@@ -250,7 +251,8 @@ fk::vector<P>
 implicit_advance(PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
-                 std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+                 std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
+                     &unscaled_parts,
                  fk::vector<P> const &x_orig, P const time,
                  solve_opts const solver, bool const update_system)
 {
@@ -405,7 +407,8 @@ template fk::vector<double> explicit_advance(
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,
-    std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
+    std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
+        &unscaled_parts,
     fk::vector<double> const &x, int const workspace_size_MB,
     double const time);
 
@@ -413,22 +416,25 @@ template fk::vector<float> explicit_advance(
     PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
     options const &program_opts,
-    std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
+    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
+        &unscaled_parts,
     fk::vector<float> const &x, int const workspace_size_MB, float const time);
 
 template fk::vector<double> implicit_advance(
     PDE<double> const &pde,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
+    std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
+        &unscaled_parts,
     fk::vector<double> const &host_space, double const time,
     solve_opts const solver, bool const update_system);
 
 template fk::vector<float> implicit_advance(
     PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
+    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
+        &unscaled_parts,
     fk::vector<float> const &x, float const time, solve_opts const solver,
     bool const update_system);
 
-} // namespace time_advance
+} // namespace asgard::time_advance

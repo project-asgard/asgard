@@ -1,7 +1,7 @@
 #pragma once
 #include "scalapack_matrix_info.hpp"
 
-namespace fk
+namespace asgard::fk
 {
 class scalapack_vector_info
 {
@@ -21,4 +21,4 @@ public:
 private:
   scalapack_matrix_info info_;
 };
-} // namespace fk
+} // namespace asgard::fk

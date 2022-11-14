@@ -8,6 +8,8 @@
 
 #include "matlab_utilities.hpp"
 
+using namespace asgard;
+
 // note using widening conversions to floating point type in order to use same
 // tests for integer type
 // FIXME look for another way to do this

@@ -12,6 +12,8 @@
 #include "../tensors.hpp"
 #include "pde_base.hpp"
 
+namespace asgard
+{
 // ---------------------------------------------------------------------------
 //
 // The "continuity 1d" PDE
@@ -202,3 +204,4 @@ private:
 
   inline static scalar_func<P> const exact_scalar_func_ = exact_time;
 };
+} // namespace asgard
