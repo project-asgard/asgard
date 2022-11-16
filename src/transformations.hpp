@@ -168,8 +168,8 @@ inline fk::vector<P> transform_and_combine_dimensions(
         dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
     int const n = dimension_components.back().size();
     std::vector<int> ipiv(n);
-    fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
-                                                       n - 1, 0, n - 1);
+    fk::matrix<P, mem_type::const_view> lhs_mass(dim.get_mass_matrix(), 0,
+                                                 n - 1, 0, n - 1);
     expect(lhs_mass.nrows() == n);
     expect(lhs_mass.ncols() == n);
     fm::gesv(lhs_mass, dimension_components.back(), ipiv);

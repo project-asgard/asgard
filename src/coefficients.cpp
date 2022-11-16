@@ -46,16 +46,17 @@ void generate_all_coefficients(
 
         // precompute inv(mass) * coeff for each level up to max level
         std::vector<fk::matrix<P>> pterm_coeffs;
+        std::vector<int> ipiv(dim.get_degree() *
+                              fm::two_raised_to(pde.max_level));
         for (int level = 0; level <= pde.max_level; ++level)
         {
           auto const dof = dim.get_degree() * fm::two_raised_to(level);
-          fk::matrix<P> result(dof, dof);
-          auto mass_tmp = mass_coeff.extract_submatrix(0, 0, dof, dof);
+          auto mass_tmp  = mass_coeff.extract_submatrix(0, 0, dof, dof);
 
-          auto pterm_coeff = generate_coefficients<P>(
+          auto result = generate_coefficients<P>(
               dim, partial_terms[k], transformer, level, time, rotate);
 
-          fm::gemm(mass_tmp.invert(), pterm_coeff, result);
+          fm::gesv(mass_tmp, result, ipiv);
           pterm_coeffs.emplace_back(std::move(result));
         }
 

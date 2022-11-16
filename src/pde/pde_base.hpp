@@ -230,16 +230,13 @@ public:
     coefficients_.clear();
 
     // precompute inv(mass) * coeff for each level up to max level
+    std::vector<int> ipiv(deg * fm::two_raised_to(max_level));
     for (int level = 0; level <= max_level; ++level)
     {
       auto const dof = deg * fm::two_raised_to(level);
-      fk::matrix<P> result(dof, dof);
+      fk::matrix<P> result(new_coefficients, 0, dof - 1, 0, dof - 1);
       auto mass_tmp = mass_.extract_submatrix(0, 0, dof, dof);
-
-      fm::gemm(mass_tmp.invert(),
-               fk::matrix<P, mem_type::const_view>(new_coefficients, 0, dof - 1,
-                                                   0, dof - 1),
-               result);
+      fm::gesv(mass_tmp, result, ipiv);
       coefficients_.push_back(std::move(result));
     }
   }

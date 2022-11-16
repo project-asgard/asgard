@@ -799,7 +799,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
 
   SECTION("gesv and getrs")
   {
-    fk::matrix<TestType> const A_copy = A_gold;
+    fk::matrix<TestType> A_copy = A_gold;
     std::vector<int> ipiv(A_copy.nrows());
     fk::vector<TestType> x = B_gold;
 
@@ -812,6 +812,13 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
     x = B1_gold;
     fm::getrs(A_copy, x, ipiv);
     rmse_comparison(x, X1_gold, tol_factor);
+
+    // RHS may also be a fk::matrix
+    A_copy = A_gold;
+    fk::matrix<TestType> x_mat({{B_gold[0]}, {B_gold[1]}, {B_gold[2]}});
+    fm::gesv(A_copy, x_mat, ipiv);
+    rmse_comparison(A_copy, LU_gold, tol_factor);
+    rmse_comparison(fk::vector<TestType>(x_mat), X_gold, tol_factor);
   }
 
 #ifdef ASGARD_USE_SCALAPACK

@@ -187,11 +187,14 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
   return C;
 }
 
-// gesv - Solve Ax=B using LU decomposition
-// template void gesv( int* n, int* nrhs, float* A, int* lda, int* ipiv,
-//                    float* b, int* ldb, int* info );
+/** gesv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-1 right hand side matrix
+ * \param ipiv pivot indices, size >= max(1, n)
+ */
 template<typename P, mem_type amem, mem_type bmem>
-void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
+void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
           std::vector<int> &ipiv)
 {
   int rows_A = A.nrows();
@@ -202,10 +205,46 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
 
   int rows_ipiv = ipiv.size();
   expect(cols_A == rows_B);
-  expect(rows_ipiv == rows_A);
+  expect(rows_ipiv >= rows_A);
 
   int lda = A.stride();
   int ldb = B.size();
+
+  int info;
+  lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
+                     &ldb, &info);
+  if (info > 0)
+  {
+    std::cout << "The diagonal element of the triangular factor of A,\n";
+    std::cout << "U(" << info << "," << info
+              << ") is zero, so that A is singular;\n";
+    std::cout << "the solution could not be computed.\n";
+    exit(1);
+  }
+}
+
+/** gesv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-nrhs right hand side matrix
+ * \param ipiv pivot indices, size >= max(1, n)
+ */
+template<typename P, mem_type amem, mem_type bmem>
+void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
+          std::vector<int> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.nrows();
+  int cols_B = B.ncols();
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv >= rows_A);
+
+  int lda = A.stride();
+  int ldb = B.stride();
 
   int info;
   lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
@@ -225,7 +264,7 @@ void gesv(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
 // template void gesv( int* n, int* nrhs, float* A, int* lda, int* ipiv,
 //                    float* b, int* ldb, int* info );
 template<typename P, mem_type amem, mem_type bmem>
-void gesv(fk::matrix<P, amem> const &A, fk::scalapack_matrix_info &ainfo,
+void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
           fk::vector<P, bmem> &B, fk::scalapack_vector_info &binfo,
           std::vector<int> &ipiv)
 {
