@@ -302,9 +302,11 @@ std::vector<fk::vector<P>> generate_partial_bcs(
 
     // Apply inverse mat
     std::vector<int> ipiv(degrees_freedom_1d_other);
-    fk::matrix<P, mem_type::const_view> const lhs_mass(
-        terms[dim_num].get_partial_terms()[p_index].get_lhs_mass(), 0,
-        degrees_freedom_1d_other - 1, 0, degrees_freedom_1d_other - 1);
+    auto lhs_mass = terms[dim_num]
+                        .get_partial_terms()[p_index]
+                        .get_lhs_mass()
+                        .extract_submatrix(0, 0, degrees_freedom_1d_other,
+                                           degrees_freedom_1d_other);
     fm::gesv(lhs_mass, partial_bc_vecs.back(), ipiv);
 
     // Apply previous pterms
@@ -328,9 +330,11 @@ std::vector<fk::vector<P>> generate_partial_bcs(
 
   // Apply LHS_mass_mat for this pterm
   std::vector<int> ipiv(degrees_freedom_1d);
-  fk::matrix<P, mem_type::const_view> const lhs_mass(
-      terms[d_index].get_partial_terms()[p_index].get_lhs_mass(), 0,
-      degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
+  auto lhs_mass =
+      terms[d_index]
+          .get_partial_terms()[p_index]
+          .get_lhs_mass()
+          .extract_submatrix(0, 0, degrees_freedom_1d, degrees_freedom_1d);
   fm::gesv(lhs_mass, partial_bc_vecs[d_index], ipiv);
 
   for (int p = 0; p < p_index; ++p)

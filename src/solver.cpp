@@ -123,8 +123,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 
       if (error <= tolerance)
       {
-        auto const proj =
-            fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
+        auto proj = fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
         std::vector<int> pivots(i + 1);
 
         auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, i);
@@ -141,9 +140,9 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
       done(error, it, i);
       return error; // all done!
     }
-    auto const proj = fk::matrix<P, mem_type::view>(krylov_proj, 0, restart - 1,
-                                                    0, restart - 1);
-    auto s_view     = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
+    auto proj   = fk::matrix<P, mem_type::view>(krylov_proj, 0, restart - 1, 0,
+                                              restart - 1);
+    auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
     std::vector<int> pivots(restart);
     fm::gesv(proj, s_view, pivots);
     x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
