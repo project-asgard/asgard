@@ -175,6 +175,42 @@ inline fk::vector<P> transform_and_combine_dimensions(
 }
 
 template<typename P>
+inline fk::vector<P> transform_and_combine_dimensions(
+    std::vector<dimension<P>> const &dims,
+    std::vector<vector_func<P>> const &v_functions,
+    elements::table const &table,
+    basis::wavelet_transform<P,
+    resource::host> const &transformer,
+    int const start, int const stop, int const degree, P const time = 0.0,
+    P const time_multiplier = 1.0)
+{
+  expect(static_cast<int>(v_functions.size()) == dims.size());
+  expect(start <= stop);
+  expect(stop < table.size());
+  expect(degree > 0);
+
+  std::vector<fk::vector<P>> dimension_components;
+  dimension_components.reserve(dims.size());
+
+  for (int i = 0; i < dims.size(); ++i)
+  {
+    auto const &dim = dims[i];
+    dimension_components.push_back(forward_transform<P>(
+        dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
+    int const n = dimension_components.back().size();
+    std::vector<int> ipiv(n);
+    fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
+                                                       n - 1, 0, n - 1);
+    expect(lhs_mass.nrows() == n);
+    expect(lhs_mass.ncols() == n);
+    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
+  }
+
+  return combine_dimensions(degree, table, start, stop, dimension_components,
+                            time_multiplier);
+}
+
+template<typename P>
 inline int real_solution_size(PDE<P> const &pde)
 {
   /* determine the length of the realspace solution */
