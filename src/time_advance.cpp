@@ -394,7 +394,8 @@ template<typename P>
 fk::vector<P>
 imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
-             std::array<unscaled_bc_parts<P>, 2> const &unscaled_parts,
+             std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
+                 &unscaled_parts,
              fk::vector<P> const &x_orig, P const time, solve_opts const solver,
              bool const update_system)
 {
@@ -417,6 +418,13 @@ imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
   int const A_local_cols = elem_size * grid.ncols();
 
   // TODO: get moment matrices
+  // TODO: placeholder - implementation WIP in future PR
+  ignore(dt);
+  ignore(ipiv);
+  ignore(unscaled_parts);
+  ignore(solver);
+  ignore(time);
+  ignore(transformer);
 
   if (first_time || update_system)
   {
@@ -425,8 +433,7 @@ imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
     A.clear_and_resize(A_local_rows, A_local_cols);
     build_system_matrix(pde, table, A, grid);
   }
-
-  return x;
+  return x_orig;
 }
 
 template fk::vector<double> adaptive_advance(
@@ -482,7 +489,8 @@ template fk::vector<double> imex_advance(
     PDE<double> const &pde,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
-    std::array<unscaled_bc_parts<double>, 2> const &unscaled_parts,
+    std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
+        &unscaled_parts,
     fk::vector<double> const &x_orig, double const time,
     solve_opts const solver, bool const update_system);
 
@@ -490,7 +498,8 @@ template fk::vector<float>
 imex_advance(PDE<float> const &pde,
              adapt::distributed_grid<float> const &adaptive_grid,
              basis::wavelet_transform<float, resource::host> const &transformer,
-             std::array<unscaled_bc_parts<float>, 2> const &unscaled_parts,
+             std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
+                 &unscaled_parts,
              fk::vector<float> const &x_orig, float const time,
              solve_opts const solver, bool const update_system);
 

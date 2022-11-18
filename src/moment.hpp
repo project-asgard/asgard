@@ -1,7 +1,10 @@
 #pragma once
 
+namespace asgard
+{
 template<typename P>
 class PDE;
+}
 
 #include "elements.hpp"
 #include "pde/pde_base.hpp"
@@ -9,6 +12,8 @@ class PDE;
 #include "tensors.hpp"
 #include <vector>
 
+namespace asgard
+{
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 
@@ -43,3 +48,5 @@ private:
   // moment_fval_integral;
   // moment_analytic_integral;
 };
+
+} // namespace asgard

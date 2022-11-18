@@ -1,6 +1,8 @@
 #pragma once
 #include "pde_base.hpp"
 
+namespace asgard
+{
 // 2D test case using continuity equation, i.e.,
 //
 //  df/dt == -v*\grad_x f + div_v( (v-u)f + theta\grad_v f)
@@ -417,3 +419,5 @@ private:
   /* problem contains no sources */
   inline static std::vector<source<P>> const sources_ = {};
 };
+
+} // namespace asgard

@@ -2,6 +2,8 @@
 #include "elements.hpp"
 #include "transformations.hpp"
 
+namespace asgard
+{
 template<typename P>
 moment<P>::moment(std::vector<md_func_type<P>> md_funcs_)
     : md_funcs(std::move(md_funcs_))
@@ -130,3 +132,5 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
 
 template class moment<float>;
 template class moment<double>;
+
+} // namespace asgard
