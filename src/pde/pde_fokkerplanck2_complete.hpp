@@ -360,11 +360,11 @@ private:
   inline static P const p_domain_min = 0.0;
   inline static P const p_domain_max = 10.0;
   inline static dimension<P> const dim_p =
-      dimension<P>(p_domain_min,          // domain min
-                   p_domain_max,          // domain max
-                   2,                     // levels
-                   2,                     // degree
-                   {initial_condition_p}, // initial condition
+      dimension<P>(p_domain_min,        // domain min
+                   p_domain_max,        // domain max
+                   2,                   // levels
+                   2,                   // degree
+                   initial_condition_p, // initial condition
                    volume_jacobian_dV_p,
                    "p"); // name
 
@@ -372,11 +372,11 @@ private:
   inline static P const z_domain_min = -1;
   inline static P const z_domain_max = 1;
   inline static dimension<P> const dim_z =
-      dimension<P>(z_domain_min,          // domain min
-                   z_domain_max,          // domain max
-                   2,                     // levels
-                   2,                     // degree
-                   {initial_condition_z}, // initial condition
+      dimension<P>(z_domain_min,        // domain min
+                   z_domain_max,        // domain max
+                   2,                   // levels
+                   2,                   // degree
+                   initial_condition_z, // initial condition
                    volume_jacobian_dV_z,
                    "z"); // name
 

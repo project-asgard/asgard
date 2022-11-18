@@ -36,14 +36,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      if (std::abs(x_v) > 0.5)
-      {
-        return 1.0;
-      }
-      else
-      {
-        return 0.0;
-      }
+      return (std::abs(x_v) > 0.5) ? 1.0 : 0.0;
     });
     return fx;
   }
@@ -54,14 +47,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      if (std::abs(x_v) <= 0.5)
-      {
-        return 1.0;
-      }
-      else
-      {
-        return 0.0;
-      }
+      return (std::abs(x_v) <= 0.5) ? 1.0 : 0.0;
     });
     return fx;
   }
@@ -194,11 +180,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    if (x > 0.0)
-    {
-      return x;
-    }
-    return 0.0;
+    return (x > 0.0) ? x : 0.0;
   }
 
   inline static const partial_term<P> e1_pterm_x =
@@ -234,11 +216,7 @@ private:
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    if (x < 0.0)
-    {
-      return x;
-    }
-    return 0.0;
+    return (x < 0.0) ? x : 0.0;
   }
 
   inline static const partial_term<P> e2_pterm_x =

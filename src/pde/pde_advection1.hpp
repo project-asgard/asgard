@@ -115,9 +115,9 @@ private:
       M_PI, // domain max
       4,    // levels - default (changed on command line with option -l)
       3,    // degree - default (changed on command line with option -d)
-      {initial_condition_dim0}, // initial condition function
-      jacobian_dim0,            // volume
-      "x"                       // name of dimension
+      initial_condition_dim0, // initial condition function
+      jacobian_dim0,          // volume
+      "x"                     // name of dimension
   );
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};

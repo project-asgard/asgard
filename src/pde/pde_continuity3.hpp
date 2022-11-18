@@ -273,29 +273,29 @@ private:
 
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(-1.0,                     // domain min
-                   1.0,                      // domain max
-                   2,                        // levels
-                   5,                        // degree
-                   {initial_condition_dim0}, // initial condition
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   5,                      // degree
+                   initial_condition_dim0, // initial condition
                    volume_jacobian_dV,
                    "x"); // name
 
   inline static dimension<P> const dim1_ =
-      dimension<P>(-2.0,                     // domain min
-                   2.0,                      // domain max
-                   2,                        // levels
-                   4,                        // degree
-                   {initial_condition_dim1}, // initial condition
+      dimension<P>(-2.0,                   // domain min
+                   2.0,                    // domain max
+                   2,                      // levels
+                   4,                      // degree
+                   initial_condition_dim1, // initial condition
                    volume_jacobian_dV,
                    "y"); // name
 
   inline static dimension<P> const dim2_ =
-      dimension<P>(-3.0,                     // domain min
-                   3.0,                      // domain max
-                   2,                        // levels
-                   3,                        // degree
-                   {initial_condition_dim2}, // initial condition
+      dimension<P>(-3.0,                   // domain min
+                   3.0,                    // domain max
+                   2,                      // levels
+                   3,                      // degree
+                   initial_condition_dim2, // initial condition
                    volume_jacobian_dV,
                    "z"); // name
 

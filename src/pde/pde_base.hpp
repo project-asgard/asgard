@@ -90,6 +90,16 @@ public:
   g_func_type<P> const volume_jacobian_dV;
   std::string const name;
   dimension(P const d_min, P const d_max, int const level, int const degree,
+            vector_func<P> const initial_condition_in,
+            g_func_type<P> const volume_jacobian_dV_in,
+            std::string const name_in)
+
+      : dimension(d_min, d_max, level, degree,
+                  std::vector<vector_func<P>>({initial_condition_in}),
+                  volume_jacobian_dV_in, name_in)
+  {}
+
+  dimension(P const d_min, P const d_max, int const level, int const degree,
             std::vector<vector_func<P>> const initial_condition_in,
             g_func_type<P> const volume_jacobian_dV_in,
             std::string const name_in)
