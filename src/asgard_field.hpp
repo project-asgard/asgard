@@ -120,33 +120,47 @@ struct dimension_set {
 template<typename precision>
 struct field_description
 {
-  field_description(std::string const dimension,
+  field_description(std::string const &dimension_name,
                     vector_func<precision> const initial_condition,
                     vector_func<precision> const exact_solution,
                     g_func_type<precision> const volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
-                    std::string const field_name
+                    std::string const &field_name
                     )
-    : field_description(std::vector<std::string>{dimension}, {initial_condition}, {exact_solution}, {volume_jacobian_dV_in}, field_name)
+    : field_description(std::vector<std::string>{dimension_name}, {initial_condition}, {exact_solution}, {volume_jacobian_dV_in}, field_name)
     {}
 
-  field_description(std::vector<std::string> const dimensions,
-                    std::vector<vector_func<precision>> const initial_conditions,
-                    std::vector<vector_func<precision>> const exact_solution,
-                    std::vector<g_func_type<precision>> const volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
-                    std::string const field_name
+  field_description(std::vector<std::string> const &dimension_names,
+                    std::vector<vector_func<precision>> const &initial_conditions,
+                    std::vector<vector_func<precision>> const &exact_solution,
+                    std::vector<g_func_type<precision>> const &volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
+                    std::string const &field_name
                     )
-      : d_names(dimensions),
-        init_cond(initial_conditions), exact(exact_solution),
-        jacobian(volume_jacobian_dV_in), name(field_name)
+      // the const-ref constructor copies and calls the r-value constructor
+      : field_description(std::vector<std::string>(dimension_names),
+                          std::vector<vector_func<precision>>(initial_conditions),
+                          std::vector<vector_func<precision>>(exact_solution),
+                          std::vector<g_func_type<precision>>(volume_jacobian_dV_in),
+                          std::string(field_name))
+  {}
+
+  field_description(std::vector<std::string> &&dimensions,
+                    std::vector<vector_func<precision>> &&initial_conditions,
+                    std::vector<vector_func<precision>> &&exact_solution,
+                    std::vector<g_func_type<precision>> &&volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
+                    std::string &&field_name
+                    )
+      : d_names(std::move(dimensions)),
+        init_cond(std::move(initial_conditions)), exact(std::move(exact_solution)),
+        jacobian(std::move(volume_jacobian_dV_in)), name(std::move(field_name))
   {
     static_assert(std::is_same<precision, float>::value
                   or std::is_same<precision, double>::value,
                   "ASGARD supports only float and double as template parameters for precision.");
 
-    expect(dimensions.size() > 0);
-    expect(dimensions.size() == initial_conditions.size());
-    expect(exact_solution.size() == 0 or dimensions.size() == initial_conditions.size());
-    expect(dimensions.size() == volume_jacobian_dV_in.size());
+    expect(d_names.size() > 0);
+    expect(d_names.size() == init_cond.size());
+    expect(exact.size() == 0 or d_names.size() == init_cond.size());
+    expect(d_names.size() == jacobian.size());
     verify_unique_strings(d_names);
   }
 

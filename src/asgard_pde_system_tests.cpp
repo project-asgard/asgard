@@ -51,7 +51,10 @@ int main(int argc, char *argv[])
   physics.add_field({"x", ic_x, ic_x, vol_jac_dV, "projected to 1d"});
   physics.add_field({{"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, {vol_jac_dV, vol_jac_dV}, "position"});
   physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
-  physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
+  try {
+    physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
+    return 1; // should not be reached, the line above should trow
+  }catch(std::runtime_error &e){}
   physics.add_field({{"x", "y", "vx", "vy"},
                     {ic_x, ic_y, ic_vel, ic_vel},
                     {ic_x, ic_y, ic_vel, ic_vel},

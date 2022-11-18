@@ -18,9 +18,12 @@ public:
     expect(dimensions.size() > 0);
   }
 
-  void add_field(field_description<precision> const f)
+  void add_field(field_description<precision> const description)
   {
-    fields.push_back(field<precision>(dims, f));
+    for(auto const &f : fields)
+      if (f.name == description.name)
+        throw std::runtime_error(description.name + " is an existing field name, add_field() already called for a field with that name.");
+    fields.push_back(field<precision>(dims, description));
   }
 
   // TODO: will work with operators similar to field
