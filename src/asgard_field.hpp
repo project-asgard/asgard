@@ -1,5 +1,7 @@
 #pragma once
 
+#include "adapt.hpp"
+#include "transformations.hpp"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -209,6 +211,33 @@ public:
 private:
   std::vector<dimension<precision>> dims;
   std::vector<vector_func<precision>> exact_solution;
+  //  std::vector<vector_func<precision>> initial_condition;
 };
+
+template<typename P>
+static fk::vector<P>
+eval_md_func(int const degree,
+	     std::vector<dimension<P>> const &dims,
+	     std::vector<std::vector<vector_func<P>>> const &md_funcs,
+	     adapt::distributed_grid<P> const &grid,
+	     basis::wavelet_transform<P,
+	     resource::host> const &transformer,
+	     P const time
+	     )
+{
+  auto const my_subgrid = grid.get_subgrid(get_rank());
+  // FIXME assume uniform degree
+  auto const dof    = std::pow(degree, dims.size()) * my_subgrid.nrows();
+  fk::vector<P> coeffs(dof);
+  for (int i = 0; i<md_funcs.size(); ++i)
+  {
+    auto const coeff_vect = transform_and_combine_dimensions(
+        dims, md_funcs[i], grid.get_table(), transformer,
+        my_subgrid.row_start, my_subgrid.row_stop, degree, time,
+        1.0); // TODO: Add time function to last argument
+    fm::axpy(coeff_vect, coeffs);
+  }
+  return coeffs;
+}
 
 }
