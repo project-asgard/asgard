@@ -14,7 +14,7 @@
 #include <Accelerate/Accelerate.h>
 #else
 #ifdef ASGARD_MKL
-#include <mkl/mkl_cblas.h>
+#include <mkl_cblas.h>
 #else
 #include <cblas.h>
 #endif
