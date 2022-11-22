@@ -5,6 +5,8 @@
 #include "pde.hpp"
 #include "program_options.hpp"
 
+//#include "asgard_pde_system.hpp"
+
 namespace asgard::adapt
 {
 // this class bundles
@@ -37,13 +39,19 @@ template<typename P>
 class distributed_grid
 {
 public:
-  distributed_grid(PDE<P> const &pde, options const &cli_options);
+  distributed_grid(std::vector<dimension<P>> const &dims, options const &cli_options);
+
+  distributed_grid(PDE<P> const &pde, options const &cli_options) : distributed_grid(pde.get_dimensions(), cli_options){}
 
   // driver routines
   fk::vector<P> get_initial_condition(
       PDE<P> &pde,
       basis::wavelet_transform<P, resource::host> const &transformer,
       options const &cli_opts);
+
+  fk::vector<P> get_initial_condition(
+    std::vector<dimension<P>> &dims, bool has_exact, basis::wavelet_transform<P, resource::host> const &transformer,
+    options const &cli_opts);
 
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
                                  options const &cli_opts);

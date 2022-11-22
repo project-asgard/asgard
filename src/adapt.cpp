@@ -106,9 +106,9 @@ static void update_levels(elements::table const &adapted_table, PDE<P> &pde,
 }
 
 template<typename P>
-distributed_grid<P>::distributed_grid(PDE<P> const &pde,
+distributed_grid<P>::distributed_grid(std::vector<dimension<P>> const &dims,
                                       options const &cli_opts)
-    : table_(cli_opts, pde)
+    : table_(cli_opts, dims)
 {
   plan_ = get_plan(get_num_ranks(), table_);
 }
@@ -186,6 +186,33 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 
   // reproject
   return initial_unref();
+}
+
+template<typename P>
+fk::vector<P> distributed_grid<P>::get_initial_condition(
+    std::vector<dimension<P>> const &dims,
+    bool has_exact,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    options const &cli_opts)
+{
+  // get unrefined condition
+  std::vector<vector_func<P>> v_functions;
+  for (auto const &dim : dims)
+  {
+    v_functions.push_back(dim.initial_condition);
+  }
+  P const time             = 0;
+  auto const initial_unref = [this, &v_functions, &dims, &transformer, time]() {
+    auto const subgrid = this->get_subgrid(get_rank());
+    // TODO temp add scalar time func to initial conditions with multi-D func PR
+//    auto const mult =
+//        has_exact ? pde.exact_time(time) : static_cast<P>(1.0);
+    return transform_and_combine_dimensions(
+        dims, v_functions, this->get_table(), transformer, subgrid.col_start,
+        subgrid.col_stop, dims[0].get_degree(), time, static_cast<P>(1.0));
+  }();
+
+  return initial_unref;
 }
 
 template<typename P>

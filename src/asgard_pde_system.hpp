@@ -9,7 +9,7 @@ template<typename precision>
 class pde_system {
 public:
   pde_system(parser const &cli_input, std::vector<dimension_description<precision>> const dimensions)
-    : dims(cli_input, dimensions)
+    : cli(cli_input), dims(cli, dimensions)
   {
     static_assert(std::is_same<precision, float>::value
                   or std::is_same<precision, double>::value,
@@ -31,9 +31,19 @@ public:
   // we can just cross-reference the names of fields in the operator with the names in the fields vector
   void add_operator(){}
 
+  void finalize_fields() {
+    // TODO check for matching grids to use, relate grid-to-field and field-to-grid
+    grids.reserve(fields.size());
+    for(auto const &f : fields) {
+      grids.push_back(std::make_unique<adapt::distributed_grid<precision>>(f.get_dimensions(), cli));
+    }
+  }
+
 private:
+  parser const &cli;
   dimension_set<precision> dims;
   std::vector<field<precision>> fields;
+  std::vector<std::unique_ptr< adapt::distributed_grid<precision>> > grids;
 };
 
 }

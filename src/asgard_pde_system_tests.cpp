@@ -61,5 +61,7 @@ int main(int argc, char *argv[])
                     {vol_jac_dV, vol_jac_dV, vol_jac_dV, vol_jac_dV},
                     "mixed-field"});
 
+  physics.finalize_fields();
+
   return 0;
 }
