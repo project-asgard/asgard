@@ -184,7 +184,7 @@ inline fk::vector<P> transform_and_combine_dimensions(
     int const start, int const stop, int const degree, P const time = 0.0,
     P const time_multiplier = 1.0)
 {
-  expect(static_cast<int>(v_functions.size()) == dims.size());
+  expect(v_functions.size() == dims.size());
   expect(start <= stop);
   expect(stop < table.size());
   expect(degree > 0);
@@ -192,7 +192,7 @@ inline fk::vector<P> transform_and_combine_dimensions(
   std::vector<fk::vector<P>> dimension_components;
   dimension_components.reserve(dims.size());
 
-  for (int i = 0; i < dims.size(); ++i)
+  for (size_t i = 0; i < dims.size(); ++i)
   {
     auto const &dim = dims[i];
     dimension_components.push_back(forward_transform<P>(
@@ -203,7 +203,8 @@ inline fk::vector<P> transform_and_combine_dimensions(
                                                        n - 1, 0, n - 1);
     expect(lhs_mass.nrows() == n);
     expect(lhs_mass.ncols() == n);
-    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
+    fk::matrix<P> mass_copy(lhs_mass);
+    fm::gesv(mass_copy, dimension_components.back(), ipiv);
   }
 
   return combine_dimensions(degree, table, start, stop, dimension_components,

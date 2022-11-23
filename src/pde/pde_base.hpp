@@ -663,8 +663,13 @@ public:
   {
     return dimensions_;
   }
+  std::vector<dimension<P>> &get_dimensions()
+  {
+    return dimensions_;
+  }
 
   term_set<P> const &get_terms() const { return terms_; }
+  term_set<P> &get_terms(){ return terms_; }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const

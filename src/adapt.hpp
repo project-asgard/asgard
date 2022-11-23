@@ -44,13 +44,26 @@ public:
   distributed_grid(PDE<P> const &pde, options const &cli_options) : distributed_grid(pde.get_dimensions(), cli_options){}
 
   // driver routines
-  fk::vector<P> get_initial_condition(
+//   fk::vector<P> get_initial_condition(
+//       PDE<P> &pde,
+//       basis::wavelet_transform<P, resource::host> const &transformer,
+//       options const &cli_opts);
+
+    fk::vector<P> get_initial_condition(
       PDE<P> &pde,
       basis::wavelet_transform<P, resource::host> const &transformer,
-      options const &cli_opts);
+      options const &cli_opts){
+      return
+      this->get_initial_condition(pde.get_dimensions(),
+                                  pde.has_analytic_soln ? pde.exact_time(0.0) : static_cast<P>(1.0),
+                                  pde.num_terms, pde.get_terms(), transformer, cli_opts);
+    }
 
   fk::vector<P> get_initial_condition(
-    std::vector<dimension<P>> &dims, bool has_exact, basis::wavelet_transform<P, resource::host> const &transformer,
+    std::vector<dimension<P>> &dims,
+    P const mult,
+    int const num_terms, std::vector<std::vector<term<P>>> &terms,
+    basis::wavelet_transform<P, resource::host> const &transformer,
     options const &cli_opts);
 
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
