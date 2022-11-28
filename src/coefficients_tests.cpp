@@ -361,3 +361,33 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
     }
   }
 }
+
+TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", double, float)
+{
+  auto const gold_path =
+      coefficients_base_dir / "vlasov_lb_full_f_coefficients";
+
+  auto const pde_choice = PDE_opts::vlasov_lb_full_f;
+  TestType const tol_factor =
+      std::is_same<TestType, double>::value ? 1e-12 : 1e-3;
+
+  auto const cfl                  = 0.01;
+  auto const full_grid            = true;
+  static auto constexpr num_steps = 1;
+  auto const use_implicit         = false;
+  auto const do_adapt_levels      = false;
+  auto const adapt_threshold      = 0.5e-1;
+
+  SECTION("level [4,3], degree 3")
+  {
+    auto const levels = fk::vector<int>{4, 3};
+    auto const degree = 3;
+
+    parser const test_parse(pde_choice, levels, degree, cfl, full_grid,
+                            parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                            do_adapt_levels, adapt_threshold);
+
+    // parser const test_parse(pde_choice, levels, degree);
+    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+  }
+}

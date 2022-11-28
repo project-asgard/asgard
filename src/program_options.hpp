@@ -48,6 +48,7 @@ enum class PDE_opts
   fokkerplanck_2d_complete_case4,
   diffusion_1,
   diffusion_2,
+  vlasov_lb_full_f
   // FIXME will need to add the user supplied PDE choice
 };
 
@@ -144,7 +145,10 @@ static pde_map_t const pde_mapping = {
     {"advection_1",
      PDE_descriptor(
          "1D test using continuity equation. df/dt == -2*df/dx - 2*sin(x)",
-         PDE_opts::advection_1)}};
+         PDE_opts::advection_1)},
+    {"vlasov", PDE_descriptor("Vlasov lb full f. df/dt == -v*grad_x f + div_v( "
+                              "(v-u)f + theta*grad_v f)",
+                              PDE_opts::vlasov_lb_full_f)}};
 
 // class to parse command line input
 class parser

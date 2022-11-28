@@ -227,6 +227,7 @@ set (components
      kronmult
      lib_dispatch
      matlab_utilities
+     moment
      pde
      permutations
      program_options

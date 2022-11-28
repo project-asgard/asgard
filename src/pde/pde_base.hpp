@@ -13,6 +13,7 @@
 
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
+#include "../moment.hpp"
 #include "../program_options.hpp"
 #include "../tensors.hpp"
 #include "../tools.hpp"
@@ -38,6 +39,8 @@ using scalar_func = std::function<P(P const)>;
 template<typename P>
 using g_func_type = std::function<P(P const, P const)>;
 
+template<typename P>
+using md_func_type = std::vector<vector_func<P>>;
 //----------------------------------------------------------------------------
 //
 // Define member classes of the PDE type: dimension, term, source
@@ -75,12 +78,15 @@ template<typename P>
 class PDE;
 
 template<typename P>
+class moment;
+
+template<typename P>
 class dimension
 {
 public:
   P const domain_min;
   P const domain_max;
-  vector_func<P> const initial_condition;
+  std::vector<vector_func<P>> const initial_condition;
   g_func_type<P> const volume_jacobian_dV;
   std::string const name;
   dimension(P const d_min, P const d_max, int const level, int const degree,
@@ -88,8 +94,18 @@ public:
             g_func_type<P> const volume_jacobian_dV_in,
             std::string const name_in)
 
+      : dimension(d_min, d_max, level, degree,
+                  std::vector<vector_func<P>>({initial_condition_in}),
+                  volume_jacobian_dV_in, name_in)
+  {}
+
+  dimension(P const d_min, P const d_max, int const level, int const degree,
+            std::vector<vector_func<P>> const initial_condition_in,
+            g_func_type<P> const volume_jacobian_dV_in,
+            std::string const name_in)
+
       : domain_min(d_min), domain_max(d_max),
-        initial_condition(initial_condition_in),
+        initial_condition(std::move(initial_condition_in)),
         volume_jacobian_dV(volume_jacobian_dV_in), name(name_in)
   {
     set_level(level);
@@ -164,6 +180,14 @@ public:
   }
 
   static P null_scalar_func(P const p) { return p; }
+
+  static fk::vector<P> null_vector_func(fk::vector<P> x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> fx(x.size());
+    std::fill(fx.begin(), fx.end(), 1.0);
+    return fx;
+  }
 
   partial_term(coefficient_type const coeff_type_in,
                g_func_type<P> const g_func_in        = null_gfunc,
@@ -429,13 +453,14 @@ public:
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
       scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
-      bool const do_poisson_solve_in  = false,
-      bool const has_analytic_soln_in = false)
+      bool const do_poisson_solve_in          = false,
+      bool const has_analytic_soln_in         = false,
+      std::vector<moment<P>> const moments_in = {})
       : num_dims(num_dims_in), num_sources(num_sources_in),
         num_terms(get_num_terms(cli_input, num_terms_in)),
         max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
-        exact_vector_funcs(exact_vector_funcs_in), exact_time(exact_time_in),
-        do_poisson_solve(do_poisson_solve_in),
+        exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
+        exact_time(exact_time_in), do_poisson_solve(do_poisson_solve_in),
         has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
         terms_(terms)
   {
@@ -562,6 +587,17 @@ public:
     {
       dt_ = cli_input.get_dt();
     }
+
+    // check the moments
+    for (auto const &m : moments)
+    {
+      // each moment should have ndim + 1 functions
+      auto md_funcs = m.get_md_funcs();
+      for (auto md_func : md_funcs)
+      {
+        expect(md_func.size() == static_cast<unsigned>(num_dims) + 1);
+      }
+    }
   }
 
   // public but const data.
@@ -572,6 +608,7 @@ public:
 
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
+  std::vector<moment<P>> const moments;
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;
   bool const has_analytic_soln;
@@ -720,7 +757,7 @@ private:
                  : std::max_element(
                        dims.begin(), dims.end(),
                        [](dimension<P> const &a, dimension<P> const &b) {
-                         return a.get_level() > b.get_level();
+                         return a.get_level() < b.get_level();
                        })
                        ->get_level();
     }

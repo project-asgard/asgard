@@ -20,7 +20,7 @@ void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
     auto const gold =
         fk::vector<P>(read_vector_from_txt_file(base_dir.replace_filename(
             filename + "initial_dim" + std::to_string(i) + ".dat")));
-    auto const fx = pde.get_dimensions()[i].initial_condition(x, 0);
+    auto const fx = pde.get_dimensions()[i].initial_condition[0](x, 0);
 
     auto constexpr tol_factor = get_tolerance<P>(10);
 
@@ -357,5 +357,32 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
         }
       }
     }
+  }
+}
+
+TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", double,
+                   float)
+{
+  std::string const pde_choice = "vlasov";
+  fk::vector<int> const levels{4, 3};
+  auto const degree               = 3;
+  auto const cfl                  = 0.01;
+  auto const full_grid            = true;
+  static auto constexpr num_steps = 1;
+  auto const use_implicit         = false;
+  auto const do_adapt_levels      = false;
+  auto const adapt_threshold      = 0.5e-1;
+
+  parser const parse(pde_choice, levels, degree, cfl, full_grid,
+                     parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                     do_adapt_levels, adapt_threshold);
+
+  auto const pde               = make_PDE<TestType>(parse);
+  auto const base_dir          = pde_base_dir / "vlasov_lb_full_f_";
+  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
+
+  SECTION("vlasov full f initial condition functions")
+  {
+    test_initial_condition<TestType>(*pde, base_dir, x);
   }
 }

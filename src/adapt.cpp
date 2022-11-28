@@ -120,29 +120,53 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     options const &cli_opts)
 {
   // get unrefined condition
-  std::vector<vector_func<P>> v_functions;
+  std::vector<std::vector<vector_func<P>>> v_functions;
+  auto const num_md_funcs = pde.get_dimensions()[0].initial_condition.size();
   for (auto const &dim : pde.get_dimensions())
   {
-    v_functions.push_back(dim.initial_condition);
+    // every dimension should have the same number of functions defined
+    expect(dim.initial_condition.size() == num_md_funcs);
   }
+
+  for (size_t i = 0; i < num_md_funcs; i++)
+  {
+    v_functions.push_back(std::vector<vector_func<P>>());
+    for (auto const &dim : pde.get_dimensions())
+    {
+      // add the ith function for this dimension
+      v_functions[i].push_back(dim.initial_condition[i]);
+    }
+  }
+
   P const time             = 0;
   auto const initial_unref = [this, &v_functions, &pde, &transformer, time]() {
     auto const subgrid = this->get_subgrid(get_rank());
-    // TODO temp add scalar time func to initial conditions with multi-D func PR
-    auto const mult =
-        pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
-    return transform_and_combine_dimensions(
-        pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time, mult);
-  }();
+    auto const vector_size =
+        (subgrid.col_stop - subgrid.col_start + 1) *
+        std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims);
+    fk::vector<P> initial(vector_size);
+    for (size_t i = 0; i < v_functions.size(); i++)
+    {
+      // TODO temp add scalar time func to initial conditions with multi-D func
+      // PR
+      auto const mult =
+          pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
+      auto const combined = transform_and_combine_dimensions(
+          pde, v_functions[i], this->get_table(), transformer,
+          subgrid.col_start, subgrid.col_stop,
+          pde.get_dimensions()[0].get_degree(), time, mult);
+      initial = initial + combined;
+    }
+    return initial;
+  };
 
   if (!cli_opts.do_adapt_levels)
   {
-    return initial_unref;
+    return initial_unref();
   }
 
   // refine
-  fk::vector<P> refine_y(initial_unref);
+  fk::vector<P> refine_y(initial_unref());
   auto refining = true;
   while (refining)
   {
@@ -152,15 +176,8 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     update_levels(this->get_table(), pde);
 
     // reproject
-    auto const reprojected = [this, &v_functions, &pde, &transformer, time]() {
-      auto const subgrid = this->get_subgrid(get_rank());
-      auto const mult =
-          pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
-      return transform_and_combine_dimensions(
-          pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-          subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time, mult);
-    }();
-    refine_y.resize(reprojected.size()) = reprojected;
+    auto const refined_fval              = initial_unref();
+    refine_y.resize(refined_fval.size()) = refined_fval;
   }
 
   // coarsen
@@ -168,16 +185,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   update_levels(this->get_table(), pde);
 
   // reproject
-  auto const adapted_y = [this, &v_functions, &pde, &transformer, time]() {
-    auto const subgrid = this->get_subgrid(get_rank());
-    auto const mult =
-        pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
-    return transform_and_combine_dimensions(
-        pde, v_functions, this->get_table(), transformer, subgrid.col_start,
-        subgrid.col_stop, pde.get_dimensions()[0].get_degree(), time, mult);
-  }();
-
-  return adapted_y;
+  return initial_unref();
 }
 
 template<typename P>
