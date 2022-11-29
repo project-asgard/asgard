@@ -200,4 +200,4 @@ private:
   inline static scalar_func<P> const exact_scalar_func_ =
       analytic_solution_time;
 };
-}; // namespace asgard
+} // namespace asgard
