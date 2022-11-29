@@ -238,6 +238,7 @@ set (components
      tools
      transformations
      asgard_field
+     asgard_discretization
      asgard_pde_system
 )
 

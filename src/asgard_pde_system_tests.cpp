@@ -1,5 +1,7 @@
 #include "asgard_pde_system.hpp"
 
+#include "tests_general.hpp"
+
 using namespace asgard;
 
 static fk::vector<float> ic_x(fk::vector<float> const &x,
@@ -40,28 +42,43 @@ int main(int argc, char *argv[])
   dimension_description<float> dim_0 =
       dimension_description<float>(min0, min1, level, degree, "x");
   dimension_description<float> dim_1 =
-      dimension_description<float>(min0, min1, level, degree, "y");
+      dimension_description<float>(min0, min1, level, degree, "y", vol_jac_dV);
   dimension_description<float> dim_2 =
       dimension_description<float>(min0, min1, level, degree, "vx");
   dimension_description<float> dim_3 =
       dimension_description<float>(min0, min1, level, degree, "vy");
 
-  pde_system<float> physics(cli_input, {dim_0, dim_1, dim_2, dim_3});
+  field_description<float> field_1d("x", ic_x, ic_x, "projected to 1d");
+  field_description<float> pos_field({"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
+  field_description<float> vel_only_field({"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, "vel-only");
+  field_description<float> mixed_field(std::vector<std::string>{"x", "y", "vx", "vy"},
+                                       {ic_x, ic_y, ic_vel, ic_vel},
+                                       {ic_x, ic_y, ic_vel, ic_vel},
+                                       "mixed-field");
 
-  physics.add_field({"x", ic_x, ic_x, vol_jac_dV, "projected to 1d"});
-  physics.add_field({{"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, {vol_jac_dV, vol_jac_dV}, "position"});
-  physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
   try {
-    physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
-    return 1; // should not be reached, the line above should trow
+    pde_system<float> broken_physics(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, pos_field, vel_only_field, mixed_field});
+    REQUIRE(false); // the code below should not be reached, the line above should trow
+    std::cout << "error: somehow created a pde_system with two fields of the same name " << std::endl;
+    return 1;
   }catch(std::runtime_error &e){}
-  physics.add_field({{"x", "y", "vx", "vy"},
-                    {ic_x, ic_y, ic_vel, ic_vel},
-                    {ic_x, ic_y, ic_vel, ic_vel},
-                    {vol_jac_dV, vol_jac_dV, vol_jac_dV, vol_jac_dV},
-                    "mixed-field"});
 
-  physics.finalize_fields();
+  pde_system<float> physics(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, pos_field, vel_only_field, mixed_field});
+
+//   physics.add_field({"x", ic_x, ic_x, vol_jac_dV, "projected to 1d"});
+//   physics.add_field({{"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, {vol_jac_dV, vol_jac_dV}, "position"});
+//   physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
+//   try {
+//     physics.add_field({{"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only"});
+//     return 1; // should not be reached, the line above should trow
+//   }catch(std::runtime_error &e){}
+//   physics.add_field({{"x", "y", "vx", "vy"},
+//                     {ic_x, ic_y, ic_vel, ic_vel},
+//                     {ic_x, ic_y, ic_vel, ic_vel},
+//                     {vol_jac_dV, vol_jac_dV, vol_jac_dV, vol_jac_dV},
+//                     "mixed-field"});
+
+//  physics.finalize_fields();
 
   return 0;
 }

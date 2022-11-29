@@ -42,25 +42,24 @@ int main(int argc, char *argv[])
   dimension_description<float> dim_1 =
       dimension_description<float>(min0, min1, level, degree, "y");
   dimension_description<float> dim_2 =
-      dimension_description<float>(min0, min1, level, degree, "vx");
+      dimension_description<float>(min0, min1, level, degree, "vx", vol_jac_dV);
   dimension_description<float> dim_3 =
       dimension_description<float>(min0, min1, level, degree, "vy");
 
-  dimension_set<float> dim_set(cli_input, {dim_0, dim_1, dim_2, dim_3});
+//  dimension_set<float> dim_set(cli_input, {dim_0, dim_1, dim_2, dim_3});
 
-  field_description<float> field_1d("x", ic_x, ic_x, vol_jac_dV, "projected to 1d");
-  field_description<float> pos_field({"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, {vol_jac_dV, vol_jac_dV}, "position");
-  field_description<float> vel_only_field({"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, {vol_jac_dV, vol_jac_dV}, "vel-only");
+  field_description<float> field_1d("x", ic_x, ic_x, "projected to 1d");
+  field_description<float> pos_field({"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
+  field_description<float> vel_only_field({"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, "vel-only");
   field_description<float> mixed_field(std::vector<std::string>{"x", "y", "vx", "vy"},
                                        {ic_x, ic_y, ic_vel, ic_vel},
                                        {ic_x, ic_y, ic_vel, ic_vel},
-                                       {vol_jac_dV, vol_jac_dV, vol_jac_dV, vol_jac_dV},
                                        "mixed-field");
 
-  field<float> m(dim_set, field_1d);
-  field<float> u(dim_set, pos_field);
-  field<float> v(dim_set, vel_only_field);
-  field<float> w(dim_set, mixed_field);
+//   field<float> m(dim_set, field_1d);
+//   field<float> u(dim_set, pos_field);
+//   field<float> v(dim_set, vel_only_field);
+//   field<float> w(dim_set, mixed_field);
 
   return 0;
 }

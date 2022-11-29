@@ -86,10 +86,12 @@ template<typename P>
 struct dimension_description {
   dimension_description(P const domain_min, P const domain_max,
                         int const grid_level, int const basis_degree,
-                        std::string const dimension_name) :
+                        std::string const dimension_name,
+                        g_func_type<P> const volume_jacobian_dV = [](P const, P const)->P{ return 1.0; }) :
     d_min(domain_min), d_max(domain_max),
     level(grid_level), degree(basis_degree),
-    name(dimension_name)
+    name(dimension_name),
+    jacobian(volume_jacobian_dV)
   {
     // note that the constructor that is user facing will use the most descriptive and clear names
     //      also the longest names for each variable/parameter
@@ -104,6 +106,7 @@ struct dimension_description {
   int const level;
   int const degree;
   std::string const name;
+  g_func_type<P> const jacobian;
 };
 
 class moment;
@@ -142,21 +145,17 @@ struct dimension
     set_degree(degree);
   }
   dimension(dimension_description<P> const desc,
-            vector_func<P> const initial_condition_in,
             g_func_type<P> const volume_jacobian_dV_in)
       : domain_min(desc.d_min), domain_max(desc.d_max),
-        initial_condition(initial_condition_in),
+        initial_condition([](P const, P const)->P{ return 1.0; }),
         volume_jacobian_dV(volume_jacobian_dV_in), name(desc.name),
         level_(desc.level), degree_(desc.degree)
   {
-    // initialize mass matrices to a default value
-    // if we put the mass-matrices into the dimensions class, then we can init here
-    // however, we will end up having extra copies, since each field has it's own set of dimension objects
-//     auto const max_dof =
-//         fm::two_raised_to(static_cast<int64_t>(level_)) *
-//         degree_;
-//     expect(max_dof < INT_MAX);
-//     mass_ = eye<P>(max_dof);
+    auto const max_dof =
+        fm::two_raised_to(static_cast<int64_t>(level_)) *
+        degree_;
+    expect(max_dof < INT_MAX);
+    mass_ = eye<P>(max_dof);
   }
 
   int get_level() const { return level_; }

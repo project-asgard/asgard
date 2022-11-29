@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_field.hpp"
+#include "asgard_discretization.hpp"
 
 namespace asgard
 {
@@ -8,22 +8,33 @@ namespace asgard
 template<typename precision>
 class pde_system {
 public:
-  pde_system(parser const &cli_input, std::vector<dimension_description<precision>> const dimensions)
-    : cli(cli_input), dims(cli, dimensions)
+  pde_system(parser const &cli_input,
+             std::vector<dimension_description<precision>> const &dimensions,
+             std::vector<field_description<precision>> const &field_terms
+             )
+    : pde_system(cli_input, dimensions, std::vector<field_description<precision>>(field_terms))
+  {}
+
+  pde_system(parser const &cli_input,
+             std::vector<dimension_description<precision>> const &dimensions,
+             std::vector<field_description<precision>> &&field_terms
+             )
+    : cli(cli_input), dims(cli, dimensions), fields(std::move(field_terms))
   {
     static_assert(std::is_same<precision, float>::value
                   or std::is_same<precision, double>::value,
                   "ASGARD supports only float and double as template parameters for precision.");
 
     expect(dimensions.size() > 0);
-  }
 
-  void add_field(field_description<precision> const description)
-  {
-    for(auto const &f : fields)
-      if (f.name == description.name)
-        throw std::runtime_error(description.name + " is an existing field name, add_field() already called for a field with that name.");
-    fields.push_back(field<precision>(dims, description));
+    for(auto &f : fields) f.verify_dimensions(dims);
+
+    std::vector<std::string> field_names(fields.size());
+    for(size_t i=0; i<field_names.size(); i++) field_names[i] = fields[i].name;
+    verify_unique_strings(field_names);
+
+
+
   }
 
   // TODO: will work with operators similar to field
@@ -31,19 +42,11 @@ public:
   // we can just cross-reference the names of fields in the operator with the names in the fields vector
   void add_operator(){}
 
-  void finalize_fields() {
-    // TODO check for matching grids to use, relate grid-to-field and field-to-grid
-    grids.reserve(fields.size());
-    for(auto const &f : fields) {
-      grids.push_back(std::make_unique<adapt::distributed_grid<precision>>(f.get_dimensions(), cli));
-    }
-  }
-
 private:
   parser const &cli;
   dimension_set<precision> dims;
-  std::vector<field<precision>> fields;
-  std::vector<std::unique_ptr< adapt::distributed_grid<precision>> > grids;
+  std::vector<field_description<precision>> fields;
+  std::vector<field_discretization<precision>> grids;
 };
 
 }

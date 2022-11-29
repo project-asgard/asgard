@@ -18,10 +18,13 @@
 namespace asgard
 {
 
+/*!
+ * \brief Copies the dimensions and modifies them based on the cli-parameters
+ */
 template<typename precision>
 std::vector<dimension_description<precision>>
 cli_apply_level_degree_correction(parser const &cli_input,
-                                  std::vector<dimension_description<precision>> const dimensions)
+                                  std::vector<dimension_description<precision>> const &dimensions)
 {
   size_t num_dims = dimensions.size();
   std::vector<int> levels(dimensions.size()), degrees(dimensions.size());
@@ -93,7 +96,7 @@ inline void verify_unique_strings(std::vector<std::string> const &names) {
 
 template<typename precision>
 struct dimension_set {
-  dimension_set(parser const &cli_input, std::vector<dimension_description<precision>> const dimensions)
+  dimension_set(parser const &cli_input, std::vector<dimension_description<precision>> const &dimensions)
     : list(cli_apply_level_degree_correction(cli_input, dimensions))
   {
     std::vector<std::string> names(list.size());
@@ -123,35 +126,54 @@ struct field_description
   field_description(std::string const &dimension_name,
                     vector_func<precision> const initial_condition,
                     vector_func<precision> const exact_solution,
-                    g_func_type<precision> const volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
                     std::string const &field_name
                     )
-    : field_description(std::vector<std::string>{dimension_name}, {initial_condition}, {exact_solution}, {volume_jacobian_dV_in}, field_name)
+    : field_description(std::vector<std::string>{dimension_name}, {initial_condition}, {exact_solution}, field_name)
+    {}
+
+  field_description(std::string const &dimension_name,
+                    vector_func<precision> const initial_condition,
+                    std::string const &field_name
+                    )
+    : field_description(std::vector<std::string>{dimension_name}, {initial_condition}, field_name)
     {}
 
   field_description(std::vector<std::string> const &dimension_names,
                     std::vector<vector_func<precision>> const &initial_conditions,
                     std::vector<vector_func<precision>> const &exact_solution,
-                    std::vector<g_func_type<precision>> const &volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
                     std::string const &field_name
                     )
       // the const-ref constructor copies and calls the r-value constructor
       : field_description(std::vector<std::string>(dimension_names),
                           std::vector<vector_func<precision>>(initial_conditions),
                           std::vector<vector_func<precision>>(exact_solution),
-                          std::vector<g_func_type<precision>>(volume_jacobian_dV_in),
+                          std::string(field_name))
+  {}
+    field_description(std::vector<std::string> const &dimension_names,
+                      std::vector<vector_func<precision>> const &initial_conditions,
+                      std::string const &field_name
+                      )
+      // the const-ref constructor copies and calls the r-value constructor
+      : field_description(std::vector<std::string>(dimension_names),
+                          std::vector<vector_func<precision>>(initial_conditions),
                           std::string(field_name))
   {}
 
   field_description(std::vector<std::string> &&dimensions,
                     std::vector<vector_func<precision>> &&initial_conditions,
+                    std::string &&field_name
+                    )
+  // I think I should use std::forward here
+      : field_description(std::move(dimensions), std::move(initial_conditions), {}, std::move(field_name))
+  {}
+  field_description(std::vector<std::string> &&dimensions,
+                    std::vector<vector_func<precision>> &&initial_conditions,
                     std::vector<vector_func<precision>> &&exact_solution,
-                    std::vector<g_func_type<precision>> &&volume_jacobian_dV_in, // MIRO: maybe this should be part of the dimension_description
                     std::string &&field_name
                     )
       : d_names(std::move(dimensions)),
         init_cond(std::move(initial_conditions)), exact(std::move(exact_solution)),
-        jacobian(std::move(volume_jacobian_dV_in)), name(std::move(field_name))
+        name(std::move(field_name))
   {
     static_assert(std::is_same<precision, float>::value
                   or std::is_same<precision, double>::value,
@@ -160,8 +182,23 @@ struct field_description
     expect(d_names.size() > 0);
     expect(d_names.size() == init_cond.size());
     expect(exact.size() == 0 or d_names.size() == init_cond.size());
-    expect(d_names.size() == jacobian.size());
     verify_unique_strings(d_names);
+  }
+
+  void verify_dimensions(dimension_set<precision> const &d_set)
+  {
+    for(size_t i=0; i<d_names.size(); i++) {
+      bool found = false;
+      for(size_t j=0; j<d_set.list.size(); j++)
+      {
+        if (d_names[i] == d_set.list[j].name) {
+          found = true;
+          break;
+        }
+      }
+      if (not found)
+        throw std::runtime_error(std::string("invalid dimension name: '") + d_names[i] + "', has not been defined.");
+    }
   }
 
   size_t num_dimensions() const { return d_names.size(); }
@@ -170,63 +207,62 @@ struct field_description
   std::vector<std::string> const d_names;
   std::vector<vector_func<precision>> init_cond;
   std::vector<vector_func<precision>> exact;
-  std::vector<g_func_type<precision>> jacobian;
   std::string const name;
 };
 
-template<typename precision>
-class field
-{
-public:
-  std::string const name;
-
-  field(dimension_set<precision> const &dimensions,
-        field_description<precision> const &description
-        )
-    : name(description.name)
-  {
-    size_t num_dims = description.num_dimensions();
-    dims.reserve(num_dims);
-    if (description.has_exact_solution())
-      exact_solution.reserve(num_dims);
-
-    for(size_t i=0; i<num_dims; i++)
-    {
-      // load the dimensions
-      dims.push_back(
-        dimension<precision>(dimensions(description.d_names[i]),
-                             description.init_cond[i],
-                             description.jacobian[i]
-                            )
-                    );
-
-        if (description.has_exact_solution())
-          exact_solution.push_back(description.exact[i]);
-    }
-  }
-
-  std::vector<dimension<precision>> const &get_dimensions() const
-  {
-    return dims;
-  }
-
-  // not sure if this is needed
-  void update_level(int const dim_index, int const new_level)
-  {
-    assert(dim_index >= 0);
-    assert(dim_index < dims.size());
-    assert(new_level >= 0);
-
-    dims[dim_index].set_level(new_level);
-  }
-
-  bool has_exact_solution() const { return not exact_solution.empty(); }
-
-private:
-  std::vector<dimension<precision>> dims;
-  std::vector<vector_func<precision>> exact_solution;
-  //  std::vector<vector_func<precision>> initial_condition;
-};
+// template<typename precision>
+// class field
+// {
+// public:
+//   std::string const name;
+//
+//   field(dimension_set<precision> const &dimensions,
+//         field_description<precision> const &description
+//         )
+//     : name(description.name)
+//   {
+//     size_t num_dims = description.num_dimensions();
+//     dims.reserve(num_dims);
+//     if (description.has_exact_solution())
+//       exact_solution.reserve(num_dims);
+//
+//     for(size_t i=0; i<num_dims; i++)
+//     {
+//       // load the dimensions
+//       dims.push_back(
+//         dimension<precision>(dimensions(description.d_names[i]),
+//                              description.init_cond[i],
+//                              description.jacobian[i]
+//                             )
+//                     );
+//
+//         if (description.has_exact_solution())
+//           exact_solution.push_back(description.exact[i]);
+//     }
+//   }
+//
+//   std::vector<dimension<precision>> const &get_dimensions() const
+//   {
+//     return dims;
+//   }
+//
+//   // not sure if this is needed
+//   void update_level(int const dim_index, int const new_level)
+//   {
+//     assert(dim_index >= 0);
+//     assert(dim_index < dims.size());
+//     assert(new_level >= 0);
+//
+//     dims[dim_index].set_level(new_level);
+//   }
+//
+//   bool has_exact_solution() const { return not exact_solution.empty(); }
+//
+// private:
+//   //std::vector<dimension<precision>> dims;
+//   std::vector<vector_func<precision>> exact_solution;
+//   //  std::vector<vector_func<precision>> initial_condition;
+// };
 
 template<typename P>
 static fk::vector<P>
