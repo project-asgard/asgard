@@ -185,4 +185,4 @@ private:
     return std::pow(0.25, dim.get_level());
   }
 };
-}; // namespace asgard
+} // namespace asgard

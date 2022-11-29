@@ -177,18 +177,19 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
   asgard::ml::matlab_plot ml_plot;
   ml_plot.connect(cli_input.get_ml_session_string());
-  node_out() << "  connected to MATLAB" << '\n';
+  asgard::node_out() << "  connected to MATLAB" << '\n';
 
   asgard::fk::vector<prec> analytic_solution_realspace(real_space_size);
   if (pde->has_analytic_soln)
   {
     // generate the analytic solution at t=0
-    auto const subgrid_init           = adaptive_grid.get_subgrid(get_rank());
-    auto const analytic_solution_init = transform_and_combine_dimensions(
-        *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
-        subgrid_init.col_start, subgrid_init.col_stop, degree);
+    auto const subgrid_init = adaptive_grid.get_subgrid(asgard::get_rank());
+    auto const analytic_solution_init =
+        asgard::transform_and_combine_dimensions(
+            *pde, pde->exact_vector_funcs, adaptive_grid.get_table(),
+            transformer, subgrid_init.col_start, subgrid_init.col_stop, degree);
     // transform analytic solution to realspace
-    wavelet_to_realspace<prec>(
+    asgard::wavelet_to_realspace<prec>(
         *pde, analytic_solution_init, adaptive_grid.get_table(), transformer,
         default_workspace_cpu_MB, tmp_workspace, analytic_solution_realspace);
   }
@@ -206,7 +207,7 @@ int main(int argc, char **argv)
   for (int i = 0; i < pde->num_dims; i++)
   {
     sizes[i] = pde->get_dimensions()[i].get_degree() *
-               fm::two_raised_to(pde->get_dimensions()[i].get_level());
+               asgard::fm::two_raised_to(pde->get_dimensions()[i].get_level());
   }
   ml_plot.set_var("initial_condition",
                   ml_plot.create_array(sizes, initial_condition));
@@ -292,10 +293,10 @@ int main(int argc, char **argv)
         {
           analytic_solution_realspace.resize(real_size);
         }
-        wavelet_to_realspace<prec>(*pde, analytic_solution,
-                                   adaptive_grid.get_table(), transformer,
-                                   default_workspace_cpu_MB, transform_wksp,
-                                   analytic_solution_realspace);
+        asgard::wavelet_to_realspace<prec>(
+            *pde, analytic_solution, adaptive_grid.get_table(), transformer,
+            default_workspace_cpu_MB, transform_wksp,
+            analytic_solution_realspace);
       }
 #endif
     }
