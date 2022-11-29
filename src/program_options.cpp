@@ -61,7 +61,10 @@ parser::parser(int argc, char **argv)
       clara::detail::Opt(plot_freq, "0-num_time_steps")["--plot_freq"](
           "Frequency in steps for displaying plots") |
       clara::detail::Opt(active_terms_str, "e.g. \"1 1 1 0 0 0\"")["--terms"](
-          "Select specific terms to use (1 = on, 0 = off)");
+          "Select specific terms to use (1 = on, 0 = off)") |
+      clara::detail::Opt(use_imex_stepping)["-x"]["--imex"](
+          "Use IMEX (implicit-explicit) time advance (vs. explicit or "
+          "implicit)");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -182,6 +185,13 @@ parser::parser(int argc, char **argv)
   }
 #endif
 
+  if (use_implicit_stepping && use_imex_stepping)
+  {
+    std::cerr << "Invalid time stepping choice: only implicit or imex can be "
+                 "selected, not both.\n";
+    valid = false;
+  }
+
   if (use_implicit_stepping)
   {
     if (solver_str == "none")
@@ -226,7 +236,7 @@ parser::parser(int argc, char **argv)
 #endif
 
 #ifdef ASGARD_USE_MPI
-  if (use_implicit_stepping && get_num_ranks() > 1)
+  if ((use_implicit_stepping || use_imex_stepping) && get_num_ranks() > 1)
   {
     auto const choice = solver_mapping.at(solver_str);
     if (choice != solve_opts::scalapack)
@@ -289,6 +299,7 @@ parser::parser(int argc, char **argv)
 }
 
 bool parser::using_implicit() const { return use_implicit_stepping; }
+bool parser::using_imex() const { return use_imex_stepping; }
 bool parser::using_full_grid() const { return use_full_grid; }
 bool parser::do_poisson_solve() const { return do_poisson; }
 bool parser::do_adapt_levels() const { return do_adapt; }

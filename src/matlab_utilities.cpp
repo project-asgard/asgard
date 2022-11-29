@@ -471,6 +471,48 @@ fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol)
   return Xreshape;
 }
 
+template<typename P>
+fk::vector<P>
+interp1(fk::vector<P> sample, fk::vector<P> values, fk::vector<P> coords)
+{
+  // nearest neighbor 1D interpolation with extrapolation
+  // equivalent to matlab's interp1(sample, values, coords, 'nearest', 'extrap')
+  expect(sample.size() == values.size());
+  expect(coords.size() >= 1);
+
+  // output vector
+  fk::vector<P> interpolated(coords.size());
+
+  // perform interpolation at each query point
+  for (int i = 0; i < coords.size(); ++i)
+  {
+    P const query = coords[i];
+    // compute distance from query point to sample points, minimum value is the
+    // nearest neighbor to use
+    fk::vector<P> distance(sample.size());
+    std::transform(sample.begin(), sample.end(), distance.begin(),
+                   [query](P const &x) -> P { return std::fabs(x - query); });
+
+    // find minimum distance
+    P min_distance = MAXFLOAT;
+    int min_ind    = -1;
+    for (int j = 0; j < distance.size(); ++j)
+    {
+      // matlab seems to take the last points that are equal to the min, so <=
+      // is used here
+      if (distance[j] <= min_distance)
+      {
+        min_distance = distance[j];
+        min_ind      = j;
+      }
+    }
+
+    interpolated(i) = values[min_ind];
+  }
+
+  return interpolated;
+}
+
 // explicit instantiations
 template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
@@ -513,4 +555,11 @@ template fk::matrix<float>
 reshape(fk::matrix<float> mat, int const nrow, int const ncol);
 template fk::matrix<int>
 reshape(fk::matrix<int> mat, int const nrow, int const ncol);
+
+template fk::vector<double> interp1(fk::vector<double> sample,
+                                    fk::vector<double> values,
+                                    fk::vector<double> coords);
+template fk::vector<float> interp1(fk::vector<float> sample,
+                                   fk::vector<float> values,
+                                   fk::vector<float> coords);
 } // namespace asgard

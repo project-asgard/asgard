@@ -434,6 +434,67 @@ public:
   scalar_func<P> const time_func;
 };
 
+template<typename P>
+class parameter
+{
+public:
+  parameter(std::string name_in, g_func_type<P> const &value_in)
+      : name(name_in), value(value_in)
+  {}
+
+  std::string const name;
+  g_func_type<P> value;
+};
+
+// Singleton class for storing and receiving PDE parameters
+template<typename P>
+#define param_manager parameter_manager<P>::get_instance()
+class parameter_manager
+{
+public:
+  static parameter_manager<P> &get_instance()
+  {
+    static parameter_manager<P> instance;
+    return instance;
+  }
+
+  // prevent potential copies from being created
+  parameter_manager(parameter_manager<P> const &) = delete;
+  void operator=(parameter_manager<P> const &) = delete;
+
+  std::shared_ptr<parameter<P>> get_parameter(std::string const name)
+  {
+    for (auto p : parameters)
+    {
+      if (p->name == name)
+      {
+        return p;
+      }
+    }
+    std::cerr << " could not find parameter with name '" << name << "'\n";
+    return nullptr;
+  }
+
+  void add_parameter(parameter<P> const &param)
+  {
+    if (get_parameter(param.name) == nullptr)
+    {
+      parameters.push_back(std::make_shared<parameter<P>>(param));
+    }
+    else
+    {
+      std::cerr << " already has a parameter with name '" << param.name
+                << "'\n";
+      exit(-1);
+    }
+  }
+
+private:
+  parameter_manager() {}
+
+  std::vector<std::shared_ptr<parameter<P>>> parameters;
+};
+
 // ---------------------------------------------------------------------------
 //
 // abstract base class defining interface for PDEs
@@ -600,6 +661,21 @@ public:
     }
   }
 
+  // copy constructor to create a 1D version of the PDE
+  // this is used in the IMEX time advance to help define 1D mapping from
+  // wavelet to realspace
+  // TODO: there is likely a better way to do this. Another option is to flatten
+  // element table to 1D (see hash_table_2D_to_1D.m)
+  PDE(const PDE &pde)
+      : num_dims(1), num_sources(pde.sources.size()),
+        num_terms(pde.get_terms().size()), max_level(pde.max_level),
+        sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),
+        moments(pde.moments), exact_time(pde.exact_time),
+        do_poisson_solve(pde.do_poisson_solve),
+        has_analytic_soln(pde.has_analytic_soln),
+        dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
+  {}
+
   // public but const data.
   int const num_dims;
   int const num_sources;
@@ -608,7 +684,7 @@ public:
 
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
-  std::vector<moment<P>> const moments;
+  std::vector<moment<P>> moments;
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;
   bool const has_analytic_soln;

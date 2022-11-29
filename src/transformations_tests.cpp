@@ -276,7 +276,7 @@ void test_gen_realspace_transform(PDE<P> const &pde,
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   std::vector<fk::matrix<P>> const transforms =
-      gen_realspace_transform(pde, transformer);
+      gen_realspace_transform(pde, transformer, pde.num_dims);
 
   for (int i = 0; i < static_cast<int>(transforms.size()); ++i)
   {

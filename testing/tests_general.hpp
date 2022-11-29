@@ -17,6 +17,10 @@
 #include <vector>
 #include <catch2/catch_all.hpp>
 
+#ifdef ASGARD_USE_MATLAB
+#include "src/matlab_plot.hpp"
+#endif
+
 static inline const std::filesystem::path gold_base_dir{ASGARD_GOLD_BASE_DIR};
 
 template<typename P>

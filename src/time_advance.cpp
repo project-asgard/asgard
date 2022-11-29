@@ -2,6 +2,7 @@
 #include "adapt.hpp"
 #include "batch.hpp"
 #include "boundary_conditions.hpp"
+#include "coefficients.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"
@@ -57,9 +58,14 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
                                   unscaled_parts, x_orig, workspace_size_MB,
                                   time)
-               : implicit_advance(pde, adaptive_grid, transformer,
-                                  unscaled_parts, x_orig, time,
-                                  program_opts.solver, update_system);
+               : ((step_method == method::imp)
+                      ? implicit_advance(pde, adaptive_grid, transformer,
+                                         unscaled_parts, x_orig, time,
+                                         program_opts.solver, update_system)
+                      : imex_advance(pde, adaptive_grid, transformer,
+                                     program_opts, unscaled_parts, x_orig,
+                                     workspace_size_MB, time,
+                                     program_opts.solver, update_system));
   }
 
   // coarsen
@@ -83,8 +89,13 @@ adaptive_advance(method const step_method, PDE<P> &pde,
         (step_method == method::exp)
             ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
                                unscaled_parts, y, workspace_size_MB, time)
-            : implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
-                               y, time, program_opts.solver, refining);
+            : ((step_method == method::imp)
+                   ? implicit_advance(pde, adaptive_grid, transformer,
+                                      unscaled_parts, y, time,
+                                      program_opts.solver, refining)
+                   : imex_advance(pde, adaptive_grid, transformer, program_opts,
+                                  unscaled_parts, y, workspace_size_MB, time,
+                                  program_opts.solver, refining));
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
     old_size            = adaptive_grid.size();
@@ -392,13 +403,17 @@ implicit_advance(PDE<P> const &pde,
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
+imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
+             options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                  &unscaled_parts,
-             fk::vector<P> const &x_orig, P const time, solve_opts const solver,
-             bool const update_system)
+             fk::vector<P> const &x_orig, int const workspace_size_MB,
+             P const time, solve_opts const solver, bool const update_system)
 {
+  ignore(unscaled_parts);
+  ignore(solver);
+
   // BEFE = 0 case
   expect(time >= 0);
 
@@ -406,25 +421,53 @@ imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
   static std::vector<int> ipiv;
   static bool first_time = true;
 
+  // create 1D version of PDE and element table for wavelet->realspace mappings
+  static PDE pde_1d = PDE(pde);
+  static adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
+
+  // Create workspace for wavelet transform
+  static auto const real_space_size = real_solution_size(pde_1d);
+  static fk::vector<P, mem_type::owner, resource::host> workspace(
+      real_space_size * 2);
+  static std::array<fk::vector<P, mem_type::view, resource::host>, 2>
+      tmp_workspace = {
+          fk::vector<P, mem_type::view, resource::host>(workspace, 0,
+                                                        real_space_size - 1),
+          fk::vector<P, mem_type::view, resource::host>(
+              workspace, real_space_size, real_space_size * 2 - 1)};
+
   auto const &table   = adaptive_grid.get_table();
+  auto const &plan    = adaptive_grid.get_distrib_plan();
   auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
+  int const level     = pde.get_dimensions()[0].get_level();
+  P const min         = pde.get_dimensions()[0].domain_min;
+  P const max         = pde.get_dimensions()[0].domain_max;
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
 
   fk::vector<P> x(x_orig);
+  fk::vector<P> nodes = gen_realspace_nodes(degree, level, min, max);
 
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
   int const A_local_rows = elem_size * grid.nrows();
   int const A_local_cols = elem_size * grid.ncols();
 
-  // TODO: get moment matrices
-  // TODO: placeholder - implementation WIP in future PR
-  ignore(dt);
-  ignore(ipiv);
-  ignore(unscaled_parts);
-  ignore(solver);
-  ignore(time);
-  ignore(transformer);
+  fk::vector<P> reduced_fx(A_local_rows);
+
+  // Create moment matrices that take DG function in (x,v) and transfer to DG
+  // function in x
+  std::cout << " generating moment reduced matrices\n";
+  for (auto &m : pde.moments)
+  {
+    m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
+  }
+
+  for (auto m : pde.moments)
+  {
+    expect(m.get_moment_matrix().nrows() > 0);
+  }
+
+  std::cout << " staging kronmult execute..\n";
 
   if (first_time || update_system)
   {
@@ -432,8 +475,155 @@ imex_advance(PDE<P> const &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
     A.clear_and_resize(A_local_rows, A_local_cols);
     build_system_matrix(pde, table, A, grid);
+    // AA = I - dt*A;
+    for (int i = 0; i < A.nrows(); ++i)
+    {
+      for (int j = 0; j < A.ncols(); ++j)
+      {
+        A(i, j) *= -dt;
+      }
+    }
+    if (grid.row_start == grid.col_start)
+    {
+      for (int i = 0; i < A.nrows(); ++i)
+      {
+        A(i, i) += 1.0;
+      }
+    }
   }
-  return x_orig;
+
+  // Explicit step (f_2s)
+  auto const apply_id = tools::timer.start("kronmult_setup");
+  auto fx =
+      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
+  tools::timer.stop(apply_id);
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  fk::vector<P> f_2s(x_orig.size());
+  exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
+  fm::axpy(f_2s, x, dt);
+
+  // Create rho_2s
+  fk::vector<P> mom0(real_space_size);
+  fk::vector<P> mom0_real(real_space_size);
+  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
+                          transformer, workspace_size_MB, tmp_workspace,
+                          mom0_real, 1);
+  param_manager.get_parameter("n")->value =
+      [nodes, mom0_real](P const x_v, P const t = 0) -> P {
+    ignore(t);
+    return interp1(nodes, mom0_real, {x_v})[0];
+  };
+
+  // TODO: refactor into more generic function
+  fk::vector<P> mom1(real_space_size);
+  fk::vector<P> mom1_real(real_space_size);
+  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
+                          transformer, workspace_size_MB, tmp_workspace,
+                          mom1_real, 1);
+  param_manager.get_parameter("u")->value =
+      [nodes, mom1_real](P const x_v, P const t = 0) -> P {
+    return interp1(nodes, mom1_real, {x_v})[0] /
+           param_manager.get_parameter("n")->value(x_v, t);
+  };
+
+  fk::vector<P> mom2(real_space_size);
+  fk::vector<P> mom2_real(real_space_size);
+  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
+                          transformer, workspace_size_MB, tmp_workspace,
+                          mom2_real, 1);
+  param_manager.get_parameter("theta")->value =
+      [nodes, mom2_real](P const x_v, P const t = 0) -> P {
+    P const u = param_manager.get_parameter("u")->value(x_v, t);
+    return (interp1(nodes, mom2_real, {x_v})[0] /
+            param_manager.get_parameter("n")->value(x_v, t)) -
+           std::pow(u, 2);
+  };
+
+  // Update coeffs
+  generate_all_coefficients<P>(pde, transformer);
+
+  // f2 now
+  P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+  int const restart  = A.ncols();
+  int const max_iter = A.ncols();
+  fk::vector<P> f_2(x.size());
+  solver::simple_gmres(A, f_2, x, fk::matrix<P>(), restart, max_iter,
+                       tolerance);
+
+  // --------------------------------
+  // Third Stage
+  // --------------------------------
+  fm::copy(x_orig, x); // f0
+
+  fk::vector<P> f2_x(f_2);
+  fm::axpy(x, f2_x); // f0 + f2
+
+  tools::timer.start("kronmult_setup");
+  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB,
+                         f2_x);
+  tools::timer.stop(apply_id);
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  fk::vector<P> f_3s(x_orig.size());
+  exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
+  fm::axpy(f_3s, x, (P)0.5 * dt); // f0 + 0.5*dt*apply_A(f0+f_2)
+
+  tools::timer.start("kronmult_setup");
+  fx =
+      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, f_2);
+  tools::timer.stop(apply_id);
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
+  fm::axpy(f_3s, x, (P)0.5 * dt);
+
+  // Create rho_3s
+  // TODO: refactor into more generic function
+  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
+                          transformer, workspace_size_MB, tmp_workspace,
+                          mom0_real, 1);
+  param_manager.get_parameter("n")->value =
+      [nodes, mom0_real](P const x_v, P const t = 0) -> P {
+    ignore(t);
+    return interp1(nodes, mom0_real, {x_v})[0];
+  };
+
+  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
+                          transformer, workspace_size_MB, tmp_workspace,
+                          mom1_real, 1);
+  param_manager.get_parameter("u")->value =
+      [nodes, mom1_real](P const x_v, P const t = 0) -> P {
+    return interp1(nodes, mom1_real, {x_v})[0] /
+           param_manager.get_parameter("n")->value(x_v, t);
+  };
+
+  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
+                          transformer, workspace_size_MB, tmp_workspace,
+                          mom2_real, 1);
+  param_manager.get_parameter("theta")->value =
+      [nodes, mom2_real](P const x_v, P const t = 0) -> P {
+    P const u = param_manager.get_parameter("u")->value(x_v, t);
+    return (interp1(nodes, mom2_real, {x_v})[0] /
+            param_manager.get_parameter("n")->value(x_v, t)) -
+           std::pow(u, 2);
+  };
+
+  // Update coeffs
+  generate_all_coefficients<P>(pde, transformer);
+
+  // Final stage f3
+  fk::vector<P> f_3(x.size());
+  solver::simple_gmres(A, f_3, x, fk::matrix<P>(), restart, max_iter,
+                       tolerance);
+
+  return f_3;
 }
 
 template fk::vector<double> adaptive_advance(
@@ -486,21 +676,23 @@ template fk::vector<float> implicit_advance(
     bool const update_system);
 
 template fk::vector<double> imex_advance(
-    PDE<double> const &pde,
-    adapt::distributed_grid<double> const &adaptive_grid,
+    PDE<double> &pde, adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
+    options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
         &unscaled_parts,
-    fk::vector<double> const &x_orig, double const time,
-    solve_opts const solver, bool const update_system);
+    fk::vector<double> const &x_orig, int const workspace_size_MB,
+    double const time, solve_opts const solver, bool const update_system);
 
 template fk::vector<float>
-imex_advance(PDE<float> const &pde,
+imex_advance(PDE<float> &pde,
              adapt::distributed_grid<float> const &adaptive_grid,
              basis::wavelet_transform<float, resource::host> const &transformer,
+             options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
                  &unscaled_parts,
-             fk::vector<float> const &x_orig, float const time,
-             solve_opts const solver, bool const update_system);
+             fk::vector<float> const &x_orig, int const workspace_size_MB,
+             float const time, solve_opts const solver,
+             bool const update_system);
 
 } // namespace asgard::time_advance

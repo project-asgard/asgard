@@ -18,7 +18,11 @@ public:
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
-  {}
+  {
+    param_manager.add_parameter(parameter<P>("n", n));
+    param_manager.add_parameter(parameter<P>("u", u));
+    param_manager.add_parameter(parameter<P>("theta", theta));
+  }
 
 private:
   static int constexpr num_dims_           = 2;
@@ -280,9 +284,9 @@ private:
   //
   static P i2_g1(P const x, P const time = 0)
   {
-    ignore(x);
-    ignore(time);
-    return -u(x);
+    auto param = param_manager.get_parameter("u");
+    expect(param != nullptr);
+    return -param->value(x, time);
   }
 
   static P i2_g2(P const x, P const time = 0)
@@ -328,8 +332,9 @@ private:
 
   static P i3_g2(P const x, P const time = 0)
   {
-    ignore(time);
-    return theta(x) * nu;
+    auto param = param_manager.get_parameter("theta");
+    expect(param != nullptr);
+    return param->value(x, time) * nu;
   }
 
   inline static const partial_term<P> i3_pterm_x1 = partial_term<P>(

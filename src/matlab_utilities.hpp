@@ -141,4 +141,8 @@ fk::matrix<int> meshgrid(int const start, int const length);
 
 template<typename P, mem_type mem>
 fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol);
+
+template<typename P>
+fk::vector<P>
+interp1(fk::vector<P> sample, fk::vector<P> values, fk::vector<P> coords);
 } // namespace asgard
