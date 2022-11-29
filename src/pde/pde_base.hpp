@@ -395,7 +395,7 @@ public:
     expect(num_terms > 0);
 
     expect(dimensions.size() == static_cast<unsigned>(num_dims));
-    expect(terms.size() == static_cast<unsigned>(num_terms));
+    expect(terms.size() == static_cast<unsigned>(num_terms_in));
     expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -428,7 +428,7 @@ public:
     if (num_active_terms != 0)
     {
       auto const active_terms = cli_input.get_active_terms();
-      for (auto i = num_terms - 1; i >= 0; --i)
+      for (auto i = num_terms_in - 1; i >= 0; --i)
       {
         if (active_terms(i) == 0)
         {
@@ -650,7 +650,8 @@ private:
     if (num_active_terms != 0 && num_active_terms != num_terms_in)
     {
       std::cerr << "failed to parse dimension-many active terms - parsed "
-                << num_active_terms << " terms, expected " << num_terms << "\n";
+                << num_active_terms << " terms, expected " << num_terms_in
+                << "\n";
       exit(1);
     }
     if (num_active_terms == num_terms_in)
