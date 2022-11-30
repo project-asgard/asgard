@@ -39,9 +39,9 @@ template<typename P>
 class distributed_grid
 {
 public:
-  distributed_grid(std::vector<dimension<P>> const &dims, options const &cli_options);
+  distributed_grid(options const &cli_options, std::vector<dimension<P>> const &dims);
 
-  distributed_grid(PDE<P> const &pde, options const &cli_options) : distributed_grid(pde.get_dimensions(), cli_options){}
+  distributed_grid(PDE<P> const &pde, options const &cli_options) : distributed_grid(cli_options, pde.get_dimensions()){}
 
   // driver routines
 //   fk::vector<P> get_initial_condition(

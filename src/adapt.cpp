@@ -125,8 +125,8 @@ static void update_levels(elements::table const &adapted_table, std::vector<dime
 }
 
 template<typename P>
-distributed_grid<P>::distributed_grid(std::vector<dimension<P>> const &dims,
-                                      options const &cli_opts)
+distributed_grid<P>::distributed_grid(options const &cli_opts,
+                                      std::vector<dimension<P>> const &dims)
     : table_(cli_opts, dims)
 {
   plan_ = get_plan(get_num_ranks(), table_);

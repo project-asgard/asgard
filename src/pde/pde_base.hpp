@@ -144,11 +144,10 @@ struct dimension
     set_level(level);
     set_degree(degree);
   }
-  dimension(dimension_description<P> const desc,
-            g_func_type<P> const volume_jacobian_dV_in)
+  dimension(dimension_description<P> const desc)
       : domain_min(desc.d_min), domain_max(desc.d_max),
         initial_condition([](P const, P const)->P{ return 1.0; }),
-        volume_jacobian_dV(volume_jacobian_dV_in), name(desc.name),
+        volume_jacobian_dV(desc.jacobian), name(desc.name),
         level_(desc.level), degree_(desc.degree)
   {
     auto const max_dof =
