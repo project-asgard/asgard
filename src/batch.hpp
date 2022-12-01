@@ -150,7 +150,4 @@ private:
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          fk::matrix<P> &A, element_subgrid const &grid);
-template<typename P>
-void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
-                         fk::matrix<P> &A);
 } // namespace asgard
