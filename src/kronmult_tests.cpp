@@ -45,10 +45,10 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
   }();
 
   // perform kron product + gemv for gold data
-  fk::vector<P> const gold = [&pde, &table, x, elem_size]() {
+  fk::vector<P> const gold = [&pde, &table, &my_subgrid, x, elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
-    build_system_matrix(*pde, table, A);
+    build_system_matrix(*pde, table, A, my_subgrid);
     return A * x;
   }();
 
