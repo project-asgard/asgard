@@ -282,6 +282,27 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 }
 
 template<typename P>
+fk::vector<P> distributed_grid<P>::get_initial_condition(
+  std::vector<dimension<P>> &dims,
+  std::vector<vector_func<P>> const &v_functions,
+  P const mult,
+  basis::wavelet_transform<P, resource::host> const &transformer,
+  options const &cli_opts){
+  ignore(cli_opts);
+  // get unrefined condition
+  P const time = 0;
+  auto const initial_unref = [this, &v_functions, &dims, &transformer, time, mult]() {
+    auto const subgrid = this->get_subgrid(get_rank());
+    // TODO temp add scalar time func to initial conditions with multi-D func PR
+    return transform_and_combine_dimensions(
+        dims, v_functions, this->get_table(), transformer, subgrid.col_start,
+        subgrid.col_stop, dims[0].get_degree(), time, mult);
+  }();
+
+  return initial_unref;
+}
+
+template<typename P>
 fk::vector<P>
 distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
                                       options const &cli_opts)

@@ -146,7 +146,7 @@ struct dimension
   }
   dimension(dimension_description<P> const desc)
       : domain_min(desc.d_min), domain_max(desc.d_max),
-        initial_condition([](P const, P const)->P{ return 1.0; }),
+        initial_condition([](fk::vector<P> const&, P const)->fk::vector<float>{ return fk::vector<float>(); }),
         volume_jacobian_dV(desc.jacobian), name(desc.name),
         level_(desc.level), degree_(desc.degree)
   {
@@ -154,7 +154,7 @@ struct dimension
         fm::two_raised_to(static_cast<int64_t>(level_)) *
         degree_;
     expect(max_dof < INT_MAX);
-    mass_ = eye<P>(max_dof);
+    this->mass_.clear_and_resize(max_dof, max_dof) = eye<P>(max_dof);
   }
 
   int get_level() const { return level_; }

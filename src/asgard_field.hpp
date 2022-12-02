@@ -120,58 +120,67 @@ struct dimension_set {
 };
 
 
+enum class field_mode {
+  evolution, conservation
+};
+
 template<typename precision>
 struct field_description
 {
-  field_description(std::string const &dimension_name,
+  field_description(field_mode fmode,
+                    std::string const &dimension_name,
                     vector_func<precision> const initial_condition,
                     vector_func<precision> const exact_solution,
                     std::string const &field_name
                     )
-    : field_description(std::vector<std::string>{dimension_name}, {initial_condition}, {exact_solution}, field_name)
+    : field_description(fmode, std::vector<std::string>{dimension_name}, {initial_condition}, {exact_solution}, field_name)
     {}
 
-  field_description(std::string const &dimension_name,
+  field_description(field_mode fmode,
+                    std::string const &dimension_name,
                     vector_func<precision> const initial_condition,
                     std::string const &field_name
                     )
-    : field_description(std::vector<std::string>{dimension_name}, {initial_condition}, field_name)
+    : field_description(fmode, std::vector<std::string>{dimension_name}, {initial_condition}, field_name)
     {}
 
-  field_description(std::vector<std::string> const &dimension_names,
+  field_description(field_mode fmode,
+                    std::vector<std::string> const &dimension_names,
                     std::vector<vector_func<precision>> const &initial_conditions,
                     std::vector<vector_func<precision>> const &exact_solution,
                     std::string const &field_name
                     )
-      // the const-ref constructor copies and calls the r-value constructor
-      : field_description(std::vector<std::string>(dimension_names),
+      : field_description(fmode,
+                          std::vector<std::string>(dimension_names),
                           std::vector<vector_func<precision>>(initial_conditions),
                           std::vector<vector_func<precision>>(exact_solution),
                           std::string(field_name))
   {}
-    field_description(std::vector<std::string> const &dimension_names,
+    field_description(field_mode fmode,
+                      std::vector<std::string> const &dimension_names,
                       std::vector<vector_func<precision>> const &initial_conditions,
                       std::string const &field_name
                       )
-      // the const-ref constructor copies and calls the r-value constructor
-      : field_description(std::vector<std::string>(dimension_names),
+      : field_description(fmode,
+                          std::vector<std::string>(dimension_names),
                           std::vector<vector_func<precision>>(initial_conditions),
                           std::string(field_name))
   {}
 
-  field_description(std::vector<std::string> &&dimensions,
+  field_description(field_mode fmode,
+                    std::vector<std::string> &&dimensions,
                     std::vector<vector_func<precision>> &&initial_conditions,
                     std::string &&field_name
                     )
-  // I think I should use std::forward here
-      : field_description(std::move(dimensions), std::move(initial_conditions), {}, std::move(field_name))
+      : field_description(fmode, std::move(dimensions), std::move(initial_conditions), {}, std::move(field_name))
   {}
-  field_description(std::vector<std::string> &&dimensions,
+  field_description(field_mode fmode,
+                    std::vector<std::string> &&dimensions,
                     std::vector<vector_func<precision>> &&initial_conditions,
                     std::vector<vector_func<precision>> &&exact_solution,
                     std::string &&field_name
                     )
-      : d_names(std::move(dimensions)),
+      : mode(fmode), d_names(std::move(dimensions)),
         init_cond(std::move(initial_conditions)), exact(std::move(exact_solution)),
         name(std::move(field_name))
   {
@@ -204,65 +213,12 @@ struct field_description
   size_t num_dimensions() const { return d_names.size(); }
   bool has_exact_solution() const { return (exact.size() > 0); }
 
+  field_mode mode;
   std::vector<std::string> const d_names;
   std::vector<vector_func<precision>> init_cond;
   std::vector<vector_func<precision>> exact;
   std::string const name;
 };
-
-// template<typename precision>
-// class field
-// {
-// public:
-//   std::string const name;
-//
-//   field(dimension_set<precision> const &dimensions,
-//         field_description<precision> const &description
-//         )
-//     : name(description.name)
-//   {
-//     size_t num_dims = description.num_dimensions();
-//     dims.reserve(num_dims);
-//     if (description.has_exact_solution())
-//       exact_solution.reserve(num_dims);
-//
-//     for(size_t i=0; i<num_dims; i++)
-//     {
-//       // load the dimensions
-//       dims.push_back(
-//         dimension<precision>(dimensions(description.d_names[i]),
-//                              description.init_cond[i],
-//                              description.jacobian[i]
-//                             )
-//                     );
-//
-//         if (description.has_exact_solution())
-//           exact_solution.push_back(description.exact[i]);
-//     }
-//   }
-//
-//   std::vector<dimension<precision>> const &get_dimensions() const
-//   {
-//     return dims;
-//   }
-//
-//   // not sure if this is needed
-//   void update_level(int const dim_index, int const new_level)
-//   {
-//     assert(dim_index >= 0);
-//     assert(dim_index < dims.size());
-//     assert(new_level >= 0);
-//
-//     dims[dim_index].set_level(new_level);
-//   }
-//
-//   bool has_exact_solution() const { return not exact_solution.empty(); }
-//
-// private:
-//   //std::vector<dimension<precision>> dims;
-//   std::vector<vector_func<precision>> exact_solution;
-//   //  std::vector<vector_func<precision>> initial_condition;
-// };
 
 template<typename P>
 static fk::vector<P>

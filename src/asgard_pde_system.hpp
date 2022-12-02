@@ -33,8 +33,33 @@ public:
     for(size_t i=0; i<field_names.size(); i++) field_names[i] = fields[i].name;
     verify_unique_strings(field_names);
 
+    finalizes_discretization();
+  }
 
-
+  void finalizes_discretization()
+  {
+    // TODO: move the automatic discretization into a method that finalizes discretizations
+    field_2_grid.reserve(fields.size());
+    for(size_t i=0; i<fields.size(); i++) {
+      // for each field, see if we already have discretization for this field
+      size_t grid_index = 0;
+      while(grid_index < grids.size())
+      {
+        if (grids[grid_index].can_discretize(fields[i]))
+        {
+          field_2_grid[i] = grid_index;
+          break;
+        }
+        grid_index++;
+      }
+      if (grid_index == grids.size())
+      {
+        grids.push_back(
+            field_discretization<precision>(cli, dims, fields[i].d_names)
+          );
+        field_2_grid[i] = grid_index;
+      }
+    }
   }
 
   // TODO: will work with operators similar to field
@@ -47,6 +72,7 @@ private:
   dimension_set<precision> dims;
   std::vector<field_description<precision>> fields;
   std::vector<field_discretization<precision>> grids;
+  std::vector<size_t> field_2_grid;
 };
 
 }
