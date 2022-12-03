@@ -5,7 +5,7 @@
 namespace asgard
 {
 
-template<typename precision>
+template<typename precision, resource resrc = asgard::resource::host>
 class pde_system {
 public:
   pde_system(parser const &cli_input,
@@ -19,7 +19,8 @@ public:
              std::vector<dimension_description<precision>> const &dimensions,
              std::vector<field_description<precision>> &&field_terms
              )
-    : cli(cli_input), dims(cli, dimensions), fields(std::move(field_terms))
+    : cli(cli_input), dims(cli, dimensions), fields(std::move(field_terms)),
+      transformer(cli_input, dimensions.front().degree, true)
   {
     static_assert(std::is_same<precision, float>::value
                   or std::is_same<precision, double>::value,
@@ -55,7 +56,7 @@ public:
       if (grid_index == grids.size())
       {
         grids.push_back(
-            field_discretization<precision>(cli, dims, fields[i].d_names)
+            field_discretization<precision, resrc>(cli, dims, transformer, fields[i].d_names)
           );
         field_2_grid[i] = grid_index;
       }
@@ -71,7 +72,9 @@ private:
   parser const &cli;
   dimension_set<precision> dims;
   std::vector<field_description<precision>> fields;
-  std::vector<field_discretization<precision>> grids;
+
+  asgard::basis::wavelet_transform<float, asgard::resource::host> transformer;
+  std::vector<field_discretization<precision, resrc>> grids;
   std::vector<size_t> field_2_grid;
 };
 

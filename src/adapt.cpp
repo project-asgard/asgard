@@ -283,11 +283,11 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 
 template<typename P>
 fk::vector<P> distributed_grid<P>::get_initial_condition(
+  options const &cli_opts,
   std::vector<dimension<P>> &dims,
   std::vector<vector_func<P>> const &v_functions,
   P const mult,
-  basis::wavelet_transform<P, resource::host> const &transformer,
-  options const &cli_opts){
+  basis::wavelet_transform<P, resource::host> const &transformer){
   ignore(cli_opts);
   // get unrefined condition
   P const time = 0;

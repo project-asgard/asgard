@@ -34,7 +34,11 @@ int main(int argc, char *argv[])
 
   dimension_set<float> dims(cli_input, {dim_0, dim_1});
 
-  field_discretization<float> grid(cli_input, dims, pos_field.d_names);
+  bool const quiet = false;
+  asgard::basis::wavelet_transform<float, asgard::resource::host>
+      transformer(cli_input, degree, quiet);
+
+  field_discretization<float, asgard::resource::host> grid(cli_input, dims, transformer, pos_field.d_names);
 
   auto init = grid.get_initial_conditions(pos_field);
 

@@ -47,7 +47,8 @@ public:
   fk::vector<P> get_initial_condition(
     PDE<P> &pde,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    options const &cli_opts){
+    options const &cli_opts)
+  {
     return
     this->get_initial_condition(pde.get_dimensions(),
                                 pde.has_analytic_soln ? pde.exact_time(0.0) : static_cast<P>(1.0),
@@ -62,11 +63,11 @@ public:
     options const &cli_opts);
 
   fk::vector<P> get_initial_condition(
+    options const &cli_opts,
     std::vector<dimension<P>> &dims,
     std::vector<vector_func<P>> const &v_functions,
     P const mult,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    options const &cli_opts);
+    basis::wavelet_transform<P, resource::host> const &transformer);
 
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
                                  options const &cli_opts);

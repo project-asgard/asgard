@@ -5,13 +5,14 @@
 namespace asgard
 {
 
-template<typename precision>
+template<typename precision, resource resrc>
 struct field_discretization {
 
   field_discretization(parser const &cli_input,
                        dimension_set<precision> const &d_set,
+                       asgard::basis::wavelet_transform<precision, resrc> &wavelet_transformer,
                        std::vector<std::string> const &d_names)
-    : cli(cli_input)
+    : cli(cli_input), transformer(wavelet_transformer)
   {
     dims.reserve(d_names.size());
     for(size_t i=0; i<d_names.size(); i++)
@@ -32,10 +33,12 @@ struct field_discretization {
 
   fk::vector<precision> get_initial_conditions(field_description<precision> const &field)
   {
-    //return grid->get_initial_conditions(dims, field.init_cond, 1.0, transformer, cli);
+    return grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer);
   }
 
   parser const &cli;
+
+  asgard::basis::wavelet_transform<precision, resrc> &transformer;
 
   std::unique_ptr<adapt::distributed_grid<precision>> grid;
 
