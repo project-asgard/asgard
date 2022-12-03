@@ -42,5 +42,9 @@ int main(int argc, char *argv[])
 
   auto init = grid.get_initial_conditions(pos_field);
 
+  for(int i=0; i<init.size(); i++) {
+    std::cout << init[i] << std::endl;
+  }
+
   return 0;
 }
