@@ -30,8 +30,8 @@ cli_apply_level_degree_correction(parser const &cli_input,
   std::vector<int> levels(dimensions.size()), degrees(dimensions.size());
   for(size_t i=0; i<num_dims; i++)
   {
-      levels[i] = dimensions[i].level;
-      degrees[i] = dimensions[i].degree;
+    levels[i] = dimensions[i].level;
+    degrees[i] = dimensions[i].degree;
   }
 
   // modify for appropriate level/degree

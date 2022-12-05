@@ -14,11 +14,6 @@ class PDE;
 
 namespace asgard
 {
-template<typename P>
-using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
-
-template<typename P>
-using md_func_type = std::vector<vector_func<P>>;
 
 namespace elements
 {

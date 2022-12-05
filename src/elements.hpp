@@ -1,4 +1,5 @@
 #pragma once
+#include "asgard_dimension.hpp"
 #include "pde.hpp"
 #include "permutations.hpp"
 #include "program_options.hpp"
@@ -12,6 +13,7 @@
 
 namespace asgard::elements
 {
+
 // yield single-d linear index for level/cell combo
 int64_t get_1d_index(int const level, int const cell);
 

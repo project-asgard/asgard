@@ -209,7 +209,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 {
   // get unrefined condition
 
-  auto const num_md_funcs = dims.initial_condition.size();
+  auto const num_md_funcs = dims.front().initial_condition.size();
   std::vector<std::vector<vector_func<P>>> v_functions;
   for (auto const &dim : dims)
   {
@@ -238,10 +238,8 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     {
       // TODO temp add scalar time func to initial conditions with multi-D func
       // PR
-      auto const mult =
-          pde.has_analytic_soln ? pde.exact_time(time) : static_cast<P>(1.0);
       auto const combined = transform_and_combine_dimensions(
-        dims, v_functions, this->get_table(), transformer, subgrid.col_start,
+        dims, v_functions[i], this->get_table(), transformer, subgrid.col_start,
         subgrid.col_stop, dims[0].get_degree(), time, mult);
       initial = initial + combined;
     }
