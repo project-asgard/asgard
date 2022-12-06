@@ -121,7 +121,7 @@ struct dimension_set {
 
 
 enum class field_mode {
-  evolution, conservation
+  evolution, closure
 };
 
 template<typename precision>

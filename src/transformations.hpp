@@ -48,7 +48,7 @@ combine_dimensions(int const degree, elements::table const &table,
                    int const start_element, int const stop_element,
                    std::vector<fk::vector<P>> const &vectors,
                    P const time_scale,
-                   fk::vector<P, mem_type::view> &result);
+                   fk::vector<P, mem_type::view> result);
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(
@@ -183,19 +183,21 @@ inline fk::vector<P> transform_and_combine_dimensions(
 }
 
 template<typename P>
-inline fk::vector<P> transform_and_combine_dimensions(
+inline void transform_and_combine_dimensions(
     std::vector<dimension<P>> const &dims,
     std::vector<vector_func<P>> const &v_functions,
     elements::table const &table,
-    basis::wavelet_transform<P,
-    resource::host> const &transformer,
-    int const start, int const stop, int const degree, P const time = 0.0,
-    P const time_multiplier = 1.0)
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const start, int const stop, int const degree,
+    P const time,
+    P const time_multiplier,
+    fk::vector<P, mem_type::view> result)
+
 {
   expect(v_functions.size() == dims.size());
   expect(start <= stop);
   expect(stop < table.size());
-  expect(degree > 0);
+  expect(degree >= 0);
 
   std::vector<fk::vector<P>> dimension_components;
   dimension_components.reserve(dims.size());
@@ -215,8 +217,29 @@ inline fk::vector<P> transform_and_combine_dimensions(
     fm::gesv(mass_copy, dimension_components.back(), ipiv);
   }
 
-  return combine_dimensions(degree, table, start, stop, dimension_components,
-                            time_multiplier);
+  combine_dimensions(degree, table, start, stop, dimension_components,
+                     time_multiplier, result);
+}
+
+template<typename P>
+inline fk::vector<P> transform_and_combine_dimensions(
+    std::vector<dimension<P>> const &dims,
+    std::vector<vector_func<P>> const &v_functions,
+    elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const start, int const stop, int const degree,
+    P const time = 0.0,
+    P const time_multiplier = 1.0)
+{
+  int64_t const vector_size =
+      (stop - start + 1) * std::pow(degree, dims.size());
+  expect(vector_size < INT_MAX);
+  fk::vector<P> result(vector_size);
+  transform_and_combine_dimensions(dims, v_functions, table, transformer,
+                                   start, stop, degree,
+                                   time, time_multiplier,
+                                   fk::vector<P, mem_type::view>(result));
+  return result;
 }
 
 template<typename P>

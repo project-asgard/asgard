@@ -62,12 +62,13 @@ public:
     basis::wavelet_transform<P, resource::host> const &transformer,
     options const &cli_opts);
 
-  fk::vector<P> get_initial_condition(
+  void get_initial_condition(
     options const &cli_opts,
     std::vector<dimension<P>> &dims,
     std::vector<vector_func<P>> const &v_functions,
     P const mult,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    fk::vector<P, mem_type::view> result);
 
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
                                  options const &cli_opts);

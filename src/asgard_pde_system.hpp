@@ -73,7 +73,7 @@ private:
   dimension_set<precision> dims;
   std::vector<field_description<precision>> fields;
 
-  asgard::basis::wavelet_transform<float, asgard::resource::host> transformer;
+  asgard::basis::wavelet_transform<precision, resrc> transformer;
   std::vector<field_discretization<precision, resrc>> grids;
   std::vector<size_t> field_2_grid;
 };

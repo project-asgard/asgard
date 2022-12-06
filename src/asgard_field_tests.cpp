@@ -47,9 +47,9 @@ int main(int argc, char *argv[])
       dimension_description<float>(min0, min1, level, degree, "vy");
 
   field_description<float> field_1d(field_mode::evolution, "x", ic_x, ic_x, "projected to 1d");
-  field_description<float> pos_field(field_mode::conservation, {"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
+  field_description<float> pos_field(field_mode::closure, {"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
   field_description<float> vel_only_field(field_mode::evolution, {"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, "vel-only");
-  field_description<float> mixed_field(field_mode::conservation,
+  field_description<float> mixed_field(field_mode::closure,
                                        std::vector<std::string>{"x", "y", "vx", "vy"},
                                        {ic_x, ic_y, ic_vel, ic_vel},
                                        {ic_x, ic_y, ic_vel, ic_vel},

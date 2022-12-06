@@ -12,13 +12,15 @@ struct field_discretization {
                        dimension_set<precision> const &d_set,
                        asgard::basis::wavelet_transform<precision, resrc> &wavelet_transformer,
                        std::vector<std::string> const &d_names)
-    : cli(cli_input), transformer(wavelet_transformer)
+    : cli(cli_input), transformer(wavelet_transformer), num_dof(0)
   {
     dims.reserve(d_names.size());
     for(size_t i=0; i<d_names.size(); i++)
       dims.emplace_back(dimension<precision>(d_set(d_names[i])));
 
     grid = std::make_unique<adapt::distributed_grid<precision>>(cli_input, dims);
+    auto const subgrid = grid->get_subgrid(get_rank());
+    num_dof = (subgrid.col_stop - subgrid.col_start + 1) * std::pow(dims.front().degree_, dims.size());
   }
 
   bool can_discretize(field_description<precision> const &field) {
@@ -31,9 +33,12 @@ struct field_discretization {
     return true;
   }
 
-  fk::vector<precision> get_initial_conditions(field_description<precision> const &field)
+  int64_t size() const { return num_dof; }
+
+  void get_initial_conditions(field_description<precision> const &field, fk::vector<precision, mem_type::view> result)
   {
-    return grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer);
+    expect(result.size() == size());
+    grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer, result);
   }
 
   parser const &cli;
@@ -41,6 +46,7 @@ struct field_discretization {
   asgard::basis::wavelet_transform<precision, resrc> &transformer;
 
   std::unique_ptr<adapt::distributed_grid<precision>> grid;
+  int64_t num_dof;
 
   std::vector<dimension<precision>> dims;
 

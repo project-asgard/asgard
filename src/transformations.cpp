@@ -194,65 +194,13 @@ void wavelet_to_realspace(
   return;
 }
 
-// FIXME this function will need to change once dimensions can have different
-// degree...
-// combine components and create the portion of the multi-d vector associated
-// with the provided start and stop element bounds (inclusive)
-template<typename P>
-fk::vector<P>
-combine_dimensions(int const degree, elements::table const &table,
-                   int const start_element, int const stop_element,
-                   std::vector<fk::vector<P>> const &vectors,
-                   P const time_scale)
-{
-  int const num_dims = vectors.size();
-  expect(num_dims > 0);
-  expect(start_element >= 0);
-  expect(stop_element >= start_element);
-  expect(stop_element < table.size());
-
-  int64_t const vector_size =
-      (stop_element - start_element + 1) * std::pow(degree, num_dims);
-
-  // FIXME here we want to catch the 64-bit solution vector problem
-  // and halt execution if we spill over. there is an open issue for this
-  expect(vector_size < INT_MAX);
-  fk::vector<P> combined(vector_size);
-
-  for (int i = start_element; i <= stop_element; ++i)
-  {
-    std::vector<fk::vector<P>> kron_list;
-    fk::vector<int> const coords = table.get_coords(i);
-    for (int j = 0; j < num_dims; ++j)
-    {
-      // iterating over cell coords;
-      // first num_dims entries in coords are level coords
-      int const id = elements::get_1d_index(coords(j), coords(j + num_dims));
-      int const index_start = id * degree;
-      // index_start and index_end describe a subvector of length degree;
-      // for deg = 1, this is a vector of one element
-      int const index_end =
-          degree > 1 ? (((id + 1) * degree) - 1) : index_start;
-      kron_list.push_back(vectors[j].extract(index_start, index_end));
-    }
-    int const start_index = (i - start_element) * std::pow(degree, num_dims);
-    int const stop_index  = start_index + std::pow(degree, num_dims) - 1;
-    fk::vector<P, mem_type::view> combined_view(combined, start_index,
-                                                stop_index);
-
-    combined_view = kron_d(kron_list, kron_list.size()) * time_scale;
-  }
-
-  return combined;
-}
-
 template<typename P>
 void
 combine_dimensions(int const degree, elements::table const &table,
                    int const start_element, int const stop_element,
                    std::vector<fk::vector<P>> const &vectors,
                    P const time_scale,
-                   fk::vector<P, mem_type::view> &result)
+                   fk::vector<P, mem_type::view> result)
 {
   int const num_dims = vectors.size();
   expect(num_dims > 0);
@@ -291,6 +239,31 @@ combine_dimensions(int const degree, elements::table const &table,
     fk::vector<P, mem_type::view>(result, start_index, stop_index) =
       kron_d(kron_list, kron_list.size()) * time_scale;
   }
+}
+
+// FIXME this function will need to change once dimensions can have different
+// degree...
+// combine components and create the portion of the multi-d vector associated
+// with the provided start and stop element bounds (inclusive)
+template<typename P>
+fk::vector<P>
+combine_dimensions(int const degree, elements::table const &table,
+                   int const start_element, int const stop_element,
+                   std::vector<fk::vector<P>> const &vectors,
+                   P const time_scale)
+{
+  int64_t const vector_size =
+      (stop_element - start_element + 1) * std::pow(degree, vectors.size());
+
+  // FIXME here we want to catch the 64-bit solution vector problem
+  // and halt execution if we spill over. there is an open issue for this
+  expect(vector_size < INT_MAX);
+  fk::vector<P> combined(vector_size);
+
+  combine_dimensions(degree, table, start_element, stop_element, vectors, time_scale,
+                     fk::vector<P, mem_type::view>(combined));
+
+  return combined;
 }
 
 /* explicit instantiations */
@@ -334,15 +307,15 @@ combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
 
 template void
-combine_dimensions<float>(int const degree, elements::table const &table,
-                          int const start_element, int const stop_element,
-                          std::vector<fk::vector<float>> const &vectors,
-                          float const time_scale,
-                          fk::vector<float, mem_type::view> &result);
+combine_dimensions<float>(int const, elements::table const&,
+                          int const, int const,
+                          std::vector<fk::vector<float>> const&,
+                          float const,
+                          fk::vector<float, mem_type::view>);
 template void
-combine_dimensions<double>(int const degree, elements::table const &table,
-                           int const start_element, int const stop_element,
-                           std::vector<fk::vector<double>> const &vectors,
-                           double const time_scale,
-                           fk::vector<double, mem_type::view> &result);
+combine_dimensions<double>(int const, elements::table const&,
+                           int const, int const,
+                           std::vector<fk::vector<double>> const&,
+                           double const,
+                           fk::vector<double, mem_type::view>);
 } // namespace asgard
