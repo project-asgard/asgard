@@ -42,6 +42,14 @@ fk::vector<P>
 combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
+template<typename P>
+void
+combine_dimensions(int const degree, elements::table const &table,
+                   int const start_element, int const stop_element,
+                   std::vector<fk::vector<P>> const &vectors,
+                   P const time_scale,
+                   fk::vector<P, mem_type::view> &result);
+
 template<typename P, typename F>
 fk::vector<P> forward_transform(
     dimension<P> const &dim, F function, g_func_type<P> const dv_func,

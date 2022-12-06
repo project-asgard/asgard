@@ -42,6 +42,8 @@ int main(int argc, char *argv[])
 
   auto init = grid.get_initial_conditions(pos_field);
 
+  // Note to Steve/Cole, here we have the fk::vector with initial conditions
+  // the goal is to plot it somehow
   for(int i=0; i<init.size(); i++) {
     std::cout << init[i] << std::endl;
   }
