@@ -194,7 +194,7 @@ struct field_description
     verify_unique_strings(d_names);
   }
 
-  void verify_dimensions(dimension_set<precision> const &d_set)
+  void verify_dimensions(dimension_set<precision> const &d_set) const
   {
     for(size_t i=0; i<d_names.size(); i++) {
       bool found = false;
@@ -218,6 +218,30 @@ struct field_description
   std::vector<vector_func<precision>> init_cond;
   std::vector<vector_func<precision>> exact;
   std::string const name;
+};
+
+template<typename precision>
+struct field
+{
+  field(field_description<precision> const &description) :
+    mode(description.mode), d_names(description.d_names),
+    init_cond(description.init_cond), exact(description.exact),
+    name(description.name),
+    grid_index(-1), global_begin(-1), global_end(-1)
+  {}
+
+  void set_global_index(int64_t begin, int64_t end) {
+    global_begin = begin;
+    global_end   = end;
+  }
+
+  field_mode mode;
+  std::vector<std::string> const d_names;
+  std::vector<vector_func<precision>> init_cond;
+  std::vector<vector_func<precision>> exact;
+  std::string const name;
+
+  int64_t grid_index, global_begin, global_end;
 };
 
 template<typename P>

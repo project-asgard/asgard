@@ -23,7 +23,7 @@ struct field_discretization {
     num_dof = (subgrid.col_stop - subgrid.col_start + 1) * std::pow(dims.front().degree_, dims.size());
   }
 
-  bool can_discretize(field_description<precision> const &field) {
+  bool can_discretize(field<precision> const &field) {
     for(auto const &d_name : field.d_names) {
       if (not std::any_of(dims.begin(), dims.end(), [&](dimension<precision> const &x)->bool{ return (x.name == d_name); }))
       {
@@ -35,10 +35,16 @@ struct field_discretization {
 
   int64_t size() const { return num_dof; }
 
-  void get_initial_conditions(field_description<precision> const &field, fk::vector<precision, mem_type::view> result)
+  void get_initial_conditions(field<precision> const &field, fk::vector<precision, mem_type::view> result)
   {
     expect(result.size() == size());
     grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer, result);
+  }
+  fk::vector<precision> get_initial_conditions(field_description<precision> const &field)
+  {
+    fk::vector<precision> result(num_dof);
+    get_initial_conditions(field, fk::vector<precision, mem_type::view>(result));
+    return result;
   }
 
   parser const &cli;

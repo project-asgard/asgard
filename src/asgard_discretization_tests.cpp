@@ -40,9 +40,7 @@ int main(int argc, char *argv[])
 
   field_discretization<float, asgard::resource::host> grid(cli_input, dims, transformer, pos_field.d_names);
 
-  fk::vector<float> init(grid.size());
-
-  grid.get_initial_conditions(pos_field, fk::vector<float, mem_type::view>(init));
+  fk::vector<float> init = grid.get_initial_conditions(pos_field);
 
   // Note to Steve/Cole, here we have the fk::vector with initial conditions
   // the goal is to plot it somehow
