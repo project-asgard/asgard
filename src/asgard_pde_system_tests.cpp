@@ -66,5 +66,16 @@ int main(int argc, char *argv[])
 
   pde_system<float> physics(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, pos_field, vel_only_field, mixed_field});
 
+  physics.load_initial_conditions();
+
+  auto x = physics.get_field("projected to 1d");
+
+  try {
+    physics.get_field("invalid name");
+    REQUIRE(false); // the code below should not be reached, the line above should trow
+    std::cout << "error: somehow returned a vector for a non-existing field " << std::endl;
+    return 1;
+  }catch(std::runtime_error &e){}
+
   return 0;
 }
