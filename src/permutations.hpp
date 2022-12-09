@@ -1,6 +1,7 @@
 #pragma once
 #include "tensors.hpp"
 #include <vector>
+#include <functional>
 
 // -----------------------------------------------------------------------------
 // permutations
