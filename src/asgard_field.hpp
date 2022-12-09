@@ -82,16 +82,17 @@ cli_apply_level_degree_correction(parser const &cli_input,
 /*!
  * \brief Throws an exception if there are repeated entries among the names.
  */
-inline void verify_unique_strings(std::vector<std::string> const &names) {
+inline bool check_unique_strings(std::vector<std::string> const &names) {
   size_t num_dims = names.size();
   for(size_t i=0; i<num_dims; i++)
   {
     for(size_t j=i+1; j<num_dims; j++)
     {
       if (names[i] == names[j])
-        throw std::runtime_error("Dimension names should be unique");
+        return false;
     }
   }
+  return true;
 }
 
 template<typename precision>
@@ -103,7 +104,8 @@ struct dimension_set {
     for(size_t i=0; i<list.size(); i++)
       names[i] = list[i].name;
 
-    verify_unique_strings(names);
+    if (not check_unique_strings(names))
+      throw std::runtime_error("dimensions should have unique names");
   }
 
   dimension_description<precision> operator() (std::string const &name) const
@@ -191,7 +193,8 @@ struct field_description
     expect(d_names.size() > 0);
     expect(d_names.size() == init_cond.size());
     expect(exact.size() == 0 or d_names.size() == init_cond.size());
-    verify_unique_strings(d_names);
+    if (not check_unique_strings(d_names))
+      throw std::runtime_error("repeated dimensions in the field definition");
   }
 
   void verify_dimensions(dimension_set<precision> const &d_set) const

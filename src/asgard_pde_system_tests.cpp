@@ -5,7 +5,7 @@
 using namespace asgard;
 
 static fk::vector<float> ic_x(fk::vector<float> const &x,
-                             float const = 0)
+                              float const = 0)
 {
   fk::vector<float> fx(x.size());
   for(int i=0; i<fx.size(); i++) fx[i] = 1.0;
@@ -31,51 +31,48 @@ static float vol_jac_dV(float const, float const)
   return 1.0;
 }
 
-int main(int argc, char *argv[])
+TEMPLATE_TEST_CASE("testing construction of a basic pde_system", "[pde]", float)
 {
 
-  parser const cli_input(argc, argv);
+  std::vector<char> ename = {'a', 's'};
+  char *ename_data = ename.data();
+  parser const cli_input(1, &ename_data);
 
-  float min0 = 0.0, min1 = 1.0;
+  TestType min0 = 0.0, min1 = 1.0;
   int level = 2, degree = 2;
 
-  dimension_description<float> dim_0 =
-      dimension_description<float>(min0, min1, level, degree, "x");
-  dimension_description<float> dim_1 =
-      dimension_description<float>(min0, min1, level, degree, "y", vol_jac_dV);
-  dimension_description<float> dim_2 =
-      dimension_description<float>(min0, min1, level, degree, "vx");
-  dimension_description<float> dim_3 =
-      dimension_description<float>(min0, min1, level, degree, "vy");
+  dimension_description<TestType> dim_0 =
+      dimension_description<TestType>(min0, min1, level, degree, "x");
+  dimension_description<TestType> dim_1 =
+      dimension_description<TestType>(min0, min1, level, degree, "y", vol_jac_dV);
+  dimension_description<TestType> dim_2 =
+      dimension_description<TestType>(min0, min1, level, degree, "vx");
+  dimension_description<TestType> dim_3 =
+      dimension_description<TestType>(min0, min1, level, degree, "vy");
 
-  field_description<float> field_1d(field_mode::evolution, "x", ic_x, ic_x, "projected to 1d");
-  field_description<float> pos_field(field_mode::evolution, {"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
-  field_description<float> vel_only_field(field_mode::closure, {"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, "vel-only");
-  field_description<float> mixed_field(field_mode::closure,
+  field_description<TestType> field_1d(field_mode::evolution, "x", ic_x, ic_x, "projected to 1d");
+  field_description<TestType> pos_field(field_mode::evolution, {"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
+  field_description<TestType> vel_only_field(field_mode::closure, {"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, "vel-only");
+  field_description<TestType> mixed_field(field_mode::closure,
                                        std::vector<std::string>{"x", "y", "vx", "vy"},
                                        {ic_x, ic_y, ic_vel, ic_vel},
                                        {ic_x, ic_y, ic_vel, ic_vel},
                                        "mixed-field");
 
-  try {
-    pde_system<float> broken_physics(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, field_1d, pos_field, vel_only_field, mixed_field});
-    REQUIRE(false); // the code below should not be reached, the line above should trow
-    std::cout << "error: somehow created a pde_system with two fields of the same name " << std::endl;
-    return 1;
-  }catch(std::runtime_error &e){}
+  REQUIRE_THROWS_WITH(
+    pde_system<TestType>(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, field_1d, pos_field, vel_only_field, mixed_field}),
+    "pde-system created with repeated fields (same names)" );
 
-  pde_system<float> physics(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, pos_field, vel_only_field, mixed_field});
+  REQUIRE_NOTHROW(
+    pde_system<TestType>(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, pos_field, vel_only_field, mixed_field})
+  );
+  pde_system<TestType> physics(cli_input, {dim_0, dim_1, dim_2, dim_3}, {field_1d, pos_field, vel_only_field, mixed_field});
 
   physics.load_initial_conditions();
 
-  auto x = physics.get_field("projected to 1d");
+  REQUIRE_NOTHROW(physics.get_field("projected to 1d"));
 
-  try {
-    physics.get_field("invalid name");
-    REQUIRE(false); // the code below should not be reached, the line above should trow
-    std::cout << "error: somehow returned a vector for a non-existing field " << std::endl;
-    return 1;
-  }catch(std::runtime_error &e){}
-
-  return 0;
+  REQUIRE_THROWS_WITH(
+    physics.get_field("invalid name"),
+    "field name 'invalid name' is not unrecognized" );
 }

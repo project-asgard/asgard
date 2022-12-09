@@ -38,7 +38,9 @@ public:
 
     std::vector<std::string> field_names(fields.size());
     for(size_t i=0; i<field_names.size(); i++) field_names[i] = fields[i].name;
-    verify_unique_strings(field_names);
+
+    if (not check_unique_strings(field_names))
+      throw std::runtime_error("pde-system created with repeated fields (same names)");
 
     // eventually we will give the user a more fine-grained control to the discretization
     // this method is the default, i.e., use default discretization
