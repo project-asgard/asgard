@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asgard_dimension.hpp"
 #include "basis.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
@@ -31,9 +32,37 @@ fk::vector<P> gen_realspace_nodes(int const degree, int const level,
                                   P const min, P const max);
 
 template<typename P>
+std::vector<fk::matrix<P>> gen_realspace_transform(
+    std::vector<dimension<P>> const &pde,
+    basis::wavelet_transform<P, resource::host> const &transformer);
+
+template<typename P>
+std::vector<fk::matrix<P>> gen_realspace_transform(
+    std::vector<dimension_description<P>> const &pde,
+    basis::wavelet_transform<P, resource::host> const &transformer);
+
+template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
     elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const memory_limit_MB,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<P> &real_space);
+
+template<typename P>
+void wavelet_to_realspace(
+    std::vector<dimension<P>> const &pde, fk::vector<P> const &wave_space,
+    elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const memory_limit_MB,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<P> &real_space);
+
+template<typename P>
+void wavelet_to_realspace(
+    std::vector<dimension_description<P>> const &pde,
+    fk::vector<P> const &wave_space, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
@@ -244,15 +273,29 @@ inline fk::vector<P> transform_and_combine_dimensions(
 template<typename P>
 inline int real_solution_size(PDE<P> const &pde)
 {
-  /* determine the length of the realspace solution */
-  std::vector<dimension<P>> const &dims = pde.get_dimensions();
-  int prod                              = 1;
-  for (int i = 0; i < static_cast<int>(dims.size()); i++)
-  {
-    prod *= (dims[i].get_degree() * std::pow(2, dims[i].get_level()));
-  }
+  return real_solution_size(pde.get_dimensions());
+}
 
-  return prod;
+template<typename precision>
+inline int real_solution_size(std::vector<dimension<precision>> const &dims)
+{
+  /* determine the length of the realspace solution */
+  return std::accumulate(dims.cbegin(), dims.cend(), int{1},
+                         [](int const size, dimension<precision> const &dim) {
+                           return size * dim.get_degree() *
+                                  fm::two_raised_to(dim.get_level());
+                         });
+}
+
+template<typename precision>
+inline int
+real_solution_size(std::vector<dimension_description<precision>> const &dims)
+{
+  return std::accumulate(
+      dims.cbegin(), dims.cend(), int{1},
+      [](int const size, dimension_description<precision> const &dim) {
+        return size * dim.degree * fm::two_raised_to(dim.level);
+      });
 }
 
 template<typename P>

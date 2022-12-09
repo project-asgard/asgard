@@ -1,5 +1,9 @@
 #include "asgard_discretization.hpp"
-
+#include "build_info.hpp"
+#include "transformations.hpp"
+#ifdef ASGARD_USE_MATLAB
+#include "matlab_plot.hpp"
+#endif
 #include "tests_general.hpp"
 
 using namespace asgard;
@@ -65,4 +69,40 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
   fk::vector<TestType> init = grid.get_initial_conditions(pos_field);
 
   REQUIRE(init.size() == 32);
+
+  auto const real_space_size = real_solution_size(dims.list);
+  fk::vector<TestType> real_space(real_space_size);
+  // temporary workspaces for the transform
+  fk::vector<TestType, mem_type::owner, resource::host> workspace(
+      real_space_size * 2);
+  std::array<fk::vector<TestType, mem_type::view, resource::host>, 2>
+      tmp_workspace = {
+          fk::vector<TestType, mem_type::view, resource::host>(workspace, 0,
+                                                               real_space_size),
+          fk::vector<TestType, mem_type::view, resource::host>(
+              workspace, real_space_size, real_space_size * 2 - 1)};
+
+  static auto const default_workspace_cpu_MB = 187000;
+
+  // transform initial condition to realspace
+  wavelet_to_realspace(dims.list, init, grid.grid->get_table(), transformer,
+                       default_workspace_cpu_MB, tmp_workspace, real_space);
+
+  REQUIRE(real_space.size() == real_space_size);
+
+  std::array<TestType, 8> soln{0.0528312, 0.197169, 0.302831, 0.447169,
+                               0.552831,  0.697169, 0.802831, 0.947169};
+
+  int dim0_size = dims.list[0].degree * fm::two_raised_to(dims.list[0].level);
+  REQUIRE(dim0_size == 8);
+  for (int i = 0; i < dim0_size; ++i)
+  {
+    int dim1_size = dims.list[1].degree * fm::two_raised_to(dims.list[1].level);
+    REQUIRE(dim1_size == 8);
+    for (int j = 0; j < dim1_size; ++j)
+    {
+      REQUIRE_THAT(real_space[i * 8 + j],
+                   Catch::Matchers::WithinRel(soln[j], TestType{0.00001}));
+    }
+  }
 }

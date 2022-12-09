@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asgard_dimension.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -147,12 +148,39 @@ public:
   gen_elem_coords(PDE<P> const &pde, elements::table const &table) const;
 
   template<typename P>
+  fk::vector<P> gen_elem_coords(std::vector<dimension<P>> const &dims,
+                                elements::table const &table) const;
+
+  template<typename P>
+  fk::vector<P>
+  gen_elem_coords(std::vector<dimension_description<P>> const &dims,
+                  elements::table const &table) const;
+
+  template<typename P>
   void init_plotting(PDE<P> const &pde, elements::table const &table);
+
+  template<typename P>
+  void init_plotting(std::vector<dimension<P>> const &dims,
+                     elements::table const &table);
+
+  template<typename P>
+  void init_plotting(std::vector<dimension_description<P>> const &dims,
+                     elements::table const &table);
 
   template<typename P>
   void
   plot_fval(PDE<P> const &pde, elements::table const &table,
             fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln);
+
+  template<typename P>
+  void
+  plot_fval(std::vector<dimension<P>> const &pde, elements::table const &table,
+            fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln);
+
+  template<typename P>
+  void plot_fval(std::vector<dimension_description<P>> const &pde,
+                 elements::table const &table, fk::vector<P> const &f_val,
+                 fk::vector<P> const &analytic_soln);
 
   template<typename P>
   void copy_pde(PDE<P> const &pde, std::string const name = std::string("pde"));
@@ -177,6 +205,14 @@ private:
 
   template<typename P>
   inline std::vector<size_t> get_soln_sizes(PDE<P> const &pde) const;
+
+  template<typename P>
+  inline std::vector<size_t>
+  get_soln_sizes(std::vector<dimension<P>> const &dims) const;
+
+  template<typename P>
+  inline std::vector<size_t>
+  get_soln_sizes(std::vector<dimension_description<P>> const &dims) const;
 
   template<typename P>
   inline int get_soln_size(PDE<P> const &pde, int const dim) const;
