@@ -659,6 +659,13 @@ public:
         expect(md_func.size() == static_cast<unsigned>(num_dims) + 1);
       }
     }
+
+    if (cli_input.using_imex() && moments.size() == 0)
+    {
+      std::cerr << "Invalid PDE choice for IMEX time advance. PDE must have "
+                   "moments defined to use -x\n";
+      exit(-1);
+    }
   }
 
   // copy constructor to create a 1D version of the PDE

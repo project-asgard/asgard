@@ -416,6 +416,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   // BEFE = 0 case
   expect(time >= 0);
+  expect(pde.moments.size() > 0);
 
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
