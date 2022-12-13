@@ -357,45 +357,4 @@ TEMPLATE_TEST_CASE("interp1", "[matlab]", float, double)
     fk::vector<TestType> output = interp1(grid, vals, queries);
     REQUIRE(output == expected);
   }
-
-#ifdef ASGARD_USE_MATLAB
-  SECTION("interactive")
-  {
-    ml::matlab_plot ml_plot;
-    ml_plot.connect();
-
-    int const N  = 100;
-    TestType min = -5.0;
-    TestType max = 5.0;
-
-    TestType dx = (max - min) / N;
-
-    fk::vector<TestType> grid(N);
-    fk::vector<TestType> vals(N);
-    for (int i = 0; i < N; ++i)
-    {
-      grid[i] = min + i * dx;
-      // vals[i] = std::cos(grid[i]);
-      vals[i] = std::pow(grid[i], 3) - std::pow(grid[i], 2);
-    }
-
-    ml_plot.set_var("interp1_grid", ml_plot.create_array({1, N}, grid));
-    ml_plot.set_var("interp1_vals", ml_plot.create_array({1, N}, vals));
-
-    int const N_query = N;
-    fk::vector<TestType> queries(N_query);
-    for (int i = 0; i < N_query; ++i)
-    {
-      queries[i] = grid[i] + 0.5 * dx;
-    }
-
-    ml_plot.set_var("interp1_queries",
-                    ml_plot.create_array({1, N_query}, queries));
-
-    fk::vector<TestType> output = interp1(grid, vals, queries);
-    ml_plot.set_var(
-        "interp1_output",
-        ml_plot.create_array({1, static_cast<size_t>(output.size())}, output));
-  }
-#endif
 }
