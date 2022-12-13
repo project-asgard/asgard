@@ -54,18 +54,19 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
         my_subgrid.row_stop);
-    return (step_method == method::exp)
-               ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
-                                  unscaled_parts, x_orig, workspace_size_MB,
-                                  time)
-               : ((step_method == method::imp)
-                      ? implicit_advance(pde, adaptive_grid, transformer,
-                                         unscaled_parts, x_orig, time,
-                                         program_opts.solver, update_system)
-                      : imex_advance(pde, adaptive_grid, transformer,
-                                     program_opts, unscaled_parts, x_orig,
-                                     workspace_size_MB, time,
-                                     program_opts.solver, update_system));
+    switch (step_method)
+    {
+    case (method::exp):
+      return explicit_advance(pde, adaptive_grid, transformer, program_opts,
+                              unscaled_parts, x_orig, workspace_size_MB, time);
+    case (method::imp):
+      return implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
+                              x_orig, time, program_opts.solver, update_system);
+    case (method::imex):
+      return imex_advance(pde, adaptive_grid, transformer, program_opts,
+                          unscaled_parts, x_orig, workspace_size_MB, time,
+                          program_opts.solver, update_system);
+    };
   }
 
   // coarsen
@@ -85,17 +86,23 @@ adaptive_advance(method const step_method, PDE<P> &pde,
         my_subgrid.row_stop);
 
     // take a probing refinement step
-    auto const y_stepped =
-        (step_method == method::exp)
-            ? explicit_advance(pde, adaptive_grid, transformer, program_opts,
-                               unscaled_parts, y, workspace_size_MB, time)
-            : ((step_method == method::imp)
-                   ? implicit_advance(pde, adaptive_grid, transformer,
-                                      unscaled_parts, y, time,
-                                      program_opts.solver, refining)
-                   : imex_advance(pde, adaptive_grid, transformer, program_opts,
-                                  unscaled_parts, y, workspace_size_MB, time,
-                                  program_opts.solver, refining));
+    auto const y_stepped = [&]() {
+      switch (step_method)
+      {
+      case (method::exp):
+        return explicit_advance(pde, adaptive_grid, transformer, program_opts,
+                                unscaled_parts, y, workspace_size_MB, time);
+      case (method::imp):
+        return implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
+                                y, time, program_opts.solver, refining);
+      case (method::imex):
+        return imex_advance(pde, adaptive_grid, transformer, program_opts,
+                            unscaled_parts, y, workspace_size_MB, time,
+                            program_opts.solver, refining);
+      default:
+        return fk::vector<P>();
+      };
+    }();
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
     old_size            = adaptive_grid.size();
@@ -571,7 +578,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   fk::vector<P> f_3s(x_orig.size());
   exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
-  fm::axpy(f_3s, x, (P)0.5 * dt); // f0 + 0.5*dt*apply_A(f0+f_2)
+  fm::axpy(f_3s, x, static_cast<P>(0.5) * dt); // f0 + 0.5*dt*apply_A(f0+f_2)
 
   tools::timer.start("kronmult_setup");
   fx =
@@ -580,7 +587,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
-  fm::axpy(f_3s, x, (P)0.5 * dt);
+  fm::axpy(f_3s, x, static_cast<P>(0.5) * dt);
 
   // Create rho_3s
   // TODO: refactor into more generic function
