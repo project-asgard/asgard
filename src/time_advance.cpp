@@ -454,7 +454,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
 
   fk::vector<P> x(x_orig);
-  fk::vector<P> nodes = gen_realspace_nodes(degree, level, min, max);
+  static auto nodes = gen_realspace_nodes(degree, level, min, max);
 
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
   int const A_local_rows = elem_size * grid.nrows();
@@ -462,48 +462,49 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   fk::vector<P> reduced_fx(A_local_rows);
 
-  // Create moment matrices that take DG function in (x,v) and transfer to DG
-  // function in x
-  std::cout << " generating moment reduced matrices\n";
-  for (auto &m : pde.moments)
-  {
-    m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
-  }
-
-  for (auto m : pde.moments)
-  {
-    expect(m.get_moment_matrix().nrows() > 0);
-  }
-
-  std::cout << " staging kronmult execute..\n";
-
-  if (first_time || update_system)
-  {
-    first_time = false;
-
-    A.clear_and_resize(A_local_rows, A_local_cols);
-    build_system_matrix(pde, table, A, grid);
-    // AA = I - dt*A;
-    for (int i = 0; i < A.nrows(); ++i)
+  // Re-create A using new coefficients
+  auto rebuild_system_matrix = [&]() {
+    if (first_time || update_system)
     {
+      first_time = false;
+
+      build_system_matrix(pde, table, A, grid);
+      // AA = I - dt*A;
       for (int j = 0; j < A.ncols(); ++j)
       {
-        A(i, j) *= -dt;
+        for (int i = 0; i < A.nrows(); ++i)
+        {
+          A(i, j) *= -dt;
+        }
       }
-    }
-    if (grid.row_start == grid.col_start)
-    {
-      for (int i = 0; i < A.nrows(); ++i)
+      if (grid.row_start == grid.col_start)
       {
-        A(i, i) += 1.0;
+        for (int i = 0; i < A.nrows(); ++i)
+        {
+          A(i, i) += 1.0;
+        }
       }
     }
+  };
+
+  // Create moment matrices that take DG function in (x,v) and transfer to DG
+  // function in x
+  if (first_time || update_system)
+  {
+    for (auto &m : pde.moments)
+    {
+      m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
+      expect(m.get_moment_matrix().nrows() > 0);
+    }
+
+    A.clear_and_resize(A_local_rows, A_local_cols);
+    rebuild_system_matrix();
   }
 
   // Explicit step (f_2s)
   auto const apply_id = tools::timer.start("kronmult_setup");
-  auto fx =
-      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, x);
+  auto fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB,
+                              x, imex_flag::exp);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -518,8 +519,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,
                           mom0_real, 1);
-  param_manager.get_parameter("n")->value =
-      [nodes, mom0_real](P const x_v, P const t = 0) -> P {
+  param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
+                                                        P const t = 0) -> P {
     ignore(t);
     return interp1(nodes, mom0_real, {x_v})[0];
   };
@@ -531,8 +532,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,
                           mom1_real, 1);
-  param_manager.get_parameter("u")->value =
-      [nodes, mom1_real](P const x_v, P const t = 0) -> P {
+  param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
+                                                        P const t = 0) -> P {
     return interp1(nodes, mom1_real, {x_v})[0] /
            param_manager.get_parameter("n")->value(x_v, t);
   };
@@ -544,7 +545,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                           transformer, workspace_size_MB, tmp_workspace,
                           mom2_real, 1);
   param_manager.get_parameter("theta")->value =
-      [nodes, mom2_real](P const x_v, P const t = 0) -> P {
+      [mom2_real](P const x_v, P const t = 0) -> P {
     P const u = param_manager.get_parameter("u")->value(x_v, t);
     return (interp1(nodes, mom2_real, {x_v})[0] /
             param_manager.get_parameter("n")->value(x_v, t)) -
@@ -581,8 +582,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fm::axpy(f_3s, x, static_cast<P>(0.5) * dt); // f0 + 0.5*dt*apply_A(f0+f_2)
 
   tools::timer.start("kronmult_setup");
-  fx =
-      kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, f_2);
+  fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, f_2,
+                         imex_flag::imp);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -595,8 +596,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,
                           mom0_real, 1);
-  param_manager.get_parameter("n")->value =
-      [nodes, mom0_real](P const x_v, P const t = 0) -> P {
+  param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
+                                                        P const t = 0) -> P {
     ignore(t);
     return interp1(nodes, mom0_real, {x_v})[0];
   };
@@ -605,8 +606,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,
                           mom1_real, 1);
-  param_manager.get_parameter("u")->value =
-      [nodes, mom1_real](P const x_v, P const t = 0) -> P {
+  param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
+                                                        P const t = 0) -> P {
     return interp1(nodes, mom1_real, {x_v})[0] /
            param_manager.get_parameter("n")->value(x_v, t);
   };
@@ -616,7 +617,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                           transformer, workspace_size_MB, tmp_workspace,
                           mom2_real, 1);
   param_manager.get_parameter("theta")->value =
-      [nodes, mom2_real](P const x_v, P const t = 0) -> P {
+      [mom2_real](P const x_v, P const t = 0) -> P {
     P const u = param_manager.get_parameter("u")->value(x_v, t);
     return (interp1(nodes, mom2_real, {x_v})[0] /
             param_manager.get_parameter("n")->value(x_v, t)) -

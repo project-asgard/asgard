@@ -157,6 +157,12 @@ enum class flux_type
   lax_friedrich = 0
 };
 
+enum class imex_flag
+{
+  exp,
+  imp,
+};
+
 // ---------------------------------------------------------------------------
 //
 // Term: describes a single term in the pde for operator matrix
@@ -327,10 +333,10 @@ class term
 
 public:
   term(bool const time_dependent_in, std::string const name_in,
-       std::initializer_list<partial_term<P>> const partial_terms)
-      : time_dependent(time_dependent_in), name(name_in),
+       std::initializer_list<partial_term<P>> const partial_terms,
+       imex_flag const flag_in = imex_flag::exp)
+      : time_dependent(time_dependent_in), name(name_in), flag(flag_in),
         partial_terms_(partial_terms)
-
   {}
 
   void set_coefficients(fk::matrix<P> const &new_coefficients)
@@ -404,6 +410,8 @@ public:
   // public but const data. no getters
   bool const time_dependent;
   std::string const name;
+
+  imex_flag const flag;
 
 private:
   std::vector<partial_term<P>> partial_terms_;
