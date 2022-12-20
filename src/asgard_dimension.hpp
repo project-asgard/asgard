@@ -38,16 +38,34 @@ using g_func_type = std::function<P(P const, P const)>;
 
 
 /*!
+ * \ingroup AsgardPDESystem
  * \brief Contains the user provided description of a dimension.
  *
- * The \b dimension_name will be used to identify when the dimension is used for each field.
+ * The \b dimension_name is a user-provided unique identifier
+ * that will help associate this dimension with various fields
+ * and operators in the PDE system.
  */
-template<typename P>
+template<typename precision>
 struct dimension_description {
-  dimension_description(P const domain_min, P const domain_max,
+  /*!
+   * \brief Constructs a new dimension_description with the following parameters.
+   *
+   * \param domain_min is the lower bound for the domain in this dimension
+   * \param domain_max is the upper bound for the domain in this dimension
+   * \param grid_level is the default level of the sparse grid associated with this dimension
+   * \param basis_degree is the default degree of the sparse grid basis associated with this dimension
+   * \param dimension_name is a user-provided unique identifier for this dimension
+   * \param volume_jacobian_dV is the Jacobian variable ... (TODO: I think this was supposed to change to an MD function)
+   *
+   * \par Several notes
+   * - the level and degree can be modified using the command line
+   * - the basis_degree uses dumb indexing, i.e., zeroth order is 1, first order is 2 and so on (WILL BE FIXED!)
+   */
+  dimension_description(precision const domain_min, precision const domain_max,
                         int const grid_level, int const basis_degree,
                         std::string const dimension_name,
-                        g_func_type<P> const volume_jacobian_dV = [](P const, P const)->P{ return 1.0; }) :
+                        g_func_type<precision> const volume_jacobian_dV =
+                          [](precision const, precision const)->precision{ return 1.0; }) :
     d_min(domain_min), d_max(domain_max),
     level(grid_level), degree(basis_degree),
     name(dimension_name),
@@ -61,17 +79,37 @@ struct dimension_description {
     expect(degree > 1); // must fix this one, degree should count from zero
     expect(name.length() > 0);
   }
-  P const d_min;
-  P const d_max;
+  //! \brief Dimension lower bound.
+  precision const d_min;
+  //! \brief Dimension upper bound.
+  precision const d_max;
+  //! \brief Dimension default level for the sparse grid.
   int const level;
+  //! \brief Dimension default degree for the sparse grid basis.
   int const degree;
+  //! \brief Unique user-provided identifier.
   std::string const name;
-  g_func_type<P> const jacobian;
+  //! \brief Volume Jacobian ...
+  g_func_type<precision> const jacobian;
 };
 
-// Note (from Miro): there is nothing inside this class that requires internal consistency of the input data
-// Why have private members when you can freely modify every one of them?
-// Make a struct to keep related data together and have simple direct access to the data.
+/*!
+ * \internal
+ * \ingroup AsgardPDESystem
+ * \brief Extension to the dimension_description that contains internal Asgard data (also used in the old API).
+ *
+ * In addition to the parameters in the dimension_description,
+ * this also holds the 1D mass matrix for this dimension.
+ *
+ * The class is also associated with the old/original API
+ * and many of the internal operations work with a vector of dimensions.
+ * For as long as the old API is maintained,
+ * changes to this class should maintain compatibility.
+ * The included \b initial_condition for example is used by the old API only,
+ * and should not be used in the new one, since one dimension can be associated
+ * with multiple fields each with different initial conditions.
+ * \endinternal
+ */
 template<typename P>
 struct dimension
 {
