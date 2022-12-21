@@ -135,7 +135,7 @@ public:
       if (grid_index == static_cast<int64_t>(grids.size()))
       {
         grids.push_back(
-            field_discretization<precision, resrc>(cli, dims, transformer, fields[i].d_names)
+            field_discretization<precision, resrc>(cli, transformer, dims, fields[i].d_names)
           );
         fields[i].grid_index = grid_index;
       }

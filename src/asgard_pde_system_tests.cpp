@@ -4,39 +4,44 @@
 
 using namespace asgard;
 
-static fk::vector<float> ic_x(fk::vector<float> const &x,
-                              float const = 0)
-{
-  fk::vector<float> fx(x.size());
-  for(int i=0; i<fx.size(); i++) fx[i] = 1.0;
-  return fx;
-}
-static fk::vector<float> ic_y(fk::vector<float> const &x,
-                             float const = 0)
-{
-  fk::vector<float> fx(x.size());
-  for(int i=0; i<fx.size(); i++) fx[i] = x[i];
-  return fx;
-}
-static fk::vector<float> ic_vel(fk::vector<float> const &x,
-                             float const = 0)
-{
-  fk::vector<float> fx(x.size());
-  for(int i=0; i<fx.size(); i++) fx[i] = x[i] * x[i];
-  return fx;
-}
+template<typename precision>
+struct volume {
+  static precision jacobi(precision const, precision const) {
+    return 1.0;
+  }
+};
 
-static float vol_jac_dV(float const, float const)
-{
-  return 1.0;
-}
+template<typename precision>
+struct initial {
+  static fk::vector<precision> x(fk::vector<precision> const &x,
+                                 precision const = 0)
+  {
+    fk::vector<precision> fx(x.size());
+    for(int i=0; i<fx.size(); i++) fx[i] = 1.0;
+    return fx;
+  }
+  static fk::vector<precision> y(fk::vector<precision> const &x,
+                                 precision const = 0)
+  {
+    fk::vector<precision> fx(x.size());
+    for(int i=0; i<fx.size(); i++) fx[i] = x[i];
+    return fx;
+  }
+  static fk::vector<precision> v(fk::vector<precision> const &x,
+                                 precision const = 0)
+  {
+    fk::vector<precision> fx(x.size());
+    for(int i=0; i<fx.size(); i++) fx[i] = x[i] * x[i];
+    return fx;
+  }
+};
 
-TEMPLATE_TEST_CASE("testing construction of a basic pde_system", "[pde]", float)
+TEMPLATE_TEST_CASE("testing construction of a basic pde_system", "[pde]", float, double)
 {
 
   std::vector<char> ename = {'a', 's'};
   char *ename_data = ename.data();
-  parser const cli_input(1, &ename_data);
+  parser const cli_input(1, &ename_data); // dummy parser
 
   TestType min0 = 0.0, min1 = 1.0;
   int level = 2, degree = 2;
@@ -44,19 +49,25 @@ TEMPLATE_TEST_CASE("testing construction of a basic pde_system", "[pde]", float)
   dimension_description<TestType> dim_0 =
       dimension_description<TestType>(min0, min1, level, degree, "x");
   dimension_description<TestType> dim_1 =
-      dimension_description<TestType>(min0, min1, level, degree, "y", vol_jac_dV);
+      dimension_description<TestType>(min0, min1, level, degree, "y", volume<TestType>::jacobi);
   dimension_description<TestType> dim_2 =
       dimension_description<TestType>(min0, min1, level, degree, "vx");
   dimension_description<TestType> dim_3 =
       dimension_description<TestType>(min0, min1, level, degree, "vy");
 
-  field_description<TestType> field_1d(field_mode::evolution, "x", ic_x, ic_x, "projected to 1d");
-  field_description<TestType> pos_field(field_mode::evolution, {"x", "y"}, {ic_x, ic_y}, {ic_x, ic_y}, "position");
-  field_description<TestType> vel_only_field(field_mode::closure, {"vx", "vy"}, {ic_vel, ic_vel}, {ic_vel, ic_vel}, "vel-only");
+  field_description<TestType> field_1d(field_mode::evolution, "x", initial<TestType>::x, initial<TestType>::x, "projected to 1d");
+  field_description<TestType> pos_field(field_mode::evolution, {"x", "y"},
+                                        {initial<TestType>::x, initial<TestType>::y},
+                                        {initial<TestType>::x, initial<TestType>::y},
+                                        "position");
+  field_description<TestType> vel_only_field(field_mode::closure, {"vx", "vy"},
+                                             {initial<TestType>::v, initial<TestType>::v},
+                                             {initial<TestType>::v, initial<TestType>::v},
+                                             "vel-only");
   field_description<TestType> mixed_field(field_mode::closure,
                                        std::vector<std::string>{"x", "y", "vx", "vy"},
-                                       {ic_x, ic_y, ic_vel, ic_vel},
-                                       {ic_x, ic_y, ic_vel, ic_vel},
+                                       {initial<TestType>::x, initial<TestType>::y, initial<TestType>::v, initial<TestType>::v},
+                                       {initial<TestType>::x, initial<TestType>::y, initial<TestType>::v, initial<TestType>::v},
                                        "mixed-field");
 
   REQUIRE_THROWS_WITH(

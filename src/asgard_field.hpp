@@ -19,159 +19,6 @@ namespace asgard
 {
 
 /*!
- * \internal
- * \ingroup AsgardPDESystem
- * \brief Creates a copy of the dimensions and modifies them based on the cli-parameters
- *
- * \tparam precision is either \b float or \b double
- * \param cli_input is a parser with the current command line arguments
- * \param dimensions is a user-provided default values for the dimensions of the PDE system
- *
- * \returns a copy of the dimensions, but with the command line corrections applied
- *
- * \throws runtime_error if sanity check fails on the parser data or the values of the levels and order
- *
- * \endinternal
- */
-template<typename precision>
-std::vector<dimension_description<precision>>
-cli_apply_level_degree_correction(parser const &cli_input,
-                                  std::vector<dimension_description<precision>> const &dimensions)
-{
-  size_t num_dims = dimensions.size();
-  std::vector<int> levels(dimensions.size()), degrees(dimensions.size());
-  for(size_t i=0; i<num_dims; i++)
-  {
-    levels[i] = dimensions[i].level;
-    degrees[i] = dimensions[i].degree;
-  }
-
-  // modify for appropriate level/degree
-  // if default lev/degree not used
-  auto const user_levels = cli_input.get_starting_levels().size();
-  if (user_levels != 0 && user_levels != static_cast<int>(num_dims))
-  {
-    throw std::runtime_error(
-        std::string("failed to parse dimension-many starting levels - parsed ")
-        + std::to_string(user_levels) + " levels");
-  }
-  if (user_levels == static_cast<int>(num_dims))
-  {
-    auto counter = 0;
-    for (int &l : levels)
-    {
-      l = cli_input.get_starting_levels()(counter++);
-      expect(l > 1);
-    }
-  }
-  auto const cli_degree = cli_input.get_degree();
-  if (cli_degree != parser::NO_USER_VALUE)
-  {
-    expect(cli_degree > 0);
-    for (int &d : degrees) d = cli_degree;
-  }
-
-  // check all dimensions
-  for(size_t i=0; i<dimensions.size(); i++)
-  {
-    expect(degrees[i] > 0);
-    expect(levels[i] > 1);
-  }
-
-  std::vector<dimension_description<precision>> result;
-  result.reserve(num_dims);
-  for(size_t i=0; i<num_dims; i++)
-  {
-    result.push_back(
-      dimension_description<precision>(dimensions[i].d_min, dimensions[i].d_max,
-                                       levels[i], degrees[i],
-                                       dimensions[i].name)
-                     );
-  }
-  return result;
-}
-
-/*!
- * \internal
- * \ingroup AsgardPDESystem
- * \brief Throws an exception if there are repeated entries among the names.
- *
- * \param names is a list of strings that need a sanity check
- *
- * \return \b true if there are no unique entries among the strings, and \b false if repeated entries are found
- *
- * \endinternal
- */
-inline bool check_unique_strings(std::vector<std::string> const &names) {
-  size_t num_dims = names.size();
-  for(size_t i=0; i<num_dims; i++)
-  {
-    for(size_t j=i+1; j<num_dims; j++)
-    {
-      if (names[i] == names[j])
-        return false;
-    }
-  }
-  return true;
-}
-
-/*!
- * \internal
- * \ingroup AsgardPDESystem
- * \brief Wrapper for an arbitrary set of dimension_description objects.
- *
- * \tparam precision is either float or double
- *
- * Holds a vector of dimension_description objects and provides methods to extract a specific description from the list.
- *
- * \endinternal
- */
-template<typename precision>
-struct dimension_set {
-  /*!
-   * \brief Creates a new set of dimensions from the provided list modified by the command line arguments.
-   *
-   * \param cli_input is a parser of the command line arguments used to modify the default values in dimensions
-   * \param dimensions is a list of dimensions with default data provided by the user
-   *
-   * \throws runtime_error if there are entries with the same name
-   */
-  dimension_set(parser const &cli_input, std::vector<dimension_description<precision>> const &dimensions)
-    : list(cli_apply_level_degree_correction(cli_input, dimensions))
-  {
-    std::vector<std::string> names(list.size());
-    for(size_t i=0; i<list.size(); i++)
-      names[i] = list[i].name;
-
-    if (not check_unique_strings(names))
-      throw std::runtime_error("dimensions should have unique names");
-  }
-
-  /*!
-   * \brief Returns the dimension_description for the dimension with the given name.
-   *
-   * \param name is the name to search among the dimensions in the set
-   *
-   * \returns const-reference to the dimension_description with the same name,
-   *          the descriptions have already been updated with the command line arguments.
-   *
-   * \throws runtime_error if the name is not in the list of dimensions
-   */
-  dimension_description<precision> const& operator() (std::string const &name) const
-  {
-    for(size_t i=0; i<list.size(); i++)
-    {
-      if (list[i].name == name)
-        return list[i];
-    }
-    throw std::runtime_error(std::string("invalid dimension name: '") + name + "', has not been defined.");
-  }
-
-  //! \brief Contains the vector of dimension_description that has been updated by the command line arguments.
-  std::vector<dimension_description<precision>> const list;
-};
-
-/*!
  * \ingroup AsgardPDESystem
  * \brief Defines the type of each field, specifically whether it has a time-differential operator or not.
  *
@@ -241,44 +88,10 @@ struct field_description
    *         initial_conditions and exact_solution or if dimension_names contains repeated entries.
    */
   field_description(field_mode fmode,
-                    std::vector<std::string> const &dimension_names,
-                    std::vector<vector_func<precision>> const &initial_conditions,
-                    std::vector<vector_func<precision>> const &exact_solution,
-                    std::string const &field_name
-                    )
-      : field_description(fmode,
-                          std::vector<std::string>(dimension_names),
-                          std::vector<vector_func<precision>>(initial_conditions),
-                          std::vector<vector_func<precision>>(exact_solution),
-                          std::string(field_name))
-  {}
-  /*!
-   * \brief Constructs a new multidimensional field without known exact solution.
-   */
-    field_description(field_mode fmode,
-                      std::vector<std::string> const &dimension_names,
-                      std::vector<vector_func<precision>> const &initial_conditions,
-                      std::string const &field_name
-                      )
-      : field_description(fmode,
-                          std::vector<std::string>(dimension_names),
-                          std::vector<vector_func<precision>>(initial_conditions),
-                          std::string(field_name))
-  {}
-  //! \brief Overload for r-value inputs, used to avoid a redundant copy.
-  field_description(field_mode fmode,
-                    std::vector<std::string> &&dimensions,
-                    std::vector<vector_func<precision>> &&initial_conditions,
-                    std::string &&field_name
-                    )
-      : field_description(fmode, std::move(dimensions), std::move(initial_conditions), {}, std::move(field_name))
-  {}
-  //! \brief Overload for r-value inputs, used to avoid a redundant copy.
-  field_description(field_mode fmode,
-                    std::vector<std::string> &&dimensions,
-                    std::vector<vector_func<precision>> &&initial_conditions,
-                    std::vector<vector_func<precision>> &&exact_solution,
-                    std::string &&field_name
+                    std::vector<std::string> dimensions,
+                    std::vector<vector_func<precision>> initial_conditions,
+                    std::vector<vector_func<precision>> exact_solution,
+                    std::string field_name
                     )
       : mode(fmode), d_names(std::move(dimensions)),
         init_cond(std::move(initial_conditions)), exact(std::move(exact_solution)),
@@ -294,6 +107,19 @@ struct field_description
     if (not check_unique_strings(d_names))
       throw std::runtime_error("repeated dimensions in the field definition");
   }
+  /*!
+   * \brief Constructs a new multidimensional field without known exact solution.
+   */
+    field_description(field_mode fmode,
+                      std::vector<std::string> dimension_names,
+                      std::vector<vector_func<precision>> initial_conditions,
+                      std::string field_name
+                      )
+      : field_description(fmode, std::move(dimension_names),
+                          std::move(initial_conditions),
+                          std::vector<vector_func<precision>>{},
+                          std::move(field_name))
+  {}
 
   /*!
    * \brief Throws an error if the provided set does not contain all the dimensions associated with this field.

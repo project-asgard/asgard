@@ -38,6 +38,30 @@ using g_func_type = std::function<P(P const, P const)>;
 
 
 /*!
+ * \internal
+ * \ingroup AsgardPDESystem
+ * \brief Throws an exception if there are repeated entries among the names.
+ *
+ * \param names is a list of strings that need a sanity check
+ *
+ * \return \b true if there are no unique entries among the strings, and \b false if repeated entries are found
+ *
+ * \endinternal
+ */
+inline bool check_unique_strings(std::vector<std::string> const &names) {
+  size_t num_dims = names.size();
+  for(size_t i=0; i<num_dims; i++)
+  {
+    for(size_t j=i+1; j<num_dims; j++)
+    {
+      if (names[i] == names[j])
+        return false;
+    }
+  }
+  return true;
+}
+
+/*!
  * \ingroup AsgardPDESystem
  * \brief Contains the user provided description of a dimension.
  *
@@ -96,6 +120,135 @@ struct dimension_description {
 /*!
  * \internal
  * \ingroup AsgardPDESystem
+ * \brief Creates a copy of the dimensions and modifies them based on the cli-parameters
+ *
+ * \tparam precision is either \b float or \b double
+ * \param cli_input is a parser with the current command line arguments
+ * \param dimensions is a user-provided default values for the dimensions of the PDE system
+ *
+ * \returns a copy of the dimensions, but with the command line corrections applied
+ *
+ * \throws runtime_error if sanity check fails on the parser data or the values of the levels and order
+ *
+ * \endinternal
+ */
+template<typename precision>
+std::vector<dimension_description<precision>>
+cli_apply_level_degree_correction(parser const &cli_input,
+                                  std::vector<dimension_description<precision>> const &dimensions)
+{
+  size_t num_dims = dimensions.size();
+  std::vector<int> levels(dimensions.size()), degrees(dimensions.size());
+  for(size_t i=0; i<num_dims; i++)
+  {
+    levels[i] = dimensions[i].level;
+    degrees[i] = dimensions[i].degree;
+  }
+
+  // modify for appropriate level/degree
+  // if default lev/degree not used
+  auto const user_levels = cli_input.get_starting_levels().size();
+  if (user_levels != 0 && user_levels != static_cast<int>(num_dims))
+  {
+    throw std::runtime_error(
+        std::string("failed to parse dimension-many starting levels - parsed ")
+        + std::to_string(user_levels) + " levels");
+  }
+  if (user_levels == static_cast<int>(num_dims))
+  {
+    auto counter = 0;
+    for (int &l : levels)
+    {
+      l = cli_input.get_starting_levels()(counter++);
+      expect(l > 1);
+    }
+  }
+  auto const cli_degree = cli_input.get_degree();
+  if (cli_degree != parser::NO_USER_VALUE)
+  {
+    expect(cli_degree > 0);
+    for (int &d : degrees) d = cli_degree;
+  }
+
+  // check all dimensions
+  for(size_t i=0; i<dimensions.size(); i++)
+  {
+    expect(degrees[i] > 0);
+    expect(levels[i] > 1);
+  }
+
+  std::vector<dimension_description<precision>> result;
+  result.reserve(num_dims);
+  for(size_t i=0; i<num_dims; i++)
+  {
+    result.push_back(
+      dimension_description<precision>(dimensions[i].d_min, dimensions[i].d_max,
+                                       levels[i], degrees[i],
+                                       dimensions[i].name)
+                     );
+  }
+  return result;
+}
+
+/*!
+ * \internal
+ * \ingroup AsgardPDESystem
+ * \brief Wrapper for an arbitrary set of dimension_description objects.
+ *
+ * \tparam precision is either float or double
+ *
+ * Holds a vector of dimension_description objects and provides methods to extract a specific description from the list.
+ *
+ * \endinternal
+ */
+template<typename precision>
+struct dimension_set {
+  /*!
+   * \brief Creates a new set of dimensions from the provided list modified by the command line arguments.
+   *
+   * \param cli_input is a parser of the command line arguments used to modify the default values in dimensions
+   * \param dimensions is a list of dimensions with default data provided by the user
+   *
+   * \throws runtime_error if there are entries with the same name
+   */
+  dimension_set(parser const &cli_input, std::vector<dimension_description<precision>> const &dimensions)
+    : list(cli_apply_level_degree_correction(cli_input, dimensions))
+  {
+    std::vector<std::string> names(list.size());
+    for(size_t i=0; i<list.size(); i++)
+      names[i] = list[i].name;
+
+    if (not check_unique_strings(names))
+      throw std::runtime_error("dimensions should have unique names");
+  }
+
+  /*!
+   * \brief Returns the dimension_description for the dimension with the given name.
+   *
+   * \param name is the name to search among the dimensions in the set
+   *
+   * \returns const-reference to the dimension_description with the same name,
+   *          the descriptions have already been updated with the command line arguments.
+   *
+   * \throws runtime_error if the name is not in the list of dimensions
+   */
+  dimension_description<precision> const& operator() (std::string const &name) const
+  {
+    for(size_t i=0; i<list.size(); i++)
+    {
+      if (list[i].name == name)
+        return list[i];
+    }
+    throw std::runtime_error(std::string("invalid dimension name: '") + name + "', has not been defined.");
+  }
+
+  //! \brief Contains the vector of dimension_description that has been updated by the command line arguments.
+  std::vector<dimension_description<precision>> const list;
+};
+
+/*!
+ * \internal
+ * \ingroup AsgardPDESystem
  * \brief Extension to the dimension_description that contains internal Asgard data (also used in the old API).
  *
  * In addition to the parameters in the dimension_description,
@@ -142,7 +295,7 @@ struct dimension
   }
   dimension(dimension_description<P> const desc)
       : domain_min(desc.d_min), domain_max(desc.d_max),
-        initial_condition(std::vector<vector_func<P>>{[](fk::vector<P> const&, P const)->fk::vector<float>{ return fk::vector<float>(); },}),
+        initial_condition(std::vector<vector_func<P>>{[](fk::vector<P> const&, P const)->fk::vector<P>{ return fk::vector<P>(); },}),
         volume_jacobian_dV(desc.jacobian), name(desc.name),
         level_(desc.level), degree_(desc.degree)
   {
