@@ -13,10 +13,7 @@ struct volume {
 
 TEMPLATE_TEST_CASE("testing construction of a basic field_discretization", "[grid]", float, double)
 {
-
-  std::vector<char> ename = {'a', 's'};
-  char *ename_data = ename.data();
-  parser const cli_input(1, &ename_data); // dummy parser
+  parser const cli_input = make_empty_parser();
 
   TestType min0 = 0.0, min1 = 1.0;
   int level = 2, degree = 2;
@@ -35,5 +32,4 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization", "[gri
   REQUIRE_THROWS_WITH(
     dset("invalid name"),
     "invalid dimension name: 'invalid name', has not been defined.");
-
 }

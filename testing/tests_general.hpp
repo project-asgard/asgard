@@ -17,6 +17,12 @@
 #include <vector>
 #include <catch2/catch_all.hpp>
 
+/*!
+ * \defgroup AsgardTesting Miscellaneous testing utilities
+ *
+ * Helper functions to facilitate testing.
+ */
+
 static inline const std::filesystem::path gold_base_dir{ASGARD_GOLD_BASE_DIR};
 
 template<typename P>
@@ -173,4 +179,20 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
         REQUIRE_THAT(*first_it++,
                      Catch::Matchers::WithinAbs(second_elem, tol * scale_fac));
       });
+}
+
+namespace asgard {
+
+
+  /*!
+   * \ingroup AsgardTesting
+   * \brief Create a parser with no parameters.
+   */
+  inline parser make_empty_parser() {
+    //std::vector<char> enames = {'a', 's', 'g', 'a', 'r', 'd'};
+    //char *ename = enames.data();
+    const char *ename = "asgard";
+    return parser(1, const_cast<char**>(&ename)); // dummy parser
+  }
+
 }
