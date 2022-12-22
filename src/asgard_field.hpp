@@ -17,14 +17,14 @@
 
 namespace asgard
 {
-
 /*!
  * \ingroup AsgardPDESystem
  * \brief Defines the type of each field, specifically whether it has a time-differential operator or not.
  *
  * TODO: See ... Will add a link to the math document here ...
  */
-enum class field_mode {
+enum class field_mode
+{
   //! \brief Each evolution equation will have an implicit time derivative operator added its equation.
   evolution,
   //! \brief Fields with no time derivative, i.e., fields that depend explicitly on the field_mode::evolution fields.
@@ -36,7 +36,8 @@ enum class field_mode {
  * \brief Simple container holding the basic properties of a field.
  *
  * The user has to crate a description object for each field of the PDE system.
- * A vector holding all of these objects will be passed into the constructor of asgard::pde_system
+ * A vector holding all of these objects will be passed into the constructor of
+ * asgard::pde_system
  *
  * \tparam precision is either \b float or \b double and indicates whether to use 32-bit or 64-bit floating point precision
  */
@@ -52,25 +53,23 @@ struct field_description
    * \param exact_solution is an optional parameter that defines the exact solution for the field
    * \param field_name a unique identifier for this field
    */
-  field_description(field_mode fmode,
-                    std::string const &dimension_name,
+  field_description(field_mode fmode, std::string const &dimension_name,
                     vector_func<precision> const initial_condition,
                     vector_func<precision> const exact_solution,
-                    std::string const &field_name
-                    )
-    : field_description(fmode, std::vector<std::string>{dimension_name}, {initial_condition}, {exact_solution}, field_name)
-    {}
+                    std::string const &field_name)
+      : field_description(fmode, std::vector<std::string>{dimension_name},
+                          {initial_condition}, {exact_solution}, field_name)
+  {}
 
   /*!
    * \brief Constructs a new 1D field without a known exact solution and the following parameters.
    */
-  field_description(field_mode fmode,
-                    std::string const &dimension_name,
+  field_description(field_mode fmode, std::string const &dimension_name,
                     vector_func<precision> const initial_condition,
-                    std::string const &field_name
-                    )
-    : field_description(fmode, std::vector<std::string>{dimension_name}, {initial_condition}, field_name)
-    {}
+                    std::string const &field_name)
+      : field_description(fmode, std::vector<std::string>{dimension_name},
+                          {initial_condition}, field_name)
+  {}
 
   /*!
    * \brief Constructs a new multidimensional field with known exact solution and the following parameters.
@@ -78,28 +77,28 @@ struct field_description
    * \param fmode identifies the field as either field_mode::evolution or field_mode::closure
    * \param dimension_names is a list of the dimensions associated with the field
    * \param initial_conditions provides initial condition for this field,
-   *        note that the initial condition is a product of the 1D initial conditions
-   *        as per the separability assumption in the code
+   *        note that the initial condition is a product of the 1D initial
+   * conditions as per the separability assumption in the code
    * \param exact_solution defines the exact solution for the field (assumed separable),
    *        if the exact solution is not knows, then this can be an empty vector
    * \param field_name a unique identifier for this field
    *
    * \throws runtime_error if there is a mismatch in the sizes of dimension_names,
-   *         initial_conditions and exact_solution or if dimension_names contains repeated entries.
+   *         initial_conditions and exact_solution or if dimension_names
+   * contains repeated entries.
    */
-  field_description(field_mode fmode,
-                    std::vector<std::string> dimensions,
+  field_description(field_mode fmode, std::vector<std::string> dimensions,
                     std::vector<vector_func<precision>> initial_conditions,
                     std::vector<vector_func<precision>> exact_solution,
-                    std::string field_name
-                    )
+                    std::string field_name)
       : mode(fmode), d_names(std::move(dimensions)),
-        init_cond(std::move(initial_conditions)), exact(std::move(exact_solution)),
-        name(std::move(field_name))
+        init_cond(std::move(initial_conditions)),
+        exact(std::move(exact_solution)), name(std::move(field_name))
   {
-    static_assert(std::is_same<precision, float>::value
-                  or std::is_same<precision, double>::value,
-                  "ASGARD supports only float and double as template parameters for precision.");
+    static_assert(std::is_same<precision, float>::value or
+                      std::is_same<precision, double>::value,
+                  "ASGARD supports only float and double as template "
+                  "parameters for precision.");
 
     expect(d_names.size() > 0);
     expect(d_names.size() == init_cond.size());
@@ -110,15 +109,12 @@ struct field_description
   /*!
    * \brief Constructs a new multidimensional field without known exact solution.
    */
-    field_description(field_mode fmode,
-                      std::vector<std::string> dimension_names,
-                      std::vector<vector_func<precision>> initial_conditions,
-                      std::string field_name
-                      )
-      : field_description(fmode, std::move(dimension_names),
-                          std::move(initial_conditions),
-                          std::vector<vector_func<precision>>{},
-                          std::move(field_name))
+  field_description(field_mode fmode, std::vector<std::string> dimension_names,
+                    std::vector<vector_func<precision>> initial_conditions,
+                    std::string field_name)
+      : field_description(
+            fmode, std::move(dimension_names), std::move(initial_conditions),
+            std::vector<vector_func<precision>>{}, std::move(field_name))
   {}
 
   /*!
@@ -130,10 +126,13 @@ struct field_description
    */
   void verify_dimensions(dimension_set<precision> const &d_set) const
   {
-    for(size_t i=0; i<d_names.size(); i++) {
+    for (size_t i = 0; i < d_names.size(); i++)
+    {
       if (not std::any_of(d_set.list.begin(), d_set.list.end(),
-        [&](dimension_description<precision> const &d_name)->bool{ return (d_names[i] == d_name.name); }))
-        throw std::runtime_error(std::string("invalid dimension name: '") + d_names[i] + "', has not been defined.");
+                          [&](dimension_description<precision> const &d_name)
+                              -> bool { return (d_names[i] == d_name.name); }))
+        throw std::runtime_error(std::string("invalid dimension name: '") +
+                                 d_names[i] + "', has not been defined.");
     }
   }
 
@@ -159,10 +158,12 @@ struct field_description
  * \ingroup AsgardPDESystem
  * \brief Extension to the field_description that also stores internal asgard data.
  *
- * The class is very similar to asgard::field_description but it also contains internal data.
+ * The class is very similar to asgard::field_description but it also contains
+ * internal data.
  *
  * - the index (withing the grid vector) of the grid that discretizes this field
- * - the start and end index of the field entries within the global state vector.
+ * - the start and end index of the field entries within the global state
+ * vector.
  *
  * \endinternal
  */
@@ -170,11 +171,10 @@ template<typename precision>
 struct field
 {
   //! \brief Create a filed from the given description.
-  field(field_description<precision> const &description) :
-    mode(description.mode), d_names(description.d_names),
-    init_cond(description.init_cond), exact(description.exact),
-    name(description.name),
-    grid_index(-1), global_begin(-1), global_end(-1)
+  field(field_description<precision> const &description)
+      : mode(description.mode), d_names(description.d_names),
+        init_cond(description.init_cond), exact(description.exact),
+        name(description.name), grid_index(-1), global_begin(-1), global_end(-1)
   {}
 
   /*!
@@ -183,10 +183,12 @@ struct field
    * \param being is the first entry associated with the field within the global state vector.
    * \param end is the first entry not-associated with this field
    *
-   * Note that the indexing follows the conventions set by the C++ standard library,
-   * which is different from MATLAB or FORTRAN but better suited for the zero-indexing of C++.
+   * Note that the indexing follows the conventions set by the C++ standard
+   * library, which is different from MATLAB or FORTRAN but better suited for
+   * the zero-indexing of C++.
    */
-  void set_global_index(int64_t begin, int64_t end) {
+  void set_global_index(int64_t begin, int64_t end)
+  {
     expect(end >= begin);
     global_begin = begin;
     global_end   = end;
@@ -213,28 +215,25 @@ struct field
 
 template<typename P>
 static fk::vector<P>
-eval_md_func(int const degree,
-	     std::vector<dimension<P>> const &dims,
-	     std::vector<std::vector<vector_func<P>>> const &md_funcs,
-	     adapt::distributed_grid<P> const &grid,
-	     basis::wavelet_transform<P,
-	     resource::host> const &transformer,
-	     P const time
-	     )
+eval_md_func(int const degree, std::vector<dimension<P>> const &dims,
+             std::vector<std::vector<vector_func<P>>> const &md_funcs,
+             adapt::distributed_grid<P> const &grid,
+             basis::wavelet_transform<P, resource::host> const &transformer,
+             P const time)
 {
   auto const my_subgrid = grid.get_subgrid(get_rank());
   // FIXME assume uniform degree
-  auto const dof    = std::pow(degree, dims.size()) * my_subgrid.nrows();
+  auto const dof = std::pow(degree, dims.size()) * my_subgrid.nrows();
   fk::vector<P> coeffs(dof);
-  for (int i = 0; i<md_funcs.size(); ++i)
+  for (int i = 0; i < md_funcs.size(); ++i)
   {
     auto const coeff_vect = transform_and_combine_dimensions(
-        dims, md_funcs[i], grid.get_table(), transformer,
-        my_subgrid.row_start, my_subgrid.row_stop, degree, time,
+        dims, md_funcs[i], grid.get_table(), transformer, my_subgrid.row_start,
+        my_subgrid.row_stop, degree, time,
         1.0); // TODO: Add time function to last argument
     fm::axpy(coeff_vect, coeffs);
   }
   return coeffs;
 }
 
-}
+} // namespace asgard

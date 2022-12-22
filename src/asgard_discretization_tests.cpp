@@ -5,19 +5,22 @@
 using namespace asgard;
 
 template<typename precision>
-struct initial {
-  static fk::vector<precision> x(fk::vector<precision> const &x,
-                                 precision const = 0)
+struct initial
+{
+  static fk::vector<precision>
+  x(fk::vector<precision> const &x, precision const = 0)
   {
     fk::vector<precision> fx(x.size());
-    for(int i=0; i<fx.size(); i++) fx[i] = 1.0;
+    for (int i = 0; i < fx.size(); i++)
+      fx[i] = 1.0;
     return fx;
   }
-  static fk::vector<precision> y(fk::vector<precision> const &x,
-                                 precision const = 0)
+  static fk::vector<precision>
+  y(fk::vector<precision> const &x, precision const = 0)
   {
     fk::vector<precision> fx(x.size());
-    for(int i=0; i<fx.size(); i++) fx[i] = x[i];
+    for (int i = 0; i < fx.size(); i++)
+      fx[i] = x[i];
     return fx;
   }
 };
@@ -48,9 +51,9 @@ int main(int argc, char *argv[])
   return result;
 }
 
-TEMPLATE_TEST_CASE("testing construction of a basic field_discretization", "[grid]", float, double)
+TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
+                   "[grid]", float, double)
 {
-
   parser const cli_input = make_empty_parser();
 
   TestType min0 = 0.0, min1 = 1.0;
@@ -61,9 +64,9 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization", "[gri
   dimension_description<TestType> dim_1 =
       dimension_description<TestType>(min0, min1, level, degree, "y");
 
-  field_description<TestType> pos_field(field_mode::evolution, {"x", "y"},
-                                        {initial<TestType>::x, initial<TestType>::y},
-                                        {}, "position");
+  field_description<TestType> pos_field(
+      field_mode::evolution, {"x", "y"},
+      {initial<TestType>::x, initial<TestType>::y}, {}, "position");
 
   dimension_set<TestType> dims(cli_input, {dim_0, dim_1});
 
@@ -71,7 +74,8 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization", "[gri
   asgard::basis::wavelet_transform<TestType, asgard::resource::host>
       transformer(cli_input, degree, quiet);
 
-  field_discretization<TestType, asgard::resource::host> grid(cli_input, transformer, dims, pos_field.d_names);
+  field_discretization<TestType, asgard::resource::host> grid(
+      cli_input, transformer, dims, pos_field.d_names);
 
   fk::vector<TestType> init = grid.get_initial_conditions(pos_field);
 

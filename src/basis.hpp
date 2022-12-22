@@ -39,7 +39,8 @@ public:
 
   wavelet_transform(options const &program_opts, PDE<P> const &pde,
                     bool const quiet = true)
-    : wavelet_transform(program_opts, pde.get_dimensions()[0].get_degree(), quiet)
+      : wavelet_transform(program_opts, pde.get_dimensions()[0].get_degree(),
+                          quiet)
   {}
 
   // apply the fmwt matrix to coefficients

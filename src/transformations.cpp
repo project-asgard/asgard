@@ -195,12 +195,11 @@ void wavelet_to_realspace(
 }
 
 template<typename P>
-void
-combine_dimensions(int const degree, elements::table const &table,
-                   int const start_element, int const stop_element,
-                   std::vector<fk::vector<P>> const &vectors,
-                   P const time_scale,
-                   fk::vector<P, mem_type::view> result)
+void combine_dimensions(int const degree, elements::table const &table,
+                        int const start_element, int const stop_element,
+                        std::vector<fk::vector<P>> const &vectors,
+                        P const time_scale,
+                        fk::vector<P, mem_type::view> result)
 {
   int const num_dims = vectors.size();
   expect(num_dims > 0);
@@ -237,7 +236,7 @@ combine_dimensions(int const degree, elements::table const &table,
 
     // call kron_d and put the output in the right place of the result
     fk::vector<P, mem_type::view>(result, start_index, stop_index) =
-      kron_d(kron_list, kron_list.size()) * time_scale;
+        kron_d(kron_list, kron_list.size()) * time_scale;
   }
 }
 
@@ -260,8 +259,8 @@ combine_dimensions(int const degree, elements::table const &table,
   expect(vector_size < INT_MAX);
   fk::vector<P> combined(vector_size);
 
-  combine_dimensions(degree, table, start_element, stop_element, vectors, time_scale,
-                     fk::vector<P, mem_type::view>(combined));
+  combine_dimensions(degree, table, start_element, stop_element, vectors,
+                     time_scale, fk::vector<P, mem_type::view>(combined));
 
   return combined;
 }
@@ -307,15 +306,11 @@ combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);
 
 template void
-combine_dimensions<float>(int const, elements::table const&,
-                          int const, int const,
-                          std::vector<fk::vector<float>> const&,
-                          float const,
-                          fk::vector<float, mem_type::view>);
+combine_dimensions<float>(int const, elements::table const &, int const,
+                          int const, std::vector<fk::vector<float>> const &,
+                          float const, fk::vector<float, mem_type::view>);
 template void
-combine_dimensions<double>(int const, elements::table const&,
-                           int const, int const,
-                           std::vector<fk::vector<double>> const&,
-                           double const,
-                           fk::vector<double, mem_type::view>);
+combine_dimensions<double>(int const, elements::table const &, int const,
+                           int const, std::vector<fk::vector<double>> const &,
+                           double const, fk::vector<double, mem_type::view>);
 } // namespace asgard

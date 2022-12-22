@@ -4,15 +4,14 @@
 
 namespace asgard
 {
-
 /*!
  * \internal
  * \ingroup AsgardPDE
  * \brief Wrapper around an adapt::distributed_grid but providing meta-data for the associated fields.
  *
- * Each asgard::field is associated with one field_discretization and each discretization can be applied to multiple fields.
- * This class holds an instance of an adapt::distributed_grid
- * and references to meta-data.
+ * Each asgard::field is associated with one field_discretization and each
+ * discretization can be applied to multiple fields. This class holds an
+ * instance of an adapt::distributed_grid and references to meta-data.
  *
  * \tparam precision is float or double
  * \tparam resrc indicates whether the wavelet transformer works on the host of GPU-device,
@@ -21,7 +20,8 @@ namespace asgard
  * \endinternal
  */
 template<typename precision, resource resrc>
-struct field_discretization {
+struct field_discretization
+{
   /*!
    * \brief Create a new discretization using the following parameters.
    *
@@ -32,25 +32,33 @@ struct field_discretization {
    *
    * \throws runtime_error if d_names contains names missing from the d_set
    */
-  field_discretization(parser const &cli_input,
-                       asgard::basis::wavelet_transform<precision, resrc> &wavelet_transformer,
-                       dimension_set<precision> const &d_set,
-                       std::vector<std::string> const &d_names)
-    : cli(cli_input), transformer(wavelet_transformer), state_size(0)
+  field_discretization(
+      parser const &cli_input,
+      asgard::basis::wavelet_transform<precision, resrc> &wavelet_transformer,
+      dimension_set<precision> const &d_set,
+      std::vector<std::string> const &d_names)
+      : cli(cli_input), transformer(wavelet_transformer), state_size(0)
   {
     dims.reserve(d_names.size());
-    for(size_t i=0; i<d_names.size(); i++)
+    for (size_t i = 0; i < d_names.size(); i++)
       dims.emplace_back(dimension<precision>(d_set(d_names[i])));
 
-    grid = std::make_unique<adapt::distributed_grid<precision>>(cli_input, dims);
+    grid =
+        std::make_unique<adapt::distributed_grid<precision>>(cli_input, dims);
     auto const subgrid = grid->get_subgrid(get_rank());
-    state_size = (subgrid.col_stop - subgrid.col_start + 1) * std::pow(dims.front().degree_, dims.size());
+    state_size         = (subgrid.col_stop - subgrid.col_start + 1) *
+                 std::pow(dims.front().degree_, dims.size());
   }
 
   //! \brief Returns \b true if the dimensions of the field match the dimensions of the discretization grid.
-  bool can_discretize(field<precision> const &field) {
-    for(auto const &d_name : field.d_names) {
-      if (not std::any_of(dims.begin(), dims.end(), [&](dimension<precision> const &x)->bool{ return (x.name == d_name); }))
+  bool can_discretize(field<precision> const &field)
+  {
+    for (auto const &d_name : field.d_names)
+    {
+      if (not std::any_of(dims.begin(), dims.end(),
+                          [&](dimension<precision> const &x) -> bool {
+                            return (x.name == d_name);
+                          }))
       {
         return false;
       }
@@ -67,16 +75,20 @@ struct field_discretization {
    * \param field is a field that is discretized by this grid
    * \param result is the output view where the write the data
    */
-  void get_initial_conditions(field<precision> const &field, fk::vector<precision, mem_type::view> result)
+  void get_initial_conditions(field<precision> const &field,
+                              fk::vector<precision, mem_type::view> result)
   {
     expect(result.size() == state_size);
-    grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer, result);
+    grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer,
+                                result);
   }
   //! \brief Overload that returns a copy of the initial condition vector.
-  fk::vector<precision> get_initial_conditions(field_description<precision> const &field)
+  fk::vector<precision>
+  get_initial_conditions(field_description<precision> const &field)
   {
     fk::vector<precision> result(state_size);
-    get_initial_conditions(field, fk::vector<precision, mem_type::view>(result));
+    get_initial_conditions(field,
+                           fk::vector<precision, mem_type::view>(result));
     return result;
   }
 
@@ -93,7 +105,6 @@ struct field_discretization {
 
   //! \brief The dimensions of the discretization.
   std::vector<dimension<precision>> dims;
-
 };
 
-}
+} // namespace asgard

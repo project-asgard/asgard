@@ -14,7 +14,6 @@ class PDE;
 
 namespace asgard
 {
-
 namespace elements
 {
 class table;

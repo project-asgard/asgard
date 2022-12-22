@@ -360,7 +360,9 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
   return cell_index_set;
 }
 
-template table::table(options const &opts, std::vector<dimension<float>> const &dims);
-template table::table(options const &opts, std::vector<dimension<double>> const &dims);
+template table::table(options const &opts,
+                      std::vector<dimension<float>> const &dims);
+template table::table(options const &opts,
+                      std::vector<dimension<double>> const &dims);
 
 } // namespace asgard::elements

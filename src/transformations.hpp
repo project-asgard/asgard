@@ -43,12 +43,11 @@ combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
 template<typename P>
-void
-combine_dimensions(int const degree, elements::table const &table,
-                   int const start_element, int const stop_element,
-                   std::vector<fk::vector<P>> const &vectors,
-                   P const time_scale,
-                   fk::vector<P, mem_type::view> result);
+void combine_dimensions(int const degree, elements::table const &table,
+                        int const start_element, int const stop_element,
+                        std::vector<fk::vector<P>> const &vectors,
+                        P const time_scale,
+                        fk::vector<P, mem_type::view> result);
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(
@@ -188,10 +187,8 @@ inline void transform_and_combine_dimensions(
     std::vector<vector_func<P>> const &v_functions,
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    int const start, int const stop, int const degree,
-    P const time,
-    P const time_multiplier,
-    fk::vector<P, mem_type::view> result)
+    int const start, int const stop, int const degree, P const time,
+    P const time_multiplier, fk::vector<P, mem_type::view> result)
 
 {
   expect(v_functions.size() == dims.size());
@@ -227,17 +224,15 @@ inline fk::vector<P> transform_and_combine_dimensions(
     std::vector<vector_func<P>> const &v_functions,
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    int const start, int const stop, int const degree,
-    P const time = 0.0,
+    int const start, int const stop, int const degree, P const time = 0.0,
     P const time_multiplier = 1.0)
 {
   int64_t const vector_size =
       (stop - start + 1) * std::pow(degree, dims.size());
   expect(vector_size < INT_MAX);
   fk::vector<P> result(vector_size);
-  transform_and_combine_dimensions(dims, v_functions, table, transformer,
-                                   start, stop, degree,
-                                   time, time_multiplier,
+  transform_and_combine_dimensions(dims, v_functions, table, transformer, start,
+                                   stop, degree, time, time_multiplier,
                                    fk::vector<P, mem_type::view>(result));
   return result;
 }

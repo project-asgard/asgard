@@ -19,7 +19,6 @@
 
 namespace asgard
 {
-
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 
@@ -36,7 +35,6 @@ using scalar_func = std::function<P(P const)>;
 template<typename P>
 using g_func_type = std::function<P(P const, P const)>;
 
-
 /*!
  * \internal
  * \ingroup AsgardPDESystem
@@ -48,11 +46,12 @@ using g_func_type = std::function<P(P const, P const)>;
  *
  * \endinternal
  */
-inline bool check_unique_strings(std::vector<std::string> const &names) {
+inline bool check_unique_strings(std::vector<std::string> const &names)
+{
   size_t num_dims = names.size();
-  for(size_t i=0; i<num_dims; i++)
+  for (size_t i = 0; i < num_dims; i++)
   {
-    for(size_t j=i+1; j<num_dims; j++)
+    for (size_t j = i + 1; j < num_dims; j++)
     {
       if (names[i] == names[j])
         return false;
@@ -70,7 +69,8 @@ inline bool check_unique_strings(std::vector<std::string> const &names) {
  * and operators in the PDE system.
  */
 template<typename precision>
-struct dimension_description {
+struct dimension_description
+{
   /*!
    * \brief Constructs a new dimension_description with the following parameters.
    *
@@ -83,19 +83,20 @@ struct dimension_description {
    *
    * \par Several notes
    * - the level and degree can be modified using the command line
-   * - the basis_degree uses dumb indexing, i.e., zeroth order is 1, first order is 2 and so on (WILL BE FIXED!)
+   * - the basis_degree uses dumb indexing, i.e., zeroth order is 1, first order
+   * is 2 and so on (WILL BE FIXED!)
    */
-  dimension_description(precision const domain_min, precision const domain_max,
-                        int const grid_level, int const basis_degree,
-                        std::string const dimension_name,
-                        g_func_type<precision> const volume_jacobian_dV =
-                          [](precision const, precision const)->precision{ return 1.0; }) :
-    d_min(domain_min), d_max(domain_max),
-    level(grid_level), degree(basis_degree),
-    name(dimension_name),
-    jacobian(volume_jacobian_dV)
+  dimension_description(
+      precision const domain_min, precision const domain_max,
+      int const grid_level, int const basis_degree,
+      std::string const dimension_name,
+      g_func_type<precision> const volume_jacobian_dV =
+          [](precision const, precision const) -> precision { return 1.0; })
+      : d_min(domain_min), d_max(domain_max), level(grid_level),
+        degree(basis_degree), name(dimension_name), jacobian(volume_jacobian_dV)
   {
-    // note that the constructor that is user facing will use the most descriptive and clear names
+    // note that the constructor that is user facing will use the most
+    // descriptive and clear names
     //      also the longest names for each variable/parameter
     //      the internal variables will use short-hand names
     expect(d_max > d_min);
@@ -133,15 +134,15 @@ struct dimension_description {
  * \endinternal
  */
 template<typename precision>
-std::vector<dimension_description<precision>>
-cli_apply_level_degree_correction(parser const &cli_input,
-                                  std::vector<dimension_description<precision>> const &dimensions)
+std::vector<dimension_description<precision>> cli_apply_level_degree_correction(
+    parser const &cli_input,
+    std::vector<dimension_description<precision>> const &dimensions)
 {
   size_t num_dims = dimensions.size();
   std::vector<int> levels(dimensions.size()), degrees(dimensions.size());
-  for(size_t i=0; i<num_dims; i++)
+  for (size_t i = 0; i < num_dims; i++)
   {
-    levels[i] = dimensions[i].level;
+    levels[i]  = dimensions[i].level;
     degrees[i] = dimensions[i].degree;
   }
 
@@ -151,8 +152,9 @@ cli_apply_level_degree_correction(parser const &cli_input,
   if (user_levels != 0 && user_levels != static_cast<int>(num_dims))
   {
     throw std::runtime_error(
-        std::string("failed to parse dimension-many starting levels - parsed ")
-        + std::to_string(user_levels) + " levels");
+        std::string(
+            "failed to parse dimension-many starting levels - parsed ") +
+        std::to_string(user_levels) + " levels");
   }
   if (user_levels == static_cast<int>(num_dims))
   {
@@ -167,11 +169,12 @@ cli_apply_level_degree_correction(parser const &cli_input,
   if (cli_degree != parser::NO_USER_VALUE)
   {
     expect(cli_degree > 0);
-    for (int &d : degrees) d = cli_degree;
+    for (int &d : degrees)
+      d = cli_degree;
   }
 
   // check all dimensions
-  for(size_t i=0; i<dimensions.size(); i++)
+  for (size_t i = 0; i < dimensions.size(); i++)
   {
     expect(degrees[i] > 0);
     expect(levels[i] > 1);
@@ -179,13 +182,11 @@ cli_apply_level_degree_correction(parser const &cli_input,
 
   std::vector<dimension_description<precision>> result;
   result.reserve(num_dims);
-  for(size_t i=0; i<num_dims; i++)
+  for (size_t i = 0; i < num_dims; i++)
   {
-    result.push_back(
-      dimension_description<precision>(dimensions[i].d_min, dimensions[i].d_max,
-                                       levels[i], degrees[i],
-                                       dimensions[i].name)
-                     );
+    result.push_back(dimension_description<precision>(
+        dimensions[i].d_min, dimensions[i].d_max, levels[i], degrees[i],
+        dimensions[i].name));
   }
   return result;
 }
@@ -197,12 +198,14 @@ cli_apply_level_degree_correction(parser const &cli_input,
  *
  * \tparam precision is either float or double
  *
- * Holds a vector of dimension_description objects and provides methods to extract a specific description from the list.
+ * Holds a vector of dimension_description objects and provides methods to
+ * extract a specific description from the list.
  *
  * \endinternal
  */
 template<typename precision>
-struct dimension_set {
+struct dimension_set
+{
   /*!
    * \brief Creates a new set of dimensions from the provided list modified by the command line arguments.
    *
@@ -211,11 +214,12 @@ struct dimension_set {
    *
    * \throws runtime_error if there are entries with the same name
    */
-  dimension_set(parser const &cli_input, std::vector<dimension_description<precision>> const &dimensions)
-    : list(cli_apply_level_degree_correction(cli_input, dimensions))
+  dimension_set(parser const &cli_input,
+                std::vector<dimension_description<precision>> const &dimensions)
+      : list(cli_apply_level_degree_correction(cli_input, dimensions))
   {
     std::vector<std::string> names(list.size());
-    for(size_t i=0; i<list.size(); i++)
+    for (size_t i = 0; i < list.size(); i++)
       names[i] = list[i].name;
 
     if (not check_unique_strings(names))
@@ -228,18 +232,21 @@ struct dimension_set {
    * \param name is the name to search among the dimensions in the set
    *
    * \returns const-reference to the dimension_description with the same name,
-   *          the descriptions have already been updated with the command line arguments.
+   *          the descriptions have already been updated with the command line
+   * arguments.
    *
    * \throws runtime_error if the name is not in the list of dimensions
    */
-  dimension_description<precision> const& operator() (std::string const &name) const
+  dimension_description<precision> const &
+  operator()(std::string const &name) const
   {
-    for(size_t i=0; i<list.size(); i++)
+    for (size_t i = 0; i < list.size(); i++)
     {
       if (list[i].name == name)
         return list[i];
     }
-    throw std::runtime_error(std::string("invalid dimension name: '") + name + "', has not been defined.");
+    throw std::runtime_error(std::string("invalid dimension name: '") + name +
+                             "', has not been defined.");
   }
 
   //! \brief Contains the vector of dimension_description that has been updated by the command line arguments.
@@ -295,13 +302,16 @@ struct dimension
   }
   dimension(dimension_description<P> const desc)
       : domain_min(desc.d_min), domain_max(desc.d_max),
-        initial_condition(std::vector<vector_func<P>>{[](fk::vector<P> const&, P const)->fk::vector<P>{ return fk::vector<P>(); },}),
-        volume_jacobian_dV(desc.jacobian), name(desc.name),
-        level_(desc.level), degree_(desc.degree)
+        initial_condition(std::vector<vector_func<P>>{
+            [](fk::vector<P> const &, P const) -> fk::vector<P> {
+              return fk::vector<P>();
+            },
+        }),
+        volume_jacobian_dV(desc.jacobian), name(desc.name), level_(desc.level),
+        degree_(desc.degree)
   {
     auto const max_dof =
-        fm::two_raised_to(static_cast<int64_t>(level_)) *
-        degree_;
+        fm::two_raised_to(static_cast<int64_t>(level_)) * degree_;
     expect(max_dof < INT_MAX);
     this->mass_.clear_and_resize(max_dof, max_dof) = eye<P>(max_dof);
   }
@@ -332,4 +342,4 @@ struct dimension
   fk::matrix<P> mass_;
 };
 
-}
+} // namespace asgard
