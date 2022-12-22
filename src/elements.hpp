@@ -13,7 +13,6 @@
 
 namespace asgard::elements
 {
-
 // yield single-d linear index for level/cell combo
 int64_t get_1d_index(int const level, int const cell);
 
@@ -62,7 +61,9 @@ public:
   table(options const &opts, std::vector<dimension<P>> const &dims);
 
   template<typename P>
-  table(options const &opts, PDE<P> const &pde) : table(opts, pde.get_dimensions()){}
+  table(options const &opts, PDE<P> const &pde)
+      : table(opts, pde.get_dimensions())
+  {}
 
   // get id of element given its 0,...,n index in active elements
   int64_t get_element_id(int64_t const index) const
