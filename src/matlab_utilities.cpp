@@ -472,8 +472,8 @@ fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol)
 }
 
 template<typename P>
-fk::vector<P>
-interp1(fk::vector<P> sample, fk::vector<P> values, fk::vector<P> coords)
+fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
+                      fk::vector<P> const &coords)
 {
   // nearest neighbor 1D interpolation with extrapolation
   // equivalent to matlab's interp1(sample, values, coords, 'nearest', 'extrap')
@@ -487,22 +487,20 @@ interp1(fk::vector<P> sample, fk::vector<P> values, fk::vector<P> coords)
   for (int i = 0; i < coords.size(); ++i)
   {
     P const query = coords[i];
-    // compute distance from query point to sample points, minimum value is the
-    // nearest neighbor to use
-    fk::vector<P> distance(sample.size());
-    std::transform(sample.begin(), sample.end(), distance.begin(),
-                   [query](P const &x) -> P { return std::fabs(x - query); });
 
     // find minimum distance
-    P min_distance = MAXFLOAT;
-    int min_ind    = -1;
-    for (int j = 0; j < distance.size(); ++j)
+    P min_distance = std::fabs(sample[0] - query);
+    int min_ind    = 0;
+    for (int j = 1; j < sample.size(); ++j)
     {
+      // compute distance from query point to sample points, minimum value is
+      // the nearest neighbor to use
+      P const distance = std::fabs(sample[j] - query);
       // matlab seems to take the last points that are equal to the min, so <=
       // is used here
-      if (distance[j] <= min_distance)
+      if (distance <= min_distance)
       {
-        min_distance = distance[j];
+        min_distance = distance;
         min_ind      = j;
       }
     }
@@ -556,10 +554,10 @@ reshape(fk::matrix<float> mat, int const nrow, int const ncol);
 template fk::matrix<int>
 reshape(fk::matrix<int> mat, int const nrow, int const ncol);
 
-template fk::vector<double> interp1(fk::vector<double> sample,
-                                    fk::vector<double> values,
-                                    fk::vector<double> coords);
-template fk::vector<float> interp1(fk::vector<float> sample,
-                                   fk::vector<float> values,
-                                   fk::vector<float> coords);
+template fk::vector<double> interp1(fk::vector<double> const &sample,
+                                    fk::vector<double> const &values,
+                                    fk::vector<double> const &coords);
+template fk::vector<float> interp1(fk::vector<float> const &sample,
+                                   fk::vector<float> const &values,
+                                   fk::vector<float> const &coords);
 } // namespace asgard

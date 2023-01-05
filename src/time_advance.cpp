@@ -430,7 +430,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   static bool first_time = true;
 
   // create 1D version of PDE and element table for wavelet->realspace mappings
-  static PDE pde_1d = PDE(pde);
+  static PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
   static adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
 
   // Create workspace for wavelet transform
@@ -504,7 +504,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   // Explicit step (f_2s)
   auto const apply_id = tools::timer.start("kronmult_setup");
   auto fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB,
-                              x, imex_flag::exp);
+                              x, imex_flag::imex_explicit);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -583,7 +583,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   tools::timer.start("kronmult_setup");
   fx = kronmult::execute(pde, table, program_opts, grid, workspace_size_MB, f_2,
-                         imex_flag::imp);
+                         imex_flag::imex_implicit);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 

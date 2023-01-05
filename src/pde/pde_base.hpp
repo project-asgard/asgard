@@ -159,8 +159,9 @@ enum class flux_type
 
 enum class imex_flag
 {
-  exp,
-  imp,
+  unspecified,
+  imex_explicit,
+  imex_implicit,
 };
 
 // ---------------------------------------------------------------------------
@@ -334,7 +335,7 @@ class term
 public:
   term(bool const time_dependent_in, std::string const name_in,
        std::initializer_list<partial_term<P>> const partial_terms,
-       imex_flag const flag_in = imex_flag::exp)
+       imex_flag const flag_in = imex_flag::unspecified)
       : time_dependent(time_dependent_in), name(name_in), flag(flag_in),
         partial_terms_(partial_terms)
   {}
@@ -443,9 +444,8 @@ public:
 };
 
 template<typename P>
-class parameter
+struct parameter
 {
-public:
   parameter(std::string name_in, g_func_type<P> const &value_in)
       : name(name_in), value(value_in)
   {}
@@ -491,9 +491,8 @@ public:
     }
     else
     {
-      std::cerr << " already has a parameter with name '" << param.name
-                << "'\n";
-      exit(-1);
+      throw std::runtime_error(std::string(
+          "already have a parameter with name '" + param.name + "'\n"));
     }
   }
 
@@ -676,12 +675,13 @@ public:
     }
   }
 
+  constexpr static int extract_dim0 = 1;
   // copy constructor to create a 1D version of the PDE
   // this is used in the IMEX time advance to help define 1D mapping from
   // wavelet to realspace
   // TODO: there is likely a better way to do this. Another option is to flatten
   // element table to 1D (see hash_table_2D_to_1D.m)
-  PDE(const PDE &pde)
+  PDE(const PDE &pde, int)
       : num_dims(1), num_sources(pde.sources.size()),
         num_terms(pde.get_terms().size()), max_level(pde.max_level),
         sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),

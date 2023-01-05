@@ -277,7 +277,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         options const &program_opts, element_subgrid const &my_subgrid,
         fk::vector<P, mem_type::const_view, resource::device> const &x,
         fk::vector<P, mem_type::view, resource::device> &fx,
-        imex_flag const &flag)
+        imex_flag const imex)
 {
   // FIXME code relies on uniform degree across dimensions
   auto const degree     = pde.get_dimensions()[0].get_degree();
@@ -312,7 +312,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   fk::matrix<P, mem_type::const_view> const blah(coeff, 0, real_size - 1, 0,
                                                  real_size - 1);
 
-  fk::vector<P *> const operators = [&pde, lda, &program_opts, &flag] {
+  fk::vector<P *> const operators = [&pde, lda, &program_opts, imex] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {
@@ -322,7 +322,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         // matches this stage
         if (!program_opts.use_imex_stepping ||
             (program_opts.use_imex_stepping &&
-             pde.get_terms()[i][j].flag == flag))
+             pde.get_terms()[i][j].flag == imex))
         {
           builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
           expect(pde.get_coefficients(i, j).nrows() == lda);
@@ -373,7 +373,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         options const &program_opts, element_subgrid const &my_subgrid,
         int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x,
-        imex_flag const &flag)
+        imex_flag const imex)
 {
   auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
 
@@ -397,7 +397,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
     fk::vector<P, mem_type::view, resource::device> fx_dev_grid(
         fx_dev, row_start * deg_to_dim, (row_end + 1) * deg_to_dim - 1);
     fx_dev_grid = kronmult::execute(pde, elem_table, program_opts, grid,
-                                    x_dev_grid, fx_dev_grid, flag);
+                                    x_dev_grid, fx_dev_grid, imex);
   }
   return fx_dev.clone_onto_host();
 }
@@ -415,13 +415,13 @@ execute(PDE<float> const &pde, elements::table const &elem_table,
         options const &program_options, element_subgrid const &my_subgrid,
         int const workspace_size_MB,
         fk::vector<float, mem_type::owner, resource::host> const &x,
-        imex_flag const &flag);
+        imex_flag const imex);
 
 template fk::vector<double, mem_type::owner, resource::host>
 execute(PDE<double> const &pde, elements::table const &elem_table,
         options const &program_options, element_subgrid const &my_subgrid,
         int const workspace_size_MB,
         fk::vector<double, mem_type::owner, resource::host> const &x,
-        imex_flag const &flag);
+        imex_flag const imex);
 
 } // namespace asgard::kronmult
