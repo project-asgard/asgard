@@ -189,6 +189,7 @@ struct field
    */
   void set_global_index(int64_t begin, int64_t end)
   {
+    expect(begin >= 0)
     expect(end >= begin);
     global_begin = begin;
     global_end   = end;
