@@ -189,7 +189,7 @@ struct field
    */
   void set_global_index(int64_t begin, int64_t end)
   {
-    expect(begin >= 0)
+    expect(begin >= 0);
     expect(end >= begin);
     global_begin = begin;
     global_end   = end;
@@ -226,10 +226,10 @@ eval_md_func(int const degree, std::vector<dimension<P>> const &dims,
   // FIXME assume uniform degree
   auto const dof = std::pow(degree, dims.size()) * my_subgrid.nrows();
   fk::vector<P> coeffs(dof);
-  for (int i = 0; i < md_funcs.size(); ++i)
+  for (auto const &funcs : md_funcs)
   {
     auto const coeff_vect = transform_and_combine_dimensions(
-        dims, md_funcs[i], grid.get_table(), transformer, my_subgrid.row_start,
+        dims, funcs, grid.get_table(), transformer, my_subgrid.row_start,
         my_subgrid.row_stop, degree, time,
         1.0); // TODO: Add time function to last argument
     fm::axpy(coeff_vect, coeffs);

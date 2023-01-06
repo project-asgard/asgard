@@ -5,8 +5,6 @@
 #include "pde.hpp"
 #include "program_options.hpp"
 
-//#include "asgard_pde_system.hpp"
-
 namespace asgard::adapt
 {
 // this class bundles
@@ -65,7 +63,7 @@ public:
       options const &cli_opts);
 
   void get_initial_condition(
-      options const &cli_opts, std::vector<dimension<P>> &dims,
+      options const &cli_opts, std::vector<dimension<P>> const &dims,
       std::vector<vector_func<P>> const &v_functions, P const mult,
       basis::wavelet_transform<P, resource::host> const &transformer,
       fk::vector<P, mem_type::view> result);

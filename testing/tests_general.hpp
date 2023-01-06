@@ -189,10 +189,8 @@ namespace asgard {
    * \brief Create a parser with no parameters.
    */
   inline parser make_empty_parser() {
-    //std::vector<char> enames = {'a', 's', 'g', 'a', 'r', 'd'};
-    //char *ename = enames.data();
     const char *ename = "asgard";
-    return parser(1, const_cast<char**>(&ename)); // dummy parser
+    return parser(1, &ename); // dummy parser
   }
 
 }
