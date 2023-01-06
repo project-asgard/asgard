@@ -139,7 +139,7 @@ struct field_description
   //! \brief Returns the number of dimensions associated with this field.
   size_t num_dimensions() const { return d_names.size(); }
   //! \brief Returns \b true if this field has a user-provided exact solution.
-  bool has_exact_solution() const { return (exact.size() > 0); }
+  bool has_exact_solution() const { return !exact.empty(); }
 
   //! \brief Stores the mode of the field.
   field_mode const mode;
