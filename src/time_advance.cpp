@@ -325,13 +325,7 @@ implicit_advance(PDE<P> const &pde,
     build_system_matrix(pde, table, A, grid);
 
     // AA = I - dt*A;
-    for (int i = 0; i < A.nrows(); ++i)
-    {
-      for (int j = 0; j < A.ncols(); ++j)
-      {
-        A(i, j) *= -dt;
-      }
-    }
+    fm::scal(-dt, A);
     if (grid.row_start == grid.col_start)
     {
       for (int i = 0; i < A.nrows(); ++i)
@@ -470,13 +464,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
       build_system_matrix(pde, table, A, grid);
       // AA = I - dt*A;
-      for (int j = 0; j < A.ncols(); ++j)
-      {
-        for (int i = 0; i < A.nrows(); ++i)
-        {
-          A(i, j) *= -dt;
-        }
-      }
+      fm::scal(-dt, A);
       if (grid.row_start == grid.col_start)
       {
         for (int i = 0; i < A.nrows(); ++i)
