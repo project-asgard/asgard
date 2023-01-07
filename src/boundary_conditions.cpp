@@ -295,7 +295,7 @@ std::vector<fk::vector<P>> generate_partial_bcs(
                      });
       return fx;
     };
-    partial_bc_vecs.emplace_back(
+    partial_bc_vecs.push_back(
         forward_transform(dimensions[dim_num], bc_func,
                           terms[dim_num].get_partial_terms()[p_index].dv_func,
                           transformer, time));

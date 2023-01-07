@@ -172,8 +172,8 @@ inline fk::vector<P> transform_and_combine_dimensions(
     std::vector<int> ipiv(n);
     expect(dim.get_mass_matrix().nrows() >= n);
     expect(dim.get_mass_matrix().ncols() >= n);
-    fk::matrix<P, mem_type::const_view> lhs_mass(dim.get_mass_matrix(), 0,
-                                                 n - 1, 0, n - 1);
+    fk::matrix<P> lhs_mass =
+        dim.get_mass_matrix().extract_submatrix(0, 0, n, n);
     fm::gesv(lhs_mass, dimension_components.back(), ipiv);
   }
 
