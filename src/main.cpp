@@ -357,36 +357,43 @@ int main(int argc, char **argv)
       ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
                         analytic_solution_realspace);
 
-      // vlasov pde params plot
-      auto dim   = pde->get_dimensions()[0];
-      auto nodes = ml_plot.generate_nodes(degree, dim.get_level(),
-                                          dim.domain_min, dim.domain_max);
+      // only plot pde params if the pde has them
+      if (asgard::parameter_manager<prec>::get_instance().get_num_parameters() >
+          0)
+      {
+        // vlasov pde params plot
+        auto dim   = pde->get_dimensions()[0];
+        auto nodes = ml_plot.generate_nodes(degree, dim.get_level(),
+                                            dim.domain_min, dim.domain_max);
 
-      // evaluates the given PDE parameter at each node
-      auto eval_over_nodes = [](std::string const name,
-                                asgard::fk::vector<prec> const &nodes_in)
-          -> asgard::fk::vector<prec> {
-        asgard::fk::vector<prec> result(nodes_in.size());
-        using P    = prec;
-        auto param = asgard::param_manager.get_parameter(name);
-        std::transform(nodes_in.begin(), nodes_in.end(), result.begin(),
-                       [param](prec const &x) { return param->value(x, 0.0); });
-        return result;
-      };
+        // evaluates the given PDE parameter at each node
+        auto eval_over_nodes = [](std::string const name,
+                                  asgard::fk::vector<prec> const &nodes_in)
+            -> asgard::fk::vector<prec> {
+          asgard::fk::vector<prec> result(nodes_in.size());
+          using P    = prec;
+          auto param = asgard::param_manager.get_parameter(name);
+          std::transform(
+              nodes_in.begin(), nodes_in.end(), result.begin(),
+              [param](prec const &x) { return param->value(x, 0.0); });
+          return result;
+        };
 
-      asgard::fk::vector<prec> n_nodes  = eval_over_nodes("n", nodes);
-      asgard::fk::vector<prec> u_nodes  = eval_over_nodes("u", nodes);
-      asgard::fk::vector<prec> th_nodes = eval_over_nodes("theta", nodes);
+        asgard::fk::vector<prec> n_nodes  = eval_over_nodes("n", nodes);
+        asgard::fk::vector<prec> u_nodes  = eval_over_nodes("u", nodes);
+        asgard::fk::vector<prec> th_nodes = eval_over_nodes("theta", nodes);
 
-      // call the matlab script to plot n, u, theta
-      ml_plot.reset_params();
-      std::vector<size_t> const dim_sizes{1, static_cast<size_t>(nodes.size())};
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, n_nodes);
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, u_nodes);
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, th_nodes);
-      ml_plot.add_param(time);
-      ml_plot.call("vlasov_params");
+        // call the matlab script to plot n, u, theta
+        ml_plot.reset_params();
+        std::vector<size_t> const dim_sizes{1,
+                                            static_cast<size_t>(nodes.size())};
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, n_nodes);
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, u_nodes);
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, th_nodes);
+        ml_plot.add_param(time);
+        ml_plot.call("vlasov_params");
+      }
     }
 #endif
 

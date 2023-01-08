@@ -472,20 +472,18 @@ public:
 
   std::shared_ptr<parameter<P>> get_parameter(std::string const name)
   {
-    for (auto p : parameters)
+    auto p = check_param(name);
+    if (p == nullptr)
     {
-      if (p->name == name)
-      {
-        return p;
-      }
+      throw std::runtime_error(
+          std::string(" could not find parameter with name '" + name + "'\n"));
     }
-    std::cerr << " could not find parameter with name '" << name << "'\n";
-    return nullptr;
+    return p;
   }
 
   void add_parameter(parameter<P> const &param)
   {
-    if (get_parameter(param.name) == nullptr)
+    if (check_param(param.name) == nullptr)
     {
       parameters.push_back(std::make_shared<parameter<P>>(param));
     }
@@ -496,8 +494,22 @@ public:
     }
   }
 
+  size_t get_num_parameters() { return parameters.size(); }
+
 private:
   parameter_manager() {}
+
+  std::shared_ptr<parameter<P>> check_param(std::string const name)
+  {
+    for (auto p : parameters)
+    {
+      if (p->name == name)
+      {
+        return p;
+      }
+    }
+    return nullptr;
+  }
 
   std::vector<std::shared_ptr<parameter<P>>> parameters;
 };
@@ -669,9 +681,9 @@ public:
 
     if (cli_input.using_imex() && moments.size() == 0)
     {
-      std::cerr << "Invalid PDE choice for IMEX time advance. PDE must have "
-                   "moments defined to use -x\n";
-      exit(-1);
+      throw std::runtime_error(
+          "Invalid PDE choice for IMEX time advance. PDE must have "
+          "moments defined to use -x\n");
     }
   }
 
