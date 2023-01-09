@@ -175,7 +175,7 @@ public:
   static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;
 
   // construct from command line
-  explicit parser(int argc, char **argv);
+  explicit parser(int argc, char const *const *argv);
 
   // construct from provided values - to simplify testing
   explicit parser(PDE_opts const pde_choice_in,

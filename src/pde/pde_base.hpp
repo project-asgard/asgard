@@ -11,6 +11,7 @@
 #include <typeinfo>
 #include <vector>
 
+#include "../asgard_dimension.hpp"
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
 #include "../moment.hpp"
@@ -27,20 +28,6 @@ namespace asgard
 // FIXME we plan a major rework of this component in the future
 // for RAII compliance and readability
 
-// same pi used by matlab
-static constexpr double const PI = 3.141592653589793;
-
-// for passing around vector/scalar-valued functions used by the PDE
-template<typename P>
-using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
-template<typename P>
-using scalar_func = std::function<P(P const)>;
-
-template<typename P>
-using g_func_type = std::function<P(P const, P const)>;
-
-template<typename P>
-using md_func_type = std::vector<vector_func<P>>;
 //----------------------------------------------------------------------------
 //
 // Define member classes of the PDE type: dimension, term, source
@@ -79,67 +66,6 @@ class PDE;
 
 template<typename P>
 class moment;
-
-template<typename P>
-class dimension
-{
-public:
-  P const domain_min;
-  P const domain_max;
-  std::vector<vector_func<P>> const initial_condition;
-  g_func_type<P> const volume_jacobian_dV;
-  std::string const name;
-  dimension(P const d_min, P const d_max, int const level, int const degree,
-            vector_func<P> const initial_condition_in,
-            g_func_type<P> const volume_jacobian_dV_in,
-            std::string const name_in)
-
-      : dimension(d_min, d_max, level, degree,
-                  std::vector<vector_func<P>>({initial_condition_in}),
-                  volume_jacobian_dV_in, name_in)
-  {}
-
-  dimension(P const d_min, P const d_max, int const level, int const degree,
-            std::vector<vector_func<P>> const initial_condition_in,
-            g_func_type<P> const volume_jacobian_dV_in,
-            std::string const name_in)
-
-      : domain_min(d_min), domain_max(d_max),
-        initial_condition(std::move(initial_condition_in)),
-        volume_jacobian_dV(volume_jacobian_dV_in), name(name_in)
-  {
-    set_level(level);
-    set_degree(degree);
-  }
-
-  int get_level() const { return level_; }
-  int get_degree() const { return degree_; }
-  fk::matrix<P> const &get_mass_matrix() const { return mass_; }
-
-private:
-  void set_level(int const level)
-  {
-    expect(level >= 0);
-    level_ = level;
-  }
-
-  void set_degree(int const degree)
-  {
-    expect(degree > 0);
-    degree_ = degree;
-  }
-
-  void set_mass_matrix(fk::matrix<P> const &new_mass)
-  {
-    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
-  }
-
-  int level_;
-  int degree_;
-  fk::matrix<P> mass_;
-
-  friend class PDE<P>;
-};
 
 enum class coefficient_type
 {
@@ -619,8 +545,10 @@ public:
   {
     return dimensions_;
   }
+  std::vector<dimension<P>> &get_dimensions() { return dimensions_; }
 
   term_set<P> const &get_terms() const { return terms_; }
+  term_set<P> &get_terms() { return terms_; }
 
   fk::matrix<P, mem_type::owner, resource::device> const &
   get_coefficients(int const term, int const dim) const

@@ -237,6 +237,10 @@ set (components
      time_advance
      tools
      transformations
+     asgard_field
+     asgard_dimension
+     asgard_discretization
+     asgard_pde_system
 )
 
 if (ASGARD_IO_HIGHFIVE)
@@ -399,6 +403,11 @@ if (ASGARD_BUILD_TESTS)
     adapt
     distribution
     time_advance
+    asgard_discretization
+  )
+  set (mpi_single_node_components # eventually there will be none
+    asgard_discretization
+    asgard_pde_system
   )
 
   if (ASGARD_USE_SCALAPACK)
@@ -430,6 +439,9 @@ if (ASGARD_BUILD_TESTS)
         if (${test_ranks} GREATER ${MPIEXEC_MAX_NUMPROCS})
             set(test_ranks ${MPIEXEC_MAX_NUMPROCS})
         endif ()
+        if (${component} IN_LIST mpi_single_node_components)
+          set(test_ranks "1")
+        endif()
 
         foreach (rank RANGE 1 ${test_ranks})
           add_test (NAME ${component}-test-mpi_${rank}

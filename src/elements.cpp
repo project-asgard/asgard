@@ -247,22 +247,21 @@ table::get_child_elements(int64_t const index, options const &opts) const
 
 // construct element table
 template<typename P>
-table::table(options const &opts, PDE<P> const &pde)
+table::table(options const &opts, std::vector<dimension<P>> const &dims)
 {
   // key type is 64 bits; this limits number of unique element ids
-  expect(opts.max_level <= dim_to_max_level.at(pde.num_dims));
+  expect(opts.max_level <= dim_to_max_level.at(dims.size()));
 
-  auto const perm_table = [&pde, &opts]() {
-    auto const dims = pde.get_dimensions();
-    fk::vector<int> levels(pde.num_dims);
+  auto const perm_table = [&dims, &opts]() {
+    fk::vector<int> levels(dims.size());
     std::transform(dims.begin(), dims.end(), levels.begin(),
                    [](auto const &dim) { return dim.get_level(); });
 
     auto const sort = false;
     return opts.use_full_grid
-               ? permutations::get_max_multi(levels, pde.num_dims, sort)
+               ? permutations::get_max_multi(levels, dims.size(), sort)
                : permutations::get_lequal_multi(
-                     levels, pde.num_dims,
+                     levels, dims.size(),
                      *std::max_element(levels.begin(), levels.end()), sort);
   }();
 
@@ -271,19 +270,19 @@ table::table(options const &opts, PDE<P> const &pde)
   {
     // get the level tuple to work on
     fk::vector<int> const level_tuple =
-        perm_table.extract_submatrix(row, 0, 1, pde.num_dims);
+        perm_table.extract_submatrix(row, 0, 1, dims.size());
     // calculate all possible cell indices allowed by this level tuple
     fk::matrix<int> const index_set = get_cell_index_set(level_tuple);
 
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
       auto const cell_indices = fk::vector<int>(
-          index_set.extract_submatrix(cell_set, 0, 1, pde.num_dims));
+          index_set.extract_submatrix(cell_set, 0, 1, dims.size()));
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
-      auto const key    = map_to_id(coords, opts.max_level, pde.num_dims);
+      auto const key    = map_to_id(coords, opts.max_level, dims.size());
 
       active_element_ids_.push_back(key);
       id_to_coords_[key].resize(coords.size()) = coords;
@@ -361,7 +360,9 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
   return cell_index_set;
 }
 
-template table::table(options const &program_opts, PDE<float> const &pde);
-template table::table(options const &program_opts, PDE<double> const &pde);
+template table::table(options const &opts,
+                      std::vector<dimension<float>> const &dims);
+template table::table(options const &opts,
+                      std::vector<dimension<double>> const &dims);
 
 } // namespace asgard::elements

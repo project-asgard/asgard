@@ -11,7 +11,7 @@
 
 namespace asgard
 {
-parser::parser(int argc, char **argv)
+parser::parser(int argc, char const *const *argv)
 {
   bool show_help = false;
   bool show_pdes = false;

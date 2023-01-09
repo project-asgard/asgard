@@ -1,5 +1,6 @@
 #pragma once
 #include "tensors.hpp"
+#include <functional>
 #include <vector>
 
 // -----------------------------------------------------------------------------
