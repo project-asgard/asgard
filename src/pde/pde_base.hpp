@@ -446,10 +446,6 @@ public:
 template<typename P>
 struct parameter
 {
-  parameter(std::string name_in, g_func_type<P> const &value_in)
-      : name(name_in), value(value_in)
-  {}
-
   std::string const name;
   g_func_type<P> value;
 };

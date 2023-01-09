@@ -19,9 +19,9 @@ public:
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
   {
-    param_manager.add_parameter(parameter<P>("n", n));
-    param_manager.add_parameter(parameter<P>("u", u));
-    param_manager.add_parameter(parameter<P>("theta", theta));
+    param_manager.add_parameter(parameter<P>{"n", n});
+    param_manager.add_parameter(parameter<P>{"u", u});
+    param_manager.add_parameter(parameter<P>{"theta", theta});
   }
 
 private:
