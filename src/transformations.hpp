@@ -46,6 +46,13 @@ fk::vector<P>
 combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<P>> const &, P const = 1.0);
 
+template<typename P>
+void combine_dimensions(int const degree, elements::table const &table,
+                        int const start_element, int const stop_element,
+                        std::vector<fk::vector<P>> const &vectors,
+                        P const time_scale,
+                        fk::vector<P, mem_type::view> result);
+
 template<typename P, typename F>
 fk::vector<P> forward_transform(
     dimension<P> const &dim, F function, g_func_type<P> const dv_func,
@@ -176,6 +183,62 @@ inline fk::vector<P> transform_and_combine_dimensions(
 
   return combine_dimensions(degree, table, start, stop, dimension_components,
                             time_multiplier);
+}
+
+template<typename P>
+inline void transform_and_combine_dimensions(
+    std::vector<dimension<P>> const &dims,
+    std::vector<vector_func<P>> const &v_functions,
+    elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const start, int const stop, int const degree, P const time,
+    P const time_multiplier, fk::vector<P, mem_type::view> result)
+
+{
+  expect(v_functions.size() == dims.size());
+  expect(start <= stop);
+  expect(stop < table.size());
+  expect(degree >= 0);
+
+  std::vector<fk::vector<P>> dimension_components;
+  dimension_components.reserve(dims.size());
+
+  for (size_t i = 0; i < dims.size(); ++i)
+  {
+    auto const &dim = dims[i];
+    dimension_components.push_back(forward_transform<P>(
+        dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
+    int const n = dimension_components.back().size();
+    std::vector<int> ipiv(n);
+    fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
+                                                       n - 1, 0, n - 1);
+    expect(lhs_mass.nrows() == n);
+    expect(lhs_mass.ncols() == n);
+    fk::matrix<P> mass_copy(lhs_mass);
+    fm::gesv(mass_copy, dimension_components.back(), ipiv);
+  }
+
+  combine_dimensions(degree, table, start, stop, dimension_components,
+                     time_multiplier, result);
+}
+
+template<typename P>
+inline fk::vector<P> transform_and_combine_dimensions(
+    std::vector<dimension<P>> const &dims,
+    std::vector<vector_func<P>> const &v_functions,
+    elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const start, int const stop, int const degree, P const time = 0.0,
+    P const time_multiplier = 1.0)
+{
+  int64_t const vector_size =
+      (stop - start + 1) * std::pow(degree, dims.size());
+  expect(vector_size < INT_MAX);
+  fk::vector<P> result(vector_size);
+  transform_and_combine_dimensions(dims, v_functions, table, transformer, start,
+                                   stop, degree, time, time_multiplier,
+                                   fk::vector<P, mem_type::view>(result));
+  return result;
 }
 
 template<typename P>

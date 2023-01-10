@@ -1,4 +1,5 @@
 #pragma once
+#include "asgard_dimension.hpp"
 #include "pde.hpp"
 #include "permutations.hpp"
 #include "program_options.hpp"
@@ -57,7 +58,12 @@ class table
 {
 public:
   template<typename P>
-  table(options const &opts, PDE<P> const &pde);
+  table(options const &opts, std::vector<dimension<P>> const &dims);
+
+  template<typename P>
+  table(options const &opts, PDE<P> const &pde)
+      : table(opts, pde.get_dimensions())
+  {}
 
   // get id of element given its 0,...,n index in active elements
   int64_t get_element_id(int64_t const index) const

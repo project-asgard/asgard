@@ -435,10 +435,10 @@ namespace basis
 // FIXME assumes same degree for all dimensions
 template<typename P, resource resrc>
 wavelet_transform<P, resrc>::wavelet_transform(options const &program_opts,
-                                               PDE<P> const &pde,
+                                               int const max_degree,
                                                bool const quiet)
-    : max_level(program_opts.max_level),
-      degree(pde.get_dimensions()[0].get_degree()), dense_blocks_(max_level * 2)
+    : max_level(program_opts.max_level), degree(max_degree),
+      dense_blocks_(max_level * 2)
 {
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until
