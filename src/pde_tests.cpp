@@ -386,3 +386,15 @@ TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", double,
     test_initial_condition<TestType>(*pde, base_dir, x);
   }
 }
+
+TEST_CASE("testing pde term selection", "[pde]")
+{
+  std::string const pde_choice   = "fokkerplanck_2d_complete_case4";
+  std::string const active_terms = "1 1 0 1 0 1";
+
+  parser const parse = make_parser({"-p", pde_choice, "--terms", active_terms});
+  auto const pde     = make_PDE<float>(parse);
+
+  REQUIRE(pde->num_terms == 4);
+  REQUIRE(pde->get_terms().size() == 4);
+}

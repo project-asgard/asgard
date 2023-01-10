@@ -375,7 +375,7 @@ class PDE
 {
 public:
   PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const num_terms_in, std::vector<dimension<P>> const dimensions,
+      int const max_num_terms, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
       scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
@@ -383,7 +383,7 @@ public:
       bool const has_analytic_soln_in         = false,
       std::vector<moment<P>> const moments_in = {})
       : num_dims(num_dims_in), num_sources(num_sources_in),
-        num_terms(get_num_terms(cli_input, num_terms_in)),
+        num_terms(get_num_terms(cli_input, max_num_terms)),
         max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
         exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
         exact_time(exact_time_in), do_poisson_solve(do_poisson_solve_in),
@@ -395,7 +395,7 @@ public:
     expect(num_terms > 0);
 
     expect(dimensions.size() == static_cast<unsigned>(num_dims));
-    expect(terms.size() == static_cast<unsigned>(num_terms_in));
+    expect(terms.size() == static_cast<unsigned>(max_num_terms));
     expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -428,7 +428,7 @@ public:
     if (num_active_terms != 0)
     {
       auto const active_terms = cli_input.get_active_terms();
-      for (auto i = num_terms_in - 1; i >= 0; --i)
+      for (auto i = max_num_terms - 1; i >= 0; --i)
       {
         if (active_terms(i) == 0)
         {
