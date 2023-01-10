@@ -639,7 +639,7 @@ public:
   }
 
 private:
-  int get_num_terms(parser const &cli_input, int const num_terms_in) const
+  int get_num_terms(parser const &cli_input, int const max_num_terms) const
   {
     // returns either the number of terms set in the PDE specification, or the
     // number of terms toggled on by the user
@@ -647,26 +647,25 @@ private:
 
     // verify that the CLI input matches the spec before altering the num_terms
     // we have
-    if (num_active_terms != 0 && num_active_terms != num_terms_in)
+    if (num_active_terms != 0 && num_active_terms != max_num_terms)
     {
-      std::cerr << "failed to parse dimension-many active terms - parsed "
-                << num_active_terms << " terms, expected " << num_terms_in
-                << "\n";
-      exit(1);
+      throw std::runtime_error(
+          std::string("failed to parse dimension-many active terms - parsed ") +
+          std::to_string(num_active_terms) + " terms, expected " +
+          std::to_string(max_num_terms));
     }
-    if (num_active_terms == num_terms_in)
+    // if nothing specified in the cli, use the default max_num_terms
+    if (num_active_terms == 0)
+      return max_num_terms;
+    // terms specified in the cli, parse the new number of terms
+    auto const active_terms = cli_input.get_active_terms();
+    int new_num_terms =
+        std::accumulate(active_terms.begin(), active_terms.end(), 0);
+    if (new_num_terms == 0)
     {
-      auto const active_terms = cli_input.get_active_terms();
-      int new_num_terms =
-          std::accumulate(active_terms.begin(), active_terms.end(), 0);
-      if (new_num_terms == 0)
-      {
-        std::cerr << "must have at least one term enabled\n";
-        exit(1);
-      }
-      return new_num_terms;
+      throw std::runtime_error("must have at least one term enabled");
     }
-    return num_terms_in;
+    return new_num_terms;
   }
 
   int get_max_level(parser const &cli_input,
