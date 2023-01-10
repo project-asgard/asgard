@@ -90,15 +90,13 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const num_dims)
+    basis::wavelet_transform<P, resource::host> const &transformer)
 {
   /* contains a basis matrix for each dimension */
   std::vector<fk::matrix<P>> real_space_transform;
-  expect(pde.num_dims >= num_dims);
-  real_space_transform.reserve(num_dims);
+  real_space_transform.reserve(pde.num_dims);
 
-  for (int i = 0; i < num_dims; i++)
+  for (int i = 0; i < pde.num_dims; i++)
   {
     /* get the ith dimension */
     dimension<P> const &d    = pde.get_dimensions()[i];
@@ -179,26 +177,21 @@ void wavelet_to_realspace(
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space, int const transform_dims)
+    fk::vector<P> &real_space)
 {
   expect(memory_limit_MB > 0);
 
   std::vector<batch_chain<P, resource::host>> chain;
 
-  // generate transform for each dimension, or only for up to transform_dims
-  // dimensions
-  int const actual_num_dims =
-      transform_dims > 0 ? transform_dims : pde.num_dims;
-
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(pde, transformer, actual_num_dims);
+      gen_realspace_transform(pde, transformer);
 
   // FIXME Assume the degree in the first dimension is equal across all the
   // remaining dimensions
   auto const stride =
-      std::pow(pde.get_dimensions()[0].get_degree(), actual_num_dims);
+      std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims);
 
   fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
@@ -207,13 +200,13 @@ void wavelet_to_realspace(
   for (auto i = 0; i < table.size(); i++)
   {
     std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
-    kron_matrices.reserve(actual_num_dims);
+    kron_matrices.reserve(pde.num_dims);
     auto const coords = table.get_coords(i);
 
-    for (auto j = 0; j < actual_num_dims; j++)
+    for (auto j = 0; j < pde.num_dims; j++)
     {
       auto const id =
-          elements::get_1d_index(coords(j), coords(j + actual_num_dims));
+          elements::get_1d_index(coords(j), coords(j + pde.num_dims));
       auto const degree = pde.get_dimensions()[j].get_degree();
       fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
@@ -306,13 +299,11 @@ recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
 
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    int const num_dims);
+    basis::wavelet_transform<double, resource::host> const &transformer);
 
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    int const num_dims);
+    basis::wavelet_transform<float, resource::host> const &transformer);
 
 template fk::vector<float> gen_realspace_nodes(int const degree,
                                                int const level, float const min,
@@ -328,14 +319,14 @@ template void wavelet_to_realspace(
     int const memory_limit_MB,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
-    fk::vector<double> &real_space, int const transform_dims);
+    fk::vector<double> &real_space);
 template void wavelet_to_realspace(
     PDE<float> const &pde, fk::vector<float> const &wave_space,
     elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space, int const transform_dims);
+    fk::vector<float> &real_space);
 
 template fk::vector<double>
 combine_dimensions(int const, elements::table const &, int const, int const,

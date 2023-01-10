@@ -252,13 +252,13 @@ int main(int argc, char **argv)
             ? asgard::time_advance::method::imp
             : (opts.use_imex_stepping ? asgard::time_advance::method::imex
                                       : asgard::time_advance::method::exp);
-    auto const time_str =
+    const char *time_str =
         opts.use_implicit_stepping
             ? "implicit_time_advance"
             : (opts.use_imex_stepping ? "imex_time_advance"
                                       : "explicit_time_advance");
-    auto const time_id = asgard::tools::timer.start(time_str);
-    auto const sol     = asgard::time_advance::adaptive_advance(
+    const std::string time_id = asgard::tools::timer.start(time_str);
+    auto const sol            = asgard::time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         default_workspace_MB, update_system);
     f_val.resize(sol.size()) = sol;

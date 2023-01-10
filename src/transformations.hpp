@@ -24,8 +24,7 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const num_dims);
+    basis::wavelet_transform<P, resource::host> const &transformer);
 
 template<typename P>
 fk::vector<P> gen_realspace_nodes(int const degree, int const level,
@@ -38,7 +37,7 @@ void wavelet_to_realspace(
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const memory_limit_MB,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space, int const transform_dims = 0);
+    fk::vector<P> &real_space);
 
 // overload - get only the elements of the combined vector that fall within a
 // specified range
