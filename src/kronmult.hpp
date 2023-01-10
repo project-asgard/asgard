@@ -19,6 +19,7 @@ fk::vector<P, mem_type::owner, resource::host>
 execute(PDE<P> const &pde, elements::table const &elem_table,
         options const &program_options, element_subgrid const &my_subgrid,
         int const workspace_size_MB,
-        fk::vector<P, mem_type::owner, resource::host> const &x);
+        fk::vector<P, mem_type::owner, resource::host> const &x,
+        imex_flag const imex = imex_flag::unspecified);
 
 } // namespace asgard::kronmult

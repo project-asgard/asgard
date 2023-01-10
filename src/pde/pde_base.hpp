@@ -83,6 +83,13 @@ enum class flux_type
   lax_friedrich = 0
 };
 
+enum class imex_flag
+{
+  unspecified,
+  imex_explicit,
+  imex_implicit,
+};
+
 // ---------------------------------------------------------------------------
 //
 // Term: describes a single term in the pde for operator matrix
@@ -253,10 +260,10 @@ class term
 
 public:
   term(bool const time_dependent_in, std::string const name_in,
-       std::initializer_list<partial_term<P>> const partial_terms)
-      : time_dependent(time_dependent_in), name(name_in),
+       std::initializer_list<partial_term<P>> const partial_terms,
+       imex_flag const flag_in = imex_flag::unspecified)
+      : time_dependent(time_dependent_in), name(name_in), flag(flag_in),
         partial_terms_(partial_terms)
-
   {}
 
   void set_coefficients(fk::matrix<P> const &new_coefficients)
@@ -331,6 +338,8 @@ public:
   bool const time_dependent;
   std::string const name;
 
+  imex_flag const flag;
+
 private:
   std::vector<partial_term<P>> partial_terms_;
 
@@ -358,6 +367,73 @@ public:
   // public but const data. no getters
   std::vector<vector_func<P>> const source_funcs;
   scalar_func<P> const time_func;
+};
+
+template<typename P>
+struct parameter
+{
+  std::string const name;
+  g_func_type<P> value;
+};
+
+// Singleton class for storing and receiving PDE parameters
+template<typename P>
+#define param_manager parameter_manager<P>::get_instance()
+class parameter_manager
+{
+public:
+  static parameter_manager<P> &get_instance()
+  {
+    static parameter_manager<P> instance;
+    return instance;
+  }
+
+  // prevent potential copies from being created
+  parameter_manager(parameter_manager<P> const &) = delete;
+  void operator=(parameter_manager<P> const &) = delete;
+
+  std::shared_ptr<parameter<P>> get_parameter(std::string const name)
+  {
+    auto p = check_param(name);
+    if (p == nullptr)
+    {
+      throw std::runtime_error(
+          std::string(" could not find parameter with name '" + name + "'\n"));
+    }
+    return p;
+  }
+
+  void add_parameter(parameter<P> const &param)
+  {
+    if (check_param(param.name) == nullptr)
+    {
+      parameters.push_back(std::make_shared<parameter<P>>(param));
+    }
+    else
+    {
+      throw std::runtime_error(std::string(
+          "already have a parameter with name '" + param.name + "'\n"));
+    }
+  }
+
+  size_t get_num_parameters() { return parameters.size(); }
+
+private:
+  parameter_manager() {}
+
+  std::shared_ptr<parameter<P>> check_param(std::string const name)
+  {
+    for (auto p : parameters)
+    {
+      if (p->name == name)
+      {
+        return p;
+      }
+    }
+    return nullptr;
+  }
+
+  std::vector<std::shared_ptr<parameter<P>>> parameters;
 };
 
 // ---------------------------------------------------------------------------
@@ -524,7 +600,30 @@ public:
         expect(md_func.size() == static_cast<unsigned>(num_dims) + 1);
       }
     }
+
+    if (cli_input.using_imex() && moments.size() == 0)
+    {
+      throw std::runtime_error(
+          "Invalid PDE choice for IMEX time advance. PDE must have "
+          "moments defined to use -x\n");
+    }
   }
+
+  constexpr static int extract_dim0 = 1;
+  // copy constructor to create a 1D version of the PDE
+  // this is used in the IMEX time advance to help define 1D mapping from
+  // wavelet to realspace
+  // TODO: there is likely a better way to do this. Another option is to flatten
+  // element table to 1D (see hash_table_2D_to_1D.m)
+  PDE(const PDE &pde, int)
+      : num_dims(1), num_sources(pde.sources.size()),
+        num_terms(pde.get_terms().size()), max_level(pde.max_level),
+        sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),
+        moments(pde.moments), exact_time(pde.exact_time),
+        do_poisson_solve(pde.do_poisson_solve),
+        has_analytic_soln(pde.has_analytic_soln),
+        dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
+  {}
 
   // public but const data.
   int const num_dims;
@@ -534,7 +633,7 @@ public:
 
   std::vector<source<P>> const sources;
   std::vector<vector_func<P>> const exact_vector_funcs;
-  std::vector<moment<P>> const moments;
+  std::vector<moment<P>> moments;
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;
   bool const has_analytic_soln;

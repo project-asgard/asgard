@@ -126,6 +126,17 @@ int main(int argc, char **argv)
   asgard::node_out() << "  generating: coefficient matrices..." << '\n';
   asgard::generate_all_coefficients<prec>(*pde, transformer);
 
+  // -- initialize moments of the PDE
+  asgard::node_out() << "  generating: moment vectors..." << '\n';
+  for (auto &m : pde->moments)
+  {
+    m.createFlist(*pde, opts);
+    expect(m.get_fList().size() > 0);
+
+    m.createMomentVector(*pde, cli_input, adaptive_grid.get_table());
+    expect(m.get_vector().size() > 0);
+  }
+
   // this is to bail out for further profiling/development on the setup routines
   if (opts.num_time_steps < 1)
     return 0;
@@ -236,13 +247,18 @@ int main(int argc, char **argv)
     // take a time advance step
     auto const time          = (i + 1) * pde->get_dt();
     auto const update_system = i == 0;
-    auto const method        = opts.use_implicit_stepping
-                                   ? asgard::time_advance::method::imp
-                                   : asgard::time_advance::method::exp;
-    auto const time_str = opts.use_implicit_stepping ? "implicit_time_advance"
-                                                     : "explicit_time_advance";
-    auto const time_id  = asgard::tools::timer.start(time_str);
-    auto const sol      = asgard::time_advance::adaptive_advance(
+    auto const method =
+        opts.use_implicit_stepping
+            ? asgard::time_advance::method::imp
+            : (opts.use_imex_stepping ? asgard::time_advance::method::imex
+                                      : asgard::time_advance::method::exp);
+    const char *time_str =
+        opts.use_implicit_stepping
+            ? "implicit_time_advance"
+            : (opts.use_imex_stepping ? "imex_time_advance"
+                                      : "explicit_time_advance");
+    const std::string time_id = asgard::tools::timer.start(time_str);
+    auto const sol            = asgard::time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
         default_workspace_MB, update_system);
     f_val.resize(sol.size()) = sol;
@@ -340,6 +356,44 @@ int main(int argc, char **argv)
     {
       ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
                         analytic_solution_realspace);
+
+      // only plot pde params if the pde has them
+      if (asgard::parameter_manager<prec>::get_instance().get_num_parameters() >
+          0)
+      {
+        // vlasov pde params plot
+        auto dim   = pde->get_dimensions()[0];
+        auto nodes = ml_plot.generate_nodes(degree, dim.get_level(),
+                                            dim.domain_min, dim.domain_max);
+
+        // evaluates the given PDE parameter at each node
+        auto eval_over_nodes = [](std::string const name,
+                                  asgard::fk::vector<prec> const &nodes_in)
+            -> asgard::fk::vector<prec> {
+          asgard::fk::vector<prec> result(nodes_in.size());
+          using P    = prec;
+          auto param = asgard::param_manager.get_parameter(name);
+          std::transform(
+              nodes_in.begin(), nodes_in.end(), result.begin(),
+              [param](prec const &x) { return param->value(x, 0.0); });
+          return result;
+        };
+
+        asgard::fk::vector<prec> n_nodes  = eval_over_nodes("n", nodes);
+        asgard::fk::vector<prec> u_nodes  = eval_over_nodes("u", nodes);
+        asgard::fk::vector<prec> th_nodes = eval_over_nodes("theta", nodes);
+
+        // call the matlab script to plot n, u, theta
+        ml_plot.reset_params();
+        std::vector<size_t> const dim_sizes{1,
+                                            static_cast<size_t>(nodes.size())};
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, n_nodes);
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, u_nodes);
+        ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, th_nodes);
+        ml_plot.add_param(time);
+        ml_plot.call("vlasov_params");
+      }
     }
 #endif
 

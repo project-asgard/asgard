@@ -18,7 +18,11 @@ public:
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
-  {}
+  {
+    param_manager.add_parameter(parameter<P>{"n", n});
+    param_manager.add_parameter(parameter<P>{"u", u});
+    param_manager.add_parameter(parameter<P>{"theta", theta});
+  }
 
 private:
   static int constexpr num_dims_           = 2;
@@ -193,13 +197,15 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const term_e1x = term<P>(false,  // time-dependent
-                                                 "E1_x", // name
-                                                 {e1_pterm_x});
+  inline static term<P> const term_e1x =
+      term<P>(false,  // time-dependent
+              "E1_x", // name
+              {e1_pterm_x}, imex_flag::imex_explicit);
 
-  inline static term<P> const term_e1v = term<P>(false,  // time-dependent
-                                                 "E1_v", // name
-                                                 {e1_pterm_v});
+  inline static term<P> const term_e1v =
+      term<P>(false,  // time-dependent
+              "E1_v", // name
+              {e1_pterm_v}, imex_flag::imex_explicit);
 
   inline static std::vector<term<P>> const terms_1 = {term_e1x, term_e1v};
 
@@ -229,13 +235,15 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const term_e2x = term<P>(false,  // time-dependent
-                                                 "E2_x", // name
-                                                 {e2_pterm_x});
+  inline static term<P> const term_e2x =
+      term<P>(false,  // time-dependent
+              "E2_x", // name
+              {e2_pterm_x}, imex_flag::imex_explicit);
 
-  inline static term<P> const term_e2v = term<P>(false,  // time-dependent
-                                                 "E2_v", // name
-                                                 {e2_pterm_v});
+  inline static term<P> const term_e2v =
+      term<P>(false,  // time-dependent
+              "E2_v", // name
+              {e2_pterm_v}, imex_flag::imex_explicit);
 
   inline static std::vector<term<P>> const terms_2 = {term_e2x, term_e2v};
 
@@ -265,13 +273,15 @@ private:
                       flux_type::downwind, boundary_condition::dirichlet,
                       boundary_condition::dirichlet);
 
-  inline static term<P> const term_i1x = term<P>(false,  // time-dependent
-                                                 "I1_x", // name
-                                                 {i1_pterm_x});
+  inline static term<P> const term_i1x =
+      term<P>(false,  // time-dependent
+              "I1_x", // name
+              {i1_pterm_x}, imex_flag::imex_implicit);
 
-  inline static term<P> const term_i1v = term<P>(false,  // time-dependent
-                                                 "I1_v", // name
-                                                 {i1_pterm_v});
+  inline static term<P> const term_i1v =
+      term<P>(false,  // time-dependent
+              "I1_v", // name
+              {i1_pterm_v}, imex_flag::imex_implicit);
 
   inline static std::vector<term<P>> const terms_3 = {term_i1x, term_i1v};
 
@@ -280,9 +290,9 @@ private:
   //
   static P i2_g1(P const x, P const time = 0)
   {
-    ignore(x);
-    ignore(time);
-    return -u(x);
+    auto param = param_manager.get_parameter("u");
+    expect(param != nullptr);
+    return -param->value(x, time);
   }
 
   static P i2_g2(P const x, P const time = 0)
@@ -302,13 +312,15 @@ private:
                       flux_type::central, boundary_condition::dirichlet,
                       boundary_condition::dirichlet);
 
-  inline static term<P> const term_i2x = term<P>(false,  // time-dependent
-                                                 "I2_x", // name
-                                                 {i2_pterm_x});
+  inline static term<P> const term_i2x =
+      term<P>(false,  // time-dependent
+              "I2_x", // name
+              {i2_pterm_x}, imex_flag::imex_implicit);
 
-  inline static term<P> const term_i2v = term<P>(false,  // time-dependent
-                                                 "I2_v", // name
-                                                 {i2_pterm_v});
+  inline static term<P> const term_i2v =
+      term<P>(false,  // time-dependent
+              "I2_v", // name
+              {i2_pterm_v}, imex_flag::imex_implicit);
 
   inline static std::vector<term<P>> const terms_4 = {term_i2x, term_i2v};
 
@@ -328,8 +340,9 @@ private:
 
   static P i3_g2(P const x, P const time = 0)
   {
-    ignore(time);
-    return theta(x) * nu;
+    auto param = param_manager.get_parameter("theta");
+    expect(param != nullptr);
+    return param->value(x, time) * nu;
   }
 
   inline static const partial_term<P> i3_pterm_x1 = partial_term<P>(
@@ -342,9 +355,10 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const term_i3x = term<P>(false,  // time-dependent
-                                                 "I3_x", // name
-                                                 {i3_pterm_x1, i3_pterm_x2});
+  inline static term<P> const term_i3x =
+      term<P>(false,  // time-dependent
+              "I3_x", // name
+              {i3_pterm_x1, i3_pterm_x2}, imex_flag::imex_implicit);
 
   static P i3_g3(P const x, P const time = 0)
   {
@@ -370,9 +384,10 @@ private:
       flux_type::central, boundary_condition::dirichlet,
       boundary_condition::dirichlet);
 
-  inline static term<P> const term_i3v = term<P>(false,  // time-dependent
-                                                 "I3_v", // name
-                                                 {i3_pterm_v1, i3_pterm_v2});
+  inline static term<P> const term_i3v =
+      term<P>(false,  // time-dependent
+              "I3_v", // name
+              {i3_pterm_v1, i3_pterm_v2}, imex_flag::imex_explicit);
 
   inline static std::vector<term<P>> const terms_5 = {term_i3x, term_i3v};
 

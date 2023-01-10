@@ -165,6 +165,7 @@ public:
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
   static auto constexpr DEFAULT_PLOT_FREQ         = 1;
   static auto constexpr DEFAULT_USE_IMPLICIT      = false;
+  static auto constexpr DEFAULT_USE_IMEX          = false;
   static auto constexpr DEFAULT_USE_FG            = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
   static auto constexpr DEFAULT_DO_ADAPT          = false;
@@ -188,13 +189,14 @@ public:
                   bool const use_implicit              = DEFAULT_USE_IMPLICIT,
                   bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
                   double const adapt_threshold_in      = DEFAULT_ADAPT_THRESH,
-                  std::string_view const solver_str_in = DEFAULT_SOLVER_STR)
+                  std::string_view const solver_str_in = DEFAULT_SOLVER_STR,
+                  bool const use_imex                  = DEFAULT_USE_IMEX)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
         do_adapt(do_adapt_levels), starting_levels(starting_levels_in),
         degree(degree_in), max_level(max_level_in), num_time_steps(num_steps),
         cfl(cfl_in), adapt_threshold(adapt_threshold_in),
         pde_choice(pde_choice_in), solver_str(solver_str_in),
-        solver(solver_mapping.at(solver_str_in)){};
+        solver(solver_mapping.at(solver_str_in)), use_imex_stepping(use_imex){};
 
   explicit parser(std::string const &pde_choice_in,
                   fk::vector<int> starting_levels_in,
@@ -206,13 +208,15 @@ public:
                   bool const use_implicit              = DEFAULT_USE_IMPLICIT,
                   bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
                   double const adapt_threshold_in      = DEFAULT_ADAPT_THRESH,
-                  std::string_view const solver_str_in = DEFAULT_SOLVER_STR)
+                  std::string_view const solver_str_in = DEFAULT_SOLVER_STR,
+                  bool const use_imex                  = DEFAULT_USE_IMEX)
       : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
                degree_in, cfl_in, use_full_grid_in, max_level_in, num_steps,
-               use_implicit, do_adapt_levels, adapt_threshold_in,
-               solver_str_in){};
+               use_implicit, do_adapt_levels, adapt_threshold_in, solver_str_in,
+               use_imex){};
 
   bool using_implicit() const;
+  bool using_imex() const;
   bool using_full_grid() const;
   bool do_poisson_solve() const;
   bool do_adapt_levels() const;
@@ -323,6 +327,8 @@ private:
   // timesteps between plotting
   int plot_freq = DEFAULT_PLOT_FREQ;
 
+  bool use_imex_stepping = DEFAULT_USE_IMEX;
+
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
 };
@@ -343,7 +349,8 @@ public:
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
         do_adapt_levels(user_vals.do_adapt_levels()),
-        solver(user_vals.get_selected_solver()){};
+        solver(user_vals.get_selected_solver()),
+        use_imex_stepping(user_vals.using_imex()){};
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
@@ -365,6 +372,8 @@ public:
   bool const do_adapt_levels;
 
   solve_opts const solver;
+
+  bool const use_imex_stepping;
 
 private:
   // helper for output writing
