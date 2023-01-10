@@ -27,6 +27,10 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     basis::wavelet_transform<P, resource::host> const &transformer);
 
 template<typename P>
+fk::vector<P> gen_realspace_nodes(int const degree, int const level,
+                                  P const min, P const max);
+
+template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
     elements::table const &table,

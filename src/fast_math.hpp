@@ -124,6 +124,17 @@ fk::vector<P, mem, resrc> &scal(P const alpha, fk::vector<P, mem, resrc> &x)
   return x;
 }
 
+// scal - scale a matrix
+template<typename P, mem_type mem, resource resrc>
+fk::matrix<P, mem, resrc> &scal(P const alpha, fk::matrix<P, mem, resrc> &x)
+{
+  int one  = 1;
+  int n    = x.size();
+  P alpha_ = alpha;
+  lib_dispatch::scal(&n, &alpha_, x.data(), &one, resrc);
+  return x;
+}
+
 // gemv - matrix vector multiplication
 template<typename P, mem_type amem, mem_type xmem, mem_type ymem,
          resource resrc>

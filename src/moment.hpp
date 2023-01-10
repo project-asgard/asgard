@@ -29,6 +29,11 @@ public:
                           elements::table const &hash_table);
 
   std::vector<md_func_type<P>> const &get_md_funcs() const { return md_funcs; }
+  fk::vector<P> const &get_vector() const { return vector; }
+  std::vector<std::vector<fk::vector<P>>> const &get_fList() const
+  {
+    return fList;
+  }
   fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
 
   void createMomentReducedMatrix(PDE<P> const &pde,

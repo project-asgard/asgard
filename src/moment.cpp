@@ -97,7 +97,7 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
   int const x_dim      = 0; // hardcoded for now, needs to change
   int const v_dim      = 1;
 
-  expect(static_cast<int>(this->fList.size()) >= moment_idx);
+  expect(static_cast<int>(this->fList.size()) > moment_idx);
   expect(this->fList[moment_idx].size() >= v_dim);
   auto g_vec = this->fList[moment_idx][v_dim];
 

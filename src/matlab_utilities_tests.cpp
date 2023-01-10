@@ -341,3 +341,22 @@ TEMPLATE_TEST_CASE(
     REQUIRE(test == gold);
   }
 }
+
+TEMPLATE_TEST_CASE("interp1", "[matlab]", float, double)
+{
+  SECTION("basic")
+  {
+    fk::vector<TestType> grid{0.0, 1.0, 2.0, 3.0, 4.0};
+
+    fk::vector<TestType> vals(grid.size());
+    for (int i = 0; i < grid.size(); ++i)
+    {
+      vals[i] = std::cos(grid[i]);
+    }
+    fk::vector<TestType> expected{vals[1], vals[2], vals[0], vals[4]};
+
+    fk::vector<TestType> queries{1.49, 1.51, -0.1, 4.5};
+    fk::vector<TestType> output = interp1(grid, vals, queries);
+    REQUIRE(output == expected);
+  }
+}

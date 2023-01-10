@@ -129,6 +129,48 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 }
 
 template<typename P>
+fk::vector<P>
+gen_realspace_nodes(int const degree, int const level, P const min, P const max)
+{
+  int const n        = pow(2, level);
+  int const mat_dims = degree * n;
+  P const h          = (max - min) / n;
+  auto const lgwt    = legendre_weights(degree, -1.0, 1.0, true);
+  auto const roots   = lgwt[0];
+
+  unsigned int const dof = roots.size();
+
+  fk::vector<P> nodes(mat_dims);
+  for (int i = 0; i < n; i++)
+  {
+    auto p_val = legendre(roots, degree, legendre_normalization::lin);
+
+    p_val[0] = p_val[0] * sqrt(1.0 / h);
+
+    std::vector<P> xi(dof);
+    for (std::size_t j = 0; j < dof; j++)
+    {
+      xi[j] = (0.5 * (roots(j) + 1.0) + i) * h + min;
+    }
+
+    std::vector<int> Iu(degree);
+    for (int j = 0, je = degree - 1; j < je; j++)
+    {
+      Iu[j] = dof * i + j + 1;
+    }
+    Iu[degree - 1] = dof * (i + 1);
+
+    for (std::size_t j = 0; j < dof; j++)
+    {
+      expect(j <= Iu.size());
+      nodes(Iu[j] - 1) = xi[j];
+    }
+  }
+
+  return nodes;
+}
+
+template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
     elements::table const &table,
@@ -281,6 +323,13 @@ template std::vector<fk::matrix<double>> gen_realspace_transform(
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
     basis::wavelet_transform<float, resource::host> const &transformer);
+
+template fk::vector<float> gen_realspace_nodes(int const degree,
+                                               int const level, float const min,
+                                               float const max);
+template fk::vector<double>
+gen_realspace_nodes(int const degree, int const level, double const min,
+                    double const max);
 
 template void wavelet_to_realspace(
     PDE<double> const &pde, fk::vector<double> const &wave_space,
