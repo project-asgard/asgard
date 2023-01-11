@@ -252,7 +252,7 @@ matlab_plot::gen_elem_coords(std::vector<dimension<P>> const &dims,
   // Iterate over dimensions first since matlab needs col-major order
   for (int d = 0; d < ndims; d++)
   {
-    P const rng = dims[d].domain_max - dims[d].domain_min;
+    P const domain_range = dims[d].domain_max - dims[d].domain_min;
     for (int i = 0; i < table.size(); i++)
     {
       fk::vector<int> const &coords = table.get_coords(i);
@@ -278,7 +278,7 @@ matlab_plot::gen_elem_coords(std::vector<dimension<P>> const &dims,
         x0 = pos + 0.5;
       }
 
-      P const x = x0 * rng + dims[d].domain_min;
+      P const x = x0 * domain_range + dims[d].domain_min;
 
       center_coords(d * table.size() + i) = x;
     }
@@ -298,10 +298,7 @@ matlab_plot::gen_elem_coords(std::vector<dimension_description<P>> const &dims,
   // Iterate over dimensions first since matlab needs col-major order
   for (int d = 0; d < ndims; d++)
   {
-    P const max = dims[d].d_max;
-    P const min = dims[d].d_min;
-    P const rng = max - min;
-
+    P const domain_range = dims[d].d_max - dims[d].d_min;
     for (int i = 0; i < table.size(); i++)
     {
       fk::vector<int> const &coords = table.get_coords(i);
@@ -327,7 +324,7 @@ matlab_plot::gen_elem_coords(std::vector<dimension_description<P>> const &dims,
         x0 = pos + 0.5;
       }
 
-      P const x = x0 * rng + min;
+      P const x = x0 * domain_range + dims[d].d_min;
 
       center_coords(d * table.size() + i) = x;
     }
