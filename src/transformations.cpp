@@ -104,7 +104,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
   std::vector<fk::matrix<P>> real_space_transform;
   real_space_transform.reserve(dims.size());
 
-  for (int i = 0; i < dims.size(); i++)
+  for (size_t i = 0; i < dims.size(); i++)
   {
     /* get the ith dimension */
     dimension<P> const &d    = dims[i];
@@ -187,7 +187,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
   std::vector<fk::matrix<P>> real_space_transform;
   real_space_transform.reserve(dims.size());
 
-  for (int i = 0; i < dims.size(); i++)
+  for (size_t i = 0; i < dims.size(); i++)
   {
     /* get the ith dimension */
     dimension_description<P> const &d = dims[i];
@@ -257,13 +257,13 @@ void wavelet_to_realspace(
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
       accumulator);
 
-  for (auto i = 0; i < table.size(); i++)
+  for (int64_t i = 0; i < table.size(); i++)
   {
     std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
     kron_matrices.reserve(dims.size());
     auto const coords = table.get_coords(i);
 
-    for (auto j = 0; j < dims.size(); j++)
+    for (size_t j = 0; j < dims.size(); j++)
     {
       auto const id =
           elements::get_1d_index(coords(j), coords(j + dims.size()));
@@ -320,13 +320,13 @@ void wavelet_to_realspace(
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
       accumulator);
 
-  for (auto i = 0; i < table.size(); i++)
+  for (int64_t i = 0; i < table.size(); i++)
   {
     std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
     kron_matrices.reserve(dims.size());
     auto const coords = table.get_coords(i);
 
-    for (auto j = 0; j < dims.size(); j++)
+    for (size_t j = 0; j < dims.size(); j++)
     {
       auto const id =
           elements::get_1d_index(coords(j), coords(j + dims.size()));
