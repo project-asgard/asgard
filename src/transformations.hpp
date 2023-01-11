@@ -271,13 +271,13 @@ inline fk::vector<P> transform_and_combine_dimensions(
 }
 
 template<typename P>
-inline int real_solution_size(PDE<P> const &pde)
+inline int dense_space_size(PDE<P> const &pde)
 {
-  return real_solution_size(pde.get_dimensions());
+  return dense_space_size(pde.get_dimensions());
 }
 
 template<typename precision>
-inline int real_solution_size(std::vector<dimension<precision>> const &dims)
+inline int dense_space_size(std::vector<dimension<precision>> const &dims)
 {
   /* determine the length of the realspace solution */
   return std::accumulate(dims.cbegin(), dims.cend(), int{1},
@@ -289,7 +289,7 @@ inline int real_solution_size(std::vector<dimension<precision>> const &dims)
 
 template<typename precision>
 inline int
-real_solution_size(std::vector<dimension_description<precision>> const &dims)
+dense_space_size(std::vector<dimension_description<precision>> const &dims)
 {
   return std::accumulate(
       dims.cbegin(), dims.cend(), int{1},

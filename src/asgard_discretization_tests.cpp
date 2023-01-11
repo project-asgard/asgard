@@ -67,17 +67,16 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
 
   REQUIRE(init.size() == 32);
 
-  auto const real_space_size = real_solution_size(dims.list);
-  fk::vector<TestType> real_space(real_space_size);
+  auto const dense_size = dense_space_size(dims.list);
+  fk::vector<TestType> real_space(dense_size);
   // temporary workspaces for the transform
-  fk::vector<TestType, mem_type::owner, resource::host> workspace(
-      real_space_size * 2);
+  fk::vector<TestType, mem_type::owner, resource::host> workspace(dense_size *
+                                                                  2);
   std::array<fk::vector<TestType, mem_type::view, resource::host>, 2>
-      tmp_workspace = {
-          fk::vector<TestType, mem_type::view, resource::host>(workspace, 0,
-                                                               real_space_size),
-          fk::vector<TestType, mem_type::view, resource::host>(
-              workspace, real_space_size, real_space_size * 2 - 1)};
+      tmp_workspace = {fk::vector<TestType, mem_type::view, resource::host>(
+                           workspace, 0, dense_size),
+                       fk::vector<TestType, mem_type::view, resource::host>(
+                           workspace, dense_size, dense_size * 2 - 1)};
 
   auto const default_workspace_cpu_MB = 187000;
 
@@ -85,7 +84,7 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
   wavelet_to_realspace(dims.list, init, grid.grid->get_table(), transformer,
                        default_workspace_cpu_MB, tmp_workspace, real_space);
 
-  REQUIRE(real_space.size() == real_space_size);
+  REQUIRE(real_space.size() == dense_size);
 
   std::array<TestType, 8> soln{0.0528312, 0.197169, 0.302831, 0.447169,
                                0.552831,  0.697169, 0.802831, 0.947169};

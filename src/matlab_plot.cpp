@@ -664,7 +664,7 @@ inline std::vector<size_t> matlab_plot::get_soln_sizes(PDE<P> const &pde) const
 template<typename P>
 inline int matlab_plot::get_soln_size(PDE<P> const &pde, int const dim) const
 {
-  // Gets the solution size for a given dimension (see real_solution_size() in
+  // Gets the solution size for a given dimension (see dense_space_size() in
   // transformations)
   return pde.get_dimensions()[dim].get_degree() *
          std::pow(2, pde.get_dimensions()[pde].get_level());
