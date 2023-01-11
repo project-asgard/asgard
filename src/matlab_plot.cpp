@@ -252,10 +252,7 @@ matlab_plot::gen_elem_coords(std::vector<dimension<P>> const &dims,
   // Iterate over dimensions first since matlab needs col-major order
   for (int d = 0; d < ndims; d++)
   {
-    P const max = dims[d].domain_max;
-    P const min = dims[d].domain_min;
-    P const rng = max - min;
-
+    P const rng = dims[d].domain_max - dims[d].domain_min;
     for (int i = 0; i < table.size(); i++)
     {
       fk::vector<int> const &coords = table.get_coords(i);
@@ -281,7 +278,7 @@ matlab_plot::gen_elem_coords(std::vector<dimension<P>> const &dims,
         x0 = pos + 0.5;
       }
 
-      P const x = x0 * rng + min;
+      P const x = x0 * rng + dims[d].domain_min;
 
       center_coords(d * table.size() + i) = x;
     }
@@ -351,15 +348,11 @@ void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
   // Generates cell array of nodes and element coordinates needed for plotting
   sol_sizes_ = get_soln_sizes(dims);
 
-  nodes_ = std::vector<matlab::data::Array>(dims.size());
+  nodes_.clear();
 
-  for (int i = 0; i < dims.size(); i++)
+  for (auto const &dim : dims)
   {
-    auto const &dim       = dims[i];
-    auto const &node_list = generate_nodes(dim.get_degree(), dim.get_level(),
-                                           dim.domain_min, dim.domain_max);
-    nodes_[i] =
-        create_array({1, static_cast<size_t>(node_list.size())}, node_list);
+    nodes.push_back(create_array(generate_nodes(dim)));
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);
@@ -375,15 +368,11 @@ void matlab_plot::init_plotting(
   // Generates cell array of nodes and element coordinates needed for plotting
   sol_sizes_ = get_soln_sizes(dims);
 
-  nodes_ = std::vector<matlab::data::Array>(dims.size());
+  nodes_.clear();
 
-  for (int i = 0; i < dims.size(); i++)
+  for (auto const &dim : dims)
   {
-    auto const &dim = dims[i];
-    auto const &node_list =
-        generate_nodes(dim.degree, dim.level, dim.d_min, dim.d_max);
-    nodes_[i] =
-        create_array({1, static_cast<size_t>(node_list.size())}, node_list);
+    nodes_.push_back(create_array(generate_nodes(dim)));
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);

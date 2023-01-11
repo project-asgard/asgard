@@ -100,6 +100,12 @@ public:
   void reset_params() { m_args_.clear(); }
 
   template<typename T>
+  matlab::data::Array create_array(T const &t)
+  {
+    return create_array({size_t{1}, static_cast<size_t>(t.size())}, t);
+  }
+
+  template<typename T>
   matlab::data::Array
   create_array(matlab::data::ArrayDimensions const dims, T const &t)
   {
@@ -138,6 +144,19 @@ public:
   template<typename T>
   void push(std::string const &name, fk::matrix<T> const &data,
             ml_wksp_type const type = ml_wksp_type::BASE);
+
+  template<typename T>
+  fk::vector<T> generate_nodes(dimension<T> const &dim)
+  {
+    return generate_nodes(dim.get_degree(), dim.get_level(), dim.domain_min,
+                          dim.domain_max);
+  }
+
+  template<typename T>
+  fk::vector<T> generate_nodes(dimension_description<T> const &dim)
+  {
+    return generate_nodes(dim.degree, dim.level, dim.d_min, dim.d_max);
+  }
 
   template<typename T>
   fk::vector<T> generate_nodes(int const degree, int const level, T const min,

@@ -70,7 +70,7 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
 
   REQUIRE(init.size() == 32);
 
-  auto const real_space_size = real_solution_size(dims.list);
+  auto const real_space_size = grid.size();
   fk::vector<TestType> real_space(real_space_size);
   // temporary workspaces for the transform
   fk::vector<TestType, mem_type::owner, resource::host> workspace(
@@ -82,7 +82,7 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
           fk::vector<TestType, mem_type::view, resource::host>(
               workspace, real_space_size, real_space_size * 2 - 1)};
 
-  static auto const default_workspace_cpu_MB = 187000;
+  auto const default_workspace_cpu_MB = 187000;
 
   // transform initial condition to realspace
   wavelet_to_realspace(dims.list, init, grid.grid->get_table(), transformer,
