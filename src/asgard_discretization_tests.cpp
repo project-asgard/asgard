@@ -1,9 +1,6 @@
 #include "asgard_discretization.hpp"
 #include "build_info.hpp"
 #include "transformations.hpp"
-#ifdef ASGARD_USE_MATLAB
-#include "matlab_plot.hpp"
-#endif
 #include "tests_general.hpp"
 
 using namespace asgard;
@@ -70,7 +67,7 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
 
   REQUIRE(init.size() == 32);
 
-  auto const real_space_size = grid.size();
+  auto const real_space_size = real_solution_size(dims.list);
   fk::vector<TestType> real_space(real_space_size);
   // temporary workspaces for the transform
   fk::vector<TestType, mem_type::owner, resource::host> workspace(
