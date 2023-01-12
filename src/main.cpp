@@ -301,8 +301,7 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
       if (opts.should_plot(i))
       {
-        auto const dense_size = asgard::dense_space_size(*pde);
-        auto transform_wksp   = asgard::update_transform_workspace<prec>(
+        auto transform_wksp = asgard::update_transform_workspace<prec>(
             dense_size, workspace, tmp_workspace);
         if (dense_size > analytic_solution_realspace.size())
         {
@@ -324,8 +323,7 @@ int main(int argc, char **argv)
     if (opts.should_output_realspace(i) || opts.should_plot(i))
     {
       // resize transform workspaces if grid size changed due to adaptivity
-      auto const dense_size = dense_space_size(*pde);
-      auto transform_wksp   = asgard::update_transform_workspace<prec>(
+      auto transform_wksp = asgard::update_transform_workspace<prec>(
           dense_size, workspace, tmp_workspace);
       real_space.resize(dense_size);
 
