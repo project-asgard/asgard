@@ -349,7 +349,7 @@ void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
 
   for (auto const &dim : dims)
   {
-    nodes.push_back(create_array(generate_nodes(dim)));
+    nodes_.push_back(create_array(generate_nodes(dim)));
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);
@@ -635,7 +635,7 @@ inline std::vector<size_t> matlab_plot::get_soln_sizes(
 {
   // Returns a vector of the solution size for each dimension
   std::vector<size_t> sizes(dims.size());
-  for (int i = 0; i < dims.size(); i++)
+  for (size_t i = 0; i < dims.size(); i++)
   {
     sizes[i] = dims[i].degree * std::pow(2, dims[i].level);
   }
@@ -648,7 +648,7 @@ matlab_plot::get_soln_sizes(std::vector<dimension<P>> const &dims) const
 {
   // Returns a vector of the solution size for each dimension
   std::vector<size_t> sizes(dims.size());
-  for (int i = 0; i < dims.size(); i++)
+  for (size_t i = 0; i < dims.size(); i++)
   {
     sizes[i] = dims[i].get_degree() * std::pow(2, dims[i].get_level());
   }
