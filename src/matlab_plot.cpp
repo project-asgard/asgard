@@ -349,7 +349,7 @@ void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
 
   for (auto const &dim : dims)
   {
-    nodes.push_back(create_array(generate_nodes(dim)));
+    nodes_.push_back(create_array(generate_nodes(dim)));
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);

@@ -189,7 +189,7 @@ int main(int argc, char **argv)
   ml_plot.connect(cli_input.get_ml_session_string());
   asgard::node_out() << "  connected to MATLAB" << '\n';
 
-  asgard::fk::vector<prec> analytic_solution_realspace(real_space_size);
+  asgard::fk::vector<prec> analytic_solution_realspace(dense_size);
   if (pde->has_analytic_soln)
   {
     // generate the analytic solution at t=0
