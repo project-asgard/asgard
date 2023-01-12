@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asgard_dimension.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -99,6 +100,12 @@ public:
   void reset_params() { m_args_.clear(); }
 
   template<typename T>
+  matlab::data::Array create_array(T const &t)
+  {
+    return create_array({size_t{1}, static_cast<size_t>(t.size())}, t);
+  }
+
+  template<typename T>
   matlab::data::Array
   create_array(matlab::data::ArrayDimensions const dims, T const &t)
   {
@@ -139,6 +146,19 @@ public:
             ml_wksp_type const type = ml_wksp_type::BASE);
 
   template<typename T>
+  fk::vector<T> generate_nodes(dimension<T> const &dim)
+  {
+    return generate_nodes(dim.get_degree(), dim.get_level(), dim.domain_min,
+                          dim.domain_max);
+  }
+
+  template<typename T>
+  fk::vector<T> generate_nodes(dimension_description<T> const &dim)
+  {
+    return generate_nodes(dim.degree, dim.level, dim.d_min, dim.d_max);
+  }
+
+  template<typename T>
   fk::vector<T> generate_nodes(int const degree, int const level, T const min,
                                T const max) const;
 
@@ -147,12 +167,39 @@ public:
   gen_elem_coords(PDE<P> const &pde, elements::table const &table) const;
 
   template<typename P>
+  fk::vector<P> gen_elem_coords(std::vector<dimension<P>> const &dims,
+                                elements::table const &table) const;
+
+  template<typename P>
+  fk::vector<P>
+  gen_elem_coords(std::vector<dimension_description<P>> const &dims,
+                  elements::table const &table) const;
+
+  template<typename P>
   void init_plotting(PDE<P> const &pde, elements::table const &table);
+
+  template<typename P>
+  void init_plotting(std::vector<dimension<P>> const &dims,
+                     elements::table const &table);
+
+  template<typename P>
+  void init_plotting(std::vector<dimension_description<P>> const &dims,
+                     elements::table const &table);
 
   template<typename P>
   void
   plot_fval(PDE<P> const &pde, elements::table const &table,
             fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln);
+
+  template<typename P>
+  void
+  plot_fval(std::vector<dimension<P>> const &pde, elements::table const &table,
+            fk::vector<P> const &f_val, fk::vector<P> const &analytic_soln);
+
+  template<typename P>
+  void plot_fval(std::vector<dimension_description<P>> const &pde,
+                 elements::table const &table, fk::vector<P> const &f_val,
+                 fk::vector<P> const &analytic_soln);
 
   template<typename P>
   void copy_pde(PDE<P> const &pde, std::string const name = std::string("pde"));
@@ -177,6 +224,14 @@ private:
 
   template<typename P>
   inline std::vector<size_t> get_soln_sizes(PDE<P> const &pde) const;
+
+  template<typename P>
+  inline std::vector<size_t>
+  get_soln_sizes(std::vector<dimension<P>> const &dims) const;
+
+  template<typename P>
+  inline std::vector<size_t>
+  get_soln_sizes(std::vector<dimension_description<P>> const &dims) const;
 
   template<typename P>
   inline int get_soln_size(PDE<P> const &pde, int const dim) const;

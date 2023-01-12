@@ -1,5 +1,6 @@
 #include "matlab_plot.hpp"
 
+#include "asgard_dimension.hpp"
 #include "quadrature.hpp"
 #include <cmath>
 #include <type_traits>
@@ -236,17 +237,22 @@ template<typename P>
 fk::vector<P> matlab_plot::gen_elem_coords(PDE<P> const &pde,
                                            elements::table const &table) const
 {
-  int const ndims = pde.num_dims;
+  return gen_elem_coords(pde.get_dimensions(), table);
+}
+
+template<typename P>
+fk::vector<P>
+matlab_plot::gen_elem_coords(std::vector<dimension<P>> const &dims,
+                             elements::table const &table) const
+{
+  int const ndims = dims.size();
 
   fk::vector<P> center_coords(ndims * table.size());
 
   // Iterate over dimensions first since matlab needs col-major order
   for (int d = 0; d < ndims; d++)
   {
-    P const max = pde.get_dimensions()[d].domain_max;
-    P const min = pde.get_dimensions()[d].domain_min;
-    P const rng = max - min;
-
+    P const domain_range = dims[d].domain_max - dims[d].domain_min;
     for (int i = 0; i < table.size(); i++)
     {
       fk::vector<int> const &coords = table.get_coords(i);
@@ -272,37 +278,103 @@ fk::vector<P> matlab_plot::gen_elem_coords(PDE<P> const &pde,
         x0 = pos + 0.5;
       }
 
-      P const x = x0 * rng + min;
+      P const x = x0 * domain_range + dims[d].domain_min;
 
       center_coords(d * table.size() + i) = x;
     }
   }
+  return center_coords;
+}
 
+template<typename P>
+fk::vector<P>
+matlab_plot::gen_elem_coords(std::vector<dimension_description<P>> const &dims,
+                             elements::table const &table) const
+{
+  int const ndims = dims.size();
+
+  fk::vector<P> center_coords(ndims * table.size());
+
+  // Iterate over dimensions first since matlab needs col-major order
+  for (int d = 0; d < ndims; d++)
+  {
+    P const domain_range = dims[d].d_max - dims[d].d_min;
+    for (int i = 0; i < table.size(); i++)
+    {
+      fk::vector<int> const &coords = table.get_coords(i);
+
+      int const lev = coords(d);
+      int const pos = coords(ndims + d);
+
+      expect(lev >= 0);
+      expect(pos >= 0);
+
+      P x0;
+      if (lev > 1)
+      {
+        P const s = pow(2, lev - 1) - 1.0;
+        P const h = 1.0 / (pow(2, lev - 1));
+        P const w = 1.0 - h;
+        P const o = 0.5 * h;
+
+        x0 = pos / s * w + o;
+      }
+      else
+      {
+        x0 = pos + 0.5;
+      }
+
+      P const x = x0 * domain_range + dims[d].d_min;
+
+      center_coords(d * table.size() + i) = x;
+    }
+  }
   return center_coords;
 }
 
 template<typename P>
 void matlab_plot::init_plotting(PDE<P> const &pde, elements::table const &table)
 {
+  init_plotting(pde.get_dimensions(), table);
+}
+
+template<typename P>
+void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
+                                elements::table const &table)
+{
   // Generates cell array of nodes and element coordinates needed for plotting
-  sol_sizes_ = get_soln_sizes(pde);
+  sol_sizes_ = get_soln_sizes(dims);
 
-  nodes_          = std::vector<matlab::data::Array>(pde.num_dims);
-  auto const dims = pde.get_dimensions();
+  nodes_.clear();
 
-  for (int i = 0; i < pde.num_dims; i++)
+  for (auto const &dim : dims)
   {
-    auto const &dim       = dims[i];
-    auto const &node_list = generate_nodes(dim.get_degree(), dim.get_level(),
-                                           dim.domain_min, dim.domain_max);
-    nodes_[i] =
-        create_array({1, static_cast<size_t>(node_list.size())}, node_list);
+    nodes.push_back(create_array(generate_nodes(dim)));
   }
 
-  auto const &elem_coords = gen_elem_coords(pde, table);
-  elem_coords_            = create_array(
-      {static_cast<size_t>(table.size()), static_cast<size_t>(pde.num_dims)},
-      elem_coords);
+  auto const &elem_coords = gen_elem_coords(dims, table);
+  elem_coords_ = create_array({static_cast<size_t>(table.size()), dims.size()},
+                              elem_coords);
+}
+
+template<typename P>
+void matlab_plot::init_plotting(
+    std::vector<dimension_description<P>> const &dims,
+    elements::table const &table)
+{
+  // Generates cell array of nodes and element coordinates needed for plotting
+  sol_sizes_ = get_soln_sizes(dims);
+
+  nodes_.clear();
+
+  for (auto const &dim : dims)
+  {
+    nodes_.push_back(create_array(generate_nodes(dim)));
+  }
+
+  auto const &elem_coords = gen_elem_coords(dims, table);
+  elem_coords_ = create_array({static_cast<size_t>(table.size()), dims.size()},
+                              elem_coords);
 }
 
 template<typename P>
@@ -310,14 +382,49 @@ void matlab_plot::plot_fval(PDE<P> const &pde, elements::table const &table,
                             fk::vector<P> const &f_val,
                             fk::vector<P> const &analytic_soln)
 {
+  plot_fval(pde.get_dimensions(), table, f_val, analytic_soln);
+}
+
+template<typename P>
+void matlab_plot::plot_fval(std::vector<dimension<P>> const &dims,
+                            elements::table const &table,
+                            fk::vector<P> const &f_val,
+                            fk::vector<P> const &analytic_soln)
+{
   expect(sol_sizes_.size() > 0);
 
-  size_t const ndims = static_cast<size_t>(pde.num_dims);
+  size_t const ndims = static_cast<size_t>(dims.size());
 
   if (table.size() * ndims != elem_coords_.getNumberOfElements())
   {
     // Regenerate the element coordinates and nodes if the grid was adapted
-    init_plotting(pde, table);
+    init_plotting(dims, table);
+  }
+
+  m_args_.clear();
+  add_param(ndims);
+  add_param({1, static_cast<size_t>(analytic_soln.size())}, analytic_soln);
+  add_param({1, ndims}, nodes_);
+  add_param(sol_sizes_, f_val, analytic_soln);
+  push_param(elem_coords_);
+
+  call("plot_fval");
+}
+
+template<typename P>
+void matlab_plot::plot_fval(std::vector<dimension_description<P>> const &dims,
+                            elements::table const &table,
+                            fk::vector<P> const &f_val,
+                            fk::vector<P> const &analytic_soln)
+{
+  expect(sol_sizes_.size() > 0);
+
+  size_t const ndims = static_cast<size_t>(dims.size());
+
+  if (table.size() * ndims != elem_coords_.getNumberOfElements())
+  {
+    // Regenerate the element coordinates and nodes if the grid was adapted
+    init_plotting(dims, table);
   }
 
   m_args_.clear();
@@ -523,22 +630,41 @@ bool matlab_plot::find_session(std::string const &name, bool const find_name,
 }
 
 template<typename P>
-inline std::vector<size_t> matlab_plot::get_soln_sizes(PDE<P> const &pde) const
+inline std::vector<size_t> matlab_plot::get_soln_sizes(
+    std::vector<dimension_description<P>> const &dims) const
 {
   // Returns a vector of the solution size for each dimension
-  std::vector<size_t> sizes(pde.num_dims);
-  for (int i = 0; i < pde.num_dims; i++)
+  std::vector<size_t> sizes(dims.size());
+  for (int i = 0; i < dims.size(); i++)
   {
-    sizes[i] = pde.get_dimensions()[i].get_degree() *
-               std::pow(2, pde.get_dimensions()[i].get_level());
+    sizes[i] = dims[i].degree * std::pow(2, dims[i].level);
   }
   return sizes;
 }
 
 template<typename P>
+inline std::vector<size_t>
+matlab_plot::get_soln_sizes(std::vector<dimension<P>> const &dims) const
+{
+  // Returns a vector of the solution size for each dimension
+  std::vector<size_t> sizes(dims.size());
+  for (int i = 0; i < dims.size(); i++)
+  {
+    sizes[i] = dims[i].get_degree() * std::pow(2, dims[i].get_level());
+  }
+  return sizes;
+}
+
+template<typename P>
+inline std::vector<size_t> matlab_plot::get_soln_sizes(PDE<P> const &pde) const
+{
+  return get_soln_sizes(pde.get_dimensions());
+}
+
+template<typename P>
 inline int matlab_plot::get_soln_size(PDE<P> const &pde, int const dim) const
 {
-  // Gets the solution size for a given dimension (see real_solution_size() in
+  // Gets the solution size for a given dimension (see dense_space_size() in
   // transformations)
   return pde.get_dimensions()[dim].get_degree() *
          std::pow(2, pde.get_dimensions()[pde].get_level());
@@ -569,11 +695,43 @@ template fk::vector<float>
 matlab_plot::gen_elem_coords(PDE<float> const &pde,
                              elements::table const &table) const;
 
+template fk::vector<double>
+matlab_plot::gen_elem_coords(std::vector<dimension<double>> const &pde,
+                             elements::table const &table) const;
+
+template fk::vector<float>
+matlab_plot::gen_elem_coords(std::vector<dimension<float>> const &pde,
+                             elements::table const &table) const;
+
+template fk::vector<double> matlab_plot::gen_elem_coords(
+    std::vector<dimension_description<double>> const &pde,
+    elements::table const &table) const;
+
+template fk::vector<float> matlab_plot::gen_elem_coords(
+    std::vector<dimension_description<float>> const &pde,
+    elements::table const &table) const;
+
 template void matlab_plot::init_plotting(PDE<double> const &pde,
                                          elements::table const &table);
 
 template void
 matlab_plot::init_plotting(PDE<float> const &pde, elements::table const &table);
+
+template void
+matlab_plot::init_plotting(std::vector<dimension<float>> const &pde,
+                           elements::table const &table);
+
+template void
+matlab_plot::init_plotting(std::vector<dimension<double>> const &pde,
+                           elements::table const &table);
+
+template void
+matlab_plot::init_plotting(std::vector<dimension_description<float>> const &pde,
+                           elements::table const &table);
+
+template void matlab_plot::init_plotting(
+    std::vector<dimension_description<double>> const &pde,
+    elements::table const &table);
 
 template void matlab_plot::plot_fval(PDE<double> const &pde,
                                      elements::table const &table,
@@ -584,6 +742,28 @@ template void matlab_plot::plot_fval(PDE<float> const &pde,
                                      elements::table const &table,
                                      fk::vector<float> const &f_val,
                                      fk::vector<float> const &analytic_soln);
+
+template void matlab_plot::plot_fval(std::vector<dimension<double>> const &dims,
+                                     elements::table const &table,
+                                     fk::vector<double> const &f_val,
+                                     fk::vector<double> const &analytic_soln);
+
+template void matlab_plot::plot_fval(std::vector<dimension<float>> const &pde,
+                                     elements::table const &table,
+                                     fk::vector<float> const &f_val,
+                                     fk::vector<float> const &analytic_soln);
+
+template void
+matlab_plot::plot_fval(std::vector<dimension_description<double>> const &dims,
+                       elements::table const &table,
+                       fk::vector<double> const &f_val,
+                       fk::vector<double> const &analytic_soln);
+
+template void
+matlab_plot::plot_fval(std::vector<dimension_description<float>> const &pde,
+                       elements::table const &table,
+                       fk::vector<float> const &f_val,
+                       fk::vector<float> const &analytic_soln);
 
 template void
 matlab_plot::copy_pde(PDE<float> const &pde, std::string const name);

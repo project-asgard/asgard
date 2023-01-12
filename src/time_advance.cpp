@@ -428,15 +428,14 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   static adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
 
   // Create workspace for wavelet transform
-  static auto const real_space_size = real_solution_size(pde_1d);
-  static fk::vector<P, mem_type::owner, resource::host> workspace(
-      real_space_size * 2);
+  static auto const dense_size = dense_space_size(pde_1d);
+  static fk::vector<P, mem_type::owner, resource::host> workspace(dense_size *
+                                                                  2);
   static std::array<fk::vector<P, mem_type::view, resource::host>, 2>
-      tmp_workspace = {
-          fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                        real_space_size - 1),
-          fk::vector<P, mem_type::view, resource::host>(
-              workspace, real_space_size, real_space_size * 2 - 1)};
+      tmp_workspace = {fk::vector<P, mem_type::view, resource::host>(
+                           workspace, 0, dense_size - 1),
+                       fk::vector<P, mem_type::view, resource::host>(
+                           workspace, dense_size, dense_size * 2 - 1)};
 
   auto const &table   = adaptive_grid.get_table();
   auto const &plan    = adaptive_grid.get_distrib_plan();
@@ -501,8 +500,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fm::axpy(f_2s, x, dt);
 
   // Create rho_2s
-  fk::vector<P> mom0(real_space_size);
-  fk::vector<P> mom0_real(real_space_size);
+  fk::vector<P> mom0(dense_size);
+  fk::vector<P> mom0_real(dense_size);
   fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
   wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,
@@ -514,8 +513,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   };
 
   // TODO: refactor into more generic function
-  fk::vector<P> mom1(real_space_size);
-  fk::vector<P> mom1_real(real_space_size);
+  fk::vector<P> mom1(dense_size);
+  fk::vector<P> mom1_real(dense_size);
   fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
   wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,
@@ -526,8 +525,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fk::vector<P> mom2(real_space_size);
-  fk::vector<P> mom2_real(real_space_size);
+  fk::vector<P> mom2(dense_size);
+  fk::vector<P> mom2_real(dense_size);
   fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
   wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
                           transformer, workspace_size_MB, tmp_workspace,

@@ -163,22 +163,21 @@ int main(int argc, char **argv)
 
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
-  auto const real_space_size = asgard::real_solution_size(*pde);
-  asgard::fk::vector<prec> real_space(real_space_size);
+  auto const dense_size = asgard::dense_space_size(*pde);
+  asgard::fk::vector<prec> real_space(dense_size);
 
   // temporary workspaces for the transform
   asgard::fk::vector<prec, asgard::mem_type::owner, asgard::resource::host>
-      workspace(real_space_size * 2);
+      workspace(dense_size * 2);
   std::array<
       asgard::fk::vector<prec, asgard::mem_type::view, asgard::resource::host>,
       2>
-      tmp_workspace = {
-          asgard::fk::vector<prec, asgard::mem_type::view,
-                             asgard::resource::host>(workspace, 0,
-                                                     real_space_size - 1),
-          asgard::fk::vector<prec, asgard::mem_type::view,
-                             asgard::resource::host>(workspace, real_space_size,
-                                                     real_space_size * 2 - 1)};
+      tmp_workspace = {asgard::fk::vector<prec, asgard::mem_type::view,
+                                          asgard::resource::host>(
+                           workspace, 0, dense_size - 1),
+                       asgard::fk::vector<prec, asgard::mem_type::view,
+                                          asgard::resource::host>(
+                           workspace, dense_size, dense_size * 2 - 1)};
   // transform initial condition to realspace
   asgard::wavelet_to_realspace<prec>(
       *pde, initial_condition, adaptive_grid.get_table(), transformer,
@@ -302,12 +301,12 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
       if (opts.should_plot(i))
       {
-        auto const real_size = asgard::real_solution_size(*pde);
-        auto transform_wksp  = asgard::update_transform_workspace<prec>(
-            real_size, workspace, tmp_workspace);
-        if (real_size > analytic_solution_realspace.size())
+        auto const dense_size = asgard::dense_space_size(*pde);
+        auto transform_wksp   = asgard::update_transform_workspace<prec>(
+            dense_size, workspace, tmp_workspace);
+        if (dense_size > analytic_solution_realspace.size())
         {
-          analytic_solution_realspace.resize(real_size);
+          analytic_solution_realspace.resize(dense_size);
         }
         asgard::wavelet_to_realspace<prec>(
             *pde, analytic_solution, adaptive_grid.get_table(), transformer,
@@ -325,10 +324,10 @@ int main(int argc, char **argv)
     if (opts.should_output_realspace(i) || opts.should_plot(i))
     {
       // resize transform workspaces if grid size changed due to adaptivity
-      auto const real_size = real_solution_size(*pde);
-      auto transform_wksp  = asgard::update_transform_workspace<prec>(
-          real_size, workspace, tmp_workspace);
-      real_space.resize(real_size);
+      auto const dense_size = dense_space_size(*pde);
+      auto transform_wksp   = asgard::update_transform_workspace<prec>(
+          dense_size, workspace, tmp_workspace);
+      real_space.resize(dense_size);
 
       asgard::wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
                                          transformer, default_workspace_cpu_MB,
