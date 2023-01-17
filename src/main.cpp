@@ -194,8 +194,8 @@ int main(int argc, char **argv)
   ml_plot.call("addpath");
 
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
-  // ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
-  //                   analytic_solution_realspace);
+  ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                    analytic_solution_realspace);
 
   // send initial condition to matlab
   std::vector<size_t> sizes(pde->num_dims);
@@ -335,8 +335,8 @@ int main(int argc, char **argv)
     {
       ml_plot.push(std::string("rSpace_" + std::to_string(i)), real_space);
 
-      // ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
-      //                   analytic_solution_realspace);
+      ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                        analytic_solution_realspace);
 
       // only plot pde params if the pde has them
       if (asgard::parameter_manager<prec>::get_instance().get_num_parameters() >

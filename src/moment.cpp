@@ -154,12 +154,110 @@ void moment<P>::createMomentReducedMatrix_2d(PDE<P> const &pde,
 template<typename P>
 void moment<P>::createMomentReducedMatrix_3d(PDE<P> const &pde,
                                              elements::table const &hash_table)
-{}
+{
+  int const num_ele = hash_table.size();
+
+  int const moment_idx = 0;
+  int const x_dim      = 0; // hardcoded for now, needs to change
+  int const v_dim_1    = 1;
+  int const v_dim_2    = 2;
+
+  expect(static_cast<int>(this->fList.size()) > moment_idx);
+  expect(this->fList[moment_idx].size() >= v_dim_2);
+  auto g_vec_1 = this->fList[moment_idx][v_dim_1];
+  auto g_vec_2 = this->fList[moment_idx][v_dim_2];
+
+  expect(pde.get_dimensions().size() == 3);
+  int const n =
+      std::pow(pde.get_dimensions()[v_dim_1].get_degree(), 3) * num_ele;
+  int const rows = std::pow(2, pde.get_dimensions()[x_dim].get_level()) *
+                   pde.get_dimensions()[x_dim].get_degree();
+
+  this->moment_matrix.clear_and_resize(rows, n);
+
+  int const deg = pde.get_dimensions()[v_dim_1].get_degree();
+
+  // TODO: this should be refactored into a sparse matrix
+  for (int i = 0; i < num_ele; i++)
+  {
+    // l_dof_x and l_dof_v
+    fk::vector<int> const coords       = hash_table.get_coords(i);
+    fk::vector<int> const elem_indices = linearize(coords);
+
+    for (int j = 0; j < deg; j++)
+    {
+      int const ind_i = elem_indices(x_dim) * deg + j; // row_idx
+      for (int vdeg1 = 0; vdeg1 < deg; vdeg1++)
+      {
+        for (int vdeg2 = 0; vdeg2 < deg; vdeg2++)
+        {
+          int const ind_j =
+              i * std::pow(deg, 3) + j * std::pow(deg, 2) + deg * vdeg1 + vdeg2;
+          moment_matrix(ind_i, ind_j) =
+              g_vec_1(elem_indices(v_dim_1) * deg + vdeg1) *
+              g_vec_2(elem_indices(v_dim_2) * deg + vdeg2);
+        }
+      }
+    }
+  }
+}
 
 template<typename P>
 void moment<P>::createMomentReducedMatrix_4d(PDE<P> const &pde,
                                              elements::table const &hash_table)
-{}
+{
+  int const num_ele = hash_table.size();
+
+  int const moment_idx = 0;
+  int const x_dim      = 0; // hardcoded for now, needs to change
+  int const v_dim_1    = 1;
+  int const v_dim_2    = 2;
+  int const v_dim_3    = 3;
+
+  expect(static_cast<int>(this->fList.size()) > moment_idx);
+  expect(this->fList[moment_idx].size() >= v_dim_3);
+  auto g_vec_1 = this->fList[moment_idx][v_dim_1];
+  auto g_vec_2 = this->fList[moment_idx][v_dim_2];
+  auto g_vec_3 = this->fList[moment_idx][v_dim_3];
+
+  expect(pde.get_dimensions().size() == 4);
+  int const n =
+      std::pow(pde.get_dimensions()[v_dim_1].get_degree(), 4) * num_ele;
+  int const rows = std::pow(2, pde.get_dimensions()[x_dim].get_level()) *
+                   pde.get_dimensions()[x_dim].get_degree();
+
+  this->moment_matrix.clear_and_resize(rows, n);
+
+  int const deg = pde.get_dimensions()[v_dim_1].get_degree();
+
+  // TODO: this should be refactored into a sparse matrix
+  for (int i = 0; i < num_ele; i++)
+  {
+    // l_dof_x and l_dof_v
+    fk::vector<int> const coords       = hash_table.get_coords(i);
+    fk::vector<int> const elem_indices = linearize(coords);
+
+    for (int j = 0; j < deg; j++)
+    {
+      int const ind_i = elem_indices(x_dim) * deg + j; // row_idx
+      for (int vdeg1 = 0; vdeg1 < deg; vdeg1++)
+      {
+        for (int vdeg2 = 0; vdeg2 < deg; vdeg2++)
+        {
+          for (int vdeg3 = 0; vdeg3 < deg; vdeg3++)
+          {
+            int const ind_j = i * std::pow(deg, 4) + j * std::pow(deg, 3) +
+                              std::pow(deg, 2) * vdeg1 + vdeg2 * deg + vdeg3;
+            moment_matrix(ind_i, ind_j) =
+                g_vec_1(elem_indices(v_dim_1) * deg + vdeg1) *
+                g_vec_2(elem_indices(v_dim_2) * deg + vdeg2) *
+                g_vec_3(elem_indices(v_dim_3) * deg + vdeg3);
+          }
+        }
+      }
+    }
+  }
+}
 
 template class moment<float>;
 template class moment<double>;
