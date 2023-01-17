@@ -142,6 +142,10 @@ public:
                ml_wksp_type const type = ml_wksp_type::BASE);
 
   template<typename T>
+  void push(std::string const &name, fk::vector<T> const &data,
+            ml_wksp_type const type = ml_wksp_type::BASE);
+
+  template<typename T>
   void push(std::string const &name, fk::matrix<T> const &data,
             ml_wksp_type const type = ml_wksp_type::BASE);
 

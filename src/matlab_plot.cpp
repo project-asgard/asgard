@@ -173,6 +173,17 @@ void matlab_plot::set_var(std::string const &name,
   matlab_inst_->setVariable(name, var, type);
 }
 
+// pushes a vector to a matlab workspace with the given name
+template<typename T>
+void matlab_plot::push(std::string const &name, fk::vector<T> const &data,
+                       ml_wksp_type const type)
+{
+  // create a matlab array object
+  auto ml_array = create_array({static_cast<size_t>(data.size()), 1}, data);
+
+  set_var(name, ml_array, type);
+}
+
 // pushes a matrix to a matlab workspace with the given name
 template<typename T>
 void matlab_plot::push(std::string const &name, fk::matrix<T> const &data,
@@ -346,15 +357,20 @@ void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
   sol_sizes_ = get_soln_sizes(dims);
 
   nodes_.clear();
-
+  
+  int d = 0;
   for (auto const &dim : dims)
   {
     nodes_.push_back(create_array(generate_nodes(dim)));
+    this->set_var(std::string("nodes_dim" + std::to_string(d)), nodes_.back());
+    d += 1;
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);
   elem_coords_ = create_array({static_cast<size_t>(table.size()), dims.size()},
                               elem_coords);
+
+  this->set_var("elem_coords", elem_coords_);
 }
 
 template<typename P>
@@ -367,14 +383,19 @@ void matlab_plot::init_plotting(
 
   nodes_.clear();
 
+  int d = 0;
   for (auto const &dim : dims)
   {
     nodes_.push_back(create_array(generate_nodes(dim)));
+    this->set_var(std::string("nodes_dim" + std::to_string(d)), nodes_.back());
+    d += 1;
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);
   elem_coords_ = create_array({static_cast<size_t>(table.size()), dims.size()},
                               elem_coords);
+
+  this->set_var("elem_coords", elem_coords_);
 }
 
 template<typename P>
@@ -671,6 +692,14 @@ inline int matlab_plot::get_soln_size(PDE<P> const &pde, int const dim) const
 }
 
 /* explicit instantiations */
+template void matlab_plot::push(std::string const &name,
+                                fk::vector<float> const &data,
+                                ml_wksp_type const type);
+
+template void matlab_plot::push(std::string const &name,
+                                fk::vector<double> const &data,
+                                ml_wksp_type const type);
+
 template void matlab_plot::push(std::string const &name,
                                 fk::matrix<float> const &data,
                                 ml_wksp_type const type);
