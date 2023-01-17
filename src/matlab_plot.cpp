@@ -357,7 +357,7 @@ void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
   sol_sizes_ = get_soln_sizes(dims);
 
   nodes_.clear();
-  
+
   int d = 0;
   for (auto const &dim : dims)
   {

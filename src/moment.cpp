@@ -91,6 +91,27 @@ template<typename P>
 void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
                                           elements::table const &hash_table)
 {
+  switch (pde.num_dims)
+  {
+  case 2:
+    createMomentReducedMatrix_2d(pde, hash_table);
+    break;
+  case 3:
+    createMomentReducedMatrix_3d(pde, hash_table);
+    break;
+  case 4:
+    createMomentReducedMatrix_4d(pde, hash_table);
+    break;
+  default:
+    throw std::runtime_error(
+        "unsupported number of dimensions with createMomentReducedMatrix");
+  }
+}
+
+template<typename P>
+void moment<P>::createMomentReducedMatrix_2d(PDE<P> const &pde,
+                                             elements::table const &hash_table)
+{
   int const num_ele = hash_table.size();
 
   int const moment_idx = 0;
@@ -129,6 +150,16 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
     }
   }
 }
+
+template<typename P>
+void moment<P>::createMomentReducedMatrix_3d(PDE<P> const &pde,
+                                             elements::table const &hash_table)
+{}
+
+template<typename P>
+void moment<P>::createMomentReducedMatrix_4d(PDE<P> const &pde,
+                                             elements::table const &hash_table)
+{}
 
 template class moment<float>;
 template class moment<double>;
