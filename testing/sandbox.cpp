@@ -42,62 +42,54 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
     
     auto const lgwt = legendre_weights( degree+1, -1.0, 1.0, true );
     
-    int N_nodes = N_elements + 1;
+    int N_nodes = N_elements - 1;
     
-    // Set the source vector //
+    // Set the Source Vector //
     
     fk :: vector<prec> b(N_nodes);
     
-    b[0] = 0.0;
-    
-    for ( int i = 1; i < N_nodes-1; i++ )
+    for ( int i = 0; i < N_nodes; i++ )
     {
         b[i] = 0.0;
         for ( int q = 0; q < degree+1; q++ )
         {
             b[i] += 0.25 * h * lgwt[1][q]
-                    * (   source[(i-1)*(degree+1)+q] * ( 1.0 + lgwt[0][q] )
-                        + source[(i  )*(degree+1)+q] * ( 1.0 - lgwt[0][q] ) );
+                    * (   source[(i  )*(degree+1)+q] * ( 1.0 + lgwt[0][q] )
+                        + source[(i+1)*(degree+1)+q] * ( 1.0 - lgwt[0][q] ) );
         }
     }
         
-    b[N_nodes-1] = 0.0;
-    
     // Set the Matrix //
     
     // Diagonal Entries //
     
     fk :: vector<prec> A_D(N_nodes);
     
-    A_D[0] = 1.0;
-    
-    for ( int i = 1; i < N_nodes-1; i++ )
+    for ( int i = 0; i < N_nodes; i++ )
     {
         A_D[i] = 2.0 / h;
     }
     
-    A_D[N_nodes-1] = 1.0;
-    
     // Off-Diagonal Entries //
     
-    fk :: vector<prec> A_DL(N_nodes-1);
-    fk :: vector<prec> A_DU(N_nodes-1);
+    fk :: vector<prec> A_E(N_nodes-1);
     
     for ( int i = 0; i < N_nodes-1; i++ )
     {
-        A_DL[i] = - 1.0 / h;
-        A_DU[i] = - 1.0 / h;
+        A_E[i] = - 1.0 / h;
     }
     
-    A_DU[0]         = 0.0;
-    A_DL[N_nodes-2] = 0.0;
+    // Matrix Factorization //
+    
+    int INFO = 0;
+    
+    dpttrf_( &N_nodes, A_D.data(), A_E.data(), &INFO );
     
     // Linear Solve //
     
-    int INFO = 0;
     int NRHS = 1;
     
-    dgtsv_( &N_nodes, &NRHS, A_DL.data(), A_D.data(), A_DU.data(), b.data(), &N_nodes, &INFO );
+    dpttrs_( &N_nodes, &NRHS, A_D.data(), A_E.data(), b.data(), &N_nodes, &INFO );
     
     // Set Potential and Electric Field in DG Nodes //
     
@@ -112,10 +104,31 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
             double x_k = ( x_min + i * h ) + 0.5 * h * ( 1.0 + lgwt[0][q] );
             double g_k = phi_min + dg * ( x_k - x_min );
             
-            phi[k] = 0.5 * (   b[i]   * ( 1.0 - lgwt[0][q] )
-                             + b[i+1] * ( 1.0 + lgwt[0][q] ) ) + g_k;
-            
-            E[k] = - ( b[i+1] - b[i] ) / h - dg;
+            if ( i == 0 )
+            {
+                
+                phi[k] = 0.5 * ( b[i] * ( 1.0 + lgwt[0][q] ) ) + g_k;
+                
+                E[k] = - b[i] / h - dg;
+                
+            }
+            else if ( i == N_elements - 1 )
+            {
+                
+                phi[k] = 0.5 * ( b[i-1]   * ( 1.0 - lgwt[0][q] ) ) + g_k;
+                
+                E[k] = b[i-1] / h - dg;
+                
+            }
+            else
+            {
+                
+                phi[k] = 0.5 * (   b[i-1] * ( 1.0 - lgwt[0][q] )
+                                 + b[i]   * ( 1.0 + lgwt[0][q] ) ) + g_k;
+                
+                E[k] = - ( b[i] - b[i-1] ) / h - dg;
+                
+            }
             
         }
     }
