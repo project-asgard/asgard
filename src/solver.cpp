@@ -1,20 +1,84 @@
 #include "solver.hpp"
 #include "fast_math.hpp"
+#include "kronmult.hpp"
 #include "tools.hpp"
 
 namespace asgard::solver
 {
+template<typename precision>
+class MatrixFree
+{
+public:
+  MatrixFree(PDE<precision> const &pde, elements::table const &elem_table,
+             options const &program_options, element_subgrid const &my_subgrid,
+             int const workspace_size_MB)
+      : pde_{pde}, elem_table_{elem_table}, program_options_{program_options},
+        my_subgrid_{my_subgrid}, workspace_size_MB_{workspace_size_MB}
+  {}
+  // template<typename xmem, typename ymem, typename resrc>
+  void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
+                  precision const alpha = 1.0, precision const beta = 0.0)
+  {
+    auto tmp = kronmult::execute(pde_, elem_table_, program_options_,
+                                 my_subgrid_, workspace_size_MB_, x);
+    y        = tmp * alpha + y * beta;
+  }
+
+private:
+  PDE<precision> const &pde_;
+  elements::table const &elem_table_;
+  options const &program_options_;
+  element_subgrid const &my_subgrid_;
+  int const workspace_size_MB_;
+};
+
+template<typename precision>
+class DenseMatrix
+{
+public:
+  DenseMatrix(fk::matrix<precision> const &A) : A_{A} {}
+  // template<typename xmem, typename ymem, typename resrc>
+  void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
+                  precision const alpha = 1.0, precision const beta = 0.0)
+  {
+    bool const trans_A = false;
+    fm::gemv(A_, x, y, trans_A, alpha, beta);
+  }
+
+private:
+  fk::matrix<precision> const &A_;
+};
+
 // simple, node-local test version
 template<typename P>
 P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
+  return simple_gmres(DenseMatrix{A}, x, b, M, restart, max_iter, tolerance);
+}
+
+template<typename P>
+P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
+               options const &program_options,
+               element_subgrid const &my_subgrid, int const workspace_size_MB,
+               fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
+               int const restart, int const max_iter, P const tolerance)
+{
+  return simple_gmres(MatrixFree{pde, elem_table, program_options, my_subgrid,
+                                 workspace_size_MB},
+                      x, b, M, restart, max_iter, tolerance);
+}
+
+// simple, node-local test version
+template<typename P, typename MatrixReplacement>
+P simple_gmres(MatrixReplacement asdf, fk::vector<P> &x, fk::vector<P> const &b,
+               fk::matrix<P> const &M, int const restart, int const max_iter,
+               P const tolerance)
+{
   expect(tolerance >= std::numeric_limits<P>::epsilon());
-  expect(A.nrows() == A.ncols());
-  int const n = A.nrows();
-  expect(b.size() == n);
-  expect(x.size() == n);
+  int const n = b.size();
+  expect(b.size() == x.size());
 
   bool const do_precond = M.size() > 0;
   std::vector<int> precond_pivots(n);
@@ -37,13 +101,12 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
   }();
 
   fk::vector<P> residual(b);
-  auto const compute_residual = [&A, &x, &b, &residual, &do_precond, &precond,
-                                 &precond_factored, &precond_pivots]() {
+  auto const compute_residual = [&]() {
     bool const trans_A = false;
     P const alpha      = -1.0;
     P const beta       = 1.0;
     residual           = b;
-    fm::gemv(A, x, residual, trans_A, alpha, beta);
+    asdf(x, residual, alpha, beta);
     if (do_precond)
     {
       precond_factored ? fm::getrs(precond, residual, precond_pivots)
@@ -84,8 +147,10 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     krylov_sol(0) = norm_r;
     for (i = 0; i < restart; ++i)
     {
-      fk::vector<P> new_basis =
-          A * fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1);
+      auto tmp = fk::vector<P>(
+          fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1));
+      fk::vector<P> new_basis(tmp.size());
+      asdf(tmp, new_basis, P{1.0}, P{0.0});
 
       if (do_precond)
       {
@@ -172,5 +237,19 @@ template double simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
                              fk::vector<double> const &b,
                              fk::matrix<double> const &M, int const restart,
                              int const max_iter, double const tolerance);
+
+template float
+simple_gmres(PDE<float> const &pde, elements::table const &elem_table,
+             options const &program_options, element_subgrid const &my_subgrid,
+             int const workspace_size_MB, fk::vector<float> &x,
+             fk::vector<float> const &b, fk::matrix<float> const &M,
+             int const restart, int const max_iter, float const tolerance);
+
+template double
+simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
+             options const &program_options, element_subgrid const &my_subgrid,
+             int const workspace_size_MB, fk::vector<double> &x,
+             fk::vector<double> const &b, fk::matrix<double> const &M,
+             int const restart, int const max_iter, double const tolerance);
 
 } // namespace asgard::solver
