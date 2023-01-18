@@ -1045,6 +1045,68 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
   }
 }
 
+template<typename P>
+void pttrf(int *n, P *D, P *E, int *info, resource const resrc = resource::host)
+{
+  expect(D);
+  expect(E);
+  expect(info);
+  expect(n && *n >= 0);
+
+  if (resrc == resource::device)
+  {
+    throw std::runtime_error("no pttrf support on cuda implemented");
+  }
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dpttrf_(n, D, E, info);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    spttrf_(n, D, E, info);
+  }
+  else
+  { // not instantiated; should never be reached
+    std::cerr << "pttrf not implemented for non-floating types" << '\n';
+    expect(false);
+  }
+}
+
+template<typename P>
+void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
+           resource const resrc = resource::host)
+{
+  expect(n);
+  expect(nrhs);
+  expect(D);
+  expect(E);
+  expect(B);
+  expect(ldb);
+  expect(info);
+  expect(*ldb >= 1);
+  expect(*n >= 0);
+
+  if (resrc == resource::device)
+  {
+    throw std::runtime_error("no pttrs support on cuda implemented");
+  }
+
+  if constexpr (std::is_same<P, double>::value)
+  {
+    dpttrs_(n, nrhs, D, E, B, ldb, info);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    spttrs_(n, nrhs, D, E, B, ldb, info);
+  }
+  else
+  { // not instantiated; should never be reached
+    std::cerr << "spttrs not implemented for non-floating types" << '\n';
+    assert(false);
+  }
+}
+
 #ifdef ASGARD_USE_SCALAPACK
 
 template<typename P>
@@ -1204,6 +1266,16 @@ template void getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
                     int *ipiv, double *b, int *ldb, int *info);
 template void getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
                     int *ipiv, float *b, int *ldb, int *info);
+
+template void
+pttrf(int *n, double *D, double *E, int *info, resource const resrc);
+template void
+pttrf(int *n, float *D, float *E, int *info, resource const resrc);
+
+template void pttrs(int *n, int *nrhs, double *D, double *E, double *B,
+                    int *ldb, int *info, resource const resrc);
+template void pttrs(int *n, int *nrhs, float *D, float *E, float *B, int *ldb,
+                    int *info, resource const resrc);
 #ifdef ASGARD_USE_SCALAPACK
 template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
                              int *ipiv, double *b, int *descB, int *info);

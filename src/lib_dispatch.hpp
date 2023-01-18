@@ -71,6 +71,14 @@ template<typename P>
 void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
            int *ldb, int *info);
 
+template<typename P>
+void pttrf(int *n, P *D, P *E, int *info,
+           resource const resrc = resource::host);
+
+template<typename P>
+void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
+           resource const resrc = resource::host);
+
 #ifdef ASGARD_USE_SCALAPACK
 template<typename P>
 void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
