@@ -60,8 +60,9 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       return explicit_advance(pde, adaptive_grid, transformer, program_opts,
                               unscaled_parts, x_orig, workspace_size_MB, time);
     case (method::imp):
-      return implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
-                              x_orig, time, program_opts.solver, update_system);
+      return implicit_advance(pde, adaptive_grid, transformer, program_opts,
+                              unscaled_parts, x_orig, workspace_size_MB, time,
+                              update_system);
     case (method::imex):
       return imex_advance(pde, adaptive_grid, transformer, program_opts,
                           unscaled_parts, x_orig, workspace_size_MB, time,
@@ -93,8 +94,9 @@ adaptive_advance(method const step_method, PDE<P> &pde,
         return explicit_advance(pde, adaptive_grid, transformer, program_opts,
                                 unscaled_parts, y, workspace_size_MB, time);
       case (method::imp):
-        return implicit_advance(pde, adaptive_grid, transformer, unscaled_parts,
-                                y, time, program_opts.solver, refining);
+        return implicit_advance(pde, adaptive_grid, transformer, program_opts,
+                                unscaled_parts, y, workspace_size_MB, time,
+                                refining);
       case (method::imex):
         return imex_advance(pde, adaptive_grid, transformer, program_opts,
                             unscaled_parts, y, workspace_size_MB, time,
@@ -269,15 +271,17 @@ fk::vector<P>
 implicit_advance(PDE<P> const &pde,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
+                 options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                      &unscaled_parts,
-                 fk::vector<P> const &x_orig, P const time,
-                 solve_opts const solver, bool const update_system)
+                 fk::vector<P> const &x_orig, int const workspace_size_MB,
+                 P const time, bool const update_system)
 {
   expect(time >= 0);
 #ifdef ASGARD_USE_SCALAPACK
   auto sgrid = get_grid();
 #endif
+  solve_opts const solver = program_opts.solver;
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
   static bool first_time = true;
@@ -393,8 +397,10 @@ implicit_advance(PDE<P> const &pde,
     int const restart  = A.ncols();
     int const max_iter = A.ncols();
     fk::vector<P> fx(x.size());
-    solver::simple_gmres(A, fx, x, fk::matrix<P>(), restart, max_iter,
-                         tolerance);
+    //
+
+    solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, fx,
+                         x, fk::matrix<P>(), restart, max_iter, tolerance);
     return fx;
   }
   return x;
@@ -419,7 +425,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   expect(time >= 0);
   expect(pde.moments.size() > 0);
 
-  static fk::matrix<P, mem_type::owner, resource::host> A;
+  // static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
   static bool first_time = true;
 
@@ -456,7 +462,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fk::vector<P> reduced_fx(A_local_rows);
 
   // Re-create A using new coefficients
-  auto rebuild_system_matrix = [&]() {
+  /*auto rebuild_system_matrix = [&]() {
     if (first_time || update_system)
     {
       first_time = false;
@@ -472,7 +478,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
         }
       }
     }
-  };
+  };*/
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -484,8 +490,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       expect(m.get_moment_matrix().nrows() > 0);
     }
 
-    A.clear_and_resize(A_local_rows, A_local_cols);
-    rebuild_system_matrix();
+    // A.clear_and_resize(A_local_rows, A_local_cols);
+    // rebuild_system_matrix();
   }
 
   // Explicit step (f_2s)
@@ -544,11 +550,11 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   // f2 now
   P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-  int const restart  = A.ncols();
-  int const max_iter = A.ncols();
+  int const restart  = A_local_cols;
+  int const max_iter = A_local_cols;
   fk::vector<P> f_2(x.size());
-  solver::simple_gmres(A, f_2, x, fk::matrix<P>(), restart, max_iter,
-                       tolerance);
+  solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, f_2,
+                       x, fk::matrix<P>(), restart, max_iter, tolerance);
 
   // --------------------------------
   // Third Stage
@@ -616,8 +622,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   // Final stage f3
   fk::vector<P> f_3(x.size());
-  solver::simple_gmres(A, f_3, x, fk::matrix<P>(), restart, max_iter,
-                       tolerance);
+  solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, f_3,
+                       x, fk::matrix<P>(), restart, max_iter, tolerance);
 
   return f_3;
 }
@@ -658,17 +664,19 @@ template fk::vector<double> implicit_advance(
     PDE<double> const &pde,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
+    options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
         &unscaled_parts,
-    fk::vector<double> const &host_space, double const time,
-    solve_opts const solver, bool const update_system);
+    fk::vector<double> const &host_space, int const workspace_size_MB,
+    double const time, bool const update_system);
 
 template fk::vector<float> implicit_advance(
     PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
+    options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
         &unscaled_parts,
-    fk::vector<float> const &x, float const time, solve_opts const solver,
+    fk::vector<float> const &x, int const workspace_size_MB, float const time,
     bool const update_system);
 
 template fk::vector<double> imex_advance(

@@ -1,8 +1,174 @@
 #pragma once
+#include "fast_math.hpp"
+#include "kronmult.hpp"
+#include "solver.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 
 namespace asgard::solver
 {
+// simple, node-local test version
+template<typename P>
+P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
+               options const &program_options,
+               element_subgrid const &my_subgrid, int const workspace_size_MB,
+               fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
+               int const restart, int const max_iter, P const tolerance)
+{
+  expect(tolerance >= std::numeric_limits<P>::epsilon());
+  int const n = b.size();
+  expect(b.size() == x.size());
+
+  bool const do_precond = M.size() > 0;
+  std::vector<int> precond_pivots(n);
+  if (do_precond)
+  {
+    expect(M.ncols() == n);
+    expect(M.nrows() == n);
+  }
+  fk::matrix<P> precond(M);
+  bool precond_factored = false;
+
+  expect(restart > 0);
+  expect(restart <= n);
+  expect(max_iter >= restart);
+  expect(max_iter <= n);
+
+  P const norm_b = [&b]() {
+    P const norm = fm::nrm2(b);
+    return (norm == 0.0) ? static_cast<P>(1.0) : norm;
+  }();
+
+  fk::vector<P> residual(b);
+  auto const compute_residual = [&]() {
+    bool const trans_A = false;
+    P const alpha      = -1.0;
+    P const beta       = 1.0;
+    residual           = b;
+    auto tmp = kronmult::execute(pde, elem_table, program_options, my_subgrid,
+                                 workspace_size_MB, x);
+    x        = tmp * -1.0 + x;
+    if (do_precond)
+    {
+      precond_factored ? fm::getrs(precond, residual, precond_pivots)
+                       : fm::gesv(precond, residual, precond_pivots);
+      precond_factored = true;
+    }
+    return fm::nrm2(residual);
+  };
+
+  auto const done = [](P const error, int const outer_iters,
+                       int const inner_iters) {
+    std::cout << "GMRES complete with error: " << error << '\n';
+    std::cout << outer_iters << " outer iterations, " << inner_iters
+              << " inner iterations\n";
+  };
+
+  P error = compute_residual() / norm_b;
+  if (error < tolerance)
+  {
+    done(error, 0, 0);
+    return error;
+  }
+
+  fk::matrix<P> basis(n, restart + 1);
+  fk::matrix<P> krylov_proj(restart + 1, restart);
+  fk::vector<P> sines(restart + 1);
+  fk::vector<P> cosines(restart + 1);
+
+  int it = 0;
+  int i  = 0;
+  for (; it < max_iter; ++it)
+  {
+    P const norm_r = compute_residual();
+
+    basis.update_col(0, residual * (1 / norm_r));
+
+    fk::vector<P> krylov_sol(n + 1);
+    krylov_sol(0) = norm_r;
+    for (i = 0; i < restart; ++i)
+    {
+      auto tmp = fk::vector<P>(
+          fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1));
+      fk::vector<P> new_basis = kronmult::execute(
+          pde, elem_table, program_options, my_subgrid, workspace_size_MB, tmp);
+
+      if (do_precond)
+      {
+        fm::getrs(precond, new_basis, precond_pivots);
+      }
+
+      for (int k = 0; k <= i; ++k)
+      {
+        fk::vector<P, mem_type::const_view> const basis_vect(basis, k, 0,
+                                                             basis.nrows() - 1);
+        krylov_proj(k, i) = new_basis * basis_vect;
+        new_basis         = new_basis - (basis_vect * krylov_proj(k, i));
+      }
+      krylov_proj(i + 1, i) = fm::nrm2(new_basis);
+
+      basis.update_col(i + 1, new_basis * (1 / krylov_proj(i + 1, i)));
+      for (int k = 0; k <= i - 1; ++k)
+      {
+        P const temp =
+            cosines(k) * krylov_proj(k, i) + sines(k) * krylov_proj(k + 1, i);
+        krylov_proj(k + 1, i) =
+            -sines(k) * krylov_proj(k, i) + cosines(k) * krylov_proj(k + 1, i);
+        krylov_proj(k, i) = temp;
+      }
+
+      // compute given's rotation
+      lib_dispatch::rotg(krylov_proj.data(i, i), krylov_proj.data(i + 1, i),
+                         cosines.data(i), sines.data(i));
+
+      krylov_proj(i + 1, i) = 0.0;
+      P const temp          = cosines(i) * krylov_sol(i);
+      krylov_sol(i + 1)     = -sines(i) * krylov_sol(i);
+      krylov_sol(i)         = temp;
+      error                 = std::abs(krylov_sol(i + 1)) / norm_b;
+
+      if (error <= tolerance)
+      {
+        auto proj = fk::matrix<P, mem_type::view>(krylov_proj, 0, i, 0, i);
+        std::vector<int> pivots(i + 1);
+
+        auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, i);
+        fm::gesv(proj, s_view, pivots);
+        x = x +
+            (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0, i) *
+             s_view);
+        break; // depart the inner iteration loop
+      }
+    } // end of inner iteration loop
+
+    if (error <= tolerance)
+    {
+      done(error, it, i);
+      return error; // all done!
+    }
+    auto proj   = fk::matrix<P, mem_type::view>(krylov_proj, 0, restart - 1, 0,
+                                              restart - 1);
+    auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
+    std::vector<int> pivots(restart);
+    fm::gesv(proj, s_view, pivots);
+    x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
+                                           restart - 1) *
+             s_view);
+    P const norm_r_outer                               = compute_residual();
+    krylov_sol(std::min(krylov_sol.size() - 1, i + 1)) = norm_r_outer;
+    error                                              = norm_r_outer / norm_b;
+
+    if (error <= tolerance)
+    {
+      done(error, it, i);
+      return error;
+    }
+  } // end outer iteration
+
+  done(error, it, i);
+  return error;
+}
+
 // simple, node-local test version of gmres
 template<typename P>
 P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
