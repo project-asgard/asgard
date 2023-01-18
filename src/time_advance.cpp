@@ -399,8 +399,9 @@ implicit_advance(PDE<P> const &pde,
     fk::vector<P> fx(x.size());
     //
 
-    solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, fx,
-                         x, fk::matrix<P>(), restart, max_iter, tolerance);
+    solver::simple_gmres(
+        solver::MatrixFree{pde, table, program_opts, grid, workspace_size_MB},
+        fx, x, fk::matrix<P>(), restart, max_iter, tolerance);
     return fx;
   }
   return x;
@@ -553,8 +554,9 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   int const restart  = A_local_cols;
   int const max_iter = A_local_cols;
   fk::vector<P> f_2(x.size());
-  solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, f_2,
-                       x, fk::matrix<P>(), restart, max_iter, tolerance);
+  solver::simple_gmres(
+      solver::MatrixFree{pde, table, program_opts, grid, workspace_size_MB},
+      f_2, x, fk::matrix<P>(), restart, max_iter, tolerance);
 
   // --------------------------------
   // Third Stage
@@ -622,8 +624,9 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   // Final stage f3
   fk::vector<P> f_3(x.size());
-  solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, f_3,
-                       x, fk::matrix<P>(), restart, max_iter, tolerance);
+  solver::simple_gmres(
+      solver::MatrixFree{pde, table, program_opts, grid, workspace_size_MB},
+      f_3, x, fk::matrix<P>(), restart, max_iter, tolerance);
 
   return f_3;
 }
