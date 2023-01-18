@@ -38,7 +38,7 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
     // Boundary Cconditions: phi(x_min)=phi_min and phi(x_max)=phi_max
     // Returns phi and E = - Phi_x in Gauss-Legendre Nodes
     
-    double h = ( x_max - x_min ) / (double) N_elements;
+    double dx = ( x_max - x_min ) / (double) N_elements;
     
     auto const lgwt = legendre_weights( degree+1, -1.0, 1.0, true );
     
@@ -53,7 +53,7 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
         b[i] = 0.0;
         for ( int q = 0; q < degree+1; q++ )
         {
-            b[i] += 0.25 * h * lgwt[1][q]
+            b[i] += 0.25 * dx * lgwt[1][q]
                     * (   source[(i  )*(degree+1)+q] * ( 1.0 + lgwt[0][q] )
                         + source[(i+1)*(degree+1)+q] * ( 1.0 - lgwt[0][q] ) );
         }
@@ -67,7 +67,7 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
     
     for ( int i = 0; i < N_nodes; i++ )
     {
-        A_D[i] = 2.0 / h;
+        A_D[i] = 2.0 / dx;
     }
     
     // Off-Diagonal Entries //
@@ -76,7 +76,7 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
     
     for ( int i = 0; i < N_nodes-1; i++ )
     {
-        A_E[i] = - 1.0 / h;
+        A_E[i] = - 1.0 / dx;
     }
     
     // Matrix Factorization //
@@ -95,42 +95,54 @@ void poisson_solver( fk::vector<prec> const &source, fk::vector<prec> &phi, fk::
     
     double dg = ( phi_max - phi_min ) / ( x_max - x_min );
     
-    for ( int i = 0; i < N_elements; i++ )
+    // First Element //
+    
+    for ( int k = 0; k < degree+1; k++ )
+    {
+        
+        double x_k = x_min + 0.5 * dx * ( 1.0 + lgwt[0][k] );
+        double g_k = phi_min + dg * ( x_k - x_min );
+        
+        phi[k] = 0.5 * b[0] * ( 1.0 + lgwt[0][k] ) + g_k;
+        
+        E[k] = - b[0] / dx - dg;
+        
+    }
+    
+    // Interior Elements //
+    
+    for ( int i = 1; i < N_elements-1; i++ )
     {
         for ( int q = 0; q < degree+1; q++ )
         {
             
             int k      = i * (degree+1) + q;
-            double x_k = ( x_min + i * h ) + 0.5 * h * ( 1.0 + lgwt[0][q] );
+            double x_k = ( x_min + i * dx ) + 0.5 * dx * ( 1.0 + lgwt[0][q] );
             double g_k = phi_min + dg * ( x_k - x_min );
             
-            if ( i == 0 )
-            {
-                
-                phi[k] = 0.5 * ( b[i] * ( 1.0 + lgwt[0][q] ) ) + g_k;
-                
-                E[k] = - b[i] / h - dg;
-                
-            }
-            else if ( i == N_elements - 1 )
-            {
-                
-                phi[k] = 0.5 * ( b[i-1]   * ( 1.0 - lgwt[0][q] ) ) + g_k;
-                
-                E[k] = b[i-1] / h - dg;
-                
-            }
-            else
-            {
-                
-                phi[k] = 0.5 * (   b[i-1] * ( 1.0 - lgwt[0][q] )
-                                 + b[i]   * ( 1.0 + lgwt[0][q] ) ) + g_k;
-                
-                E[k] = - ( b[i] - b[i-1] ) / h - dg;
-                
-            }
+            phi[k] = 0.5 * (   b[i-1] * ( 1.0 - lgwt[0][q] )
+                             + b[i]   * ( 1.0 + lgwt[0][q] ) ) + g_k;
+            
+            E[k] = - ( b[i] - b[i-1] ) / dx - dg;
             
         }
+    }
+    
+    // Last Element //
+    
+    int i = N_elements-1;
+    
+    for ( int q = 0; q < degree+1; q++ )
+    {
+        
+        int k      = i * (degree+1) + q;
+        double x_k = ( x_min + i * dx ) + 0.5 * dx * ( 1.0 + lgwt[0][q] );
+        double g_k = phi_min + dg * ( x_k - x_min );
+        
+        phi[k] = 0.5 * b[i-1] * ( 1.0 - lgwt[0][q] ) + g_k;
+        
+        E[k] = b[i-1] / dx - dg;
+        
     }
     
 }
@@ -156,14 +168,14 @@ int main(int, char**)
     
     // Assume Uniform Elements //
     
-    double h = ( x_max - x_min ) / (double) N_elements;
+    double dx = ( x_max - x_min ) / (double) N_elements;
     
     // Set Finite Element Nodes //
     
     for ( int i = 0; i < N_nodes; i++ )
     {
         
-        x_e[i] = x_min + i * h;
+        x_e[i] = x_min + i * dx;
         
     }
     
@@ -180,7 +192,7 @@ int main(int, char**)
             
             double x_q = lgwt[0][q];
             
-            x[k] = x_e[i] + 0.5 * h * ( 1.0 + x_q );
+            x[k] = x_e[i] + 0.5 * dx * ( 1.0 + x_q );
             
             poisson_source[k] = sin( 2.0 * M_PI * x[k] );
             
