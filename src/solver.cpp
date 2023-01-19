@@ -6,10 +6,10 @@
 namespace asgard::solver
 {
 template<typename precision>
-class MatrixFree
+class matrix_free
 {
 public:
-  MatrixFree(PDE<precision> const &pde, elements::table const &elem_table,
+  matrix_free(PDE<precision> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              int const workspace_size_MB)
       : pde_{pde}, elem_table_{elem_table}, program_options_{program_options},
@@ -33,10 +33,10 @@ private:
 };
 
 template<typename precision>
-class DenseMatrix
+class dense_matrix
 {
 public:
-  DenseMatrix(fk::matrix<precision> const &A) : A_{A} {}
+  dense_matrix(fk::matrix<precision> const &A) : A_{A} {}
   // template<typename xmem, typename ymem, typename resrc>
   void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
                   precision const alpha = 1.0, precision const beta = 0.0)
@@ -55,7 +55,7 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
-  return simple_gmres(DenseMatrix{A}, x, b, M, restart, max_iter, tolerance);
+  return simple_gmres(dense_matrix{A}, x, b, M, restart, max_iter, tolerance);
 }
 
 template<typename P>
@@ -65,14 +65,14 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
                int const restart, int const max_iter, P const tolerance)
 {
-  return simple_gmres(MatrixFree{pde, elem_table, program_options, my_subgrid,
+  return simple_gmres(matrix_free{pde, elem_table, program_options, my_subgrid,
                                  workspace_size_MB},
                       x, b, M, restart, max_iter, tolerance);
 }
 
 // simple, node-local test version
-template<typename P, typename MatrixReplacement>
-P simple_gmres(MatrixReplacement asdf, fk::vector<P> &x, fk::vector<P> const &b,
+template<typename P, typename matrix_replacement>
+P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
@@ -102,11 +102,10 @@ P simple_gmres(MatrixReplacement asdf, fk::vector<P> &x, fk::vector<P> const &b,
 
   fk::vector<P> residual(b);
   auto const compute_residual = [&]() {
-    bool const trans_A = false;
     P const alpha      = -1.0;
     P const beta       = 1.0;
     residual           = b;
-    asdf(x, residual, alpha, beta);
+    mat(x, residual, alpha, beta);
     if (do_precond)
     {
       precond_factored ? fm::getrs(precond, residual, precond_pivots)
@@ -150,7 +149,7 @@ P simple_gmres(MatrixReplacement asdf, fk::vector<P> &x, fk::vector<P> const &b,
       auto tmp = fk::vector<P>(
           fk::vector<P, mem_type::view>(basis, i, 0, basis.nrows() - 1));
       fk::vector<P> new_basis(tmp.size());
-      asdf(tmp, new_basis, P{1.0}, P{0.0});
+      mat(tmp, new_basis, P{1.0}, P{0.0});
 
       if (do_precond)
       {
