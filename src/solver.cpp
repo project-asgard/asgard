@@ -10,17 +10,17 @@ class matrix_free
 {
 public:
   matrix_free(PDE<precision> const &pde, elements::table const &elem_table,
-             options const &program_options, element_subgrid const &my_subgrid,
-             int const workspace_size_MB)
+              options const &program_options, element_subgrid const &my_subgrid,
+              int const workspace_size_MB)
       : pde_{pde}, elem_table_{elem_table}, program_options_{program_options},
         my_subgrid_{my_subgrid}, workspace_size_MB_{workspace_size_MB}
   {}
-  // template<typename xmem, typename ymem, typename resrc>
   void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
                   precision const alpha = 1.0, precision const beta = 0.0)
   {
     auto tmp = kronmult::execute(pde_, elem_table_, program_options_,
                                  my_subgrid_, workspace_size_MB_, x);
+    tmp      = x - tmp * pde_.get_dt();
     y        = tmp * alpha + y * beta;
   }
 
@@ -37,7 +37,6 @@ class dense_matrix
 {
 public:
   dense_matrix(fk::matrix<precision> const &A) : A_{A} {}
-  // template<typename xmem, typename ymem, typename resrc>
   void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
                   precision const alpha = 1.0, precision const beta = 0.0)
   {
@@ -66,7 +65,7 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                int const restart, int const max_iter, P const tolerance)
 {
   return simple_gmres(matrix_free{pde, elem_table, program_options, my_subgrid,
-                                 workspace_size_MB},
+                                  workspace_size_MB},
                       x, b, M, restart, max_iter, tolerance);
 }
 
@@ -78,7 +77,7 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
 {
   expect(tolerance >= std::numeric_limits<P>::epsilon());
   int const n = b.size();
-  expect(b.size() == x.size());
+  expect(n == x.size());
 
   bool const do_precond = M.size() > 0;
   std::vector<int> precond_pivots(n);
@@ -102,9 +101,9 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
 
   fk::vector<P> residual(b);
   auto const compute_residual = [&]() {
-    P const alpha      = -1.0;
-    P const beta       = 1.0;
-    residual           = b;
+    P const alpha = -1.0;
+    P const beta  = 1.0;
+    residual      = b;
     mat(x, residual, alpha, beta);
     if (do_precond)
     {

@@ -40,6 +40,12 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
     build_system_matrix(*pde, table, A, my_subgrid);
+    // AA = I - dt*A;
+    fm::scal(P{-1.0} * pde->get_dt(), A);
+    for (int i = 0; i < A.nrows(); ++i)
+    {
+      A(i, i) += 1.0;
+    }
     std::vector<int> ipiv(A.nrows());
     fm::gesv(A, x, ipiv);
     return x;
@@ -55,6 +61,12 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
     int const max_iter = A.ncols();
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     build_system_matrix(*pde, table, A, my_subgrid);
+    // AA = I - dt*A;
+    fm::scal(P{-1.0} * pde->get_dt(), A);
+    for (int i = 0; i < A.nrows(); ++i)
+    {
+      A(i, i) += 1.0;
+    }
     solver::simple_gmres(A, x, b, fk::matrix<P>(), restart, max_iter,
                          tolerance);
     return x;

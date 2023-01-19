@@ -397,8 +397,6 @@ implicit_advance(PDE<P> const &pde,
     int const restart  = A.ncols();
     int const max_iter = A.ncols();
     fk::vector<P> fx(x.size());
-    //
-
     solver::simple_gmres(pde, table, program_opts, grid, workspace_size_MB, fx,
                          x, fk::matrix<P>(), restart, max_iter, tolerance);
     return fx;
@@ -425,7 +423,6 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   expect(time >= 0);
   expect(pde.moments.size() > 0);
 
-  // static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
   static bool first_time = true;
 
@@ -461,25 +458,6 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   fk::vector<P> reduced_fx(A_local_rows);
 
-  // Re-create A using new coefficients
-  /*auto rebuild_system_matrix = [&]() {
-    if (first_time || update_system)
-    {
-      first_time = false;
-
-      build_system_matrix(pde, table, A, grid);
-      // AA = I - dt*A;
-      fm::scal(-dt, A);
-      if (grid.row_start == grid.col_start)
-      {
-        for (int i = 0; i < A.nrows(); ++i)
-        {
-          A(i, i) += 1.0;
-        }
-      }
-    }
-  };*/
-
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
   if (first_time || update_system)
@@ -489,9 +467,6 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
       expect(m.get_moment_matrix().nrows() > 0);
     }
-
-    // A.clear_and_resize(A_local_rows, A_local_cols);
-    // rebuild_system_matrix();
   }
 
   // Explicit step (f_2s)
