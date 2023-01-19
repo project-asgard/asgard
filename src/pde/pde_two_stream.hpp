@@ -24,7 +24,7 @@ public:
     param_manager.add_parameter(parameter<P>{"theta", theta});
     param_manager.add_parameter(parameter<P>{"E", E});
     param_manager.add_parameter(parameter<P>{"S", S});
-    param_manager.add_parameter(parameter<P>{"MaxAbsE",MaxAbsE});
+    param_manager.add_parameter(parameter<P>{"MaxAbsE", MaxAbsE});
   }
 
 private:
@@ -41,7 +41,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return 1.0-0.5*std::cos(0.5*x_v);
+      return 1.0 - 0.5 * std::cos(0.5 * x_v);
     });
     return fx;
   }
@@ -54,10 +54,10 @@ private:
     P const coefficient = 1.0 / std::sqrt(PI);
 
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_v) -> P {
-                     return coefficient * std::pow(x_v,2) * std::exp(-std::pow(x_v, 2));
-                   });
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient](P const x_v) -> P {
+          return coefficient * std::pow(x_v, 2) * std::exp(-std::pow(x_v, 2));
+        });
     return fx;
   }
 
@@ -69,13 +69,13 @@ private:
   }
 
   /* Define the dimension */
-  inline static dimension<P> const dim_0 = dimension<P>(
-      -2.0*PI, 2.0*PI, 4, default_degree,
-      initial_condition_dim_x_0, dV, "x");
+  inline static dimension<P> const dim_0 =
+      dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
+                   initial_condition_dim_x_0, dV, "x");
 
-  inline static dimension<P> const dim_1 = dimension<P>(
-      -2.0*PI, 2.0*PI, 3, default_degree,
-      initial_condition_dim_v_0, dV, "v");
+  inline static dimension<P> const dim_1 =
+      dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
+                   initial_condition_dim_v_0, dV, "v");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
@@ -120,7 +120,7 @@ private:
   {
     ignore(t);
 
-    return (1-0.5*std::cos(0.5*x))*0.5;
+    return (1 - 0.5 * std::cos(0.5 * x)) * 0.5;
   }
 
   static P u(P const &x, P const t = 0)
@@ -139,23 +139,23 @@ private:
 
   static P E(P const &x, P const t = 0)
   {
-      ignore(t);
-      ignore(x);
-      return 0.0;
+    ignore(t);
+    ignore(x);
+    return 0.0;
   }
 
-  static P S(P const &x, P const t = 0)
+  static P S(P const &y, P const t = 0)
   {
-      ignore(t);
-      ignore(x);
-      return 0.0;
+    ignore(t);
+    // subtracts quadrature values by one
+    return y - 1.0;
   }
-  
+
   static P MaxAbsE(P const &x, P const t = 0)
   {
-      ignore(t);
-      ignore(x);
-      return 0.0;
+    ignore(t);
+    ignore(x);
+    return 0.0;
   }
 
   /* build the terms */
@@ -239,94 +239,94 @@ private:
   // Term 3
   // Central Part of E\cdot\grad_v f
   //
-    
+
   static P E_func(P const x, P const time = 0)
   {
-      auto param = param_manager.get_parameter("E");
-      expect(param != nullptr);
-      return param->value(x, time);
+    auto param = param_manager.get_parameter("E");
+    expect(param != nullptr);
+    return param->value(x, time);
   }
-    
+
   static P negOne(P const x, P const time = 0)
   {
-      ignore(x);
-      ignore(time);
-      return -1.0;
+    ignore(x);
+    ignore(time);
+    return -1.0;
   }
-  
-  inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
-        coefficient_type::mass, E_func, partial_term<P>::null_gfunc,
-        flux_type::central, boundary_condition::periodic,
-        boundary_condition::periodic);
-  
-    inline static term<P> const E_mass_x = term<P>(true, // time-dependent
-                                                 "",    // name
-                                                 {pterm_E_mass_x});
-    
-  inline static const partial_term<P> pterm_div_v =
-        partial_term<P>(coefficient_type::div, negOne, partial_term<P>::null_gfunc,
-                        flux_type::central,
-                        boundary_condition::dirichlet,
-                        boundary_condition::dirichlet,
-                        homogeneity::homogeneous,
-                        homogeneity::homogeneous);
-    
-    inline static term<P> const div_v = term<P>(false, // time-dependent
-                                                 "",    // name
-                                                 {pterm_div_v});
-    
-    inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
 
-    // Term 4 + 5
-    // Penalty Part of E\cdot\grad_v f
-    //
-    
-    static P MaxAbsE_func(P const x, P const time = 0)
-    {
-        auto param = param_manager.get_parameter("MaxAbsE");
-        expect(param != nullptr);
-        return param->value(x, time);
-    }
-    
-    static P posOne(P const x, P const time = 0)
-    {
-        ignore(x);
-        ignore(time);
-        return 1.0;
-    }
-    
-    inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
-          coefficient_type::mass, MaxAbsE_func, partial_term<P>::null_gfunc,
-          flux_type::central, boundary_condition::periodic,
-          boundary_condition::periodic);
-    
-      inline static term<P> const MaxAbsE_mass_x_1 = term<P>(true, // time-dependent
-                                                   "",    // name
-                                                   {pterm_MaxAbsE_mass_x});
-    
-    inline static term<P> const MaxAbsE_mass_x_2 = term<P>(true, // time-dependent
-                                                 "",    // name
-                                                 {pterm_MaxAbsE_mass_x});
-    
-    inline static const partial_term<P> pterm_div_v_downwind =
-          partial_term<P>(coefficient_type::div, posOne, partial_term<P>::null_gfunc,
-                          flux_type::downwind,
-                          boundary_condition::dirichlet,
-                          boundary_condition::dirichlet,
-                          homogeneity::homogeneous,
-                          homogeneity::homogeneous);
-      
-      inline static term<P> const div_v_downwind = term<P>(false, // time-dependent
-                                                   "",    // name
-                                                   {pterm_div_v_downwind});
-    
-    // Central Part Defined Above (div_v; can do this due to time independence)
-    
-    inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x_1, div_v_downwind};
-    
-    inline static std::vector<term<P>> const terms_5 = {MaxAbsE_mass_x_2, div_v};
-    
-  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4, terms_5};
+  inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
+      coefficient_type::mass, E_func, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::periodic,
+      boundary_condition::periodic);
+
+  inline static term<P> const E_mass_x = term<P>(true, // time-dependent
+                                                 "",   // name
+                                                 {pterm_E_mass_x});
+
+  inline static const partial_term<P> pterm_div_v = partial_term<P>(
+      coefficient_type::div, negOne, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::dirichlet,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous);
+
+  inline static term<P> const div_v = term<P>(false, // time-dependent
+                                              "",    // name
+                                              {pterm_div_v});
+
+  inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
+
+  // Term 4 + 5
+  // Penalty Part of E\cdot\grad_v f
+  //
+
+  static P MaxAbsE_func(P const x, P const time = 0)
+  {
+    auto param = param_manager.get_parameter("MaxAbsE");
+    expect(param != nullptr);
+    return param->value(x, time);
+  }
+
+  static P posOne(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
+  inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
+      coefficient_type::mass, MaxAbsE_func, partial_term<P>::null_gfunc,
+      flux_type::central, boundary_condition::periodic,
+      boundary_condition::periodic);
+
+  inline static term<P> const MaxAbsE_mass_x_1 =
+      term<P>(true, // time-dependent
+              "",   // name
+              {pterm_MaxAbsE_mass_x});
+
+  inline static term<P> const MaxAbsE_mass_x_2 =
+      term<P>(true, // time-dependent
+              "",   // name
+              {pterm_MaxAbsE_mass_x});
+
+  inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
+      coefficient_type::div, posOne, partial_term<P>::null_gfunc,
+      flux_type::downwind, boundary_condition::dirichlet,
+      boundary_condition::dirichlet, homogeneity::homogeneous,
+      homogeneity::homogeneous);
+
+  inline static term<P> const div_v_downwind = term<P>(false, // time-dependent
+                                                       "",    // name
+                                                       {pterm_div_v_downwind});
+
+  // Central Part Defined Above (div_v; can do this due to time independence)
+
+  inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x_1,
+                                                      div_v_downwind};
+
+  inline static std::vector<term<P>> const terms_5 = {MaxAbsE_mass_x_2, div_v};
+
+  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4,
+                                            terms_5};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
   inline static scalar_func<P> const exact_scalar_func_               = {};

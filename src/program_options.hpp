@@ -150,8 +150,9 @@ static pde_map_t const pde_mapping = {
     {"vlasov", PDE_descriptor("Vlasov lb full f. df/dt == -v*grad_x f + div_v( "
                               "(v-u)f + theta*grad_v f)",
                               PDE_opts::vlasov_lb_full_f)},
-    {"two_stream", PDE_descriptor("Vlasov two-stream. df/dt == -v*grad_x f -E*grad_v f",
-                              PDE_opts::vlasov_two_stream)}};
+    {"two_stream",
+     PDE_descriptor("Vlasov two-stream. df/dt == -v*grad_x f -E*grad_v f",
+                    PDE_opts::vlasov_two_stream)}};
 
 // class to parse command line input
 class parser
