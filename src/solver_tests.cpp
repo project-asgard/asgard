@@ -29,27 +29,56 @@ void test_kronmult(parser const &parse, int const workspace_size_MB,
     return dist(mersenne_engine);
   };
   auto const elem_size  = static_cast<int>(std::pow(degree, pde->num_dims));
-  fk::vector<P> const x = [&table, gen, elem_size]() {
+  fk::vector<P> const b = [&table, gen, elem_size]() {
     fk::vector<P> output(elem_size * table.size());
     std::generate(output.begin(), output.end(), gen);
     return output;
   }();
 
-  // perform kron product + gemv for gold data
-  fk::vector<P> const gold = [&pde, &table, &my_subgrid, x, elem_size]() {
+  fk::vector<P> const gold = [&pde, &table, &my_subgrid, &b, elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
+    fk::vector<P> x(b);
+    int const restart  = A.ncols();
+    int const max_iter = A.ncols();
+    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     build_system_matrix(*pde, table, A, my_subgrid);
-    return A * x;
+    std::vector<int> ipiv(A.nrows());
+    fm::gesv(A, x, ipiv);
+    return x;
   }();
 
-  // perform kronmult using ed's library
-  std::cout.setstate(std::ios_base::failbit); // shhh...don't print alloc info
-  auto const fx =
-      kronmult::execute(*pde, table, opts, my_subgrid, workspace_size_MB, x);
-  std::cout.clear();
+  // perform gmres with system matrix A
+  fk::vector<P> const gmres = [&pde, &table, &my_subgrid, &gold, &b,
+                               elem_size]() {
+    auto const system_size = elem_size * table.size();
+    fk::matrix<P> A(system_size, system_size);
+    fk::vector<P> x(gold);
+    int const restart  = A.ncols();
+    int const max_iter = A.ncols();
+    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+    build_system_matrix(*pde, table, A, my_subgrid);
+    solver::simple_gmres(A, x, b, fk::matrix<P>(), restart, max_iter,
+                         tolerance);
+    return x;
+  }();
 
-  rmse_comparison(gold, fx, tol_factor);
+  // perform gmres with kron product
+  fk::vector<P> const gmres_matrix_free = [&pde, &table, &my_subgrid, &gold, &b,
+                                           elem_size, &opts,
+                                           workspace_size_MB]() {
+    auto const system_size = elem_size * table.size();
+    fk::vector<P> x(gold);
+    int const restart  = system_size;
+    int const max_iter = system_size;
+    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+    solver::simple_gmres(*pde, table, opts, my_subgrid, workspace_size_MB, x, b,
+                         fk::matrix<P>(), restart, max_iter, tolerance);
+    return x;
+  }();
+
+  rmse_comparison(gold, gmres, tol_factor);
+  rmse_comparison(gold, gmres_matrix_free, tol_factor);
 }
 
 TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
