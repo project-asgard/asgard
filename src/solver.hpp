@@ -20,4 +20,16 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                int const restart, int const max_iter, P const tolerance,
                imex_flag const imex = imex_flag::unspecified);
 
+
+template<typename P>
+void setup_poisson(const int N_nodes, P const x_min, P const x_max,
+                   fk::vector<P> &diag, fk::vector<P> &off_diag);
+
+template<typename P>
+void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
+                    fk::vector<P> const &A_E, fk::vector<P> &phi,
+                    fk::vector<P> &E, int const degree, int const N_elements,
+                    P const x_min, P const x_max, P const phi_min,
+                    P const phi_max);
+
 } // namespace asgard::solver
