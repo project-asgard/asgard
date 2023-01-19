@@ -6,6 +6,16 @@
 
 using namespace asgard;
 
+struct distribution_test_init
+{
+  distribution_test_init() { initialize_distribution(); }
+  ~distribution_test_init() { finalize_distribution(); }
+};
+
+#ifdef ASGARD_USE_MPI
+static distribution_test_init const distrib_test_info;
+#endif
+
 template<typename P>
 void test_kronmult(parser const &parse, int const workspace_size_MB,
                    P const tol_factor)
