@@ -5,56 +5,19 @@
 
 namespace asgard::solver
 {
-template<typename precision>
-class matrix_free
-{
-public:
-  matrix_free(PDE<precision> const &pde, elements::table const &elem_table,
-              options const &program_options, element_subgrid const &my_subgrid,
-              int const workspace_size_MB)
-      : pde_{pde}, elem_table_{elem_table}, program_options_{program_options},
-        my_subgrid_{my_subgrid}, workspace_size_MB_{workspace_size_MB}
-  {}
-  void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
-                  precision const alpha = 1.0, precision const beta = 0.0)
-  {
-    auto tmp = kronmult::execute(pde_, elem_table_, program_options_,
-                                 my_subgrid_, workspace_size_MB_, x);
-    tmp      = x - tmp * pde_.get_dt();
-    y        = tmp * alpha + y * beta;
-  }
-
-private:
-  PDE<precision> const &pde_;
-  elements::table const &elem_table_;
-  options const &program_options_;
-  element_subgrid const &my_subgrid_;
-  int const workspace_size_MB_;
-};
-
-template<typename precision>
-class dense_matrix
-{
-public:
-  dense_matrix(fk::matrix<precision> const &A) : A_{A} {}
-  void operator()(fk::vector<precision> const &x, fk::vector<precision> &y,
-                  precision const alpha = 1.0, precision const beta = 0.0)
-  {
-    bool const trans_A = false;
-    fm::gemv(A_, x, y, trans_A, alpha, beta);
-  }
-
-private:
-  fk::matrix<precision> const &A_;
-};
-
 // simple, node-local test version
 template<typename P>
 P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                fk::matrix<P> const &M, int const restart, int const max_iter,
                P const tolerance)
 {
-  return simple_gmres(dense_matrix{A}, x, b, M, restart, max_iter, tolerance);
+  auto dense_matrix_wrapper = [&A](fk::vector<P> const &x_in, fk::vector<P> &y,
+                                   P const alpha = 1.0, P const beta = 0.0) {
+    bool const trans_A = false;
+    fm::gemv(A, x_in, y, trans_A, alpha, beta);
+  };
+  return simple_gmres(dense_matrix_wrapper, x, b, M, restart, max_iter,
+                      tolerance);
 }
 
 template<typename P>
@@ -64,9 +27,16 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
                int const restart, int const max_iter, P const tolerance)
 {
-  return simple_gmres(matrix_free{pde, elem_table, program_options, my_subgrid,
-                                  workspace_size_MB},
-                      x, b, M, restart, max_iter, tolerance);
+  auto euler_operator =
+      [&pde, &elem_table, &program_options, &my_subgrid,
+       workspace_size_MB](fk::vector<P> const &x_in, fk::vector<P> &y,
+                          P const alpha = 1.0, P const beta = 0.0) {
+        auto tmp = kronmult::execute(pde, elem_table, program_options,
+                                     my_subgrid, workspace_size_MB, x_in);
+        tmp      = x_in - tmp * pde.get_dt();
+        y        = tmp * alpha + y * beta;
+      };
+  return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
 }
 
 // simple, node-local test version
