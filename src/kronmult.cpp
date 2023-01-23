@@ -1,4 +1,5 @@
 #include "kronmult.hpp"
+#include "batch.hpp"
 #include "device/kronmult_cuda.hpp"
 #include "lib_dispatch.hpp"
 #include "tools.hpp"
@@ -371,10 +372,10 @@ template<typename P>
 fk::vector<P, mem_type::owner, resource::host>
 execute(PDE<P> const &pde, elements::table const &elem_table,
         options const &program_opts, element_subgrid const &my_subgrid,
-        int const workspace_size_MB,
         fk::vector<P, mem_type::owner, resource::host> const &x,
         imex_flag const imex)
 {
+  int const workspace_size_MB = program_opts.workspace_MB;
   auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
 
   auto const degree     = pde.get_dimensions()[0].get_degree();
@@ -413,14 +414,12 @@ decompose(PDE<double> const &pde, elements::table const &elem_table,
 template fk::vector<float, mem_type::owner, resource::host>
 execute(PDE<float> const &pde, elements::table const &elem_table,
         options const &program_options, element_subgrid const &my_subgrid,
-        int const workspace_size_MB,
         fk::vector<float, mem_type::owner, resource::host> const &x,
         imex_flag const imex);
 
 template fk::vector<double, mem_type::owner, resource::host>
 execute(PDE<double> const &pde, elements::table const &elem_table,
         options const &program_options, element_subgrid const &my_subgrid,
-        int const workspace_size_MB,
         fk::vector<double, mem_type::owner, resource::host> const &x,
         imex_flag const imex);
 

@@ -22,8 +22,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts, fk::vector<P> const &x,
-                 P const time, int const workspace_size_MB,
-                 bool const update_system = false);
+                 P const time, bool const update_system = false);
 
 // this function executes a time step using the current solution
 // vector x (in host_space).
@@ -36,8 +35,7 @@ explicit_advance(PDE<P> const &pde,
                  options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                      &unscaled_parts,
-                 fk::vector<P> const &x, int const workspace_size_MB,
-                 P const time);
+                 fk::vector<P> const &x, P const time);
 
 template<typename P>
 fk::vector<P>
@@ -47,8 +45,8 @@ implicit_advance(PDE<P> const &pde,
                  options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                      &unscaled_parts,
-                 fk::vector<P> const &x, int const workspace_size_MB,
-                 P const time, bool const update_system = true);
+                 fk::vector<P> const &x, P const time,
+                 bool const update_system = true);
 
 template<typename P>
 fk::vector<P>
@@ -57,8 +55,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                  &unscaled_parts,
-             fk::vector<P> const &x_orig, int const workspace_size_MB,
-             P const time, solve_opts const solver,
+             fk::vector<P> const &x_orig, P const time, solve_opts const solver,
              bool const update_system = true);
 
 } // namespace asgard::time_advance

@@ -143,21 +143,6 @@ int main(int argc, char **argv)
 
   asgard::node_out() << "--- begin time loop staging ---" << '\n';
 
-  // Our default device workspace size is 10GB - 12 GB DRAM on TitanV
-  // - a couple GB for allocations not currently covered by the
-  // workspace limit (including working batch).
-
-  // This limit is only for the device workspace - the portion
-  // of our allocation that will be resident on an accelerator
-  // if the code is built for that.
-  //
-  // FIXME eventually going to be settable from the cmake
-  static auto const default_workspace_MB = 10000;
-
-  // FIXME currently used to check realspace transform only
-  /* RAM on fusiont5 */
-  static auto const default_workspace_cpu_MB = 187000;
-
 // -- setup realspace transform for file io or for plotting
 #if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_USE_MATLAB)
 
@@ -259,7 +244,7 @@ int main(int argc, char **argv)
     const std::string time_id = asgard::tools::timer.start(time_str);
     auto const sol            = asgard::time_advance::adaptive_advance(
         method, *pde, adaptive_grid, transformer, opts, f_val, time,
-        default_workspace_MB, update_system);
+        update_system);
     f_val.resize(sol.size()) = sol;
     asgard::tools::timer.stop(time_id);
 
@@ -344,8 +329,6 @@ int main(int argc, char **argv)
       asgard::update_output_file(output_dataset_real, real_space,
                                  realspace_output_name);
     }
-#else
-    asgard::ignore(default_workspace_cpu_MB);
 #endif
 
 #ifdef ASGARD_USE_MATLAB

@@ -23,19 +23,18 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 template<typename P>
 P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                options const &program_options,
-               element_subgrid const &my_subgrid, int const workspace_size_MB,
-               fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
+               element_subgrid const &my_subgrid, fk::vector<P> &x,
+               fk::vector<P> const &b, fk::matrix<P> const &M,
                int const restart, int const max_iter, P const tolerance)
 {
-  auto euler_operator =
-      [&pde, &elem_table, &program_options, &my_subgrid,
-       workspace_size_MB](fk::vector<P> const &x_in, fk::vector<P> &y,
-                          P const alpha = 1.0, P const beta = 0.0) {
-        auto tmp = kronmult::execute(pde, elem_table, program_options,
-                                     my_subgrid, workspace_size_MB, x_in);
-        tmp      = x_in - tmp * pde.get_dt();
-        y        = tmp * alpha + y * beta;
-      };
+  auto euler_operator = [&pde, &elem_table, &program_options, &my_subgrid](
+                            fk::vector<P> const &x_in, fk::vector<P> &y,
+                            P const alpha = 1.0, P const beta = 0.0) {
+    auto tmp =
+        kronmult::execute(pde, elem_table, program_options, my_subgrid, x_in);
+    tmp = x_in - tmp * pde.get_dt();
+    y   = tmp * alpha + y * beta;
+  };
   return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
 }
 
@@ -209,15 +208,15 @@ template double simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
 template float
 simple_gmres(PDE<float> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
-             int const workspace_size_MB, fk::vector<float> &x,
-             fk::vector<float> const &b, fk::matrix<float> const &M,
-             int const restart, int const max_iter, float const tolerance);
+             fk::vector<float> &x, fk::vector<float> const &b,
+             fk::matrix<float> const &M, int const restart, int const max_iter,
+             float const tolerance);
 
 template double
 simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
-             int const workspace_size_MB, fk::vector<double> &x,
-             fk::vector<double> const &b, fk::matrix<double> const &M,
-             int const restart, int const max_iter, double const tolerance);
+             fk::vector<double> &x, fk::vector<double> const &b,
+             fk::matrix<double> const &M, int const restart, int const max_iter,
+             double const tolerance);
 
 } // namespace asgard::solver

@@ -78,11 +78,9 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
                        fk::vector<TestType, mem_type::view, resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
 
-  auto const default_workspace_cpu_MB = 187000;
-
   // transform initial condition to realspace
   wavelet_to_realspace(dims.list, init, grid.grid->get_table(), transformer,
-                       default_workspace_cpu_MB, tmp_workspace, real_space);
+                       tmp_workspace, real_space);
 
   REQUIRE(real_space.size() == dense_size);
 
