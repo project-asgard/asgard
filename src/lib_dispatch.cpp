@@ -49,6 +49,14 @@ extern "C"
                double *b, int *ldb, int *info);
   void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
                float *b, int *ldb, int *info);
+
+  void dpttrf_(int *n, double *D, double *E, int *info);
+  void spttrf_(int *n, float *D, float *E, int *info);
+
+  void dpttrs_(int *n, int *nrhs, double *D, double *E, double *B, int *ldb,
+               int *info);
+  void
+  spttrs_(int *n, int *nrhs, float *D, float *E, float *B, int *ldb, int *info);
 #endif
 }
 #endif
@@ -1046,7 +1054,7 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
 }
 
 template<typename P>
-void pttrf(int *n, P *D, P *E, int *info, resource const resrc = resource::host)
+void pttrf(int *n, P *D, P *E, int *info, resource const resrc)
 {
   expect(D);
   expect(E);
@@ -1075,7 +1083,7 @@ void pttrf(int *n, P *D, P *E, int *info, resource const resrc = resource::host)
 
 template<typename P>
 void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
-           resource const resrc = resource::host)
+           resource const resrc)
 {
   expect(n);
   expect(nrhs);

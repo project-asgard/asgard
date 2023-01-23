@@ -2,6 +2,7 @@
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "kronmult.hpp"
+#include "quadrature.hpp"
 #include "tools.hpp"
 #include <algorithm>
 #include <stdexcept>
@@ -242,7 +243,7 @@ void setup_poisson(const int N_elements, P const x_min, P const x_max,
                    fk::vector<P> &diag, fk::vector<P> &off_diag)
 {
   // sets up and factorizes the matrix to use in the poisson solver
-  const P dx = (x_max - x_min) / std::static_cast<P>(N_elements);
+  const P dx = (x_max - x_min) / static_cast<P>(N_elements);
 
   const int N_nodes = N_elements - 1;
 
@@ -259,7 +260,7 @@ void setup_poisson(const int N_elements, P const x_min, P const x_max,
     off_diag[i] = -1.0 / dx;
   }
 
-  fm::pttrf(N_nodes, diag, off_diag);
+  fm::pttrf(diag, off_diag);
 }
 
 template<typename P>
@@ -273,9 +274,9 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   // Boundary Conditions: phi(x_min)=phi_min and phi(x_max)=phi_max
   // Returns phi and E = - Phi_x in Gauss-Legendre Nodes
 
-  P const dx = (x_max - x_min) / std::static_cast<P>(N_elements);
+  P const dx = (x_max - x_min) / static_cast<P>(N_elements);
 
-  auto const lgwt = legendre_weights(degree + 1, -1.0, 1.0, true);
+  auto const lgwt = legendre_weights<P>(degree + 1, -1.0, 1.0, true);
 
   int N_nodes = N_elements - 1;
 
@@ -294,7 +295,7 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
   // Linear Solve //
   int const NRHS = 1;
-  fm::pttrs(N_nodes, NRHS, A_D, A_E, b, N_nodes);
+  fm::pttrs(A_D, A_E, b);
 
   // Set Potential and Electric Field in DG Nodes //
   P const dg = (phi_max - phi_min) / (x_max - x_min);

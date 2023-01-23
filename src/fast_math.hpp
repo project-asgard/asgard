@@ -338,6 +338,85 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   }
 }
 
+/** pttrf - computes the L*D*L**T factorization of a real symmetric positive
+ * definite tridiagonal matrix A.
+ * \param D diagonal entries of tridiagonal matrix A. On exit, n diagonal elements D from the L*D*L**T factorization of A.
+ * \param E the (n-1) subdiagonal elements of matrix A. On exit, subdiagonal elements of the unit bidiagonal factor L from the L*D*L**T factorization of A.
+ */
+template<typename P, mem_type dmem, mem_type emem>
+void pttrf(fk::vector<P, dmem> &D, fk::vector<P, emem> &E)
+{
+  int N = D.size();
+
+  expect(N >= 0);
+  expect(E.size() == N - 1);
+
+  int info;
+  lib_dispatch::pttrf(&N, D.data(), E.data(), &info);
+  if (info < 0)
+  {
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to pttrf() has an illegal value\n"));
+  }
+}
+
+/** pttrs - solves a tridiagonal system of the form A * X = B using the L*D*L**T
+ * factoration of A computed by pttrf.
+ * \param D diagonal elements of the diagonal matrix D from the L*D*L**T factorization of A
+ * \param E subdiagonal (n-1) elements of the unit bidiagonal factor L from the L*D*L**T factorization of A
+ * \param B RHS vectors B for the system of linear equations. On exit, the solution vectors, X.
+ */
+template<typename P, mem_type dmem, mem_type emem, mem_type bmem>
+void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
+           fk::matrix<P, bmem> &B)
+{
+  int N    = D.size();
+  int nrhs = B.ncols();
+  int ldb  = B.stride();
+
+  expect(N >= 0);
+  expect(nrhs >= 0);
+  expect(E.size() == N - 1);
+
+  int info;
+  lib_dispatch::pttrs(&N, &nrhs, D.data(), E.data(), B.data(), &ldb, &info);
+  if (info < 0)
+  {
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to pttrs() has an illegal value\n"));
+  }
+}
+
+/** pttrs - solves a tridiagonal system of the form A * X = B using the L*D*L**T
+ * factoration of A computed by pttrf. Overload with B as a vector and NRHS = 1.
+ * \param D diagonal elements of the diagonal matrix D from the L*D*L**T factorization of A
+ * \param E subdiagonal (n-1) elements of the unit bidiagonal factor L from the L*D*L**T factorization of A
+ * \param B RHS vectors B for the system of linear equations. On exit, the solution vectors, X.
+ */
+template<typename P, mem_type dmem, mem_type emem, mem_type bmem>
+void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
+           fk::vector<P, bmem> &B)
+{
+  int N    = D.size();
+  int nrhs = 1;
+  int ldb  = B.size();
+
+  expect(N >= 0);
+  expect(nrhs >= 0);
+  expect(E.size() == N - 1);
+
+  int info;
+  lib_dispatch::pttrs(&N, &nrhs, D.data(), E.data(), B.data(), &ldb, &info);
+  if (info < 0)
+  {
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to pttrs() has an illegal value\n"));
+  }
+}
+
 #ifdef ASGARD_USE_SCALAPACK
 // getrs - Solve Ax=B using LU factorization
 // A is assumed to have already beem factored using a
