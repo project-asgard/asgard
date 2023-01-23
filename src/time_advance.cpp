@@ -418,7 +418,6 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   expect(time >= 0);
   expect(pde.moments.size() > 0);
 
-  static std::vector<int> ipiv;
   static bool first_time = true;
 
   // create 1D version of PDE and element table for wavelet->realspace mappings

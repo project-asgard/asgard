@@ -45,24 +45,6 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
       .single_column_kron(operands[num_prods - 1]);
 }
 
-/* calculate required mb for the matrix resulting from the kron prod of a
- * sequence of matrices */
-template<typename P>
-int kron_matrix_MB(
-    std::vector<fk::matrix<P, mem_type::const_view>> const &kron_matrices)
-{
-  long r = 1;
-  long c = 1;
-
-  for (int i = 0; i < static_cast<int>(kron_matrices.size()); ++i)
-  {
-    r *= kron_matrices[i].nrows();
-    c *= kron_matrices[i].ncols();
-  }
-
-  return r * c * sizeof(P) * 1e-6;
-}
-
 /* given a vector of matrices, return the Kronecker product of all of them in
  * order */
 template<typename P>

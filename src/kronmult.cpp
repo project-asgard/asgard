@@ -375,7 +375,7 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         fk::vector<P, mem_type::owner, resource::host> const &x,
         imex_flag const imex)
 {
-  int const workspace_size_MB = program_opts.workspace_MB;
+  int const workspace_size_MB = program_opts.memory_limit;
   auto const grids = decompose(pde, elem_table, my_subgrid, workspace_size_MB);
 
   auto const degree     = pde.get_dimensions()[0].get_degree();
