@@ -64,7 +64,10 @@ parser::parser(int argc, char const *const *argv)
           "Select specific terms to use (1 = on, 0 = off)") |
       clara::detail::Opt(use_imex_stepping)["-x"]["--imex"](
           "Use IMEX (implicit-explicit) time advance (vs. explicit or "
-          "implicit)");
+          "implicit)") |
+      clara::detail::Opt(memory_limit, "size > 0")["-m"]["--memory"](
+          "Maximum workspace size in MB that will be resident on an "
+          "accelerator");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -136,6 +139,11 @@ parser::parser(int argc, char const *const *argv)
             << '\n';
         valid = false;
       }
+    }
+    if (memory_limit <= 0)
+    {
+      std::cerr << "Kronmult max memory size must be a positive integer\n";
+      valid = false;
     }
   }
 
@@ -309,6 +317,7 @@ fk::vector<int> parser::get_active_terms() const { return active_terms; }
 int parser::get_degree() const { return degree; }
 int parser::get_max_level() const { return max_level; }
 int parser::get_time_steps() const { return num_time_steps; }
+int parser::get_memory_limit() const { return memory_limit; }
 int parser::get_wavelet_output_freq() const { return wavelet_output_freq; }
 int parser::get_realspace_output_freq() const { return realspace_output_freq; }
 

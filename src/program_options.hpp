@@ -174,13 +174,14 @@ public:
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
   static auto constexpr DEFAULT_SOLVER_STR        = std::string_view("direct");
   static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;
+  static auto constexpr DEFAULT_MEMORY_LIMIT_MB   = 10000;
 
   // construct from command line
   explicit parser(int argc, char const *const *argv);
 
   // construct from provided values - to simplify testing
   explicit parser(PDE_opts const pde_choice_in,
-                  fk::vector<int> starting_levels_in,
+                  fk::vector<int> const &starting_levels_in,
                   int const degree_in                  = NO_USER_VALUE,
                   double const cfl_in                  = DEFAULT_CFL,
                   bool const use_full_grid_in          = DEFAULT_USE_FG,
@@ -190,13 +191,15 @@ public:
                   bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
                   double const adapt_threshold_in      = DEFAULT_ADAPT_THRESH,
                   std::string_view const solver_str_in = DEFAULT_SOLVER_STR,
-                  bool const use_imex                  = DEFAULT_USE_IMEX)
+                  bool const use_imex                  = DEFAULT_USE_IMEX,
+                  int const memory_limit_in = DEFAULT_MEMORY_LIMIT_MB)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
         do_adapt(do_adapt_levels), starting_levels(starting_levels_in),
         degree(degree_in), max_level(max_level_in), num_time_steps(num_steps),
         cfl(cfl_in), adapt_threshold(adapt_threshold_in),
         pde_choice(pde_choice_in), solver_str(solver_str_in),
-        solver(solver_mapping.at(solver_str_in)), use_imex_stepping(use_imex){};
+        solver(solver_mapping.at(solver_str_in)), use_imex_stepping(use_imex),
+        memory_limit(memory_limit_in){};
 
   explicit parser(std::string const &pde_choice_in,
                   fk::vector<int> starting_levels_in,
@@ -209,11 +212,12 @@ public:
                   bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
                   double const adapt_threshold_in      = DEFAULT_ADAPT_THRESH,
                   std::string_view const solver_str_in = DEFAULT_SOLVER_STR,
-                  bool const use_imex                  = DEFAULT_USE_IMEX)
+                  bool const use_imex                  = DEFAULT_USE_IMEX,
+                  int const memory_limit_in = DEFAULT_MEMORY_LIMIT_MB)
       : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
                degree_in, cfl_in, use_full_grid_in, max_level_in, num_steps,
                use_implicit, do_adapt_levels, adapt_threshold_in, solver_str_in,
-               use_imex){};
+               use_imex, memory_limit_in){};
 
   bool using_implicit() const;
   bool using_imex() const;
@@ -227,6 +231,7 @@ public:
   int get_degree() const;
   int get_max_level() const;
   int get_time_steps() const;
+  int get_memory_limit() const;
 
   int get_wavelet_output_freq() const;
   int get_realspace_output_freq() const;
@@ -329,6 +334,8 @@ private:
 
   bool use_imex_stepping = DEFAULT_USE_IMEX;
 
+  int memory_limit = DEFAULT_MEMORY_LIMIT_MB;
+
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
 };
@@ -345,6 +352,7 @@ public:
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
         realspace_output_freq(user_vals.get_realspace_output_freq()),
         plot_freq(user_vals.get_plot_freq()),
+        memory_limit(user_vals.get_memory_limit()),
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
         do_poisson_solve(user_vals.do_poisson_solve()),
@@ -365,6 +373,7 @@ public:
   int const wavelet_output_freq;
   int const realspace_output_freq;
   int const plot_freq;
+  int const memory_limit;
 
   bool const use_implicit_stepping;
   bool const use_full_grid;

@@ -77,14 +77,13 @@ void time_advance_test(parser const &parse,
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
-    auto const workspace_limit_MB = 4000;
-    auto const time               = i * pde->get_dt();
-    auto const update_system      = i == 0;
+    auto const time          = i * pde->get_dt();
+    auto const update_system = i == 0;
     auto const method = opts.use_implicit_stepping ? time_advance::method::imp
                                                    : time_advance::method::exp;
-    auto const sol    = time_advance::adaptive_advance(
-        method, *pde, adaptive_grid, transformer, opts, f_val, time,
-        workspace_limit_MB, update_system);
+    auto const sol =
+        time_advance::adaptive_advance(method, *pde, adaptive_grid, transformer,
+                                       opts, f_val, time, update_system);
 
     f_val.resize(sol.size()) = sol;
     std::cout.clear();
