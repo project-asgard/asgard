@@ -637,6 +637,9 @@ public:
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;
   bool const has_analytic_soln;
+  // data for poisson solver
+  fk::vector<P> poisson_diag;
+  fk::vector<P> poisson_off_diag;
 
   virtual ~PDE() {}
 

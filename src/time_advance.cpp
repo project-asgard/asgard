@@ -429,14 +429,15 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                        fk::vector<P, mem_type::view, resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
 
-  auto const &table   = adaptive_grid.get_table();
-  auto const &plan    = adaptive_grid.get_distrib_plan();
-  auto const dt       = pde.get_dt();
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const level     = pde.get_dimensions()[0].get_level();
-  P const min         = pde.get_dimensions()[0].domain_min;
-  P const max         = pde.get_dimensions()[0].domain_max;
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  auto const &table    = adaptive_grid.get_table();
+  auto const &plan     = adaptive_grid.get_distrib_plan();
+  auto const dt        = pde.get_dt();
+  int const degree     = pde.get_dimensions()[0].get_degree();
+  int const level      = pde.get_dimensions()[0].get_level();
+  P const min          = pde.get_dimensions()[0].domain_min;
+  P const max          = pde.get_dimensions()[0].domain_max;
+  int const elem_size  = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const N_elements = std::pow(2, level);
 
   fk::vector<P> x(x_orig);
   static auto nodes = gen_realspace_nodes(degree, level, min, max);
@@ -455,6 +456,68 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
       expect(m.get_moment_matrix().nrows() > 0);
     }
+
+    if (pde.do_poisson_solve)
+    {
+      // Setup poisson matrix initially
+      solver::setup_poisson(N_elements, min, max, pde.poisson_diag,
+                            pde.poisson_off_diag);
+    }
+  }
+
+  auto do_poisson_update = [&]() {
+    // Get 0th moment
+    fk::vector<P> mom0(dense_size);
+    fk::vector<P> mom0_real(dense_size);
+    fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+    wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
+                            transformer, tmp_workspace, mom0_real);
+    param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
+                                                          P const t = 0) -> P {
+      ignore(t);
+      return interp1(nodes, mom0_real, {x_v})[0];
+    };
+
+    // Compute source for poisson
+    fk::vector<P> poisson_source(dense_size);
+    std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
+                   [](P const &x_v) {
+                     return param_manager.get_parameter("S")->value(x_v, 0.0);
+                   });
+
+    fk::vector<P> phi(dense_size);
+    fk::vector<P> poisson_E(dense_size);
+    solver::poisson_solver(poisson_source, pde.poisson_diag,
+                           pde.poisson_off_diag, phi, poisson_E, degree - 1,
+                           N_elements, min, max, static_cast<P>(0.0),
+                           static_cast<P>(0.0));
+
+    param_manager.get_parameter("E")->value = [poisson_E](P const x_v,
+                                                          P const t = 0) -> P {
+      ignore(t);
+      return interp1(nodes, poisson_E, {x_v})[0];
+    };
+
+    P const max_E = *std::max_element(poisson_E.begin(), poisson_E.end(),
+                                      [](const P &x_v, const P &y_v) {
+                                        return std::abs(x_v) < std::abs(y_v);
+                                      });
+
+    param_manager.get_parameter("MaxAbsE")->value =
+        [max_E](P const x_v, P const t = 0) -> P {
+      ignore(t);
+      ignore(x_v);
+      return max_E;
+    };
+
+    // Update coeffs
+    generate_all_coefficients<P>(pde, transformer);
+  };
+
+  if (pde.do_poisson_solve)
+  {
+    // TODO: poisson update needs to get added at second explicit step below
+    do_poisson_update();
   }
 
   // Explicit step (f_2s)
@@ -515,6 +578,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fk::vector<P> f_2(x);
   solver::simple_gmres(pde, table, program_opts, grid, f_2, x, fk::matrix<P>(),
                        restart, max_iter, tolerance, imex_flag::imex_implicit);
+
+  // TODO: for non-collision: f_2 = f_2s
 
   // --------------------------------
   // Third Stage

@@ -294,7 +294,6 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   }
 
   // Linear Solve //
-  int const NRHS = 1;
   fm::pttrs(A_D, A_E, b);
 
   // Set Potential and Electric Field in DG Nodes //
