@@ -164,9 +164,9 @@ int main(int argc, char **argv)
                                           asgard::resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
   // transform initial condition to realspace
-  asgard::wavelet_to_realspace<prec>(
-      *pde, initial_condition, adaptive_grid.get_table(), transformer,
-      default_workspace_cpu_MB, tmp_workspace, real_space);
+  asgard::wavelet_to_realspace<prec>(*pde, initial_condition,
+                                     adaptive_grid.get_table(), transformer,
+                                     tmp_workspace, real_space);
 #endif
 
 #ifdef ASGARD_USE_MATLAB
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     // transform analytic solution to realspace
     asgard::wavelet_to_realspace<prec>(
         *pde, analytic_solution_init, adaptive_grid.get_table(), transformer,
-        default_workspace_cpu_MB, tmp_workspace, analytic_solution_realspace);
+        tmp_workspace, analytic_solution_realspace);
   }
 
   // Add the matlab scripts directory to the matlab path
@@ -294,8 +294,7 @@ int main(int argc, char **argv)
         }
         asgard::wavelet_to_realspace<prec>(
             *pde, analytic_solution, adaptive_grid.get_table(), transformer,
-            default_workspace_cpu_MB, transform_wksp,
-            analytic_solution_realspace);
+            transform_wksp, analytic_solution_realspace);
       }
 #endif
     }
@@ -313,8 +312,8 @@ int main(int argc, char **argv)
       real_space.resize(dense_size);
 
       asgard::wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
-                                         transformer, default_workspace_cpu_MB,
-                                         transform_wksp, real_space);
+                                         transformer, transform_wksp,
+                                         real_space);
     }
 #endif
 
