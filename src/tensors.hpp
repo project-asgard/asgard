@@ -712,13 +712,13 @@ public:
   // for owners: stride == nrows
   // for views:  stride == owner's nrows
   int stride() const { return stride_; }
-  int size() const { return nrows() * ncols(); }
+  int64_t size() const { return int64_t{nrows()} * ncols(); }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   P *data(int const i = 0, int const j = 0) const
   {
     // return data_ + i * stride() + j; // row-major
-    return data_ + j * stride() + i; // column-major
+    return data_ + int64_t{j} * stride() + int64_t{i}; // column-major
   }
 
   //
@@ -834,7 +834,7 @@ private:
 
 template<typename P>
 inline void
-allocate_device(P *&ptr, int const num_elems, bool const initialize = true)
+allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
 {
 #ifdef ASGARD_USE_CUDA
   auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
@@ -1806,7 +1806,8 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
 
   if (size_ > 0)
   {
-    data_ = source.data(column_index * source.stride() + row_start);
+    data_ = source.data(int64_t{column_index} * source.stride() +
+                        int64_t{row_start});
   }
 }
 
@@ -1838,11 +1839,11 @@ fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
 
   if constexpr (resrc == resource::host)
   {
-    data_ = new P[nrows() * ncols()]();
+    data_ = new P[size()]();
   }
   else
   {
-    allocate_device(data_, nrows() * ncols());
+    allocate_device(data_, size());
   }
 }
 
