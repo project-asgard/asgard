@@ -1,6 +1,7 @@
 #include "batch.hpp"
 #include "coefficients.cpp"
 #include "kronmult.hpp"
+#include "quadrature.hpp"
 #include "solver.hpp"
 #include "tests_general.hpp"
 
@@ -277,5 +278,71 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
     parser const test_parse =
         get_parser(pde_choice, levels, degree, workspace_size_MB);
     test_kronmult(test_parse, tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", float, double)
+{
+  SECTION("simple test case")
+  {
+    int const N_elements = 16;
+    int const N_nodes    = N_elements + 1;
+    int const degree     = 2;
+
+    TestType const x_min   = 0.0;
+    TestType const x_max   = 1.0;
+    TestType const phi_min = 0.0;
+    TestType const phi_max = 0.0;
+
+    int const N = (degree + 1) * N_elements;
+    fk::vector<TestType> poisson_source(N);
+    fk::vector<TestType> poisson_phi(N);
+    fk::vector<TestType> poisson_E(N);
+    fk::vector<TestType> x(N);
+    fk::vector<TestType> x_e(N_nodes);
+
+    fk::vector<TestType> diag;
+    fk::vector<TestType> off_diag;
+    solver::setup_poisson(N_elements, x_min, x_max, diag, off_diag);
+
+    // Assume Uniform Elements //
+    TestType dx = (x_max - x_min) / static_cast<TestType>(N_elements);
+
+    // Set Finite Element Nodes //
+    for (int i = 0; i < N_nodes; i++)
+    {
+      x_e[i] = x_min + i * dx;
+    }
+
+    // Set Source in DG Elements //
+    auto const lgwt = legendre_weights<TestType>(degree + 1, -1.0, 1.0, true);
+    for (int i = 0; i < N_elements; i++)
+    {
+      for (int q = 0; q < degree + 1; q++)
+      {
+        int k             = i * (degree + 1) + q;
+        TestType x_q      = lgwt[0][q];
+        x[k]              = x_e[i] + 0.5 * dx * (1.0 + x_q);
+        poisson_source[k] = sin(2.0 * M_PI * x[k]);
+      }
+    }
+
+    solver::poisson_solver(poisson_source, diag, off_diag, poisson_phi,
+                           poisson_E, degree, N_elements, x_min, x_max, phi_min,
+                           phi_max);
+
+    TestType error = 0.0;
+    for (int i = 0; i < N_elements; i++)
+    {
+      for (int q = 0; q < degree + 1; q++)
+      {
+        int k = i * (degree + 1) + q;
+        error += pow(
+            poisson_phi[k] - sin(2.0 * M_PI * x[k]) / pow(2.0 * M_PI, 2), 2);
+      }
+    }
+
+    error = sqrt(error) / ((degree + 1) * N_elements);
+    REQUIRE(error < 5.0e-5);
   }
 }

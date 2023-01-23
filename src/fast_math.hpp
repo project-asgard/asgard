@@ -406,6 +406,7 @@ void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
   expect(N >= 0);
   expect(nrhs >= 0);
   expect(E.size() == N - 1);
+  expect(ldb == N);
 
   int info;
   lib_dispatch::pttrs(&N, &nrhs, D.data(), E.data(), B.data(), &ldb, &info);
