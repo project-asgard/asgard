@@ -41,9 +41,10 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
 // simple, node-local test version
 template<typename P, typename matrix_replacement>
 P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
-               fk::matrix<P> const &M, int const restart, int const max_iter,
-               P const tolerance)
+               fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
 {
+  if (tolerance == parser::NO_USER_VALUE_FP)
+    tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   expect(tolerance >= std::numeric_limits<P>::epsilon());
   int const n = b.size();
   expect(n == x.size());
@@ -58,8 +59,12 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
   fk::matrix<P> precond(M);
   bool precond_factored = false;
 
+  if (restart == parser::NO_USER_VALUE)
+    restart = n;
   expect(restart > 0);
   expect(restart <= n);
+  if (max_iter == parser::NO_USER_VALUE)
+    max_iter = n;
   expect(max_iter >= restart);
   expect(max_iter <= n);
 
