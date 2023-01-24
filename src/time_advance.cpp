@@ -316,7 +316,7 @@ implicit_advance(PDE<P> const &pde,
       time + dt);
   fm::axpy(bc, x, dt);
 
-  if (first_time || update_system)
+  if (solver != solve_opts::gmres && (first_time || update_system))
   {
     first_time = false;
 
@@ -361,11 +361,6 @@ implicit_advance(PDE<P> const &pde,
       return x;
 #endif
     }
-    else if (solver == solve_opts::gmres)
-    {
-      ignore(ipiv);
-      ignore(ipiv_size);
-    }
   } // end first time/update system
 
   if (solver == solve_opts::direct)
@@ -389,8 +384,8 @@ implicit_advance(PDE<P> const &pde,
   else if (solver == solve_opts::gmres)
   {
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    int const restart  = A.ncols();
-    int const max_iter = A.ncols();
+    int const restart  = A_local_cols;
+    int const max_iter = A_local_cols;
     fk::vector<P> fx(x.size());
     solver::simple_gmres(pde, table, program_opts, grid, fx, x, fk::matrix<P>(),
                          restart, max_iter, tolerance);
