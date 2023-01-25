@@ -17,7 +17,8 @@ public:
   PDE_vlasov_two_stream(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
+               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
+               do_collision_operator_)
   {
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
@@ -28,12 +29,14 @@ public:
   }
 
 private:
-  static int constexpr num_dims_           = 2;
-  static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 5;
-  static bool constexpr do_poisson_solve_  = true;
-  static bool constexpr has_analytic_soln_ = false;
-  static int constexpr default_degree      = 3;
+  static int constexpr num_dims_          = 2;
+  static int constexpr num_sources_       = 0;
+  static int constexpr num_terms_         = 5;
+  static bool constexpr do_poisson_solve_ = true;
+  // disable implicit steps in IMEX
+  static bool constexpr do_collision_operator_ = false;
+  static bool constexpr has_analytic_soln_     = false;
+  static int constexpr default_degree          = 3;
 
   static fk::vector<P>
   initial_condition_dim_x_0(fk::vector<P> const &x, P const t = 0)
@@ -259,9 +262,10 @@ private:
       flux_type::central, boundary_condition::periodic,
       boundary_condition::periodic);
 
-  inline static term<P> const E_mass_x = term<P>(true, // time-dependent
-                                                 "",   // name
-                                                 {pterm_E_mass_x});
+  inline static term<P> const E_mass_x =
+      term<P>(true, // time-dependent
+              "",   // name
+              {pterm_E_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v = partial_term<P>(
       coefficient_type::div, negOne, partial_term<P>::null_gfunc,
@@ -269,9 +273,10 @@ private:
       boundary_condition::dirichlet, homogeneity::homogeneous,
       homogeneity::homogeneous);
 
-  inline static term<P> const div_v = term<P>(false, // time-dependent
-                                              "",    // name
-                                              {pterm_div_v});
+  inline static term<P> const div_v =
+      term<P>(false, // time-dependent
+              "",    // name
+              {pterm_div_v}, imex_flag::imex_explicit);
 
   inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
 
@@ -301,12 +306,12 @@ private:
   inline static term<P> const MaxAbsE_mass_x_1 =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_MaxAbsE_mass_x});
+              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static term<P> const MaxAbsE_mass_x_2 =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_MaxAbsE_mass_x});
+              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
       coefficient_type::div, posOne, partial_term<P>::null_gfunc,

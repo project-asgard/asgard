@@ -576,10 +576,19 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
   fk::vector<P> f_2(x);
-  solver::simple_gmres(pde, table, program_opts, grid, f_2, x, fk::matrix<P>(),
-                       restart, max_iter, tolerance, imex_flag::imex_implicit);
 
-  // TODO: for non-collision: f_2 = f_2s
+  if (pde.do_collision_operator)
+  {
+    // f2 now
+    solver::simple_gmres(pde, table, program_opts, grid, f_2, x,
+                         fk::matrix<P>(), restart, max_iter, tolerance,
+                         imex_flag::imex_implicit);
+  }
+  else
+  {
+    // for non-collision: f_2 = f_2s
+    fm::copy(x, f_2);
+  }
 
   // --------------------------------
   // Third Stage
@@ -590,7 +599,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fm::axpy(x, f2_x); // f0 + f2
 
   tools::timer.start("kronmult_setup");
-  fx = kronmult::execute(pde, table, program_opts, grid, f2_x);
+  fx = kronmult::execute(pde, table, program_opts, grid, f2_x,
+                         imex_flag::imex_explicit);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -642,11 +652,19 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   generate_all_coefficients<P>(pde, transformer);
 
   // Final stage f3
-  fk::vector<P> f_3(x);
-  solver::simple_gmres(pde, table, program_opts, grid, f_3, x, fk::matrix<P>(),
-                       restart, max_iter, tolerance, imex_flag::imex_implicit);
-
-  return f_3;
+  if (pde.do_collision_operator)
+  {
+    // Final stage f3
+    fk::vector<P> f_3(x);
+    solver::simple_gmres(pde, table, program_opts, grid, f_3, x,
+                         fk::matrix<P>(), restart, max_iter, tolerance,
+                         imex_flag::imex_implicit);
+    return f_3;
+  }
+  else
+  {
+    return x;
+  }
 }
 
 template fk::vector<double> adaptive_advance(
