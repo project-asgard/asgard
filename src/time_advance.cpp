@@ -12,6 +12,9 @@
 #include "cblacs_grid.hpp"
 #include "scalapack_vector_info.hpp"
 #endif
+#ifdef ASGARD_USE_MATLAB
+#include "matlab_plot.hpp"
+#endif
 #include <climits>
 
 namespace asgard::time_advance
@@ -512,6 +515,17 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
     // Update coeffs
     generate_all_coefficients<P>(pde, transformer);
+
+#ifdef ASGARD_USE_MATLAB
+    auto &ml_plot = ml::matlab_plot::get_instance();
+    ml_plot.reset_params();
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_E);
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_source);
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, phi);
+    ml_plot.add_param(time);
+    ml_plot.call("electric");
+#endif
   };
 
   if (pde.do_poisson_solve)

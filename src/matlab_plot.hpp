@@ -41,7 +41,11 @@ using ml_wksp_type = matlab::engine::WorkspaceType;
 class matlab_plot
 {
 public:
-  matlab_plot() = default;
+  static matlab_plot &get_instance()
+  {
+    static matlab_plot instance;
+    return instance;
+  }
 
   ~matlab_plot()
   {
@@ -56,13 +60,16 @@ public:
     }
   }
 
+  matlab_plot(matlab_plot const &) = delete;
+  void operator=(matlab_plot const &) = delete;
+
   void connect_async();
 
   void connect(std::string const &name = std::string());
 
   void start(std::vector<ml_string> const &args = std::vector<ml_string>());
 
-  bool is_open() { return matlab_inst_.get() != nullptr; }
+  bool is_open() { return matlab_inst_ && matlab_inst_.get() != nullptr; }
 
   void close();
 
@@ -219,6 +226,8 @@ public:
   matlab::data::StructArray make_dimension(dimension<P> const &dim);
 
 private:
+  matlab_plot() {}
+
   template<typename P>
   fk::vector<P>
   col_slice(fk::vector<P> const &vec, int const n, int const col) const;
@@ -263,5 +272,7 @@ private:
   // Whether MATLAB was started by asgard - this will wait on any plots
   bool started_ = false;
 };
+
+#define matlab_inst matlab_plot::get_instance();
 
 } // namespace asgard::ml

@@ -89,7 +89,7 @@ void matlab_plot::start(std::vector<ml_string> const &args)
 
 void matlab_plot::close()
 {
-  if (!is_open())
+  if (is_open())
   {
     matlab::engine::terminateEngineClient();
   }
