@@ -383,9 +383,9 @@ implicit_advance(PDE<P> const &pde,
   }
   else if (solver == solve_opts::gmres)
   {
-    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    int const restart  = A_local_cols;
-    int const max_iter = A_local_cols;
+    P const tolerance  = program_opts.gmres_tolerance;
+    int const restart  = program_opts.gmres_inner_iterations;
+    int const max_iter = program_opts.gmres_outer_iterations;
     fk::vector<P> fx(x.size());
     solver::simple_gmres(pde, table, program_opts, grid, fx, x, fk::matrix<P>(),
                          restart, max_iter, tolerance);
@@ -443,7 +443,6 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
   int const A_local_rows = elem_size * grid.nrows();
-  int const A_local_cols = elem_size * grid.ncols();
 
   fk::vector<P> reduced_fx(A_local_rows);
 
@@ -510,9 +509,9 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   generate_all_coefficients<P>(pde, transformer);
 
   // f2 now
-  P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-  int const restart  = A_local_cols;
-  int const max_iter = A_local_cols;
+  P const tolerance  = program_opts.gmres_tolerance;
+  int const restart  = program_opts.gmres_inner_iterations;
+  int const max_iter = program_opts.gmres_outer_iterations;
   fk::vector<P> f_2(x.size());
   solver::simple_gmres(pde, table, program_opts, grid, f_2, x, fk::matrix<P>(),
                        restart, max_iter, tolerance);

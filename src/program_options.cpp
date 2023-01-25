@@ -67,7 +67,13 @@ parser::parser(int argc, char const *const *argv)
           "implicit)") |
       clara::detail::Opt(memory_limit, "size > 0")["-m"]["--memory"](
           "Maximum workspace size in MB that will be resident on an "
-          "accelerator");
+          "accelerator") |
+      clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
+          "Tolerance used to determine convergence in gmres solver") |
+      clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
+          "Number of inner iterations in gmres solver") |
+      clara::detail::Opt(gmres_outer_iterations, "outer_it > 0")["--outer_it"](
+          "Number of outer iterations in gmres solver");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -304,6 +310,42 @@ parser::parser(int argc, char const *const *argv)
       }
     }
   }
+
+  if (solver != solve_opts::gmres && gmres_tolerance != NO_USER_VALUE_FP)
+  {
+    std::cerr << "gmres tolerance has no effect with solver = " << solver_str
+              << '\n';
+    valid = false;
+  }
+  if (gmres_tolerance != NO_USER_VALUE_FP && gmres_tolerance <= 0.0)
+  {
+    std::cerr << "Provided gmres tolerance must be positive" << '\n';
+    valid = false;
+  }
+  if (solver != solve_opts::gmres && gmres_inner_iterations != NO_USER_VALUE)
+  {
+    std::cerr << "gmres innter iterations has no effect with solver = "
+              << solver_str << '\n';
+    valid = false;
+  }
+  if (gmres_inner_iterations != NO_USER_VALUE && gmres_inner_iterations < 1)
+  {
+    std::cerr << "Number of gmres inner iterations must be a natural number"
+              << '\n';
+    valid = false;
+  }
+  if (solver != solve_opts::gmres && gmres_outer_iterations != NO_USER_VALUE)
+  {
+    std::cerr << "Number of gmres outer iterations has no effect with solver = "
+              << solver_str << '\n';
+    valid = false;
+  }
+  if (gmres_outer_iterations != NO_USER_VALUE && gmres_outer_iterations < 1)
+  {
+    std::cerr << "Number of gmres outer iterations must be a natural number"
+              << '\n';
+    valid = false;
+  }
 }
 
 bool parser::using_implicit() const { return use_implicit_stepping; }
@@ -320,10 +362,19 @@ int parser::get_time_steps() const { return num_time_steps; }
 int parser::get_memory_limit() const { return memory_limit; }
 int parser::get_wavelet_output_freq() const { return wavelet_output_freq; }
 int parser::get_realspace_output_freq() const { return realspace_output_freq; }
+int parser::get_gmres_inner_iterations() const
+{
+  return gmres_inner_iterations;
+}
+int parser::get_gmres_outer_iterations() const
+{
+  return gmres_outer_iterations;
+}
 
 double parser::get_cfl() const { return cfl; }
 double parser::get_dt() const { return dt; }
 double parser::get_adapt_thresh() const { return adapt_threshold; }
+double parser::get_gmres_tolerance() const { return gmres_tolerance; }
 
 std::string parser::get_pde_string() const { return pde_str; }
 std::string parser::get_solver_string() const { return solver_str; }
