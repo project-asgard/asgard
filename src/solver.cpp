@@ -2,6 +2,7 @@
 #include "fast_math.hpp"
 #include "kronmult.hpp"
 #include "tools.hpp"
+#include <stdexcept>
 
 namespace asgard::solver
 {
@@ -61,13 +62,30 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
 
   if (restart == parser::NO_USER_VALUE)
     restart = n;
-  expect(restart > 0);
-  expect(restart <= n);
+  expect(restart > 0); // checked in program_options
+  if (restart > n)
+  {
+    std::ostringstream err_msg;
+    err_msg << "Number of inner iterations " << restart << " must be less than "
+            << n << "!";
+    throw std::invalid_argument(err_msg.str());
+  }
   if (max_iter == parser::NO_USER_VALUE)
     max_iter = n;
-  expect(max_iter >= restart);
-  expect(max_iter <= n);
-
+  if (max_iter < restart)
+  {
+    std::ostringstream err_msg;
+    err_msg << "Number of outer iterations " << max_iter
+            << " must be greater than " << restart << "!";
+    throw std::invalid_argument(err_msg.str());
+  }
+  if (max_iter > n)
+  {
+    std::ostringstream err_msg;
+    err_msg << "Number of outer iterations " << max_iter
+            << " must be less than " << n << "!";
+    throw std::invalid_argument(err_msg.str());
+  }
   P const norm_b = [&b]() {
     P const norm = fm::nrm2(b);
     return (norm == 0.0) ? static_cast<P>(1.0) : norm;
