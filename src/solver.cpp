@@ -268,7 +268,7 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
                     fk::vector<P> const &A_E, fk::vector<P> &phi,
                     fk::vector<P> &E, int const degree, int const N_elements,
                     P const x_min, P const x_max, P const phi_min,
-                    P const phi_max)
+                    P const phi_max, poisson_bc const bc)
 {
   // Solving: - phi_xx = source Using Linear Finite Elements
   // Boundary Conditions: phi(x_min)=phi_min and phi(x_max)=phi_max
@@ -280,6 +280,20 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
   int N_nodes = N_elements - 1;
 
+  // Average the Source Vector (if Periodic) //
+  double ave_source = 0.0;
+  if (bc == poisson_bc::periodic)
+  {
+    for (int i = 0; i < N_elements; i++)
+    {
+      for (int q = 0; q < degree + 1; q++)
+      {
+        ave_source += 0.5 * dx * lgwt[1][q] * source[i * (degree + 1) + q];
+      }
+    }
+    ave_source /= (x_max - x_min);
+  }
+
   // Set the Source Vector //
   fk::vector<P> b(N_nodes);
   for (int i = 0; i < N_nodes; i++)
@@ -289,7 +303,8 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
     {
       b[i] += 0.25 * dx * lgwt[1][q] *
               (source[(i) * (degree + 1) + q] * (1.0 + lgwt[0][q]) +
-               source[(i + 1) * (degree + 1) + q] * (1.0 - lgwt[0][q]));
+               source[(i + 1) * (degree + 1) + q] * (1.0 - lgwt[0][q]) -
+               2.0 * ave_source);
     }
   }
 
@@ -377,12 +392,12 @@ poisson_solver(fk::vector<float> const &source, fk::vector<float> const &A_D,
                fk::vector<float> const &A_E, fk::vector<float> &phi,
                fk::vector<float> &E, int const degree, int const N_elements,
                float const x_min, float const x_max, float const phi_min,
-               float const phi_max);
+               float const phi_max, poisson_bc const bc);
 template void
 poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
                fk::vector<double> const &A_E, fk::vector<double> &phi,
                fk::vector<double> &E, int const degree, int const N_elements,
                double const x_min, double const x_max, double const phi_min,
-               double const phi_max);
+               double const phi_max, poisson_bc const bc);
 
 } // namespace asgard::solver

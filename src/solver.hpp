@@ -6,6 +6,12 @@
 
 namespace asgard::solver
 {
+enum class poisson_bc
+{
+  dirichlet,
+  periodic
+};
+
 // simple, node-local test version of gmres
 template<typename P>
 P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
@@ -29,6 +35,6 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
                     fk::vector<P> const &A_E, fk::vector<P> &phi,
                     fk::vector<P> &E, int const degree, int const N_elements,
                     P const x_min, P const x_max, P const phi_min,
-                    P const phi_max);
+                    P const phi_max, poisson_bc const bc);
 
 } // namespace asgard::solver

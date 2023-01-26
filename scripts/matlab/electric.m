@@ -16,7 +16,7 @@ function plot_Eall(nodes, E, src, phi, time)
 
     sgtitle("Poisson Variables. t = " + num2str(time));
 
-    %drawnow
+    drawnow
 
     figure(1)
 end

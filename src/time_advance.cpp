@@ -493,7 +493,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     solver::poisson_solver(poisson_source, pde.poisson_diag,
                            pde.poisson_off_diag, phi, poisson_E, degree - 1,
                            N_elements, min, max, static_cast<P>(0.0),
-                           static_cast<P>(0.0));
+                           static_cast<P>(0.0), solver::poisson_bc::periodic);
 
     param_manager.get_parameter("E")->value = [poisson_E](P const x_v,
                                                           P const t = 0) -> P {

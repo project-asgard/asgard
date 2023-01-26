@@ -285,12 +285,12 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", float, double)
 {
   SECTION("simple test case")
   {
-    int const N_elements = 16;
+    int const N_elements = 128;
     int const N_nodes    = N_elements + 1;
     int const degree     = 2;
 
-    TestType const x_min   = 0.0;
-    TestType const x_max   = 1.0;
+    TestType const x_min   = -2.0 * M_PI;
+    TestType const x_max   = 2.0 * M_PI;
     TestType const phi_min = 0.0;
     TestType const phi_max = 0.0;
 
@@ -323,13 +323,13 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", float, double)
         int k             = i * (degree + 1) + q;
         TestType x_q      = lgwt[0][q];
         x[k]              = x_e[i] + 0.5 * dx * (1.0 + x_q);
-        poisson_source[k] = sin(2.0 * M_PI * x[k]);
+        poisson_source[k] = 0.5 * (1.0 - 0.5 * std::cos(0.5 * x[k])) - 1.0;
       }
     }
 
     solver::poisson_solver(poisson_source, diag, off_diag, poisson_phi,
                            poisson_E, degree, N_elements, x_min, x_max, phi_min,
-                           phi_max);
+                           phi_max, solver::poisson_bc::periodic);
 
     TestType error = 0.0;
     for (int i = 0; i < N_elements; i++)
@@ -337,12 +337,11 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", float, double)
       for (int q = 0; q < degree + 1; q++)
       {
         int k = i * (degree + 1) + q;
-        error += pow(
-            poisson_phi[k] - sin(2.0 * M_PI * x[k]) / pow(2.0 * M_PI, 2), 2);
+        error += std::pow(poisson_phi[k] + (1.0 + std::cos(0.5 * x[k])), 2);
       }
     }
 
-    error = sqrt(error) / ((degree + 1) * N_elements);
+    error = std::sqrt(error) / ((degree + 1) * N_elements);
     REQUIRE(error < 5.0e-5);
   }
 }
