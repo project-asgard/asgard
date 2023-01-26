@@ -313,7 +313,8 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   fk::matrix<P, mem_type::const_view> const blah(coeff, 0, real_size - 1, 0,
                                                  real_size - 1);
 
-  fk::vector<P *> const operators = [&pde, lda, &program_opts, imex] {
+  fk::matrix<P, mem_type::owner, resource::device> zeros_d(lda, lda);
+  fk::vector<P *> const operators = [&pde, lda, &program_opts, &zeros_d, imex] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {
@@ -332,8 +333,8 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
         {
           // fill term portion with 0s for excluded terms
           builder(i * pde.num_dims + j) =
-              fk::matrix<P>(pde.get_coefficients(i, j).ncols(),
-                            pde.get_coefficients(i, j).nrows())
+              fk::matrix<P, mem_type::view, resource::device>(
+                  zeros_d, 0, lda - 1, 0, lda - 1)
                   .data();
         }
       }
