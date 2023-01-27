@@ -242,9 +242,9 @@ parser::parser(int argc, char const *const *argv)
   }
 
 #ifdef ASGARD_USE_CUDA
-  if (use_implicit_stepping)
+  if (use_implicit_stepping && solver_str != "gmres")
   {
-    std::cerr << "GPU acceleration not implemented for implicit stepping\n";
+    std::cerr << "GPU acceleration for implicit stepping only supports gmres\n";
     valid = false;
   }
 #endif
