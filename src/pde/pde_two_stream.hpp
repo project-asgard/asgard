@@ -123,7 +123,7 @@ private:
   {
     ignore(t);
 
-    return (1 - 0.5 * std::cos(0.5 * x)) * 0.5;
+    return (1.0 - 0.5 * std::cos(0.5 * x)) * 0.5;
   }
 
   static P u(P const &x, P const t = 0)
@@ -319,9 +319,10 @@ private:
       boundary_condition::dirichlet, homogeneity::homogeneous,
       homogeneity::homogeneous);
 
-  inline static term<P> const div_v_downwind = term<P>(false, // time-dependent
-                                                       "",    // name
-                                                       {pterm_div_v_downwind});
+  inline static term<P> const div_v_downwind =
+      term<P>(false, // time-dependent
+              "",    // name
+              {pterm_div_v_downwind}, imex_flag::imex_explicit);
 
   // Central Part Defined Above (div_v; can do this due to time independence)
 

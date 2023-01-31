@@ -468,11 +468,11 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     }
   }
 
-  auto do_poisson_update = [&]() {
+  auto do_poisson_update = [&](fk::vector<P> const &f_in) {
     // Get 0th moment
     fk::vector<P> mom0(dense_size);
     fk::vector<P> mom0_real(dense_size);
-    fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+    fm::gemv(pde.moments[0].get_moment_matrix(), f_in, mom0);
     wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                             transformer, tmp_workspace, mom0_real);
     param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
@@ -518,6 +518,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
 #ifdef ASGARD_USE_MATLAB
     auto &ml_plot = ml::matlab_plot::get_instance();
+    // TODO: add plot_freq check if keeping this much longer
     ml_plot.reset_params();
     ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
     ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_E);
@@ -530,8 +531,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   if (pde.do_poisson_solve)
   {
-    // TODO: poisson update needs to get added at second explicit step below
-    do_poisson_update();
+    do_poisson_update(x);
   }
 
   // Explicit step (f_2s)
@@ -543,7 +543,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   fk::vector<P> f_2s(x_orig.size());
   exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
-  fm::axpy(f_2s, x, dt);
+  fm::axpy(f_2s, x, dt); // x here is f(1)
 
   // Create rho_2s
   fk::vector<P> mom0(dense_size);
@@ -607,33 +607,29 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   // --------------------------------
   // Third Stage
   // --------------------------------
-  fm::copy(x_orig, x); // f0
+  fm::copy(x_orig, x); // x here is now f0
 
-  fk::vector<P> f2_x(f_2);
-  fm::axpy(x, f2_x); // f0 + f2
+  if (pde.do_poisson_solve)
+  {
+    do_poisson_update(f_2);
+  }
 
   tools::timer.start("kronmult_setup");
-  fx = kronmult::execute(pde, table, program_opts, grid, f2_x,
+  fx = kronmult::execute(pde, table, program_opts, grid, f_2,
                          imex_flag::imex_explicit);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  fk::vector<P> f_3s(x_orig.size());
-  exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
-  fm::axpy(f_3s, x, static_cast<P>(0.5) * dt); // f0 + 0.5*dt*apply_A(f0+f_2)
+  fk::vector<P> t_f2(x_orig.size());
+  exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
+  fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
 
-  tools::timer.start("kronmult_setup");
-  fx = kronmult::execute(pde, table, program_opts, grid, f_2,
-                         imex_flag::imex_implicit);
-  tools::timer.stop(apply_id);
-  reduce_results(fx, reduced_fx, plan, get_rank());
-
-  exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
-  fm::axpy(f_3s, x, static_cast<P>(0.5) * dt);
+  fm::axpy(f_2, x);                 // x is now f0 + f3
+  fm::scal(static_cast<P>(0.5), x); // x = 0.5 * (f0 + f3)
 
   // Create rho_3s
   // TODO: refactor into more generic function
-  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  fm::gemv(pde.moments[0].get_moment_matrix(), f_2, mom0);
   wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom0_real);
   param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
@@ -642,7 +638,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     return interp1(nodes, mom0_real, {x_v})[0];
   };
 
-  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  fm::gemv(pde.moments[1].get_moment_matrix(), f_2, mom1);
   wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom1_real);
   param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
@@ -651,7 +647,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  fm::gemv(pde.moments[2].get_moment_matrix(), f_2, mom2);
   wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom2_real);
   param_manager.get_parameter("theta")->value =
