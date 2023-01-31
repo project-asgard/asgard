@@ -2686,12 +2686,12 @@ fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
   if constexpr (resrc == resource::host)
   {
     delete[] data_;
-    data_ = new P[rows * cols]();
+    data_ = new P[int64_t{rows} * cols]();
   }
   else
   {
     delete_device(data_);
-    allocate_device(data_, rows * cols);
+    allocate_device(data_, int64_t{rows} * cols);
   }
 
   nrows_  = rows;
@@ -2878,7 +2878,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
   expect(num_rows > 0);
   expect(num_cols > 0);
 
-  int const size = num_rows * num_cols;
+  int64_t const size = int64_t{num_rows} * num_cols;
   expect(start_index + size <= source.size());
 
   data_   = nullptr;
