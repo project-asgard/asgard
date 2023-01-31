@@ -460,7 +460,7 @@ public:
   PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
-      std::vector<vector_func<P>> const exact_vector_funcs_in,
+      std::vector<md_func_type<P>> const exact_vector_funcs_in,
       scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
       bool const do_poisson_solve_in          = false,
       bool const has_analytic_soln_in         = false,
@@ -486,7 +486,11 @@ public:
     // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln)
     {
-      expect(exact_vector_funcs.size() == static_cast<unsigned>(num_dims));
+      // each set of analytical solution functions must have num_dim functions
+      for (const auto &md_func : exact_vector_funcs)
+      {
+        expect(md_func.size() == static_cast<unsigned>(num_dims));
+      }
     }
 
     // modify for appropriate level/degree
@@ -642,7 +646,7 @@ public:
   int const max_level;
 
   std::vector<source<P>> const sources;
-  std::vector<vector_func<P>> const exact_vector_funcs;
+  std::vector<md_func_type<P>> const exact_vector_funcs;
   std::vector<moment<P>> moments;
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;

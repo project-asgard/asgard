@@ -128,9 +128,9 @@ private:
   static P exact_time(P const time) { return std::sin(targ * time); }
 
   // define exact soln
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_x,  exact_solution_y,  exact_solution_z,
-      exact_solution_vx, exact_solution_vy, exact_solution_vz};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
+      {exact_solution_x, exact_solution_y, exact_solution_z, exact_solution_vx,
+       exact_solution_vy, exact_solution_vz}};
 
   // specify source functions...
 

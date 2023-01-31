@@ -1,5 +1,6 @@
 #pragma once
 
+#include "adapt.hpp"
 #include "asgard_dimension.hpp"
 #include "basis.hpp"
 #include "distribution.hpp"
@@ -177,6 +178,14 @@ fk::vector<P> forward_transform(
 
   return transformed;
 }
+
+template<typename P>
+fk::vector<P> sum_separable_funcs(
+    std::vector<md_func_type<P>> const &funcs,
+    std::vector<dimension<P>> const &dims,
+    adapt::distributed_grid<P> const &grid,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const degree, P const time);
 
 template<typename P>
 inline fk::vector<P> transform_and_combine_dimensions(

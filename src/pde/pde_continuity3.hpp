@@ -348,8 +348,8 @@ private:
                                                          source2_, source3_};
 
   // define exact soln
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_dim0, exact_solution_dim1, exact_solution_dim2};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
+      {exact_solution_dim0, exact_solution_dim1, exact_solution_dim2}};
 
   inline static scalar_func<P> const exact_scalar_func_ = exact_time;
 };

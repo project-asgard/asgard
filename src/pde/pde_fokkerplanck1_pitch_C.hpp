@@ -185,8 +185,8 @@ private:
   inline static std::vector<source<P>> const sources_ = {};
 
   // define exact soln functions
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      analytic_solution_dim0};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
+      {analytic_solution_dim0}};
 
   inline static scalar_func<P> const exact_scalar_func_ =
       analytic_solution_time;

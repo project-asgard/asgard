@@ -160,8 +160,8 @@ private:
 
   static P exact_time(P const time) { return source_0_t(time); }
 
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_0};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
+      {exact_solution_0}};
 
   /* This is not used ever */
   inline static scalar_func<P> const exact_scalar_func_ = source_0_t;

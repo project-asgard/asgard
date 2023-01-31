@@ -119,8 +119,8 @@ private:
     return std::exp(neg_two_pi_squared * time);
   }
 
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution, exact_solution};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
+      {exact_solution, exact_solution}};
 
   /* This is not used ever */
   static P exact_scalar_func(P const t)

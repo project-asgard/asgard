@@ -179,11 +179,9 @@ int main(int argc, char **argv)
   if (pde->has_analytic_soln)
   {
     // generate the analytic solution at t=0
-    auto const subgrid_init = adaptive_grid.get_subgrid(asgard::get_rank());
-    auto const analytic_solution_init =
-        asgard::transform_and_combine_dimensions(
-            *pde, pde->exact_vector_funcs, adaptive_grid.get_table(),
-            transformer, subgrid_init.col_start, subgrid_init.col_stop, degree);
+    auto const analytic_solution_init = sum_separable_funcs(
+        pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+        transformer, degree, static_cast<prec>(0.0));
     // transform analytic solution to realspace
     asgard::wavelet_to_realspace<prec>(
         *pde, analytic_solution_init, adaptive_grid.get_table(), transformer,
@@ -253,11 +251,9 @@ int main(int argc, char **argv)
     if (pde->has_analytic_soln)
     {
       // get analytic solution at time(step+1)
-      auto const subgrid = adaptive_grid.get_subgrid(asgard::get_rank());
-      auto const time_multiplier   = pde->exact_time(time + pde->get_dt());
-      auto const analytic_solution = transform_and_combine_dimensions(
-          *pde, pde->exact_vector_funcs, adaptive_grid.get_table(), transformer,
-          subgrid.col_start, subgrid.col_stop, degree, time, time_multiplier);
+      auto const analytic_solution = sum_separable_funcs(
+          pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+          transformer, degree, time + pde->get_dt());
 
       // calculate root mean squared error
       auto const diff = f_val - analytic_solution;

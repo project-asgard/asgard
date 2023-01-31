@@ -793,7 +793,7 @@ private:
   //
   // -------------------------------------------------
 
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {{}};
   inline static scalar_func<P> const exact_scalar_func_               = {};
 };
 } // namespace asgard

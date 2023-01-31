@@ -355,8 +355,8 @@ private:
   inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4,
                                             terms_5};
 
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
-  inline static scalar_func<P> const exact_scalar_func_               = {};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {{}};
+  inline static scalar_func<P> const exact_scalar_func_                = {};
 
   static P get_dt_(dimension<P> const &dim)
   {
