@@ -318,12 +318,11 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.should_output_wavelet(i))
     {
-      asgard::update_output_file(output_dataset, f_val);
+      asgard::write_output(*pde, f_val, time, i + 1, "asgard_wavelet");
     }
     if (opts.should_output_realspace(i))
     {
-      asgard::update_output_file(output_dataset_real, real_space,
-                                 realspace_output_name);
+      asgard::write_output(*pde, real_space, time, i + 1, "asgard_real");
     }
 #endif
 

@@ -1,6 +1,8 @@
 #pragma once
 
+#include "pde.hpp"
 #include "tensors.hpp"
+#include "transformations.hpp"
 
 // workaround for missing include issue with highfive
 // clang-format off
@@ -54,4 +56,33 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
   // Write the latest vec into the new row
   dataset.select({dataset_size[0], 0}, {1, vec_size}).write(vec.to_std());
 }
+
+template<typename P>
+void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
+                  int const file_index,
+                  std::string const output_dataset_name = "asgard")
+{
+  std::string const output_file_name =
+      output_dataset_name + "_" + std::to_string(file_index) + ".h5";
+  unsigned int vec_size = (unsigned int)vec.size();
+
+  auto const dims = pde.get_dimensions();
+  // TODO: FIX - assumes levels are const across dims
+  static auto const nodes =
+      gen_realspace_nodes(dims[0].get_degree(), dims[0].get_level(),
+                          dims[0].domain_min, dims[0].domain_max);
+
+  // TODO: Rewrite this entirely!
+  HighFive::File file(output_file_name, HighFive::File::ReadWrite |
+                                            HighFive::File::Create |
+                                            HighFive::File::Truncate);
+
+  H5Easy::DumpOptions opts;
+  opts.setChunkSize(std::vector<hsize_t>{2});
+
+  H5Easy::dump(file, "time", time);
+  H5Easy::dump(file, "nodes", nodes.to_std());
+  H5Easy::dump(file, "soln", vec.to_std(), opts);
+}
+
 } // namespace asgard
