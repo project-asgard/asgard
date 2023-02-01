@@ -1,7 +1,9 @@
 #include "solver.hpp"
+#include "distribution.hpp"
 #include "fast_math.hpp"
 #include "kronmult.hpp"
 #include "tools.hpp"
+#include <algorithm>
 #include <stdexcept>
 
 namespace asgard::solver
@@ -39,6 +41,18 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
   return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
 }
 
+template<typename P>
+static int default_restart_value(int num_cols)
+{
+  // at least 10 iterations before restart but not more than num_cols
+  int minimum = std::min(10, num_cols);
+  // No more than 200 iterations before restart but not more than num_cols
+  int maximum = std::min(200, num_cols);
+  // Don't go over 512 MB.
+  return std::clamp(static_cast<int>(512. / get_MB<P>(num_cols)), minimum,
+                    maximum);
+}
+
 // simple, node-local test version
 template<typename P, typename matrix_replacement>
 P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
@@ -61,7 +75,7 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
   bool precond_factored = false;
 
   if (restart == parser::NO_USER_VALUE)
-    restart = n;
+    restart = default_restart_value<P>(n);
   expect(restart > 0); // checked in program_options
   if (restart > n)
   {
