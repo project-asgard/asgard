@@ -77,8 +77,8 @@ void test_kronmult(parser const &parse, P const tol_factor)
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(gold);
-    int const restart  = A.ncols();
-    int const max_iter = A.ncols();
+    int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
+    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     build_system_matrix(*pde, table, A, my_subgrid);
     // AA = I - dt*A;

@@ -266,7 +266,7 @@ double get_MB(int64_t const num_elems)
 {
   expect(num_elems > 0);
   double const bytes = num_elems * sizeof(P);
-  double const MB    = bytes * 1e-6;
+  double const MB    = bytes / 1048576;
   return MB;
 }
 
