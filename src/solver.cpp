@@ -41,8 +41,12 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
   return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
 }
 
+/*! Generates a default number inner iterations when no use input is given
+ * \param num_cols Number of columns in the A matrix.
+ * \returns default number of iterations before restart
+ */
 template<typename P>
-static int default_restart_value(int num_cols)
+static int default_gmres_restarts(int num_cols)
 {
   // at least 10 iterations before restart but not more than num_cols
   int minimum = std::min(10, num_cols);
@@ -75,7 +79,7 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
   bool precond_factored = false;
 
   if (restart == parser::NO_USER_VALUE)
-    restart = default_restart_value<P>(n);
+    restart = default_gmres_restarts<P>(n);
   expect(restart > 0); // checked in program_options
   if (restart > n)
   {
