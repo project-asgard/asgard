@@ -17,6 +17,7 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                options const &program_options,
                element_subgrid const &my_subgrid, fk::vector<P> &x,
                fk::vector<P> const &b, fk::matrix<P> const &M,
-               int const restart, int const max_iter, P const tolerance);
+               int const restart, int const max_iter, P const tolerance,
+               imex_flag const imex = imex_flag::unspecified);
 
 } // namespace asgard::solver
