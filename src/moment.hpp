@@ -40,11 +40,8 @@ public:
                                  elements::table const &hash_table);
 
 private:
-  void createMomentReducedMatrix_2d(PDE<P> const &pde,
-                                    elements::table const &hash_table);
-  void createMomentReducedMatrix_3d(PDE<P> const &pde,
-                                    elements::table const &hash_table);
-  void createMomentReducedMatrix_4d(PDE<P> const &pde,
+  template<int nvdim>
+  void createMomentReducedMatrix_nd(PDE<P> const &pde,
                                     elements::table const &hash_table);
 
   std::vector<md_func_type<P>> md_funcs;

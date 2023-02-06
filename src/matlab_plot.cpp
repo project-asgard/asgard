@@ -179,7 +179,7 @@ void matlab_plot::push(std::string const &name, fk::vector<T> const &data,
                        ml_wksp_type const type)
 {
   // create a matlab array object
-  auto ml_array = create_array({static_cast<size_t>(data.size()), 1}, data);
+  auto ml_array = create_array(data);
 
   set_var(name, ml_array, type);
 }
@@ -362,8 +362,8 @@ void matlab_plot::init_plotting(std::vector<dimension<P>> const &dims,
   for (auto const &dim : dims)
   {
     nodes_.push_back(create_array(generate_nodes(dim)));
-    this->set_var(std::string("nodes_dim" + std::to_string(d)), nodes_.back());
-    d += 1;
+    this->set_var(std::string("nodes_dim" + std::to_string(d++)),
+                  nodes_.back());
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);
@@ -387,8 +387,8 @@ void matlab_plot::init_plotting(
   for (auto const &dim : dims)
   {
     nodes_.push_back(create_array(generate_nodes(dim)));
-    this->set_var(std::string("nodes_dim" + std::to_string(d)), nodes_.back());
-    d += 1;
+    this->set_var(std::string("nodes_dim" + std::to_string(d++)),
+                  nodes_.back());
   }
 
   auto const &elem_coords = gen_elem_coords(dims, table);

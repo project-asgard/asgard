@@ -94,13 +94,13 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
   switch (pde.num_dims)
   {
   case 2:
-    createMomentReducedMatrix_2d(pde, hash_table);
+    createMomentReducedMatrix_nd<1>(pde, hash_table);
     break;
   case 3:
-    createMomentReducedMatrix_3d(pde, hash_table);
+    createMomentReducedMatrix_nd<2>(pde, hash_table);
     break;
   case 4:
-    createMomentReducedMatrix_4d(pde, hash_table);
+    createMomentReducedMatrix_nd<3>(pde, hash_table);
     break;
   default:
     throw std::runtime_error(
@@ -109,50 +109,8 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
 }
 
 template<typename P>
-void moment<P>::createMomentReducedMatrix_2d(PDE<P> const &pde,
-                                             elements::table const &hash_table)
-{
-  int const num_ele = hash_table.size();
-
-  int const moment_idx = 0;
-  int const x_dim      = 0; // hardcoded for now, needs to change
-  int const v_dim      = 1;
-
-  expect(static_cast<int>(this->fList.size()) > moment_idx);
-  expect(this->fList[moment_idx].size() >= v_dim);
-  auto g_vec = this->fList[moment_idx][v_dim];
-
-  expect(pde.get_dimensions().size() >= v_dim);
-  int const n = std::pow(pde.get_dimensions()[v_dim].get_degree(), 2) * num_ele;
-  int const rows = std::pow(2, pde.get_dimensions()[x_dim].get_level()) *
-                   pde.get_dimensions()[x_dim].get_degree();
-
-  this->moment_matrix.clear_and_resize(rows, n);
-
-  auto deg = pde.get_dimensions()[v_dim].get_degree();
-
-  // TODO: this should be refactored into a sparse matrix
-  for (int i = 0; i < num_ele; i++)
-  {
-    fk::vector<int> const coords       = hash_table.get_coords(i);
-    fk::vector<int> const elem_indices = linearize(coords);
-
-    for (int j = 0; j < deg; j++)
-    {
-      int const g_vec_index = elem_indices(v_dim) * deg;
-      int const ind_i       = elem_indices(x_dim) * deg + j;
-      int const ind_j       = i * std::pow(deg, 2) + j * deg;
-
-      for (int d = 0; d < deg; d++)
-      {
-        moment_matrix(ind_i, ind_j + d) = g_vec(g_vec_index + d);
-      }
-    }
-  }
-}
-
-template<typename P>
-void moment<P>::createMomentReducedMatrix_3d(PDE<P> const &pde,
+template<int nvdim>
+void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
                                              elements::table const &hash_table)
 {
   int const num_ele = hash_table.size();
@@ -160,16 +118,25 @@ void moment<P>::createMomentReducedMatrix_3d(PDE<P> const &pde,
   int const moment_idx = 0;
   int const x_dim      = 0; // hardcoded for now, needs to change
   int const v_dim_1    = 1;
-  int const v_dim_2    = 2;
 
   expect(static_cast<int>(this->fList.size()) > moment_idx);
-  expect(this->fList[moment_idx].size() >= v_dim_2);
+  expect(this->fList[moment_idx].size() >= nvdim);
   auto g_vec_1 = this->fList[moment_idx][v_dim_1];
-  auto g_vec_2 = this->fList[moment_idx][v_dim_2];
 
-  expect(pde.get_dimensions().size() == 3);
+  // Define additional g_vecs for higher number of v dimensions
+  fk::vector<P> g_vec_2, g_vec_3;
+  if (nvdim >= 2)
+  {
+    g_vec_2 = this->fList[moment_idx][2];
+  }
+  if (nvdim >= 3)
+  {
+    g_vec_3 = this->fList[moment_idx][3];
+  }
+
+  expect(pde.get_dimensions().size() == nvdim + 1);
   int const n =
-      std::pow(pde.get_dimensions()[v_dim_1].get_degree(), 3) * num_ele;
+      std::pow(pde.get_dimensions()[v_dim_1].get_degree(), nvdim + 1) * num_ele;
   int const rows = std::pow(2, pde.get_dimensions()[x_dim].get_level()) *
                    pde.get_dimensions()[x_dim].get_degree();
 
@@ -189,69 +156,40 @@ void moment<P>::createMomentReducedMatrix_3d(PDE<P> const &pde,
       int const ind_i = elem_indices(x_dim) * deg + j; // row_idx
       for (int vdeg1 = 0; vdeg1 < deg; vdeg1++)
       {
-        for (int vdeg2 = 0; vdeg2 < deg; vdeg2++)
+        if (nvdim == 1)
         {
-          int const ind_j =
-              i * std::pow(deg, 3) + j * std::pow(deg, 2) + deg * vdeg1 + vdeg2;
-          moment_matrix(ind_i, ind_j) =
-              g_vec_1(elem_indices(v_dim_1) * deg + vdeg1) *
-              g_vec_2(elem_indices(v_dim_2) * deg + vdeg2);
+          // "2D" case (v_dim = 1)
+          int const ind_j = i * std::pow(deg, 2) + j * deg;
+          moment_matrix(ind_i, ind_j + vdeg1) =
+              g_vec_1(elem_indices(1) * deg + vdeg1);
         }
-      }
-    }
-  }
-}
-
-template<typename P>
-void moment<P>::createMomentReducedMatrix_4d(PDE<P> const &pde,
-                                             elements::table const &hash_table)
-{
-  int const num_ele = hash_table.size();
-
-  int const moment_idx = 0;
-  int const x_dim      = 0; // hardcoded for now, needs to change
-  int const v_dim_1    = 1;
-  int const v_dim_2    = 2;
-  int const v_dim_3    = 3;
-
-  expect(static_cast<int>(this->fList.size()) > moment_idx);
-  expect(this->fList[moment_idx].size() >= v_dim_3);
-  auto g_vec_1 = this->fList[moment_idx][v_dim_1];
-  auto g_vec_2 = this->fList[moment_idx][v_dim_2];
-  auto g_vec_3 = this->fList[moment_idx][v_dim_3];
-
-  expect(pde.get_dimensions().size() == 4);
-  int const n =
-      std::pow(pde.get_dimensions()[v_dim_1].get_degree(), 4) * num_ele;
-  int const rows = std::pow(2, pde.get_dimensions()[x_dim].get_level()) *
-                   pde.get_dimensions()[x_dim].get_degree();
-
-  this->moment_matrix.clear_and_resize(rows, n);
-
-  int const deg = pde.get_dimensions()[v_dim_1].get_degree();
-
-  // TODO: this should be refactored into a sparse matrix
-  for (int i = 0; i < num_ele; i++)
-  {
-    // l_dof_x and l_dof_v
-    fk::vector<int> const coords       = hash_table.get_coords(i);
-    fk::vector<int> const elem_indices = linearize(coords);
-
-    for (int j = 0; j < deg; j++)
-    {
-      int const ind_i = elem_indices(x_dim) * deg + j; // row_idx
-      for (int vdeg1 = 0; vdeg1 < deg; vdeg1++)
-      {
-        for (int vdeg2 = 0; vdeg2 < deg; vdeg2++)
+        else
         {
-          for (int vdeg3 = 0; vdeg3 < deg; vdeg3++)
+          for (int vdeg2 = 0; vdeg2 < deg; vdeg2++)
           {
-            int const ind_j = i * std::pow(deg, 4) + j * std::pow(deg, 3) +
-                              std::pow(deg, 2) * vdeg1 + vdeg2 * deg + vdeg3;
-            moment_matrix(ind_i, ind_j) =
-                g_vec_1(elem_indices(v_dim_1) * deg + vdeg1) *
-                g_vec_2(elem_indices(v_dim_2) * deg + vdeg2) *
-                g_vec_3(elem_indices(v_dim_3) * deg + vdeg3);
+            if (nvdim == 2)
+            {
+              // "3D" case (v_dim = 2)
+              int const ind_j = i * std::pow(deg, 3) + j * std::pow(deg, 2) +
+                                deg * vdeg1 + vdeg2;
+              moment_matrix(ind_i, ind_j) =
+                  g_vec_1(elem_indices(1) * deg + vdeg1) *
+                  g_vec_2(elem_indices(2) * deg + vdeg2);
+            }
+            else if (nvdim == 3)
+            {
+              // "4D" case (v_dim = 3)
+              for (int vdeg3 = 0; vdeg3 < deg; vdeg3++)
+              {
+                int const ind_j = i * std::pow(deg, 4) + j * std::pow(deg, 3) +
+                                  std::pow(deg, 2) * vdeg1 + vdeg2 * deg +
+                                  vdeg3;
+                moment_matrix(ind_i, ind_j) =
+                    g_vec_1(elem_indices(1) * deg + vdeg1) *
+                    g_vec_2(elem_indices(2) * deg + vdeg2) *
+                    g_vec_3(elem_indices(3) * deg + vdeg3);
+              }
+            }
           }
         }
       }
