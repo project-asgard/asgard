@@ -72,6 +72,7 @@ enum class coefficient_type
   grad,
   mass,
   div,
+  penalty
 };
 
 enum class flux_type

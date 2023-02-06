@@ -106,10 +106,10 @@ fk::matrix<P> generate_coefficients(
   expect(level <= transformer.max_level);
 
   // setup jacobi of variable x and define coeff_mat
-  auto const num_points = fm::two_raised_to(level);
+  auto const num_cells = fm::two_raised_to(level);
 
-  auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_points;
-  auto const degrees_freedom_1d = dim.get_degree() * num_points;
+  auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;
+  auto const degrees_freedom_1d = dim.get_degree() * num_cells;
   fk::matrix<P> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
   // get quadrature points and quadrature_weights.
@@ -149,7 +149,7 @@ fk::matrix<P> generate_coefficients(
   // get jacobian
   auto const jacobi = grid_spacing / 2;
 
-  for (auto i = 0; i < num_points; ++i)
+  for (auto i = 0; i < num_cells; ++i)
   {
     // get left and right locations for this element
     auto const x_left  = dim.domain_min + i * grid_spacing;
@@ -158,7 +158,7 @@ fk::matrix<P> generate_coefficients(
     // get index for current, first and last element
     auto const current = dim.get_degree() * i;
     auto const first   = 0;
-    auto const last    = dim.get_degree() * (num_points - 1);
+    auto const last    = dim.get_degree() * (num_cells - 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const quadrature_points_i = [&, quadrature_points =
@@ -205,6 +205,10 @@ fk::matrix<P> generate_coefficients(
       {
         output = legendre_prime_t * tmp * (-1);
       }
+      else if (pterm.coeff_type == coefficient_type::penalty)
+      {
+        // output is zeros (no volume term)
+      }
       return output;
     }();
 
@@ -217,7 +221,8 @@ fk::matrix<P> generate_coefficients(
     coefficients.set_submatrix(current, current, curr_block);
 
     if (pterm.coeff_type == coefficient_type::grad ||
-        pterm.coeff_type == coefficient_type::div)
+        pterm.coeff_type == coefficient_type::div  ||
+        pterm.coeff_type == coefficient_type::penalty )
     {
       // setup numerical flux choice/boundary conditions
       //
@@ -232,27 +237,64 @@ fk::matrix<P> generate_coefficients(
       // the dat is going to be used in the G function (above it is used as
       // linear multuplication but this is not always true)
 
-      auto const flux_left =
+      // Penalty term is just <|gfunc|/2[[f]],[[v]]> so we need to remove the central
+      // flux <gfunc{f},[[v]]> from the operators
+      P central_coeff = 1.0;
+      if ( pterm.coeff_type == coefficient_type::penalty ){
+        central_coeff = 0.0;
+      }
+
+      P const flux_left =
           pterm.g_func(x_left, time) * pterm.dv_func(x_left, time);
-      auto const flux_right =
+      P const flux_right =
           pterm.g_func(x_right, time) * pterm.dv_func(x_right, time);
 
       // get the "trace" values
-      // (values at the left and right of each element for all k)
+      // (values at the left and right of each element for all k).
+      // -------------------------------------------------------------------------
+      // More detailed explanation 
+      // Each trace_value_ evaluates <FLUX_f,[[v]]> 
+      // where v is a DG functions with support on I_i. The 
+      // difference between the trace_values_ varies with the edge the flux
+      // is evaluated on and the support of the DG function f.
+      // The legendre_poly_X is the trace of f and legende_poly_X_t is for v
+      // We will use f=p_X for the polynomials where X=L (left boundary of cell)
+      // or X=R (right boundary of cell).  Similar for v but depends on the support
+
+      // trace_value_1 is the interaction on x_{i-1/2} --  
+      // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
+      // f is a DG function with support on I_{i-1}
+      // In this case:  {f} = p_R/2, [f] = p_R, [v] = -p_L
       auto trace_value_1 =
-          (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) +
+          (legendre_poly_L_t * legendre_poly_R) * central_coeff
+          * (-1 * flux_left / 2) +
           (legendre_poly_L_t * legendre_poly_R) *
               (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+
+      // trace_value_2 is the interaction on x_{i-1/2} --  
+      // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
+      // f is a DG function with support on I_{i}
+      // In this case:  {f} = p_L/2, [f] = -p_L, [v] = -p_L
       auto trace_value_2 =
-          (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) +
+          (legendre_poly_L_t * legendre_poly_L) * central_coeff * (-1 * flux_left / 2) +
           (legendre_poly_L_t * legendre_poly_L) *
               (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+
+      // trace_value_3 is the interaction on x_{i+1/2} --  
+      // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
+      // f is a DG function with support on I_{i}
+      // In this case:  {f} = p_R/2, [f] = p_R, [v] = p_R        
       auto trace_value_3 =
-          (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) +
+          (legendre_poly_R_t * legendre_poly_R) * central_coeff * (+1 * flux_right / 2) +
           (legendre_poly_R_t * legendre_poly_R) *
               (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+
+      // trace_value_4 is the interaction on x_{i+1/2} --  
+      // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
+      // f is a DG function with support on I_{i+1}
+      // In this case:  {f} = p_L/2, [f] = -p_L, [v] = p_R 
       auto trace_value_4 =
-          (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) +
+          (legendre_poly_R_t * legendre_poly_L) * central_coeff * (+1 * flux_right / 2) +
           (legendre_poly_R_t * legendre_poly_L) *
               (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
 
@@ -262,14 +304,31 @@ fk::matrix<P> generate_coefficients(
       boundary_condition const left  = pterm.ileft;
       boundary_condition const right = pterm.iright;
 
+      // Dirichlet Boundary Conditions
+      // For div and grad, the boundary is not part of the bilinear operator,
+      // but instead tranferred to the source.  Similar to an inflow condition.
+      // For penalty, the operator <|gfunc|/2*f,v> is applied for the case where f
+      // and v share the same volume support
+      
+      // If statement checking coeff_type is because gfunc can evaluate to nan in 
+      // 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical coordinates)
+
       if (left == boundary_condition::dirichlet) // left dirichlet
       {
         if (i == 0)
         {
           trace_value_1 =
               (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
-          trace_value_2 =
+          if (pterm.coeff_type == coefficient_type::penalty) {
+            trace_value_2 =
+              (legendre_poly_L_t * legendre_poly_L) *
+              (-1.0 * pterm.get_flux_scale() * std::abs(flux_left) / 2.0 * -1.0);
+          } 
+          else
+          {
+            trace_value_2 = 
               (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+          }
           trace_value_3 =
               (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) +
               (legendre_poly_R_t * legendre_poly_R) *
@@ -283,7 +342,7 @@ fk::matrix<P> generate_coefficients(
 
       if (right == boundary_condition::dirichlet) // right dirichlet
       {
-        if (i == num_points - 1)
+        if (i == num_cells - 1)
         {
           trace_value_1 =
               (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) +
@@ -293,18 +352,33 @@ fk::matrix<P> generate_coefficients(
               (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) +
               (legendre_poly_L_t * legendre_poly_L) *
                   (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-          trace_value_3 =
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_3 = 
+              (legendre_poly_R_t * legendre_poly_R) *
+              (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+              
+          }
+          else
+          { 
+            trace_value_3 =
               (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
+          }
           trace_value_4 =
               (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
         }
       }
 
       // If neumann
-      // (gradient u)*num_points = g
+      // (gradient u)*num_cells = g
       // by splitting grad u = q by LDG methods, the B.C is changed to
-      // q*num_points = g (=> q = g for 1D variable)
+      // q*num_cells = g (=> q = g for 1D variable)
       // only work for derivatives greater than 1
+
+      // Neumann boundary conditions
+      // For div and grad, the interior trace is used to calculate the flux, similar
+      // to an outflow boundary condition. 
+      // For penalty, nothing is added.
 
       if (left == boundary_condition::neumann) // left neumann
       {
@@ -312,8 +386,14 @@ fk::matrix<P> generate_coefficients(
         {
           trace_value_1 =
               (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
-          trace_value_2 =
+          if (pterm.coeff_type == coefficient_type::penalty)
+          { 
+            trace_value_2 = (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+          }
+          else {
+            trace_value_2 =
               (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left);
+          }
           trace_value_3 =
               (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) +
               (legendre_poly_R_t * legendre_poly_R) *
@@ -327,7 +407,7 @@ fk::matrix<P> generate_coefficients(
 
       if (right == boundary_condition::neumann) // right neumann
       {
-        if (i == num_points - 1)
+        if (i == num_cells - 1)
         {
           trace_value_1 =
               (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) +
@@ -337,8 +417,16 @@ fk::matrix<P> generate_coefficients(
               (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) +
               (legendre_poly_L_t * legendre_poly_L) *
                   (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-          trace_value_3 =
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_3 =
+              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
+          }
+          else 
+          {
+            trace_value_3 =
               (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right);
+          }
           trace_value_4 =
               (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
         }
@@ -366,7 +454,7 @@ fk::matrix<P> generate_coefficients(
           row1 = current;
           col1 = last;
         }
-        if (i == num_points - 1)
+        if (i == num_cells - 1)
         {
           row4 = current;
           col4 = first;
@@ -394,7 +482,7 @@ fk::matrix<P> generate_coefficients(
                                            row3 + dim.get_degree() - 1, col3,
                                            col3 + dim.get_degree() - 1);
       block3 = block3 + trace_value_3;
-      if (i != num_points - 1 || left == boundary_condition::periodic ||
+      if (i != num_cells - 1 || left == boundary_condition::periodic ||
           right == boundary_condition::periodic)
       {
         // Add trace part 4
