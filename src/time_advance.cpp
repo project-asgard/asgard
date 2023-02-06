@@ -629,7 +629,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   // Create rho_3s
   // TODO: refactor into more generic function
-  fm::gemv(pde.moments[0].get_moment_matrix(), f_2, mom0);
+  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
   wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom0_real);
   param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
@@ -638,7 +638,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     return interp1(nodes, mom0_real, {x_v})[0];
   };
 
-  fm::gemv(pde.moments[1].get_moment_matrix(), f_2, mom1);
+  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
   wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom1_real);
   param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
@@ -647,7 +647,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fm::gemv(pde.moments[2].get_moment_matrix(), f_2, mom2);
+  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
   wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom2_real);
   param_manager.get_parameter("theta")->value =
