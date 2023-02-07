@@ -39,6 +39,14 @@ extern "C"
   void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
                int *info);
 
+  void dpttrf_(int *n, double *D, double *E, int *info);
+  void spttrf_(int *n, float *D, float *E, int *info);
+
+  void dpttrs_(int *n, int *nrhs, double *D, double *E, double *B, int *ldb,
+               int *info);
+  void
+  spttrs_(int *n, int *nrhs, float *D, float *E, float *B, int *ldb, int *info);
+
 #ifndef ASGARD_OPENBLAS
   //  Openblas predeclares these from an include in cblas.h
   void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
@@ -49,14 +57,6 @@ extern "C"
                double *b, int *ldb, int *info);
   void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
                float *b, int *ldb, int *info);
-
-  void dpttrf_(int *n, double *D, double *E, int *info);
-  void spttrf_(int *n, float *D, float *E, int *info);
-
-  void dpttrs_(int *n, int *nrhs, double *D, double *E, double *B, int *ldb,
-               int *info);
-  void
-  spttrs_(int *n, int *nrhs, float *D, float *E, float *B, int *ldb, int *info);
 #endif
 }
 #endif
