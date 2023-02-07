@@ -128,10 +128,10 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   if (nvdim >= 2)
   {
     g_vec_2 = this->fList[moment_idx][2];
-  }
-  if (nvdim >= 3)
-  {
-    g_vec_3 = this->fList[moment_idx][3];
+    if (nvdim >= 3)
+    {
+      g_vec_3 = this->fList[moment_idx][3];
+    }
   }
 
   expect(pde.get_dimensions().size() == nvdim + 1);

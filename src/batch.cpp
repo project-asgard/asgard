@@ -605,7 +605,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
         {
           kron0(0, 0) = 0.0;
         }
-        kron_vals.push_back(kron0);
+        kron_vals.push_back(std::move(kron0));
         for (int d = 0; d < pde.num_dims; d++)
         {
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
@@ -613,7 +613,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1);
           fk::matrix<P> k_new = kron_vals[d].kron(op_view);
-          kron_vals.push_back(k_new);
+          kron_vals.push_back(std::move(k_new));
         }
 
         // calculate the position of this element in the
