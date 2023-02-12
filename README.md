@@ -69,11 +69,15 @@ ctest
 
 For best performance (especially on accelerators) please pass `-DCMAKE_BUILD_TYPE=Release` to disable asserts when building the code.
 
+For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)
+
+# Example Execution
+
+Examples demonstrating ASGarD's capabilities are available [in the wiki](https://github.com/project-asgard/asgard/wiki/Example-Execution)
+
 To see a list of available PDEs, run `./asgard --available_pdes`. The listed PDEs can be selected using the `-p` argument to asgard.
 
 To see the list of all runtime options, run `./asgard --help`.
-
-For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)
 
 ## HighFive/HDF5 IO
 
