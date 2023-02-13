@@ -40,6 +40,10 @@ public:
                                  elements::table const &hash_table);
 
 private:
+  template<int nvdim>
+  void createMomentReducedMatrix_nd(PDE<P> const &pde,
+                                    elements::table const &hash_table);
+
   std::vector<md_func_type<P>> md_funcs;
   std::vector<std::vector<fk::vector<P>>> fList;
   fk::vector<P> vector;

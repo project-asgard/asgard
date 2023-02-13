@@ -333,6 +333,8 @@ int main(int argc, char **argv)
 #ifdef ASGARD_USE_MATLAB
     if (opts.should_plot(i))
     {
+      ml_plot.push(std::string("rSpace_" + std::to_string(i)), real_space);
+
       ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
                         analytic_solution_realspace);
 

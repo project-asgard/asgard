@@ -28,15 +28,16 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                options const &program_options,
                element_subgrid const &my_subgrid, fk::vector<P> &x,
                fk::vector<P> const &b, fk::matrix<P> const &M,
-               int const restart, int const max_iter, P const tolerance)
+               int const restart, int const max_iter, P const tolerance,
+               imex_flag const imex)
 {
-  auto euler_operator = [&pde, &elem_table, &program_options, &my_subgrid](
-                            fk::vector<P> const &x_in, fk::vector<P> &y,
-                            P const alpha = 1.0, P const beta = 0.0) {
-    auto tmp =
-        kronmult::execute(pde, elem_table, program_options, my_subgrid, x_in);
-    tmp = x_in - tmp * pde.get_dt();
-    y   = tmp * alpha + y * beta;
+  auto euler_operator = [&pde, &elem_table, &program_options, &my_subgrid,
+                         imex](fk::vector<P> const &x_in, fk::vector<P> &y,
+                               P const alpha = 1.0, P const beta = 0.0) {
+    auto tmp = kronmult::execute(pde, elem_table, program_options, my_subgrid,
+                                 x_in, imex);
+    tmp      = x_in - tmp * pde.get_dt();
+    y        = tmp * alpha + y * beta;
   };
   return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
 }
@@ -251,13 +252,13 @@ simple_gmres(PDE<float> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              fk::vector<float> &x, fk::vector<float> const &b,
              fk::matrix<float> const &M, int const restart, int const max_iter,
-             float const tolerance);
+             float const tolerance, imex_flag const imex);
 
 template double
 simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              fk::vector<double> &x, fk::vector<double> const &b,
              fk::matrix<double> const &M, int const restart, int const max_iter,
-             double const tolerance);
+             double const tolerance, imex_flag const imex);
 
 } // namespace asgard::solver

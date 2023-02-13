@@ -531,7 +531,8 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
 // routines with explicit time advance
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
-                         fk::matrix<P> &A, element_subgrid const &grid)
+                         fk::matrix<P> &A, element_subgrid const &grid,
+                         imex_flag const imex)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
@@ -554,6 +555,8 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          pde.get_coefficients(k, d).clone_onto_host());
     }
   }
+
+  auto terms = pde.get_terms();
 
   // loop over elements
   for (auto i = grid.row_start; i <= grid.row_stop; ++i)
@@ -593,8 +596,16 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
       {
         std::vector<fk::matrix<P>> kron_vals;
         fk::matrix<P> kron0(1, 1);
-        kron0(0, 0) = 1.0;
-        kron_vals.push_back(kron0);
+        // if using imex, include only terms that match the flag
+        if (imex == imex_flag::unspecified || terms[k][0].flag == imex)
+        {
+          kron0(0, 0) = 1.0;
+        }
+        else
+        {
+          kron0(0, 0) = 0.0;
+        }
+        kron_vals.push_back(std::move(kron0));
         for (int d = 0; d < pde.num_dims; d++)
         {
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
@@ -602,7 +613,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
               operator_row(d) + degree - 1, operator_col(d),
               operator_col(d) + degree - 1);
           fk::matrix<P> k_new = kron_vals[d].kron(op_view);
-          kron_vals.push_back(k_new);
+          kron_vals.push_back(std::move(k_new));
         }
 
         // calculate the position of this element in the
@@ -700,10 +711,12 @@ template void batched_gemv(batch<double, resource::host> const &a,
 
 template void
 build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
-                    fk::matrix<double> &A, element_subgrid const &grid);
+                    fk::matrix<double> &A, element_subgrid const &grid,
+                    imex_flag const imex);
 template void
 build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
-                    fk::matrix<float> &A, element_subgrid const &grid);
+                    fk::matrix<float> &A, element_subgrid const &grid,
+                    imex_flag const imex);
 
 template class batch_chain<double, resource::device, chain_method::realspace>;
 template class batch_chain<double, resource::host, chain_method::realspace>;
