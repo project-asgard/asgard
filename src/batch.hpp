@@ -150,6 +150,5 @@ private:
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          fk::matrix<P> &A, element_subgrid const &grid,
-                         bool const use_imex  = false,
                          imex_flag const imex = imex_flag::unspecified);
 } // namespace asgard

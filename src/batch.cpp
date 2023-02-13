@@ -532,7 +532,7 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
 template<typename P>
 void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
                          fk::matrix<P> &A, element_subgrid const &grid,
-                         const bool use_imex, imex_flag const imex)
+                         imex_flag const imex)
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
@@ -597,7 +597,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
         std::vector<fk::matrix<P>> kron_vals;
         fk::matrix<P> kron0(1, 1);
         // if using imex, include only terms that match the flag
-        if (!use_imex || (use_imex && terms[k][0].flag == imex))
+        if (imex == imex_flag::unspecified || terms[k][0].flag == imex)
         {
           kron0(0, 0) = 1.0;
         }
@@ -712,11 +712,11 @@ template void batched_gemv(batch<double, resource::host> const &a,
 template void
 build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
                     fk::matrix<double> &A, element_subgrid const &grid,
-                    const bool use_imex, imex_flag const imex);
+                    imex_flag const imex);
 template void
 build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
                     fk::matrix<float> &A, element_subgrid const &grid,
-                    const bool use_imex, imex_flag const imex);
+                    imex_flag const imex);
 
 template class batch_chain<double, resource::device, chain_method::realspace>;
 template class batch_chain<double, resource::host, chain_method::realspace>;
