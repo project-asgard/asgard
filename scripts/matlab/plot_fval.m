@@ -48,7 +48,8 @@ if num_dims==2
     y = nodes{2};
     ax1 = subplot(2,2,1);
     plot(x,f_slice,'-o');
-    title('1D slice (vertical)');
+    title_info = sprintf('1D slice (vertical) x = %5.4f', y(sy));
+    title(title_info);
     
     %%
     % Overplot analytic solution
@@ -70,7 +71,8 @@ if num_dims==2
     y = nodes{2};
     ax1 = subplot(2,2,2);
     plot(y,f_slice,'-o');
-    title('1D slice (horizontal)');
+    title_info = sprintf('1D slice (horizontal) x = %5.4f', x(sx));
+    title(title_info);
     
     if ~isempty(solutions)
         f_slice_analytic = f_nD_analytic(:,sx);
