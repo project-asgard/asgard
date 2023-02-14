@@ -39,13 +39,13 @@ public:
 
   wavelet_transform(options const &program_opts, int const max_degree,
                     bool const quiet = true)
-      : wavelet_transform(program_opts.max_level, max_degree,
-                    quiet){}
+      : wavelet_transform(program_opts.max_level, max_degree, quiet)
+  {}
 
   wavelet_transform(options const &program_opts, PDE<P> const &pde,
                     bool const quiet = true)
-      : wavelet_transform(program_opts.max_level, pde.get_dimensions()[0].get_degree(),
-                          quiet)
+      : wavelet_transform(program_opts.max_level,
+                          pde.get_dimensions()[0].get_degree(), quiet)
   {}
 
   // apply the fmwt matrix to coefficients
