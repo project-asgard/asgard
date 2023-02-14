@@ -205,10 +205,8 @@ fk::matrix<P> generate_coefficients(
       {
         output = legendre_prime_t * tmp * (-1);
       }
-      else if (pterm.coeff_type == coefficient_type::penalty)
-      {
-        // output is zeros (no volume term)
-      }
+      // If pterm.coeff_type == coefficient_type::penalty is true, there's 
+      // no volume term so the output is zeros.
       return output;
     }();
 
@@ -229,7 +227,7 @@ fk::matrix<P> generate_coefficients(
       // - <funcCoef*{q},p>
       //----------------------------------------------
       // Numerical Flux is defined as
-      // Flux = {{f}} + C/2*[[u]]
+      // Flux = {{{f}}} + C/2*[[u]]
       //      = ( f_L + f_R )/2 + FunCoef*( u_R - u_L )/2
       // [[v]] = v_R - v_L
 
@@ -237,8 +235,8 @@ fk::matrix<P> generate_coefficients(
       // the dat is going to be used in the G function (above it is used as
       // linear multuplication but this is not always true)
 
-      // Penalty term is just <|gfunc|/2[[f]],[[v]]> so we need to remove the central
-      // flux <gfunc{f},[[v]]> from the operators
+      // Penalty term is just <|gfunc|/2[[[f]]],[[v]]> so we need to remove the central
+      // flux <gfunc{{f}},[[v]]> from the operators
       P central_coeff = 1.0;
       if ( pterm.coeff_type == coefficient_type::penalty ){
         central_coeff = 0.0;
@@ -250,7 +248,7 @@ fk::matrix<P> generate_coefficients(
           pterm.g_func(x_right, time) * pterm.dv_func(x_right, time);
 
       // get the "trace" values
-      // (values at the left and right of each element for all k).
+      // (values at the left and right of each element for all k)
       // -------------------------------------------------------------------------
       // More detailed explanation 
       // Each trace_value_ evaluates <FLUX_f,[[v]]> 
@@ -264,7 +262,7 @@ fk::matrix<P> generate_coefficients(
       // trace_value_1 is the interaction on x_{i-1/2} --  
       // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
       // f is a DG function with support on I_{i-1}
-      // In this case:  {f} = p_R/2, [f] = p_R, [v] = -p_L
+      // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = -p_L
       auto trace_value_1 =
           (legendre_poly_L_t * legendre_poly_R) * central_coeff
           * (-1 * flux_left / 2) +
@@ -274,7 +272,7 @@ fk::matrix<P> generate_coefficients(
       // trace_value_2 is the interaction on x_{i-1/2} --  
       // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
       // f is a DG function with support on I_{i}
-      // In this case:  {f} = p_L/2, [f] = -p_L, [v] = -p_L
+      // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = -p_L
       auto trace_value_2 =
           (legendre_poly_L_t * legendre_poly_L) * central_coeff * (-1 * flux_left / 2) +
           (legendre_poly_L_t * legendre_poly_L) *
@@ -283,7 +281,7 @@ fk::matrix<P> generate_coefficients(
       // trace_value_3 is the interaction on x_{i+1/2} --  
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
       // f is a DG function with support on I_{i}
-      // In this case:  {f} = p_R/2, [f] = p_R, [v] = p_R        
+      // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = p_R        
       auto trace_value_3 =
           (legendre_poly_R_t * legendre_poly_R) * central_coeff * (+1 * flux_right / 2) +
           (legendre_poly_R_t * legendre_poly_R) *
@@ -292,7 +290,7 @@ fk::matrix<P> generate_coefficients(
       // trace_value_4 is the interaction on x_{i+1/2} --  
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
       // f is a DG function with support on I_{i+1}
-      // In this case:  {f} = p_L/2, [f] = -p_L, [v] = p_R 
+      // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = p_R 
       auto trace_value_4 =
           (legendre_poly_R_t * legendre_poly_L) * central_coeff * (+1 * flux_right / 2) +
           (legendre_poly_R_t * legendre_poly_L) *
