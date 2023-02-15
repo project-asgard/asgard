@@ -391,7 +391,7 @@ public:
 
   // prevent potential copies from being created
   parameter_manager(parameter_manager<P> const &) = delete;
-  void operator=(parameter_manager<P> const &)  = delete;
+  void operator=(parameter_manager<P> const &)    = delete;
 
   std::shared_ptr<parameter<P>> get_parameter(std::string const name)
   {
