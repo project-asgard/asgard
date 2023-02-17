@@ -12,14 +12,6 @@ enum class poisson_bc
   periodic
 };
 
-template<typename P>
-struct gmres_info
-{
-  P error;
-  int outer_iter;
-  int inner_iter;
-};
-
 // simple, node-local test version of gmres
 template<typename P>
 gmres_info<P>

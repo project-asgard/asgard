@@ -109,6 +109,17 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
                    pde.moments[i].get_realspace_moment().to_std(), opts);
     }
   }
+
+  // save gmres error and iteration counts
+  for (size_t i = 0; i < pde.gmres_outputs.size(); ++i)
+  {
+    H5Easy::dump(file, "gmres" + std::to_string(i) + "_err",
+                 pde.gmres_outputs[i].error, opts);
+    H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_outer",
+                 pde.gmres_outputs[i].outer_iter, opts);
+    H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_inner",
+                 pde.gmres_outputs[i].inner_iter, opts);
+  }
 }
 
 } // namespace asgard

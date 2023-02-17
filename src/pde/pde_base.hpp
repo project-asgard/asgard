@@ -91,6 +91,14 @@ enum class imex_flag
   imex_implicit,
 };
 
+template<typename P>
+struct gmres_info
+{
+  P error;
+  int outer_iter;
+  int inner_iter;
+};
+
 // ---------------------------------------------------------------------------
 //
 // Term: describes a single term in the pde for operator matrix
@@ -635,6 +643,8 @@ public:
           "Invalid PDE choice for IMEX time advance. PDE must have "
           "moments defined to use -x\n");
     }
+
+    gmres_outputs.resize(cli_input.using_imex() ? 2 : 1);
   }
 
   constexpr static int extract_dim0 = 1;
@@ -672,6 +682,8 @@ public:
   fk::vector<P> poisson_off_diag;
 
   fk::vector<P> E_field;
+  // holds gmres error and iteration counts for writing to output file
+  std::vector<gmres_info<P>> gmres_outputs;
 
   virtual ~PDE() {}
 

@@ -266,8 +266,7 @@ explicit_advance(PDE<P> const &pde,
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-implicit_advance(PDE<P> const &pde,
-                 adapt::distributed_grid<P> const &adaptive_grid,
+implicit_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
@@ -390,8 +389,10 @@ implicit_advance(PDE<P> const &pde,
     int const restart  = program_opts.gmres_inner_iterations;
     int const max_iter = program_opts.gmres_outer_iterations;
     fk::vector<P> fx(x);
-    solver::simple_gmres(pde, table, program_opts, grid, fx, x, fk::matrix<P>(),
-                         restart, max_iter, tolerance);
+    // TODO: do something better to save gmres output to pde
+    pde.gmres_outputs[0] =
+        solver::simple_gmres(pde, table, program_opts, grid, fx, x,
+                             fk::matrix<P>(), restart, max_iter, tolerance);
     return fx;
   }
   return x;
@@ -599,9 +600,9 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   if (pde.do_collision_operator)
   {
     // f2 now
-    solver::simple_gmres(pde, table, program_opts, grid, f_2, x,
-                         fk::matrix<P>(), restart, max_iter, tolerance,
-                         imex_flag::imex_implicit);
+    pde.gmres_outputs[0] = solver::simple_gmres(
+        pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
+        max_iter, tolerance, imex_flag::imex_implicit);
   }
   else
   {
@@ -680,9 +681,9 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    solver::simple_gmres(pde, table, program_opts, grid, f_3, x,
-                         fk::matrix<P>(), restart, max_iter, tolerance,
-                         imex_flag::imex_implicit, static_cast<P>(0.5));
+    pde.gmres_outputs[1] = solver::simple_gmres(
+        pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
+        max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     return f_3;
@@ -725,8 +726,7 @@ template fk::vector<float> explicit_advance(
     fk::vector<float> const &x, float const time);
 
 template fk::vector<double> implicit_advance(
-    PDE<double> const &pde,
-    adapt::distributed_grid<double> const &adaptive_grid,
+    PDE<double> &pde, adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
@@ -735,7 +735,7 @@ template fk::vector<double> implicit_advance(
     bool const update_system);
 
 template fk::vector<float> implicit_advance(
-    PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
+    PDE<float> &pde, adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
