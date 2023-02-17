@@ -39,13 +39,21 @@ extern "C"
   void sgetri_(int *n, float *A, int *lda, int *ipiv, float *work, int *lwork,
                int *info);
 
+  // TODO: clean this up when these are added to OpenBLAS
+#ifndef dpttrf_
   void dpttrf_(int *n, double *D, double *E, int *info);
+#endif
+#ifndef spttrf_
   void spttrf_(int *n, float *D, float *E, int *info);
-
+#endif
+#ifndef dpttrs_
   void dpttrs_(int *n, int *nrhs, double *D, double *E, double *B, int *ldb,
                int *info);
+#endif
+#ifndef spttrs_
   void
   spttrs_(int *n, int *nrhs, float *D, float *E, float *B, int *ldb, int *info);
+#endif
 
 #ifndef ASGARD_OPENBLAS
   //  Openblas predeclares these from an include in cblas.h
