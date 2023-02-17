@@ -386,7 +386,7 @@ implicit_advance(PDE<P> const &pde,
     P const tolerance  = program_opts.gmres_tolerance;
     int const restart  = program_opts.gmres_inner_iterations;
     int const max_iter = program_opts.gmres_outer_iterations;
-    fk::vector<P> fx(x.size());
+    fk::vector<P> fx(x);
     solver::simple_gmres(pde, table, program_opts, grid, fx, x, fk::matrix<P>(),
                          restart, max_iter, tolerance);
     return fx;
