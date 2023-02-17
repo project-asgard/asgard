@@ -321,11 +321,13 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.should_output_wavelet(i))
     {
-      asgard::write_output(*pde, f_val, time, i + 1, "asgard_wavelet");
+      asgard::write_output(*pde, cli_input, f_val, time, i + 1,
+                           "asgard_wavelet");
     }
     if (opts.should_output_realspace(i))
     {
-      asgard::write_output(*pde, real_space, time, i + 1, "asgard_real");
+      asgard::write_output(*pde, cli_input, real_space, time, i + 1,
+                           "asgard_real");
     }
 #endif
 

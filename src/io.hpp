@@ -58,8 +58,8 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
 }
 
 template<typename P>
-void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
-                  int const file_index,
+void write_output(PDE<P> const &pde, parser const &cli_input,
+                  fk::vector<P> const &vec, P const time, int const file_index,
                   std::string const output_dataset_name = "asgard")
 {
   std::string const output_file_name =
@@ -73,8 +73,12 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
   H5Easy::DumpOptions opts;
   opts.setChunkSize(std::vector<hsize_t>{2});
 
+  H5Easy::dump(file, "pde", cli_input.get_pde_string());
+  H5Easy::dump(file, "degree", cli_input.get_degree());
+  H5Easy::dump(file, "dt", cli_input.get_dt());
   H5Easy::dump(file, "time", time);
-
+  H5Easy::dump(file, "ndims", pde.num_dims);
+  H5Easy::dump(file, "max_level", pde.max_level);
   auto const dims = pde.get_dimensions();
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
@@ -82,6 +86,12 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
         gen_realspace_nodes(dims[dim].get_degree(), dims[dim].get_level(),
                             dims[dim].domain_min, dims[dim].domain_max);
     H5Easy::dump(file, "nodes" + std::to_string(dim), nodes.to_std());
+    H5Easy::dump(file, "dim" + std::to_string(dim) + "_level",
+                 dims[dim].get_level());
+    H5Easy::dump(file, "dim" + std::to_string(dim) + "_min",
+                 dims[dim].domain_min);
+    H5Easy::dump(file, "dim" + std::to_string(dim) + "_max",
+                 dims[dim].domain_max);
   }
 
   H5Easy::dump(file, "soln", vec.to_std(), opts);
