@@ -348,7 +348,7 @@ private:
   inline static term<P> const term_i3v =
       term<P>(false,  // time-dependent
               "I3_v", // name
-              {i3_pterm_v1, i3_pterm_v2}, imex_flag::imex_explicit);
+              {i3_pterm_v1, i3_pterm_v2}, imex_flag::imex_implicit);
 
   inline static std::vector<term<P>> const terms_5 = {term_i3x, term_i3v};
 

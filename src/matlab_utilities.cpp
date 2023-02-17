@@ -475,6 +475,7 @@ template<typename P>
 fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
                       fk::vector<P> const &coords)
 {
+  tools::timer.start("interp1");
   // nearest neighbor 1D interpolation with extrapolation
   // equivalent to matlab's interp1(sample, values, coords, 'nearest', 'extrap')
   expect(sample.size() == values.size());
@@ -508,6 +509,7 @@ fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
     interpolated(i) = values[min_ind];
   }
 
+  tools::timer.stop("interp1");
   return interpolated;
 }
 

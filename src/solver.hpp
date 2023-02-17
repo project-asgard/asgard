@@ -24,7 +24,8 @@ P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
                element_subgrid const &my_subgrid, fk::vector<P> &x,
                fk::vector<P> const &b, fk::matrix<P> const &M,
                int const restart, int const max_iter, P const tolerance,
-               imex_flag const imex = imex_flag::unspecified);
+               imex_flag const imex = imex_flag::unspecified,
+               const P alpha_in     = 1.0);
 
 template<typename P>
 void setup_poisson(const int N_nodes, P const x_min, P const x_max,

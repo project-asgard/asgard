@@ -208,8 +208,10 @@ void wavelet_to_realspace(
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space)
 {
+  tools::timer.start("wavelet_to_realspace");
   wavelet_to_realspace(pde.get_dimensions(), wave_space, table, transformer,
                        workspace, real_space);
+  tools::timer.stop("wavelet_to_realspace");
 }
 
 template<typename P>

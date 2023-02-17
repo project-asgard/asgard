@@ -671,6 +671,8 @@ public:
   fk::vector<P> poisson_diag;
   fk::vector<P> poisson_off_diag;
 
+  fk::vector<P> E_field;
+
   virtual ~PDE() {}
 
   std::vector<dimension<P>> const &get_dimensions() const

@@ -82,6 +82,20 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
   H5Easy::dump(file, "time", time);
   H5Easy::dump(file, "nodes", nodes.to_std());
   H5Easy::dump(file, "soln", vec.to_std(), opts);
+
+  // save E field
+  H5Easy::dump(file, "Efield", pde.E_field.to_std(), opts);
+
+  if (pde.moments.size() > 0)
+  {
+    // save realspace moments
+    H5Easy::dump(file, "nmoments", pde.moments.size());
+    for (size_t i = 0; i < pde.moments.size(); ++i)
+    {
+      H5Easy::dump(file, "moment" + std::to_string(i),
+                   pde.moments[i].get_realspace_moment().to_std(), opts);
+    }
+  }
 }
 
 } // namespace asgard

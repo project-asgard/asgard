@@ -1,4 +1,5 @@
 #include "moment.hpp"
+#include "basis.hpp"
 #include "elements.hpp"
 #include "transformations.hpp"
 
@@ -199,6 +200,18 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
       }
     }
   }
+}
+
+template<typename P>
+fk::vector<P> const &moment<P>::create_realspace_moment(
+    PDE<P> const &pde_1d, fk::vector<P> &wave, elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace)
+{
+  this->realspace.resize(wave.size());
+  wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
+                          this->realspace);
+  return this->realspace;
 }
 
 template class moment<float>;

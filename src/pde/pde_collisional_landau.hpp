@@ -37,7 +37,9 @@ private:
   static bool constexpr has_analytic_soln_     = false;
   static int constexpr default_degree          = 3;
 
-  static P constexpr nu = 1.0; // collision frequency
+  static P constexpr nu       = 1.0;    // collision frequency
+  static P constexpr A        = 1.0e-4; // amplitude
+  static P constexpr theta_in = 1.0;
 
   static fk::vector<P>
   initial_condition_dim_x_0(fk::vector<P> const &x, P const t = 0)
@@ -45,7 +47,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return 1.0 + 1.0e-4 * std::cos(0.5 * x_v);
+      return 1.0 + A * std::cos(0.5 * x_v);
     });
     return fx;
   }
@@ -55,13 +57,14 @@ private:
   {
     ignore(t);
 
-    P const coefficient = 1.0 / std::sqrt(2.0 * PI);
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta_in);
 
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_v) -> P {
-                     return coefficient * std::exp(-0.5 * std::pow(x_v, 2));
-                   });
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient](P const x_v) -> P {
+          return coefficient *
+                 std::exp(-0.5 * (1.0 / theta_in) * std::pow(x_v, 2));
+        });
     return fx;
   }
 
@@ -126,7 +129,7 @@ private:
   {
     ignore(t);
 
-    return (1.0 + 1.0e-4 * std::cos(0.5 * x));
+    return (1.0 + A * std::cos(0.5 * x));
   }
 
   static P u(P const &x, P const t = 0)
@@ -478,7 +481,7 @@ private:
   inline static term<P> const term_i3v =
       term<P>(false,  // time-dependent
               "I3_v", // name
-              {i3_pterm_v1, i3_pterm_v2}, imex_flag::imex_explicit);
+              {i3_pterm_v1, i3_pterm_v2}, imex_flag::imex_implicit);
 
   inline static std::vector<term<P>> const terms_8 = {term_i3x, term_i3v};
 
