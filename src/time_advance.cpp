@@ -512,7 +512,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
-  fk::vector<P> f_2(x.size());
+  fk::vector<P> f_2(x);
   solver::simple_gmres(pde, table, program_opts, grid, f_2, x, fk::matrix<P>(),
                        restart, max_iter, tolerance, imex_flag::imex_implicit);
 
@@ -577,7 +577,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   generate_all_coefficients<P>(pde, transformer);
 
   // Final stage f3
-  fk::vector<P> f_3(x.size());
+  fk::vector<P> f_3(x);
   solver::simple_gmres(pde, table, program_opts, grid, f_3, x, fk::matrix<P>(),
                        restart, max_iter, tolerance, imex_flag::imex_implicit);
 
