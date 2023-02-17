@@ -65,12 +65,6 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
   std::string const output_file_name =
       output_dataset_name + "_" + std::to_string(file_index) + ".h5";
 
-  auto const dims = pde.get_dimensions();
-  // TODO: FIX - assumes levels are const across dims
-  auto const nodes =
-      gen_realspace_nodes(dims[0].get_degree(), dims[0].get_level(),
-                          dims[0].domain_min, dims[0].domain_max);
-
   // TODO: Rewrite this entirely!
   HighFive::File file(output_file_name, HighFive::File::ReadWrite |
                                             HighFive::File::Create |
@@ -80,7 +74,16 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
   opts.setChunkSize(std::vector<hsize_t>{2});
 
   H5Easy::dump(file, "time", time);
-  H5Easy::dump(file, "nodes", nodes.to_std());
+
+  auto const dims = pde.get_dimensions();
+  for (size_t dim = 0; dim < dims.size(); ++dim)
+  {
+    auto const nodes =
+        gen_realspace_nodes(dims[dim].get_degree(), dims[dim].get_level(),
+                            dims[dim].domain_min, dims[dim].domain_max);
+    H5Easy::dump(file, "nodes" + std::to_string(dim), nodes.to_std());
+  }
+
   H5Easy::dump(file, "soln", vec.to_std(), opts);
 
   // save E field
