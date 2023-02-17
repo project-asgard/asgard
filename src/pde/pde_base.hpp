@@ -460,6 +460,20 @@ public:
   PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
+      std::vector<vector_func<P>> const exact_vector_funcs_in,
+      scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
+      bool const do_poisson_solve_in          = false,
+      bool const has_analytic_soln_in         = false,
+      std::vector<moment<P>> const moments_in = {})
+      : PDE(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
+            terms, sources_in,
+            std::vector<md_func_type<P>>({exact_vector_funcs_in}),
+            exact_time_in, get_dt, do_poisson_solve_in, has_analytic_soln_in,
+            moments_in)
+  {}
+  PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+      int const max_num_terms, std::vector<dimension<P>> const dimensions,
+      term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<md_func_type<P>> const exact_vector_funcs_in,
       scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
       bool const do_poisson_solve_in          = false,
