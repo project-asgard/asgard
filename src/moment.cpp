@@ -135,10 +135,12 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   }
 
   expect(pde.get_dimensions().size() == nvdim + 1);
-  int const n =
-      std::pow(pde.get_dimensions()[v_dim_1].get_degree(), nvdim + 1) * num_ele;
-  int const rows = std::pow(2, pde.get_dimensions()[x_dim].get_level()) *
-                   pde.get_dimensions()[x_dim].get_degree();
+  int const n = static_cast<int>(std::pow(
+                    pde.get_dimensions()[v_dim_1].get_degree(), nvdim + 1)) *
+                num_ele;
+  int const rows =
+      static_cast<int>(std::pow(2, pde.get_dimensions()[x_dim].get_level())) *
+      pde.get_dimensions()[x_dim].get_degree();
 
   this->moment_matrix.clear_and_resize(rows, n);
 
@@ -159,7 +161,7 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
         if (nvdim == 1)
         {
           // "2D" case (v_dim = 1)
-          int const ind_j = i * std::pow(deg, 2) + j * deg;
+          int const ind_j = i * static_cast<int>(std::pow(deg, 2)) + j * deg;
           moment_matrix(ind_i, ind_j + vdeg1) =
               g_vec_1(elem_indices(1) * deg + vdeg1);
         }
@@ -170,7 +172,8 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
             if (nvdim == 2)
             {
               // "3D" case (v_dim = 2)
-              int const ind_j = i * std::pow(deg, 3) + j * std::pow(deg, 2) +
+              int const ind_j = i * static_cast<int>(std::pow(deg, 3)) +
+                                j * static_cast<int>(std::pow(deg, 2)) +
                                 deg * vdeg1 + vdeg2;
               moment_matrix(ind_i, ind_j) =
                   g_vec_1(elem_indices(1) * deg + vdeg1) *
@@ -181,9 +184,10 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
               // "4D" case (v_dim = 3)
               for (int vdeg3 = 0; vdeg3 < deg; vdeg3++)
               {
-                int const ind_j = i * std::pow(deg, 4) + j * std::pow(deg, 3) +
-                                  std::pow(deg, 2) * vdeg1 + vdeg2 * deg +
-                                  vdeg3;
+                int const ind_j = i * static_cast<int>(std::pow(deg, 4)) +
+                                  j * static_cast<int>(std::pow(deg, 3)) +
+                                  static_cast<int>(std::pow(deg, 2)) * vdeg1 +
+                                  vdeg2 * deg + vdeg3;
                 moment_matrix(ind_i, ind_j) =
                     g_vec_1(elem_indices(1) * deg + vdeg1) *
                     g_vec_2(elem_indices(2) * deg + vdeg2) *

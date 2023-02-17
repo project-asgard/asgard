@@ -195,8 +195,8 @@ int main(int argc, char **argv)
   ml_plot.call("addpath");
 
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
-  // ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
-  //                   analytic_solution_realspace);
+  ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
+                    analytic_solution_realspace);
 
   // send initial condition to matlab
   std::vector<size_t> sizes(pde->num_dims);
