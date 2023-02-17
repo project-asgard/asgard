@@ -11,9 +11,10 @@ namespace asgard::solver
 {
 // simple, node-local test version
 template<typename P>
-P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
-               fk::matrix<P> const &M, int const restart, int const max_iter,
-               P const tolerance)
+gmres_info<P>
+simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
+             fk::matrix<P> const &M, int const restart, int const max_iter,
+             P const tolerance)
 {
   auto dense_matrix_wrapper = [&A](fk::vector<P> const &x_in, fk::vector<P> &y,
                                    P const alpha = 1.0, P const beta = 0.0) {
@@ -25,12 +26,12 @@ P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 }
 
 template<typename P>
-P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
-               options const &program_options,
-               element_subgrid const &my_subgrid, fk::vector<P> &x,
-               fk::vector<P> const &b, fk::matrix<P> const &M,
-               int const restart, int const max_iter, P const tolerance,
-               imex_flag const imex, P const alpha_in)
+gmres_info<P>
+simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
+             options const &program_options, element_subgrid const &my_subgrid,
+             fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
+             int const restart, int const max_iter, P const tolerance,
+             imex_flag const imex, P const alpha_in)
 {
   auto euler_operator = [&pde, &elem_table, &program_options, &my_subgrid, imex,
                          alpha_in](fk::vector<P> const &x_in, fk::vector<P> &y,
@@ -61,8 +62,9 @@ static int default_gmres_restarts(int num_cols)
 
 // simple, node-local test version
 template<typename P, typename matrix_replacement>
-P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
-               fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
+gmres_info<P>
+simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
+             fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
 {
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -127,17 +129,17 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
   };
 
   auto const done = [](P const error, int const outer_iters,
-                       int const inner_iters) {
+                       int const inner_iters) -> gmres_info<P> {
     std::cout << "GMRES complete with error: " << error << '\n';
     std::cout << outer_iters << " outer iterations, " << inner_iters
               << " inner iterations\n";
+    return gmres_info<P>{error, outer_iters, inner_iters};
   };
 
   P error = compute_residual() / norm_b;
   if (error < tolerance)
   {
-    done(error, 0, 0);
-    return error;
+    return done(error, 0, 0);
   }
 
   fk::matrix<P> basis(n, restart + 1);
@@ -212,8 +214,7 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
 
     if (error <= tolerance)
     {
-      done(error, it, i);
-      return error; // all done!
+      return done(error, it, i); // all done!
     }
     auto proj   = fk::matrix<P, mem_type::view>(krylov_proj, 0, restart - 1, 0,
                                               restart - 1);
@@ -229,13 +230,11 @@ P simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
 
     if (error <= tolerance)
     {
-      done(error, it, i);
-      return error;
+      return done(error, it, i);
     }
   } // end outer iteration
 
-  done(error, it, i);
-  return error;
+  return done(error, it, i);
 }
 
 template<typename P>
@@ -358,24 +357,24 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   tools::timer.stop("poisson_solver");
 }
 
-template float simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
-                            fk::vector<float> const &b,
-                            fk::matrix<float> const &M, int const restart,
-                            int const max_iter, float const tolerance);
+template gmres_info<float>
+simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
+             fk::vector<float> const &b, fk::matrix<float> const &M,
+             int const restart, int const max_iter, float const tolerance);
 
-template double simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
-                             fk::vector<double> const &b,
-                             fk::matrix<double> const &M, int const restart,
-                             int const max_iter, double const tolerance);
+template gmres_info<double>
+simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
+             fk::vector<double> const &b, fk::matrix<double> const &M,
+             int const restart, int const max_iter, double const tolerance);
 
-template float
+template gmres_info<float>
 simple_gmres(PDE<float> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              fk::vector<float> &x, fk::vector<float> const &b,
              fk::matrix<float> const &M, int const restart, int const max_iter,
              float const tolerance, imex_flag const imex, const float alpha_in);
 
-template double
+template gmres_info<double>
 simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              fk::vector<double> &x, fk::vector<double> const &b,

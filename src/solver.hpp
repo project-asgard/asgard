@@ -12,20 +12,29 @@ enum class poisson_bc
   periodic
 };
 
+template<typename P>
+struct gmres_info
+{
+  P error;
+  int outer_iter;
+  int inner_iter;
+};
+
 // simple, node-local test version of gmres
 template<typename P>
-P simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
-               fk::matrix<P> const &M, int const restart, int const max_iter,
-               P const tolerance);
+gmres_info<P>
+simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
+             fk::matrix<P> const &M, int const restart, int const max_iter,
+             P const tolerance);
 
 template<typename P>
-P simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
-               options const &program_options,
-               element_subgrid const &my_subgrid, fk::vector<P> &x,
-               fk::vector<P> const &b, fk::matrix<P> const &M,
-               int const restart, int const max_iter, P const tolerance,
-               imex_flag const imex = imex_flag::unspecified,
-               const P alpha_in     = 1.0);
+gmres_info<P>
+simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
+             options const &program_options, element_subgrid const &my_subgrid,
+             fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
+             int const restart, int const max_iter, P const tolerance,
+             imex_flag const imex = imex_flag::unspecified,
+             const P alpha_in     = 1.0);
 
 template<typename P>
 void setup_poisson(const int N_nodes, P const x_min, P const x_max,
