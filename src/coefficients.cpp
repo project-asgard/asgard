@@ -235,9 +235,10 @@ fk::matrix<P> generate_coefficients(
       // the dat is going to be used in the G function (above it is used as
       // linear multuplication but this is not always true)
 
-      // Penalty term is just <|gfunc|/2[[f]],[[v]]> so we need to remove the central
-      // flux <gfunc{{f}},[[v]]> from the operators
-      P const central_coeff = pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
+      // Penalty term is just <|gfunc|/2[[f]],[[v]]> so we need to remove the
+      // central flux <gfunc{{f}},[[v]]> from the operators
+      P const central_coeff =
+          pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
 
       P const flux_left =
           pterm.g_func(x_left, time) * pterm.dv_func(x_left, time);
