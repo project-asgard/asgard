@@ -11,7 +11,7 @@ using namespace asgard;
 
 TEST_CASE("create matlab session", ml_plot_tag)
 {
-  ml::matlab_plot ml_plot;
+  ml::matlab_plot &ml_plot = ml::matlab_plot::get_instance();
 
   SECTION("using sync connect") { REQUIRE_NOTHROW(ml_plot.connect()); }
 
@@ -25,13 +25,13 @@ TEST_CASE("create matlab session", ml_plot_tag)
   ml_plot.close();
 }
 
-static ml::matlab_plot *ml_plot = nullptr;
+static ml::matlab_plot *ml_plot = &ml::matlab_plot::get_instance();
 
 ml::matlab_plot *get_session(ml::matlab_plot *instance)
 {
   if (!instance)
   {
-    instance = new ml::matlab_plot();
+    instance = &ml::matlab_plot::get_instance();
   }
   if (!instance->is_open())
   {

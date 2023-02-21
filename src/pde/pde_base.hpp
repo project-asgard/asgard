@@ -457,12 +457,14 @@ public:
       scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
       bool const do_poisson_solve_in          = false,
       bool const has_analytic_soln_in         = false,
-      std::vector<moment<P>> const moments_in = {})
+      std::vector<moment<P>> const moments_in = {},
+      bool const do_collision_operator_in     = true)
       : num_dims(num_dims_in), num_sources(num_sources_in),
         num_terms(get_num_terms(cli_input, max_num_terms)),
         max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
         exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
         exact_time(exact_time_in), do_poisson_solve(do_poisson_solve_in),
+        do_collision_operator(do_collision_operator_in),
         has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
         terms_(terms)
   {
@@ -621,6 +623,7 @@ public:
         sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),
         moments(pde.moments), exact_time(pde.exact_time),
         do_poisson_solve(pde.do_poisson_solve),
+        do_collision_operator(pde.do_collision_operator),
         has_analytic_soln(pde.has_analytic_soln),
         dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
   {}
@@ -636,7 +639,11 @@ public:
   std::vector<moment<P>> moments;
   scalar_func<P> const exact_time;
   bool const do_poisson_solve;
+  bool const do_collision_operator;
   bool const has_analytic_soln;
+  // data for poisson solver
+  fk::vector<P> poisson_diag;
+  fk::vector<P> poisson_off_diag;
 
   virtual ~PDE() {}
 

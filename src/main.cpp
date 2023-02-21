@@ -170,7 +170,8 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ASGARD_USE_MATLAB
-  asgard::ml::matlab_plot ml_plot;
+  using namespace asgard::ml;
+  auto &ml_plot = matlab_plot::get_instance();
   ml_plot.connect(cli_input.get_ml_session_string());
   asgard::node_out() << "  connected to MATLAB" << '\n';
 
@@ -393,6 +394,10 @@ int main(int argc, char **argv)
   asgard::node_out() << asgard::tools::timer.report() << '\n';
 
   asgard::finalize_distribution();
+
+#ifdef ASGARD_USE_MATLAB
+  ml_plot.close();
+#endif
 
   return 0;
 }

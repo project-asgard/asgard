@@ -12,6 +12,9 @@
 #include "cblacs_grid.hpp"
 #include "scalapack_vector_info.hpp"
 #endif
+#ifdef ASGARD_USE_MATLAB
+#include "matlab_plot.hpp"
+#endif
 #include <climits>
 
 namespace asgard::time_advance
@@ -429,14 +432,15 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                        fk::vector<P, mem_type::view, resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
 
-  auto const &table   = adaptive_grid.get_table();
-  auto const &plan    = adaptive_grid.get_distrib_plan();
-  auto const dt       = pde.get_dt();
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const level     = pde.get_dimensions()[0].get_level();
-  P const min         = pde.get_dimensions()[0].domain_min;
-  P const max         = pde.get_dimensions()[0].domain_max;
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  auto const &table    = adaptive_grid.get_table();
+  auto const &plan     = adaptive_grid.get_distrib_plan();
+  auto const dt        = pde.get_dt();
+  int const degree     = pde.get_dimensions()[0].get_degree();
+  int const level      = pde.get_dimensions()[0].get_level();
+  P const min          = pde.get_dimensions()[0].domain_min;
+  P const max          = pde.get_dimensions()[0].domain_max;
+  int const elem_size  = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const N_elements = std::pow(2, level);
 
   fk::vector<P> x(x_orig);
   static auto nodes = gen_realspace_nodes(degree, level, min, max);
@@ -455,6 +459,79 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
       expect(m.get_moment_matrix().nrows() > 0);
     }
+
+    if (pde.do_poisson_solve)
+    {
+      // Setup poisson matrix initially
+      solver::setup_poisson(N_elements, min, max, pde.poisson_diag,
+                            pde.poisson_off_diag);
+    }
+  }
+
+  auto do_poisson_update = [&](fk::vector<P> const &f_in) {
+    // Get 0th moment
+    fk::vector<P> mom0(dense_size);
+    fk::vector<P> mom0_real(dense_size);
+    fm::gemv(pde.moments[0].get_moment_matrix(), f_in, mom0);
+    wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
+                            transformer, tmp_workspace, mom0_real);
+    param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
+                                                          P const t = 0) -> P {
+      ignore(t);
+      return interp1(nodes, mom0_real, {x_v})[0];
+    };
+
+    // Compute source for poisson
+    fk::vector<P> poisson_source(dense_size);
+    std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
+                   [](P const &x_v) {
+                     return param_manager.get_parameter("S")->value(x_v, 0.0);
+                   });
+
+    fk::vector<P> phi(dense_size);
+    fk::vector<P> poisson_E(dense_size);
+    solver::poisson_solver(poisson_source, pde.poisson_diag,
+                           pde.poisson_off_diag, phi, poisson_E, degree - 1,
+                           N_elements, min, max, static_cast<P>(0.0),
+                           static_cast<P>(0.0), solver::poisson_bc::periodic);
+
+    param_manager.get_parameter("E")->value = [poisson_E](P const x_v,
+                                                          P const t = 0) -> P {
+      ignore(t);
+      return interp1(nodes, poisson_E, {x_v})[0];
+    };
+
+    P const max_E = *std::max_element(poisson_E.begin(), poisson_E.end(),
+                                      [](const P &x_v, const P &y_v) {
+                                        return std::abs(x_v) < std::abs(y_v);
+                                      });
+
+    param_manager.get_parameter("MaxAbsE")->value =
+        [max_E](P const x_v, P const t = 0) -> P {
+      ignore(t);
+      ignore(x_v);
+      return max_E;
+    };
+
+    // Update coeffs
+    generate_all_coefficients<P>(pde, transformer);
+
+#ifdef ASGARD_USE_MATLAB
+    auto &ml_plot = ml::matlab_plot::get_instance();
+    // TODO: add plot_freq check if keeping this much longer
+    ml_plot.reset_params();
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_E);
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_source);
+    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, phi);
+    ml_plot.add_param(time);
+    ml_plot.call("electric");
+#endif
+  };
+
+  if (pde.do_poisson_solve)
+  {
+    do_poisson_update(x);
   }
 
   // Explicit step (f_2s)
@@ -466,7 +543,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   fk::vector<P> f_2s(x_orig.size());
   exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
-  fm::axpy(f_2s, x, dt);
+  fm::axpy(f_2s, x, dt); // x here is f(1)
 
   // Create rho_2s
   fk::vector<P> mom0(dense_size);
@@ -513,38 +590,46 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
   fk::vector<P> f_2(x);
-  solver::simple_gmres(pde, table, program_opts, grid, f_2, x, fk::matrix<P>(),
-                       restart, max_iter, tolerance, imex_flag::imex_implicit);
+
+  if (pde.do_collision_operator)
+  {
+    // f2 now
+    solver::simple_gmres(pde, table, program_opts, grid, f_2, x,
+                         fk::matrix<P>(), restart, max_iter, tolerance,
+                         imex_flag::imex_implicit);
+  }
+  else
+  {
+    // for non-collision: f_2 = f_2s
+    fm::copy(x, f_2);
+  }
 
   // --------------------------------
   // Third Stage
   // --------------------------------
-  fm::copy(x_orig, x); // f0
+  fm::copy(x_orig, x); // x here is now f0
 
-  fk::vector<P> f2_x(f_2);
-  fm::axpy(x, f2_x); // f0 + f2
-
-  tools::timer.start("kronmult_setup");
-  fx = kronmult::execute(pde, table, program_opts, grid, f2_x);
-  tools::timer.stop(apply_id);
-  reduce_results(fx, reduced_fx, plan, get_rank());
-
-  fk::vector<P> f_3s(x_orig.size());
-  exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
-  fm::axpy(f_3s, x, static_cast<P>(0.5) * dt); // f0 + 0.5*dt*apply_A(f0+f_2)
+  if (pde.do_poisson_solve)
+  {
+    do_poisson_update(f_2);
+  }
 
   tools::timer.start("kronmult_setup");
   fx = kronmult::execute(pde, table, program_opts, grid, f_2,
-                         imex_flag::imex_implicit);
+                         imex_flag::imex_explicit);
   tools::timer.stop(apply_id);
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  exchange_results(reduced_fx, f_3s, elem_size, plan, get_rank());
-  fm::axpy(f_3s, x, static_cast<P>(0.5) * dt);
+  fk::vector<P> t_f2(x_orig.size());
+  exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
+  fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
+
+  fm::axpy(f_2, x);                 // x is now f0 + f3
+  fm::scal(static_cast<P>(0.5), x); // x = 0.5 * (f0 + f3)
 
   // Create rho_3s
   // TODO: refactor into more generic function
-  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  fm::gemv(pde.moments[0].get_moment_matrix(), f_2, mom0);
   wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom0_real);
   param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
@@ -553,7 +638,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     return interp1(nodes, mom0_real, {x_v})[0];
   };
 
-  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  fm::gemv(pde.moments[1].get_moment_matrix(), f_2, mom1);
   wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom1_real);
   param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
@@ -562,7 +647,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  fm::gemv(pde.moments[2].get_moment_matrix(), f_2, mom2);
   wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
                           transformer, tmp_workspace, mom2_real);
   param_manager.get_parameter("theta")->value =
@@ -577,11 +662,19 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   generate_all_coefficients<P>(pde, transformer);
 
   // Final stage f3
-  fk::vector<P> f_3(x);
-  solver::simple_gmres(pde, table, program_opts, grid, f_3, x, fk::matrix<P>(),
-                       restart, max_iter, tolerance, imex_flag::imex_implicit);
-
-  return f_3;
+  if (pde.do_collision_operator)
+  {
+    // Final stage f3
+    fk::vector<P> f_3(x);
+    solver::simple_gmres(pde, table, program_opts, grid, f_3, x,
+                         fk::matrix<P>(), restart, max_iter, tolerance,
+                         imex_flag::imex_implicit);
+    return f_3;
+  }
+  else
+  {
+    return x;
+  }
 }
 
 template fk::vector<double> adaptive_advance(

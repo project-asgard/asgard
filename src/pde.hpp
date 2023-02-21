@@ -27,6 +27,7 @@
 #include "pde/pde_fokkerplanck1_pitch_C.hpp"
 #include "pde/pde_fokkerplanck1_pitch_E.hpp"
 #include "pde/pde_fokkerplanck2_complete.hpp"
+#include "pde/pde_two_stream.hpp"
 #include "pde/pde_vlasov_lb_full_f.hpp"
 #include "tensors.hpp"
 
@@ -93,6 +94,8 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_advection_1d<P>>(cli_input);
   case PDE_opts::vlasov_lb_full_f:
     return std::make_unique<PDE_vlasov_lb<P>>(cli_input);
+  case PDE_opts::vlasov_two_stream:
+    return std::make_unique<PDE_vlasov_two_stream<P>>(cli_input);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);
@@ -178,6 +181,9 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
       return fk::vector<int>(std::vector<int>(1, level));
 
     case PDE_opts::vlasov_lb_full_f:
+      return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::vlasov_two_stream:
       return fk::vector<int>(std::vector<int>(2, level));
 
     default:
