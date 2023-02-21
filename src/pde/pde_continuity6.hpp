@@ -125,14 +125,6 @@ private:
     return fx;
   }
 
-  static P volume_jacobian_dV(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   static P exact_time(P const time) { return std::sin(targ * time); }
 
   // define exact soln
@@ -620,13 +612,6 @@ private:
 
   // g-funcs for terms (optional)
 
-  static P g_func_identity(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
   static P gx(P const x, P const time)
   {
     // suppress compiler warnings
@@ -676,7 +661,7 @@ private:
                                                      2,    // levels
                                                      2,    // degree
                                                      f0,   // initial condition
-                                                     volume_jacobian_dV,
+                                                     nullptr,
                                                      "x"); // name
 
   inline static dimension<P> const y_ = dimension<P>(-2.0, // domain min
@@ -684,7 +669,7 @@ private:
                                                      2,    // levels
                                                      2,    // degree
                                                      f0,   // initial condition
-                                                     volume_jacobian_dV,
+                                                     nullptr,
                                                      "y"); // name
 
   inline static dimension<P> const z_ = dimension<P>(-3.0, // domain min
@@ -692,7 +677,7 @@ private:
                                                      2,    // levels
                                                      2,    // degree
                                                      f0,   // initial condition
-                                                     volume_jacobian_dV,
+                                                     nullptr,
                                                      "z"); // name
 
   inline static dimension<P> const vx_ = dimension<P>(-10.0, // domain min
@@ -700,7 +685,7 @@ private:
                                                       2,     // levels
                                                       2,     // degree
                                                       f0, // initial condition
-                                                      volume_jacobian_dV,
+                                                      nullptr,
                                                       "vx"); // name
 
   inline static dimension<P> const vy_ = dimension<P>(-20.0, // domain min
@@ -708,7 +693,7 @@ private:
                                                       2,     // levels
                                                       2,     // degree
                                                       f0, // initial condition
-                                                      volume_jacobian_dV,
+                                                      nullptr,
                                                       "vy"); // name
 
   inline static dimension<P> const vz_ = dimension<P>(-30.0, // domain min
@@ -716,7 +701,7 @@ private:
                                                       2,     // levels
                                                       2,     // degree
                                                       f0, // initial condition
-                                                      volume_jacobian_dV,
+                                                      nullptr,
                                                       "z"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {x_,  y_,  z_,
@@ -732,7 +717,7 @@ private:
 
   // default mass matrix (only for lev_x=lev_y=etc)
   inline static partial_term<P> const partial_term_I_ =
-      partial_term<P>(coefficient_type::mass, g_func_identity, g_func_identity,
+      partial_term<P>(coefficient_type::mass, nullptr, nullptr,
                       flux_type::central, boundary_condition::periodic,
                       boundary_condition::periodic);
   inline static term<P> const I_ = term<P>(false,   // time-dependent
@@ -741,7 +726,7 @@ private:
 
   // term 0
   inline static partial_term<P> const partial_term_0_x_ = partial_term<P>(
-      coefficient_type::div, gx, g_func_identity, flux_type::downwind,
+      coefficient_type::div, gx, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_x_ = term<P>(false,      // time-dependent
@@ -751,7 +736,7 @@ private:
                                                       I_,       I_, I_};
   // term 1
   inline static partial_term<P> const partial_term_1_y_ = partial_term<P>(
-      coefficient_type::div, gy, g_func_identity, flux_type::downwind,
+      coefficient_type::div, gy, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_y_ = term<P>(false,      // time-dependent
@@ -761,7 +746,7 @@ private:
                                                       I_, I_,       I_};
   // term 2
   inline static partial_term<P> const partial_term_2_z_ = partial_term<P>(
-      coefficient_type::div, gz, g_func_identity, flux_type::downwind,
+      coefficient_type::div, gz, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term2_z_ = term<P>(false,      // time-dependent
@@ -772,7 +757,7 @@ private:
                                                       I_, I_, I_};
   // term 3
   inline static partial_term<P> const partial_term_3_vx_ = partial_term<P>(
-      coefficient_type::div, gvx, g_func_identity, flux_type::downwind,
+      coefficient_type::div, gvx, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term3_vx_ = term<P>(false,       // time-dependent
@@ -783,7 +768,7 @@ private:
                                                       term3_vx_, I_, I_};
   // term 4
   inline static partial_term<P> const partial_term_4_vy_ = partial_term<P>(
-      coefficient_type::div, gvy, g_func_identity, flux_type::downwind,
+      coefficient_type::div, gvy, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term4_vy_ = term<P>(false,       // time-dependent
@@ -794,7 +779,7 @@ private:
                                                       I_, term4_vy_, I_};
   // term 5
   inline static partial_term<P> const partial_term_5_vz_ = partial_term<P>(
-      coefficient_type::div, gvz, g_func_identity, flux_type::downwind,
+      coefficient_type::div, gvz, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term5_vz_ = term<P>(false,       // time-dependent

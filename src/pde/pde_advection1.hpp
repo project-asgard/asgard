@@ -102,13 +102,6 @@ private:
   // =========================================================================
 
   // Dimensions ==============================================================
-  static P jacobian_dim0(P const x, P const time)
-  {
-    ignore(x);
-    ignore(time);
-
-    return 1.0;
-  }
 
   inline static dimension<P> const dim0_ = dimension<P>(
       0.0,  // domain min
@@ -116,7 +109,7 @@ private:
       4,    // levels - default (changed on command line with option -l)
       3,    // degree - default (changed on command line with option -d)
       initial_condition_dim0, // initial condition function
-      jacobian_dim0,          // volume
+      nullptr,                // volume
       "x"                     // name of dimension
   );
 
@@ -148,7 +141,7 @@ private:
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
       coefficient_type::div,       // type
       g_func_0,                    // g func
-      partial_term<P>::null_gfunc, // lhs, null_gfunc = 1.0
+      nullptr, // lhs, null_gfunc = 1.0
       flux_type::downwind, // flux = "-1" (downwind), "0" (central), "+1"
                            // (upwind)
       boundary_condition::dirichlet, // left boundary condition type ("D", "N",
@@ -160,7 +153,7 @@ private:
       bc_time_func,                  // left boundary time function
       {},                            // right boundary condition function list
       partial_term<P>::null_scalar_func, // right boundary time function
-      partial_term<P>::null_gfunc        // surface jacobian
+      nullptr                            // surface jacobian
   );
 
   inline static term<P> term0_dim0_ =

@@ -34,11 +34,10 @@ void generate_all_coefficients(
       {
         // TODO: refactor these changes, this is slow!
         partial_term<P> const lhs_mass_pterm = partial_term<P>(
-            coefficient_type::mass, partial_terms[k].lhs_mass_func,
-            partial_term<P>::null_gfunc, flux_type::central,
-            boundary_condition::periodic, boundary_condition::periodic,
-            homogeneity::homogeneous, homogeneity::homogeneous, {},
-            partial_term<P>::null_scalar_func, {},
+            coefficient_type::mass, partial_terms[k].lhs_mass_func, nullptr,
+            flux_type::central, boundary_condition::periodic,
+            boundary_condition::periodic, homogeneity::homogeneous,
+            homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
             partial_term<P>::null_scalar_func, dim.volume_jacobian_dV);
 
         auto mass_coeff = generate_coefficients<P>(
@@ -50,13 +49,14 @@ void generate_all_coefficients(
                               fm::two_raised_to(pde.max_level));
         for (int level = 0; level <= pde.max_level; ++level)
         {
-          auto const dof = dim.get_degree() * fm::two_raised_to(level);
-          auto mass_tmp  = mass_coeff.extract_submatrix(0, 0, dof, dof);
-
           auto result = generate_coefficients<P>(
               dim, partial_terms[k], transformer, level, time, rotate);
-
-          fm::gesv(mass_tmp, result, ipiv);
+          if (partial_terms[k].dv_func || partial_terms[k].g_func)
+          {
+            auto const dof = dim.get_degree() * fm::two_raised_to(level);
+            auto mass_tmp  = mass_coeff.extract_submatrix(0, 0, dof, dof);
+            fm::gesv(mass_tmp, result, ipiv);
+          }
           pterm_coeffs.emplace_back(std::move(result));
         }
 
@@ -77,11 +77,10 @@ void generate_dimension_mass_mat(
     auto &dim = pde.get_dimensions()[i];
 
     partial_term<P> const lhs_mass_pterm = partial_term<P>(
-        coefficient_type::mass, partial_term<P>::null_gfunc,
-        partial_term<P>::null_gfunc, flux_type::central,
-        boundary_condition::periodic, boundary_condition::periodic,
-        homogeneity::homogeneous, homogeneity::homogeneous, {},
-        partial_term<P>::null_scalar_func, {},
+        coefficient_type::mass, nullptr, nullptr,
+        flux_type::central, boundary_condition::periodic,
+        boundary_condition::periodic, homogeneity::homogeneous,
+        homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
         partial_term<P>::null_scalar_func, dim.volume_jacobian_dV);
     auto mass_mat = generate_coefficients<P>(dim, lhs_mass_pterm, transformer,
                                              pde.max_level, 0.0, true);
@@ -104,6 +103,11 @@ fk::matrix<P> generate_coefficients(
   expect(transformer.degree == dim.get_degree());
   expect(transformer.max_level >= dim.get_level());
   expect(level <= transformer.max_level);
+
+  auto dv_func = pterm.dv_func ? pterm.dv_func : partial_term<P>::null_gfunc;
+  expect(dv_func);
+  auto g_func = pterm.g_func ? pterm.g_func : partial_term<P>::null_gfunc;
+  expect(g_func);
 
   // setup jacobi of variable x and define coeff_mat
   auto const num_cells = fm::two_raised_to(level);
@@ -172,12 +176,12 @@ fk::matrix<P> generate_coefficients(
       return quadrature_points_copy;
     }();
 
-    fk::vector<P> const g_func = [&, legendre_poly = legendre_poly]() {
+    fk::vector<P> const g_vector = [&, legendre_poly = legendre_poly]() {
       fk::vector<P> g(quadrature_points_i.size());
       for (auto j = 0; j < quadrature_points_i.size(); ++j)
       {
-        g(j) = pterm.g_func(quadrature_points_i(j), time) *
-               pterm.dv_func(quadrature_points_i(j), time);
+        g(j) = g_func(quadrature_points_i(j), time) *
+               dv_func(quadrature_points_i(j), time);
       }
       return g;
     }();
@@ -190,8 +194,8 @@ fk::matrix<P> generate_coefficients(
       {
         for (int k = 0; k < tmp.ncols(); k++)
         {
-          tmp(j, k) =
-              g_func(j) * legendre_poly(j, k) * quadrature_weights(j) * jacobi;
+          tmp(j, k) = g_vector(j) * legendre_poly(j, k) *
+                      quadrature_weights(j) * jacobi;
         }
       }
       fk::matrix<P> output(dim.get_degree(), dim.get_degree());
@@ -240,10 +244,8 @@ fk::matrix<P> generate_coefficients(
       P const central_coeff =
           pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
 
-      P const flux_left =
-          pterm.g_func(x_left, time) * pterm.dv_func(x_left, time);
-      P const flux_right =
-          pterm.g_func(x_right, time) * pterm.dv_func(x_right, time);
+      P const flux_left = g_func(x_left, time) * dv_func(x_left, time);
+      P const flux_right = g_func(x_right, time) * dv_func(x_right, time);
 
       // get the "trace" values
       // (values at the left and right of each element for all k)

@@ -106,11 +106,11 @@ template<typename P>
 class partial_term
 {
 public:
-  static double null_gfunc(double const x, double const t)
+  static P null_gfunc(P const x, P const t)
   {
     ignore(x);
     ignore(t);
-    return 1.0;
+    return P{1.0};
   }
 
   static P null_scalar_func(P const p) { return p; }
@@ -124,8 +124,8 @@ public:
   }
 
   partial_term(coefficient_type const coeff_type_in,
-               g_func_type<P> const g_func_in        = null_gfunc,
-               g_func_type<P> const lhs_mass_func_in = null_gfunc,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
                flux_type const flux_in               = flux_type::central,
                boundary_condition const left_in  = boundary_condition::neumann,
                boundary_condition const right_in = boundary_condition::neumann,
@@ -135,7 +135,7 @@ public:
                scalar_func<P> const left_bc_time_func_in = null_scalar_func,
                std::vector<vector_func<P>> const right_bc_funcs_in = {},
                scalar_func<P> const right_bc_time_func_in = null_scalar_func,
-               g_func_type<P> const dv_func_in            = null_gfunc)
+               g_func_type<P> const dv_func_in            = nullptr)
 
       : coeff_type(coeff_type_in), g_func(g_func_in),
         lhs_mass_func(lhs_mass_func_in), flux(set_flux(flux_in)), left(left_in),

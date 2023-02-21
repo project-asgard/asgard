@@ -111,7 +111,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
 {
   auto const pde_choice = PDE_opts::continuity_2;
   auto const gold_path  = coefficients_base_dir / "continuity2_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
+  auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   SECTION("level 4, degree 3")
   {

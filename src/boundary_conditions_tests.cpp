@@ -160,7 +160,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
     generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
-    /* initialize bc vector at test_time */
+    // initialize bc vector at test_time
     TestType const test_time = 5;
     int const start_element  = 0;
     int const stop_element   = table.size() - 1;

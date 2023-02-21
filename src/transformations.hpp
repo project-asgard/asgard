@@ -81,7 +81,7 @@ void combine_dimensions(int const degree, elements::table const &table,
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(
-    dimension<P> const &dim, F function, g_func_type<P> const dv_func,
+    dimension<P> const &dim, F function, g_func_type<P> dv_func,
     basis::wavelet_transform<P, resource::host> const &transformer,
     P const t = 0)
 {
@@ -94,6 +94,10 @@ fk::vector<P> forward_transform(
   expect(num_levels <= transformer.max_level);
   expect(degree > 0);
   expect(domain_max > domain_min);
+
+  if (!dv_func)
+    dv_func = partial_term<P>::null_gfunc;
+  expect(dv_func);
 
   // check to make sure the F function arg is a function type
   // that will accept a vector argument. we have a check for its
