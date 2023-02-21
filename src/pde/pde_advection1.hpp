@@ -139,11 +139,11 @@ private:
   }
 
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::div,       // type
-      g_func_0,                    // g func
-      nullptr, // lhs, null_gfunc = 1.0
-      flux_type::downwind, // flux = "-1" (downwind), "0" (central), "+1"
-                           // (upwind)
+      coefficient_type::div, // type
+      g_func_0,              // g func
+      nullptr,               // lhs, null_gfunc = 1.0
+      flux_type::downwind,   // flux = "-1" (downwind), "0" (central), "+1"
+                             // (upwind)
       boundary_condition::dirichlet, // left boundary condition type ("D", "N",
                                      // "P")
       boundary_condition::neumann,   // right boundary condition type,

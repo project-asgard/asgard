@@ -211,10 +211,9 @@ private:
                                                     "v_x.d_dx", // name
                                                     {partial_term_t0_d0});
 
-  inline static partial_term<P> const partial_term_t0_d1 =
-      partial_term<P>(coefficient_type::mass, nullptr, nullptr,
-                      flux_type::central, boundary_condition::periodic,
-                      boundary_condition::periodic);
+  inline static partial_term<P> const partial_term_t0_d1 = partial_term<P>(
+      coefficient_type::mass, nullptr, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_dim1_ = term<P>(false,   // time-dependent
                                                     "massY", // name
@@ -224,10 +223,9 @@ private:
 
   // term 1
   // NOTE: double check this mass term, as it is empty in the matlab version?
-  inline static partial_term<P> const partial_term_t1_d0 =
-      partial_term<P>(coefficient_type::mass, nullptr, nullptr,
-                      flux_type::central, boundary_condition::periodic,
-                      boundary_condition::periodic);
+  inline static partial_term<P> const partial_term_t1_d0 = partial_term<P>(
+      coefficient_type::mass, nullptr, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_dim0_ = term<P>(false,   // time-dependent
                                                     "massX", // name

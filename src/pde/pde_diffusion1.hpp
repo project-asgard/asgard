@@ -47,10 +47,9 @@ private:
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 
   /* Define terms */
-  inline static const partial_term<P> partial_term_0 =
-      partial_term<P>(coefficient_type::div, nullptr,
-                      nullptr, flux_type::downwind,
-                      boundary_condition::neumann, boundary_condition::neumann);
+  inline static const partial_term<P> partial_term_0 = partial_term<P>(
+      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
+      boundary_condition::neumann, boundary_condition::neumann);
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
@@ -73,11 +72,10 @@ private:
   // TODO: Add interior penalty terms?
   // TODO: update nu value, check initial conditions
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr,
-      flux_type::upwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::inhomogeneous,
-      homogeneity::inhomogeneous, {bc_func}, bc_time_func, {bc_func},
-      bc_time_func);
+      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::inhomogeneous, homogeneity::inhomogeneous, {bc_func},
+      bc_time_func, {bc_func}, bc_time_func);
 
   inline static term<P> const term_0 =
       term<P>(true, // time-dependent
@@ -101,22 +99,22 @@ private:
     return penalty;
   }
   inline static const partial_term<P> partial_term_2 = partial_term<P>(
-      coefficient_type::div, g3, nullptr,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, nullptr);
+      coefficient_type::div, g3, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      nullptr);
 
   inline static term<P> const term_1 = term<P>(false, // time-dependent
                                                "",    // name
                                                {partial_term_2});
 
   inline static const partial_term<P> partial_term_3 = partial_term<P>(
-      coefficient_type::div, g4, nullptr,
-      flux_type::central, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, nullptr);
+      coefficient_type::div, g4, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      nullptr);
 
   inline static term<P> const term_2 = term<P>(false, // time-dependent
                                                "",    // name

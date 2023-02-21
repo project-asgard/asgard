@@ -137,11 +137,11 @@ private:
   }
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_1, nullptr,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, dV_func);
+      coefficient_type::div, g_func_1, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      dV_func);
 
   inline static term<P> const term0_dim0_ = term<P>(false,  // time-dependent
                                                     "d_dx", // name

@@ -180,15 +180,13 @@ private:
     return (x > 0.0) ? x : 0.0;
   }
 
-  inline static const partial_term<P> e1_pterm_x =
-      partial_term<P>(coefficient_type::div, e1_g1, nullptr,
-                      flux_type::downwind, boundary_condition::periodic,
-                      boundary_condition::periodic);
+  inline static const partial_term<P> e1_pterm_x = partial_term<P>(
+      coefficient_type::div, e1_g1, nullptr, flux_type::downwind,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e1_pterm_v = partial_term<P>(
-      coefficient_type::mass, e1_g2, nullptr,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, e1_g2, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term_e1x =
       term<P>(false,  // time-dependent
@@ -218,15 +216,13 @@ private:
     return (x < 0.0) ? x : 0.0;
   }
 
-  inline static const partial_term<P> e2_pterm_x =
-      partial_term<P>(coefficient_type::div, e2_g1, nullptr,
-                      flux_type::upwind, boundary_condition::periodic,
-                      boundary_condition::periodic);
+  inline static const partial_term<P> e2_pterm_x = partial_term<P>(
+      coefficient_type::div, e2_g1, nullptr, flux_type::upwind,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e2_pterm_v = partial_term<P>(
-      coefficient_type::mass, e2_g2, nullptr,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, e2_g2, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term_e2x =
       term<P>(false,  // time-dependent
@@ -257,14 +253,12 @@ private:
   }
 
   inline static const partial_term<P> i1_pterm_x = partial_term<P>(
-      coefficient_type::mass, i1_g1, nullptr,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, i1_g1, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const partial_term<P> i1_pterm_v =
-      partial_term<P>(coefficient_type::div, i1_g2, nullptr,
-                      flux_type::downwind, boundary_condition::dirichlet,
-                      boundary_condition::dirichlet);
+  inline static const partial_term<P> i1_pterm_v = partial_term<P>(
+      coefficient_type::div, i1_g2, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i1x =
       term<P>(false,  // time-dependent
@@ -296,14 +290,12 @@ private:
   }
 
   inline static const partial_term<P> i2_pterm_x = partial_term<P>(
-      coefficient_type::mass, i2_g1, nullptr,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, i2_g1, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const partial_term<P> i2_pterm_v =
-      partial_term<P>(coefficient_type::div, i2_g2, nullptr,
-                      flux_type::central, boundary_condition::dirichlet,
-                      boundary_condition::dirichlet);
+  inline static const partial_term<P> i2_pterm_v = partial_term<P>(
+      coefficient_type::div, i2_g2, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i2x =
       term<P>(false,  // time-dependent
@@ -339,14 +331,12 @@ private:
   }
 
   inline static const partial_term<P> i3_pterm_x1 = partial_term<P>(
-      coefficient_type::mass, i3_g1, nullptr,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, i3_g1, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> i3_pterm_x2 = partial_term<P>(
-      coefficient_type::mass, i3_g2, nullptr,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, i3_g2, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term_i3x =
       term<P>(false,  // time-dependent
@@ -367,15 +357,13 @@ private:
     return 1.0;
   }
 
-  inline static const partial_term<P> i3_pterm_v1 =
-      partial_term<P>(coefficient_type::div, i3_g3, nullptr,
-                      flux_type::central, boundary_condition::dirichlet,
-                      boundary_condition::dirichlet);
+  inline static const partial_term<P> i3_pterm_v1 = partial_term<P>(
+      coefficient_type::div, i3_g3, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static const partial_term<P> i3_pterm_v2 = partial_term<P>(
-      coefficient_type::grad, i3_g4, nullptr,
-      flux_type::central, boundary_condition::dirichlet,
-      boundary_condition::dirichlet);
+      coefficient_type::grad, i3_g4, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i3v =
       term<P>(false,  // time-dependent

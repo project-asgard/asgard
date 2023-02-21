@@ -77,10 +77,10 @@ void generate_dimension_mass_mat(
     auto &dim = pde.get_dimensions()[i];
 
     partial_term<P> const lhs_mass_pterm = partial_term<P>(
-        coefficient_type::mass, nullptr, nullptr,
-        flux_type::central, boundary_condition::periodic,
-        boundary_condition::periodic, homogeneity::homogeneous,
-        homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
+        coefficient_type::mass, nullptr, nullptr, flux_type::central,
+        boundary_condition::periodic, boundary_condition::periodic,
+        homogeneity::homogeneous, homogeneity::homogeneous, {},
+        partial_term<P>::null_scalar_func, {},
         partial_term<P>::null_scalar_func, dim.volume_jacobian_dV);
     auto mass_mat = generate_coefficients<P>(dim, lhs_mass_pterm, transformer,
                                              pde.max_level, 0.0, true);
@@ -244,7 +244,7 @@ fk::matrix<P> generate_coefficients(
       P const central_coeff =
           pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
 
-      P const flux_left = g_func(x_left, time) * dv_func(x_left, time);
+      P const flux_left  = g_func(x_left, time) * dv_func(x_left, time);
       P const flux_right = g_func(x_right, time) * dv_func(x_right, time);
 
       // get the "trace" values

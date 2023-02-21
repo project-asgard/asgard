@@ -251,14 +251,6 @@ private:
 template<typename P>
 class term
 {
-  static P g_func_default(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
 public:
   term(bool const time_dependent_in, std::string const name_in,
        std::initializer_list<partial_term<P>> const partial_terms,
