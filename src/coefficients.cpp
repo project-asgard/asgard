@@ -122,7 +122,11 @@ fk::matrix<P> generate_coefficients(
     }
     else
     {
-      return [](P const x, P const t) { return P{1.0}; };
+      return [](P const x, P const t) {
+        ignore(x);
+        ignore(t);
+        return P{1.0};
+      };
     }
   }();
 
