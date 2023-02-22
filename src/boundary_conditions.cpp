@@ -165,13 +165,6 @@ compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
   int const level  = dim.get_level();
   int const degree = dim.get_degree();
 
-  if (!g_func)
-    g_func = partial_term<P>::null_gfunc;
-  expect(g_func);
-  if (!dv_func)
-    dv_func = partial_term<P>::null_gfunc;
-  expect(dv_func);
-
   P const total_cells = std::pow(2, level);
 
   P const domain_per_cell = domain_extent / total_cells;
@@ -180,8 +173,8 @@ compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   fk::vector<P> bc(dof);
 
-  P g  = g_func(domain_min, time);
-  P dV = dv_func(domain_min, time);
+  P g  = g_func ? g_func(domain_min, time) : 1.0;
+  P dV = dv_func ? dv_func(domain_min, time) : 1.0;
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
@@ -228,13 +221,6 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
   int const level  = dim.get_level();
   int const degree = dim.get_degree();
 
-  if (!g_func)
-    g_func = partial_term<P>::null_gfunc;
-  expect(g_func);
-  if (!dv_func)
-    dv_func = partial_term<P>::null_gfunc;
-  expect(dv_func);
-
   P const total_cells = std::pow(2, level);
 
   P const domain_per_cell = domain_extent / total_cells;
@@ -243,8 +229,8 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   fk::vector<P> bc(dof);
 
-  P g  = g_func(domain_max, time);
-  P dV = dv_func(domain_max, time);
+  P g  = g_func ? g_func(domain_min, time) : 1.0;
+  P dV = dv_func ? dv_func(domain_min, time) : 1.0;
   expect(std::isfinite(dV));
   if (!std::isfinite(g))
   {
@@ -297,24 +283,28 @@ std::vector<fk::vector<P>> generate_partial_bcs(
         dimensions[dim_num].get_degree() *
         fm::two_raised_to(dimensions[dim_num].get_level());
     auto const &f = bc_funcs[dim_num];
-    auto g        = terms[dim_num].get_partial_terms()[p_index].g_func;
-    if (!g)
-      g = partial_term<P>::null_gfunc;
-    expect(g);
-    vector_func<P> const bc_func = [f, g](fk::vector<P> const &x, P const &t) {
-      // evaluate f(x,t) * g(x,t)
-      fk::vector<P> fx(f(x, t));
-      std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                     [g, t](P &f_elem, P const &x_elem) -> P {
-                       return f_elem * g(x_elem, t);
-                     });
-      return fx;
-    };
+    auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
+    vector_func<P> bc_func;
+    if (g)
+    {
+      bc_func = [f, g](fk::vector<P> const &x, P const &t) {
+        // evaluate f(x,t) * g(x,t)
+        fk::vector<P> fx(f(x, t));
+        std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                       [g, t](P &f_elem, P const &x_elem) -> P {
+                         return f_elem * g(x_elem, t);
+                       });
+        return fx;
+      };
+    }
+    else
+    {
+      bc_func = f;
+    }
     partial_bc_vecs.push_back(
         forward_transform(dimensions[dim_num], bc_func,
                           terms[dim_num].get_partial_terms()[p_index].dv_func,
                           transformer, time));
-
     // Apply inverse mat
     std::vector<int> ipiv(degrees_freedom_1d_other);
     auto lhs_mass = terms[dim_num]

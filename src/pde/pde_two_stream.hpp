@@ -179,15 +179,13 @@ private:
     return (x > 0.0) ? x : 0.0;
   }
 
-  inline static const partial_term<P> e1_pterm_x =
-      partial_term<P>(coefficient_type::div, e1_g1, partial_term<P>::null_gfunc,
-                      flux_type::downwind, boundary_condition::periodic,
-                      boundary_condition::periodic);
+  inline static const partial_term<P> e1_pterm_x = partial_term<P>(
+      coefficient_type::div, e1_g1, nullptr, flux_type::downwind,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e1_pterm_v = partial_term<P>(
-      coefficient_type::mass, e1_g2, partial_term<P>::null_gfunc,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, e1_g2, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term_e1x =
       term<P>(false,  // time-dependent
@@ -217,15 +215,13 @@ private:
     return (x < 0.0) ? x : 0.0;
   }
 
-  inline static const partial_term<P> e2_pterm_x =
-      partial_term<P>(coefficient_type::div, e2_g1, partial_term<P>::null_gfunc,
-                      flux_type::upwind, boundary_condition::periodic,
-                      boundary_condition::periodic);
+  inline static const partial_term<P> e2_pterm_x = partial_term<P>(
+      coefficient_type::div, e2_g1, nullptr, flux_type::upwind,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e2_pterm_v = partial_term<P>(
-      coefficient_type::mass, e2_g2, partial_term<P>::null_gfunc,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, e2_g2, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term_e2x =
       term<P>(false,  // time-dependent
@@ -258,9 +254,8 @@ private:
   }
 
   inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
-      coefficient_type::mass, E_func, partial_term<P>::null_gfunc,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, E_func, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const E_mass_x =
       term<P>(true, // time-dependent
@@ -268,10 +263,9 @@ private:
               {pterm_E_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v = partial_term<P>(
-      coefficient_type::div, negOne, partial_term<P>::null_gfunc,
-      flux_type::central, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous);
+      coefficient_type::div, negOne, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous);
 
   inline static term<P> const div_v =
       term<P>(false, // time-dependent
@@ -299,9 +293,8 @@ private:
   }
 
   inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
-      coefficient_type::mass, MaxAbsE_func, partial_term<P>::null_gfunc,
-      flux_type::central, boundary_condition::periodic,
-      boundary_condition::periodic);
+      coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const MaxAbsE_mass_x_1 =
       term<P>(true, // time-dependent
@@ -314,10 +307,9 @@ private:
               {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
-      coefficient_type::div, posOne, partial_term<P>::null_gfunc,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous);
+      coefficient_type::div, posOne, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous);
 
   inline static term<P> const div_v_downwind =
       term<P>(false, // time-dependent

@@ -1,6 +1,7 @@
 #include "pde.hpp"
 
 #include "matlab_utilities.hpp"
+#include "pde/pde_base.hpp"
 #include "tests_general.hpp"
 #include <vector>
 
@@ -333,26 +334,37 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
         for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
         {
           fk::vector<TestType> transformed(x);
-          g_func_type<TestType> g_func =
-              partial_terms[k].g_func ? partial_terms[k].g_func
-                                      : partial_term<TestType>::null_gfunc;
-          std::transform(x.begin(), x.end(), transformed.begin(),
-                         [g_func, time](TestType const x_elem) -> TestType {
-                           return g_func(x_elem, time);
-                         });
+          auto const &g_func = partial_terms[k].g_func;
+          if (g_func)
+          {
+            std::transform(x.begin(), x.end(), transformed.begin(),
+                           [g_func, time](TestType const x_elem) -> TestType {
+                             return g_func(x_elem, time);
+                           });
+          }
+          else
+          {
+            std::fill(transformed.begin(), transformed.end(), TestType{1.0});
+          }
           fk::vector<TestType> gold_pterm(
               gold.extract_submatrix(row, 0, 1, x.size()));
           auto constexpr tol_factor = get_tolerance<TestType>(100);
           rmse_comparison(transformed, gold_pterm, tol_factor);
 
           fk::vector<TestType> dv(x);
-          g_func_type<TestType> dv_func =
-              partial_terms[k].dv_func ? partial_terms[k].dv_func
-                                       : partial_term<TestType>::null_gfunc;
-          std::transform(x.begin(), x.end(), dv.begin(),
-                         [dv_func, time](TestType const x_elem) -> TestType {
-                           return dv_func(x_elem, time);
-                         });
+          auto const &dv_func = partial_terms[k].dv_func;
+          if (dv_func)
+          {
+            std::transform(x.begin(), x.end(), dv.begin(),
+                           [dv_func, time](TestType const x_elem) -> TestType {
+                             return dv_func(x_elem, time);
+                           });
+          }
+          else
+          {
+            std::fill(dv.begin(), dv.end(), TestType{1.0});
+          }
+
           fk::vector<TestType> gold_dvfunc(
               gold_dvs.extract_submatrix(row, 0, 1, x.size()));
           rmse_comparison(dv, gold_dvfunc, tol_factor);

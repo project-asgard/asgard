@@ -396,8 +396,8 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", double, float)
 
 TEMPLATE_TEST_CASE("penalty check", "[coefficients]", double, float)
 {
-  vector_func<TestType> ic    = {partial_term<TestType>::null_vector_func};
-  g_func_type<TestType> gfunc = partial_term<TestType>::null_gfunc;
+  vector_func<TestType> ic = {partial_term<TestType>::null_vector_func};
+  g_func_type<TestType> gfunc;
 
   SECTION("level 4, degree 3")
   {

@@ -95,10 +95,6 @@ fk::vector<P> forward_transform(
   expect(degree > 0);
   expect(domain_max > domain_min);
 
-  if (!dv_func)
-    dv_func = partial_term<P>::null_gfunc;
-  expect(dv_func);
-
   // check to make sure the F function arg is a function type
   // that will accept a vector argument. we have a check for its
   // return below
@@ -145,11 +141,14 @@ fk::vector<P> forward_transform(
     fk::vector<P> f_here = function(mapped_roots, t);
 
     // apply dv to f(v)
-    std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
-                   f_here.begin(),
-                   [dv_func, t](P &f_elem, P const &x_elem) -> P {
-                     return f_elem * dv_func(x_elem, t);
-                   });
+    if (dv_func)
+    {
+      std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
+                     f_here.begin(),
+                     [dv_func, t](P &f_elem, P const &x_elem) -> P {
+                       return f_elem * dv_func(x_elem, t);
+                     });
+    }
 
     // ensuring function returns vector of appropriate size
     expect(f_here.size() == weights.size());

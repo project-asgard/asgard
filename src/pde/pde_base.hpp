@@ -106,13 +106,6 @@ template<typename P>
 class partial_term
 {
 public:
-  static P null_gfunc(P const x, P const t)
-  {
-    ignore(x);
-    ignore(t);
-    return P{1.0};
-  }
-
   static P null_scalar_func(P const p) { return p; }
 
   static fk::vector<P> null_vector_func(fk::vector<P> x, P const t = 0)

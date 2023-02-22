@@ -104,10 +104,27 @@ fk::matrix<P> generate_coefficients(
   expect(transformer.max_level >= dim.get_level());
   expect(level <= transformer.max_level);
 
-  auto dv_func = pterm.dv_func ? pterm.dv_func : partial_term<P>::null_gfunc;
-  expect(dv_func);
-  auto g_func = pterm.g_func ? pterm.g_func : partial_term<P>::null_gfunc;
-  expect(g_func);
+  auto g_dv_func = [g_func  = pterm.g_func,
+                    dv_func = pterm.dv_func]() -> g_func_type<P> {
+    if (g_func && dv_func)
+    {
+      return [g_func, dv_func](P const x, P const t) {
+        return g_func(x, t) * dv_func(x, t);
+      };
+    }
+    else if (g_func)
+    {
+      return [g_func](P const x, P const t) { return g_func(x, t); };
+    }
+    else if (dv_func)
+    {
+      return [dv_func](P const x, P const t) { return dv_func(x, t); };
+    }
+    else
+    {
+      return [](P const x, P const t) { return P{1.0}; };
+    }
+  }();
 
   // setup jacobi of variable x and define coeff_mat
   auto const num_cells = fm::two_raised_to(level);
@@ -180,8 +197,7 @@ fk::matrix<P> generate_coefficients(
       fk::vector<P> g(quadrature_points_i.size());
       for (auto j = 0; j < quadrature_points_i.size(); ++j)
       {
-        g(j) = g_func(quadrature_points_i(j), time) *
-               dv_func(quadrature_points_i(j), time);
+        g(j) = g_dv_func(quadrature_points_i(j), time);
       }
       return g;
     }();
@@ -244,8 +260,8 @@ fk::matrix<P> generate_coefficients(
       P const central_coeff =
           pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
 
-      P const flux_left  = g_func(x_left, time) * dv_func(x_left, time);
-      P const flux_right = g_func(x_right, time) * dv_func(x_right, time);
+      P const flux_left  = g_dv_func(x_left, time);
+      P const flux_right = g_dv_func(x_right, time);
 
       // get the "trace" values
       // (values at the left and right of each element for all k)
