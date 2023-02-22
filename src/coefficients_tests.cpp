@@ -1,6 +1,8 @@
+#include "basis.hpp"
 #include "coefficients.hpp"
 #include "matlab_utilities.hpp"
 #include "pde.hpp"
+#include "pde/pde_base.hpp"
 #include "tensors.hpp"
 #include "tests_general.hpp"
 
@@ -389,5 +391,42 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", double, float)
 
     // parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+  }
+}
+
+TEMPLATE_TEST_CASE("penalty check", "[coefficients]", double, float)
+{
+  vector_func<TestType> ic    = {partial_term<TestType>::null_vector_func};
+  g_func_type<TestType> gfunc = partial_term<TestType>::null_gfunc;
+
+  SECTION("level 4, degree 3")
+  {
+    int const level  = 4;
+    int const degree = 3;
+    basis::wavelet_transform<TestType, resource::host> waves(level, degree,
+                                                             true);
+
+    dimension<TestType> dim(0.0, 1.0, level, degree, ic, gfunc, "x");
+    partial_term<TestType> central(
+        coefficient_type::div, gfunc, gfunc, flux_type::central,
+        boundary_condition::periodic, boundary_condition::periodic);
+
+    partial_term<TestType> penalty(
+        coefficient_type::penalty, gfunc, gfunc, flux_type::upwind,
+        boundary_condition::periodic, boundary_condition::periodic);
+
+    partial_term<TestType> upwind(
+        coefficient_type::div, gfunc, gfunc, flux_type::upwind,
+        boundary_condition::periodic, boundary_condition::periodic);
+
+    auto central_mat =
+        generate_coefficients(dim, central, waves, level, TestType{0.0}, true);
+    auto penalty_mat =
+        generate_coefficients(dim, penalty, waves, level, TestType{0.0}, true);
+    auto upwind_mat =
+        generate_coefficients(dim, upwind, waves, level, TestType{0.0}, true);
+
+    rmse_comparison(central_mat + penalty_mat, upwind_mat,
+                    get_tolerance<TestType>(10));
   }
 }
