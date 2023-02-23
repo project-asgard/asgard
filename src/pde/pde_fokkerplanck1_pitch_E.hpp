@@ -159,12 +159,11 @@ private:
   // term2_z.G = @(z,p,t,dat) -1.*(1-z.^2); % G function for use in coeff_matrix
   // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
 
-  inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_1, nullptr, flux_type::downwind,
-      boundary_condition::neumann, boundary_condition::neumann,
-      homogeneity::homogeneous, homogeneity::homogeneous, {},
-      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
-      dV_z);
+  inline static partial_term<P> const partial_term_0 =
+      partial_term<P>(coefficient_type::div, g_func_1, nullptr,
+                      flux_type::downwind, boundary_condition::neumann,
+                      boundary_condition::neumann, homogeneity::homogeneous,
+                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
   inline static term<P> const term0_dim0_ = term<P>(false,  // time-dependent
                                                     "d_dx", // name

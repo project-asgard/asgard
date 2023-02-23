@@ -162,12 +162,11 @@ private:
   //
   // -E d/dz((1-z^2) f)
 
-  inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_t1_z, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous, {},
-      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
-      dV_z);
+  inline static partial_term<P> const partial_term_0 =
+      partial_term<P>(coefficient_type::div, g_func_t1_z, nullptr,
+                      flux_type::downwind, boundary_condition::dirichlet,
+                      boundary_condition::dirichlet, homogeneity::homogeneous,
+                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
   inline static term<P> const termE_z = term<P>(false,  // time-dependent
                                                 "d_dx", // name
@@ -178,19 +177,17 @@ private:
   // term 2
   //
   // +C * d/dz( (1-z^2) df/dz )
-  inline static partial_term<P> const partial_term_1 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous, {},
-      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
-      dV_z);
+  inline static partial_term<P> const partial_term_1 =
+      partial_term<P>(coefficient_type::div, nullptr, nullptr,
+                      flux_type::downwind, boundary_condition::dirichlet,
+                      boundary_condition::dirichlet, homogeneity::homogeneous,
+                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
-  inline static partial_term<P> const partial_term_2 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::neumann,
-      homogeneity::homogeneous, homogeneity::homogeneous, {},
-      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
-      dV_z);
+  inline static partial_term<P> const partial_term_2 =
+      partial_term<P>(coefficient_type::grad, nullptr, nullptr,
+                      flux_type::upwind, boundary_condition::neumann,
+                      boundary_condition::neumann, homogeneity::homogeneous,
+                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
   inline static term<P> const termC_z =
       term<P>(false,  // time-dependent

@@ -159,19 +159,17 @@ private:
   //    termC_z.BCL2 = 'N';
   //    termC_z.BCR2 = 'N';
 
-  inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous, {},
-      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
-      dV_z);
+  inline static partial_term<P> const partial_term_0 =
+      partial_term<P>(coefficient_type::div, nullptr, nullptr,
+                      flux_type::downwind, boundary_condition::dirichlet,
+                      boundary_condition::dirichlet, homogeneity::homogeneous,
+                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
-  inline static partial_term<P> const partial_term_1 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::neumann,
-      homogeneity::homogeneous, homogeneity::homogeneous, {},
-      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
-      dV_z);
+  inline static partial_term<P> const partial_term_1 =
+      partial_term<P>(coefficient_type::grad, nullptr, nullptr,
+                      flux_type::upwind, boundary_condition::neumann,
+                      boundary_condition::neumann, homogeneity::homogeneous,
+                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
   inline static term<P> const term0_dim0_ =
       term<P>(false,  // time-dependent
