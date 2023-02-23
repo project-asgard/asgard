@@ -103,14 +103,6 @@ private:
     return fx;
   }
 
-  static P volume_jacobian_dV_dim0(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   static P exact_time(P const time) { return std::sin(time); }
 
   // specify source functions...
@@ -156,28 +148,20 @@ private:
     return -1.0;
   }
 
-  static P lhs_mass_func(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   // define dimensions
   inline static dimension<P> const dim0_ =
-      dimension<P>(-1.0,                    // domain min
-                   1.0,                     // domain max
-                   2,                       // levels
-                   2,                       // degree
-                   initial_condition_dim0,  // initial condition
-                   volume_jacobian_dV_dim0, // volume portion
-                   "x");                    // name
+      dimension<P>(-1.0,                   // domain min
+                   1.0,                    // domain max
+                   2,                      // levels
+                   2,                      // degree
+                   initial_condition_dim0, // initial condition
+                   nullptr,                // volume portion
+                   "x");                   // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_0, lhs_mass_func, flux_type::downwind,
+      coefficient_type::div, g_func_0, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   // define terms (1 in this case)

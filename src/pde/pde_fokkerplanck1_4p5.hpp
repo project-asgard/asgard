@@ -107,14 +107,6 @@ private:
     return 1.0;
   }
 
-  static P volume_jacobian_dV(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   // specify source functions...
 
   // N/A
@@ -138,7 +130,7 @@ private:
                    2,      // levels
                    2,      // degree
                    f0_vec, // initial condition
-                   volume_jacobian_dV,
+                   nullptr,
                    "x"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
@@ -162,11 +154,11 @@ private:
   }
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_t1_z, partial_term<P>::null_gfunc,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, dV_z);
+      coefficient_type::div, g_func_t1_z, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      dV_z);
 
   inline static term<P> const termE_z = term<P>(false,  // time-dependent
                                                 "d_dx", // name
@@ -189,26 +181,20 @@ private:
     ignore(time);
     return 1 - std::pow(x, 2);
   }
-  static P g_func_t2_z2(P const x, P const time)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
 
   inline static partial_term<P> const partial_term_1 = partial_term<P>(
-      coefficient_type::div, g_func_t2_z2, partial_term<P>::null_gfunc,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, dV_z);
+      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      dV_z);
 
   inline static partial_term<P> const partial_term_2 = partial_term<P>(
-      coefficient_type::grad, g_func_t2_z2, partial_term<P>::null_gfunc,
-      flux_type::upwind, boundary_condition::neumann,
-      boundary_condition::neumann, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, dV_z);
+      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
+      boundary_condition::neumann, boundary_condition::neumann,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      dV_z);
 
   inline static term<P> const termC_z =
       term<P>(false,  // time-dependent
@@ -228,11 +214,11 @@ private:
   }
 
   inline static partial_term<P> const partial_term_3 = partial_term<P>(
-      coefficient_type::div, g_func_t3_z, partial_term<P>::null_gfunc,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, dV_z);
+      coefficient_type::div, g_func_t3_z, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      dV_z);
 
   inline static term<P> const termR_z = term<P>(false,  // time-dependent
                                                 "d_dx", // name

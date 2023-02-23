@@ -91,14 +91,6 @@ private:
     return 1.0;
   }
 
-  static P volume_jacobian_dV(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   // specify source functions...
 
   // N/A
@@ -122,7 +114,7 @@ private:
                    2,                      // levels
                    2,                      // degree
                    initial_condition_dim0, // initial condition
-                   volume_jacobian_dV,
+                   nullptr,
                    "x"); // name
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
@@ -145,11 +137,11 @@ private:
   }
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_1, partial_term<P>::null_gfunc,
-      flux_type::downwind, boundary_condition::dirichlet,
-      boundary_condition::dirichlet, homogeneity::homogeneous,
-      homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-      partial_term<P>::null_scalar_func, dV_func);
+      coefficient_type::div, g_func_1, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous, {},
+      partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
+      dV_func);
 
   inline static term<P> const term0_dim0_ = term<P>(false,  // time-dependent
                                                     "d_dx", // name

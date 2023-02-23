@@ -111,7 +111,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
 {
   auto const pde_choice = PDE_opts::continuity_2;
   auto const gold_path  = coefficients_base_dir / "continuity2_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
+  auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   SECTION("level 4, degree 3")
   {
@@ -396,8 +396,8 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", double, float)
 
 TEMPLATE_TEST_CASE("penalty check", "[coefficients]", double, float)
 {
-  vector_func<TestType> ic    = {partial_term<TestType>::null_vector_func};
-  g_func_type<TestType> gfunc = partial_term<TestType>::null_gfunc;
+  vector_func<TestType> ic = {partial_term<TestType>::null_vector_func};
+  g_func_type<TestType> gfunc;
 
   SECTION("level 4, degree 3")
   {

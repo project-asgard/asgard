@@ -153,9 +153,8 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 
 template<typename P>
 fk::vector<P>
-compute_left_boundary_condition(g_func_type<P> const g_func,
-                                g_func_type<P> const dv_func, P const time,
-                                dimension<P> const &dim,
+compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
+                                P const time, dimension<P> const &dim,
                                 vector_func<P> const bc_func)
 {
   P const domain_min    = dim.domain_min;
@@ -174,8 +173,8 @@ compute_left_boundary_condition(g_func_type<P> const g_func,
 
   fk::vector<P> bc(dof);
 
-  P g  = g_func(domain_min, time);
-  P dV = dv_func(domain_min, time);
+  P g  = g_func ? g_func(domain_min, time) : 1.0;
+  P dV = dv_func ? dv_func(domain_min, time) : 1.0;
   if (!std::isfinite(g))
   {
     P const small_dx = domain_per_cell * 1e-7;
@@ -209,9 +208,8 @@ compute_left_boundary_condition(g_func_type<P> const g_func,
 
 template<typename P>
 fk::vector<P>
-compute_right_boundary_condition(g_func_type<P> const g_func,
-                                 g_func_type<P> const dv_func, P const time,
-                                 dimension<P> const &dim,
+compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
+                                 P const time, dimension<P> const &dim,
                                  vector_func<P> const bc_func)
 {
   P const domain_min    = dim.domain_min;
@@ -231,8 +229,8 @@ compute_right_boundary_condition(g_func_type<P> const g_func,
 
   fk::vector<P> bc(dof);
 
-  P g  = g_func(domain_max, time);
-  P dV = dv_func(domain_max, time);
+  P g  = g_func ? g_func(domain_min, time) : 1.0;
+  P dV = dv_func ? dv_func(domain_min, time) : 1.0;
   expect(std::isfinite(dV));
   if (!std::isfinite(g))
   {
@@ -286,20 +284,27 @@ std::vector<fk::vector<P>> generate_partial_bcs(
         fm::two_raised_to(dimensions[dim_num].get_level());
     auto const &f = bc_funcs[dim_num];
     auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
-    vector_func<P> const bc_func = [f, g](fk::vector<P> const &x, P const &t) {
-      // evaluate f(x,t) * g(x,t)
-      fk::vector<P> fx(f(x, t));
-      std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
-                     [g, t](P &f_elem, P const &x_elem) -> P {
-                       return f_elem * g(x_elem, t);
-                     });
-      return fx;
-    };
+    vector_func<P> bc_func;
+    if (g)
+    {
+      bc_func = [f, g](fk::vector<P> const &x, P const &t) {
+        // evaluate f(x,t) * g(x,t)
+        fk::vector<P> fx(f(x, t));
+        std::transform(fx.begin(), fx.end(), x.begin(), fx.begin(),
+                       [g, t](P &f_elem, P const &x_elem) -> P {
+                         return f_elem * g(x_elem, t);
+                       });
+        return fx;
+      };
+    }
+    else
+    {
+      bc_func = f;
+    }
     partial_bc_vecs.push_back(
         forward_transform(dimensions[dim_num], bc_func,
                           terms[dim_num].get_partial_terms()[p_index].dv_func,
                           transformer, time));
-
     // Apply inverse mat
     std::vector<int> ipiv(degrees_freedom_1d_other);
     auto lhs_mass = terms[dim_num]
@@ -373,24 +378,20 @@ template fk::vector<float> boundary_conditions::generate_scaled_bc(
 
 template fk::vector<double>
 boundary_conditions::compute_left_boundary_condition(
-    g_func_type<double> const g_func, g_func_type<double> const dv_func,
-    double const time, dimension<double> const &dim,
-    vector_func<double> const bc_func);
+    g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
+    dimension<double> const &dim, vector_func<double> const bc_func);
 template fk::vector<float> boundary_conditions::compute_left_boundary_condition(
-    g_func_type<float> const g_func, g_func_type<float> const dv_func,
-    float const time, dimension<float> const &dim,
-    vector_func<float> const bc_func);
+    g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
+    dimension<float> const &dim, vector_func<float> const bc_func);
 
 template fk::vector<double>
 boundary_conditions::compute_right_boundary_condition(
-    g_func_type<double> const g_func, g_func_type<double> const dv_func,
-    double const time, dimension<double> const &dim,
-    vector_func<double> const bc_func);
+    g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
+    dimension<double> const &dim, vector_func<double> const bc_func);
 template fk::vector<float>
 boundary_conditions::compute_right_boundary_condition(
-    g_func_type<float> const g_func, g_func_type<float> const dv_func,
-    float const time, dimension<float> const &dim,
-    vector_func<float> const bc_func);
+    g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
+    dimension<float> const &dim, vector_func<float> const bc_func);
 
 template std::vector<fk::vector<double>>
 boundary_conditions::generate_partial_bcs(

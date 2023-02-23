@@ -90,8 +90,7 @@ struct dimension_description
       precision const domain_min, precision const domain_max,
       int const grid_level, int const basis_degree,
       std::string const dimension_name,
-      g_func_type<precision> const volume_jacobian_dV =
-          [](precision const, precision const) -> precision { return 1.0; })
+      g_func_type<precision> const volume_jacobian_dV = nullptr)
       : d_min(domain_min), d_max(domain_max), level(grid_level),
         degree(basis_degree), name(dimension_name), jacobian(volume_jacobian_dV)
   {

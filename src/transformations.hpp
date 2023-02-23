@@ -81,7 +81,7 @@ void combine_dimensions(int const degree, elements::table const &table,
 
 template<typename P, typename F>
 fk::vector<P> forward_transform(
-    dimension<P> const &dim, F function, g_func_type<P> const dv_func,
+    dimension<P> const &dim, F function, g_func_type<P> dv_func,
     basis::wavelet_transform<P, resource::host> const &transformer,
     P const t = 0)
 {
@@ -141,11 +141,14 @@ fk::vector<P> forward_transform(
     fk::vector<P> f_here = function(mapped_roots, t);
 
     // apply dv to f(v)
-    std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
-                   f_here.begin(),
-                   [dv_func, t](P &f_elem, P const &x_elem) -> P {
-                     return f_elem * dv_func(x_elem, t);
-                   });
+    if (dv_func)
+    {
+      std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
+                     f_here.begin(),
+                     [dv_func, t](P &f_elem, P const &x_elem) -> P {
+                       return f_elem * dv_func(x_elem, t);
+                     });
+    }
 
     // ensuring function returns vector of appropriate size
     expect(f_here.size() == weights.size());
