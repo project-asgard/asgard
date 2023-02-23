@@ -64,21 +64,14 @@ private:
     return fx;
   }
 
-  static P dV(P const x, P const time)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
       dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
-                   initial_condition_dim_x_0, dV, "x");
+                   initial_condition_dim_x_0, nullptr, "x");
 
   inline static dimension<P> const dim_1 =
       dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
-                   initial_condition_dim_v_0, dV, "v");
+                   initial_condition_dim_v_0, nullptr, "v");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
@@ -176,7 +169,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x > 0.0) ? x : 0.0;
+    return std::max(P{0.0}, x);
   }
 
   inline static const partial_term<P> e1_pterm_x = partial_term<P>(
@@ -212,7 +205,7 @@ private:
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x < 0.0) ? x : 0.0;
+    return std::min(P{0.0}, x);
   }
 
   inline static const partial_term<P> e2_pterm_x = partial_term<P>(
@@ -285,13 +278,6 @@ private:
     return param->value(x, time);
   }
 
-  static P posOne(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
       coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
@@ -307,7 +293,7 @@ private:
               {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
-      coefficient_type::div, posOne, nullptr, flux_type::downwind,
+      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 

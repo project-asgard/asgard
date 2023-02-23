@@ -132,13 +132,6 @@ private:
     ignore(time);
     return -sqrt(1 - std::pow(x, 2));
   }
-  static P g_func_2(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
 
   static P dV_z(P const x, P const time)
   {
