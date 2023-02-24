@@ -106,8 +106,6 @@ template<typename P>
 class partial_term
 {
 public:
-  static P null_scalar_func(P const p) { return p; }
-
   static fk::vector<P> null_vector_func(fk::vector<P> x, P const t = 0)
   {
     ignore(t);
@@ -124,11 +122,11 @@ public:
                boundary_condition const right_in = boundary_condition::neumann,
                homogeneity const left_homo_in    = homogeneity::homogeneous,
                homogeneity const right_homo_in   = homogeneity::homogeneous,
-               std::vector<vector_func<P>> const left_bc_funcs_in = {},
-               scalar_func<P> const left_bc_time_func_in = null_scalar_func,
+               std::vector<vector_func<P>> const left_bc_funcs_in  = {},
+               scalar_func<P> const left_bc_time_func_in           = nullptr,
                std::vector<vector_func<P>> const right_bc_funcs_in = {},
-               scalar_func<P> const right_bc_time_func_in = null_scalar_func,
-               g_func_type<P> const dv_func_in            = nullptr)
+               scalar_func<P> const right_bc_time_func_in          = nullptr,
+               g_func_type<P> const dv_func_in                     = nullptr)
 
       : coeff_type(coeff_type_in), g_func(g_func_in),
         lhs_mass_func(lhs_mass_func_in), flux(set_flux(flux_in)), left(left_in),

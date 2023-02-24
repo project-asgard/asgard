@@ -37,8 +37,8 @@ void generate_all_coefficients(
             coefficient_type::mass, partial_terms[k].lhs_mass_func, nullptr,
             flux_type::central, boundary_condition::periodic,
             boundary_condition::periodic, homogeneity::homogeneous,
-            homogeneity::homogeneous, {}, partial_term<P>::null_scalar_func, {},
-            partial_term<P>::null_scalar_func, dim.volume_jacobian_dV);
+            homogeneity::homogeneous, {}, nullptr, {}, nullptr,
+            dim.volume_jacobian_dV);
 
         auto mass_coeff = generate_coefficients<P>(
             dim, lhs_mass_pterm, transformer, pde.max_level, time, rotate);
@@ -78,9 +78,8 @@ void generate_dimension_mass_mat(
     partial_term<P> const lhs_mass_pterm = partial_term<P>(
         coefficient_type::mass, nullptr, nullptr, flux_type::central,
         boundary_condition::periodic, boundary_condition::periodic,
-        homogeneity::homogeneous, homogeneity::homogeneous, {},
-        partial_term<P>::null_scalar_func, {},
-        partial_term<P>::null_scalar_func, dim.volume_jacobian_dV);
+        homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
+        nullptr, dim.volume_jacobian_dV);
     auto mass_mat = generate_coefficients<P>(dim, lhs_mass_pterm, transformer,
                                              pde.max_level, 0.0, true);
 

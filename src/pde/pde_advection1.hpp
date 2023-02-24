@@ -152,8 +152,8 @@ private:
       {bc_func},                     // left boundary condition function list
       bc_time_func,                  // left boundary time function
       {},                            // right boundary condition function list
-      partial_term<P>::null_scalar_func, // right boundary time function
-      nullptr                            // surface jacobian
+      nullptr,                       // right boundary time function
+      nullptr                        // surface jacobian
   );
 
   inline static term<P> term0_dim0_ =

@@ -136,13 +136,14 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
         if (p_term.left_homo == homogeneity::inhomogeneous)
         {
           fm::axpy(left_bc_parts[term_num][dim_num][left_index++], bc,
-                   p_term.left_bc_time_func(time));
+                   p_term.left_bc_time_func ? p_term.left_bc_time_func(time)
+                                            : time);
         }
-
         if (p_term.right_homo == homogeneity::inhomogeneous)
         {
           fm::axpy(right_bc_parts[term_num][dim_num][right_index++], bc,
-                   p_term.right_bc_time_func(time));
+                   p_term.right_bc_time_func ? p_term.right_bc_time_func(time)
+                                             : time);
         }
       }
     }
