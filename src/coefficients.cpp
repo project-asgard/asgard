@@ -24,7 +24,7 @@ void generate_all_coefficients(
   for (auto i = 0; i < pde.num_dims; ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
-
+    std::vector<int> ipiv(dim.get_degree() * fm::two_raised_to(pde.max_level));
     for (auto j = 0; j < pde.num_terms; ++j)
     {
       auto const &term_1D       = pde.get_terms()[j][i];
@@ -45,8 +45,7 @@ void generate_all_coefficients(
 
         // precompute inv(mass) * coeff for each level up to max level
         std::vector<fk::matrix<P>> pterm_coeffs;
-        std::vector<int> ipiv(dim.get_degree() *
-                              fm::two_raised_to(pde.max_level));
+
         for (int level = 0; level <= pde.max_level; ++level)
         {
           auto result = generate_coefficients<P>(
@@ -60,8 +59,8 @@ void generate_all_coefficients(
           pterm_coeffs.emplace_back(std::move(result));
         }
 
-        pde.set_lhs_mass(j, i, k, mass_coeff);
-        pde.set_partial_coefficients(j, i, k, pterm_coeffs);
+        pde.set_lhs_mass(j, i, k, std::move(mass_coeff));
+        pde.set_partial_coefficients(j, i, k, std::move(pterm_coeffs));
       }
     }
     pde.rechain_dimension(i);

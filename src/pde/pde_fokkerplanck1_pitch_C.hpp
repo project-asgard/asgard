@@ -125,13 +125,6 @@ private:
     ignore(time);
     return 1 - std::pow(x, 2);
   }
-  static P g_func_2(P const x, P const time)
-  {
-    // suppress compiler warnings
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
 
   static P dV_z(P const x, P const time)
   {
@@ -167,14 +160,14 @@ private:
   //    termC_z.BCR2 = 'N';
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_2, nullptr, flux_type::downwind,
+      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous, {},
       partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,
       dV_z);
 
   inline static partial_term<P> const partial_term_1 = partial_term<P>(
-      coefficient_type::grad, g_func_2, nullptr, flux_type::upwind,
+      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::neumann,
       homogeneity::homogeneous, homogeneity::homogeneous, {},
       partial_term<P>::null_scalar_func, {}, partial_term<P>::null_scalar_func,

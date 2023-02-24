@@ -316,12 +316,6 @@ private:
   //
   // div_v(th q)
   // q = \grad_v f
-  static P i3_g1(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
 
   static P i3_g2(P const x, P const time = 0)
   {
@@ -331,7 +325,7 @@ private:
   }
 
   inline static const partial_term<P> i3_pterm_x1 = partial_term<P>(
-      coefficient_type::mass, i3_g1, nullptr, flux_type::central,
+      coefficient_type::mass, nullptr, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> i3_pterm_x2 = partial_term<P>(
@@ -343,26 +337,12 @@ private:
               "I3_x", // name
               {i3_pterm_x1, i3_pterm_x2}, imex_flag::imex_implicit);
 
-  static P i3_g3(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
-  static P i3_g4(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   inline static const partial_term<P> i3_pterm_v1 = partial_term<P>(
-      coefficient_type::div, i3_g3, nullptr, flux_type::central,
+      coefficient_type::div, nullptr, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static const partial_term<P> i3_pterm_v2 = partial_term<P>(
-      coefficient_type::grad, i3_g4, nullptr, flux_type::central,
+      coefficient_type::grad, nullptr, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i3v =

@@ -5,12 +5,6 @@
 using namespace asgard;
 
 template<typename precision>
-struct volume
-{
-  static precision jacobi(precision const, precision const) { return 1.0; }
-};
-
-template<typename precision>
 struct initial
 {
   static fk::vector<precision>
