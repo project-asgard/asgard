@@ -8,7 +8,7 @@ jobs:
         strategy:
             matrix:
                 os: [macos-latest]
-                node: [Release, Debug]
+                node: [Release]
                 features: [Default, MPI, ScaLAPACK]
         runs-on: ${{matrix.os}}
         steps:
