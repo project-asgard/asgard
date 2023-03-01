@@ -397,6 +397,37 @@ combine_dimensions(int const degree, elements::table const &table,
   return combined;
 }
 
+template<typename P>
+fk::vector<P> sum_separable_funcs(
+    std::vector<md_func_type<P>> const &funcs,
+    std::vector<dimension<P>> const &dims,
+    adapt::distributed_grid<P> const &grid,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    int const degree, P const time)
+{
+  auto const my_subgrid = grid.get_subgrid(get_rank());
+  // FIXME assume uniform degree
+  auto const dof = std::pow(degree, dims.size()) * my_subgrid.nrows();
+  fk::vector<P> combined(dof);
+  for (auto const &md_func : funcs)
+  {
+    expect(md_func.size() >= dims.size());
+
+    // calculate the time multiplier if there is an extra function for time
+    // TODO: this is a hack to append a time function.. md_func_type should be a
+    // struct since this last function is technically a scalar_func
+    bool has_time_func      = md_func.size() == dims.size() + 1 ? true : false;
+    P const time_multiplier = has_time_func
+                                  ? md_func.back()(fk::vector<P>(), time)[0]
+                                  : static_cast<P>(1.0);
+    auto const func_vect    = transform_and_combine_dimensions(
+        dims, md_func, grid.get_table(), transformer, my_subgrid.row_start,
+        my_subgrid.row_stop, degree, time, time_multiplier);
+    fm::axpy(func_vect, combined);
+  }
+  return combined;
+}
+
 /* explicit instantiations */
 template fk::matrix<double>
 recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
@@ -492,4 +523,18 @@ template void
 combine_dimensions<double>(int const, elements::table const &, int const,
                            int const, std::vector<fk::vector<double>> const &,
                            double const, fk::vector<double, mem_type::view>);
+
+template fk::vector<float> sum_separable_funcs(
+    std::vector<md_func_type<float>> const &funcs,
+    std::vector<dimension<float>> const &dims,
+    adapt::distributed_grid<float> const &grid,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    int const degree, float const time);
+
+template fk::vector<double> sum_separable_funcs(
+    std::vector<md_func_type<double>> const &funcs,
+    std::vector<dimension<double>> const &dims,
+    adapt::distributed_grid<double> const &grid,
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    int const degree, double const time);
 } // namespace asgard
