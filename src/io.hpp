@@ -64,7 +64,6 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
 {
   std::string const output_file_name =
       output_dataset_name + "_" + std::to_string(file_index) + ".h5";
-  unsigned int vec_size = (unsigned int)vec.size();
 
   auto const dims = pde.get_dimensions();
   // TODO: FIX - assumes levels are const across dims

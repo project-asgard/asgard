@@ -7,7 +7,7 @@ import h5py
 
 import matplotlib.pyplot as plt
 
-def read_data(filename, dataset):
+def plot_from_file(filename, dataset, ax = plt):
     data_file = h5py.File(filename, 'r')
 
     print(data_file)
@@ -18,10 +18,8 @@ def read_data(filename, dataset):
 
     tmp = data_file['soln'][()]
 
-    fig, ax = plt.subplots()
     ax.contourf(nodes, nodes, tmp.reshape((len(nodes), len(nodes))).transpose())
     ax.set_title("t = {}".format(data_file['time'][()]))
-    plt.show()
 
 
 if __name__ == '__main__':
@@ -33,4 +31,7 @@ if __name__ == '__main__':
     if not os.path.exists(input_fname):
         raise RuntimeError("File '{}' does not exist".format(input_fname))
 
-    read_data(input_fname, 'asgard')
+    fig, ax = plt.subplots()
+    plot_from_file(input_fname, 'asgard', ax)
+
+    plt.show()
