@@ -65,7 +65,7 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(use_imex_stepping)["-x"]["--imex"](
           "Use IMEX (implicit-explicit) time advance (vs. explicit or "
           "implicit)") |
-      clara::detail::Opt(memory_limit, "size > 0")["-mem"]["--memory"](
+      clara::detail::Opt(memory_limit, "size > 0")["--memory"](
           "Maximum workspace size in MB that will be resident on an "
           "accelerator") |
       clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
