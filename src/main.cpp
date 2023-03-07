@@ -211,13 +211,16 @@ int main(int argc, char **argv)
 
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
-  // initialize wavelet output
-  auto output_dataset = asgard::initialize_output_file(initial_condition);
-
-  // initialize realspace output
-  auto const realspace_output_name = "asgard_realspace";
-  auto output_dataset_real =
-      asgard::initialize_output_file(real_space, "asgard_realspace");
+  if (cli_input.get_wavelet_output_freq() > 0)
+  {
+    asgard::write_output(*pde, initial_condition, static_cast<prec>(0.0), 0,
+                         "asgard_wavelet");
+  }
+  if (cli_input.get_realspace_output_freq() > 0)
+  {
+    asgard::write_output(*pde, real_space, static_cast<prec>(0.0), 0,
+                         "asgard_real");
+  }
 #endif
 
   // -- time loop

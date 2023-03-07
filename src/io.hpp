@@ -67,7 +67,7 @@ void write_output(PDE<P> const &pde, fk::vector<P> const &vec, P const time,
 
   auto const dims = pde.get_dimensions();
   // TODO: FIX - assumes levels are const across dims
-  static auto const nodes =
+  auto const nodes =
       gen_realspace_nodes(dims[0].get_degree(), dims[0].get_level(),
                           dims[0].domain_min, dims[0].domain_max);
 
