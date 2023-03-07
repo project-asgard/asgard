@@ -213,12 +213,12 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
   if (cli_input.get_wavelet_output_freq() > 0)
   {
-    asgard::write_output(*pde, initial_condition, static_cast<prec>(0.0), 0,
-                         "asgard_wavelet");
+    asgard::write_output(*pde, cli_input, initial_condition,
+                         static_cast<prec>(0.0), 0, "asgard_wavelet");
   }
   if (cli_input.get_realspace_output_freq() > 0)
   {
-    asgard::write_output(*pde, real_space, static_cast<prec>(0.0), 0,
+    asgard::write_output(*pde, cli_input, real_space, static_cast<prec>(0.0), 0,
                          "asgard_real");
   }
 #endif
