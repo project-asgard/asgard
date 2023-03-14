@@ -506,10 +506,10 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
     pde.E_field = poisson_E;
 
-    P const max_E = *std::max_element(poisson_E.begin(), poisson_E.end(),
-                                      [](const P &x_v, const P &y_v) {
-                                        return std::abs(x_v) < std::abs(y_v);
-                                      });
+    P const max_E = std::abs(*std::max_element(
+        poisson_E.begin(), poisson_E.end(), [](const P &x_v, const P &y_v) {
+          return std::abs(x_v) < std::abs(y_v);
+        }));
 
     param_manager.get_parameter("MaxAbsE")->value =
         [max_E](P const x_v, P const t = 0) -> P {
