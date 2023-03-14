@@ -31,7 +31,7 @@ public:
 private:
   static int constexpr num_dims_          = 2;
   static int constexpr num_sources_       = 0;
-  static int constexpr num_terms_         = 5;
+  static int constexpr num_terms_         = 4;
   static bool constexpr do_poisson_solve_ = true;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = false;
@@ -267,7 +267,7 @@ private:
 
   inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
 
-  // Term 4 + 5
+  // Term 4
   // Penalty Part of E\cdot\grad_v f
   //
 
@@ -282,35 +282,27 @@ private:
       coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const MaxAbsE_mass_x_1 =
+  inline static term<P> const MaxAbsE_mass_x =
       term<P>(true, // time-dependent
               "",   // name
               {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
-  inline static term<P> const MaxAbsE_mass_x_2 =
-      term<P>(true, // time-dependent
-              "",   // name
-              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
-
-  inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
+  inline static const partial_term<P> e_penalty_pterm = partial_term<P>(
+      coefficient_type::penalty, nullptr, nullptr, flux_type::downwind,
+      boundary_condition::neumann, boundary_condition::neumann,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
-  inline static term<P> const div_v_downwind =
+  inline static term<P> const e_penalty =
       term<P>(false, // time-dependent
               "",    // name
-              {pterm_div_v_downwind}, imex_flag::imex_explicit);
+              {e_penalty_pterm}, imex_flag::imex_explicit);
 
   // Central Part Defined Above (div_v; can do this due to time independence)
 
-  inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x_1,
-                                                      div_v_downwind};
+  inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x,
+                                                      e_penalty};
 
-  inline static std::vector<term<P>> const terms_5 = {MaxAbsE_mass_x_2, div_v};
-
-  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4,
-                                            terms_5};
+  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
   inline static scalar_func<P> const exact_scalar_func_               = {};
