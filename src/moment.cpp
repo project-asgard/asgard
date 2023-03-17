@@ -20,6 +20,7 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
   auto const &dims     = pde.get_dimensions();
   std::size_t num_dims = dims.size();
 
+  this->fList.clear();
   this->fList.resize(num_md_funcs);
 
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
@@ -38,19 +39,20 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
 // Actually contstructs the moment vector using fList.
 // Calculate only if adapt is true or the vector field is empty
 template<typename P>
-void moment<P>::createMomentVector(PDE<P> const &pde, parser const &opts,
+void moment<P>::createMomentVector(PDE<P> const &pde, options const &opts,
                                    elements::table const &hash_table)
 {
   // check that fList has been constructed
   expect(this->fList.size() > 0);
 
-  if (this->vector.empty() || opts.do_adapt_levels())
+  if (this->vector.empty() || opts.do_adapt_levels)
   {
     distribution_plan const plan = get_plan(get_num_ranks(), hash_table);
     auto rank                    = get_rank();
     int const degree             = pde.get_dimensions()[0].get_degree();
     auto tmp = combine_dimensions(degree, hash_table, plan.at(rank).row_start,
                                   plan.at(rank).row_stop, this->fList[0]);
+    this->vector = fk::vector<P>();
     this->vector.resize(tmp.size());
     this->vector      = std::move(tmp);
     auto num_md_funcs = md_funcs.size();

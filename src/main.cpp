@@ -129,7 +129,7 @@ int main(int argc, char **argv)
     m.createFlist(*pde, opts);
     expect(m.get_fList().size() > 0);
 
-    m.createMomentVector(*pde, cli_input, adaptive_grid.get_table());
+    m.createMomentVector(*pde, opts, adaptive_grid.get_table());
     expect(m.get_vector().size() > 0);
   }
 
@@ -213,12 +213,13 @@ int main(int argc, char **argv)
   if (cli_input.get_wavelet_output_freq() > 0)
   {
     asgard::write_output(*pde, cli_input, initial_condition,
-                         static_cast<prec>(0.0), 0, "asgard_wavelet");
+                         static_cast<prec>(0.0), 0, initial_condition.size(),
+                         "asgard_wavelet");
   }
   if (cli_input.get_realspace_output_freq() > 0)
   {
     asgard::write_output(*pde, cli_input, real_space, static_cast<prec>(0.0), 0,
-                         "asgard_real");
+                         initial_condition.size(), "asgard_real");
   }
 #endif
 
@@ -323,13 +324,13 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.should_output_wavelet(i))
     {
-      asgard::write_output(*pde, cli_input, f_val, time, i + 1,
+      asgard::write_output(*pde, cli_input, f_val, time, i + 1, f_val.size(),
                            "asgard_wavelet");
     }
     if (opts.should_output_realspace(i))
     {
       asgard::write_output(*pde, cli_input, real_space, time, i + 1,
-                           "asgard_real");
+                           f_val.size(), "asgard_real");
     }
 #endif
 

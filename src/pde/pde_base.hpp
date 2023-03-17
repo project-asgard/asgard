@@ -198,6 +198,16 @@ public:
     }
   }
 
+  void set_coefficients(fk::matrix<P> const &&new_coefficients, int const level)
+  {
+    // set the coefficients at the given level
+    expect(coefficients_.size() > static_cast<size_t>(level));
+    // coefficients_[level] = std::move(new_coefficients);
+    this->coefficients_[level].clear_and_resize(new_coefficients.nrows(),
+                                                new_coefficients.ncols()) =
+        std::move(new_coefficients);
+  }
+
   void set_coefficients(std::vector<fk::matrix<P>> const &new_coefficients)
   {
     expect(new_coefficients.size() > 0);
@@ -272,12 +282,14 @@ public:
         new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
   }
 
-  void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm,
+  void set_partial_coefficients(fk::matrix<P> const &&coeffs, int const pterm,
                                 int const deg, int const max_lev)
   {
     expect(pterm >= 0);
     expect(pterm < static_cast<int>(partial_terms_.size()));
-    partial_terms_[pterm].set_coefficients(coeffs, deg, max_lev);
+    ignore(deg);
+    // partial_terms_[pterm].set_coefficients(coeffs, deg, max_lev);
+    partial_terms_[pterm].set_coefficients(std::move(coeffs), max_lev);
   }
 
   void set_partial_coefficients(std::vector<fk::matrix<P>> const &coeffs,
@@ -639,6 +651,30 @@ public:
     }
 
     gmres_outputs.resize(cli_input.using_imex() ? 2 : 1);
+
+    // hack to preallocate empty matrix for pterm coefficients for adapt
+    // if (cli_input.do_adapt_levels()) {
+    for (auto i = 0; i < num_dims; ++i)
+    {
+      auto const &dim = this->get_dimensions()[i];
+      for (auto j = 0; j < num_terms; ++j)
+      {
+        auto const &term_1D       = this->get_terms()[j][i];
+        auto const &partial_terms = term_1D.get_partial_terms();
+        for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
+        {
+          std::vector<fk::matrix<P>> pterm_coeffs;
+          for (int level = 0; level <= max_level; ++level)
+          {
+            auto const dof = dim.get_degree() * fm::two_raised_to(max_level);
+            fk::matrix<P> result_tmp = eye<P>(dof);
+            pterm_coeffs.emplace_back(std::move(result_tmp));
+          }
+          this->set_partial_coefficients(j, i, k, std::move(pterm_coeffs));
+        }
+      }
+    }
+    //}
   }
 
   constexpr static int extract_dim0 = 1;
@@ -712,14 +748,15 @@ public:
   }
 
   void set_partial_coefficients(int const term, int const dim, int const pterm,
-                                fk::matrix<P> const &coeffs)
+                                fk::matrix<P> const &&coeffs)
   {
     expect(term >= 0);
     expect(term < num_terms);
     expect(dim >= 0);
     expect(dim < num_dims);
-    terms_[term][dim].set_partial_coefficients(
-        coeffs, pterm, dimensions_[dim].get_degree(), max_level);
+    terms_[term][dim].set_partial_coefficients(std::move(coeffs), pterm,
+                                               dimensions_[dim].get_degree(),
+                                               dimensions_[dim].get_level());
   }
 
   void set_partial_coefficients(int const term, int const dim, int const pterm,
