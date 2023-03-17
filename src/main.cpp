@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
-  auto const dense_size = asgard::dense_space_size(*pde);
+  auto dense_size = asgard::dense_space_size(*pde);
   asgard::fk::vector<prec> real_space(dense_size);
 
   // temporary workspaces for the transform
@@ -310,6 +310,7 @@ int main(int argc, char **argv)
     if (opts.should_output_realspace(i) || opts.should_plot(i))
     {
       // resize transform workspaces if grid size changed due to adaptivity
+      dense_size          = asgard::dense_space_size(*pde);
       auto transform_wksp = asgard::update_transform_workspace<prec>(
           dense_size, workspace, tmp_workspace);
       real_space.resize(dense_size);

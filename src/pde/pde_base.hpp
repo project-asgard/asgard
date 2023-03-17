@@ -666,7 +666,7 @@ public:
           std::vector<fk::matrix<P>> pterm_coeffs;
           for (int level = 0; level <= max_level; ++level)
           {
-            auto const dof = dim.get_degree() * fm::two_raised_to(max_level);
+            auto const dof = dim.get_degree() * fm::two_raised_to(level);
             fk::matrix<P> result_tmp = eye<P>(dof);
             pterm_coeffs.emplace_back(std::move(result_tmp));
           }
