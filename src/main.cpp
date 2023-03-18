@@ -214,12 +214,13 @@ int main(int argc, char **argv)
   {
     asgard::write_output(*pde, cli_input, initial_condition,
                          static_cast<prec>(0.0), 0, initial_condition.size(),
-                         "asgard_wavelet");
+                         adaptive_grid.get_table(), "asgard_wavelet");
   }
   if (cli_input.get_realspace_output_freq() > 0)
   {
     asgard::write_output(*pde, cli_input, real_space, static_cast<prec>(0.0), 0,
-                         initial_condition.size(), "asgard_real");
+                         initial_condition.size(), adaptive_grid.get_table(),
+                         "asgard_real");
   }
 #endif
 
@@ -313,7 +314,8 @@ int main(int argc, char **argv)
       dense_size          = asgard::dense_space_size(*pde);
       auto transform_wksp = asgard::update_transform_workspace<prec>(
           dense_size, workspace, tmp_workspace);
-      real_space.resize(dense_size);
+      // real_space.resize(dense_size);
+      real_space = asgard::fk::vector<prec>(dense_size);
 
       asgard::wavelet_to_realspace<prec>(*pde, f_val, adaptive_grid.get_table(),
                                          transformer, transform_wksp,
@@ -326,12 +328,13 @@ int main(int argc, char **argv)
     if (opts.should_output_wavelet(i))
     {
       asgard::write_output(*pde, cli_input, f_val, time, i + 1, f_val.size(),
-                           "asgard_wavelet");
+                           adaptive_grid.get_table(), "asgard_wavelet");
     }
     if (opts.should_output_realspace(i))
     {
       asgard::write_output(*pde, cli_input, real_space, time, i + 1,
-                           f_val.size(), "asgard_real");
+                           f_val.size(), adaptive_grid.get_table(),
+                           "asgard_real");
     }
 #endif
 

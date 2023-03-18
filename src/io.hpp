@@ -93,7 +93,7 @@ void generate_initial_moments(
 template<typename P>
 void write_output(PDE<P> const &pde, parser const &cli_input,
                   fk::vector<P> const &vec, P const time, int const file_index,
-                  int const dof,
+                  int const dof, elements::table const &hash_table,
                   std::string const output_dataset_name = "asgard")
 {
   tools::timer.start("write_output");
@@ -129,6 +129,9 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_max",
                  dims[dim].domain_max);
   }
+
+  H5Easy::dump(file, "elements",
+               hash_table.get_active_table().clone_onto_host().to_std());
 
   H5Easy::dump(file, "soln", vec.to_std(), opts);
 
