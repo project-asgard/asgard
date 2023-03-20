@@ -119,21 +119,22 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
     return;
   }
 
-  auto const degree          = 3;
-  auto const level           = 4;
-  auto const pde_choice      = PDE_opts::continuity_1;
-  auto const num_dims        = 1;
-  auto const cfl             = parser::DEFAULT_CFL;
-  auto const use_full_grid   = parser::DEFAULT_USE_FG;
-  auto const max_level       = parser::DEFAULT_MAX_LEVEL;
-  auto const num_steps       = parser::DEFAULT_TIME_STEPS;
-  auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = adapt_thresh;
+  auto const degree           = 3;
+  auto const level            = 4;
+  auto const pde_choice       = PDE_opts::continuity_1;
+  auto const num_dims         = 1;
+  auto const cfl              = parser::DEFAULT_CFL;
+  auto const use_full_grid    = parser::DEFAULT_USE_FG;
+  auto const max_level        = parser::DEFAULT_MAX_LEVEL;
+  auto const mixed_grid_group = -1;
+  auto const num_steps        = parser::DEFAULT_TIME_STEPS;
+  auto const use_implicit     = parser::DEFAULT_USE_IMPLICIT;
+  auto const do_adapt_levels  = parser::DEFAULT_DO_ADAPT;
+  auto const adapt_threshold  = adapt_thresh;
   parser const parse(pde_choice,
                      fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     cfl, use_full_grid, max_level, num_steps, use_implicit,
-                     do_adapt_levels, adapt_threshold);
+                     cfl, use_full_grid, max_level, mixed_grid_group, num_steps,
+                     use_implicit, do_adapt_levels, adapt_threshold);
 
   test_adapt<TestType>(parse, adapt_base_dir / "continuity1_l4_d3_");
 }
@@ -144,21 +145,22 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
   {
     return;
   }
-  auto const degree          = 2;
-  auto const level           = 5;
-  auto const pde_choice      = PDE_opts::continuity_2;
-  auto const num_dims        = 2;
-  auto const cfl             = parser::DEFAULT_CFL;
-  auto const use_full_grid   = parser::DEFAULT_USE_FG;
-  auto const max_level       = parser::DEFAULT_MAX_LEVEL;
-  auto const num_steps       = parser::DEFAULT_TIME_STEPS;
-  auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = adapt_thresh;
+  auto const degree           = 2;
+  auto const level            = 5;
+  auto const pde_choice       = PDE_opts::continuity_2;
+  auto const num_dims         = 2;
+  auto const cfl              = parser::DEFAULT_CFL;
+  auto const use_full_grid    = parser::DEFAULT_USE_FG;
+  auto const max_level        = parser::DEFAULT_MAX_LEVEL;
+  auto const mixed_grid_group = -1;
+  auto const num_steps        = parser::DEFAULT_TIME_STEPS;
+  auto const use_implicit     = parser::DEFAULT_USE_IMPLICIT;
+  auto const do_adapt_levels  = parser::DEFAULT_DO_ADAPT;
+  auto const adapt_threshold  = adapt_thresh;
   parser const parse(pde_choice,
                      fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     cfl, use_full_grid, max_level, num_steps, use_implicit,
-                     do_adapt_levels, adapt_threshold);
+                     cfl, use_full_grid, max_level, mixed_grid_group, num_steps,
+                     use_implicit, do_adapt_levels, adapt_threshold);
 
   // temporarily disable test for MPI due to table elements < num ranks
   if (get_num_ranks() == 1)
@@ -174,21 +176,22 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
   {
     return;
   }
-  auto const degree          = 4;
-  auto const level           = 4;
-  auto const pde_choice      = PDE_opts::continuity_3;
-  auto const num_dims        = 3;
-  auto const cfl             = parser::DEFAULT_CFL;
-  auto const use_full_grid   = parser::DEFAULT_USE_FG;
-  auto const max_level       = parser::DEFAULT_MAX_LEVEL;
-  auto const num_steps       = parser::DEFAULT_TIME_STEPS;
-  auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = adapt_thresh;
+  auto const degree           = 4;
+  auto const level            = 4;
+  auto const pde_choice       = PDE_opts::continuity_3;
+  auto const num_dims         = 3;
+  auto const cfl              = parser::DEFAULT_CFL;
+  auto const use_full_grid    = parser::DEFAULT_USE_FG;
+  auto const max_level        = parser::DEFAULT_MAX_LEVEL;
+  auto const mixed_grid_group = -1;
+  auto const num_steps        = parser::DEFAULT_TIME_STEPS;
+  auto const use_implicit     = parser::DEFAULT_USE_IMPLICIT;
+  auto const do_adapt_levels  = parser::DEFAULT_DO_ADAPT;
+  auto const adapt_threshold  = adapt_thresh;
   parser const parse(pde_choice,
                      fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     cfl, use_full_grid, max_level, num_steps, use_implicit,
-                     do_adapt_levels, adapt_threshold);
+                     cfl, use_full_grid, max_level, mixed_grid_group, num_steps,
+                     use_implicit, do_adapt_levels, adapt_threshold);
 
   test_adapt<TestType>(parse, adapt_base_dir / "continuity3_l4_d4_");
 }
@@ -229,21 +232,22 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
 
 TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
 {
-  auto const degree          = 4;
-  auto const level           = 3;
-  auto const pde_choice      = PDE_opts::diffusion_1;
-  auto const num_dims        = 1;
-  auto const cfl             = parser::DEFAULT_CFL;
-  auto const use_full_grid   = parser::DEFAULT_USE_FG;
-  auto const max_level       = parser::DEFAULT_MAX_LEVEL;
-  auto const num_steps       = parser::DEFAULT_TIME_STEPS;
-  auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-  auto const do_adapt_levels = true;
-  auto const adapt_threshold = adapt_thresh;
+  auto const degree           = 4;
+  auto const level            = 3;
+  auto const pde_choice       = PDE_opts::diffusion_1;
+  auto const num_dims         = 1;
+  auto const cfl              = parser::DEFAULT_CFL;
+  auto const use_full_grid    = parser::DEFAULT_USE_FG;
+  auto const max_level        = parser::DEFAULT_MAX_LEVEL;
+  auto const mixed_grid_group = -1;
+  auto const num_steps        = parser::DEFAULT_TIME_STEPS;
+  auto const use_implicit     = parser::DEFAULT_USE_IMPLICIT;
+  auto const do_adapt_levels  = true;
+  auto const adapt_threshold  = adapt_thresh;
   parser const parse(pde_choice,
                      fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     cfl, use_full_grid, max_level, num_steps, use_implicit,
-                     do_adapt_levels, adapt_threshold);
+                     cfl, use_full_grid, max_level, mixed_grid_group, num_steps,
+                     use_implicit, do_adapt_levels, adapt_threshold);
 
   // don't test this in the MPI case -- too small to split table
   if (get_num_ranks() == 1)
@@ -259,21 +263,22 @@ TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", double, float)
   {
     return;
   }
-  auto const degree          = 3;
-  auto const level           = 2;
-  auto const pde_choice      = PDE_opts::diffusion_2;
-  auto const num_dims        = 2;
-  auto const cfl             = parser::DEFAULT_CFL;
-  auto const use_full_grid   = parser::DEFAULT_USE_FG;
-  auto const max_level       = parser::DEFAULT_MAX_LEVEL;
-  auto const num_steps       = parser::DEFAULT_TIME_STEPS;
-  auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-  auto const do_adapt_levels = true;
-  auto const adapt_threshold = adapt_thresh;
+  auto const degree           = 3;
+  auto const level            = 2;
+  auto const pde_choice       = PDE_opts::diffusion_2;
+  auto const num_dims         = 2;
+  auto const cfl              = parser::DEFAULT_CFL;
+  auto const use_full_grid    = parser::DEFAULT_USE_FG;
+  auto const max_level        = parser::DEFAULT_MAX_LEVEL;
+  auto const mixed_grid_group = -1;
+  auto const num_steps        = parser::DEFAULT_TIME_STEPS;
+  auto const use_implicit     = parser::DEFAULT_USE_IMPLICIT;
+  auto const do_adapt_levels  = true;
+  auto const adapt_threshold  = adapt_thresh;
   parser const parse(pde_choice,
                      fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     cfl, use_full_grid, max_level, num_steps, use_implicit,
-                     do_adapt_levels, adapt_threshold);
+                     cfl, use_full_grid, max_level, mixed_grid_group, num_steps,
+                     use_implicit, do_adapt_levels, adapt_threshold);
 
   test_initial<TestType>(parse,
                          adapt_base_dir / "diffusion2_l2_d3_initial.dat");

@@ -53,6 +53,35 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
                         });
 }
 
+fk::matrix<int> get_mix_leqmax_multi(fk::vector<int> const &levels,
+                                     int const num_dims, int const limit,
+                                     int const num_first_group,
+                                     bool const increasing_sum_order)
+{
+  expect(num_dims > 0);
+  expect(levels.size() == num_dims);
+  expect(limit >= 0);
+
+  return select_indexex(num_dims, true, not increasing_sum_order,
+                        [&](std::vector<int> const &index) -> bool {
+                          int level_g1 = 0;
+                          for (int i = 0; i < num_first_group; i++)
+                          {
+                            if (index[i] > levels(i))
+                              return false;
+                            level_g1 += index[i];
+                          }
+                          int level_g2 = 0;
+                          for (int i = num_first_group; i < num_dims; i++)
+                          {
+                            if (index[i] > levels(i))
+                              return false;
+                            level_g2 += index[i];
+                          }
+                          return (std::max(level_g1, level_g2) <= limit);
+                        });
+}
+
 // Given the number of dimensions and a limit, produce n-tuples (n ==
 // 'num_dims') whose elements are non-negative and the max element <= 'limit'
 // (for full grid only). Each tuple becomes a row of the output matrix

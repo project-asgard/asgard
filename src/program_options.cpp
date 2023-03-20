@@ -39,6 +39,11 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(max_level,
                          "integer >= all starting levels")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
+      clara::detail::Opt(
+          mixed_grid_group,
+          "integer < num dimensions")["-mgg"]["--mixed_grid_group"](
+          "Dimension group size for first spars grid in the mixed sparse-dense "
+          "grid") |
       clara::detail::Opt(num_time_steps,
                          "positive integer")["-n"]["--num_steps"](
           "Number of iterations") |
@@ -358,6 +363,7 @@ fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
 fk::vector<int> parser::get_active_terms() const { return active_terms; }
 int parser::get_degree() const { return degree; }
 int parser::get_max_level() const { return max_level; }
+int parser::get_mixed_grid_group() const { return mixed_grid_group; }
 int parser::get_time_steps() const { return num_time_steps; }
 int parser::get_memory_limit() const { return memory_limit; }
 int parser::get_wavelet_output_freq() const { return wavelet_output_freq; }

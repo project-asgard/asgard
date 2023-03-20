@@ -31,7 +31,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
   auto const adapt_threshold      = 0.5e-1;
 
   parser const parse(pde_choice, levels, degree, cfl, full_grid,
-                     parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                     parser::DEFAULT_MAX_LEVEL, -1, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
   auto pde = make_PDE<TestType>(parse);
@@ -68,7 +68,7 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   parser const parse(pde_choice, levels, degree, cfl, full_grid,
-                     parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
+                     parser::DEFAULT_MAX_LEVEL, -1, num_steps, use_implicit,
                      do_adapt_levels, adapt_threshold);
 
   auto pde = make_PDE<TestType>(parse);
