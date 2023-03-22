@@ -42,8 +42,8 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(
           mixed_grid_group,
           "integer < num dimensions")["-mgg"]["--mixed_grid_group"](
-          "Dimension group size for first sparse grid in the mixed sparse-dense "
-          "grid") |
+          "Dimension group size for first sparse grid in the mixed "
+          "sparse-dense grid") |
       clara::detail::Opt(num_time_steps,
                          "positive integer")["-n"]["--num_steps"](
           "Number of iterations") |
