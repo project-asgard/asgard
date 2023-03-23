@@ -41,7 +41,7 @@ parser::parser(int argc, char const *const *argv)
           "Maximum hierarchical levels (resolution) for adaptivity") |
       clara::detail::Opt(
           mixed_grid_group,
-          "integer < num dimensions")["-mgg"]["--mixed_grid_group"](
+          "integer < num dimensions")["--mixed_grid_group"](
           "Dimension group size for first sparse grid in the mixed "
           "sparse-dense grid") |
       clara::detail::Opt(num_time_steps,
@@ -392,6 +392,91 @@ std::string parser::get_ml_session_string() const { return matlab_name; }
 int parser::get_plot_freq() const { return plot_freq; }
 
 bool parser::is_valid() const { return valid; }
+
+void parser_mod::set(parser &p, parser_option_entry entry, int value){
+  switch(entry){
+    case degree:
+      p.degree = value;
+      break;
+    case max_level:
+      p.max_level = value;
+      break;
+    case mixed_grid_group:
+      p.mixed_grid_group = value;
+      break;
+    case num_time_steps:
+      p.num_time_steps = value;
+      break;
+    case wavelet_output_freq:
+      p.wavelet_output_freq = value;
+      break;
+    case realspace_output_freq:
+      p.realspace_output_freq = value;
+      break;
+    case plot_freq:
+      p.plot_freq = value;
+      break;
+    case memory_limit:
+      p.memory_limit = value;
+      break;
+    case gmres_inner_iterations:
+      p.gmres_inner_iterations = value;
+      break;
+    case gmres_outer_iterations:
+      p.gmres_outer_iterations = value;
+      break;
+    default:
+      throw std::runtime_error("Insider parser_mod::set, setting int to non-int entry.");
+  }
+}
+void parser_mod::set(parser &p, parser_option_entry entry, bool value){
+  switch(entry){
+    case use_implicit_stepping:
+      p.use_implicit_stepping = value;
+      break;
+    case use_full_grid:
+      p.use_full_grid = value;
+      break;
+    case do_poisson:
+      p.do_poisson = value;
+      break;
+    case do_adapt:
+      p.do_adapt = value;
+      break;
+    case use_imex_stepping:
+      p.use_imex_stepping = value;
+      break;
+    default:
+      throw std::runtime_error("Insider parser_mod::set, setting bool to non-bool entry.");
+  }
+}
+void parser_mod::set(parser &p, parser_option_entry entry, double value){
+  switch(entry){
+    case cfl:
+      p.cfl = value;
+      break;
+    case dt:
+      p.dt = value;
+      break;
+    case adapt_threshold:
+      p.adapt_threshold = value;
+      break;
+    case gmres_tolerance:
+      p.gmres_tolerance = value;
+      break;
+    default:
+      throw std::runtime_error("Insider parser_mod::set, setting double to non-double entry.");
+  }
+}
+void parser_mod::set(parser &p, parser_option_entry entry, std::string const &value){
+  switch(entry){
+    case solver_str:
+      p.solver_str = value;
+      break;
+    default:
+      throw std::runtime_error("Insider parser_mod::set, setting std::string to non-string entry.");
+  }
+}
 
 bool options::should_output_wavelet(int const i) const
 {

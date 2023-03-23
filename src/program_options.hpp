@@ -165,6 +165,7 @@ public:
   static auto constexpr DEFAULT_CFL               = 0.01;
   static auto constexpr DEFAULT_ADAPT_THRESH      = 1e-3;
   static auto constexpr DEFAULT_MAX_LEVEL         = 8;
+  static auto constexpr DEFAULT_MIXED_GRID_GROUP  = -1;
   static auto constexpr DEFAULT_TIME_STEPS        = 10;
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
   static auto constexpr DEFAULT_PLOT_FREQ         = 1;
@@ -192,7 +193,7 @@ public:
       int const degree_in = NO_USER_VALUE, double const cfl_in = DEFAULT_CFL,
       bool const use_full_grid_in          = DEFAULT_USE_FG,
       int const max_level_in               = DEFAULT_MAX_LEVEL,
-      int const mixed_grid_group_in        = -1,
+      int const mixed_grid_group_in        = DEFAULT_MIXED_GRID_GROUP,
       int const num_steps                  = DEFAULT_TIME_STEPS,
       bool const use_implicit              = DEFAULT_USE_IMPLICIT,
       bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
@@ -219,7 +220,7 @@ public:
       int const degree_in = NO_USER_VALUE, double const cfl_in = DEFAULT_CFL,
       bool const use_full_grid_in          = DEFAULT_USE_FG,
       int const max_level_in               = DEFAULT_MAX_LEVEL,
-      int const mixed_grid_group_in        = -1,
+      int const mixed_grid_group_in        = DEFAULT_MIXED_GRID_GROUP,
       int const num_steps                  = DEFAULT_TIME_STEPS,
       bool const use_implicit              = DEFAULT_USE_IMPLICIT,
       bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
@@ -236,6 +237,10 @@ public:
                adapt_threshold_in, solver_str_in, use_imex, memory_limit_in,
                gmres_tolerance_in, gmres_inner_iterations_in,
                gmres_outer_iterations_in){};
+  /*!
+   * \brief Simple utility to modify private members of the parser.
+   */
+  friend struct parser_mod;
 
   bool using_implicit() const;
   bool using_imex() const;
@@ -325,7 +330,7 @@ private:
   // max adaptivity level for any given dimension.
   int max_level = DEFAULT_MAX_LEVEL;
   // number of dimensions to use for the tensor groups in mixed grid
-  int mixed_grid_group = -1;
+  int mixed_grid_group = DEFAULT_MIXED_GRID_GROUP;
   // number of time loop iterations
   int num_time_steps = DEFAULT_TIME_STEPS;
   // write wavelet space output every this many iterations
@@ -367,6 +372,25 @@ private:
 
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
+};
+
+struct parser_mod{
+  enum parser_option_entry{
+    // int values
+    degree, max_level, mixed_grid_group, num_time_steps,
+    wavelet_output_freq, realspace_output_freq, plot_freq,
+    memory_limit, gmres_inner_iterations, gmres_outer_iterations,
+    // bool values
+    use_implicit_stepping, use_full_grid, do_poisson, do_adapt, use_imex_stepping,
+    // double values
+    cfl, dt, adapt_threshold, gmres_tolerance,
+    // string
+    solver_str
+  };
+  static void set(parser &p, parser_option_entry entry, int value);
+  static void set(parser &p, parser_option_entry entry, bool value);
+  static void set(parser &p, parser_option_entry entry, double value);
+  static void set(parser &p, parser_option_entry entry, std::string const &value);
 };
 
 // simple class to hold non-pde user options
