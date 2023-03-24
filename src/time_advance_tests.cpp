@@ -136,6 +136,15 @@ parser make_basic_parser(std::string const &pde_choice,
                          fk::vector<int> starting_levels,
                          int const degree, double const cfl,
                          bool full_grid, int const num_time_steps,
+                         bool use_implicit, std::string const &solver_str){
+  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps, use_implicit);
+  parser_mod::set(parse, parser_mod::solver_str, solver_str);
+  return parse;
+}
+parser make_basic_parser(std::string const &pde_choice,
+                         fk::vector<int> starting_levels,
+                         int const degree, double const cfl,
+                         bool full_grid, int const num_time_steps,
                          bool use_implicit, bool do_adapt_levels, double adapt_threshold){
   parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps, use_implicit);
   parser_mod::set(parse, parser_mod::do_adapt,              do_adapt_levels);
@@ -261,10 +270,10 @@ TEST_CASE("adaptive time advance")
       time_advance_test(parse, gold_base, tol_factor);
     }
 #ifdef ASGARD_USE_SCALAPACK
-    auto const solver_str = std::string_view("scalapack");
+    auto const solver_str = std::string("scalapack");
 
-    parser const parse_scalapack(pde_choice, levels, degree, cfl, full_grid,
-                                 parser::DEFAULT_MAX_LEVEL, -1, num_steps,
+    parser const parse_scalapack = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
+                                num_steps,
                                  use_implicit, do_adapt_levels, adapt_threshold,
                                  solver_str);
 
@@ -773,11 +782,8 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   std::string pde_choice = "fokkerplanck_2d_complete_case4";
   auto const num_dims    = 2;
   auto const implicit    = true;
-#ifdef ASGARD_USE_SCALAPACK
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = parser::DEFAULT_ADAPT_THRESH;
-  auto const solver_str      = std::string_view("scalapack");
-#endif
+  auto const solver_str = std::string("scalapack");
+
   SECTION("fokkerplanck_2d_complete_case4, level 3, degree 3, sparse grid")
   {
     int const level           = 3;
@@ -794,10 +800,10 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        std::string("scalapack"));
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -819,10 +825,10 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -845,10 +851,10 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     time_advance_test(parse, gold_base, tol_factor);
 
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -871,9 +877,10 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
-        pde_choice, levels, degree, cfl, full_grid, parser::DEFAULT_MAX_LEVEL,
-        -1, num_steps, implicit, do_adapt_levels, adapt_threshold, solver_str);
+    parser const parse_scalapack = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid,
+        num_steps, implicit, solver_str);
+
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 
 #endif
@@ -894,11 +901,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 
   auto const num_dims = 1;
   auto const implicit = true;
-#ifdef ASGARD_USE_SCALAPACK
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = parser::DEFAULT_ADAPT_THRESH;
-  auto const solver_str      = std::string_view("scalapack");
-#endif
+
   SECTION("diffusion1, implicit, sparse grid, level 4, degree 4")
   {
     int const degree = 4;
@@ -913,10 +916,9 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit, std::string("scalapack"));
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 
@@ -939,9 +941,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
   auto const num_dims = 2;
   auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = parser::DEFAULT_ADAPT_THRESH;
-  auto const solver_str      = std::string_view("scalapack");
+  auto const solver_str      = std::string("scalapack");
 #endif
 
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 3")
@@ -958,10 +958,10 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -981,10 +981,10 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1004,10 +1004,9 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1028,9 +1027,9 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
-        pde_choice, levels, degree, cfl, full_grid, parser::DEFAULT_MAX_LEVEL,
-        -1, num_steps, implicit, do_adapt_levels, adapt_threshold, solver_str);
+    parser const parse_scalapack = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid,
+        num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1052,9 +1051,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
   auto const num_dims = 1;
   auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = parser::DEFAULT_ADAPT_THRESH;
-  auto const solver_str      = std::string_view("scalapack");
+  auto const solver_str      = std::string("scalapack");
 #endif
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
@@ -1070,10 +1067,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1094,10 +1091,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1117,10 +1114,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1142,9 +1139,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
   auto const num_dims = 2;
   auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const do_adapt_levels = parser::DEFAULT_DO_ADAPT;
-  auto const adapt_threshold = parser::DEFAULT_ADAPT_THRESH;
-  auto const solver_str      = std::string_view("scalapack");
+  auto const solver_str      = std::string("scalapack");
 #endif
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
@@ -1161,10 +1156,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1185,10 +1180,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1209,10 +1204,10 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
     time_advance_test(parse, continuity2_base_dir, temp_tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
+    parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        cfl, full_grid, num_steps, implicit,
+        solver_str);
 
     time_advance_test(parse_scalapack, continuity2_base_dir, temp_tol_factor);
 #endif
@@ -1231,9 +1226,9 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack(
-        pde_choice, levels, degree, cfl, full_grid, parser::DEFAULT_MAX_LEVEL,
-        -1, num_steps, implicit, do_adapt_levels, adapt_threshold, solver_str);
+    parser const parse_scalapack = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid,
+        num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
