@@ -247,6 +247,19 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
 
 /*!
  * \ingroup permuts
+ * \brief Splits the dimensions in two groups, uses sparse grid within the group, but full grid between the groups.
+ *
+ * The two groups are 0 ... num_first_group -1 and num_first_group ... num_dims
+ * - 1. Sparse grid selection is used within each group, but the two groups are
+ * tensored.
+ */
+fk::matrix<int> get_mix_leqmax_multi(fk::vector<int> const &levels,
+                                     int const num_dims, int const limit,
+                                     int const num_first_group,
+                                     bool const increasing_sum_order);
+
+/*!
+ * \ingroup permuts
  * \brief Generates multi-indexes for a full/dense grid.
  *
  * \param num_dims is dimensions of the multi-indexes

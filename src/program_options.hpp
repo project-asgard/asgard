@@ -165,6 +165,7 @@ public:
   static auto constexpr DEFAULT_CFL               = 0.01;
   static auto constexpr DEFAULT_ADAPT_THRESH      = 1e-3;
   static auto constexpr DEFAULT_MAX_LEVEL         = 8;
+  static auto constexpr DEFAULT_MIXED_GRID_GROUP  = -1;
   static auto constexpr DEFAULT_TIME_STEPS        = 10;
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
   static auto constexpr DEFAULT_PLOT_FREQ         = 1;
@@ -192,6 +193,7 @@ public:
       int const degree_in = NO_USER_VALUE, double const cfl_in = DEFAULT_CFL,
       bool const use_full_grid_in          = DEFAULT_USE_FG,
       int const max_level_in               = DEFAULT_MAX_LEVEL,
+      int const mixed_grid_group_in        = DEFAULT_MIXED_GRID_GROUP,
       int const num_steps                  = DEFAULT_TIME_STEPS,
       bool const use_implicit              = DEFAULT_USE_IMPLICIT,
       bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
@@ -204,7 +206,8 @@ public:
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
         do_adapt(do_adapt_levels), starting_levels(starting_levels_in),
-        degree(degree_in), max_level(max_level_in), num_time_steps(num_steps),
+        degree(degree_in), max_level(max_level_in),
+        mixed_grid_group(mixed_grid_group_in), num_time_steps(num_steps),
         cfl(cfl_in), adapt_threshold(adapt_threshold_in),
         pde_choice(pde_choice_in), solver_str(solver_str_in),
         solver(solver_mapping.at(solver_str_in)), use_imex_stepping(use_imex),
@@ -217,6 +220,7 @@ public:
       int const degree_in = NO_USER_VALUE, double const cfl_in = DEFAULT_CFL,
       bool const use_full_grid_in          = DEFAULT_USE_FG,
       int const max_level_in               = DEFAULT_MAX_LEVEL,
+      int const mixed_grid_group_in        = DEFAULT_MIXED_GRID_GROUP,
       int const num_steps                  = DEFAULT_TIME_STEPS,
       bool const use_implicit              = DEFAULT_USE_IMPLICIT,
       bool const do_adapt_levels           = DEFAULT_DO_ADAPT,
@@ -228,10 +232,15 @@ public:
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS)
       : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
-               degree_in, cfl_in, use_full_grid_in, max_level_in, num_steps,
-               use_implicit, do_adapt_levels, adapt_threshold_in, solver_str_in,
-               use_imex, memory_limit_in, gmres_tolerance_in,
-               gmres_inner_iterations_in, gmres_outer_iterations_in){};
+               degree_in, cfl_in, use_full_grid_in, max_level_in,
+               mixed_grid_group_in, num_steps, use_implicit, do_adapt_levels,
+               adapt_threshold_in, solver_str_in, use_imex, memory_limit_in,
+               gmres_tolerance_in, gmres_inner_iterations_in,
+               gmres_outer_iterations_in){};
+  /*!
+   * \brief Simple utility to modify private members of the parser.
+   */
+  friend struct parser_mod;
 
   bool using_implicit() const;
   bool using_imex() const;
@@ -244,6 +253,7 @@ public:
 
   int get_degree() const;
   int get_max_level() const;
+  int get_mixed_grid_group() const;
   int get_time_steps() const;
   int get_memory_limit() const;
   int get_gmres_inner_iterations() const;
@@ -319,6 +329,8 @@ private:
   int degree = NO_USER_VALUE;
   // max adaptivity level for any given dimension.
   int max_level = DEFAULT_MAX_LEVEL;
+  // number of dimensions to use for the tensor groups in mixed grid
+  int mixed_grid_group = DEFAULT_MIXED_GRID_GROUP;
   // number of time loop iterations
   int num_time_steps = DEFAULT_TIME_STEPS;
   // write wavelet space output every this many iterations
@@ -362,6 +374,42 @@ private:
   bool valid = true;
 };
 
+struct parser_mod
+{
+  enum parser_option_entry
+  {
+    // int values
+    degree,
+    max_level,
+    mixed_grid_group,
+    num_time_steps,
+    wavelet_output_freq,
+    realspace_output_freq,
+    plot_freq,
+    memory_limit,
+    gmres_inner_iterations,
+    gmres_outer_iterations,
+    // bool values
+    use_implicit_stepping,
+    use_full_grid,
+    do_poisson,
+    do_adapt,
+    use_imex_stepping,
+    // double values
+    cfl,
+    dt,
+    adapt_threshold,
+    gmres_tolerance,
+    // string
+    solver_str
+  };
+  static void set(parser &p, parser_option_entry entry, int value);
+  static void set(parser &p, parser_option_entry entry, bool value);
+  static void set(parser &p, parser_option_entry entry, double value);
+  static void
+  set(parser &p, parser_option_entry entry, std::string const &value);
+};
+
 // simple class to hold non-pde user options
 class options
 {
@@ -371,6 +419,7 @@ public:
         adapt_threshold(user_vals.get_adapt_thresh()),
         gmres_tolerance(user_vals.get_gmres_tolerance()),
         max_level(user_vals.get_max_level()),
+        mixed_grid_group(user_vals.get_mixed_grid_group()),
         num_time_steps(user_vals.get_time_steps()),
         wavelet_output_freq(user_vals.get_wavelet_output_freq()),
         realspace_output_freq(user_vals.get_realspace_output_freq()),
@@ -395,6 +444,7 @@ public:
   double const gmres_tolerance;
 
   int const max_level;
+  int const mixed_grid_group;
   int const num_time_steps;
   int const wavelet_output_freq;
   int const realspace_output_freq;

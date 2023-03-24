@@ -258,11 +258,18 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
                    [](auto const &dim) { return dim.get_level(); });
 
     auto const sort = false;
-    return opts.use_full_grid
-               ? permutations::get_max_multi(levels, dims.size(), sort)
-               : permutations::get_lequal_multi(
-                     levels, dims.size(),
-                     *std::max_element(levels.begin(), levels.end()), sort);
+    if (opts.use_full_grid) // using full grid
+      return permutations::get_max_multi(levels, dims.size(), sort);
+
+    if (opts.mixed_grid_group > 0)
+      return permutations::get_mix_leqmax_multi(
+          levels, dims.size(), *std::max_element(levels.begin(), levels.end()),
+          opts.mixed_grid_group, sort);
+
+    // default is a simple sparse grid
+    return permutations::get_lequal_multi(
+        levels, dims.size(), *std::max_element(levels.begin(), levels.end()),
+        sort);
   }();
 
   fk::vector<int> dev_table_builder;

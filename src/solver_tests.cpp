@@ -21,12 +21,9 @@ parser get_parser(PDE_opts const pde_choice,
                   fk::vector<int> const &starting_levels, int const degree,
                   int const memory_limit)
 {
-  return parser(pde_choice, starting_levels, degree, parser::DEFAULT_CFL,
-                parser::DEFAULT_USE_FG, parser::DEFAULT_MAX_LEVEL,
-                parser::DEFAULT_TIME_STEPS, parser::DEFAULT_USE_IMPLICIT,
-                parser::DEFAULT_DO_ADAPT, parser::DEFAULT_ADAPT_THRESH,
-                parser::DEFAULT_SOLVER_STR, parser::DEFAULT_USE_IMEX,
-                memory_limit);
+  parser parse(pde_choice, starting_levels, degree);
+  parser_mod::set(parse, parser_mod::memory_limit, memory_limit);
+  return parse;
 }
 template<typename P>
 void test_kronmult(parser const &parse, P const tol_factor)
