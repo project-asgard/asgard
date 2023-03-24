@@ -374,23 +374,40 @@ private:
   bool valid = true;
 };
 
-struct parser_mod{
-  enum parser_option_entry{
+struct parser_mod
+{
+  enum parser_option_entry
+  {
     // int values
-    degree, max_level, mixed_grid_group, num_time_steps,
-    wavelet_output_freq, realspace_output_freq, plot_freq,
-    memory_limit, gmres_inner_iterations, gmres_outer_iterations,
+    degree,
+    max_level,
+    mixed_grid_group,
+    num_time_steps,
+    wavelet_output_freq,
+    realspace_output_freq,
+    plot_freq,
+    memory_limit,
+    gmres_inner_iterations,
+    gmres_outer_iterations,
     // bool values
-    use_implicit_stepping, use_full_grid, do_poisson, do_adapt, use_imex_stepping,
+    use_implicit_stepping,
+    use_full_grid,
+    do_poisson,
+    do_adapt,
+    use_imex_stepping,
     // double values
-    cfl, dt, adapt_threshold, gmres_tolerance,
+    cfl,
+    dt,
+    adapt_threshold,
+    gmres_tolerance,
     // string
     solver_str
   };
   static void set(parser &p, parser_option_entry entry, int value);
   static void set(parser &p, parser_option_entry entry, bool value);
   static void set(parser &p, parser_option_entry entry, double value);
-  static void set(parser &p, parser_option_entry entry, std::string const &value);
+  static void
+  set(parser &p, parser_option_entry entry, std::string const &value);
 };
 
 // simple class to hold non-pde user options

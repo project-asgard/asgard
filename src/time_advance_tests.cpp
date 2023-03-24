@@ -114,52 +114,63 @@ static std::string get_level_string(fk::vector<int> const &levels)
 
 // The parser is constructed in one of 5 patterns,
 // each is covered by a make method.
-// All defaults are assumed automatically, only the adjusted variables are modified.
+// All defaults are assumed automatically, only the adjusted variables are
+// modified.
 parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels,
-                         int const degree, double const cfl,
-                         bool full_grid, int const num_time_steps){
+                         fk::vector<int> starting_levels, int const degree,
+                         double const cfl, bool full_grid,
+                         int const num_time_steps)
+{
   parser parse(pde_choice, starting_levels);
-  parser_mod::set(parse, parser_mod::degree,         degree);
-  parser_mod::set(parse, parser_mod::use_full_grid,  full_grid);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::use_full_grid, full_grid);
   parser_mod::set(parse, parser_mod::num_time_steps, num_time_steps);
-  parser_mod::set(parse, parser_mod::cfl,            cfl);
+  parser_mod::set(parse, parser_mod::cfl, cfl);
   return parse;
 }
 parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels,
-                         int const degree, double const cfl,
-                         bool full_grid, int const num_time_steps,
-                         bool use_implicit){
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps);
+                         fk::vector<int> starting_levels, int const degree,
+                         double const cfl, bool full_grid,
+                         int const num_time_steps, bool use_implicit)
+{
+  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
+                                   full_grid, num_time_steps);
   parser_mod::set(parse, parser_mod::use_implicit_stepping, use_implicit);
   return parse;
 }
 parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels,
-                         int const degree, double const cfl,
-                         bool full_grid, int const num_time_steps,
-                         bool use_implicit, std::string const &solver_str){
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps, use_implicit);
+                         fk::vector<int> starting_levels, int const degree,
+                         double const cfl, bool full_grid,
+                         int const num_time_steps, bool use_implicit,
+                         std::string const &solver_str)
+{
+  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
+                                   full_grid, num_time_steps, use_implicit);
   parser_mod::set(parse, parser_mod::solver_str, solver_str);
   return parse;
 }
 parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels,
-                         int const degree, double const cfl,
-                         bool full_grid, int const num_time_steps,
-                         bool use_implicit, bool do_adapt_levels, double adapt_threshold){
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps, use_implicit);
-  parser_mod::set(parse, parser_mod::do_adapt,              do_adapt_levels);
-  parser_mod::set(parse, parser_mod::adapt_threshold,       adapt_threshold);
+                         fk::vector<int> starting_levels, int const degree,
+                         double const cfl, bool full_grid,
+                         int const num_time_steps, bool use_implicit,
+                         bool do_adapt_levels, double adapt_threshold)
+{
+  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
+                                   full_grid, num_time_steps, use_implicit);
+  parser_mod::set(parse, parser_mod::do_adapt, do_adapt_levels);
+  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
   return parse;
 }
 parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels,
-                         int const degree, double const cfl,
-                         bool full_grid, int const num_time_steps,
-                         bool use_implicit, bool do_adapt_levels, double adapt_threshold, std::string const &solver_str){
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps, use_implicit, do_adapt_levels, adapt_threshold);
+                         fk::vector<int> starting_levels, int const degree,
+                         double const cfl, bool full_grid,
+                         int const num_time_steps, bool use_implicit,
+                         bool do_adapt_levels, double adapt_threshold,
+                         std::string const &solver_str)
+{
+  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
+                                   full_grid, num_time_steps, use_implicit,
+                                   do_adapt_levels, adapt_threshold);
   parser_mod::set(parse, parser_mod::solver_str, solver_str);
   return parse;
 }
@@ -186,7 +197,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     auto const gold_base = time_advance_base_dir / "diffusion2_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -202,7 +213,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     auto const gold_base = time_advance_base_dir / "diffusion2_sg_l3_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -217,7 +228,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
     auto const gold_base      = time_advance_base_dir / "diffusion2_sg_l4_d4_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -235,7 +246,8 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
         ("diffusion2_sg_l" + get_level_string(levels) + "d2_t");
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps);
+    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
+                                           full_grid, num_steps);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -263,9 +275,9 @@ TEST_CASE("adaptive time advance")
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 0.5e-1;
 
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, use_implicit,
-                       do_adapt_levels, adapt_threshold);
+    parser const parse =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          use_implicit, do_adapt_levels, adapt_threshold);
 
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
@@ -275,10 +287,9 @@ TEST_CASE("adaptive time advance")
 #ifdef ASGARD_USE_SCALAPACK
     auto const solver_str = std::string("scalapack");
 
-    parser const parse_scalapack = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                                num_steps,
-                                 use_implicit, do_adapt_levels, adapt_threshold,
-                                 solver_str);
+    parser const parse_scalapack = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+        do_adapt_levels, adapt_threshold, solver_str);
 
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
@@ -300,10 +311,9 @@ TEST_CASE("adaptive time advance")
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 0.5e-1;
 
-    parser const parse = make_basic_parser(
-                       pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, use_implicit,
-                       do_adapt_levels, adapt_threshold);
+    parser const parse =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          use_implicit, do_adapt_levels, adapt_threshold);
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
     {
@@ -325,9 +335,9 @@ TEST_CASE("adaptive time advance")
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-4;
 
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, use_implicit,
-                       do_adapt_levels, adapt_threshold);
+    parser const parse =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          use_implicit, do_adapt_levels, adapt_threshold);
 
     // we do not gracefully handle coarsening below number of active ranks yet
     if (get_num_ranks() == 1)
@@ -350,9 +360,9 @@ TEST_CASE("adaptive time advance")
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-4;
 
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, use_implicit,
-                       do_adapt_levels, adapt_threshold);
+    parser const parse =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          use_implicit, do_adapt_levels, adapt_threshold);
 
     // we do not gracefully handle coarsening below number of active ranks yet
     if (get_num_ranks() == 1)
@@ -374,9 +384,9 @@ TEST_CASE("adaptive time advance")
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-3;
 
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, use_implicit,
-                       do_adapt_levels, adapt_threshold);
+    parser const parse =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          use_implicit, do_adapt_levels, adapt_threshold);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -401,7 +411,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -416,7 +426,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
     auto const tol_factor = get_tolerance<TestType>(100000);
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -447,7 +457,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity1_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -461,7 +471,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity1_fg_l2_d2_t";
 
     auto const full_grid = true;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -475,7 +485,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity1_sg_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -503,7 +513,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity2_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -517,7 +527,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity2_fg_l2_d2_t";
 
     auto const full_grid = true;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -531,7 +541,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity2_sg_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -547,8 +557,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
         time_advance_base_dir /
         ("continuity2_fg_l" + get_level_string(levels) + "d3_t");
     auto const full_grid = true;
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps);
+    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
+                                           full_grid, num_steps);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -574,7 +584,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity3_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -588,7 +598,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity3_sg_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -605,8 +615,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
         ("continuity3_sg_l" + get_level_string(levels) + "d4_t");
     auto const full_grid = false;
 
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps);
+    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl,
+                                           full_grid, num_steps);
 
     time_advance_test(parse, gold_base, get_tolerance<TestType>(10));
   }
@@ -632,7 +642,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
     auto const gold_base = time_advance_base_dir / "continuity6_sg_l2_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -648,8 +658,8 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
         time_advance_base_dir /
         ("continuity6_sg_l" + get_level_string(levels) + "d2_t");
     auto const full_grid = false;
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps);
+    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
+                                           full_grid, num_steps);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -676,7 +686,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
         time_advance_base_dir / "fokkerplanck1_4p2_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -706,7 +716,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
         time_advance_base_dir / "fokkerplanck1_4p3_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -735,7 +745,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
         time_advance_base_dir / "fokkerplanck1_4p1a_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -764,7 +774,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
         time_advance_base_dir / "fokkerplanck1_pitch_E_case2_sg_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps);
 
@@ -785,7 +795,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   std::string pde_choice = "fokkerplanck_2d_complete_case4";
   auto const num_dims    = 2;
   auto const implicit    = true;
-  auto const solver_str = std::string("scalapack");
+  auto const solver_str  = std::string("scalapack");
 
   SECTION("fokkerplanck_2d_complete_case4, level 3, degree 3, sparse grid")
   {
@@ -797,7 +807,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
         time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l3_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -805,8 +815,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        std::string("scalapack"));
+        cfl, full_grid, num_steps, implicit, std::string("scalapack"));
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -822,7 +831,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
         time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -830,8 +839,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -847,7 +855,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
         time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l5_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -856,8 +864,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -875,14 +882,14 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
         time_advance_base_dir / ("fokkerplanck2_complete_implicit_sg_l" +
                                  get_level_string(levels) + "d3_t");
     auto const full_grid = false;
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, implicit);
+    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
+                                           full_grid, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid,
-        num_steps, implicit, solver_str);
+    parser const parse_scalapack =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 
@@ -913,7 +920,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
         time_advance_base_dir / "diffusion1_implicit_sg_l4_d4_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -944,7 +951,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
   auto const num_dims = 2;
   auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const solver_str      = std::string("scalapack");
+  auto const solver_str = std::string("scalapack");
 #endif
 
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 3")
@@ -955,7 +962,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
         time_advance_base_dir / "diffusion2_implicit_sg_l3_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -963,8 +970,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -978,7 +984,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
         time_advance_base_dir / "diffusion2_implicit_sg_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -986,8 +992,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1001,7 +1006,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
         time_advance_base_dir / "diffusion2_implicit_sg_l5_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1024,15 +1029,14 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
         time_advance_base_dir /
         ("diffusion2_implicit_sg_l" + get_level_string(levels) + "d2_t");
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
-                       pde_choice, levels, degree, cfl, full_grid,
-                       num_steps, implicit);
+    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
+                                           full_grid, num_steps, implicit);
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid,
-        num_steps, implicit, solver_str);
+    parser const parse_scalapack =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1054,7 +1058,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
   auto const num_dims = 1;
   auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const solver_str      = std::string("scalapack");
+  auto const solver_str = std::string("scalapack");
 #endif
   SECTION("continuity1, level 2, degree 2, sparse grid")
   {
@@ -1064,7 +1068,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
         time_advance_base_dir / "continuity1_implicit_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1072,8 +1076,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1088,7 +1091,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
         time_advance_base_dir / "continuity1_implicit_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1096,8 +1099,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1111,7 +1113,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
         time_advance_base_dir / "continuity1_implicit_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1119,8 +1121,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1142,7 +1143,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
   auto const num_dims = 2;
   auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const solver_str      = std::string("scalapack");
+  auto const solver_str = std::string("scalapack");
 #endif
   SECTION("continuity2, level 2, degree 2, sparse grid")
   {
@@ -1153,7 +1154,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
         time_advance_base_dir / "continuity2_implicit_l2_d2_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1161,8 +1162,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1177,7 +1177,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
         time_advance_base_dir / "continuity2_implicit_l4_d3_t";
 
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1185,8 +1185,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
@@ -1201,7 +1200,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto const continuity2_base_dir =
         time_advance_base_dir / "continuity2_implicit_l4_d3_t";
     auto const full_grid = false;
-    parser const parse = make_basic_parser(
+    parser const parse   = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
         cfl, full_grid, num_steps, implicit);
 
@@ -1209,8 +1208,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 #ifdef ASGARD_USE_SCALAPACK
     parser const parse_scalapack = make_basic_parser(
         pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit,
-        solver_str);
+        cfl, full_grid, num_steps, implicit, solver_str);
 
     time_advance_test(parse_scalapack, continuity2_base_dir, temp_tol_factor);
 #endif
@@ -1229,9 +1227,9 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
     time_advance_test(parse, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid,
-        num_steps, implicit, solver_str);
+    parser const parse_scalapack =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          implicit, solver_str);
 
     time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif

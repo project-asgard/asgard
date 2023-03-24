@@ -119,11 +119,12 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
     return;
   }
 
-  auto const degree           = 3;
-  auto const level            = 4;
-  auto const pde_choice       = PDE_opts::continuity_1;
-  auto const num_dims         = 1;
-  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree);
+  auto const degree     = 3;
+  auto const level      = 4;
+  auto const pde_choice = PDE_opts::continuity_1;
+  auto const num_dims   = 1;
+  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
+               degree);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
 
   test_adapt<TestType>(parse, adapt_base_dir / "continuity1_l4_d3_");
@@ -135,12 +136,12 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
   {
     return;
   }
-  auto const degree           = 2;
-  auto const level            = 5;
-  auto const pde_choice       = PDE_opts::continuity_2;
-  auto const num_dims         = 2;
-  parser parse(pde_choice,
-                     fk::vector<int>(std::vector<int>(num_dims, level)), degree);
+  auto const degree     = 2;
+  auto const level      = 5;
+  auto const pde_choice = PDE_opts::continuity_2;
+  auto const num_dims   = 2;
+  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
+               degree);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
 
   // temporarily disable test for MPI due to table elements < num ranks
@@ -157,12 +158,12 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
   {
     return;
   }
-  auto const degree           = 4;
-  auto const level            = 4;
-  auto const pde_choice       = PDE_opts::continuity_3;
-  auto const num_dims         = 3;
-  parser parse(pde_choice,
-                     fk::vector<int>(std::vector<int>(num_dims, level)), degree);
+  auto const degree     = 4;
+  auto const level      = 4;
+  auto const pde_choice = PDE_opts::continuity_3;
+  auto const num_dims   = 3;
+  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
+               degree);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
 
   test_adapt<TestType>(parse, adapt_base_dir / "continuity3_l4_d4_");
@@ -204,12 +205,12 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
 
 TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
 {
-  auto const degree           = 4;
-  auto const level            = 3;
-  auto const pde_choice       = PDE_opts::diffusion_1;
-  auto const num_dims         = 1;
-  parser parse(pde_choice,
-                     fk::vector<int>(std::vector<int>(num_dims, level)), degree);
+  auto const degree     = 4;
+  auto const level      = 3;
+  auto const pde_choice = PDE_opts::diffusion_1;
+  auto const num_dims   = 1;
+  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
+               degree);
   parser_mod::set(parse, parser_mod::do_adapt, true);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
 
@@ -227,12 +228,12 @@ TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", double, float)
   {
     return;
   }
-  auto const degree           = 3;
-  auto const level            = 2;
-  auto const pde_choice       = PDE_opts::diffusion_2;
-  auto const num_dims         = 2;
-  parser parse(pde_choice,
-                     fk::vector<int>(std::vector<int>(num_dims, level)), degree);
+  auto const degree     = 3;
+  auto const level      = 2;
+  auto const pde_choice = PDE_opts::diffusion_2;
+  auto const num_dims   = 2;
+  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
+               degree);
   parser_mod::set(parse, parser_mod::do_adapt, true);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
 

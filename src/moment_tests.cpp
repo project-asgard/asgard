@@ -24,13 +24,13 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
   fk::vector<int> const levels{5, 5};
 
   parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree,                4);
-  parser_mod::set(parse, parser_mod::cfl,                   0.01);
-  parser_mod::set(parse, parser_mod::use_full_grid,         false);
-  parser_mod::set(parse, parser_mod::num_time_steps,        5);
+  parser_mod::set(parse, parser_mod::degree, 4);
+  parser_mod::set(parse, parser_mod::cfl, 0.01);
+  parser_mod::set(parse, parser_mod::use_full_grid, false);
+  parser_mod::set(parse, parser_mod::num_time_steps, 5);
   parser_mod::set(parse, parser_mod::use_implicit_stepping, true);
-  parser_mod::set(parse, parser_mod::do_adapt,              true);
-  parser_mod::set(parse, parser_mod::adapt_threshold,       0.5e-1);
+  parser_mod::set(parse, parser_mod::do_adapt, true);
+  parser_mod::set(parse, parser_mod::adapt_threshold, 0.5e-1);
 
   auto pde = make_PDE<TestType>(parse);
   options const opts(parse);
@@ -58,13 +58,13 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree,                3);
-  parser_mod::set(parse, parser_mod::cfl,                   0.01);
-  parser_mod::set(parse, parser_mod::use_full_grid,         true);
-  parser_mod::set(parse, parser_mod::num_time_steps,        1);
+  parser_mod::set(parse, parser_mod::degree, 3);
+  parser_mod::set(parse, parser_mod::cfl, 0.01);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, 1);
   parser_mod::set(parse, parser_mod::use_implicit_stepping, false);
-  parser_mod::set(parse, parser_mod::do_adapt,              false);
-  parser_mod::set(parse, parser_mod::adapt_threshold,       0.5e-1);
+  parser_mod::set(parse, parser_mod::do_adapt, false);
+  parser_mod::set(parse, parser_mod::adapt_threshold, 0.5e-1);
 
   auto pde = make_PDE<TestType>(parse);
   options const opts(parse);
