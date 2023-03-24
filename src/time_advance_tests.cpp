@@ -112,6 +112,9 @@ static std::string get_level_string(fk::vector<int> const &levels)
                          });
 }
 
+// The parser is constructed in one of 5 patterns,
+// each is covered by a make method.
+// All defaults are assumed automatically, only the adjusted variables are modified.
 parser make_basic_parser(std::string const &pde_choice,
                          fk::vector<int> starting_levels,
                          int const degree, double const cfl,
