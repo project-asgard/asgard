@@ -18,7 +18,13 @@ def plot_from_file(filename, dataset, ax = plt):
 
     tmp = data_file['soln'][()]
 
-    ax.contourf(nodes, nodes, tmp.reshape((len(nodes), len(nodes))).transpose())
+    try:
+        # reshape to 2D matrix
+        tmp = tmp.reshape((len(nodes), len(nodes))).transpose()
+    except ValueError:
+        raise RuntimeError("Could not reshape solution vector, was it run with full grid option?")
+
+    ax.contourf(nodes, nodes, tmp)
     ax.set_title("t = {}".format(data_file['time'][()]))
 
 
