@@ -160,9 +160,12 @@ int main(int argc, char **argv)
                                           asgard::resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
   // transform initial condition to realspace
-  asgard::wavelet_to_realspace<prec>(*pde, initial_condition,
-                                     adaptive_grid.get_table(), transformer,
-                                     tmp_workspace, real_space);
+  if (cli_input.get_realspace_output_freq() > 0)
+  {
+    asgard::wavelet_to_realspace<prec>(*pde, initial_condition,
+                                       adaptive_grid.get_table(), transformer,
+                                       tmp_workspace, real_space);
+  }
 #endif
 
 #ifdef ASGARD_USE_MATLAB
