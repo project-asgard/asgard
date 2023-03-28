@@ -210,7 +210,13 @@ parser::parser(int argc, char const *const *argv)
     valid = false;
   }
 
-  if (use_implicit_stepping)
+  if (use_imex_stepping)
+  {
+    // imex only uses gmres
+    solver_str = "gmres";
+  }
+
+  if (use_implicit_stepping || use_imex_stepping)
   {
     if (solver_str == "none")
     {
