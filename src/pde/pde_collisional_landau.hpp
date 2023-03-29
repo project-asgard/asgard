@@ -484,8 +484,8 @@ private:
 
     // TODO: these are constants since we want dt always based on dim 2,
     //  but there is no way to force a different dim for this function!
-    // (Lmax - Lmin) / 2 ^ LevX * CFL
-    return (6.0 - (-6.0)) / std::pow(2, 3);
+    // (Lmax - Lmin) / 2 ^ LevX * CFL, where 2 ^ LevX = 8 (LevX = 3)
+    return static_cast<P>((6.0 - (-6.0)) / 8.0);
   }
 
   /* problem contains no sources */
