@@ -476,10 +476,10 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     // Get 0th moment
     fk::vector<P> mom0(dense_size);
     fm::gemv(pde.moments[0].get_moment_matrix(), f_in, mom0);
-    auto mom0_real = pde.moments[0].create_realspace_moment(
+    fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
         pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-    param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
-                                                          P const t = 0) -> P {
+    param_manager.get_parameter("n")->value =
+        [&mom0_real = mom0_real](P const x_v, P const t = 0) -> P {
       ignore(t);
       return interp1(nodes, mom0_real, {x_v})[0];
     };
@@ -557,10 +557,10 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   // Create rho_2s
   fk::vector<P> mom0(dense_size);
   fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
-  auto mom0_real = pde.moments[0].create_realspace_moment(
+  fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
-                                                        P const t = 0) -> P {
+  param_manager.get_parameter("n")->value =
+      [&mom0_real = mom0_real](P const x_v, P const t = 0) -> P {
     ignore(t);
     return interp1(nodes, mom0_real, {x_v})[0];
   };
@@ -568,20 +568,20 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   // TODO: refactor into more generic function
   fk::vector<P> mom1(dense_size);
   fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
-  auto mom1_real = pde.moments[1].create_realspace_moment(
+  fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
       pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
-                                                        P const t = 0) -> P {
+  param_manager.get_parameter("u")->value =
+      [&mom1_real = mom1_real](P const x_v, P const t = 0) -> P {
     return interp1(nodes, mom1_real, {x_v})[0] /
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
   fk::vector<P> mom2(dense_size);
   fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
-  auto mom2_real = pde.moments[2].create_realspace_moment(
+  fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
       pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("theta")->value =
-      [mom2_real](P const x_v, P const t = 0) -> P {
+      [&mom2_real = mom2_real](P const x_v, P const t = 0) -> P {
     P const u = param_manager.get_parameter("u")->value(x_v, t);
     return (interp1(nodes, mom2_real, {x_v})[0] /
             param_manager.get_parameter("n")->value(x_v, t)) -
@@ -643,8 +643,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
   mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
-                                                        P const t = 0) -> P {
+  param_manager.get_parameter("n")->value =
+      [&mom0_real = mom0_real](P const x_v, P const t = 0) -> P {
     ignore(t);
     return interp1(nodes, mom0_real, {x_v})[0];
   };
@@ -652,8 +652,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
   mom1_real = pde.moments[1].create_realspace_moment(
       pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
-                                                        P const t = 0) -> P {
+  param_manager.get_parameter("u")->value =
+      [&mom1_real = mom1_real](P const x_v, P const t = 0) -> P {
     return interp1(nodes, mom1_real, {x_v})[0] /
            param_manager.get_parameter("n")->value(x_v, t);
   };
@@ -662,7 +662,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   mom2_real = pde.moments[2].create_realspace_moment(
       pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("theta")->value =
-      [mom2_real](P const x_v, P const t = 0) -> P {
+      [&mom2_real = mom2_real](P const x_v, P const t = 0) -> P {
     P const u = param_manager.get_parameter("u")->value(x_v, t);
     return (interp1(nodes, mom2_real, {x_v})[0] /
             param_manager.get_parameter("n")->value(x_v, t)) -

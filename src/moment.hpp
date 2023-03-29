@@ -48,7 +48,7 @@ public:
 
   fk::vector<P> const &get_realspace_moment() const { return realspace; }
 
-  fk::vector<P> const &create_realspace_moment(
+  fk::vector<P> &create_realspace_moment(
       PDE<P> const &pde_1d, fk::vector<P> &wave, elements::table const &table,
       asgard::basis::wavelet_transform<P, resource::host> const &transformer,
       std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace);
