@@ -134,11 +134,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    TestType const error = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold, fk::matrix<TestType>(), A_gold.ncols(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
-    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
+    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold);
   }
 
@@ -147,11 +147,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    TestType const error = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold, precond, A_gold.ncols(), A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
-    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
+    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold);
   }
 
@@ -160,11 +160,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
     fk::vector<TestType> test(x_gold_2.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    TestType const error = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold_2, fk::matrix<TestType>(), A_gold.ncols(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
-    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
+    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold_2);
   }
 
@@ -172,11 +172,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
   {
     fk::vector<TestType> test(x_gold_2.size());
     std::cout.setstate(std::ios_base::failbit);
-    TestType const error = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold_2, precond, A_gold.ncols(), A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
-    REQUIRE(error < std::numeric_limits<TestType>::epsilon());
+    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold_2);
   }
 }

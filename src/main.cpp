@@ -213,12 +213,12 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
   if (cli_input.get_wavelet_output_freq() > 0)
   {
-    asgard::write_output(*pde, initial_condition, static_cast<prec>(0.0), 0,
-                         "asgard_wavelet");
+    asgard::write_output(*pde, cli_input, initial_condition,
+                         static_cast<prec>(0.0), 0, "asgard_wavelet");
   }
   if (cli_input.get_realspace_output_freq() > 0)
   {
-    asgard::write_output(*pde, real_space, static_cast<prec>(0.0), 0,
+    asgard::write_output(*pde, cli_input, real_space, static_cast<prec>(0.0), 0,
                          "asgard_real");
   }
 #endif
@@ -321,11 +321,13 @@ int main(int argc, char **argv)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.should_output_wavelet(i))
     {
-      asgard::write_output(*pde, f_val, time, i + 1, "asgard_wavelet");
+      asgard::write_output(*pde, cli_input, f_val, time, i + 1,
+                           "asgard_wavelet");
     }
     if (opts.should_output_realspace(i))
     {
-      asgard::write_output(*pde, real_space, time, i + 1, "asgard_real");
+      asgard::write_output(*pde, cli_input, real_space, time, i + 1,
+                           "asgard_real");
     }
 #endif
 

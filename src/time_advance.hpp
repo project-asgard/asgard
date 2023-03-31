@@ -39,8 +39,7 @@ explicit_advance(PDE<P> const &pde,
 
 template<typename P>
 fk::vector<P>
-implicit_advance(PDE<P> const &pde,
-                 adapt::distributed_grid<P> const &adaptive_grid,
+implicit_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const

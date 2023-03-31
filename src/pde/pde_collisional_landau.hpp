@@ -3,36 +3,43 @@
 
 namespace asgard
 {
-// 2D test case using continuity equation, i.e.,
+// 2D collisional landau, i.e.,
 //
-//  df/dt == -v*\grad_x f + div_v( (v-u)f + theta\grad_v f)
+//  df/dt == -v*\grad_x f -E\grad_v f + div_v( (v-u)f + theta\grad_v f)
 //
 //  BC is peridoic in x
 //  BC in v is all inflow in advection for v and Neumann for diffusion in v
 
 template<typename P>
-class PDE_vlasov_lb : public PDE<P>
+class PDE_collisional_landau : public PDE<P>
 {
 public:
-  PDE_vlasov_lb(parser const &cli_input)
+  PDE_collisional_landau(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
+               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
+               do_collision_operator_)
   {
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
     param_manager.add_parameter(parameter<P>{"theta", theta});
+    param_manager.add_parameter(parameter<P>{"E", E});
+    param_manager.add_parameter(parameter<P>{"S", S});
+    param_manager.add_parameter(parameter<P>{"MaxAbsE", MaxAbsE});
   }
 
 private:
-  static int constexpr num_dims_           = 2;
-  static int constexpr num_sources_        = 0;
-  static int constexpr num_terms_          = 5;
-  static bool constexpr do_poisson_solve_  = false;
-  static bool constexpr has_analytic_soln_ = false;
-  static int constexpr default_degree      = 3;
+  static int constexpr num_dims_               = 2;
+  static int constexpr num_sources_            = 0;
+  static int constexpr num_terms_              = 6;
+  static bool constexpr do_poisson_solve_      = true;
+  static bool constexpr do_collision_operator_ = true;
+  static bool constexpr has_analytic_soln_     = false;
+  static int constexpr default_degree          = 3;
 
-  static P constexpr nu = 1e3;
+  static P constexpr nu       = 1.0;    // collision frequency
+  static P constexpr A        = 1.0e-4; // amplitude
+  static P constexpr theta_in = 1.0;
 
   static fk::vector<P>
   initial_condition_dim_x_0(fk::vector<P> const &x, P const t = 0)
@@ -40,18 +47,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return (std::abs(x_v) > 0.5) ? 1.0 : 0.0;
-    });
-    return fx;
-  }
-
-  static fk::vector<P>
-  initial_condition_dim_x_1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-    fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return (std::abs(x_v) <= 0.5) ? 1.0 : 0.0;
+      return 1.0 + A * std::cos(0.5 * x_v);
     });
     return fx;
   }
@@ -61,40 +57,31 @@ private:
   {
     ignore(t);
 
-    P const coefficient = 1.0 / std::sqrt(2.0 * PI);
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta_in);
 
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_v) -> P {
-                     return coefficient * std::exp(-std::pow(x_v, 2) / 2.0);
-                   });
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient](P const x_v) -> P {
+          return coefficient *
+                 std::exp(-0.5 * (1.0 / theta_in) * std::pow(x_v, 2));
+        });
     return fx;
   }
 
-  static fk::vector<P>
-  initial_condition_dim_v_1(fk::vector<P> const &x, P const t = 0)
+  static P dV(P const x, P const time)
   {
-    ignore(t);
-
-    P const coefficient = (1.0 / 8.0) / std::sqrt(2.0 * PI * (4.0 / 5.0));
-
-    fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_v) -> P {
-                     return coefficient *
-                            std::exp(-std::pow(x_v, 2) / (2.0 * (4.0 / 5.0)));
-                   });
-    return fx;
+    ignore(x);
+    ignore(time);
+    return 1.0;
   }
 
   /* Define the dimension */
-  inline static dimension<P> const dim_0 = dimension<P>(
-      -1.0, 1.0, 4, default_degree,
-      {initial_condition_dim_x_0, initial_condition_dim_x_1}, nullptr, "x");
+  inline static dimension<P> const dim_0 =
+      dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
+                   initial_condition_dim_x_0, dV, "x");
 
   inline static dimension<P> const dim_1 = dimension<P>(
-      -6.0, 6.0, 3, default_degree,
-      {initial_condition_dim_v_0, initial_condition_dim_v_1}, nullptr, "v");
+      -6.0, 6.0, 3, default_degree, initial_condition_dim_v_0, dV, "v");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
@@ -135,14 +122,14 @@ private:
                                                          moment2};
 
   /* Construct (n, u, theta) */
+  // n = density
+  // u = bulk velocity
+  // theta = temperature
   static P n(P const &x, P const t = 0)
   {
     ignore(t);
 
-    P const first  = x < -0.5 ? 1.0 : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (1.0 / 8.0) : 0.0;
-    P const third  = x > 0.5 ? 1.0 : 0.0;
-    return first + second + third;
+    return (1.0 + A * std::cos(0.5 * x));
   }
 
   static P u(P const &x, P const t = 0)
@@ -155,11 +142,32 @@ private:
   static P theta(P const &x, P const t = 0)
   {
     ignore(t);
+    ignore(x);
+    return 1.0;
+  }
 
-    P const first  = x < -0.5 ? 1.0 : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (4.0 / 5.0) : 0.0;
-    P const third  = x > 0.5 ? 1.0 : 0.0;
-    return first + second + third;
+  // E = -d_x phi
+  static P E(P const &x, P const t = 0)
+  {
+    ignore(t);
+    ignore(x);
+    return 0.0;
+  }
+
+  // source for poisson problem is -d_xx phi = n - 1 = S(n)
+  static P S(P const &y, P const t = 0)
+  {
+    ignore(t);
+    // subtracts quadrature values by one
+    return y - 1.0;
+  }
+
+  // holds the maximum absolute value of E
+  static P MaxAbsE(P const &x, P const t = 0)
+  {
+    ignore(t);
+    ignore(x);
+    return 0.0;
   }
 
   /* build the terms */
@@ -237,6 +245,96 @@ private:
   inline static std::vector<term<P>> const terms_2 = {term_e2x, term_e2v};
 
   // Term 3
+  // Central Part of E\cdot\grad_v f
+  //
+
+  static P E_func(P const x, P const time = 0)
+  {
+    auto param = param_manager.get_parameter("E");
+    expect(param != nullptr);
+    return param->value(x, time);
+  }
+
+  static P negOne(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return -1.0;
+  }
+
+  inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
+      coefficient_type::mass, E_func, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
+  inline static term<P> const E_mass_x =
+      term<P>(true, // time-dependent
+              "",   // name
+              {pterm_E_mass_x}, imex_flag::imex_explicit);
+
+  inline static const partial_term<P> pterm_div_v = partial_term<P>(
+      coefficient_type::div, negOne, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous);
+
+  inline static term<P> const div_v =
+      term<P>(false, // time-dependent
+              "",    // name
+              {pterm_div_v}, imex_flag::imex_explicit);
+
+  inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
+
+  // Term 4 + 5
+  // Penalty Part of E\cdot\grad_v f
+  //
+
+  static P MaxAbsE_func(P const x, P const time = 0)
+  {
+    auto param = param_manager.get_parameter("MaxAbsE");
+    expect(param != nullptr);
+    return param->value(x, time);
+  }
+
+  static P posOne(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
+  inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
+      coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
+  inline static term<P> const MaxAbsE_mass_x_1 =
+      term<P>(true, // time-dependent
+              "",   // name
+              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
+
+  inline static term<P> const MaxAbsE_mass_x_2 =
+      term<P>(true, // time-dependent
+              "",   // name
+              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
+
+  inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
+      coefficient_type::div, posOne, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
+      homogeneity::homogeneous, homogeneity::homogeneous);
+
+  inline static term<P> const div_v_downwind =
+      term<P>(false, // time-dependent
+              "",    // name
+              {pterm_div_v_downwind}, imex_flag::imex_explicit);
+
+  // Central Part Defined Above (div_v; can do this due to time independence)
+
+  inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x_1,
+                                                      div_v_downwind};
+
+  inline static std::vector<term<P>> const terms_5 = {MaxAbsE_mass_x_2, div_v};
+
+  // Terms 3 - 5 from vlasov_lb_full_f PDE:
+
+  // Term 3
   // v\cdot\grad_v f
   //
   static P i1_g1(P const x, P const time = 0)
@@ -251,7 +349,6 @@ private:
     ignore(time);
     return x;
   }
-
   inline static const partial_term<P> i1_pterm_x = partial_term<P>(
       coefficient_type::mass, i1_g1, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
@@ -270,7 +367,7 @@ private:
               "I1_v", // name
               {i1_pterm_v}, imex_flag::imex_implicit);
 
-  inline static std::vector<term<P>> const terms_3 = {term_i1x, term_i1v};
+  inline static std::vector<term<P>> const terms_6 = {term_i1x, term_i1v};
 
   // Term 4
   // -u\cdot\grad_v f
@@ -307,7 +404,7 @@ private:
               "I2_v", // name
               {i2_pterm_v}, imex_flag::imex_implicit);
 
-  inline static std::vector<term<P>> const terms_4 = {term_i2x, term_i2v};
+  inline static std::vector<term<P>> const terms_7 = {term_i2x, term_i2v};
 
   // Term 5
   // div_v(th\grad_v f)
@@ -316,6 +413,12 @@ private:
   //
   // div_v(th q)
   // q = \grad_v f
+  static P i3_g1(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
 
   static P i3_g2(P const x, P const time = 0)
   {
@@ -325,7 +428,7 @@ private:
   }
 
   inline static const partial_term<P> i3_pterm_x1 = partial_term<P>(
-      coefficient_type::mass, nullptr, nullptr, flux_type::central,
+      coefficient_type::mass, i3_g1, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> i3_pterm_x2 = partial_term<P>(
@@ -337,12 +440,26 @@ private:
               "I3_x", // name
               {i3_pterm_x1, i3_pterm_x2}, imex_flag::imex_implicit);
 
+  static P i3_g3(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
+  static P i3_g4(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    return 1.0;
+  }
+
   inline static const partial_term<P> i3_pterm_v1 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::central,
+      coefficient_type::div, i3_g3, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static const partial_term<P> i3_pterm_v2 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::central,
+      coefficient_type::grad, i3_g4, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i3v =
@@ -350,10 +467,11 @@ private:
               "I3_v", // name
               {i3_pterm_v1, i3_pterm_v2}, imex_flag::imex_implicit);
 
-  inline static std::vector<term<P>> const terms_5 = {term_i3x, term_i3v};
+  inline static std::vector<term<P>> const terms_8 = {term_i3x, term_i3v};
 
-  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4,
-                                            terms_5};
+  // terms 6, 7, 8 are terms 3,4,5 from vlasov_lb_full_f
+  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3,
+                                            terms_6, terms_7, terms_8};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
   inline static scalar_func<P> const exact_scalar_func_               = {};
@@ -366,8 +484,8 @@ private:
 
     // TODO: these are constants since we want dt always based on dim 2,
     //  but there is no way to force a different dim for this function!
-    // (Lmax - Lmin) / 2 ^ LevX * CFL
-    return (6.0 - (-6.0)) / std::pow(2, 3);
+    // (Lmax - Lmin) / 2 ^ LevX * CFL, where 2 ^ LevX = 8 (LevX = 3)
+    return static_cast<P>((6.0 - (-6.0)) / 8.0);
   }
 
   /* problem contains no sources */

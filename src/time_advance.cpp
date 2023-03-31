@@ -266,8 +266,7 @@ explicit_advance(PDE<P> const &pde,
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-implicit_advance(PDE<P> const &pde,
-                 adapt::distributed_grid<P> const &adaptive_grid,
+implicit_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
@@ -390,8 +389,10 @@ implicit_advance(PDE<P> const &pde,
     int const restart  = program_opts.gmres_inner_iterations;
     int const max_iter = program_opts.gmres_outer_iterations;
     fk::vector<P> fx(x);
-    solver::simple_gmres(pde, table, program_opts, grid, fx, x, fk::matrix<P>(),
-                         restart, max_iter, tolerance);
+    // TODO: do something better to save gmres output to pde
+    pde.gmres_outputs[0] =
+        solver::simple_gmres(pde, table, program_opts, grid, fx, x,
+                             fk::matrix<P>(), restart, max_iter, tolerance);
     return fx;
   }
   return x;
@@ -466,17 +467,19 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       solver::setup_poisson(N_elements, min, max, pde.poisson_diag,
                             pde.poisson_off_diag);
     }
+
+    pde.E_field.resize(dense_size);
   }
 
   auto do_poisson_update = [&](fk::vector<P> const &f_in) {
+    tools::timer.start("poisson_update");
     // Get 0th moment
     fk::vector<P> mom0(dense_size);
-    fk::vector<P> mom0_real(dense_size);
     fm::gemv(pde.moments[0].get_moment_matrix(), f_in, mom0);
-    wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
-                            transformer, tmp_workspace, mom0_real);
-    param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
-                                                          P const t = 0) -> P {
+    fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
+        pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+    param_manager.get_parameter("n")->value = [&](P const x_v,
+                                                  P const t = 0) -> P {
       ignore(t);
       return interp1(nodes, mom0_real, {x_v})[0];
     };
@@ -501,6 +504,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       return interp1(nodes, poisson_E, {x_v})[0];
     };
 
+    pde.E_field = poisson_E;
+
     P const max_E = *std::max_element(poisson_E.begin(), poisson_E.end(),
                                       [](const P &x_v, const P &y_v) {
                                         return std::abs(x_v) < std::abs(y_v);
@@ -513,6 +518,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
       return max_E;
     };
 
+    tools::timer.stop("poisson_update");
     // Update coeffs
     generate_all_coefficients<P>(pde, transformer);
 
@@ -535,6 +541,7 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   }
 
   // Explicit step (f_2s)
+  tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult_setup");
   auto fx             = kronmult::execute(pde, table, program_opts, grid, x,
                               imex_flag::imex_explicit);
@@ -545,37 +552,36 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
   fm::axpy(f_2s, x, dt); // x here is f(1)
 
+  tools::timer.stop("explicit_1");
+  tools::timer.start("implicit_1");
   // Create rho_2s
   fk::vector<P> mom0(dense_size);
-  fk::vector<P> mom0_real(dense_size);
   fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
-  wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
-                          transformer, tmp_workspace, mom0_real);
-  param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
-                                                        P const t = 0) -> P {
+  fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
+      pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+  param_manager.get_parameter("n")->value = [&](P const x_v,
+                                                P const t = 0) -> P {
     ignore(t);
     return interp1(nodes, mom0_real, {x_v})[0];
   };
 
   // TODO: refactor into more generic function
   fk::vector<P> mom1(dense_size);
-  fk::vector<P> mom1_real(dense_size);
   fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
-  wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
-                          transformer, tmp_workspace, mom1_real);
-  param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
-                                                        P const t = 0) -> P {
+  fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
+      pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+  param_manager.get_parameter("u")->value = [&](P const x_v,
+                                                P const t = 0) -> P {
     return interp1(nodes, mom1_real, {x_v})[0] /
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
   fk::vector<P> mom2(dense_size);
-  fk::vector<P> mom2_real(dense_size);
   fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
-  wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
-                          transformer, tmp_workspace, mom2_real);
-  param_manager.get_parameter("theta")->value =
-      [mom2_real](P const x_v, P const t = 0) -> P {
+  fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
+      pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+  param_manager.get_parameter("theta")->value = [&](P const x_v,
+                                                    P const t = 0) -> P {
     P const u = param_manager.get_parameter("u")->value(x_v, t);
     return (interp1(nodes, mom2_real, {x_v})[0] /
             param_manager.get_parameter("n")->value(x_v, t)) -
@@ -594,9 +600,9 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
   if (pde.do_collision_operator)
   {
     // f2 now
-    solver::simple_gmres(pde, table, program_opts, grid, f_2, x,
-                         fk::matrix<P>(), restart, max_iter, tolerance,
-                         imex_flag::imex_implicit);
+    pde.gmres_outputs[0] = solver::simple_gmres(
+        pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
+        max_iter, tolerance, imex_flag::imex_implicit);
   }
   else
   {
@@ -604,6 +610,8 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
     fm::copy(x, f_2);
   }
 
+  tools::timer.stop("implicit_1");
+  tools::timer.start("explicit_2");
   // --------------------------------
   // Third Stage
   // --------------------------------
@@ -626,49 +634,58 @@ imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
   fm::axpy(f_2, x);                 // x is now f0 + f3
   fm::scal(static_cast<P>(0.5), x); // x = 0.5 * (f0 + f3)
+  tools::timer.stop("explicit_2");
+  tools::timer.start("implicit_2");
 
+  tools::timer.start("implicit_2_mom");
   // Create rho_3s
   // TODO: refactor into more generic function
-  fm::gemv(pde.moments[0].get_moment_matrix(), f_2, mom0);
-  wavelet_to_realspace<P>(pde_1d, mom0, adaptive_grid_1d.get_table(),
-                          transformer, tmp_workspace, mom0_real);
-  param_manager.get_parameter("n")->value = [mom0_real](P const x_v,
-                                                        P const t = 0) -> P {
+  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  mom0_real = pde.moments[0].create_realspace_moment(
+      pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+  param_manager.get_parameter("n")->value = [&](P const x_v,
+                                                P const t = 0) -> P {
     ignore(t);
     return interp1(nodes, mom0_real, {x_v})[0];
   };
 
-  fm::gemv(pde.moments[1].get_moment_matrix(), f_2, mom1);
-  wavelet_to_realspace<P>(pde_1d, mom1, adaptive_grid_1d.get_table(),
-                          transformer, tmp_workspace, mom1_real);
-  param_manager.get_parameter("u")->value = [mom1_real](P const x_v,
-                                                        P const t = 0) -> P {
+  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  mom1_real = pde.moments[1].create_realspace_moment(
+      pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+  param_manager.get_parameter("u")->value = [&](P const x_v,
+                                                P const t = 0) -> P {
     return interp1(nodes, mom1_real, {x_v})[0] /
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fm::gemv(pde.moments[2].get_moment_matrix(), f_2, mom2);
-  wavelet_to_realspace<P>(pde_1d, mom2, adaptive_grid_1d.get_table(),
-                          transformer, tmp_workspace, mom2_real);
-  param_manager.get_parameter("theta")->value =
-      [mom2_real](P const x_v, P const t = 0) -> P {
+  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  mom2_real = pde.moments[2].create_realspace_moment(
+      pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
+  param_manager.get_parameter("theta")->value = [&](P const x_v,
+                                                    P const t = 0) -> P {
     P const u = param_manager.get_parameter("u")->value(x_v, t);
     return (interp1(nodes, mom2_real, {x_v})[0] /
             param_manager.get_parameter("n")->value(x_v, t)) -
            std::pow(u, 2);
   };
+  tools::timer.stop("implicit_2_mom");
 
   // Update coeffs
+  tools::timer.start("implicit_2_coeff");
   generate_all_coefficients<P>(pde, transformer);
+  tools::timer.stop("implicit_2_coeff");
 
   // Final stage f3
   if (pde.do_collision_operator)
   {
     // Final stage f3
+    tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    solver::simple_gmres(pde, table, program_opts, grid, f_3, x,
-                         fk::matrix<P>(), restart, max_iter, tolerance,
-                         imex_flag::imex_implicit);
+    pde.gmres_outputs[1] = solver::simple_gmres(
+        pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
+        max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
+    tools::timer.stop("implicit_2_solve");
+    tools::timer.stop("implicit_2");
     return f_3;
   }
   else
@@ -709,8 +726,7 @@ template fk::vector<float> explicit_advance(
     fk::vector<float> const &x, float const time);
 
 template fk::vector<double> implicit_advance(
-    PDE<double> const &pde,
-    adapt::distributed_grid<double> const &adaptive_grid,
+    PDE<double> &pde, adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
@@ -719,7 +735,7 @@ template fk::vector<double> implicit_advance(
     bool const update_system);
 
 template fk::vector<float> implicit_advance(
-    PDE<float> const &pde, adapt::distributed_grid<float> const &adaptive_grid,
+    PDE<float> &pde, adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const

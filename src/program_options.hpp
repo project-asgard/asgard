@@ -49,7 +49,8 @@ enum class PDE_opts
   diffusion_1,
   diffusion_2,
   vlasov_lb_full_f,
-  vlasov_two_stream
+  vlasov_two_stream,
+  collisional_landau
   // FIXME will need to add the user supplied PDE choice
 };
 
@@ -152,7 +153,10 @@ static pde_map_t const pde_mapping = {
                               PDE_opts::vlasov_lb_full_f)},
     {"two_stream",
      PDE_descriptor("Vlasov two-stream. df/dt == -v*grad_x f -E*grad_v f",
-                    PDE_opts::vlasov_two_stream)}};
+                    PDE_opts::vlasov_two_stream)},
+    {"landau", PDE_descriptor("Collisional Landau. df/dt == -v*grad_x f "
+                              "-E*grad_v f + div_v((v-u)f + theta*grad_v f)",
+                              PDE_opts::collisional_landau)}};
 
 // class to parse command line input
 class parser
