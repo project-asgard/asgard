@@ -309,33 +309,34 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 #ifdef ASGARD_USE_CUDA
   {
     int constexpr warpsize    = 32;
-    int constexpr nwarps      = 1;
+    int constexpr nwarps      = 8;
     int constexpr num_threads = nwarps * warpsize;
+    int const num_blocks      = (num_krons / num_threads) + 1;
 
     switch (num_dims)
     {
     case 1:
-      kronmult1_xbatched<P><<<num_krons, num_threads>>>(
+      kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 2:
-      kronmult2_xbatched<P><<<num_krons, num_threads>>>(
+      kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 3:
-      kronmult3_xbatched<P><<<num_krons, num_threads>>>(
+      kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 4:
-      kronmult4_xbatched<P><<<num_krons, num_threads>>>(
+      kronmult4_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 5:
-      kronmult5_xbatched<P><<<num_krons, num_threads>>>(
+      kronmult5_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 6:
-      kronmult6_xbatched<P><<<num_krons, num_threads>>>(
+      kronmult6_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     default:
