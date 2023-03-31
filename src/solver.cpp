@@ -31,14 +31,14 @@ simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
              int const restart, int const max_iter, P const tolerance,
-             imex_flag const imex, P const alpha_in)
+             imex_flag const imex, P const dt_factor)
 {
   auto euler_operator = [&pde, &elem_table, &program_options, &my_subgrid, imex,
-                         alpha_in](fk::vector<P> const &x_in, fk::vector<P> &y,
-                                   P const alpha = 1.0, P const beta = 0.0) {
+                         dt_factor](fk::vector<P> const &x_in, fk::vector<P> &y,
+                                    P const alpha = 1.0, P const beta = 0.0) {
     auto tmp = kronmult::execute(pde, elem_table, program_options, my_subgrid,
                                  x_in, imex);
-    tmp      = x_in - tmp * pde.get_dt() * alpha_in;
+    tmp      = x_in - tmp * pde.get_dt() * dt_factor;
     y        = tmp * alpha + y * beta;
   };
   return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
@@ -372,7 +372,8 @@ simple_gmres(PDE<float> const &pde, elements::table const &elem_table,
              options const &program_options, element_subgrid const &my_subgrid,
              fk::vector<float> &x, fk::vector<float> const &b,
              fk::matrix<float> const &M, int const restart, int const max_iter,
-             float const tolerance, imex_flag const imex, const float alpha_in);
+             float const tolerance, imex_flag const imex,
+             const float dt_factor);
 
 template gmres_info<double>
 simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
@@ -380,7 +381,7 @@ simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
              fk::vector<double> &x, fk::vector<double> const &b,
              fk::matrix<double> const &M, int const restart, int const max_iter,
              double const tolerance, imex_flag const imex,
-             const double alpha_in);
+             const double dt_factor);
 
 template void setup_poisson(const int N_elements, float const x_min,
                             float const x_max, fk::vector<float> &diag,

@@ -185,7 +185,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x > 0.0) ? x : 0.0;
+    return std::max(P{0.0}, x);
   }
 
   inline static const partial_term<P> e1_pterm_x = partial_term<P>(
@@ -221,7 +221,7 @@ private:
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x < 0.0) ? x : 0.0;
+    return std::min(P{0.0}, x);
   }
 
   inline static const partial_term<P> e2_pterm_x = partial_term<P>(
@@ -294,13 +294,6 @@ private:
     return param->value(x, time);
   }
 
-  static P posOne(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
       coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
@@ -316,7 +309,7 @@ private:
               {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
-      coefficient_type::div, posOne, nullptr, flux_type::downwind,
+      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -413,13 +406,6 @@ private:
   //
   // div_v(th q)
   // q = \grad_v f
-  static P i3_g1(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   static P i3_g2(P const x, P const time = 0)
   {
     auto param = param_manager.get_parameter("theta");
@@ -428,7 +414,7 @@ private:
   }
 
   inline static const partial_term<P> i3_pterm_x1 = partial_term<P>(
-      coefficient_type::mass, i3_g1, nullptr, flux_type::central,
+      coefficient_type::mass, nullptr, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> i3_pterm_x2 = partial_term<P>(
@@ -440,26 +426,12 @@ private:
               "I3_x", // name
               {i3_pterm_x1, i3_pterm_x2}, imex_flag::imex_implicit);
 
-  static P i3_g3(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
-  static P i3_g4(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return 1.0;
-  }
-
   inline static const partial_term<P> i3_pterm_v1 = partial_term<P>(
-      coefficient_type::div, i3_g3, nullptr, flux_type::central,
+      coefficient_type::div, nullptr, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static const partial_term<P> i3_pterm_v2 = partial_term<P>(
-      coefficient_type::grad, i3_g4, nullptr, flux_type::central,
+      coefficient_type::grad, nullptr, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i3v =
@@ -479,9 +451,6 @@ private:
   static P get_dt_(dimension<P> const &dim)
   {
     ignore(dim);
-    /* return dx; this will be scaled by CFL from command line */
-    // return std::pow(0.25, dim.get_level());
-
     // TODO: these are constants since we want dt always based on dim 2,
     //  but there is no way to force a different dim for this function!
     // (Lmax - Lmin) / 2 ^ LevX * CFL, where 2 ^ LevX = 8 (LevX = 3)
