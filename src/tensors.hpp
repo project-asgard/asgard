@@ -10,6 +10,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -837,8 +838,11 @@ inline void
 allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
 {
 #ifdef ASGARD_USE_CUDA
-  auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-  assert(success == cudaSuccess);
+  if (auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
+      success != cudaSuccess)
+  {
+    throw std::bad_alloc();
+  }
   if (num_elems > 0)
   {
     expect(ptr != nullptr);
@@ -846,7 +850,7 @@ allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
 
   if (initialize)
   {
-    success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
+    auto success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
     expect(success == cudaSuccess);
   }
 

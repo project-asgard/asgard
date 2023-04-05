@@ -71,6 +71,7 @@ extern "C"
 
 #include <cmath>
 #include <iostream>
+#include <new>
 #include <type_traits>
 
 #include "asgard_mpi.h"
@@ -708,9 +709,11 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
     ignore(m);
 
     P **A_d;
-    auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
-    expect(stat == 0);
-    stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
+    if (auto stat = cudaMalloc((void **)&A_d, sizeof(P *)); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    auto stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
     expect(stat == 0);
 
     // instantiated for these two fp types
@@ -771,12 +774,17 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
 
     P const **A_d;
     P **work_d;
-    auto stat = cudaMalloc((void **)&A_d, sizeof(P *));
-    expect(stat == 0);
-    stat = cudaMalloc((void **)&work_d, sizeof(P *));
-    expect(stat == 0);
+    if (auto stat = cudaMalloc((void **)&A_d, sizeof(P *)); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    if (auto stat = cudaMalloc((void **)&work_d, sizeof(P *));
+        stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
 
-    stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
+    auto stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
     expect(stat == 0);
     stat = cudaMemcpy(work_d, &work, sizeof(P *), cudaMemcpyHostToDevice);
     expect(stat == 0);
@@ -847,18 +855,24 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     P **c_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
-    auto stat = cudaMalloc((void **)&a_d, list_size);
-    expect(stat == 0);
-    stat = cudaMalloc((void **)&b_d, list_size);
-    expect(stat == 0);
-    stat = cudaMalloc((void **)&c_d, list_size);
-    expect(stat == 0);
-    stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
+    if (auto stat = cudaMalloc((void **)&a_d, list_size); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    if (auto stat = cudaMalloc((void **)&b_d, list_size); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    if (auto stat = cudaMalloc((void **)&c_d, list_size); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    auto stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
+    expect(stat == cudaSuccess);
     stat = cudaMemcpy(b_d, b, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
+    expect(stat == cudaSuccess);
     stat = cudaMemcpy(c_d, c, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
+    expect(stat == cudaSuccess);
 
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
@@ -943,13 +957,19 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     P **y_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
-    auto stat = cudaMalloc((void **)&a_d, list_size);
-    expect(stat == 0);
-    stat = cudaMalloc((void **)&x_d, list_size);
-    expect(stat == 0);
-    stat = cudaMalloc((void **)&y_d, list_size);
-    expect(stat == 0);
-    stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
+    if (auto stat = cudaMalloc((void **)&a_d, list_size); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    if (auto stat = cudaMalloc((void **)&x_d, list_size); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    if (auto stat = cudaMalloc((void **)&y_d, list_size); stat != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    auto stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
     expect(stat == 0);
     stat = cudaMemcpy(x_d, x, list_size, cudaMemcpyHostToDevice);
     expect(stat == 0);
