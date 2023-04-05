@@ -211,6 +211,9 @@ int main(int argc, char **argv)
 
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
+  // compute the realspace moments for the initial file write
+  asgard::generate_initial_moments(*pde, opts, adaptive_grid, transformer,
+                                   initial_condition);
   if (cli_input.get_wavelet_output_freq() > 0)
   {
     asgard::write_output(*pde, cli_input, initial_condition,

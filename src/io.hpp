@@ -58,6 +58,38 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
 }
 
 template<typename P>
+void generate_initial_moments(
+    PDE<P> &pde, options const &program_opts,
+    adapt::distributed_grid<P> const &adaptive_grid,
+    asgard::basis::wavelet_transform<P, resource::host> const &transformer,
+    fk::vector<P> const &initial_condition)
+{
+  // create 1D version of PDE and element table for wavelet->realspace
+  // mappings
+  PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
+  adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
+
+  // Create workspace for wavelet transform
+  auto const dense_size = dense_space_size(pde_1d);
+  fk::vector<P, mem_type::owner, resource::host> workspace(dense_size * 2);
+  std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
+      fk::vector<P, mem_type::view, resource::host>(workspace, 0,
+                                                    dense_size - 1),
+      fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
+                                                    dense_size * 2 - 1)};
+
+  for (size_t i = 0; i < pde.moments.size(); ++i)
+  {
+    fk::vector<P> moment_vec(dense_size);
+    pde.moments[i].createMomentReducedMatrix(pde, adaptive_grid.get_table());
+    fm::gemv(pde.moments[i].get_moment_matrix(), initial_condition, moment_vec);
+    pde.moments[i].create_realspace_moment(pde_1d, moment_vec,
+                                           adaptive_grid_1d.get_table(),
+                                           transformer, tmp_workspace);
+  }
+}
+
+template<typename P>
 void write_output(PDE<P> const &pde, parser const &cli_input,
                   fk::vector<P> const &vec, P const time, int const file_index,
                   std::string const output_dataset_name = "asgard")
