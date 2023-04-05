@@ -47,6 +47,10 @@ public:
                                  elements::table const &hash_table);
 
   fk::vector<P> const &get_realspace_moment() const { return realspace; }
+  void set_realspace_moment(fk::vector<P> &&realspace_in)
+  {
+    realspace = std::move(realspace_in);
+  }
 
   fk::vector<P> &create_realspace_moment(
       PDE<P> const &pde_1d, fk::vector<P> &wave, elements::table const &table,

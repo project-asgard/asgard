@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 
   // -- generate initial condition vector
   asgard::node_out() << "  generating: initial conditions..." << '\n';
-  auto const initial_condition =
+  auto initial_condition =
       adaptive_grid.get_initial_condition(*pde, transformer, opts);
   asgard::node_out() << "  degrees of freedom (post initial adapt): "
                      << adaptive_grid.size() * static_cast<uint64_t>(std::pow(
@@ -209,10 +209,24 @@ int main(int argc, char **argv)
 #endif
 
   // -- setup output file and write initial condition
+  int start_step = 0;
 #ifdef ASGARD_IO_HIGHFIVE
-  // compute the realspace moments for the initial file write
-  asgard::generate_initial_moments(*pde, opts, adaptive_grid, transformer,
-                                   initial_condition);
+  if (cli_input.do_restart())
+  {
+    asgard::restart_data<prec> data = asgard::read_output(
+        *pde, adaptive_grid.get_table(), cli_input.get_restart_file());
+    initial_condition = std::move(data.solution);
+    start_step        = data.step_index;
+
+    asgard::generate_dimension_mass_mat<prec>(*pde, transformer);
+    asgard::generate_all_coefficients<prec>(*pde, transformer);
+  }
+  else
+  {
+    // compute the realspace moments for the initial file write
+    asgard::generate_initial_moments(*pde, opts, adaptive_grid, transformer,
+                                     initial_condition);
+  }
   if (cli_input.get_wavelet_output_freq() > 0)
   {
     asgard::write_output(*pde, cli_input, initial_condition,
@@ -235,7 +249,7 @@ int main(int argc, char **argv)
 
   asgard::matrix_list<prec> operator_matrices;
 
-  for (auto i = 0; i < opts.num_time_steps; ++i)
+  for (auto i = start_step; i < opts.num_time_steps; ++i)
   {
     // take a time advance step
     auto const time          = (i + 1) * pde->get_dt();

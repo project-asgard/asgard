@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pde.hpp"
+#include "program_options.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"
 #include "transformations.hpp"
@@ -115,6 +116,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   H5Easy::dump(file, "ndims", pde.num_dims);
   H5Easy::dump(file, "max_level", pde.max_level);
   H5Easy::dump(file, "dof", dof);
+  H5Easy::dump(file, "cli", cli_input.cli_opts);
   auto const dims = pde.get_dimensions();
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
@@ -136,6 +138,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 
   // save E field
   H5Easy::dump(file, "Efield", pde.E_field.to_std(), opts);
+  H5Easy::dump(file, "Esource", pde.E_source.to_std(), opts);
+  H5Easy::dump(file, "phi", pde.phi.to_std(), opts);
 
   if (pde.moments.size() > 0)
   {
@@ -158,7 +162,106 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_inner",
                  pde.gmres_outputs[i].inner_iter, opts);
   }
+
+  file.flush();
   tools::timer.stop("write_output");
+}
+
+template<typename P>
+void read_restart_metadata(parser *user_vals, std::string restart_file)
+{
+  std::cout << " Reading restart file '" << restart_file << "'\n";
+
+  HighFive::File file(restart_file, HighFive::File::ReadOnly);
+
+  std::string const pde_string =
+      H5Easy::load<std::string>(file, std::string("pde"));
+  int const degree = H5Easy::load<int>(file, std::string("degree"));
+  P const dt       = H5Easy::load<P>(file, std::string("dt"));
+  P const time     = H5Easy::load<P>(file, std::string("time"));
+
+  int const ndims    = H5Easy::load<int>(file, std::string("ndims"));
+  std::string levels = "";
+  for (int dim = 0; dim < ndims; ++dim)
+  {
+    levels += std::to_string(H5Easy::load<int>(
+        file, std::string("dim" + std::to_string(dim) + "_level")));
+    levels += " ";
+  }
+  int const max_level = H5Easy::load<int>(file, std::string("max_level"));
+  int const dof       = H5Easy::load<int>(file, std::string("dof"));
+
+  parser_mod::set(*user_vals, parser_mod::pde_str, pde_string);
+  parser_mod::set(*user_vals, parser_mod::degree, degree);
+  parser_mod::set(*user_vals, parser_mod::dt, dt);
+  parser_mod::set(*user_vals, parser_mod::starting_levels_str, levels);
+  // parser_mod::set(*user_vals, parser_mod::max_level, max_level);
+
+  std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
+            << ", degree = " << degree << "\n";
+  std::cout << "  - time = " << time << ", dt = " << dt << "\n";
+}
+
+template<typename P>
+struct restart_data
+{
+  fk::vector<P> solution;
+  P const time;
+  int step_index;
+};
+
+template<typename P>
+restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
+                            std::string restart_file)
+{
+  tools::timer.start("read_output");
+
+  std::cout << " Loading from restart file '" << restart_file << "'\n";
+
+  HighFive::File file(restart_file, HighFive::File::ReadOnly);
+
+  int const max_level = H5Easy::load<int>(file, std::string("max_level"));
+  P const dt          = H5Easy::load<P>(file, std::string("dt"));
+  P const time        = H5Easy::load<P>(file, std::string("time"));
+
+  std::vector<int64_t> active_table =
+      H5Easy::load<std::vector<int64_t>>(file, std::string("elements"));
+  // hash_table.add_elements(active_table, max_level);
+
+  fk::vector<P> solution =
+      fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("soln")));
+
+  // save E field
+  pde.E_field = std::move(
+      fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("Efield"))));
+
+  for (int dim = 0; dim < pde.num_dims; ++dim)
+  {
+    int level = H5Easy::load<int>(
+        file, std::string("dim" + std::to_string(dim) + "_level"));
+    pde.get_dimensions()[dim].set_level(level);
+    pde.update_dimension(dim, level);
+    pde.rechain_dimension(dim);
+  }
+
+  // save realspace moments
+  int const num_moments = H5Easy::load<int>(file, std::string("nmoments"));
+  expect(pde.moments.size() == num_moments);
+  for (size_t i = 0; i < num_moments; ++i)
+  {
+    pde.moments[i].createMomentReducedMatrix(pde, hash_table);
+    pde.moments[i].set_realspace_moment(
+        fk::vector<P>(H5Easy::load<std::vector<P>>(
+            file, std::string("moment" + std::to_string(i)))));
+  }
+
+  int step_index = (int)(time / dt);
+
+  std::cout << " Setting time step index as = " << step_index << "\n";
+
+  tools::timer.stop("read_output");
+
+  return restart_data<P>{solution, time, step_index};
 }
 
 } // namespace asgard
