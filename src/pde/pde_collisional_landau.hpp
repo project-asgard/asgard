@@ -31,7 +31,7 @@ public:
 private:
   static int constexpr num_dims_               = 2;
   static int constexpr num_sources_            = 0;
-  static int constexpr num_terms_              = 6;
+  static int constexpr num_terms_              = 7;
   static bool constexpr do_poisson_solve_      = true;
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = false;
@@ -441,9 +441,42 @@ private:
 
   inline static std::vector<term<P>> const terms_8 = {term_i3x, term_i3v};
 
+  // Term 9
+  // Penalty Part of collision operator
+  //
+  inline static const partial_term<P> penalty_mass_x_pterm = partial_term<P>(
+      coefficient_type::mass, nullptr, nullptr, flux_type::central,
+      boundary_condition::periodic, boundary_condition::periodic);
+
+  inline static term<P> const penalty_mass_x =
+      term<P>(true, // time-dependent
+              "",   // name
+              {penalty_mass_x_pterm}, imex_flag::imex_implicit);
+
+  static P penalty_func(P const x, P const time = 0)
+  {
+    ignore(x);
+    ignore(time);
+    // hardcoded for level 4: (vmax - vmin) / (2^lev_v)
+    return 10.0 / ((6.0 - (-6.0)) / (16.0));
+  }
+
+  inline static const partial_term<P> e_penalty_pterm = partial_term<P>(
+      coefficient_type::penalty, penalty_func, nullptr, flux_type::downwind,
+      boundary_condition::neumann, boundary_condition::neumann,
+      homogeneity::homogeneous, homogeneity::homogeneous);
+
+  inline static term<P> const e_penalty =
+      term<P>(false, // time-dependent
+              "",    // name
+              {e_penalty_pterm}, imex_flag::imex_implicit);
+
+  inline static std::vector<term<P>> const terms_9 = {penalty_mass_x,
+                                                      e_penalty};
+
   // terms 6, 7, 8 are terms 3,4,5 from vlasov_lb_full_f
-  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3,
-                                            terms_6, terms_7, terms_8};
+  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_6,
+                                            terms_7, terms_8, terms_9};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
   inline static scalar_func<P> const exact_scalar_func_               = {};
