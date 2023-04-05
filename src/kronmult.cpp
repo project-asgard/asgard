@@ -302,19 +302,23 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   // list building kernel needs simple arrays/pointers, can't compile our
   // objects
 
-  // FIXME assume all operators same size - largest possible adaptivity size
-  auto const lda =
-      degree *
-      fm::two_raised_to(
-          program_opts.max_level); // leading dimension of coefficient matrices
-  auto const real_size =
-      degree * fm::two_raised_to(pde.get_dimensions()[0].get_level());
-  auto const coeff = pde.get_coefficients(0, 0).clone_onto_host();
-  fk::matrix<P, mem_type::const_view> const blah(coeff, 0, real_size - 1, 0,
-                                                 real_size - 1);
+  int lda = degree;
+  // Calculate the leading dimension of coefficient matrices
+  // When adaptivity is enabled, we use the maximum adaptivity level specified
+  // with -m Without adaptivity, this uses the PDE's max level (max level over
+  // all dimensions)
+  if (program_opts.do_adapt_levels)
+  {
+    // FIXME assume all operators same size - largest possible adaptivity size
+    lda *= fm::two_raised_to(program_opts.max_level);
+  }
+  else
+  {
+    lda *= fm::two_raised_to(pde.max_level);
+  }
 
-  fk::matrix<P, mem_type::owner, resource::device> zeros_d(lda, lda);
-  fk::vector<P *> const operators = [&pde, lda, &program_opts, &zeros_d, imex] {
+  static fk::matrix<P, mem_type::owner, resource::device> zeros_d(lda, lda);
+  fk::vector<P *> const operators = [&pde, lda, &program_opts, imex] {
     fk::vector<P *> builder(pde.num_terms * pde.num_dims);
     for (int i = 0; i < pde.num_terms; ++i)
     {
