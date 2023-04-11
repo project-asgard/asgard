@@ -571,8 +571,7 @@ public:
         expect(term_1D.get_partial_terms().size() > 0);
 
         auto const max_dof =
-            fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
-            degree;
+            fm::two_raised_to(static_cast<int64_t>(max_level)) * degree;
         expect(max_dof < INT_MAX);
 
         term_1D.set_coefficients(eye<P>(max_dof));
@@ -604,8 +603,7 @@ public:
     for (auto i = 0; i < num_dims; ++i)
     {
       auto const max_dof =
-          fm::two_raised_to(static_cast<int64_t>(cli_input.get_max_level())) *
-          degree;
+          fm::two_raised_to(static_cast<int64_t>(max_level)) * degree;
       expect(max_dof < INT_MAX);
       update_dimension_mass_mat(i, eye<P>(max_dof));
     }
