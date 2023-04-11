@@ -18,7 +18,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
   auto pde = make_PDE<P>(parse);
   options const opts(parse);
   basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
-  P const time = 1.0;
+  P const time = 0.0;
   generate_dimension_mass_mat(*pde, transformer);
   generate_all_coefficients(*pde, transformer, time, rotate);
 
@@ -332,7 +332,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
 
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
-    TestType const time = 1.0;
+    TestType const time = 0.0;
     generate_dimension_mass_mat(*pde, transformer);
     generate_all_coefficients(*pde, transformer, time, true);
 
