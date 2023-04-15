@@ -149,11 +149,11 @@ void kronmult2_xbatched_gpu(T const * const Aarray_[],
                             int const batchCount){
   if constexpr (n == 2){
     int constexpr num_threads = 1024;
-    int num_blocks = std::min( 65535, (batchCount + num_threads / 4 + 1) / (num_threads / 4) ); // one operation takes two threads
+    int num_blocks = std::min( 300, (batchCount + num_threads / 4 + 1) / (num_threads / 4) ); // one operation takes two threads
     kernel_kronmult2_xbatched_gpu<T, num_threads, 2><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }else if constexpr (n == 4){
     int constexpr num_threads = 1024;
-    int num_blocks = std::min( 65535, (batchCount + num_threads / 16 + 1) / (num_threads / 16) ); // one operation takes two threads
+    int num_blocks = std::min( 300, (batchCount + num_threads / 16 + 1) / (num_threads / 16) ); // one operation takes two threads
     kernel_kronmult2_xbatched_gpu<T, num_threads, 4><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }else{
     static_assert( (n>=2) and (n<=4), "unimplemented size n (i.e., polynomial degree)");
