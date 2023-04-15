@@ -341,6 +341,9 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
         case 2:
           kronmult2_xbatched_gpu<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
           break;
+        case 4:
+          kronmult2_xbatched_gpu<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
+          break;
         default:
           kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
               n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);

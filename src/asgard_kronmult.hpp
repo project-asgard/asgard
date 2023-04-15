@@ -96,43 +96,48 @@ void kronmult1_xbatched_gpu(T const * const Aarray_[],
   }
 }
 
-template<typename T, int num_threads>
-__global__ void kernel_kronmult2_xbatched_gpu2(T const * const Aarray_[],
+template<typename T, int num_threads, int n>
+__global__ void kernel_kronmult2_xbatched_gpu(T const * const Aarray_[],
                        int const lda,
                        T* pX_[],
                        T* pY_[],
                        int const batchCount){
-  // 4 threads operate on one entry of the batch
+  // data entries (matrix and X/Y) have size n*n, so n*n threads work on one i
   // each thread reads/writes on one entry of either "vector" (x, y) or matrix Aarray_ 1 and 2
+  // each thread computes one entry of the matrix-matrix product
+
+  constexpr int threads_per_i = n * n;
 
   __shared__ T X[num_threads]; // cache for intermediate values
   __shared__ T A[num_threads]; // cache for the matrices
 
   // do all integer logic once
-  int locali = threadIdx.x / 4; // i is the index of the batch, locali is the index within the thread-block
-  int i = locali + blockIdx.x * num_threads / 4; // global index within the batch
-  int j = threadIdx.x % 4;
-  int matj = (j < 2) ? j : j + lda - 2;
+  int locali = threadIdx.x / threads_per_i; // i is the index of the batch, locali is the index within the thread-block
+  int i = locali + blockIdx.x * num_threads / threads_per_i; // global index within the batch
+  int j = threadIdx.x % threads_per_i;
+  int matj = j + (j/n) * (lda - n);
 
-  int ix  = 4 * locali;
-  int iat = (j < 2) ? ix : ix + 1;
-  int ia  = (j < 2) ? ix : ix + 2;
-  ix += threadIdx.x % 2;
+  int ix  = threads_per_i * locali;
+  int iat = ix + j / n;
+  int ia  = ix + n * (j/n);
+  ix += threadIdx.x % n;
 
   while(i < batchCount){
 
     X[threadIdx.x] = pX_[i][j];
     A[threadIdx.x] = Aarray_[2*i][matj];
 
-    X[threadIdx.x] = X[ix] * A[iat] + X[ix+2] * A[iat+2];
+    X[threadIdx.x] = (n == 2) ? X[ix] * A[iat] + X[ix+2] * A[iat+2]
+                     : X[ix] * A[iat] + X[ix+4] * A[iat+4] + X[ix+8] * A[iat+8] + X[ix+12] * A[iat+12];
 
     A[threadIdx.x] = Aarray_[2*i+1][matj];
 
-    T yinc = A[ix] * X[ia] + A[ix+2] * X[ia+1];
+    T yinc = (n == 2) ? A[ix] * X[ia] + A[ix+2] * X[ia+1]
+              : A[ix] * X[ia] + A[ix+4] * X[ia+1] + A[ix+8] * X[ia+2] + A[ix+12] * X[ia+3];
 
     atomicAdd(&pY_[i][j], yinc);
 
-    i += gridDim.x * num_threads / 4;
+    i += gridDim.x * num_threads / threads_per_i;
   }
 }
 
@@ -145,9 +150,13 @@ void kronmult2_xbatched_gpu(T const * const Aarray_[],
   if constexpr (n == 2){
     int constexpr num_threads = 1024;
     int num_blocks = std::min( 65535, (batchCount + num_threads / 4 + 1) / (num_threads / 4) ); // one operation takes two threads
-    kernel_kronmult2_xbatched_gpu2<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+    kernel_kronmult2_xbatched_gpu<T, num_threads, 2><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+  }else if constexpr (n == 4){
+    int constexpr num_threads = 1024;
+    int num_blocks = std::min( 65535, (batchCount + num_threads / 16 + 1) / (num_threads / 16) ); // one operation takes two threads
+    kernel_kronmult2_xbatched_gpu<T, num_threads, 4><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }else{
-    static_assert( (n>=2) and (n<=2), "unimplemented size n (i.e., polynomial degree)");
+    static_assert( (n>=2) and (n<=4), "unimplemented size n (i.e., polynomial degree)");
   }
 }
 
