@@ -8,8 +8,8 @@
 #include <cuda_runtime.h>
 #include <sm_60_atomic_functions.h>
 
-template<typename T, int num_threads> // transformed and canonical types
-__global__ void kernel_kronmult1_xbatched_gpu(T const * const Aarray_[],
+template<typename T, int num_threads, int n>
+__global__ void kernel_kronmult1_xbatched_gpu2(T const * const Aarray_[],
                        int const lda,
                        T* pX_[],
                        T* pY_[],
@@ -19,25 +19,58 @@ __global__ void kernel_kronmult1_xbatched_gpu(T const * const Aarray_[],
   __shared__ T X[num_threads];
 
   // do all integer logic once
-  int locali = threadIdx.x / 2;
-  int i = locali + blockIdx.x * num_threads / 2; // index within the batch
-  int j = threadIdx.x % 2; // indicated whether this is an even or odd thread
-  int localx0 = 2 * locali; // the first entry of x within the cache
-  int localx1 = 2 * locali + 1; // the second entry of x within the cache
+  int locali = threadIdx.x / n;
+  int i = locali + blockIdx.x * num_threads / n; // index within the batch
+  int j = threadIdx.x % n; // indicated whether this is an even or odd thread
+  int localx0 = n * locali; // the entry of x within the cache
+  int localx1 = localx0 + 1;
+  int localx2 = localx0 + 2;
+  int localx3 = localx0 + 3;
 
   while(i < batchCount){
 
     X[threadIdx.x] = pX_[i][j]; // read the X, every 2 threads read consecutive entries and store in cache
 
-    __syncthreads(); // probably not needed (pairs are always in the same warp)
-
-    T yinc = Aarray_[i][j] * X[localx0] + Aarray_[i][lda + j] * X[localx1];
+    T yinc = (n == 2) ?
+        Aarray_[i][j] * X[localx0] + Aarray_[i][lda + j] * X[localx1] :
+        Aarray_[i][j] * X[localx0] + Aarray_[i][lda + j] * X[localx1] + Aarray_[i][2*lda + j] * X[localx2] + + Aarray_[i][3*lda + j] * X[localx3];
 
     atomicAdd(&pY_[i][j], yinc);
 
-    i += gridDim.x * num_threads / 2;
+    i += gridDim.x * num_threads / n;
+  }
+}
+template<typename T, int num_threads> // assumes we are using 32 threads
+__global__ void kernel_kronmult1_xbatched_gpu3(T const * const Aarray_[],
+                       int const lda,
+                       T* pX_[],
+                       T* pY_[],
+                       int const batchCount){
+  // two threads operate on one entry of the batch
+
+  __shared__ T X[num_threads];
+
+  // do all integer logic once
+  int locali = threadIdx.x / 3;
+  int i = locali + blockIdx.x * 10; // index within the batch
+  int j = threadIdx.x % 3; // indicate the local index
+  int localx0 = 3 * locali; // the index of entries within the cache
+  int localx1 = localx0 + 1;
+  int localx2 = localx0 + 2;
+  if (threadIdx.x >= 30){
+    i = batchCount;
   }
 
+  while(i < batchCount){
+
+    X[threadIdx.x] = pX_[i][j]; // read the X, every 3 threads read consecutive entries and store in cache
+
+    T yinc = Aarray_[i][j] * X[localx0] + Aarray_[i][lda + j] * X[localx1] + Aarray_[i][2*lda+j] * X[localx2];
+
+    if (threadIdx.x < 30) atomicAdd(&pY_[i][j], yinc);
+
+    i += gridDim.x * 10;
+  }
 }
 
 template<typename T, int n>
@@ -49,9 +82,17 @@ void kronmult1_xbatched_gpu(T const * const Aarray_[],
   if constexpr (n == 2){
     int constexpr num_threads = 1024;
     int num_blocks = std::min( 65535, (batchCount + num_threads / 2 + 1) / (num_threads / 2) ); // one operation takes two threads
-    kernel_kronmult1_xbatched_gpu<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+    kernel_kronmult1_xbatched_gpu2<T, num_threads, 2><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+  }else if constexpr (n == 3){
+    int constexpr num_threads = 32;
+    int num_blocks = std::min( 65535, (batchCount + 11) / 10 ); // one operation takes two threads
+    kernel_kronmult1_xbatched_gpu3<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+  }else if constexpr (n == 4){
+    int constexpr num_threads = 1024;
+    int num_blocks = std::min( 65535, (batchCount + num_threads / 4 + 1) / (num_threads / 4) ); // one operation takes two threads
+    kernel_kronmult1_xbatched_gpu2<T, num_threads, 4><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }else{
-    static_assert( (n>=2) and (n<=2), "unimplemented size n (i.e., polynomial degree)");
+    static_assert( (n>=2) and (n<=4), "unimplemented size n (i.e., polynomial degree)");
   }
 }
 
