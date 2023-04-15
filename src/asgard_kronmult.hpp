@@ -160,6 +160,69 @@ void kronmult2_xbatched_gpu(T const * const Aarray_[],
   }
 }
 
+
+template<typename T, int num_threads>
+__global__ void kernel_kronmult3_xbatched_gpu(T const * const Aarray_[],
+                       int const lda,
+                       T* pX_[],
+                       T* pY_[],
+                       int const batchCount){
+  // data entries have size n^3, but matrices are n^2
+  // each thread reads/writes on one entry of either "vector" (x, y)
+  // matrices are read redundantly
+
+  __shared__ T X[num_threads]; // cache for intermediate values
+  __shared__ T A[num_threads];
+
+  // do all integer logic once
+  int locali = threadIdx.x / 8; // i is the index of the batch, locali is the index within the thread-block
+  int i = locali + blockIdx.x * num_threads / 8; // global index within the batch
+  int j = threadIdx.x % 8;
+  int matj = j % 2 + (j / 4) * lda;
+
+  int ix = 8 * locali;
+  int ia2 = ix + j/4 + 2 * ( (j/2) % 2 );
+  int iw = ix + j%2 + 4 * ( j/4 );
+  int ia1 = ix + j/2;
+  int iy = ix + 2 * ( j/2 );
+  ix += j % 4;
+
+  while(i < batchCount){
+
+    X[threadIdx.x] = pX_[i][j];
+    A[threadIdx.x] = Aarray_[3*i][matj];
+
+    X[threadIdx.x] = X[ix] * A[ia2] + X[ix+4] * A[ia2+4];
+
+    A[threadIdx.x] = Aarray_[3*i+1][matj];
+
+    X[threadIdx.x] = X[iw] * A[ia1] + X[iw+2] * A[ia1+4];
+
+    A[threadIdx.x] = Aarray_[3*i+2][matj];
+
+    T yinc =  A[ix] * X[iy] + A[ix+4] * X[iy+1];
+
+    atomicAdd(&pY_[i][j], yinc);
+
+    i += gridDim.x * num_threads / 8;
+  }
+}
+
+template<typename T, int n>
+void kronmult3_xbatched_gpu(T const * const Aarray_[],
+                            int const lda,
+                            T* pX_[],
+                            T* pY_[],
+                            int const batchCount){
+  if constexpr (n == 2){
+    int constexpr num_threads = 1024;
+    int num_blocks = std::min( 300, (batchCount + num_threads / 8 + 1) / (num_threads / 8) ); // one operation takes two threads
+    kernel_kronmult3_xbatched_gpu<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+  }else{
+    static_assert( (n>=2) and (n<=4), "unimplemented size n (i.e., polynomial degree)");
+  }
+}
+
 #endif
 
 
