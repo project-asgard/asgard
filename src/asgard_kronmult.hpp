@@ -96,7 +96,60 @@ void kronmult1_xbatched_gpu(T const * const Aarray_[],
   }
 }
 
+template<typename T, int num_threads>
+__global__ void kernel_kronmult2_xbatched_gpu2(T const * const Aarray_[],
+                       int const lda,
+                       T* pX_[],
+                       T* pY_[],
+                       int const batchCount){
+  // 4 threads operate on one entry of the batch
+  // each thread reads/writes on one entry of either "vector" (x, y) or matrix Aarray_ 1 and 2
 
+  __shared__ T X[num_threads]; // cache for intermediate values
+  __shared__ T A[num_threads]; // cache for the matrices
+
+  // do all integer logic once
+  int locali = threadIdx.x / 4; // i is the index of the batch, locali is the index within the thread-block
+  int i = locali + blockIdx.x * num_threads / 4; // global index within the batch
+  int j = threadIdx.x % 4;
+  int matj = (j < 2) ? j : j + lda - 2;
+
+  int ix  = 4 * locali;
+  int iat = (j < 2) ? ix : ix + 1;
+  int ia  = (j < 2) ? ix : ix + 2;
+  ix += threadIdx.x % 2;
+
+  while(i < batchCount){
+
+    X[threadIdx.x] = pX_[i][j];
+    A[threadIdx.x] = Aarray_[2*i][matj];
+
+    X[threadIdx.x] = X[ix] * A[iat] + X[ix+2] * A[iat+2];
+
+    A[threadIdx.x] = Aarray_[2*i+1][matj];
+
+    T yinc = A[ix] * X[ia] + A[ix+2] * X[ia+1];
+
+    atomicAdd(&pY_[i][j], yinc);
+
+    i += gridDim.x * num_threads / 4;
+  }
+}
+
+template<typename T, int n>
+void kronmult2_xbatched_gpu(T const * const Aarray_[],
+                            int const lda,
+                            T* pX_[],
+                            T* pY_[],
+                            int const batchCount){
+  if constexpr (n == 2){
+    int constexpr num_threads = 1024;
+    int num_blocks = std::min( 65535, (batchCount + num_threads / 4 + 1) / (num_threads / 4) ); // one operation takes two threads
+    kernel_kronmult2_xbatched_gpu2<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+  }else{
+    static_assert( (n>=2) and (n<=2), "unimplemented size n (i.e., polynomial degree)");
+  }
+}
 
 #endif
 
