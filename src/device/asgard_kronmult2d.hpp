@@ -7,9 +7,9 @@ namespace asgard::kronmult::kernel{
 #ifdef USE_GPU
 
 template<typename T, int num_threads, int n>
-__global__ void gpu2d(T const * const Aarray[],
+__global__ void gpu2d(T const * const pA[],
                       int const lda,
-                      T* pX[],
+                      T const * const pX[],
                       T* pY[],
                       int const num_batch){
 
@@ -30,7 +30,7 @@ __global__ void gpu2d(T const * const Aarray[],
   int iat = ix + j / n;
   int ia  = ix + n * (j/n);
   ix += threadIdx.x % n;
-  if (n == 3){ // done at compile time since n is a template parameter
+  if constexpr (n == 3){ // done at compile time since n is a template parameter
     // disable the last two threads of the warp since 32 does not divide into 3
     if (threadIdx.x >= 27){
         i = num_batch;
@@ -40,7 +40,7 @@ __global__ void gpu2d(T const * const Aarray[],
   while(i < num_batch){
 
     X[threadIdx.x] = pX[i][j];
-    A[threadIdx.x] = Aarray[2*i][matj];
+    A[threadIdx.x] = pA[2*i][matj];
 
     if constexpr (n == 2) {
       X[threadIdx.x] = X[ix] * A[iat] + X[ix+2] * A[iat+2];
@@ -50,7 +50,7 @@ __global__ void gpu2d(T const * const Aarray[],
       X[threadIdx.x] = X[ix] * A[iat] + X[ix+4] * A[iat+4] + X[ix+8] * A[iat+8] + X[ix+12] * A[iat+12];
     }
 
-    A[threadIdx.x] = Aarray[2*i+1][matj];
+    A[threadIdx.x] = pA[2*i+1][matj];
 
     T yinc;
     if constexpr (n == 2) {

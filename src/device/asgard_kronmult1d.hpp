@@ -36,9 +36,9 @@ namespace asgard::kronmult::kernel{
  *        note that the 1D kernel does not read the matrix
  */
 template<typename T, int num_threads, int n>
-__global__ void gpu1d(T const * const Aarray[],
+__global__ void gpu1d(T const * const pA[],
                        int const lda,
-                       T* pX[],
+                       T const * const pX[],
                        T* pY[],
                        int const num_batch){
   static_assert( n == 2 or n == 3 or n == 4, "kernel works only for n = 2, 3, 4" );
@@ -53,7 +53,7 @@ __global__ void gpu1d(T const * const Aarray[],
   int locala1 = lda + j;
   int locala2 = locala1 + lda;
   int locala3 = locala2 + lda;
-  if (n == 3){ // done at compile time since n is a template parameter
+  if constexpr (n == 3){ // done at compile time since n is a template parameter
     // disable the last two threads of the warp since 32 does not divide into 3
     if (threadIdx.x >= 30){
         i = num_batch;
@@ -66,11 +66,11 @@ __global__ void gpu1d(T const * const Aarray[],
 
     T yinc;
     if constexpr (n == 2){ // done at compile time
-      yinc = Aarray[i][j] * X[localx0] + Aarray[i][locala1] * X[localx0+1];
+      yinc = pA[i][j] * X[localx0] + pA[i][locala1] * X[localx0+1];
     } else if constexpr (n == 3) {
-      yinc = Aarray[i][j] * X[localx0] + Aarray[i][locala1] * X[localx0+1] + Aarray[i][locala2] * X[localx0+2];
+      yinc = pA[i][j] * X[localx0] + pA[i][locala1] * X[localx0+1] + pA[i][locala2] * X[localx0+2];
     } else if constexpr (n == 4) {
-      yinc = Aarray[i][j] * X[localx0] + Aarray[i][locala1] * X[localx0+1] + Aarray[i][locala2] * X[localx0+2] + + Aarray[i][locala3] * X[localx0+3];
+      yinc = pA[i][j] * X[localx0] + pA[i][locala1] * X[localx0+1] + pA[i][locala2] * X[localx0+2] + pA[i][locala3] * X[localx0+3];
     }
 
     atomicAdd(&pY[i][j], yinc);
