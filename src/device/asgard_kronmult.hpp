@@ -88,7 +88,7 @@ template<typename T, int n>
 void gpu3d(T const *const Aarray_[], int const lda, T const *const pX_[],
            T *pY_[], int const batchCount)
 {
-  static_assert(n == 2 or n == 3,
+  static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
 
   constexpr int max_blocks = 300;
@@ -109,6 +109,14 @@ void gpu3d(T const *const Aarray_[], int const lda, T const *const pX_[],
                         (num_threads / 27)); // one operation takes two threads
     kernel::gpu3d<T, num_threads, 3>
         <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+  }
+  else if constexpr (n == 4)
+  {
+    int constexpr num_threads = 1024;
+    int num_blocks            = std::min(
+        max_blocks, (batchCount + num_threads / 32 - 1) /
+                        (num_threads / 32));
+    kernel::gpu3d_n4<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }
 }
 
