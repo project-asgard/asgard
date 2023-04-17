@@ -838,8 +838,7 @@ inline void
 allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
 {
 #ifdef ASGARD_USE_CUDA
-  if (auto success = cudaMalloc((void **)&ptr, num_elems * sizeof(P));
-      success != cudaSuccess)
+  if (cudaMalloc((void **)&ptr, num_elems * sizeof(P)) != cudaSuccess)
   {
     throw std::bad_alloc();
   }

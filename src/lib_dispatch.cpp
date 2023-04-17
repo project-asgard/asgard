@@ -709,7 +709,7 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
     ignore(m);
 
     P **A_d;
-    if (auto stat = cudaMalloc((void **)&A_d, sizeof(P *)); stat != cudaSuccess)
+    if (cudaMalloc((void **)&A_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
@@ -774,12 +774,11 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
 
     P const **A_d;
     P **work_d;
-    if (auto stat = cudaMalloc((void **)&A_d, sizeof(P *)); stat != cudaSuccess)
+    if (cudaMalloc((void **)&A_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-    if (auto stat = cudaMalloc((void **)&work_d, sizeof(P *));
-        stat != cudaSuccess)
+    if (cudaMalloc((void **)&work_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
@@ -855,15 +854,15 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     P **c_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
-    if (auto stat = cudaMalloc((void **)&a_d, list_size); stat != cudaSuccess)
+    if (cudaMalloc((void **)&a_d, list_size) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-    if (auto stat = cudaMalloc((void **)&b_d, list_size); stat != cudaSuccess)
+    if (cudaMalloc((void **)&b_d, list_size) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-    if (auto stat = cudaMalloc((void **)&c_d, list_size); stat != cudaSuccess)
+    if (cudaMalloc((void **)&c_d, list_size) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
@@ -957,15 +956,15 @@ void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
     P **y_d;
     size_t const list_size = *num_batch * sizeof(P *);
 
-    if (auto stat = cudaMalloc((void **)&a_d, list_size); stat != cudaSuccess)
+    if (cudaMalloc((void **)&a_d, list_size) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-    if (auto stat = cudaMalloc((void **)&x_d, list_size); stat != cudaSuccess)
+    if (cudaMalloc((void **)&x_d, list_size) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-    if (auto stat = cudaMalloc((void **)&y_d, list_size); stat != cudaSuccess)
+    if (cudaMalloc((void **)&y_d, list_size) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
