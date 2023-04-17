@@ -66,10 +66,10 @@ void gpu2d(T const *const Aarray_[], int const lda, T const *const pX_[],
   }
   else if constexpr (n == 3)
   {
-    int constexpr num_threads = 32;
+    int constexpr num_threads = 1024;
     int num_blocks            = std::min(
-        max_blocks, (num_batch + num_threads / 9 - 1) /
-                        (num_threads / 9)); // one operation takes two threads
+        max_blocks, (num_batch + 3 * (num_threads / 32) - 1) /
+                        (3 * (num_threads / 32))); // one operation takes two threads
     kernel::gpu2d<T, num_threads, 3>
         <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
   }
@@ -92,31 +92,20 @@ void gpu3d(T const *const Aarray_[], int const lda, T const *const pX_[],
                 "unimplemented size n (i.e., polynomial degree)");
 
   constexpr int max_blocks = 300;
-  if constexpr (n == 2)
+  constexpr int num_threads = 1024;
+  constexpr int batch_per_block = num_threads / ( (n == 2) ? 8 : 32 );
+
+  int num_blocks = blocks(batchCount, batch_per_block, max_blocks);
+
+  if constexpr (n == 2 or n == 3)
   {
-    int constexpr num_threads = 1024;
-    int num_blocks            = std::min(
-        max_blocks, (batchCount + num_threads / 8 - 1) /
-                        (num_threads / 8)); // one operation takes two threads
-    kernel::gpu3d<T, num_threads, 2>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
-  }
-  else if constexpr (n == 3)
-  {
-    int constexpr num_threads = 32;
-    int num_blocks            = std::min(
-        max_blocks, (batchCount + num_threads / 27 - 1) /
-                        (num_threads / 27)); // one operation takes two threads
-    kernel::gpu3d<T, num_threads, 3>
+    kernel::gpu3d<T, num_threads, n>
         <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }
   else if constexpr (n == 4)
   {
-    int constexpr num_threads = 1024;
-    int num_blocks            = std::min(
-        max_blocks, (batchCount + num_threads / 32 - 1) /
-                        (num_threads / 32));
-    kernel::gpu3d_n4<T, num_threads><<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+    kernel::gpu3d_n4<T, num_threads>
+        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
   }
 }
 
