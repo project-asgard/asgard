@@ -25,6 +25,8 @@
 #include "kronmult5_xbatched.hpp"
 #include "kronmult6_xbatched.hpp"
 
+#include "asgard_kronmult.hpp"
+
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
@@ -316,16 +318,63 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     switch (num_dims)
     {
     case 1:
-      kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      switch (n)
+      {
+      case 2:
+        kronmult::gpu1d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 3:
+        kronmult::gpu1d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 4:
+        kronmult::gpu1d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      default:
+        kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
+            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+        break;
+      }
       break;
     case 2:
-      kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      switch (n)
+      {
+      case 2:
+        kronmult::gpu2d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 3:
+        kronmult::gpu2d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 4:
+        kronmult::gpu2d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      default:
+        kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
+            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+        break;
+      }
       break;
     case 3:
-      kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+      switch (n)
+      {
+      case 2:
+        kronmult::gpu3d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 3:
+        kronmult::gpu3d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      default:
+        kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
+            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+        break;
+      }
       break;
     case 4:
       kronmult4_xbatched<P><<<num_blocks, num_threads>>>(
@@ -355,12 +404,42 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     switch (num_dims)
     {
     case 1:
-      kronmult1_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
+      switch (n)
+      {
+      case 2:
+        kronmult::cpu1d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 3:
+        kronmult::cpu1d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 4:
+        kronmult::cpu1d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      default:
+        kronmult1_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
+                              work_ptrs, num_krons);
+        break;
+      }
       break;
     case 2:
-      kronmult2_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
+      switch (n)
+      {
+      case 2:
+        kronmult::cpu2d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      case 3:
+        kronmult::cpu2d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      default:
+        kronmult2_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
+                              work_ptrs, num_krons);
+        break;
+      }
       break;
     case 3:
       kronmult3_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
