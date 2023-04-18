@@ -381,9 +381,17 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
       }
       break;
     case 4:
-      kronmult4_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
+      switch (n)
+      {
+      case 2:
+        kronmult::gpu4d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
+      default:
+        kronmult4_xbatched<P><<<num_blocks, num_threads>>>(
+            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
+        break;
+      }
     case 5:
       kronmult5_xbatched<P><<<num_blocks, num_threads>>>(
           n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);

@@ -398,6 +398,13 @@ if (ASGARD_BUILD_TESTS)
     target_precompile_headers (tests_general_main REUSE_FROM asgard_obj)
   endif ()
 
+  # new kronmult testing
+  add_executable(asgard-kronmult-test ./src/asgard_kronmult_tests.cpp)
+  target_link_libraries (asgard-kronmult-test PUBLIC asgard_obj Catch2::Catch2)
+  target_include_directories (asgard-kronmult-test PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+  target_include_directories (asgard-kronmult-test PRIVATE ${CMAKE_SOURCE_DIR}/)
+  add_test (NAME asgard-kronmult-test COMMAND asgard-kronmult-test)
+
   # components with MPI-enabled testing
   set (mpi_test_components
     adapt
