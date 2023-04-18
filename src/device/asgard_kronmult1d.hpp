@@ -43,22 +43,40 @@ __global__ void gpu1d(T const *const pA[], int const lda, T const *const pX[],
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "kernel works only for n = 2, 3, 4");
-  static_assert(n != 3 or (n == 3 and num_threads == 32),
-                "restriction on warp size limit this kernel to 32 threads");
+
+  constexpr int i_per_block = (n==3) ? (10 * (num_threads / 32)) : (num_threads / n);
 
   __shared__ T X[num_threads];
 
-  int locali = threadIdx.x / n;
-  int i = locali + blockIdx.x * (num_threads / n); // index within the batch
-  int j = threadIdx.x % n;  // indicated whether this is an even or odd thread
-  int localx0 = n * locali; // the entry of x within the cache
+  // i is the index of the batch, locali is the index within the thread-block
+  int locali;
+  if constexpr (n == 3){
+    locali = 10 * (threadIdx.x / 32) + (threadIdx.x % 32) / n;
+  }else{
+    locali = threadIdx.x / n;
+  }
+
+  int i = locali + blockIdx.x * i_per_block; // index within the batch
+  int j; // indicated whether this is an even or odd thread
+  if constexpr (n ==3){
+    j = (threadIdx.x % 32) % n;
+  }else{
+    j = threadIdx.x % n;
+  }
+  int localx0; // the entry of x within the cache
+  if constexpr (n ==3){
+    localx0 = 32 * (threadIdx.x / 32) + n * ((threadIdx.x % 32) / n);
+  }else{
+    localx0 = n * locali;
+  }
+
   int locala1 = lda + j;
   int locala2 = locala1 + lda;
   int locala3 = locala2 + lda;
   if constexpr (n == 3)
   { // done at compile time since n is a template parameter
     // disable the last two threads of the warp since 32 does not divide into 3
-    if (threadIdx.x >= 30)
+    if (threadIdx.x % 32 >= 30)
     {
       i = num_batch;
     }
@@ -87,7 +105,7 @@ __global__ void gpu1d(T const *const pA[], int const lda, T const *const pX[],
 
     atomicAdd(&pY[i][j], yinc);
 
-    i += gridDim.x * (num_threads / n);
+    i += gridDim.x * i_per_block;
   }
 }
 

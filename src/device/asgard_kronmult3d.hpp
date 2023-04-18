@@ -11,8 +11,6 @@ __global__ void gpu3d(T const *const pA[], int const lda, T const *const pX[],
                       T *pY[], int const num_batch)
 {
   static_assert(n == 2 or n == 3, "kernel works only for n = 2, 3");
-//  static_assert(n != 3 or (n == 3 and num_threads == 32),
-//                "restriction on warp size limit this kernel to 32 threads");
 
   // for n = 3, using full warp of threads 32 instead of 27 (masking the 27)
   constexpr int data_per_proc = (n==3) ? 32 : n * n * n;
