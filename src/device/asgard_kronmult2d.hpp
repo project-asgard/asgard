@@ -12,31 +12,57 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "kernel works only for n = 2, 3, 4");
-  static_assert(n != 3 or (n == 3 and num_threads == 32),
-                "restriction on warp size limit this kernel to 32 threads");
 
+  constexpr int team_size     = 32;
   constexpr int threads_per_i = n * n;
+  constexpr int i_per_block   = (n == 3) ? (3 * (num_threads / team_size))
+                                         : (num_threads / threads_per_i);
 
   __shared__ T X[num_threads]; // cache for intermediate values
   __shared__ T A[num_threads]; // cache for the matrices
 
-  int locali =
-      threadIdx.x / threads_per_i; // i is the index of the batch, locali is the
-                                   // index within the thread-block
-  int i = locali +
-          blockIdx.x *
-              (num_threads / threads_per_i); // global index within the batch
-  int j    = threadIdx.x % threads_per_i;
+  int locali;
+  if constexpr (n == 3)
+  {
+    locali = 3 * (threadIdx.x / team_size) +
+             (threadIdx.x % team_size) / threads_per_i;
+  }
+  else
+  {
+    locali =
+        threadIdx.x / threads_per_i; // i is the index of the batch, locali is
+                                     // the index within the thread-block
+  }
+  int i = locali + blockIdx.x * i_per_block; // global index within the batch
+  int j;
+  if constexpr (n == 3)
+  {
+    j = (threadIdx.x % team_size) % threads_per_i;
+  }
+  else
+  {
+    j = threadIdx.x % threads_per_i;
+  }
+
   int matj = j % n + (j / n) * lda;
 
-  int ix  = threads_per_i * locali;
+  int ix;
+  if constexpr (n == 3)
+  {
+    ix = team_size * (threadIdx.x / team_size) +
+         9 * ((threadIdx.x % team_size) / 9);
+  }
+  else
+  {
+    ix = threads_per_i * locali;
+  }
   int iat = ix + j / n;
   int ia  = ix + n * (j / n);
-  ix += threadIdx.x % n;
+  ix += j % n;
   if constexpr (n == 3)
   { // done at compile time since n is a template parameter
     // disable the last two threads of the warp since 32 does not divide into 3
-    if (threadIdx.x >= 27)
+    if (threadIdx.x % 32 >= 27)
     {
       i = num_batch;
     }
@@ -81,7 +107,7 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
 
     atomicAdd(&pY[i][j], yinc);
 
-    i += gridDim.x * (num_threads / threads_per_i);
+    i += gridDim.x * i_per_block;
   }
 }
 

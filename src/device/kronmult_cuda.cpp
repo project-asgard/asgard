@@ -370,6 +370,10 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
         kronmult::gpu3d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
                               num_krons);
         break;
+      case 4:
+        kronmult::gpu3d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
+                              num_krons);
+        break;
       default:
         kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
             n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);

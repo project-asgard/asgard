@@ -11,8 +11,8 @@ namespace asgard::kronmult
 #ifdef USE_GPU
 
 template<typename T, int n>
-void gpu1d(T const *const Aarray_[], int const lda, T const *const pX_[],
-           T *pY_[], int const num_batch)
+void gpu1d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
+           int const num_batch)
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
@@ -20,95 +20,58 @@ void gpu1d(T const *const Aarray_[], int const lda, T const *const pX_[],
   constexpr int max_blocks =
       300; // we want enough blocks to saturate the GPU, but note that each
            // block repeats some integer ops.
-  if constexpr (n == 2)
-  {
-    int constexpr num_threads = 1024;
-    int num_blocks            = std::min(
-        max_blocks, (num_batch + num_threads / 2 - 1) /
-                        (num_threads / 2)); // one operation takes two threads
-    kernel::gpu1d<T, num_threads, 2>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
-  }
-  else if constexpr (n == 3)
-  {
-    int constexpr num_threads = 32;
-    int num_blocks            = std::min(
-        max_blocks, (num_batch + 9) / 10); // one operation takes two threads
-    kernel::gpu1d<T, num_threads, 3>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
-  }
-  else if constexpr (n == 4)
-  {
-    int constexpr num_threads = 1024;
-    int num_blocks = std::min(max_blocks, (num_batch + num_threads / 4 - 1) /
-                                              (num_threads / 4));
-    kernel::gpu1d<T, num_threads, 4>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
-  }
+
+  constexpr int num_threads = 1024;
+  constexpr int batch_per_block =
+      (n == 3) ? 10 * num_threads / 32 : num_threads / n;
+
+  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
+
+  kernel::gpu1d<T, num_threads, n>
+      <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T, int n>
-void gpu2d(T const *const Aarray_[], int const lda, T const *const pX_[],
-           T *pY_[], int const num_batch)
+void gpu2d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
+           int const num_batch)
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
 
-  constexpr int max_blocks = 300;
-  if constexpr (n == 2)
-  {
-    int constexpr num_threads = 1024;
-    int num_blocks            = std::min(
-        max_blocks, (num_batch + num_threads / 4 - 1) /
-                        (num_threads / 4)); // one operation takes two threads
-    kernel::gpu2d<T, num_threads, 2>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
-  }
-  else if constexpr (n == 3)
-  {
-    int constexpr num_threads = 32;
-    int num_blocks            = std::min(
-        max_blocks, (num_batch + num_threads / 9 - 1) /
-                        (num_threads / 9)); // one operation takes two threads
-    kernel::gpu2d<T, num_threads, 3>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
-  }
-  else if constexpr (n == 4)
-  {
-    int constexpr num_threads = 1024;
-    int num_blocks            = std::min(
-        max_blocks, (num_batch + num_threads / 16 - 1) /
-                        (num_threads / 16)); // one operation takes two threads
-    kernel::gpu2d<T, num_threads, 4>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, num_batch);
-  }
+  constexpr int max_blocks  = 300;
+  constexpr int num_threads = 1024;
+  constexpr int batch_per_block =
+      (n == 2) ? num_threads / 4
+               : ((n == 3) ? 3 * (num_threads / 32) : num_threads / 16);
+
+  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
+
+  kernel::gpu2d<T, num_threads, n>
+      <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T, int n>
-void gpu3d(T const *const Aarray_[], int const lda, T const *const pX_[],
-           T *pY_[], int const batchCount)
+void gpu3d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
+           int const num_batch)
 {
-  static_assert(n == 2 or n == 3,
+  static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
 
-  constexpr int max_blocks = 300;
-  if constexpr (n == 2)
+  constexpr int max_blocks      = 300;
+  constexpr int num_threads     = 1024;
+  constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
+
+  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
+
+  if constexpr (n == 2 or n == 3)
   {
-    int constexpr num_threads = 1024;
-    int num_blocks            = std::min(
-        max_blocks, (batchCount + num_threads / 8 - 1) /
-                        (num_threads / 8)); // one operation takes two threads
-    kernel::gpu3d<T, num_threads, 2>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+    kernel::gpu3d<T, num_threads, n>
+        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
   }
-  else if constexpr (n == 3)
+  else if constexpr (n == 4)
   {
-    int constexpr num_threads = 32;
-    int num_blocks            = std::min(
-        max_blocks, (batchCount + num_threads / 27 - 1) /
-                        (num_threads / 27)); // one operation takes two threads
-    kernel::gpu3d<T, num_threads, 3>
-        <<<num_blocks, num_threads>>>(Aarray_, lda, pX_, pY_, batchCount);
+    kernel::gpu3d_n4<T, num_threads>
+        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
   }
 }
 
