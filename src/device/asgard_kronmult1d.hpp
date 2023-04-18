@@ -44,29 +44,39 @@ __global__ void gpu1d(T const *const pA[], int const lda, T const *const pX[],
   static_assert(n == 2 or n == 3 or n == 4,
                 "kernel works only for n = 2, 3, 4");
 
-  constexpr int i_per_block = (n==3) ? (10 * (num_threads / 32)) : (num_threads / n);
+  constexpr int i_per_block =
+      (n == 3) ? (10 * (num_threads / 32)) : (num_threads / n);
 
   __shared__ T X[num_threads];
 
   // i is the index of the batch, locali is the index within the thread-block
   int locali;
-  if constexpr (n == 3){
+  if constexpr (n == 3)
+  {
     locali = 10 * (threadIdx.x / 32) + (threadIdx.x % 32) / n;
-  }else{
+  }
+  else
+  {
     locali = threadIdx.x / n;
   }
 
   int i = locali + blockIdx.x * i_per_block; // index within the batch
   int j; // indicated whether this is an even or odd thread
-  if constexpr (n ==3){
+  if constexpr (n == 3)
+  {
     j = (threadIdx.x % 32) % n;
-  }else{
+  }
+  else
+  {
     j = threadIdx.x % n;
   }
   int localx0; // the entry of x within the cache
-  if constexpr (n ==3){
+  if constexpr (n == 3)
+  {
     localx0 = 32 * (threadIdx.x / 32) + n * ((threadIdx.x % 32) / n);
-  }else{
+  }
+  else
+  {
     localx0 = n * locali;
   }
 

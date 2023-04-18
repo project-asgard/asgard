@@ -13,7 +13,7 @@ __global__ void gpu3d(T const *const pA[], int const lda, T const *const pX[],
   static_assert(n == 2 or n == 3, "kernel works only for n = 2, 3");
 
   // for n = 3, using full warp of threads 32 instead of 27 (masking the 27)
-  constexpr int data_per_proc = (n==3) ? 32 : n * n * n;
+  constexpr int data_per_proc = (n == 3) ? 32 : n * n * n;
   constexpr int mat_per_proc  = n * n;
 
   __shared__ T X[num_threads]; // cache for intermediate values
@@ -89,8 +89,8 @@ __global__ void gpu3d(T const *const pA[], int const lda, T const *const pX[],
 // 3d, n = 4 means data has 64 entries, matrices 16
 // using one warp per batch entry, processing the data in two cycles
 template<typename T, int num_threads>
-__global__ void gpu3d_n4(T const *const pA[], int const lda, T const *const pX[],
-                         T *pY[], int const num_batch)
+__global__ void gpu3d_n4(T const *const pA[], int const lda,
+                         T const *const pX[], T *pY[], int const num_batch)
 {
   __shared__ T X[2][num_threads]; // cache for intermediate values
   __shared__ T W[2][num_threads]; // cache for intermediate values
@@ -98,38 +98,46 @@ __global__ void gpu3d_n4(T const *const pA[], int const lda, T const *const pX[]
 
   // do all integer logic once
   int locali = threadIdx.x / 32;
-  int i = locali + blockIdx.x * (num_threads / 32);
-  int j = threadIdx.x % 32; // local index within the warp
-  int matj = j % 4 + (j / 8) * lda;
+  int i      = locali + blockIdx.x * (num_threads / 32);
+  int j      = threadIdx.x % 32; // local index within the warp
+  int matj   = j % 4 + (j / 8) * lda;
 
-  int ix = 32 * locali;
-  int ia2 = ix + j / 16 + 4 * ( (j%16) / 8 );
-  int iw = ix + j%4 + 16 * ( j/16 );
-  int ia1 = ix + (j%16)/4 + 4 * ( j/16 );
-  int iy = ix + 4 * ( j/4 );
-  int ia0 = ix + j%8;
+  int ix  = 32 * locali;
+  int ia2 = ix + j / 16 + 4 * ((j % 16) / 8);
+  int iw  = ix + j % 4 + 16 * (j / 16);
+  int ia1 = ix + (j % 16) / 4 + 4 * (j / 16);
+  int iy  = ix + 4 * (j / 4);
+  int ia0 = ix + j % 8;
   ix += threadIdx.x % 16;
 
   while (i < num_batch)
   {
     X[0][threadIdx.x] = pX[i][j];
     X[1][threadIdx.x] = pX[i][j + 32];
-    A[threadIdx.x] = pA[3 * i][matj];
+    A[threadIdx.x]    = pA[3 * i][matj];
 
-    W[0][threadIdx.x] = X[0][ix] * A[ia2] + X[0][ix + 16] * A[ia2 + 8] + X[1][ix] * A[ia2 + 16] + X[1][ix + 16] * A[ia2 + 24];
-    W[1][threadIdx.x] = X[0][ix] * A[ia2+2] + X[0][ix + 16] * A[ia2 + 10] + X[1][ix] * A[ia2 + 18] + X[1][ix + 16] * A[ia2 + 26];
+    W[0][threadIdx.x] = X[0][ix] * A[ia2] + X[0][ix + 16] * A[ia2 + 8] +
+                        X[1][ix] * A[ia2 + 16] + X[1][ix + 16] * A[ia2 + 24];
+    W[1][threadIdx.x] = X[0][ix] * A[ia2 + 2] + X[0][ix + 16] * A[ia2 + 10] +
+                        X[1][ix] * A[ia2 + 18] + X[1][ix + 16] * A[ia2 + 26];
 
     A[threadIdx.x] = pA[3 * i + 1][matj];
 
-    X[0][threadIdx.x] = W[0][iw] * A[ia1] + W[0][iw + 4] * A[ia1 + 8] + W[0][iw + 8] * A[ia1 + 16] + W[0][iw + 12] * A[ia1 + 24];
-    X[1][threadIdx.x] = W[1][iw] * A[ia1] + W[1][iw + 4] * A[ia1 + 8] + W[1][iw + 8] * A[ia1 + 16] + W[1][iw + 12] * A[ia1 + 24];
+    X[0][threadIdx.x] = W[0][iw] * A[ia1] + W[0][iw + 4] * A[ia1 + 8] +
+                        W[0][iw + 8] * A[ia1 + 16] +
+                        W[0][iw + 12] * A[ia1 + 24];
+    X[1][threadIdx.x] = W[1][iw] * A[ia1] + W[1][iw + 4] * A[ia1 + 8] +
+                        W[1][iw + 8] * A[ia1 + 16] +
+                        W[1][iw + 12] * A[ia1 + 24];
 
     A[threadIdx.x] = pA[3 * i + 2][matj];
 
-    T yinc = A[ia0] * X[0][iy] + A[ia0+8] * X[0][iy+1] + A[ia0+16] * X[0][iy+2] + A[ia0+24] * X[0][iy+3];
+    T yinc = A[ia0] * X[0][iy] + A[ia0 + 8] * X[0][iy + 1] +
+             A[ia0 + 16] * X[0][iy + 2] + A[ia0 + 24] * X[0][iy + 3];
     atomicAdd(&pY[i][j], yinc);
 
-    yinc = A[ia0] * X[1][iy] + A[ia0+8] * X[1][iy+1] + A[ia0+16] * X[1][iy+2] + A[ia0+24] * X[1][iy+3];
+    yinc = A[ia0] * X[1][iy] + A[ia0 + 8] * X[1][iy + 1] +
+           A[ia0 + 16] * X[1][iy + 2] + A[ia0 + 24] * X[1][iy + 3];
     atomicAdd(&pY[i][j + 32], yinc);
 
     i += gridDim.x * (num_threads / 32);

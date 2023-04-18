@@ -11,8 +11,8 @@ namespace asgard::kronmult
 #ifdef USE_GPU
 
 template<typename T, int n>
-void gpu1d(T const *const pA[], int const lda, T const *const pX[],
-           T *pY[], int const num_batch)
+void gpu1d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
+           int const num_batch)
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
@@ -22,41 +22,44 @@ void gpu1d(T const *const pA[], int const lda, T const *const pX[],
            // block repeats some integer ops.
 
   constexpr int num_threads = 1024;
-  constexpr int batch_per_block = (n==3) ? 10 * num_threads/32 : num_threads / n;
+  constexpr int batch_per_block =
+      (n == 3) ? 10 * num_threads / 32 : num_threads / n;
 
   int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
 
   kernel::gpu1d<T, num_threads, n>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+      <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T, int n>
-void gpu2d(T const *const pA[], int const lda, T const *const pX[],
-           T *pY[], int const num_batch)
+void gpu2d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
+           int const num_batch)
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
 
-  constexpr int max_blocks = 300;
+  constexpr int max_blocks  = 300;
   constexpr int num_threads = 1024;
-  constexpr int batch_per_block = (n==2) ? num_threads/4 : ( (n==3) ? 3 * (num_threads / 32) : num_threads / 16 );
+  constexpr int batch_per_block =
+      (n == 2) ? num_threads / 4
+               : ((n == 3) ? 3 * (num_threads / 32) : num_threads / 16);
 
   int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
 
   kernel::gpu2d<T, num_threads, n>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+      <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T, int n>
-void gpu3d(T const *const pA[], int const lda, T const *const pX[],
-           T *pY[], int const num_batch)
+void gpu3d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
+           int const num_batch)
 {
   static_assert(n == 2 or n == 3 or n == 4,
                 "unimplemented size n (i.e., polynomial degree)");
 
-  constexpr int max_blocks = 300;
-  constexpr int num_threads = 1024;
-  constexpr int batch_per_block = num_threads / ( (n == 2) ? 8 : 32 );
+  constexpr int max_blocks      = 300;
+  constexpr int num_threads     = 1024;
+  constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
 
   int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
 

@@ -14,33 +14,43 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
                 "kernel works only for n = 2, 3, 4");
 
   constexpr int threads_per_i = n * n;
-  constexpr int i_per_block = (n==3) ? (3 * (num_threads / 32)) : (num_threads / threads_per_i);
+  constexpr int i_per_block =
+      (n == 3) ? (3 * (num_threads / 32)) : (num_threads / threads_per_i);
 
   __shared__ T X[num_threads]; // cache for intermediate values
   __shared__ T A[num_threads]; // cache for the matrices
 
   int locali;
-  if constexpr (n == 3){
+  if constexpr (n == 3)
+  {
     locali = 3 * (threadIdx.x / 32) + (threadIdx.x % 32) / threads_per_i;
-  }else{
-    locali = threadIdx.x / threads_per_i; // i is the index of the batch, locali is the
-                                          // index within the thread-block
   }
-  int i = locali +
-          blockIdx.x * i_per_block; // global index within the batch
+  else
+  {
+    locali =
+        threadIdx.x / threads_per_i; // i is the index of the batch, locali is
+                                     // the index within the thread-block
+  }
+  int i = locali + blockIdx.x * i_per_block; // global index within the batch
   int j;
-  if constexpr (n ==3){
+  if constexpr (n == 3)
+  {
     j = (threadIdx.x % 32) % threads_per_i;
-  }else{
+  }
+  else
+  {
     j = threadIdx.x % threads_per_i;
   }
 
   int matj = j % n + (j / n) * lda;
 
   int ix;
-  if constexpr (n ==3){
+  if constexpr (n == 3)
+  {
     ix = 32 * (threadIdx.x / 32) + 9 * ((threadIdx.x % 32) / 9);
-  }else{
+  }
+  else
+  {
     ix = threads_per_i * locali;
   }
   int iat = ix + j / n;
