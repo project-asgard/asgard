@@ -13,9 +13,10 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
   static_assert(n == 2 or n == 3 or n == 4,
                 "kernel works only for n = 2, 3, 4");
 
+  constexpr int team_size     = 32;
   constexpr int threads_per_i = n * n;
-  constexpr int i_per_block =
-      (n == 3) ? (3 * (num_threads / 32)) : (num_threads / threads_per_i);
+  constexpr int i_per_block   = (n == 3) ? (3 * (num_threads / team_size))
+                                         : (num_threads / threads_per_i);
 
   __shared__ T X[num_threads]; // cache for intermediate values
   __shared__ T A[num_threads]; // cache for the matrices
@@ -23,7 +24,8 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
   int locali;
   if constexpr (n == 3)
   {
-    locali = 3 * (threadIdx.x / 32) + (threadIdx.x % 32) / threads_per_i;
+    locali = 3 * (threadIdx.x / team_size) +
+             (threadIdx.x % team_size) / threads_per_i;
   }
   else
   {
@@ -35,7 +37,7 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
   int j;
   if constexpr (n == 3)
   {
-    j = (threadIdx.x % 32) % threads_per_i;
+    j = (threadIdx.x % team_size) % threads_per_i;
   }
   else
   {
@@ -47,7 +49,8 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
   int ix;
   if constexpr (n == 3)
   {
-    ix = 32 * (threadIdx.x / 32) + 9 * ((threadIdx.x % 32) / 9);
+    ix = team_size * (threadIdx.x / team_size) +
+         9 * ((threadIdx.x % team_size) / 9);
   }
   else
   {

@@ -12,7 +12,8 @@ __global__ void gpu3d(T const *const pA[], int const lda, T const *const pX[],
 {
   static_assert(n == 2 or n == 3, "kernel works only for n = 2, 3");
 
-  // for n = 3, using full warp of threads 32 instead of 27 (masking the 27)
+  // for n = 3, assume the data size is 32 instead of 27
+  // since the last 5 threads will be masked anyway
   constexpr int data_per_proc = (n == 3) ? 32 : n * n * n;
   constexpr int mat_per_proc  = n * n;
 
@@ -36,7 +37,7 @@ __global__ void gpu3d(T const *const pA[], int const lda, T const *const pX[],
   int iy  = ix + n * (j / n);
   ix += j % mat_per_proc;
   if constexpr (n == 3)
-  {
+  { // masking the last 5 threads of each warp
     if (threadIdx.x % 32 >= 27)
       i = num_batch;
   }
@@ -92,28 +93,32 @@ template<typename T, int num_threads>
 __global__ void gpu3d_n4(T const *const pA[], int const lda,
                          T const *const pX[], T *pY[], int const num_batch)
 {
+  constexpr int team_size   = 32; // one team of 32 threads handles one i
+  constexpr int i_pre_block = num_threads / team_size;
+  constexpr int mat_size    = 4 * 4;
+
   __shared__ T X[2][num_threads]; // cache for intermediate values
   __shared__ T W[2][num_threads]; // cache for intermediate values
   __shared__ T A[num_threads];
 
   // do all integer logic once
-  int locali = threadIdx.x / 32;
-  int i      = locali + blockIdx.x * (num_threads / 32);
-  int j      = threadIdx.x % 32; // local index within the warp
+  int locali = threadIdx.x / team_size;
+  int i      = locali + blockIdx.x * i_pre_block;
+  int j      = threadIdx.x % team_size; // local index within the warp
   int matj   = j % 4 + (j / 8) * lda;
 
-  int ix  = 32 * locali;
-  int ia2 = ix + j / 16 + 4 * ((j % 16) / 8);
-  int iw  = ix + j % 4 + 16 * (j / 16);
-  int ia1 = ix + (j % 16) / 4 + 4 * (j / 16);
+  int ix  = team_size * locali;
+  int ia2 = ix + j / mat_size + 4 * ((j % mat_size) / 8);
+  int iw  = ix + j % 4 + mat_size * (j / mat_size);
+  int ia1 = ix + (j % mat_size) / 4 + 4 * (j / mat_size);
   int iy  = ix + 4 * (j / 4);
   int ia0 = ix + j % 8;
-  ix += threadIdx.x % 16;
+  ix += threadIdx.x % mat_size;
 
   while (i < num_batch)
   {
     X[0][threadIdx.x] = pX[i][j];
-    X[1][threadIdx.x] = pX[i][j + 32];
+    X[1][threadIdx.x] = pX[i][j + team_size];
     A[threadIdx.x]    = pA[3 * i][matj];
 
     W[0][threadIdx.x] = X[0][ix] * A[ia2] + X[0][ix + 16] * A[ia2 + 8] +
@@ -138,9 +143,9 @@ __global__ void gpu3d_n4(T const *const pA[], int const lda,
 
     yinc = A[ia0] * X[1][iy] + A[ia0 + 8] * X[1][iy + 1] +
            A[ia0 + 16] * X[1][iy + 2] + A[ia0 + 24] * X[1][iy + 3];
-    atomicAdd(&pY[i][j + 32], yinc);
+    atomicAdd(&pY[i][j + team_size], yinc);
 
-    i += gridDim.x * (num_threads / 32);
+    i += gridDim.x * i_pre_block;
   }
 }
 
