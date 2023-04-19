@@ -269,6 +269,10 @@ target_sources (asgard_obj
                 PRIVATE
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp>
 )
+target_sources (asgard_obj
+                PRIVATE
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp>
+)
 target_precompile_headers (asgard_obj
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp>>
@@ -318,6 +322,7 @@ if (ASGARD_USE_CUDA)
 
     set_target_properties (asgard_obj PROPERTIES CUDA_ARCHITECTURES 70)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
 #  Turn on GPU support in kronmult.

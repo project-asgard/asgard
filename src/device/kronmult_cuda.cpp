@@ -321,16 +321,13 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
       switch (n)
       {
       case 2:
-        kronmult::gpu1d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(1, 2, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       case 3:
-        kronmult::gpu1d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(1, 3, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       case 4:
-        kronmult::gpu1d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(1, 4, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       default:
         kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
@@ -342,16 +339,13 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
       switch (n)
       {
       case 2:
-        kronmult::gpu2d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(2, 2, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       case 3:
-        kronmult::gpu2d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(2, 3, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       case 4:
-        kronmult::gpu2d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(2, 4, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       default:
         kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
@@ -363,16 +357,13 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
       switch (n)
       {
       case 2:
-        kronmult::gpu3d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(3, 2, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       case 3:
-        kronmult::gpu3d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(2, 3, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       case 4:
-        kronmult::gpu3d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(2, 4, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       default:
         kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
@@ -384,8 +375,7 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
       switch (n)
       {
       case 2:
-        kronmult::gpu4d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
+        kronmult::execute_gpu<P>(4, 2, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
         break;
       default:
         kronmult4_xbatched<P><<<num_blocks, num_threads>>>(

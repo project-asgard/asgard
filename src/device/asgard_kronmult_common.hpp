@@ -3,7 +3,9 @@
 #include <iostream>
 #include <vector>
 
-#ifdef USE_GPU
+#include "build_info.hpp"
+
+#ifdef ASGARD_USE_CUDA
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -54,10 +56,10 @@ void reference_gemv(int n, T const A[], T const x[], T y[]){
 template<typename T>
 void reference_kronmult_one(int dimensions, int n,
                         T const *const pA[], T const x[], T y[]){
-  std::vector<T> kron;
+  std::vector<T> kron( pA[dimensions-1], pA[dimensions-1] + n * n );
   int total_size = n;
-  for(int i=dimensions-1; i>0; i--){
-    kron = kronecker(n, pA[i-1], total_size, pA[i]);
+  for(int i=dimensions-2; i>=0; i--){
+    kron = kronecker(n, pA[i], total_size, kron.data());
     total_size *= n;
   }
   reference_gemv(total_size, kron.data(), x, y);
@@ -68,10 +70,9 @@ void reference_kronmult(int dimensions, int n,
                         T const *const pA[], T const *const pX[], T *pY[],
                         int const num_batch){
   for(int i=0; i<num_batch; i++){
-    reference_kronmult_one(dimensions, n, &pA[i], pX[i], pY[i]);
+    reference_kronmult_one(dimensions, n, &pA[dimensions * i], pX[i], pY[i]);
   }
 }
-
 
 } // namespace asgard::kronmult
 

@@ -4,7 +4,7 @@
 
 namespace asgard::kronmult::kernel
 {
-#ifdef USE_GPU
+#ifdef ASGARD_USE_CUDA
 
 /*
  * The idea behind the algorithm is similar for all kernels.
