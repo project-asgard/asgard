@@ -40,7 +40,6 @@ __global__ void gpu4d_n2(T const *const pA[], int const lda, T const *const pX[]
   // threads for j >= n * n will be masked
   int const matj = j % n + lda * (j / n);
 
-
   // 4D implies 4-stages, three transpose operations and one non-transpose
   // stages are counted backwards 3, 2, 1, 0
   // all cycles have the same root, every X and A index is offset from that
@@ -55,7 +54,7 @@ __global__ void gpu4d_n2(T const *const pA[], int const lda, T const *const pX[]
   int const i1x = rooti + j % n + (n*n) * ( j / (n*n) );
   int const i1a = rooti + j / n - n * ( j / (n*n) );
 
-  int const i0x = rooti + j / n;
+  int const i0x = rooti + n * (j / n);
   int const i0a = rooti + j % n;
 
   while (i < num_batch)
@@ -73,7 +72,7 @@ __global__ void gpu4d_n2(T const *const pA[], int const lda, T const *const pX[]
 
     X[threadIdx.x] = X[i1x] * A[i1a] + X[i1x + n] * A[i1a + n];
 
-    if (j < n * n) A[threadIdx.x] = pA[4*i+1][matj];
+    if (j < n * n) A[threadIdx.x] = pA[4*i+3][matj];
 
     T yinc = A[i0a] * X[i0x] + A[i0a + n] * X[i0x + 1];
 

@@ -156,6 +156,15 @@ void execute_gpu(int dimensions, int n,
           throw std::runtime_error("kronmult unimplemented n for the gpu");
       }
       break;
+    case 4:
+      switch(n){
+        case 2:
+          gpu4d<T, 2>(pA, lda, pX, pY, num_batch);
+          break;
+        default:
+          throw std::runtime_error("kronmult unimplemented n for the gpu");
+      }
+      break;
     default:
       throw std::runtime_error("kronmult unimplemented number of dimensions for the gpu");
   }

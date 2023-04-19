@@ -183,17 +183,24 @@ TEMPLATE_TEST_CASE("testing kronmult gpu",
                    "[execute_gpu]", float, double)
 {
     test_kronmult_gpu<TestType>(1, 2, 1, 1, 1);
-//    test_kronmult_gpu<TestType>(1, 2, 10, 1, 1);
-//     test_kronmult_gpu<TestType>(1, 2, 10, 5, 1);
-//     test_kronmult_gpu<TestType>(1, 2, 10, 1, 5);
-//     test_kronmult_gpu<TestType>(1, 2, 100, 10, 8);
-//
-//     test_kronmult_gpu<TestType>(1, 2, 70, 9, 7);
-//     test_kronmult_gpu<TestType>(1, 3, 70, 9, 7);
-//     test_kronmult_gpu<TestType>(1, 4, 70, 9, 7);
-//
-//     test_kronmult_gpu<TestType>(2, 2, 70, 9, 7);
-//     test_kronmult_gpu<TestType>(2, 3, 70, 9, 7);
+    test_kronmult_gpu<TestType>(1, 2, 10, 1, 1);
+    test_kronmult_gpu<TestType>(1, 2, 10, 5, 1);
+    test_kronmult_gpu<TestType>(1, 2, 10, 1, 5);
+    test_kronmult_gpu<TestType>(1, 2, 100, 10, 8);
+
+    test_kronmult_gpu<TestType>(1, 2, 70, 9, 7);
+    test_kronmult_gpu<TestType>(1, 3, 70, 9, 7);
+    test_kronmult_gpu<TestType>(1, 4, 70, 9, 7);
+
+    test_kronmult_gpu<TestType>(2, 2, 170, 9, 7);
+    test_kronmult_gpu<TestType>(2, 3, 170, 9, 7);
+    test_kronmult_gpu<TestType>(2, 4, 170, 9, 7);
+
+    test_kronmult_gpu<TestType>(3, 2, 170, 9, 7);
+    test_kronmult_gpu<TestType>(3, 3, 170, 9, 7);
+    test_kronmult_gpu<TestType>(3, 4, 170, 9, 7);
+
+    test_kronmult_gpu<TestType>(4, 2, 140, 5, 3);
 }
 
 #endif
