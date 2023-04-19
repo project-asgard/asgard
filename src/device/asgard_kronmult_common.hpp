@@ -27,7 +27,7 @@ inline int blocks(int work_size, int work_per_block, int max_blocks)
 }
 
 template<typename T>
-std::vector<T> kronecker(int m, std::vector<T> const &A, int n, std::vector<T> const &B){
+std::vector<T> kronecker(int m, T const A[], int n, T const B[]){
   std::vector<T> result(n*n*m*m);
   for(int jm=0; jm<m; jm++){
     for(int jn=0; jn<n; jn++){
@@ -43,13 +43,35 @@ std::vector<T> kronecker(int m, std::vector<T> const &A, int n, std::vector<T> c
 }
 
 template<typename T>
-void reference_gemv(int n, std::vector<T> const &A, std::vector<T> const &x, std::vector<T> &y){
+void reference_gemv(int n, T const A[], T const x[], T y[]){
   for(int j=0; j<n; j++){
     for(int i=0; i<n; i++){
       y[i] += A[j*n + i] * x[j];
     }
   }
 }
+
+template<typename T>
+void reference_kronmult_one(int dimensions, int n,
+                        T const *const pA[], T const x[], T y[]){
+  std::vector<T> kron;
+  int total_size = n;
+  for(int i=dimensions-1; i>0; i--){
+    kron = kronecker(n, pA[i-1], total_size, pA[i]);
+    total_size *= n;
+  }
+  reference_gemv(total_size, kron.data(), x, y);
+}
+
+template<typename T>
+void reference_kronmult(int dimensions, int n,
+                        T const *const pA[], T const *const pX[], T *pY[],
+                        int const num_batch){
+  for(int i=0; i<num_batch; i++){
+    reference_kronmult_one(dimensions, n, &pA[i], pX[i], pY[i]);
+  }
+}
+
 
 } // namespace asgard::kronmult
 
