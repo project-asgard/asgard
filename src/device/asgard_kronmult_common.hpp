@@ -28,6 +28,10 @@ inline int blocks(int work_size, int work_per_block, int max_blocks)
                   (work_size + work_per_block - 1) / work_per_block);
 }
 
+enum class manual_sync{
+    enable, disable
+};
+
 template<typename T>
 std::vector<T> kronecker(int m, T const A[], int n, T const B[]){
   std::vector<T> result(n*n*m*m);

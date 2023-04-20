@@ -4,7 +4,6 @@
 
 namespace asgard::kronmult::kernel
 {
-#ifdef ASGARD_USE_CUDA
 
 template<typename T, int num_threads, int n>
 __global__ void gpu4d_n2(T const *const pA[], int const lda, T const *const pX[],
@@ -81,7 +80,5 @@ __global__ void gpu4d_n2(T const *const pA[], int const lda, T const *const pX[]
     i += gridDim.x * teams_per_block;
   }
 }
-
-#endif
 
 } // namespace asgard::kronmult::kernel

@@ -4,7 +4,6 @@
 
 namespace asgard::kronmult::kernel
 {
-#ifdef ASGARD_USE_CUDA
 
 template<typename T, int num_threads, int n>
 __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
@@ -111,6 +110,100 @@ __global__ void gpu2d(T const *const pA[], int const lda, T const *const pX[],
   }
 }
 
-#endif
+template<int n, int power>
+__device__ constexpr int int_pow(){
+    if constexpr(power == 1){
+        return n;
+    }else{
+        return n * int_pow<n, power-1>();
+    }
+}
+
+template<typename T, int team_size, int num_teams, int n, manual_sync sync>
+__global__ void gpu2d_v2(T const *const pA[], int const lda, T const *const pX[],
+                      T *pY[], int const num_batch)
+{
+    constexpr int effective_team_size = int_pow<n, 2>();
+
+    static_assert(effective_team_size <= team_size, "team is too small, size must equal the size of the tensors");
+
+    __shared__ T X[num_teams][team_size];
+    __shared__ T A[num_teams][team_size];
+
+    int i = threadIdx.y + blockIdx.x * blockDim.y;
+
+    int const matj = threadIdx.x % n + lda * ( threadIdx.x / n );
+
+    int const ix1 = threadIdx.x % int_pow<n, 1>();
+    int const ia1 = threadIdx.x / int_pow<n, 1>();
+
+    int const ix0 = n * (threadIdx.x / n);
+    int const ia0 = threadIdx.x % n;
+
+    if constexpr (effective_team_size < team_size){
+        if (threadIdx.x >= effective_team_size)
+            i = num_batch;
+    }
+
+    while (i < num_batch)
+    {
+        X[threadIdx.y][threadIdx.x] = pX[i][threadIdx.x];
+
+        if (threadIdx.x < n * n) A[threadIdx.y][threadIdx.x] = pA[2*i][matj];
+        if constexpr (sync == manual_sync::enable){  __syncthreads(); }
+
+        __syncthreads();
+
+        if constexpr (n==2){
+            X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
+                                          + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n];
+        }else if constexpr (n==3){
+            X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
+                                          + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]
+                                            + X[threadIdx.y][ix1 + 2*n] * A[threadIdx.y][ia1 + 2*n];
+        }else if constexpr (n==4){
+            X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
+                                          + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]
+                                            + X[threadIdx.y][ix1 + 2*n] * A[threadIdx.y][ia1 + 2*n]
+                                              + X[threadIdx.y][ix1 + 3*n] * A[threadIdx.y][ia1 + 3*n];
+        } else {
+            T sum = 0;
+            for(int k=0; k<n; k++)
+                sum += X[threadIdx.y + k * n][ix1] * A[threadIdx.y][ia1 + k * n];
+
+            if constexpr (sync == manual_sync::enable){ __syncthreads(); }
+            X[threadIdx.y][threadIdx.x] = sum;
+        }
+
+        if (threadIdx.x < n * n) A[threadIdx.y][threadIdx.x] = pA[2*i+1][matj];
+        if constexpr (sync == manual_sync::enable){ __syncthreads(); }
+
+        __syncthreads();
+
+        T yinc;
+        if constexpr (n==2){
+            yinc = A[threadIdx.y][ia0] * X[threadIdx.y][ix0]
+                   + A[threadIdx.y][ia0 + n] * X[threadIdx.y][ix0 + 1];
+        }else if constexpr (n==3){
+            yinc = A[threadIdx.y][ia0] * X[threadIdx.y][ix0]
+                   + A[threadIdx.y][ia0 + n] * X[threadIdx.y][ix0 + 1]
+                     + A[threadIdx.y][ia0 + 2*n] * X[threadIdx.y][ix0 + 2];
+        }else if constexpr (n==4){
+            yinc = A[threadIdx.y][ia0] * X[threadIdx.y][ix0]
+                   + A[threadIdx.y][ia0 + n] * X[threadIdx.y][ix0 + 1]
+                     + A[threadIdx.y][ia0 + 2*n] * X[threadIdx.y][ix0 + 2]
+                       + A[threadIdx.y][ia0 + 3*n] * X[threadIdx.y][ix0 + 3];
+        } else {
+            yinc = 0;
+            for(int k=0; k<n; k++)
+                yinc += A[threadIdx.y][ia0 + k * n] * X[threadIdx.y][ix0 + k];
+        }
+
+        atomicAdd(&pY[i][threadIdx.x], yinc);
+
+        i += gridDim.x * blockDim.y;
+    }
+
+}
 
 } // namespace asgard::kronmult::kernel

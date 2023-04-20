@@ -1,10 +1,14 @@
 #include <iostream>
 #include <set>
 
+#include "build_info.hpp"
+
+#ifdef ASGARD_USE_CUDA
 #include "asgard_kronmult1d.hpp"
 #include "asgard_kronmult2d.hpp"
 #include "asgard_kronmult3d.hpp"
 #include "asgard_kronmult4d.hpp"
+#endif
 
 namespace asgard::kronmult
 {
@@ -35,19 +39,20 @@ template<typename T, int n>
 void gpu2d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
            int const num_batch)
 {
-  static_assert(n == 2 or n == 3 or n == 4,
-                "unimplemented size n (i.e., polynomial degree)");
-
+  constexpr int warp_size   = 32;
   constexpr int max_blocks  = 300;
-  constexpr int num_threads = 1024;
-  constexpr int batch_per_block =
-      (n == 2) ? num_threads / 4
-               : ((n == 3) ? 3 * (num_threads / 32) : num_threads / 16);
+  constexpr int max_threads = 1024;
+  constexpr int team_size = n * n;
+  constexpr int num_teams = max_threads / team_size;
 
-  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
+  static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");
 
-  kernel::gpu2d<T, num_threads, n>
-      <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+  constexpr manual_sync sync_mode = (team_size > warp_size or warp_size % team_size != 0) ? manual_sync::enable : manual_sync::disable;
+
+  int num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  kernel::gpu2d_v2<T, team_size, num_teams, n, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T, int n>
@@ -136,6 +141,9 @@ void execute_gpu(int dimensions, int n,
           break;
         case 4:
           gpu2d<T, 4>(pA, lda, pX, pY, num_batch);
+          break;
+        case 5:
+          gpu2d<T, 5>(pA, lda, pX, pY, num_batch);
           break;
         default:
           throw std::runtime_error("kronmult unimplemented n for the gpu");

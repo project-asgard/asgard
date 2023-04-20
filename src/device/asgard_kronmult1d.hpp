@@ -4,7 +4,6 @@
 
 namespace asgard::kronmult::kernel
 {
-#ifdef ASGARD_USE_CUDA
 
 /*
  * The idea behind the algorithm is similar for all kernels.
@@ -120,7 +119,5 @@ __global__ void gpu1d(T const *const pA[], int const lda, T const *const pX[],
     i += gridDim.x * i_per_block;
   }
 }
-
-#endif
 
 } // namespace asgard::kronmult::kernel
