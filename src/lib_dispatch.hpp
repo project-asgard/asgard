@@ -19,15 +19,15 @@ template<typename P>
 P nrm2(int *n, P *x, int *incx, resource const resrc = resource::host);
 
 template<typename P>
-void copy(int *n, P *x, int *incx, P *y, int *incy,
+void copy(int *n, P const *x, int *incx, P *y, int *incy,
           resource const resrc = resource::host);
 
 template<typename P>
-P dot(int *n, P *x, int *incx, P *y, int *incy,
+P dot(int *n, P const *x, int *incx, P *y, int *incy,
       resource const resrc = resource::host);
 
 template<typename P>
-void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
+void axpy(int *n, P *alpha, P const *x, int *incx, P *y, int *incy,
           resource const resrc = resource::host);
 
 template<typename P>
@@ -35,14 +35,14 @@ void scal(int *n, P *alpha, P *x, int *incx,
           resource const resrc = resource::host);
 
 template<typename P>
-void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
-          int *incx, P *beta, P *y, int *incy,
+void gemv(char const *trans, int *m, int *n, P *alpha, P const *A, int *lda,
+          P const *x, int *incx, P *beta, P *y, int *incy,
           resource const resrc = resource::host);
 
 template<typename P>
 void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
-          P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
-          resource const resrc = resource::host);
+          P *alpha, P const *A, int *lda, P const *B, int *ldb, P *beta, P *C,
+          int *ldc, resource const resrc = resource::host);
 
 template<typename P>
 void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
