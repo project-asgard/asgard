@@ -158,9 +158,13 @@ __global__ void gpu2d_v2(T const *const pA[], int const lda, T const *const pX[]
             X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
                                           + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n];
         }else if constexpr (n==3){
-            X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
+            T sum = 0;
+            sum = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
                                           + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]
                                             + X[threadIdx.y][ix1 + 2*n] * A[threadIdx.y][ia1 + 2*n];
+
+            if constexpr (sync == manual_sync::enable){ __syncthreads(); }
+            X[threadIdx.y][threadIdx.x] = sum;
         }else if constexpr (n==4){
             X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
                                           + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]

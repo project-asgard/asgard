@@ -96,7 +96,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu",
     test_kronmult_gpu<TestType>(1, 4, 70, 9, 7);
 
     test_kronmult_gpu<TestType>(2, 2, 170, 9, 7);
-    //test_kronmult_gpu<TestType>(2, 3, 170, 9, 7);
+    test_kronmult_gpu<TestType>(2, 3, 170, 9, 7);
     test_kronmult_gpu<TestType>(2, 4, 170, 9, 7);
     //test_kronmult_gpu<TestType>(2, 5, 170, 9, 7);
 
