@@ -276,7 +276,7 @@ P nrm2(int *n, P *x, int *incx, resource const resrc)
 }
 
 template<typename P>
-void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
+void copy(int *n, P const *x, int *incx, P *y, int *incy, resource const resrc)
 {
   expect(x);
   expect(y);
@@ -327,7 +327,7 @@ void copy(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 }
 
 template<typename P>
-P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
+P dot(int *n, P const *x, int *incx, P *y, int *incy, resource const resrc)
 {
   expect(x);
   expect(y);
@@ -381,7 +381,7 @@ P dot(int *n, P *x, int *incx, P *y, int *incy, resource const resrc)
 }
 
 template<typename P>
-void axpy(int *n, P *alpha, P *x, int *incx, P *y, int *incy,
+void axpy(int *n, P *alpha, const P *x, int *incx, P *y, int *incy,
           resource const resrc)
 {
   expect(alpha);
@@ -488,9 +488,9 @@ void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
 //
 template<typename P>
 static void
-basic_gemm(P const *A, bool const trans_A, int const lda, P *B, bool trans_B,
-           int const ldb, P *C, int const ldc, int const m, int const k,
-           int const n, P const alpha, P const beta)
+basic_gemm(P const *A, bool const trans_A, int const lda, P const *B,
+           bool trans_B, int const ldb, P *C, int const ldc, int const m,
+           int const k, int const n, P const alpha, P const beta)
 {
   expect(m > 0);
   expect(k > 0);
@@ -558,8 +558,8 @@ static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
 }
 
 template<typename P>
-void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
-          int *incx, P *beta, P *y, int *incy, resource const resrc)
+void gemv(char const *trans, int *m, int *n, P *alpha, P const *A, int *lda,
+          P const *x, int *incx, P *beta, P *y, int *incy, resource const resrc)
 {
   expect(alpha);
   expect(A);
@@ -622,8 +622,8 @@ void gemv(char const *trans, int *m, int *n, P *alpha, P *A, int *lda, P *x,
 
 template<typename P>
 void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
-          P *alpha, P *A, int *lda, P *B, int *ldb, P *beta, P *C, int *ldc,
-          resource const resrc)
+          P *alpha, P const *A, int *lda, P const *B, int *ldb, P *beta, P *C,
+          int *ldc, resource const resrc)
 {
   expect(alpha);
   expect(A);
@@ -1213,26 +1213,26 @@ rotg(double *, double *, double *, double *, resource const resrc);
 template float nrm2(int *n, float *x, int *incx, resource const resrc);
 template double nrm2(int *n, double *x, int *incx, resource const resrc);
 
-template void
-copy(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
-template void
-copy(int *n, double *x, int *incx, double *y, int *incy, resource const resrc);
-template void
-copy(int *n, int *x, int *incx, int *y, int *incy, resource const resrc);
-
-template float
-dot(int *n, float *x, int *incx, float *y, int *incy, resource const resrc);
-template double
-dot(int *n, double *x, int *incx, double *y, int *incy, resource const resrc);
-template int
-dot(int *n, int *x, int *incx, int *y, int *incy, resource const resrc);
-
-template void axpy(int *n, float *alpha, float *x, int *incx, float *y,
-                   int *incy, resource const resrc);
-template void axpy(int *n, double *alpha, double *x, int *incx, double *y,
-                   int *incy, resource const resrc);
-template void axpy(int *n, int *alpha, int *x, int *incx, int *y, int *incy,
+template void copy(int *n, float const *x, int *incx, float *y, int *incy,
                    resource const resrc);
+template void copy(int *n, double const *x, int *incx, double *y, int *incy,
+                   resource const resrc);
+template void
+copy(int *n, int const *x, int *incx, int *y, int *incy, resource const resrc);
+
+template float dot(int *n, float const *x, int *incx, float *y, int *incy,
+                   resource const resrc);
+template double dot(int *n, double const *x, int *incx, double *y, int *incy,
+                    resource const resrc);
+template int
+dot(int *n, int const *x, int *incx, int *y, int *incy, resource const resrc);
+
+template void axpy(int *n, float *alpha, float const *x, int *incx, float *y,
+                   int *incy, resource const resrc);
+template void axpy(int *n, double *alpha, double const *x, int *incx, double *y,
+                   int *incy, resource const resrc);
+template void axpy(int *n, int *alpha, int const *x, int *incx, int *y,
+                   int *incy, resource const resrc);
 
 template void
 scal(int *n, float *alpha, float *x, int *incx, resource const resrc);
@@ -1240,26 +1240,27 @@ template void
 scal(int *n, double *alpha, double *x, int *incx, resource const resrc);
 template void scal(int *n, int *alpha, int *x, int *incx, resource const resrc);
 
-template void gemv(char const *trans, int *m, int *n, float *alpha, float *A,
-                   int *lda, float *x, int *incx, float *beta, float *y,
+template void gemv(char const *trans, int *m, int *n, float *alpha,
+                   float const *A, int *lda, float const *x, int *incx,
+                   float *beta, float *y, int *incy, resource const resrc);
+template void gemv(char const *trans, int *m, int *n, double *alpha,
+                   double const *A, int *lda, double const *x, int *incx,
+                   double *beta, double *y, int *incy, resource const resrc);
+template void gemv(char const *trans, int *m, int *n, int *alpha, int const *A,
+                   int *lda, int const *x, int *incx, int *beta, int *y,
                    int *incy, resource const resrc);
-template void gemv(char const *trans, int *m, int *n, double *alpha, double *A,
-                   int *lda, double *x, int *incx, double *beta, double *y,
-                   int *incy, resource const resrc);
-template void gemv(char const *trans, int *m, int *n, int *alpha, int *A,
-                   int *lda, int *x, int *incx, int *beta, int *y, int *incy,
-                   resource const resrc);
 
 template void gemm(char const *transa, char const *transb, int *m, int *n,
-                   int *k, float *alpha, float *A, int *lda, float *B, int *ldb,
-                   float *beta, float *C, int *ldc, resource const resrc);
-template void gemm(char const *transa, char const *transb, int *m, int *n,
-                   int *k, double *alpha, double *A, int *lda, double *B,
-                   int *ldb, double *beta, double *C, int *ldc,
+                   int *k, float *alpha, float const *A, int *lda,
+                   float const *B, int *ldb, float *beta, float *C, int *ldc,
                    resource const resrc);
 template void gemm(char const *transa, char const *transb, int *m, int *n,
-                   int *k, int *alpha, int *A, int *lda, int *B, int *ldb,
-                   int *beta, int *C, int *ldc, resource const resrc);
+                   int *k, double *alpha, double const *A, int *lda,
+                   double const *B, int *ldb, double *beta, double *C, int *ldc,
+                   resource const resrc);
+template void gemm(char const *transa, char const *transb, int *m, int *n,
+                   int *k, int *alpha, int const *A, int *lda, int const *B,
+                   int *ldb, int *beta, int *C, int *ldc, resource const resrc);
 
 template void getrf(int *m, int *n, float *A, int *lda, int *ipiv, int *info,
                     resource const resrc);
