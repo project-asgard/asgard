@@ -1,8 +1,6 @@
 
 #include "tests_general.hpp"
 
-#include <sm_60_atomic_functions.h>
-
 #include "./device/asgard_kronmult.hpp"
 #include "tensors.hpp"
 
