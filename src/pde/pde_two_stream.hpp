@@ -229,14 +229,14 @@ private:
   inline static std::vector<term<P>> const terms_2 = {term_e2x, term_e2v};
 
   // Term 3
-  // Central Part of E\cdot\grad_v f
+  // -E\cdot\grad_v f for E > 0
   //
 
-  static P E_func(P const x, P const time = 0)
+  static P E_func_pos(P const x, P const time = 0)
   {
     auto param = param_manager.get_parameter("E");
     expect(param != nullptr);
-    return param->value(x, time);
+    return std::max(P{0.0},param->value(x, time));
   }
 
   static P negOne(P const x, P const time = 0)
@@ -246,61 +246,58 @@ private:
     return -1.0;
   }
 
-  inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
-      coefficient_type::mass, E_func, nullptr, flux_type::central,
+  inline static const partial_term<P> pterm_E_mass_x_pos = partial_term<P>(
+      coefficient_type::mass, E_func_pos, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const E_mass_x =
+  inline static term<P> const E_mass_x_pos =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_E_mass_x}, imex_flag::imex_explicit);
+              {pterm_E_mass_x_pos}, imex_flag::imex_explicit);
 
-  inline static const partial_term<P> pterm_div_v = partial_term<P>(
-      coefficient_type::div, negOne, nullptr, flux_type::central,
+  inline static const partial_term<P> pterm_div_v_dn = partial_term<P>(
+      coefficient_type::div, negOne, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
-  inline static term<P> const div_v =
+  inline static term<P> const div_v_dn =
       term<P>(false, // time-dependent
               "",    // name
-              {pterm_div_v}, imex_flag::imex_explicit);
+              {pterm_div_v_dn}, imex_flag::imex_explicit);
 
-  inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
+  inline static std::vector<term<P>> const terms_3 = {E_mass_x_pos, div_v_dn};
 
   // Term 4
-  // Penalty Part of E\cdot\grad_v f
+  // E\cdot\grad_v f for E < 0
   //
 
-  static P MaxAbsE_func(P const x, P const time = 0)
+  static P E_func_neg(P const x, P const time = 0)
   {
-    auto param = param_manager.get_parameter("MaxAbsE");
+    auto param = param_manager.get_parameter("E");
     expect(param != nullptr);
-    return param->value(x, time);
+    return std::min(P{0.0},param->value(x, time));
   }
 
-  inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
-      coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
+  inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
+      coefficient_type::mass, E_func_neg, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static term<P> const MaxAbsE_mass_x =
+  inline static term<P> const E_mass_x_neg =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
+              {pterm_E_mass_x_neg}, imex_flag::imex_explicit);
 
-  inline static const partial_term<P> e_penalty_pterm = partial_term<P>(
-      coefficient_type::penalty, nullptr, nullptr, flux_type::downwind,
-      boundary_condition::neumann, boundary_condition::neumann,
+  inline static const partial_term<P> pterm_div_v_up = partial_term<P>(
+      coefficient_type::div, negOne, nullptr, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
-  inline static term<P> const e_penalty =
+  inline static term<P> const div_v_up =
       term<P>(false, // time-dependent
               "",    // name
-              {e_penalty_pterm}, imex_flag::imex_explicit);
+              {pterm_div_v_up}, imex_flag::imex_explicit);
 
-  // Central Part Defined Above (div_v; can do this due to time independence)
-
-  inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x,
-                                                      e_penalty};
+  inline static std::vector<term<P>> const terms_4 = {E_mass_x_neg, div_v_up};
 
   inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4};
 
