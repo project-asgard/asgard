@@ -38,7 +38,7 @@ int main(int argc, char **argv){
     for(int i=0; i<dimensions+1; i++) flops *= n;
     flops *= 2.0 * dimensions * num_batch;
     double unit_scale = 1.E-6; // Gflops is flops * 1.E-9, milliseconds is seconds * 1.E+3
-    constexpr int num_tests = 30;
+    constexpr int num_tests = 100;
 
     // dry run to wake up the devices
     #ifdef ASGARD_USE_CUDA

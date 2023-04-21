@@ -60,42 +60,25 @@ template<typename T, int n>
 void gpu3d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
            int const num_batch)
 {
-//   static_assert(n == 2 or n == 3 or n == 4,
-//                 "unimplemented size n (i.e., polynomial degree)");
-//
-//   constexpr int max_blocks      = 300;
-//   constexpr int num_threads     = 1024;
-//   constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
-//
-//   int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
-//
-//   if constexpr (n == 2 or n == 3)
-//   {
-//     kernel::gpu3d<T, num_threads, n>
-//         <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-//   }
-//   else if constexpr (n == 4)
-//   {
-//     kernel::gpu3d_n4<T, num_threads>
-//         <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-//   }
+  static_assert(n == 2 or n == 3 or n == 4,
+                "unimplemented size n (i.e., polynomial degree)");
 
-  constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
-  constexpr int max_blocks  = 300;
-  constexpr int max_threads = 1024;
-  constexpr int team_size = n * n * n;
-  constexpr int num_teams = max_threads / team_size;
+  constexpr int max_blocks      = 300;
+  constexpr int num_threads     = 1024;
+  constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
 
-  static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");
+  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
 
-  constexpr manual_sync sync_mode = (team_size > warp_size or warp_size % team_size != 0) ? manual_sync::enable : manual_sync::disable;
-
-  int num_blocks = blocks(num_batch, num_teams, max_blocks);
-
-  dim3 grid(team_size, num_teams);
-  //kernel::gpu2d_v2<T, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
-  kernel::cycle1<T, 3, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
-
+  if constexpr (n == 2 or n == 3)
+  {
+    kernel::gpu3d<T, num_threads, n>
+        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+  }
+  else if constexpr (n == 4)
+  {
+    kernel::gpu3d_n4<T, num_threads>
+        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+  }
 }
 
 template<typename T, int n>
@@ -127,6 +110,53 @@ void gpu4d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
 //   }
 }
 
+/*!
+ * \brief Run a GPU kernel for the specified problem.
+ *
+ * Instantiates a GPU kernel, computes the appropriate grid and executes the kernel.
+ * \tparam precision is either float or double
+ * \tparam dims is the number of dimensions of the tensors
+ * \tparam n is the number of degrees of freedom of the tensors,
+ *         i.e., polynomial order + 1, linear n=2, quadratic n=3, etc.
+ *
+ * \param pA pointer array to the matrices associated with the kron products,
+ *        the matrices for the i-th entry of the batch are located at
+ *        pA[dims * i] ... pA[dims * i + (dims-1)]
+ *        where pA[dims * i + (dims-1)] is the last matrix and
+ *        is applied in non-transpose format
+ * \param lda is the leading dimension of A (TODO: fix the layout so lda is always n)
+ * \param pX is the pointer to the input tensors
+ * \param pY is the pointer to the output tensors
+ * \param num_batch is the number of kron entries in this batch
+ */
+template<typename precision, int dims, int n>
+void run_kernel(precision const *const pA[], int const lda, precision const *const pX[], precision *pY[],
+                int const num_batch)
+{
+  //if constexpr(dims == 3 and n <= 4){
+  //  gpu3d<precision, n>(pA, lda, pX, pY, num_batch);
+  //  return;
+  //}
+
+  constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
+  constexpr int max_blocks  = 300;
+  constexpr int max_threads = 1024;
+  constexpr int team_size = ipow<n, dims>();
+  constexpr int num_teams = max_threads / team_size;
+
+  static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");
+
+  constexpr manual_sync sync_mode = (team_size > warp_size or warp_size % team_size != 0) ? manual_sync::enable : manual_sync::disable;
+
+  int num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  if constexpr(dims == 1){
+    kernel::case1D<precision, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  }else{
+    kernel::cycle1<precision, dims, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  }
+}
 
 template<typename T>
 void execute_gpu(int dimensions, int n,
@@ -137,13 +167,31 @@ void execute_gpu(int dimensions, int n,
     case 1:
       switch(n){
         case 2:
-          gpu1d<T, 2>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 1, 2>(pA, lda, pX, pY, num_batch);
           break;
         case 3:
-          gpu1d<T, 3>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 1, 3>(pA, lda, pX, pY, num_batch);
           break;
         case 4:
-          gpu1d<T, 4>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 1, 4>(pA, lda, pX, pY, num_batch);
+          break;
+        case 5:
+          run_kernel<T, 1, 5>(pA, lda, pX, pY, num_batch);
+          break;
+        case 6:
+          run_kernel<T, 1, 6>(pA, lda, pX, pY, num_batch);
+          break;
+        case 7:
+          run_kernel<T, 1, 7>(pA, lda, pX, pY, num_batch);
+          break;
+        case 8:
+          run_kernel<T, 1, 8>(pA, lda, pX, pY, num_batch);
+          break;
+        case 9:
+          run_kernel<T, 1, 9>(pA, lda, pX, pY, num_batch);
+          break;
+        case 10:
+          run_kernel<T, 1, 10>(pA, lda, pX, pY, num_batch);
           break;
         default:
           throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -152,97 +200,97 @@ void execute_gpu(int dimensions, int n,
     case 2:
       switch(n){
         case 2:
-          gpu2d<T, 2>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 2>(pA, lda, pX, pY, num_batch);
           break;
         case 3:
-          gpu2d<T, 3>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 3>(pA, lda, pX, pY, num_batch);
           break;
         case 4:
-          gpu2d<T, 4>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 4>(pA, lda, pX, pY, num_batch);
           break;
         case 5:
-          gpu2d<T, 5>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 5>(pA, lda, pX, pY, num_batch);
           break;
         case 6:
-          gpu2d<T, 6>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 6>(pA, lda, pX, pY, num_batch);
           break;
         case 7:
-          gpu2d<T, 7>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 7>(pA, lda, pX, pY, num_batch);
           break;
         case 8:
-          gpu2d<T, 8>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 8>(pA, lda, pX, pY, num_batch);
           break;
         case 9:
-          gpu2d<T, 9>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 9>(pA, lda, pX, pY, num_batch);
           break;
         case 10:
-          gpu2d<T, 10>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 10>(pA, lda, pX, pY, num_batch);
           break;
         case 11:
-          gpu2d<T, 11>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 11>(pA, lda, pX, pY, num_batch);
           break;
         case 12:
-          gpu2d<T, 12>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 12>(pA, lda, pX, pY, num_batch);
           break;
         case 13:
-          gpu2d<T, 13>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 13>(pA, lda, pX, pY, num_batch);
           break;
         case 14:
-          gpu2d<T, 14>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 14>(pA, lda, pX, pY, num_batch);
           break;
         case 15:
-          gpu2d<T, 15>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 15>(pA, lda, pX, pY, num_batch);
           break;
         case 16:
-          gpu2d<T, 16>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 16>(pA, lda, pX, pY, num_batch);
           break;
         case 17:
-          gpu2d<T, 17>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 17>(pA, lda, pX, pY, num_batch);
           break;
         case 18:
-          gpu2d<T, 18>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 18>(pA, lda, pX, pY, num_batch);
           break;
         case 19:
-          gpu2d<T, 19>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 19>(pA, lda, pX, pY, num_batch);
           break;
         case 20:
-          gpu2d<T, 20>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 20>(pA, lda, pX, pY, num_batch);
           break;
         case 21:
-          gpu2d<T, 21>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 21>(pA, lda, pX, pY, num_batch);
           break;
         case 22:
-          gpu2d<T, 22>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 22>(pA, lda, pX, pY, num_batch);
           break;
         case 23:
-          gpu2d<T, 23>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 23>(pA, lda, pX, pY, num_batch);
           break;
         case 24:
-          gpu2d<T, 24>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 24>(pA, lda, pX, pY, num_batch);
           break;
         case 25:
-          gpu2d<T, 25>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 25>(pA, lda, pX, pY, num_batch);
           break;
         case 26:
-          gpu2d<T, 26>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 26>(pA, lda, pX, pY, num_batch);
           break;
         case 27:
-          gpu2d<T, 27>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 27>(pA, lda, pX, pY, num_batch);
           break;
         case 28:
-          gpu2d<T, 28>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 28>(pA, lda, pX, pY, num_batch);
           break;
         case 29:
-          gpu2d<T, 29>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 29>(pA, lda, pX, pY, num_batch);
           break;
         case 30:
-          gpu2d<T, 30>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 30>(pA, lda, pX, pY, num_batch);
           break;
         case 31:
-          gpu2d<T, 31>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 31>(pA, lda, pX, pY, num_batch);
           break;
         case 32:
-          gpu2d<T, 32>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 2, 32>(pA, lda, pX, pY, num_batch);
           break;
         default:
           throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -251,13 +299,31 @@ void execute_gpu(int dimensions, int n,
     case 3:
       switch(n){
         case 2:
-          gpu3d<T, 2>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 3, 2>(pA, lda, pX, pY, num_batch);
           break;
         case 3:
-          gpu3d<T, 3>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 3, 3>(pA, lda, pX, pY, num_batch);
           break;
         case 4:
-          gpu3d<T, 4>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 3, 4>(pA, lda, pX, pY, num_batch);
+          break;
+        case 5:
+          run_kernel<T, 3, 5>(pA, lda, pX, pY, num_batch);
+          break;
+        case 6:
+          run_kernel<T, 3, 6>(pA, lda, pX, pY, num_batch);
+          break;
+        case 7:
+          run_kernel<T, 3, 7>(pA, lda, pX, pY, num_batch);
+          break;
+        case 8:
+          run_kernel<T, 3, 8>(pA, lda, pX, pY, num_batch);
+          break;
+        case 9:
+          run_kernel<T, 3, 9>(pA, lda, pX, pY, num_batch);
+          break;
+        case 10:
+          run_kernel<T, 3, 10>(pA, lda, pX, pY, num_batch);
           break;
         default:
           throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -266,14 +332,50 @@ void execute_gpu(int dimensions, int n,
     case 4:
       switch(n){
         case 2:
-          gpu4d<T, 2>(pA, lda, pX, pY, num_batch);
+          run_kernel<T, 4, 2>(pA, lda, pX, pY, num_batch);
+          break;
+        case 3:
+          run_kernel<T, 4, 3>(pA, lda, pX, pY, num_batch);
+          break;
+        case 4:
+          run_kernel<T, 4, 4>(pA, lda, pX, pY, num_batch);
+          break;
+        case 5:
+          run_kernel<T, 4, 5>(pA, lda, pX, pY, num_batch);
+          break;
+        default:
+          throw std::runtime_error("kronmult unimplemented n for the gpu");
+      }
+      break;
+    case 5:
+      switch(n){
+        case 2:
+          run_kernel<T, 5, 2>(pA, lda, pX, pY, num_batch);
+          break;
+        case 3:
+          run_kernel<T, 5, 3>(pA, lda, pX, pY, num_batch);
+          break;
+        case 4:
+          run_kernel<T, 5, 4>(pA, lda, pX, pY, num_batch);
+          break;
+        default:
+          throw std::runtime_error("kronmult unimplemented n for the gpu");
+      }
+      break;
+    case 6:
+      switch(n){
+        case 2:
+          run_kernel<T, 6, 2>(pA, lda, pX, pY, num_batch);
+          break;
+        case 3:
+          run_kernel<T, 6, 3>(pA, lda, pX, pY, num_batch);
           break;
         default:
           throw std::runtime_error("kronmult unimplemented n for the gpu");
       }
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented number of dimensions for the gpu");
+      throw std::runtime_error("kronmult unimplemented number of dimensions for the gpu " + std::to_string(dimensions));
   }
 }
 
