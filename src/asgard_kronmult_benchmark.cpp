@@ -61,7 +61,12 @@ int main(int argc, char **argv){
     double felapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count());
 
     std::cout << std::fixed << std::setprecision(4);
-    std::cout << "single precision: " << unit_scale * (num_tests * flops / felapsed) << " Gflops / second.\n";
+    std::cout << "single precision: ";
+    if (felapsed == 0){
+        std::cout << " test finished too fast to be accurately timed, use larger sizes\n";
+    }else{
+        std::cout << unit_scale * (num_tests * flops / felapsed) << " Gflops / second.\n";
+    }
 
     #ifdef ASGARD_USE_CUDA
     execute_gpu(dimensions, n, ddata->gpupA.data(), n, ddata->gpupX.data(), ddata->gpupY.data(), num_batch);
@@ -82,7 +87,12 @@ int main(int argc, char **argv){
     time_end = std::chrono::system_clock::now();
     double delapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count());
 
-    std::cout << "double precision: " << unit_scale * (num_tests * flops / delapsed) << " Gflops / second.\n";
+    std::cout << "double precision: ";
+    if (felapsed == 0){
+        std::cout << " test finished too fast to be accurately timed, use larger sizes\n";
+    }else{
+        std::cout << unit_scale * (num_tests * flops / delapsed) << " Gflops / second.\n";
+    }
 
     return 0;
 }

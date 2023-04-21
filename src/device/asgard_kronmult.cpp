@@ -12,6 +12,32 @@ namespace asgard::kronmult
 #ifdef ASGARD_USE_CUDA
 
 /*!
+ * \brief Computes the team size for the given dims and n.
+ *
+ * Normally, the team size is n^dims, but in some cases
+ * performance can be improved by increasing the team size to align
+ * the teams to the warps, e.g., dims=n=3 means effective team size 27,
+ * but that would require thread synchronization and padding the team
+ * with idle treads actually increases performance.
+ */
+template<int dims, int n>
+constexpr int compute_team_size(){
+    // TODO account for warp size != 32
+    // case dims == 2 and n == 9, rounding to team size 16 is too much
+    if constexpr(dims == 1){
+        if constexpr(n == 3 or n == 7){
+            return n+1;
+        }else{
+            return n;
+        }
+    }else if constexpr((dims == 3 and n == 3) or (dims == 2 and n == 5)){
+        return ASGARD_GPU_WARP_SIZE;
+    }else{
+        return ipow<n, dims>();
+    }
+}
+
+/*!
  * \brief Run a GPU kernel for the specified problem.
  *
  * Instantiates a GPU kernel, computes the appropriate grid and executes the kernel.
@@ -36,7 +62,7 @@ void run_kernel(precision const *const pA[], int const lda, precision const *con
 {
   constexpr int max_blocks  = 300;
   constexpr int max_threads = 1024;
-  constexpr int team_size = ipow<n, dims>();
+  constexpr int team_size = compute_team_size<dims, n>();
   constexpr int num_teams = max_threads / team_size;
 
   static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");

@@ -111,6 +111,13 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
  * \param pX kronmult input
  * \param pY kronmult input
  * \param num_batch kronmult input
+ *
+ * \b note: This kernel requires that the thread team is at least as
+ *    large as the size of tensors (n^dims) and the maximum number
+ *    of threads is limited to 1024.
+ *    If the tensor size is more than that, each thread will be
+ *    responsible for multiple tensor entries and computations will be
+ *    done in more than one cycle.
  */
 template<typename T, int dims, int n, int team_size, int num_teams>
 __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
