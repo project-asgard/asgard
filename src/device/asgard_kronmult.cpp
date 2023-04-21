@@ -52,32 +52,50 @@ void gpu2d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
-  kernel::gpu2d_v2<T, team_size, num_teams, n, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  //kernel::gpu2d_v2<T, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  kernel::cycle1<T, 2, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T, int n>
 void gpu3d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
            int const num_batch)
 {
-  static_assert(n == 2 or n == 3 or n == 4,
-                "unimplemented size n (i.e., polynomial degree)");
+//   static_assert(n == 2 or n == 3 or n == 4,
+//                 "unimplemented size n (i.e., polynomial degree)");
+//
+//   constexpr int max_blocks      = 300;
+//   constexpr int num_threads     = 1024;
+//   constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
+//
+//   int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
+//
+//   if constexpr (n == 2 or n == 3)
+//   {
+//     kernel::gpu3d<T, num_threads, n>
+//         <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+//   }
+//   else if constexpr (n == 4)
+//   {
+//     kernel::gpu3d_n4<T, num_threads>
+//         <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
+//   }
 
-  constexpr int max_blocks      = 300;
-  constexpr int num_threads     = 1024;
-  constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
+  constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
+  constexpr int max_blocks  = 300;
+  constexpr int max_threads = 1024;
+  constexpr int team_size = n * n * n;
+  constexpr int num_teams = max_threads / team_size;
 
-  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
+  static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");
 
-  if constexpr (n == 2 or n == 3)
-  {
-    kernel::gpu3d<T, num_threads, n>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-  }
-  else if constexpr (n == 4)
-  {
-    kernel::gpu3d_n4<T, num_threads>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-  }
+  constexpr manual_sync sync_mode = (team_size > warp_size or warp_size % team_size != 0) ? manual_sync::enable : manual_sync::disable;
+
+  int num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  //kernel::gpu2d_v2<T, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  kernel::cycle1<T, 3, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+
 }
 
 template<typename T, int n>
