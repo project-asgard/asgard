@@ -309,9 +309,11 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 {
 #ifdef ASGARD_USE_CUDA
   {
-    if (kronmult::is_implemented::gpu(num_dims, n)){
+    if (kronmult::is_implemented::gpu(num_dims, n))
+    {
       // if a new kernel is available, use it and stop here
-      kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
+      kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
+                               output_ptrs, num_krons);
       auto const stat = cudaDeviceSynchronize();
       expect(stat == cudaSuccess);
       return;
@@ -361,9 +363,11 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 #else
 
   {
-    if (kronmult::is_implemented::cpu(num_dims, n)){
+    if (kronmult::is_implemented::cpu(num_dims, n))
+    {
       // if a new kernel is available, use it and stop here
-      kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs, num_krons);
+      kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
+                               output_ptrs, num_krons);
       return;
     }
 
