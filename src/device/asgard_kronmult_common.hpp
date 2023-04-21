@@ -11,6 +11,8 @@
 #include <cuda_runtime.h>
 #include <sm_60_atomic_functions.h>
 
+#define ASGARD_GPU_WARP_SIZE 32
+
 #endif
 
 namespace asgard::kronmult
@@ -75,6 +77,15 @@ void reference_kronmult(int dimensions, int n,
                         int const num_batch){
   for(int i=0; i<num_batch; i++){
     reference_kronmult_one(dimensions, n, &pA[dimensions * i], pX[i], pY[i]);
+  }
+}
+
+template<int n, int power>
+constexpr int ipow(){
+  if constexpr (power == 1){
+    return n;
+  }else{
+    return n * ipow<n, power-1>();
   }
 }
 

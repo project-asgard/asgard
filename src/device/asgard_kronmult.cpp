@@ -39,7 +39,7 @@ template<typename T, int n>
 void gpu2d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
            int const num_batch)
 {
-  constexpr int warp_size   = 32;
+  constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
   constexpr int max_blocks  = 300;
   constexpr int max_threads = 1024;
   constexpr int team_size = n * n;
@@ -144,6 +144,87 @@ void execute_gpu(int dimensions, int n,
           break;
         case 5:
           gpu2d<T, 5>(pA, lda, pX, pY, num_batch);
+          break;
+        case 6:
+          gpu2d<T, 6>(pA, lda, pX, pY, num_batch);
+          break;
+        case 7:
+          gpu2d<T, 7>(pA, lda, pX, pY, num_batch);
+          break;
+        case 8:
+          gpu2d<T, 8>(pA, lda, pX, pY, num_batch);
+          break;
+        case 9:
+          gpu2d<T, 9>(pA, lda, pX, pY, num_batch);
+          break;
+        case 10:
+          gpu2d<T, 10>(pA, lda, pX, pY, num_batch);
+          break;
+        case 11:
+          gpu2d<T, 11>(pA, lda, pX, pY, num_batch);
+          break;
+        case 12:
+          gpu2d<T, 12>(pA, lda, pX, pY, num_batch);
+          break;
+        case 13:
+          gpu2d<T, 13>(pA, lda, pX, pY, num_batch);
+          break;
+        case 14:
+          gpu2d<T, 14>(pA, lda, pX, pY, num_batch);
+          break;
+        case 15:
+          gpu2d<T, 15>(pA, lda, pX, pY, num_batch);
+          break;
+        case 16:
+          gpu2d<T, 16>(pA, lda, pX, pY, num_batch);
+          break;
+        case 17:
+          gpu2d<T, 17>(pA, lda, pX, pY, num_batch);
+          break;
+        case 18:
+          gpu2d<T, 18>(pA, lda, pX, pY, num_batch);
+          break;
+        case 19:
+          gpu2d<T, 19>(pA, lda, pX, pY, num_batch);
+          break;
+        case 20:
+          gpu2d<T, 20>(pA, lda, pX, pY, num_batch);
+          break;
+        case 21:
+          gpu2d<T, 21>(pA, lda, pX, pY, num_batch);
+          break;
+        case 22:
+          gpu2d<T, 22>(pA, lda, pX, pY, num_batch);
+          break;
+        case 23:
+          gpu2d<T, 23>(pA, lda, pX, pY, num_batch);
+          break;
+        case 24:
+          gpu2d<T, 24>(pA, lda, pX, pY, num_batch);
+          break;
+        case 25:
+          gpu2d<T, 25>(pA, lda, pX, pY, num_batch);
+          break;
+        case 26:
+          gpu2d<T, 26>(pA, lda, pX, pY, num_batch);
+          break;
+        case 27:
+          gpu2d<T, 27>(pA, lda, pX, pY, num_batch);
+          break;
+        case 28:
+          gpu2d<T, 28>(pA, lda, pX, pY, num_batch);
+          break;
+        case 29:
+          gpu2d<T, 29>(pA, lda, pX, pY, num_batch);
+          break;
+        case 30:
+          gpu2d<T, 30>(pA, lda, pX, pY, num_batch);
+          break;
+        case 31:
+          gpu2d<T, 31>(pA, lda, pX, pY, num_batch);
+          break;
+        case 32:
+          gpu2d<T, 32>(pA, lda, pX, pY, num_batch);
           break;
         default:
           throw std::runtime_error("kronmult unimplemented n for the gpu");

@@ -152,20 +152,17 @@ __global__ void gpu2d_v2(T const *const pA[], int const lda, T const *const pX[]
         if (threadIdx.x < n * n) A[threadIdx.y][threadIdx.x] = pA[2*i][matj];
         if constexpr (sync == manual_sync::enable){  __syncthreads(); }
 
-        __syncthreads();
-
-        if constexpr (n==2){
+        if constexpr (n==-2){
             X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
                                           + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n];
-        }else if constexpr (n==3){
-            T sum = 0;
-            sum = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
-                                          + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]
-                                            + X[threadIdx.y][ix1 + 2*n] * A[threadIdx.y][ia1 + 2*n];
+        }else if constexpr (n==-3){
+            T sum = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
+                    + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]
+                      + X[threadIdx.y][ix1 + 2*n] * A[threadIdx.y][ia1 + 2*n];
 
             if constexpr (sync == manual_sync::enable){ __syncthreads(); }
             X[threadIdx.y][threadIdx.x] = sum;
-        }else if constexpr (n==4){
+        }else if constexpr (n==-4){
             X[threadIdx.y][threadIdx.x] = X[threadIdx.y][ix1] * A[threadIdx.y][ia1]
                                           + X[threadIdx.y][ix1 + n] * A[threadIdx.y][ia1 + n]
                                             + X[threadIdx.y][ix1 + 2*n] * A[threadIdx.y][ia1 + 2*n]
@@ -173,7 +170,7 @@ __global__ void gpu2d_v2(T const *const pA[], int const lda, T const *const pX[]
         } else {
             T sum = 0;
             for(int k=0; k<n; k++)
-                sum += X[threadIdx.y + k * n][ix1] * A[threadIdx.y][ia1 + k * n];
+                sum += X[threadIdx.y][ix1 + k * n] * A[threadIdx.y][ia1 + k * n];
 
             if constexpr (sync == manual_sync::enable){ __syncthreads(); }
             X[threadIdx.y][threadIdx.x] = sum;
@@ -182,17 +179,15 @@ __global__ void gpu2d_v2(T const *const pA[], int const lda, T const *const pX[]
         if (threadIdx.x < n * n) A[threadIdx.y][threadIdx.x] = pA[2*i+1][matj];
         if constexpr (sync == manual_sync::enable){ __syncthreads(); }
 
-        __syncthreads();
-
         T yinc;
-        if constexpr (n==2){
+        if constexpr (n==-2){
             yinc = A[threadIdx.y][ia0] * X[threadIdx.y][ix0]
                    + A[threadIdx.y][ia0 + n] * X[threadIdx.y][ix0 + 1];
-        }else if constexpr (n==3){
+        }else if constexpr (n==-3){
             yinc = A[threadIdx.y][ia0] * X[threadIdx.y][ix0]
                    + A[threadIdx.y][ia0 + n] * X[threadIdx.y][ix0 + 1]
                      + A[threadIdx.y][ia0 + 2*n] * X[threadIdx.y][ix0 + 2];
-        }else if constexpr (n==4){
+        }else if constexpr (n==-4){
             yinc = A[threadIdx.y][ia0] * X[threadIdx.y][ix0]
                    + A[threadIdx.y][ia0 + n] * X[threadIdx.y][ix0 + 1]
                      + A[threadIdx.y][ia0 + 2*n] * X[threadIdx.y][ix0 + 2]
@@ -206,6 +201,8 @@ __global__ void gpu2d_v2(T const *const pA[], int const lda, T const *const pX[]
         atomicAdd(&pY[i][threadIdx.x], yinc);
 
         i += gridDim.x * blockDim.y;
+
+        if constexpr (sync == manual_sync::enable){  __syncthreads(); }
     }
 
 }

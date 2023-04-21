@@ -94,9 +94,15 @@ make_kronmult_data(int dimensions, int n, int num_batch, int num_matrices, int n
         *ip++ = uniy(park_miller);
     }
 
-    for(auto &m : result->matrices) m = unif(park_miller);
-    for(auto &m : result->input_x) m = unif(park_miller);
-    for(auto &m : result->output_y) m = unif(park_miller);
+    #pragma omp parallel for
+    for(long long i=0; i<static_cast<long long>(result->matrices.size()); i++)
+        result->matrices[i] = unif(park_miller);
+
+    #pragma omp parallel for
+    for(long long i=0; i<static_cast<long long>(result->input_x.size()); i++){
+        result->input_x[i] = unif(park_miller);
+        result->output_y[i] = unif(park_miller);
+    }
 
     result->reference_y = result->output_y;
 

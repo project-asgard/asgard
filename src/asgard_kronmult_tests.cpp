@@ -82,7 +82,21 @@ void test_kronmult_gpu(int dimensions, int n, int num_batch, int num_matrices, i
     rmse_comparison<T>(data->gpuy.clone_onto_host(), asgard::fk::vector<T>(data->reference_y), get_tolerance<T>(100));
 }
 
-TEMPLATE_TEST_CASE("testing kronmult gpu",
+TEMPLATE_TEST_CASE("testing kronmult gpu 1d",
+                   "[execute_gpu 1d]", float, double)
+{
+    int i = GENERATE(2, 3, 4);
+    test_kronmult_gpu<TestType>(1, i, 170, 9, 7);
+}
+
+TEMPLATE_TEST_CASE("testing kronmult gpu 2d",
+                   "[execute_gpu 2d]", float, double)
+{
+    int i = GENERATE(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
+    test_kronmult_gpu<TestType>(2, i, 170, 9, 7);
+}
+
+TEMPLATE_TEST_CASE("testing kronmult gpu general",
                    "[execute_gpu]", float, double)
 {
     test_kronmult_gpu<TestType>(1, 2, 1, 1, 1);
@@ -94,11 +108,6 @@ TEMPLATE_TEST_CASE("testing kronmult gpu",
     test_kronmult_gpu<TestType>(1, 2, 70, 9, 7);
     test_kronmult_gpu<TestType>(1, 3, 70, 9, 7);
     test_kronmult_gpu<TestType>(1, 4, 70, 9, 7);
-
-    test_kronmult_gpu<TestType>(2, 2, 170, 9, 7);
-    test_kronmult_gpu<TestType>(2, 3, 170, 9, 7);
-    test_kronmult_gpu<TestType>(2, 4, 170, 9, 7);
-    //test_kronmult_gpu<TestType>(2, 5, 170, 9, 7);
 
     test_kronmult_gpu<TestType>(3, 2, 170, 9, 7);
     test_kronmult_gpu<TestType>(3, 3, 170, 9, 7);
