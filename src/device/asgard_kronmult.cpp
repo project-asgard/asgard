@@ -34,7 +34,6 @@ template<typename precision, int dims, int n>
 void run_kernel(precision const *const pA[], int const lda, precision const *const pX[], precision *pY[],
                 int const num_batch)
 {
-  constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
   constexpr int max_blocks  = 300;
   constexpr int max_threads = 1024;
   constexpr int team_size = ipow<n, dims>();
@@ -42,15 +41,15 @@ void run_kernel(precision const *const pA[], int const lda, precision const *con
 
   static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");
 
-  constexpr manual_sync sync_mode = (team_size > warp_size or warp_size % team_size != 0) ? manual_sync::enable : manual_sync::disable;
-
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   if constexpr(dims == 1){
-    kernel::case1D<precision, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+    kernel::case1D<precision, n, team_size, num_teams><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  }else if constexpr(n == 1){
+    kernel::case1N<precision, dims, max_threads><<<std::min(max_blocks, (num_batch + max_threads-1) /max_threads), max_threads>>>(pA, lda, pX, pY, num_batch);
   }else{
-    kernel::cycle1<precision, dims, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+    kernel::cycle1<precision, dims, n, team_size, num_teams><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
   }
 }
 
@@ -62,6 +61,9 @@ void execute_gpu(int dimensions, int n,
   switch(dimensions){
     case 1:
       switch(n){
+        case 1:
+          run_kernel<T, 1, 1>(pA, lda, pX, pY, num_batch);
+          break;
         case 2:
           run_kernel<T, 1, 2>(pA, lda, pX, pY, num_batch);
           break;
@@ -95,6 +97,9 @@ void execute_gpu(int dimensions, int n,
       break;
     case 2:
       switch(n){
+        case 1:
+          run_kernel<T, 2, 1>(pA, lda, pX, pY, num_batch);
+          break;
         case 2:
           run_kernel<T, 2, 2>(pA, lda, pX, pY, num_batch);
           break;
@@ -194,6 +199,9 @@ void execute_gpu(int dimensions, int n,
       break;
     case 3:
       switch(n){
+        case 1:
+          run_kernel<T, 3, 1>(pA, lda, pX, pY, num_batch);
+          break;
         case 2:
           run_kernel<T, 3, 2>(pA, lda, pX, pY, num_batch);
           break;
@@ -227,6 +235,9 @@ void execute_gpu(int dimensions, int n,
       break;
     case 4:
       switch(n){
+        case 1:
+          run_kernel<T, 4, 1>(pA, lda, pX, pY, num_batch);
+          break;
         case 2:
           run_kernel<T, 4, 2>(pA, lda, pX, pY, num_batch);
           break;
@@ -245,6 +256,9 @@ void execute_gpu(int dimensions, int n,
       break;
     case 5:
       switch(n){
+        case 1:
+          run_kernel<T, 5, 1>(pA, lda, pX, pY, num_batch);
+          break;
         case 2:
           run_kernel<T, 5, 2>(pA, lda, pX, pY, num_batch);
           break;
@@ -260,6 +274,9 @@ void execute_gpu(int dimensions, int n,
       break;
     case 6:
       switch(n){
+        case 1:
+          run_kernel<T, 6, 1>(pA, lda, pX, pY, num_batch);
+          break;
         case 2:
           run_kernel<T, 6, 2>(pA, lda, pX, pY, num_batch);
           break;
