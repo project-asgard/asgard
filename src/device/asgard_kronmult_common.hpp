@@ -30,10 +30,24 @@ inline int blocks(int work_size, int work_per_block, int max_blocks)
                   (work_size + work_per_block - 1) / work_per_block);
 }
 
+/*!
+ * \brief Flag variable, indicates whether thread synchronization is necessary.
+ *
+ * Threads inside a warp are always synchronized, synchronization
+ * in the kernel is not needed unless teams span more than one warp.
+ */
 enum class manual_sync{
-    enable, disable
+    //! \brief Use synchronization after updating the shared cache.
+    enable,
+    //! \brief No need for synchronization, thread teams are aligned to the warps.
+    disable
 };
 
+/*!
+ * \brief Reference implementation use for testing.
+ *
+ * Explicitly constructs the Kronecker product of two matrices.
+ */
 template<typename T>
 std::vector<T> kronecker(int m, T const A[], int n, T const B[]){
   std::vector<T> result(n*n*m*m);
@@ -50,6 +64,9 @@ std::vector<T> kronecker(int m, T const A[], int n, T const B[]){
   return result;
 }
 
+/*!
+ * \brief Reference implementation of gemv, compared to BLAS alpha = beta = 1.
+ */
 template<typename T>
 void reference_gemv(int n, T const A[], T const x[], T y[]){
   for(int j=0; j<n; j++){
@@ -59,6 +76,9 @@ void reference_gemv(int n, T const A[], T const x[], T y[]){
   }
 }
 
+/*!
+ * \brief Reference implementation one Kronecker product.
+ */
 template<typename T>
 void reference_kronmult_one(int dimensions, int n,
                         T const *const pA[], T const x[], T y[]){
@@ -71,6 +91,9 @@ void reference_kronmult_one(int dimensions, int n,
   reference_gemv(total_size, kron.data(), x, y);
 }
 
+/*!
+ * \brief Reference implementation of kronmult, do not use in production.
+ */
 template<typename T>
 void reference_kronmult(int dimensions, int n,
                         T const *const pA[], T const *const pX[], T *pY[],
@@ -80,6 +103,9 @@ void reference_kronmult(int dimensions, int n,
   }
 }
 
+/*!
+ * \brief Recursive template that computes n to power, e.g., ipow<2, 3>() returns constexpr 8.
+ */
 template<int n, int power>
 constexpr int ipow(){
   if constexpr (power == 1){
@@ -91,4 +117,3 @@ constexpr int ipow(){
 
 } // namespace asgard::kronmult
 
-// TODO add intrinsics here too for the CPU

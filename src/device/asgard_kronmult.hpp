@@ -16,6 +16,11 @@ void execute_gpu(int dimensions, int n,
                  int const num_batch);
 #endif
 
+/*!
+ * \brief Indicates whether specific kernel has been implemented.
+ *
+ * Will be removed when we switch to only one kronmult implementation.
+ */
 struct is_implemented{
     static bool cpu(int dimensions, int n){
         std::set<int> available({201, 301, 401, 202, 302});

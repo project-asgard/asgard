@@ -4,111 +4,12 @@
 #include "build_info.hpp"
 
 #ifdef ASGARD_USE_CUDA
-#include "asgard_kronmult1d.hpp"
-#include "asgard_kronmult2d.hpp"
-#include "asgard_kronmult3d.hpp"
-#include "asgard_kronmult4d.hpp"
+#include "asgard_kronmult_cycle1.hpp"
 #endif
 
 namespace asgard::kronmult
 {
 #ifdef ASGARD_USE_CUDA
-
-template<typename T, int n>
-void gpu1d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
-           int const num_batch)
-{
-  static_assert(n == 2 or n == 3 or n == 4,
-                "unimplemented size n (i.e., polynomial degree)");
-
-  constexpr int max_blocks =
-      300; // we want enough blocks to saturate the GPU, but note that each
-           // block repeats some integer ops.
-
-  constexpr int num_threads = 1024;
-  constexpr int batch_per_block =
-      (n == 3) ? 10 * num_threads / 32 : num_threads / n;
-
-  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
-
-  kernel::gpu1d<T, num_threads, n>
-      <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-}
-
-template<typename T, int n>
-void gpu2d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
-           int const num_batch)
-{
-  constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
-  constexpr int max_blocks  = 300;
-  constexpr int max_threads = 1024;
-  constexpr int team_size = n * n;
-  constexpr int num_teams = max_threads / team_size;
-
-  static_assert( max_threads >= team_size, "tensor size must be less than the max number of threads (1024)");
-
-  constexpr manual_sync sync_mode = (team_size > warp_size or warp_size % team_size != 0) ? manual_sync::enable : manual_sync::disable;
-
-  int num_blocks = blocks(num_batch, num_teams, max_blocks);
-
-  dim3 grid(team_size, num_teams);
-  //kernel::gpu2d_v2<T, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
-  kernel::cycle1<T, 2, n, team_size, num_teams, sync_mode><<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
-}
-
-template<typename T, int n>
-void gpu3d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
-           int const num_batch)
-{
-  static_assert(n == 2 or n == 3 or n == 4,
-                "unimplemented size n (i.e., polynomial degree)");
-
-  constexpr int max_blocks      = 300;
-  constexpr int num_threads     = 1024;
-  constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
-
-  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
-
-  if constexpr (n == 2 or n == 3)
-  {
-    kernel::gpu3d<T, num_threads, n>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-  }
-  else if constexpr (n == 4)
-  {
-    kernel::gpu3d_n4<T, num_threads>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-  }
-}
-
-template<typename T, int n>
-void gpu4d(T const *const pA[], int const lda, T const *const pX[], T *pY[],
-           int const num_batch)
-{
-  static_assert(n == 2 or n == 3 or n == 4,
-                "unimplemented size n (i.e., polynomial degree)");
-
-  constexpr int max_blocks      = 300;
-  constexpr int num_threads     = 1024;
-  constexpr int batch_per_block = num_threads / ((n == 2) ? 8 : 32);
-
-  int num_blocks = blocks(num_batch, batch_per_block, max_blocks);
-
-//  std::cerr << " calling her \n";
-  kernel::gpu4d_n2<T, num_threads, n>
-        <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-
-//   if constexpr (n == 2 or n == 3)
-//   {
-//     kernel::gpu3d<T, num_threads, n>
-//         <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-//   }
-//   else if constexpr (n == 4)
-//   {
-//     kernel::gpu3d_n4<T, num_threads>
-//         <<<num_blocks, num_threads>>>(pA, lda, pX, pY, num_batch);
-//   }
-}
 
 /*!
  * \brief Run a GPU kernel for the specified problem.
@@ -133,11 +34,6 @@ template<typename precision, int dims, int n>
 void run_kernel(precision const *const pA[], int const lda, precision const *const pX[], precision *pY[],
                 int const num_batch)
 {
-  //if constexpr(dims == 3 and n <= 4){
-  //  gpu3d<precision, n>(pA, lda, pX, pY, num_batch);
-  //  return;
-  //}
-
   constexpr int warp_size   = ASGARD_GPU_WARP_SIZE;
   constexpr int max_blocks  = 300;
   constexpr int max_threads = 1024;
