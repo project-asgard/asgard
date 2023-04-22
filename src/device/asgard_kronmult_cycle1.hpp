@@ -18,9 +18,25 @@ __device__ constexpr int int_pow()
   {
     return n;
   }
-  else
+  else if constexpr (power == 2)
   {
-    return n * int_pow<n, power - 1>();
+    return n * n;
+  }
+  else if constexpr (power == 3)
+  {
+    return n * n * n;
+  }
+  else if constexpr (power == 4)
+  {
+    return n * n * n * n;
+  }
+  else if constexpr (power == 5)
+  {
+    return n * n * n * n * n;
+  }
+  else if constexpr (power == 6)
+  {
+    return n * n * n * n * n * n;
   }
 }
 
