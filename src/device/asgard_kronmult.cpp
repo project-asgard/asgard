@@ -3,6 +3,8 @@
 
 #include "build_info.hpp"
 
+#include "asgard_kronmult.hpp"
+
 #ifdef ASGARD_USE_CUDA
 #include "asgard_kronmult_cycle1.hpp"
 #endif
@@ -492,13 +494,13 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 2:
-      cpu1d<T, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
-      cpu1d<T, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      cpu1d<T, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the cpu");
@@ -508,10 +510,77 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 2:
-      cpu2d<T, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
-      cpu2d<T, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 3>(pA, lda, pX, pY, num_batch);
+      break;
+    case 4:
+      run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch);
+      break;
+    default:
+      throw std::runtime_error("kronmult unimplemented n for the cpu");
+    }
+    break;
+  case 3:
+    switch (n)
+    {
+    case 2:
+      run_cpu_variant<T, 3, 2>(pA, lda, pX, pY, num_batch);
+      break;
+    case 3:
+      run_cpu_variant<T, 3, 3>(pA, lda, pX, pY, num_batch);
+      break;
+    case 4:
+      run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch);
+      break;
+    default:
+      throw std::runtime_error("kronmult unimplemented n for the cpu");
+    }
+    break;
+  case 4:
+    switch (n)
+    {
+    case 2:
+      run_cpu_variant<T, 4, 2>(pA, lda, pX, pY, num_batch);
+      break;
+    case 3:
+      run_cpu_variant<T, 4, 3>(pA, lda, pX, pY, num_batch);
+      break;
+    case 4:
+      run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch);
+      break;
+    default:
+      throw std::runtime_error("kronmult unimplemented n for the cpu");
+    }
+    break;
+  case 5:
+    switch (n)
+    {
+    case 2:
+      run_cpu_variant<T, 5, 2>(pA, lda, pX, pY, num_batch);
+      break;
+    case 3:
+      run_cpu_variant<T, 5, 3>(pA, lda, pX, pY, num_batch);
+      break;
+    case 4:
+      run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch);
+      break;
+    default:
+      throw std::runtime_error("kronmult unimplemented n for the cpu");
+    }
+    break;
+  case 6:
+    switch (n)
+    {
+    case 2:
+      run_cpu_variant<T, 6, 2>(pA, lda, pX, pY, num_batch);
+      break;
+    case 3:
+      run_cpu_variant<T, 6, 3>(pA, lda, pX, pY, num_batch);
+      break;
+    case 4:
+      run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the cpu");

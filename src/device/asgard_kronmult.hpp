@@ -23,7 +23,8 @@ struct is_implemented
 {
   static bool cpu(int dimensions, int n)
   {
-    std::set<int> available({201, 301, 401, 202, 302});
+    std::set<int> available({201, 301, 401, 202, 302, 402, 203, 303, 403,
+                             204, 304, 404, 205, 305, 405, 206, 306, 406});
     return (available.find(100 * n + dimensions) != available.end());
   }
   static bool gpu(int dimensions, int n)
@@ -38,6 +39,10 @@ struct is_implemented
     return (available.find(100 * n + dimensions) != available.end());
   }
 };
+
+template<typename T, int dimensions, int n>
+void run_cpu_variant(T const *const pA[], int const lda,
+                     T *pX[], T *pY[], int const num_batch);
 
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
