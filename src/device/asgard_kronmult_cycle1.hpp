@@ -38,6 +38,12 @@ __device__ constexpr int int_pow()
   {
     return n * n * n * n * n * n;
   }
+  else
+  {
+    static_assert(power >= 1 and power <= 6,
+                  "int_pow() does not works with specified power");
+    return 0;
+  }
 }
 
 /*!
@@ -102,9 +108,7 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
   {
     X[threadIdx.y][threadIdx.x] = pX[i][threadIdx.x];
     if constexpr (sync_mode == manual_sync::enable)
-    {
       __syncthreads();
-    }
 
     T yinc = 0;
     for (int k = 0; k < n; k++)
@@ -115,9 +119,7 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
     i += gridDim.x * blockDim.y;
 
     if constexpr (sync_mode == manual_sync::enable)
-    {
       __syncthreads();
-    }
   }
 }
 
@@ -217,18 +219,16 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
       if (threadIdx.x < n * n)
         A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 6][matj];
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       T sum = 0;
       for (int k = 0; k < n; k++)
         sum += X[threadIdx.y][ix5 + k * int_pow<n, 5>()] *
                A[threadIdx.y][ia5 + k * n];
 
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       X[threadIdx.y][threadIdx.x] = sum;
     }
 
@@ -237,18 +237,16 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
       if (threadIdx.x < n * n)
         A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 5][matj];
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       T sum = 0;
       for (int k = 0; k < n; k++)
         sum += X[threadIdx.y][ix4 + k * int_pow<n, 4>()] *
                A[threadIdx.y][ia4 + k * n];
 
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       X[threadIdx.y][threadIdx.x] = sum;
     }
 
@@ -257,18 +255,16 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
       if (threadIdx.x < n * n)
         A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 4][matj];
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       T sum = 0;
       for (int k = 0; k < n; k++)
         sum += X[threadIdx.y][ix3 + k * int_pow<n, 3>()] *
                A[threadIdx.y][ia3 + k * n];
 
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       X[threadIdx.y][threadIdx.x] = sum;
     }
 
@@ -277,18 +273,16 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
       if (threadIdx.x < n * n)
         A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 3][matj];
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       T sum = 0;
       for (int k = 0; k < n; k++)
         sum += X[threadIdx.y][ix2 + k * int_pow<n, 2>()] *
                A[threadIdx.y][ia2 + k * n];
 
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       X[threadIdx.y][threadIdx.x] = sum;
     }
 
@@ -297,26 +291,22 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
       if (threadIdx.x < n * n)
         A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 2][matj];
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       T sum = 0;
       for (int k = 0; k < n; k++)
         sum += X[threadIdx.y][ix1 + k * n] * A[threadIdx.y][ia1 + k * n];
 
       if constexpr (sync_mode == manual_sync::enable)
-      {
         __syncthreads();
-      }
+
       X[threadIdx.y][threadIdx.x] = sum;
     }
 
     if (threadIdx.x < n * n)
       A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 1][matj];
     if constexpr (sync_mode == manual_sync::enable)
-    {
       __syncthreads();
-    }
 
     T yinc = 0;
     for (int k = 0; k < n; k++)
@@ -327,9 +317,7 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
     i += gridDim.x * blockDim.y;
 
     if constexpr (sync_mode == manual_sync::enable)
-    {
       __syncthreads();
-    }
   }
 }
 

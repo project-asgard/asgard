@@ -116,7 +116,7 @@ void reference_kronmult(int dimensions, int n, T const *const pA[],
 }
 
 /*!
- * \brief Recursive template that computes n to power, e.g., ipow<2, 3>() returns constexpr 8.
+ * \brief Template that computes n to power, e.g., ipow<2, 3>() returns constexpr 8.
  */
 template<int n, int power>
 constexpr int ipow()
@@ -125,9 +125,31 @@ constexpr int ipow()
   {
     return n;
   }
+  else if constexpr (power == 2)
+  {
+    return n * n;
+  }
+  else if constexpr (power == 3)
+  {
+    return n * n * n;
+  }
+  else if constexpr (power == 4)
+  {
+    return n * n * n * n;
+  }
+  else if constexpr (power == 5)
+  {
+    return n * n * n * n * n;
+  }
+  else if constexpr (power == 6)
+  {
+    return n * n * n * n * n * n;
+  }
   else
   {
-    return n * ipow<n, power - 1>();
+    static_assert(power >= 1 and power <= 6,
+                  "ipow() does not works with specified power");
+    return 0;
   }
 }
 
