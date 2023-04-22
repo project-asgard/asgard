@@ -1251,7 +1251,6 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> &&a)
     expect(a.ref_count_.use_count() == 1);
   }
 
-  expect(size() == a.size());
   size_      = a.size_;
   ref_count_ = std::make_shared<int>(0);
   ref_count_.swap(a.ref_count_);
