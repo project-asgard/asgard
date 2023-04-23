@@ -140,7 +140,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", float, double)
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", float, double)
 {
-  int n = GENERATE(1, 2, 3);
+  int n = GENERATE(1, 2, 3, 4);
   test_kronmult_gpu<TestType>(6, n, 170, 9, 7);
 }
 
