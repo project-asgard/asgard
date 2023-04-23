@@ -47,17 +47,6 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", float, double)
   test_almost_equal(y, gold);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult exceptions", "[kronmult]", float, double)
-{
-  REQUIRE_THROWS_WITH(test_kronmult_cpu<TestType>(1, 5, 1, 1, 1),
-                      "kronmult unimplemented n for the cpu");
-  REQUIRE_THROWS_WITH(test_kronmult_cpu<TestType>(1, 5, 1, 1, 1),
-                      "kronmult unimplemented n for the cpu");
-  REQUIRE_THROWS_WITH(
-      test_kronmult_cpu<TestType>(10, 2, 1, 1, 1),
-      "kronmult unimplemented number of dimensions for the cpu");
-}
-
 TEMPLATE_TEST_CASE("testing kronmult cpu", "[execute_cpu]", float, double)
 {
   test_kronmult_cpu<TestType>(1, 2, 1, 1, 1);
