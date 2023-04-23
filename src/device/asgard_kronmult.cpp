@@ -358,141 +358,17 @@ template void execute_gpu<double>(int, int, double const *const[], int const,
 #endif
 
 template<typename T>
-inline void omp_atomic_add(T *p, T inc_value)
-{
-#pragma omp atomic
-  (*p) += inc_value;
-}
-
-/*
- * The CPU kernels can be better. The main issue is the atomic operations and
- * matrix lda, but we could speed this up with some intrinsics too.
- */
-template<typename T, int n>
-void cpu1d(T const *const Aarray_[], int const lda, T *pX_[], T *pY_[],
-           int const num_batch)
-{
-// CPU version, this is just Y = A * X in basic 2x2 matrix
-#pragma omp parallel for
-  for (int i = 0; i < num_batch; i++)
-  {
-    if constexpr (n == 2)
-    {
-      omp_atomic_add(&pY_[i][0],
-                     Aarray_[i][0] * pX_[i][0] + Aarray_[i][lda] * pX_[i][1]);
-      omp_atomic_add(&pY_[i][1], Aarray_[i][1] * pX_[i][0] +
-                                     Aarray_[i][lda + 1] * pX_[i][1]);
-    }
-    else if constexpr (n == 3)
-    {
-      omp_atomic_add(&pY_[i][0], Aarray_[i][0] * pX_[i][0] +
-                                     Aarray_[i][lda] * pX_[i][1] +
-                                     Aarray_[i][2 * lda] * pX_[i][2]);
-      omp_atomic_add(&pY_[i][1], Aarray_[i][1] * pX_[i][0] +
-                                     Aarray_[i][lda + 1] * pX_[i][1] +
-                                     Aarray_[i][2 * lda + 1] * pX_[i][2]);
-      omp_atomic_add(&pY_[i][2], Aarray_[i][2] * pX_[i][0] +
-                                     Aarray_[i][lda + 2] * pX_[i][1] +
-                                     Aarray_[i][2 * lda + 2] * pX_[i][2]);
-    }
-    else if constexpr (n == 4)
-    {
-      omp_atomic_add(&pY_[i][0], Aarray_[i][0] * pX_[i][0] +
-                                     Aarray_[i][lda] * pX_[i][1] +
-                                     Aarray_[i][2 * lda] * pX_[i][2] +
-                                     Aarray_[i][3 * lda] * pX_[i][3]);
-      omp_atomic_add(&pY_[i][1], Aarray_[i][1] * pX_[i][0] +
-                                     Aarray_[i][lda + 1] * pX_[i][1] +
-                                     Aarray_[i][2 * lda + 1] * pX_[i][2] +
-                                     Aarray_[i][3 * lda + 1] * pX_[i][3]);
-      omp_atomic_add(&pY_[i][2], Aarray_[i][2] * pX_[i][0] +
-                                     Aarray_[i][lda + 2] * pX_[i][1] +
-                                     Aarray_[i][2 * lda + 2] * pX_[i][2] +
-                                     Aarray_[i][3 * lda + 2] * pX_[i][3]);
-      omp_atomic_add(&pY_[i][3], Aarray_[i][3] * pX_[i][0] +
-                                     Aarray_[i][lda + 3] * pX_[i][1] +
-                                     Aarray_[i][2 * lda + 3] * pX_[i][2] +
-                                     Aarray_[i][3 * lda + 3] * pX_[i][3]);
-    }
-    else
-    {
-      static_assert((n >= 2) and (n <= 4),
-                    "unimplemented size n (i.e., polynomial degree)");
-    }
-  }
-}
-
-template<typename T, int n>
-void cpu2d(T const *const Aarray_[], int const lda, T *pX_[], T *pY_[],
-           int const num_batch)
-{
-#define inline_kmult2_cpu3_nn(row) \
-  (A1[(row)] * w0 + A1[lda + (row)] * w1 + A1[2 * lda + (row)] * w2)
-
-// algorithm is basic, A1 * ( X * transpose(A2) )
-// construct column of X * transpose(A2) and multiply by A1, do this column by
-// column
-#pragma omp parallel for
-  for (int i = 0; i < num_batch; i++)
-  {
-    T const *const A2 = Aarray_[2 * i];
-    T const *const A1 =
-        Aarray_[2 * i + 1]; // regular matrix multiplication is always on A1
-    if constexpr (n == 2)
-    {
-      T w0 = pX_[i][0] * A2[0] + pX_[i][2] * A2[lda];
-      T w1 = pX_[i][1] * A2[0] + pX_[i][3] * A2[lda];
-      omp_atomic_add(&pY_[i][0], A1[0] * w0 + A1[lda] * w1);
-      omp_atomic_add(&pY_[i][1], A1[1] * w0 + A1[lda + 1] * w1);
-      w0 = pX_[i][0] * A2[1] + pX_[i][2] * A2[lda + 1];
-      w1 = pX_[i][1] * A2[1] + pX_[i][3] * A2[lda + 1];
-      omp_atomic_add(&pY_[i][2], A1[0] * w0 + A1[lda] * w1);
-      omp_atomic_add(&pY_[i][3], A1[1] * w0 + A1[lda + 1] * w1);
-    }
-    else if constexpr (n == 3)
-    {
-      T w0 = pX_[i][0] * A2[0] + pX_[i][3] * A2[lda] + pX_[i][6] * A2[2 * lda];
-      T w1 = pX_[i][1] * A2[0] + pX_[i][4] * A2[lda] + pX_[i][7] * A2[2 * lda];
-      T w2 = pX_[i][2] * A2[0] + pX_[i][5] * A2[lda] + pX_[i][8] * A2[2 * lda];
-      omp_atomic_add(&pY_[i][0], inline_kmult2_cpu3_nn(0));
-      omp_atomic_add(&pY_[i][1], inline_kmult2_cpu3_nn(1));
-      omp_atomic_add(&pY_[i][2], inline_kmult2_cpu3_nn(2));
-      w0 = pX_[i][0] * A2[1] + pX_[i][3] * A2[lda + 1] +
-           pX_[i][6] * A2[2 * lda + 1];
-      w1 = pX_[i][1] * A2[1] + pX_[i][4] * A2[lda + 1] +
-           pX_[i][7] * A2[2 * lda + 1];
-      w2 = pX_[i][2] * A2[1] + pX_[i][5] * A2[lda + 1] +
-           pX_[i][8] * A2[2 * lda + 1];
-      omp_atomic_add(&pY_[i][3], inline_kmult2_cpu3_nn(0));
-      omp_atomic_add(&pY_[i][4], inline_kmult2_cpu3_nn(1));
-      omp_atomic_add(&pY_[i][5], inline_kmult2_cpu3_nn(2));
-      w0 = pX_[i][0] * A2[2] + pX_[i][3] * A2[lda + 2] +
-           pX_[i][6] * A2[2 * lda + 2];
-      w1 = pX_[i][1] * A2[2] + pX_[i][4] * A2[lda + 2] +
-           pX_[i][7] * A2[2 * lda + 2];
-      w2 = pX_[i][2] * A2[2] + pX_[i][5] * A2[lda + 2] +
-           pX_[i][8] * A2[2 * lda + 2];
-      omp_atomic_add(&pY_[i][6], inline_kmult2_cpu3_nn(0));
-      omp_atomic_add(&pY_[i][7], inline_kmult2_cpu3_nn(1));
-      omp_atomic_add(&pY_[i][8], inline_kmult2_cpu3_nn(2));
-    }
-    else
-    {
-      static_assert((n >= 2) and (n <= 3),
-                    "unimplemented size n (i.e., polynomial degree)");
-    }
-  }
-}
-
-template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch)
+                 T const * const pX[], T *pY[], int const num_batch)
 {
   switch (dimensions)
   {
   case 1:
     switch (n)
     {
+    case 1:
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      break;
     case 2:
       run_cpu_variant<T, 1, 2>(pA, lda, pX, pY, num_batch);
       break;
@@ -503,12 +379,15 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented n for the cpu");
+      run_cpu_variant<T, 1>(n, pA, lda, pX, pY, num_batch);
     }
     break;
   case 2:
     switch (n)
     {
+    case 1:
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      break;
     case 2:
       run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch);
       break;
@@ -519,12 +398,15 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented n for the cpu");
+      run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch);
     }
     break;
   case 3:
     switch (n)
     {
+    case 1:
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      break;
     case 2:
       run_cpu_variant<T, 3, 2>(pA, lda, pX, pY, num_batch);
       break;
@@ -535,12 +417,15 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented n for the cpu");
+      run_cpu_variant<T, 3>(n, pA, lda, pX, pY, num_batch);
     }
     break;
   case 4:
     switch (n)
     {
+    case 1:
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      break;
     case 2:
       run_cpu_variant<T, 4, 2>(pA, lda, pX, pY, num_batch);
       break;
@@ -551,12 +436,15 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented n for the cpu");
+      run_cpu_variant<T, 4>(n, pA, lda, pX, pY, num_batch);
     }
     break;
   case 5:
     switch (n)
     {
+    case 1:
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      break;
     case 2:
       run_cpu_variant<T, 5, 2>(pA, lda, pX, pY, num_batch);
       break;
@@ -567,12 +455,15 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented n for the cpu");
+      run_cpu_variant<T, 5>(n, pA, lda, pX, pY, num_batch);
     }
     break;
   case 6:
     switch (n)
     {
+    case 1:
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      break;
     case 2:
       run_cpu_variant<T, 6, 2>(pA, lda, pX, pY, num_batch);
       break;
@@ -583,7 +474,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
-      throw std::runtime_error("kronmult unimplemented n for the cpu");
+      run_cpu_variant<T, 6>(n, pA, lda, pX, pY, num_batch);
     }
     break;
   default:
@@ -593,8 +484,8 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_cpu<float>(int, int, float const *const[], int const,
-                                 float *[], float *[], int const);
+                                 float const * const[], float *[], int const);
 template void execute_cpu<double>(int, int, double const *const[], int const,
-                                  double *[], double *[], int const);
+                                  double const * const[], double *[], int const);
 
 } // namespace asgard::kronmult

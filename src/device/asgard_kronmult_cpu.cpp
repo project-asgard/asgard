@@ -15,11 +15,29 @@ inline void omp_atomic_add(T *p, T inc_value)
   (*p) += inc_value;
 }
 
+template<typename T>
+void run_cpu_variant0(int const dimensions, T const *const pA[],
+                      T const * const pX[], T *pY[], int const num_batch){
+
+    #pragma omp parallel for
+    for (int i = 0; i < num_batch; i++)
+    {
+        T totalA = 1;
+        for(int j=0; j<dimensions; j++){
+            totalA *= pA[dimensions*i + j][0];
+        }
+        #pragma omp atomic
+        pY[i][0] += totalA * pX[i][0];
+    }
+}
+
+template void run_cpu_variant0<float>(int const, float const *const[], float const * const[], float *[], int const);
+template void run_cpu_variant0<double>(int const, double const *const[], double const * const[], double *[], int const);
 
 
 template<typename T, int dimensions, int n>
 void run_cpu_variant(T const *const pA[], int const lda,
-                     T *pX[], T *pY[], int const num_batch){
+                     T const * const pX[], T *pY[], int const num_batch){
 
     // always use one thread per kron-product
     #pragma omp parallel for
@@ -386,10 +404,10 @@ void run_cpu_variant(T const *const pA[], int const lda,
 
 
 #define asgard_kronmult_cpu_instantiate(d, n) \
-    template void run_cpu_variant<float, (d), (n)>(float const *const pA[], int const lda, \
-                                                   float *pX[], float *pY[], int const num_batch); \
-    template void run_cpu_variant<double, (d), (n)>(double const *const pA[], int const lda, \
-                                                    double *pX[], double *pY[], int const num_batch); \
+    template void run_cpu_variant<float, (d), (n)>(float const *const[], int const, \
+                                                   float const * const[], float *[], int const); \
+    template void run_cpu_variant<double, (d), (n)>(double const *const[], int const, \
+                                                    double const * const[], double *[], int const); \
 
 #define asgard_kronmult_cpu_instantiate_n234_d(d) \
     asgard_kronmult_cpu_instantiate((d), 2); \

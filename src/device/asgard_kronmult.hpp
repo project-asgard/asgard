@@ -21,12 +21,6 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
  */
 struct is_implemented
 {
-  static bool cpu(int dimensions, int n)
-  {
-    std::set<int> available({201, 301, 401, 202, 302, 402, 203, 303, 403,
-                             204, 304, 404, 205, 305, 405, 206, 306, 406});
-    return (available.find(100 * n + dimensions) != available.end());
-  }
   static bool gpu(int dimensions, int n)
   {
     std::set<int> available({
@@ -40,16 +34,20 @@ struct is_implemented
   }
 };
 
+template<typename T>
+void run_cpu_variant0(int dimensions, T const *const pA[],
+                      T const * const pX[], T *pY[], int const num_batch);
+
 template<typename T, int dimensions, int n>
 void run_cpu_variant(T const *const pA[], int const lda,
-                     T *pX[], T *pY[], int const num_batch);
+                     T const * const pX[], T *pY[], int const num_batch);
 
 template<typename T, int dimensions>
 void run_cpu_variant(int n, T const *const pA[], int const lda,
-                     T *pX[], T *pY[], int const num_batch);
+                     T const * const pX[], T *pY[], int const num_batch);
 
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch);
+                 T const * const pX[], T *pY[], int const num_batch);
 
 } // namespace asgard::kronmult

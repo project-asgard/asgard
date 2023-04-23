@@ -363,9 +363,7 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 #else
 
   {
-    if (kronmult::is_implemented::cpu(num_dims, n))
-    {
-      // if a new kernel is available, use it and stop here
+    { // all new kernels are ready for the CPU
       kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
                                output_ptrs, num_krons);
       return;
