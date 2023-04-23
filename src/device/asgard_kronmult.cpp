@@ -8,6 +8,7 @@
 #ifdef ASGARD_USE_CUDA
 #include "asgard_kronmult_cycle1.hpp"
 #include "asgard_kronmult_cycle2.hpp"
+#include "asgard_kronmult_cyclex.hpp"
 #endif
 
 namespace asgard::kronmult
