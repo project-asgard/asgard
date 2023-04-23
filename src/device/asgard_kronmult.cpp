@@ -7,6 +7,7 @@
 
 #ifdef ASGARD_USE_CUDA
 #include "asgard_kronmult_cycle1.hpp"
+#include "asgard_kronmult_cycle2.hpp"
 #endif
 
 namespace asgard::kronmult
@@ -101,6 +102,27 @@ void run_kernel(precision const *const pA[], int const lda,
     kernel::cycle1<precision, dims, n, team_size, num_teams>
         <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
   }
+}
+
+template<typename precision, int dims, int n>
+void run_kernel2(precision const *const pA[], int const lda,
+                 precision const *const pX[], precision *pY[],
+                 int const num_batch)
+{
+  constexpr int max_blocks  = 300;
+  constexpr int max_threads = 1024;
+  constexpr int team_size   = (ipow<n, dims>() +1) / 2;
+  constexpr int num_teams   = max_threads / team_size;
+
+  static_assert(
+      max_threads >= team_size,
+      "tensor size must be less than the max number of threads (1024)");
+
+  int num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  kernel::cycle2<precision, dims, n, team_size, num_teams>
+        <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T>
@@ -296,13 +318,13 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel<T, 4, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
-      run_kernel<T, 4, 3>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 4, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      run_kernel<T, 4, 4>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 4, 4>(pA, lda, pX, pY, num_batch);
       break;
     case 5:
-      run_kernel<T, 4, 5>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 4, 5>(pA, lda, pX, pY, num_batch);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -318,10 +340,10 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel<T, 5, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
-      run_kernel<T, 5, 3>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 5, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      run_kernel<T, 5, 4>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 5, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -334,10 +356,10 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel<T, 6, 1>(pA, lda, pX, pY, num_batch);
       break;
     case 2:
-      run_kernel<T, 6, 2>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 6, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
-      run_kernel<T, 6, 3>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 6, 3>(pA, lda, pX, pY, num_batch);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
