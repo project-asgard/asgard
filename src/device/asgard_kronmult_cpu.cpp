@@ -9,13 +9,6 @@ namespace asgard::kronmult
 {
 
 template<typename T>
-inline void omp_atomic_add(T *p, T inc_value)
-{
-#pragma omp atomic
-  (*p) += inc_value;
-}
-
-template<typename T>
 void run_cpu_variant0(int const dimensions, T const *const pA[],
                       T const * const pX[], T *pY[], int const num_batch){
 
@@ -39,45 +32,24 @@ template<typename T, int dimensions, int n>
 void run_cpu_variant(T const *const pA[], int const lda,
                      T const * const pX[], T *pY[], int const num_batch){
 
+    static_assert(1 <= dimensions and dimensions <= 6);
+    static_assert(n > 1, "n must be positive and n==1 is a special case handled by another method");
+
     // always use one thread per kron-product
     #pragma omp parallel for
     for (int i = 0; i < num_batch; i++)
     {
         if constexpr(dimensions == 1){
-            if constexpr(n == 2){
-                #pragma omp atomic
-                pY[i][0] += pA[i][0] * pX[i][0] + pA[i][lda] * pX[i][1];
-                #pragma omp atomic
-                pY[i][1] += pA[i][1] * pX[i][0] + pA[i][lda+1] * pX[i][1];
-            }else if constexpr(n==3){
-                T y0=0, y1=0, y2=0;
-                for(int j=0; j<n; j++){
-                    y0 += pA[i][j*lda] * pX[i][j];
-                    y1 += pA[i][j*lda+1] * pX[i][j];
-                    y2 += pA[i][j*lda+2] * pX[i][j];
+            T Y[n];
+            for(int j=0; j<n; j++) Y[j] = 0;
+            for(int j=0; j<n; j++){
+                for(int k=0; k<n; k++){
+                    Y[k] += pA[i][j*lda+k] * pX[i][j];
                 }
+            }
+            for(int j=0; j<n; j++){
                 #pragma omp atomic
-                pY[i][0] += y0;
-                #pragma omp atomic
-                pY[i][1] += y1;
-                #pragma omp atomic
-                pY[i][2] += y2;
-            }else if constexpr(n==4){
-                T y0=0, y1=0, y2=0, y3=0;
-                for(int j=0; j<n; j++){
-                    y0 += pA[i][j*lda] * pX[i][j];
-                    y1 += pA[i][j*lda+1] * pX[i][j];
-                    y2 += pA[i][j*lda+2] * pX[i][j];
-                    y3 += pA[i][j*lda+3] * pX[i][j];
-                }
-                #pragma omp atomic
-                pY[i][0] += y0;
-                #pragma omp atomic
-                pY[i][1] += y1;
-                #pragma omp atomic
-                pY[i][2] += y2;
-                #pragma omp atomic
-                pY[i][3] += y3;
+                pY[i][j] += Y[j];
             }
         }else if constexpr(dimensions == 2){
             if constexpr(n == 2){
@@ -402,7 +374,7 @@ void run_cpu_variant(T const *const pA[], int const lda,
     } // for loop
 }
 
-
+// explicit instantiation for n=2, 3, 4 and up to 6D
 #define asgard_kronmult_cpu_instantiate(d, n) \
     template void run_cpu_variant<float, (d), (n)>(float const *const[], int const, \
                                                    float const * const[], float *[], int const); \
