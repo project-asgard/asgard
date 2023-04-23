@@ -188,8 +188,9 @@ make_kronmult_data(int dimensions, int n, int num_batch, int num_matrices,
     result->pY[i] = &(result->reference_y[*ip++ * num_data]);
   }
 
-  reference_kronmult(dimensions, n, result->pA.data(), result->pX.data(),
-                     result->pY.data(), result->num_batch);
+  if (compute_reference)
+    reference_kronmult(dimensions, n, result->pA.data(), result->pX.data(),
+                       result->pY.data(), result->num_batch);
 
   ip = pointer_map.begin();
   for (int i = 0; i < num_batch; i++)

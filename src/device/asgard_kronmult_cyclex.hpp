@@ -5,6 +5,9 @@
 namespace asgard::kronmult::kernel
 {
 
+/*!
+ * \brief Variant of int_pow() that accepts the power as input, but the method is still constexpr.
+ */
 template<int n>
 __device__ constexpr int int_pow(int p){
     return (p == 6) ? n*n*n*n*n*n : ((p == 5) ? n*n*n*n*n : ((p == 4) ? n*n*n*n : ((p == 3) ? n*n*n : ((p == 2) ? n*n : n))));
@@ -13,10 +16,14 @@ __device__ constexpr int int_pow(int p){
 /*!
  * \brief Kernel using one thread per two data entries.
  *
- * The team size is about n^dims / 2 which means that the tensor data
- * is processed in two cycles, increasing the compute per thread
- * and avoiding the situation when team_size is much bigger than
- * the matrix size n^2 and many threads have to wait for I/O.
+ * Up to 4 cycle algorithm, the internal logic is different from the other cases.
+ * The number of used register is reduced by implementing the index logic
+ * via for loops, while the regsters are used to keep the intermediate
+ * sums from the matrix-vector products.
+ *
+ * For cycles 1 or 2, use the dedicated algorithms.
+ * This should be used only when more cycles are needed and/or the maximum
+ * number of threads is not enough to hold a tensor in 1 or 2 cycles.
  */
 template<typename T, int dims, int n, int team_size, int num_teams, int num_cycles>
 __global__ void cyclex(T const *const pA[], int const lda, T const *const pX[],

@@ -54,7 +54,8 @@ constexpr int compute_team_size()
  * \brief Run a GPU kernel for the specified problem.
  *
  * Instantiates a GPU kernel, computes the appropriate grid and executes the
- * kernel.
+ * kernel. Handles the one cycle case including all instances of 1D and n=1.
+ *
  * \tparam precision is either float or double
  * \tparam dims is the number of dimensions of the tensors
  * \tparam n is the number of degrees of freedom of the tensors,
@@ -105,6 +106,11 @@ void run_kernel(precision const *const pA[], int const lda,
   }
 }
 
+/*!
+ * \brief Run a GPU kernel for the specified problem, two cycle case.
+ *
+ * Same as run_kernel() but uses logic for 2 cycles.
+ */
 template<typename precision, int dims, int n>
 void run_kernel2(precision const *const pA[], int const lda,
                  precision const *const pX[], precision *pY[],
@@ -126,6 +132,13 @@ void run_kernel2(precision const *const pA[], int const lda,
         <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
 }
 
+/*!
+ * \brief Run a GPU kernel for the specified problem, two cycle case.
+ *
+ * Same as run_kernel() but uses logic for up to 4 kernels,
+ * the extra input num_cycles has to be 1 - 4,
+ * but the 1 and 2 case should use run_kernel() or run_kernel2().
+ */
 template<typename precision, int dims, int n, int num_cycles>
 void run_kernelx(precision const *const pA[], int const lda,
                  precision const *const pX[], precision *pY[],
