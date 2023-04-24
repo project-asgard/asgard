@@ -49,15 +49,18 @@ public:
     static_assert(dimensions == 4);
     return serialized[k * n3 + l * n2 + m * n + p];
   }
-  T &operator()(int l, int m, int p) {
+  T &operator()(int l, int m, int p)
+  {
     static_assert(dimensions == 3);
     return serialized[l * n2 + m * n + p];
   }
-  T &operator()(int m, int p) {
+  T &operator()(int m, int p)
+  {
     static_assert(dimensions == 2);
     return serialized[m * n + p];
   }
-  T &operator()(int p) {
+  T &operator()(int p)
+  {
     static_assert(dimensions == 1);
     return serialized[p];
   }

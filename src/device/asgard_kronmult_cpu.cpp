@@ -115,7 +115,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
           for (int k = 0; k < n; k++)
             for (int s = 0; s < n; s++)
               W[l][s][k] += Y[l][j][k] * pA[3 * i + 1][j * lda + s];
-      std::fill(&Y[0][0][0], &Y[0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&Y[0][0][0], &Y[0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int l = 0; l < n; l++)
           for (int k = 0; k < n; k++)
@@ -149,14 +149,14 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
             for (int k = 0; k < n; k++)
               for (int s = 0; s < n; s++)
                 Y[p][s][l][k] += W[p][j][l][k] * pA[4 * i + 1][j * lda + s];
-      std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int p = 0; p < n; p++)
           for (int l = 0; l < n; l++)
             for (int k = 0; k < n; k++)
               for (int s = 0; s < n; s++)
                 W[p][l][s][k] += Y[p][l][j][k] * pA[4 * i + 2][j * lda + s];
-      std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int p = 0; p < n; p++)
           for (int l = 0; l < n; l++)
@@ -198,7 +198,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                 for (int s = 0; s < n; s++)
                   W[v][s][p][l][k] +=
                       Y[v][j][p][l][k] * pA[5 * i + 1][j * lda + s];
-      std::fill(&Y[0][0][0][0][0], &Y[0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&Y[0][0][0][0][0], &Y[0][0][0][0][0] + sizeof(W) / sizeof(T),
+                T{0.});
       for (int j = 0; j < n; j++)
         for (int v = 0; v < n; v++)
           for (int p = 0; p < n; p++)
@@ -207,7 +208,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                 for (int s = 0; s < n; s++)
                   Y[v][p][s][l][k] +=
                       W[v][p][j][l][k] * pA[5 * i + 2][j * lda + s];
-      std::fill(&W[0][0][0][0][0], &W[0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&W[0][0][0][0][0], &W[0][0][0][0][0] + sizeof(W) / sizeof(T),
+                T{0.});
       for (int j = 0; j < n; j++)
         for (int v = 0; v < n; v++)
           for (int p = 0; p < n; p++)
@@ -216,7 +218,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                 for (int s = 0; s < n; s++)
                   W[v][p][l][s][k] +=
                       Y[v][p][l][j][k] * pA[5 * i + 3][j * lda + s];
-      std::fill(&Y[0][0][0][0][0], &Y[0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&Y[0][0][0][0][0], &Y[0][0][0][0][0] + sizeof(W) / sizeof(T),
+                T{0.});
       for (int j = 0; j < n; j++)
         for (int v = 0; v < n; v++)
           for (int p = 0; p < n; p++)
@@ -267,7 +270,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                   for (int s = 0; s < n; s++)
                     Y[w][s][v][p][l][k] +=
                         W[w][j][v][p][l][k] * pA[6 * i + 1][j * lda + s];
-      std::fill(&W[0][0][0][0][0][0], &W[0][0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&W[0][0][0][0][0][0],
+                &W[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int w = 0; w < n; w++)
           for (int v = 0; v < n; v++)
@@ -277,7 +281,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                   for (int s = 0; s < n; s++)
                     W[w][v][s][p][l][k] +=
                         Y[w][v][j][p][l][k] * pA[6 * i + 2][j * lda + s];
-      std::fill(&Y[0][0][0][0][0][0], &Y[0][0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&Y[0][0][0][0][0][0],
+                &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int w = 0; w < n; w++)
           for (int v = 0; v < n; v++)
@@ -287,7 +292,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                   for (int s = 0; s < n; s++)
                     Y[w][v][p][s][l][k] +=
                         W[w][v][p][j][l][k] * pA[6 * i + 3][j * lda + s];
-      std::fill(&W[0][0][0][0][0][0], &W[0][0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&W[0][0][0][0][0][0],
+                &W[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int w = 0; w < n; w++)
           for (int v = 0; v < n; v++)
@@ -297,7 +303,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                   for (int s = 0; s < n; s++)
                     W[w][v][p][l][s][k] +=
                         Y[w][v][p][l][j][k] * pA[6 * i + 4][j * lda + s];
-      std::fill(&Y[0][0][0][0][0][0], &Y[0][0][0][0][0][0] + sizeof(W)/sizeof(T), T{0.});
+      std::fill(&Y[0][0][0][0][0][0],
+                &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
       for (int j = 0; j < n; j++)
         for (int w = 0; w < n; w++)
           for (int v = 0; v < n; v++)
