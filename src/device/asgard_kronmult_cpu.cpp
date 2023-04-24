@@ -45,7 +45,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
   {
     if constexpr (dimensions == 1)
     {
-      T Y[n] = {0};
+      T Y[n] = {{0}};
       for (int j = 0; j < n; j++)
       {
         for (int k = 0; k < n; k++)
@@ -82,7 +82,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
       }
       else if constexpr (n >= 3)
       {
-        T W[n][n] = {0}, Y[n][n] = {0};
+        T W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
         for (int j = 0; j < n; j++)
           for (int k = 0; k < n; k++)
             for (int s = 0; s < n; s++)
@@ -103,7 +103,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
     }
     else if constexpr (dimensions == 3)
     {
-      T W[n][n][n] = {0}, Y[n][n][n] = {0};
+      T W[n][n][n] = {{{{0}}}}, Y[n][n][n] = {{{{0}}}};
       for (int j = 0; j < n; j++)
         for (int l = 0; l < n; l++)
           for (int k = 0; k < n; k++)
@@ -135,7 +135,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
     }
     else if constexpr (dimensions == 4)
     {
-      T W[n][n][n][n] = {0}, Y[n][n][n][n] = {0};
+      T W[n][n][n][n] = {{{{{0}}}}}, Y[n][n][n][n] = {{{{{0}}}}};
       for (int j = 0; j < n; j++)
         for (int p = 0; p < n; p++)
           for (int l = 0; l < n; l++)
@@ -180,7 +180,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
     }
     else if constexpr (dimensions == 5)
     {
-      T W[n][n][n][n][n] = {0}, Y[n][n][n][n][n] = {0};
+      T W[n][n][n][n][n] = {{{{{{0}}}}}}, Y[n][n][n][n][n] = {{{{{{0}}}}}};
       for (int j = 0; j < n; j++)
         for (int v = 0; v < n; v++)
           for (int p = 0; p < n; p++)
@@ -249,7 +249,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
     }
     else if constexpr (dimensions == 6)
     {
-      T W[n][n][n][n][n][n] = {0}, Y[n][n][n][n][n][n] = {0};
+      T W[n][n][n][n][n][n] = {{{{{{{0}}}}}}},
+        Y[n][n][n][n][n][n] = {{{{{{{0}}}}}}};
       for (int j = 0; j < n; j++)
         for (int w = 0; w < n; w++)
           for (int v = 0; v < n; v++)
