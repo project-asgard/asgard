@@ -269,6 +269,10 @@ target_sources (asgard_obj
                 PRIVATE
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp>
 )
+target_sources (asgard_obj
+                PRIVATE
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp>
+)
 target_precompile_headers (asgard_obj
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp>>
@@ -318,6 +322,7 @@ if (ASGARD_USE_CUDA)
 
     set_target_properties (asgard_obj PROPERTIES CUDA_ARCHITECTURES 70)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
 #  Turn on GPU support in kronmult.
@@ -397,6 +402,18 @@ if (ASGARD_BUILD_TESTS)
     target_precompile_headers (tests_general REUSE_FROM asgard_obj)
     target_precompile_headers (tests_general_main REUSE_FROM asgard_obj)
   endif ()
+
+  # new kronmult testing and benchmarking
+  add_executable(asgard-kronmult-test ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_tests.cpp)
+  target_link_libraries (asgard-kronmult-test PUBLIC asgard_obj Catch2::Catch2WithMain)
+  target_include_directories (asgard-kronmult-test PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+  target_include_directories (asgard-kronmult-test PRIVATE ${CMAKE_SOURCE_DIR}/)
+  add_test (NAME asgard-kronmult-test COMMAND asgard-kronmult-test)
+
+  add_executable(asgard-kronmult-benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
+  target_link_libraries (asgard-kronmult-benchmark PUBLIC asgard_obj)
+  target_include_directories (asgard-kronmult-benchmark PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+  target_include_directories (asgard-kronmult-benchmark PRIVATE ${CMAKE_SOURCE_DIR}/)
 
   # components with MPI-enabled testing
   set (mpi_test_components

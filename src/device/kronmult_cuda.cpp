@@ -4,7 +4,6 @@
 #ifdef ASGARD_USE_CUDA
 #include <cuda.h>
 #include <cuda_runtime.h>
-#define USE_GPU
 #define GLOBAL_FUNCTION __global__
 #define SYNCTHREADS __syncthreads()
 #define SHARED_MEMORY __shared__
@@ -310,6 +309,16 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 {
 #ifdef ASGARD_USE_CUDA
   {
+    if (kronmult::is_implemented::gpu(num_dims, n))
+    {
+      // if a new kernel is available, use it and stop here
+      kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
+                               output_ptrs, num_krons);
+      auto const stat = cudaDeviceSynchronize();
+      expect(stat == cudaSuccess);
+      return;
+    }
+
     int constexpr warpsize    = 32;
     int constexpr nwarps      = 8;
     int constexpr num_threads = nwarps * warpsize;
@@ -318,67 +327,16 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
     switch (num_dims)
     {
     case 1:
-      switch (n)
-      {
-      case 2:
-        kronmult::gpu1d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 3:
-        kronmult::gpu1d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 4:
-        kronmult::gpu1d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      default:
-        kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
-            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-        break;
-      }
+      kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 2:
-      switch (n)
-      {
-      case 2:
-        kronmult::gpu2d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 3:
-        kronmult::gpu2d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 4:
-        kronmult::gpu2d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      default:
-        kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
-            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-        break;
-      }
+      kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 3:
-      switch (n)
-      {
-      case 2:
-        kronmult::gpu3d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 3:
-        kronmult::gpu3d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 4:
-        kronmult::gpu3d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      default:
-        kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
-            n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-        break;
-      }
+      kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
+          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
       break;
     case 4:
       kronmult4_xbatched<P><<<num_blocks, num_threads>>>(
@@ -405,45 +363,23 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
 #else
 
   {
+    if (kronmult::is_implemented::cpu(num_dims, n))
+    {
+      // if a new kernel is available, use it and stop here
+      kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
+                               output_ptrs, num_krons);
+      return;
+    }
+
     switch (num_dims)
     {
     case 1:
-      switch (n)
-      {
-      case 2:
-        kronmult::cpu1d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 3:
-        kronmult::cpu1d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 4:
-        kronmult::cpu1d<P, 4>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      default:
-        kronmult1_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                              work_ptrs, num_krons);
-        break;
-      }
+      kronmult1_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
+                            work_ptrs, num_krons);
       break;
     case 2:
-      switch (n)
-      {
-      case 2:
-        kronmult::cpu2d<P, 2>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      case 3:
-        kronmult::cpu2d<P, 3>(operator_ptrs, lda, x_ptrs, output_ptrs,
-                              num_krons);
-        break;
-      default:
-        kronmult2_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                              work_ptrs, num_krons);
-        break;
-      }
+      kronmult2_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
+                            work_ptrs, num_krons);
       break;
     case 3:
       kronmult3_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
