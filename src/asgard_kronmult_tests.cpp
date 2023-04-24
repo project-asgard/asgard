@@ -39,12 +39,6 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", float, double)
                                7,  8,  9,  14, 16, 18, 3,  6,  9,  4,  8,  12,
                                12, 15, 18, 16, 20, 24, 21, 24, 27, 28, 32, 36};
   test_almost_equal(R, gold);
-
-  std::vector<TestType> x = {10, 20};
-  std::vector<TestType> y = {1, 0};
-  reference_gemv(2, A.data(), x.data(), y.data());
-  gold = std::vector<TestType>{71, 100};
-  test_almost_equal(y, gold);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu", "[execute_cpu]", float, double)

@@ -38,12 +38,9 @@ __device__ constexpr int int_pow()
   {
     return n * n * n * n * n * n;
   }
-  else
-  {
-    static_assert(power >= 1 and power <= 6,
-                  "int_pow() does not works with specified power");
-    return 0;
-  }
+  static_assert(power >= 1 and power <= 6,
+                "int_pow() does not works with specified power");
+  return 0;
 }
 
 /*!

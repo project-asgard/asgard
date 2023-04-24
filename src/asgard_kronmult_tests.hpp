@@ -2,6 +2,7 @@
 #pragma once
 
 #include "./device/asgard_kronmult.hpp"
+#include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
 #include <iostream>
@@ -43,6 +44,67 @@ struct kronmult_intputs
       gpupA;
 #endif
 };
+
+/*!
+ * \brief Reference implementation use for testing.
+ *
+ * Explicitly constructs the Kronecker product of two matrices.
+ */
+template<typename T>
+std::vector<T> kronecker(int m, T const A[], int n, T const B[])
+{
+  std::vector<T> result(n * n * m * m);
+  for (int jm = 0; jm < m; jm++)
+  {
+    for (int jn = 0; jn < n; jn++)
+    {
+      for (int im = 0; im < m; im++)
+      {
+        for (int in = 0; in < n; in++)
+        {
+          result[(jm * n + jn) * (m * n) + im * n + in] =
+              A[jm * m + im] * B[jn * n + in];
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/*!
+ * \brief Reference implementation one Kronecker product.
+ */
+template<typename T>
+void reference_kronmult_one(int dimensions, int n, T const *const pA[],
+                            T const x[], T y[])
+{
+  std::vector<T> kron(pA[dimensions - 1], pA[dimensions - 1] + n * n);
+  int total_size = n;
+  for (int i = dimensions - 2; i >= 0; i--)
+  {
+    kron = kronecker(n, pA[i], total_size, kron.data());
+    total_size *= n;
+  }
+  char charN = 'n';
+  T alpha = 1.0, beta = 1.0;
+  int int_one = 1;
+  asgard::lib_dispatch::gemv(&charN, &total_size, &total_size, &alpha,
+                             kron.data(), &total_size, x, &int_one, &beta, y,
+                             &int_one, asgard::resource::host);
+}
+
+/*!
+ * \brief Reference implementation of kronmult, do not use in production.
+ */
+template<typename T>
+void reference_kronmult(int dimensions, int n, T const *const pA[],
+                        T const *const pX[], T *pY[], int const num_batch)
+{
+  for (int i = 0; i < num_batch; i++)
+  {
+    reference_kronmult_one(dimensions, n, &pA[dimensions * i], pX[i], pY[i]);
+  }
+}
 
 /*!
  * \brief Generates data for a kronmult call using random inputs.
