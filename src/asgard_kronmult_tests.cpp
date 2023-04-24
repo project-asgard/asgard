@@ -84,8 +84,9 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", float, double)
   int n = GENERATE(1, 2, 3, 4);
   test_kronmult_cpu<TestType>(6, n, 50, 7, 5);
 }
-TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float, double)
-{;
+TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
+                   double)
+{
   test_kronmult_cpu<TestType>(6, 5, 2, 2, 2);
 }
 

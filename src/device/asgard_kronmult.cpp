@@ -359,7 +359,7 @@ template void execute_gpu<double>(int, int, double const *const[], int const,
 
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const * const pX[], T *pY[], int const num_batch)
+                 T const *const pX[], T *pY[], int const num_batch)
 {
   switch (dimensions)
   {
@@ -484,8 +484,8 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_cpu<float>(int, int, float const *const[], int const,
-                                 float const * const[], float *[], int const);
+                                 float const *const[], float *[], int const);
 template void execute_cpu<double>(int, int, double const *const[], int const,
-                                  double const * const[], double *[], int const);
+                                  double const *const[], double *[], int const);
 
 } // namespace asgard::kronmult

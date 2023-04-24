@@ -49,8 +49,8 @@ struct is_implemented
  * where the case n=1 is handled in the same data structures as n>1.
  */
 template<typename T>
-void run_cpu_variant0(int dimensions, T const *const pA[],
-                      T const * const pX[], T *pY[], int const num_batch);
+void run_cpu_variant0(int dimensions, T const *const pA[], T const *const pX[],
+                      T *pY[], int const num_batch);
 
 /*!
  * \brief Baseline kronmult algorithm on the CPU.
@@ -68,8 +68,8 @@ void run_cpu_variant0(int dimensions, T const *const pA[],
  * The rest of the inputs are the same as in execute_cpu()
  */
 template<typename T, int dimensions, int n>
-void run_cpu_variant(T const *const pA[], int const lda,
-                     T const * const pX[], T *pY[], int const num_batch);
+void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
+                     T *pY[], int const num_batch);
 
 /*!
  * \brief Kronmult algorithm that allows for arbitrary n.
@@ -81,7 +81,7 @@ void run_cpu_variant(T const *const pA[], int const lda,
  */
 template<typename T, int dimensions>
 void run_cpu_variant(int n, T const *const pA[], int const lda,
-                     T const * const pX[], T *pY[], int const num_batch);
+                     T const *const pX[], T *pY[], int const num_batch);
 
 /*!
  * \brief Performs a batch of kronmult operations using the CPU.
@@ -107,6 +107,6 @@ void run_cpu_variant(int n, T const *const pA[], int const lda,
  */
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const * const pX[], T *pY[], int const num_batch);
+                 T const *const pX[], T *pY[], int const num_batch);
 
 } // namespace asgard::kronmult
