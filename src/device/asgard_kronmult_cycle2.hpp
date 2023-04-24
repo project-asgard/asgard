@@ -4,7 +4,6 @@
 
 namespace asgard::kronmult::kernel
 {
-
 /*!
  * \brief Kernel using one thread per two data entries.
  *
@@ -18,8 +17,11 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
                        T *pY[], int const num_batch)
 {
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
-  static_assert(2*team_size >= int_pow<n, dims>(), "team is too small, size must be at least half the size of the tensors");
-  static_assert(team_size >= n*n, "the team size must be at least equal to the matrix size n^2");
+  static_assert(
+      2 * team_size >= int_pow<n, dims>(),
+      "team is too small, size must be at least half the size of the tensors");
+  static_assert(team_size >= n * n,
+                "the team size must be at least equal to the matrix size n^2");
 
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
@@ -28,10 +30,10 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
                                         : manual_sync::disable;
 
   constexpr int num_second_cycle = int_pow<n, dims>() - team_size;
-  static_assert(num_second_cycle > 0, "team is large enough for one cycle, no need for a second one");
+  static_assert(num_second_cycle > 0,
+                "team is large enough for one cycle, no need for a second one");
 
-
-  __shared__ T X[num_teams][2*team_size];
+  __shared__ T X[num_teams][2 * team_size];
   __shared__ T A[num_teams][team_size];
 
   int i = threadIdx.y + blockIdx.x * blockDim.y;
@@ -42,49 +44,61 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
       threadIdx.x % int_pow<n, 5>() +
       ((dims == 6) ? 0 : int_pow<n, 6>() * (threadIdx.x / int_pow<n, 6>()));
   int const ia50 = threadIdx.x / int_pow<n, 5>() -
-                  ((dims == 6) ? 0 : n * (threadIdx.x / int_pow<n, 6>()));
+                   ((dims == 6) ? 0 : n * (threadIdx.x / int_pow<n, 6>()));
 
   int const ix51 =
       (threadIdx.x + team_size) % int_pow<n, 5>() +
-      ((dims == 6) ? 0 : int_pow<n, 6>() * ((threadIdx.x + team_size) / int_pow<n, 6>()));
-  int const ia51 = (threadIdx.x + team_size) / int_pow<n, 5>() -
-                  ((dims == 6) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 6>()));
+      ((dims == 6)
+           ? 0
+           : int_pow<n, 6>() * ((threadIdx.x + team_size) / int_pow<n, 6>()));
+  int const ia51 =
+      (threadIdx.x + team_size) / int_pow<n, 5>() -
+      ((dims == 6) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 6>()));
 
   int const ix40 =
       threadIdx.x % int_pow<n, 4>() +
       ((dims == 5) ? 0 : int_pow<n, 5>() * (threadIdx.x / int_pow<n, 5>()));
   int const ia40 = threadIdx.x / int_pow<n, 4>() -
-                  ((dims == 5) ? 0 : n * (threadIdx.x / int_pow<n, 5>()));
+                   ((dims == 5) ? 0 : n * (threadIdx.x / int_pow<n, 5>()));
 
   int const ix41 =
       (threadIdx.x + team_size) % int_pow<n, 4>() +
-      ((dims == 5) ? 0 : int_pow<n, 5>() * ((threadIdx.x + team_size) / int_pow<n, 5>()));
-  int const ia41 = (threadIdx.x + team_size) / int_pow<n, 4>() -
-                  ((dims == 5) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 5>()));
+      ((dims == 5)
+           ? 0
+           : int_pow<n, 5>() * ((threadIdx.x + team_size) / int_pow<n, 5>()));
+  int const ia41 =
+      (threadIdx.x + team_size) / int_pow<n, 4>() -
+      ((dims == 5) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 5>()));
 
   int const ix30 =
       threadIdx.x % int_pow<n, 3>() +
       ((dims == 4) ? 0 : int_pow<n, 4>() * (threadIdx.x / int_pow<n, 4>()));
   int const ia30 = threadIdx.x / int_pow<n, 3>() -
-                  ((dims == 4) ? 0 : n * (threadIdx.x / int_pow<n, 4>()));
+                   ((dims == 4) ? 0 : n * (threadIdx.x / int_pow<n, 4>()));
 
   int const ix31 =
       (threadIdx.x + team_size) % int_pow<n, 3>() +
-      ((dims == 4) ? 0 : int_pow<n, 4>() * ((threadIdx.x + team_size) / int_pow<n, 4>()));
-  int const ia31 = (threadIdx.x + team_size) / int_pow<n, 3>() -
-                  ((dims == 4) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 4>()));
+      ((dims == 4)
+           ? 0
+           : int_pow<n, 4>() * ((threadIdx.x + team_size) / int_pow<n, 4>()));
+  int const ia31 =
+      (threadIdx.x + team_size) / int_pow<n, 3>() -
+      ((dims == 4) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 4>()));
 
   int const ix20 =
       threadIdx.x % int_pow<n, 2>() +
       ((dims == 3) ? 0 : int_pow<n, 3>() * (threadIdx.x / int_pow<n, 3>()));
   int const ia20 = threadIdx.x / int_pow<n, 2>() -
-                  ((dims == 3) ? 0 : n * (threadIdx.x / int_pow<n, 3>()));
+                   ((dims == 3) ? 0 : n * (threadIdx.x / int_pow<n, 3>()));
 
   int const ix21 =
       (threadIdx.x + team_size) % int_pow<n, 2>() +
-      ((dims == 3) ? 0 : int_pow<n, 3>() * ((threadIdx.x + team_size) / int_pow<n, 3>()));
-  int const ia21 = (threadIdx.x + team_size) / int_pow<n, 2>() -
-                  ((dims == 3) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 3>()));
+      ((dims == 3)
+           ? 0
+           : int_pow<n, 3>() * ((threadIdx.x + team_size) / int_pow<n, 3>()));
+  int const ia21 =
+      (threadIdx.x + team_size) / int_pow<n, 2>() -
+      ((dims == 3) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 3>()));
 
   int const ix10 =
       threadIdx.x % n +
@@ -94,9 +108,12 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
 
   int const ix11 =
       (threadIdx.x + team_size) % n +
-      ((dims == 2) ? 0 : int_pow<n, 2>() * ((threadIdx.x + team_size) / int_pow<n, 2>()));
+      ((dims == 2)
+           ? 0
+           : int_pow<n, 2>() * ((threadIdx.x + team_size) / int_pow<n, 2>()));
   int const ia11 =
-      (threadIdx.x + team_size) / n - ((dims == 2) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 2>()));
+      (threadIdx.x + team_size) / n -
+      ((dims == 2) ? 0 : n * ((threadIdx.x + team_size) / int_pow<n, 2>()));
 
   int const ix00 = n * (threadIdx.x / n);
   int const ia00 = threadIdx.x % n;
@@ -107,13 +124,16 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
   while (i < num_batch)
   {
     X[threadIdx.y][threadIdx.x] = pX[i][threadIdx.x];
-    if constexpr(num_second_cycle == team_size){
-        X[threadIdx.y][threadIdx.x+team_size] = pX[i][threadIdx.x+team_size];
-    }else{
-        if (threadIdx.x < num_second_cycle)
-            X[threadIdx.y][threadIdx.x+team_size] = pX[i][threadIdx.x+team_size];
+    if constexpr (num_second_cycle == team_size)
+    {
+      X[threadIdx.y][threadIdx.x + team_size] = pX[i][threadIdx.x + team_size];
     }
-
+    else
+    {
+      if (threadIdx.x < num_second_cycle)
+        X[threadIdx.y][threadIdx.x + team_size] =
+            pX[i][threadIdx.x + team_size];
+    }
 
     if constexpr (dims >= 6)
     {
@@ -136,11 +156,14 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
         __syncthreads();
 
       X[threadIdx.y][threadIdx.x] = sum0;
-      if constexpr(num_second_cycle == team_size){
-        X[threadIdx.y][threadIdx.x+team_size] = sum1;
-      }else{
+      if constexpr (num_second_cycle == team_size)
+      {
+        X[threadIdx.y][threadIdx.x + team_size] = sum1;
+      }
+      else
+      {
         if (threadIdx.x < num_second_cycle)
-            X[threadIdx.y][threadIdx.x+team_size] = sum1;
+          X[threadIdx.y][threadIdx.x + team_size] = sum1;
       }
     }
 
@@ -165,11 +188,14 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
         __syncthreads();
 
       X[threadIdx.y][threadIdx.x] = sum0;
-      if constexpr(num_second_cycle == team_size){
-        X[threadIdx.y][threadIdx.x+team_size] = sum1;
-      }else{
+      if constexpr (num_second_cycle == team_size)
+      {
+        X[threadIdx.y][threadIdx.x + team_size] = sum1;
+      }
+      else
+      {
         if (threadIdx.x < num_second_cycle)
-            X[threadIdx.y][threadIdx.x+team_size] = sum1;
+          X[threadIdx.y][threadIdx.x + team_size] = sum1;
       }
     }
 
@@ -194,11 +220,14 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
         __syncthreads();
 
       X[threadIdx.y][threadIdx.x] = sum0;
-      if constexpr(num_second_cycle == team_size){
-        X[threadIdx.y][threadIdx.x+team_size] = sum1;
-      }else{
+      if constexpr (num_second_cycle == team_size)
+      {
+        X[threadIdx.y][threadIdx.x + team_size] = sum1;
+      }
+      else
+      {
         if (threadIdx.x < num_second_cycle)
-            X[threadIdx.y][threadIdx.x+team_size] = sum1;
+          X[threadIdx.y][threadIdx.x + team_size] = sum1;
       }
     }
 
@@ -223,11 +252,14 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
         __syncthreads();
 
       X[threadIdx.y][threadIdx.x] = sum0;
-      if constexpr(num_second_cycle == team_size){
-        X[threadIdx.y][threadIdx.x+team_size] = sum1;
-      }else{
+      if constexpr (num_second_cycle == team_size)
+      {
+        X[threadIdx.y][threadIdx.x + team_size] = sum1;
+      }
+      else
+      {
         if (threadIdx.x < num_second_cycle)
-            X[threadIdx.y][threadIdx.x+team_size] = sum1;
+          X[threadIdx.y][threadIdx.x + team_size] = sum1;
       }
     }
 
@@ -250,11 +282,14 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
         __syncthreads();
 
       X[threadIdx.y][threadIdx.x] = sum0;
-      if constexpr(num_second_cycle == team_size){
-        X[threadIdx.y][threadIdx.x+team_size] = sum1;
-      }else{
+      if constexpr (num_second_cycle == team_size)
+      {
+        X[threadIdx.y][threadIdx.x + team_size] = sum1;
+      }
+      else
+      {
         if (threadIdx.x < num_second_cycle)
-            X[threadIdx.y][threadIdx.x+team_size] = sum1;
+          X[threadIdx.y][threadIdx.x + team_size] = sum1;
       }
     }
 
@@ -272,11 +307,14 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
       yinc1 += A[threadIdx.y][ia01 + k * n] * X[threadIdx.y][ix01 + k];
 
     atomicAdd(&pY[i][threadIdx.x], yinc0);
-    if constexpr(num_second_cycle == team_size){
-      atomicAdd(&pY[i][threadIdx.x+team_size], yinc1);
-    }else{
+    if constexpr (num_second_cycle == team_size)
+    {
+      atomicAdd(&pY[i][threadIdx.x + team_size], yinc1);
+    }
+    else
+    {
       if (threadIdx.x < num_second_cycle)
-          atomicAdd(&pY[i][threadIdx.x+team_size], yinc1);
+        atomicAdd(&pY[i][threadIdx.x + team_size], yinc1);
     }
 
     i += gridDim.x * blockDim.y;

@@ -118,7 +118,7 @@ void run_kernel2(precision const *const pA[], int const lda,
 {
   constexpr int max_blocks  = 300;
   constexpr int max_threads = 1024;
-  constexpr int team_size   = (ipow<n, dims>() +1) / 2;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
   constexpr int num_teams   = max_threads / team_size;
 
   static_assert(
@@ -129,7 +129,7 @@ void run_kernel2(precision const *const pA[], int const lda,
 
   dim3 grid(team_size, num_teams);
   kernel::cycle2<precision, dims, n, team_size, num_teams>
-        <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+      <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
 }
 
 /*!
@@ -146,7 +146,7 @@ void run_kernelx(precision const *const pA[], int const lda,
 {
   constexpr int max_blocks  = 300;
   constexpr int max_threads = 1024;
-  constexpr int team_size   = (ipow<n, dims>() +1) / num_cycles;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / num_cycles;
   constexpr int num_teams   = max_threads / team_size;
 
   static_assert(
@@ -157,7 +157,7 @@ void run_kernelx(precision const *const pA[], int const lda,
 
   dim3 grid(team_size, num_teams);
   kernel::cyclex<precision, dims, n, team_size, num_teams, num_cycles>
-        <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+      <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
 }
 
 template<typename T>

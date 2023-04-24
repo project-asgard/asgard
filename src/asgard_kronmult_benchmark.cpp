@@ -31,11 +31,11 @@ int main(int argc, char **argv)
             << "\n";
 
   constexpr bool compute_refrence_solution = false;
-  auto time_start = std::chrono::system_clock::now();
-  auto fdata =
-      make_kronmult_data<float, compute_refrence_solution>(dimensions, n, num_batch, num_matrices, num_y);
-  auto ddata =
-      make_kronmult_data<double, compute_refrence_solution>(dimensions, n, num_batch, num_matrices, num_y);
+  auto time_start                          = std::chrono::system_clock::now();
+  auto fdata = make_kronmult_data<float, compute_refrence_solution>(
+      dimensions, n, num_batch, num_matrices, num_y);
+  auto ddata = make_kronmult_data<double, compute_refrence_solution>(
+      dimensions, n, num_batch, num_matrices, num_y);
   auto time_end = std::chrono::system_clock::now();
   double elapsed =
       static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
