@@ -378,8 +378,7 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel2<T, 5, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      //run_kernel2<T, 5, 4>(pA, lda, pX, pY, num_batch);
-      run_kernelx<T, 5, 4, 4>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 5, 4>(pA, lda, pX, pY, num_batch);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
