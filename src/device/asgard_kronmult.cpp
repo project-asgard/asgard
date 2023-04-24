@@ -313,13 +313,13 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel<T, 3, 1>(pA, lda, pX, pY, num_batch);
       break;
     case 2:
-      run_kernel<T, 3, 2>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 3, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
       run_kernel<T, 3, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      run_kernel<T, 3, 4>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 3, 4>(pA, lda, pX, pY, num_batch);
       break;
     case 5:
       run_kernel<T, 3, 5>(pA, lda, pX, pY, num_batch);
@@ -356,8 +356,7 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel2<T, 4, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      //run_kernel2<T, 4, 4>(pA, lda, pX, pY, num_batch);
-      run_kernelx<T, 4, 4, 2>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 4, 4>(pA, lda, pX, pY, num_batch);
       break;
     case 5:
       run_kernel2<T, 4, 5>(pA, lda, pX, pY, num_batch);
