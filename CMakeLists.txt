@@ -203,6 +203,16 @@ endif ()
 #-------------------------------------------------------------------------------
 set(ASGARD_GOLD_BASE_DIR "${PROJECT_SOURCE_DIR}/testing/generated-inputs")
 
+if (ASGARD_USE_CUDA)
+    # CUDA has to be enabled before asgard_obj is created
+    enable_language (CUDA)
+    find_package (CUDAToolkit REQUIRED)
+
+    # number of blocks must be set before "build_info.hpp" is configured
+    set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
+    set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
+endif()
+
 configure_file(
   src/build_info.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp
@@ -318,11 +328,7 @@ target_compile_definitions (asgard_obj
 )
 
 if (ASGARD_USE_CUDA)
-    enable_language (CUDA)
 
-    find_package (CUDAToolkit REQUIRED)
-
-    set_target_properties (asgard_obj PROPERTIES CUDA_ARCHITECTURES 70)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
