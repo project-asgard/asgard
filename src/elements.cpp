@@ -312,6 +312,60 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   active_table_.resize(dev_table_builder.size()) = dev_table_builder;
 }
 
+void table::recreate_from_elements(std::vector<int64_t> const &element_ids,
+                                   int const max_level)
+{
+  // For restarting, we want the element table to contain only the active ids
+  // from the restart file. The active ids saved in the restart file is the
+  // flattened device table, so we need to recreate the element key from the
+  // coordinates.
+  std::vector<int64_t> original_ids(active_element_ids_);
+
+  int const coord_size = get_coords(0).size();
+  expect(coord_size % 2 == 0);
+  int const num_dims = coord_size / 2;
+
+  // calculate the new table size based on the size of each element
+  expect(element_ids.size() % coord_size == 0);
+  int const new_table_size = static_cast<int>(element_ids.size() / coord_size);
+
+  std::cout << "Recreating element table:\n";
+  std::cout << "  - original elements: " << original_ids.size() << "\n";
+  std::cout << "  - elements from restart: " << new_table_size << "\n";
+
+  // clear the existing hash table
+  active_element_ids_.clear();
+  id_to_coords_.clear();
+
+  fk::vector<int> dev_table_builder;
+  for (int i = 0; i < new_table_size; i++)
+  {
+    // build a coord set out of the flattened device table
+    fk::vector<int> coords(coord_size);
+    for (int j = 0; j < coord_size; j++)
+    {
+      coords(j) = element_ids[j + i * coord_size];
+    }
+
+    // get full linear id as key to active element id
+    int64_t id = map_to_id(coords, max_level, num_dims);
+
+    // add this element to the hash table
+    active_element_ids_.push_back(id);
+    id_to_coords_[id].resize(coords.size()) = coords;
+
+    // add the element coords to the flattened device table
+    dev_table_builder.concat(coords);
+  }
+
+  expect(active_element_ids_.size() == id_to_coords_.size());
+  active_table_d_.resize(dev_table_builder.size())
+      .transfer_from(dev_table_builder);
+
+  std::cout << "  - after recreation: " << size() << "\n";
+  expect(size() == new_table_size);
+}
+
 // static construction helper
 // return the cell indices, given a level tuple
 // each row in the returned matrix is the cell portion of an element's

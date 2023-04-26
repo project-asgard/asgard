@@ -195,7 +195,7 @@ void read_restart_metadata(parser *user_vals, std::string restart_file)
   parser_mod::set(*user_vals, parser_mod::degree, degree);
   parser_mod::set(*user_vals, parser_mod::dt, dt);
   parser_mod::set(*user_vals, parser_mod::starting_levels_str, levels);
-  // parser_mod::set(*user_vals, parser_mod::max_level, max_level);
+  parser_mod::set(*user_vals, parser_mod::max_level, max_level);
 
   std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
             << ", degree = " << degree << "\n";
@@ -208,6 +208,8 @@ struct restart_data
   fk::vector<P> solution;
   P const time;
   int step_index;
+  std::vector<int64_t> active_table;
+  int max_level;
 };
 
 template<typename P>
@@ -216,7 +218,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
 {
   tools::timer.start("read_output");
 
-  std::cout << " Loading from restart file '" << restart_file << "'\n";
+  std::cout << "--- Loading from restart file '" << restart_file << "' ---\n";
 
   HighFive::File file(restart_file, HighFive::File::ReadOnly);
 
@@ -231,7 +233,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
   fk::vector<P> solution =
       fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("soln")));
 
-  // save E field
+  // load E field
   pde.E_field = std::move(
       fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("Efield"))));
 
@@ -244,10 +246,10 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
     pde.rechain_dimension(dim);
   }
 
-  // save realspace moments
+  // load realspace moments
   int const num_moments = H5Easy::load<int>(file, std::string("nmoments"));
-  expect(pde.moments.size() == num_moments);
-  for (size_t i = 0; i < num_moments; ++i)
+  expect(static_cast<int>(pde.moments.size()) == num_moments);
+  for (int i = 0; i < num_moments; ++i)
   {
     pde.moments[i].createMomentReducedMatrix(pde, hash_table);
     pde.moments[i].set_realspace_moment(
@@ -261,7 +263,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
 
   tools::timer.stop("read_output");
 
-  return restart_data<P>{solution, time, step_index};
+  return restart_data<P>{solution, time, step_index, active_table, max_level};
 }
 
 } // namespace asgard

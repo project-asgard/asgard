@@ -218,6 +218,8 @@ int main(int argc, char **argv)
     initial_condition = std::move(data.solution);
     start_step        = data.step_index;
 
+    adaptive_grid.recreate_table(data.active_table, data.max_level);
+
     asgard::generate_dimension_mass_mat<prec>(*pde, transformer);
     asgard::generate_all_coefficients<prec>(*pde, transformer);
   }
