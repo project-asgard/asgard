@@ -198,6 +198,37 @@ if (ASGARD_USE_SCALAPACK)
     find_package (scalapack REQUIRED)
 endif ()
 
+if (ASGARD_USE_CUDA)
+    # CUDA has to be enabled before asgard_obj is created
+    cmake_policy(SET CMP0104 NEW)
+
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+        if ("$ENV{CUDAARCHS}" STREQUAL "")
+            # ENV{CUDAARCHS} is used to set CMAKE_CUDA_ARCHITECTURES
+            # if not present and using recent CMake, switch to "native"
+            set (CMAKE_CUDA_ARCHITECTURES "native" CACHE STRING "Architecture for the CUDA device.")
+        endif()
+    else()
+        if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES AND "$ENV{CUDAARCHS}" STREQUAL "")
+            message(FATAL_ERROR
+"If using CMake prior to 3.24 the user must specify either \
+CMAKE_CUDA_ARCHITECTURES or environment variable CUDAARCH \
+and the architecture has to be set to 60 or newer, \
+which is the minimum that enables double precision atomic operations. \
+CMAKE_CUDA_ARCHITECTURES could be specified as empty or 'False', \
+but then the appropriate CMAKE_CUDA_FLAGS must be set manually.")
+        endif()
+    endif()
+
+
+    enable_language (CUDA)
+    find_package (CUDAToolkit REQUIRED)
+
+    # number of blocks must be set before "build_info.hpp" is configured
+    set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
+    set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
+endif()
+
 #-------------------------------------------------------------------------------
 #  Define the asgard library.
 #-------------------------------------------------------------------------------
@@ -318,11 +349,7 @@ target_compile_definitions (asgard_obj
 )
 
 if (ASGARD_USE_CUDA)
-    enable_language (CUDA)
 
-    find_package (CUDAToolkit REQUIRED)
-
-    set_target_properties (asgard_obj PROPERTIES CUDA_ARCHITECTURES 70)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)

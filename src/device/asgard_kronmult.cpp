@@ -76,14 +76,13 @@ void run_kernel(precision const *const pA[], int const lda,
                 precision const *const pX[], precision *pY[],
                 int const num_batch)
 {
-  constexpr int max_blocks  = 300;
-  constexpr int max_threads = 1024;
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
   constexpr int team_size   = compute_team_size<dims, n>();
   constexpr int num_teams   = max_threads / team_size;
 
-  static_assert(
-      max_threads >= team_size,
-      "tensor size must be less than the max number of threads (1024)");
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
 
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
@@ -116,14 +115,13 @@ void run_kernel2(precision const *const pA[], int const lda,
                  precision const *const pX[], precision *pY[],
                  int const num_batch)
 {
-  constexpr int max_blocks  = 300;
-  constexpr int max_threads = 1024;
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
   constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
   constexpr int num_teams   = max_threads / team_size;
 
-  static_assert(
-      max_threads >= team_size,
-      "tensor size must be less than the max number of threads (1024)");
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
 
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
@@ -144,14 +142,13 @@ void run_kernelx(precision const *const pA[], int const lda,
                  precision const *const pX[], precision *pY[],
                  int const num_batch)
 {
-  constexpr int max_blocks  = 300;
-  constexpr int max_threads = 1024;
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
   constexpr int team_size   = (ipow<n, dims>() + 1) / num_cycles;
   constexpr int num_teams   = max_threads / team_size;
 
-  static_assert(
-      max_threads >= team_size,
-      "tensor size must be less than the max number of threads (1024)");
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
 
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
