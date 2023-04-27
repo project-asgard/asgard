@@ -319,10 +319,10 @@ target_precompile_headers (asgard_obj
 )
 target_link_libraries (asgard_obj
                        PUBLIC
-                       $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        $<$<BOOL:${scalapack_FOUND}>:scalapack>
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
                        $<$<BOOL:${LINALG_FOUND}>:LINALG::LINALG>
+                       $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        clara
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>

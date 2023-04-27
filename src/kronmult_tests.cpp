@@ -119,7 +119,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
   SECTION("6d - non-uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 1;
+    auto const degree            = 2;
     auto const levels            = fk::vector<int>{2, 2, 2, 3, 2, 2};
     auto const workspace_size_MB = 1000;
     parser const test_parse =
