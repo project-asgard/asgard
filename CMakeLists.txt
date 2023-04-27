@@ -36,14 +36,6 @@ function (register_project name dir url default_tag)
     FetchContent_MakeAvailable(${name})
 endfunction ()
 
-#  Changes to the current version of kromult should proceed through a pull
-#  request. By default, a specific tag should be specifed.
-register_project (kronmult
-                  KRONMULT
-                  https://github.com/project-asgard/kronmult.git
-                  580c6cbd20d21f445799ab51a20c8857f6afebfc
-)
-
 #  Catch two testing framework.
 register_project (Catch2
                   CATCH2
@@ -331,7 +323,6 @@ target_link_libraries (asgard_obj
                        $<$<BOOL:${scalapack_FOUND}>:scalapack>
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
                        $<$<BOOL:${LINALG_FOUND}>:LINALG::LINALG>
-                       kron
                        clara
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>

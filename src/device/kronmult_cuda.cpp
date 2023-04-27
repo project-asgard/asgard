@@ -17,18 +17,14 @@
 #define HOST_FUNCTION
 #endif
 
-#include "kronmult1_xbatched.hpp"
-#include "kronmult2_xbatched.hpp"
-#include "kronmult3_xbatched.hpp"
-#include "kronmult4_xbatched.hpp"
-#include "kronmult5_xbatched.hpp"
-#include "kronmult6_xbatched.hpp"
-
 #include "asgard_kronmult.hpp"
 
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>
 #endif
+
+#include <cassert>
+#include <cmath>
 
 #ifdef expect
 #undef expect
@@ -160,13 +156,12 @@ template<typename P>
 GLOBAL_FUNCTION void
 prepare_kronmult_kernel(int const *const flattened_table,
                         P *const *const operators, int const operator_lda,
-                        P *const element_x, P *const element_work, P *const fx,
-                        P **const operator_ptrs, P **const work_ptrs,
-                        P **const input_ptrs, P **const output_ptrs,
-                        int const degree, int const num_terms,
-                        int const num_dims, int const elem_row_start,
-                        int const elem_row_stop, int const elem_col_start,
-                        int const elem_col_stop)
+                        P *const element_x, P *const fx,
+                        P **const operator_ptrs, P **const input_ptrs,
+                        P **const output_ptrs, int const degree,
+                        int const num_terms, int const num_dims,
+                        int const elem_row_start, int const elem_row_stop,
+                        int const elem_col_start, int const elem_col_stop)
 {
   auto const num_cols = elem_col_stop - elem_col_start + 1;
   auto const num_rows = elem_row_stop - elem_row_start + 1;
@@ -232,7 +227,6 @@ prepare_kronmult_kernel(int const *const flattened_table,
       input_ptrs[num_kron] = x_start + t * x_size;
 
       // point to work/output
-      work_ptrs[num_kron]   = element_work + num_kron * deg_to_dim;
       output_ptrs[num_kron] = fx + (row - elem_row_start) * deg_to_dim;
 
       // point to operators
@@ -252,8 +246,7 @@ prepare_kronmult_kernel(int const *const flattened_table,
 template<typename P>
 void prepare_kronmult(int const *const flattened_table,
                       P *const *const operators, int const operator_lda,
-                      P *const element_x, P *const element_work, P *const fx,
-                      P **const operator_ptrs, P **const work_ptrs,
+                      P *const element_x, P *const fx, P **const operator_ptrs,
                       P **const input_ptrs, P **const output_ptrs,
                       int const degree, int const num_terms, int const num_dims,
                       int const elem_row_start, int const elem_row_stop,
@@ -270,9 +263,7 @@ void prepare_kronmult(int const *const flattened_table,
   expect(operators);
   expect(operator_lda > 0);
   expect(element_x);
-  expect(element_work);
   expect(operator_ptrs);
-  expect(work_ptrs);
   expect(input_ptrs);
   expect(output_ptrs);
 
@@ -285,16 +276,16 @@ void prepare_kronmult(int const *const flattened_table,
       (elem_row_stop - elem_row_start + 1);
   auto const num_blocks = (num_krons / num_threads) + 1;
   prepare_kronmult_kernel<P><<<num_blocks, num_threads>>>(
-      flattened_table, operators, operator_lda, element_x, element_work, fx,
-      operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
-      num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
+      flattened_table, operators, operator_lda, element_x, fx, operator_ptrs,
+      input_ptrs, output_ptrs, degree, num_terms, num_dims, elem_row_start,
+      elem_row_stop, elem_col_start, elem_col_stop);
   auto const stat = cudaDeviceSynchronize();
   expect(stat == cudaSuccess);
 #else
-  prepare_kronmult_kernel(
-      flattened_table, operators, operator_lda, element_x, element_work, fx,
-      operator_ptrs, work_ptrs, input_ptrs, output_ptrs, degree, num_terms,
-      num_dims, elem_row_start, elem_row_stop, elem_col_start, elem_col_stop);
+  prepare_kronmult_kernel(flattened_table, operators, operator_lda, element_x,
+                          fx, operator_ptrs, input_ptrs, output_ptrs, degree,
+                          num_terms, num_dims, elem_row_start, elem_row_stop,
+                          elem_col_start, elem_col_stop);
 #endif
 }
 
@@ -303,101 +294,24 @@ void prepare_kronmult(int const *const flattened_table,
 // note  the input memory referenced by x_ptrs will be over-written
 // --------------------------------------------
 template<typename P>
-void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[], P *work_ptrs[],
+void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[],
                    P const *const operator_ptrs[], int const lda,
                    int const num_krons, int const num_dims)
 {
 #ifdef ASGARD_USE_CUDA
+  if (kronmult::is_implemented::gpu(num_dims, n))
   {
-    if (kronmult::is_implemented::gpu(num_dims, n))
-    {
-      // if a new kernel is available, use it and stop here
-      kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
-                               output_ptrs, num_krons);
-      auto const stat = cudaDeviceSynchronize();
-      expect(stat == cudaSuccess);
-      return;
-    }
-
-    int constexpr warpsize    = 32;
-    int constexpr nwarps      = 8;
-    int constexpr num_threads = nwarps * warpsize;
-    int const num_blocks      = (num_krons / num_threads) + 1;
-
-    switch (num_dims)
-    {
-    case 1:
-      kronmult1_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 2:
-      kronmult2_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 3:
-      kronmult3_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 4:
-      kronmult4_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 5:
-      kronmult5_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    case 6:
-      kronmult6_xbatched<P><<<num_blocks, num_threads>>>(
-          n, operator_ptrs, lda, x_ptrs, output_ptrs, work_ptrs, num_krons);
-      break;
-    default:
-      expect(false);
-    };
-
-    // -------------------------------------------
-    // note important to wait for kernel to finish
-    // -------------------------------------------
+    // if a new kernel is available, use it and stop here
+    kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
+                             output_ptrs, num_krons);
     auto const stat = cudaDeviceSynchronize();
     expect(stat == cudaSuccess);
   }
+  else
 #else
-
-  {
-    { // all new kernels are ready for the CPU
-      kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
-                               output_ptrs, num_krons);
-      return;
-    }
-
-    switch (num_dims)
-    {
-    case 1:
-      kronmult1_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
-      break;
-    case 2:
-      kronmult2_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
-      break;
-    case 3:
-      kronmult3_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
-      break;
-    case 4:
-      kronmult4_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
-      break;
-    case 5:
-      kronmult5_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
-      break;
-    case 6:
-      kronmult6_xbatched<P>(n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                            work_ptrs, num_krons);
-      break;
-    default:
-      expect(false);
-    };
+  { // all new kernels are ready for the CPU
+    kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
+                             output_ptrs, num_krons);
   }
 #endif
 }
@@ -410,29 +324,32 @@ template void stage_inputs_kronmult(double const *const x,
                                     double *const workspace,
                                     int const num_elems, int const num_copies);
 
-template void prepare_kronmult(
-    int const *const flattened_table, float *const *const operators,
-    int const operator_lda, float *const element_x, float *const element_work,
-    float *const fx, float **const operator_ptrs, float **const work_ptrs,
-    float **const input_ptrs, float **const output_ptrs, int const degree,
-    int const num_terms, int const num_dims, int const elem_row_start,
-    int const elem_row_stop, int const elem_col_start, int const elem_col_stop);
+template void
+prepare_kronmult(int const *const flattened_table,
+                 float *const *const operators, int const operator_lda,
+                 float *const element_x, float *const fx,
+                 float **const operator_ptrs, float **const input_ptrs,
+                 float **const output_ptrs, int const degree,
+                 int const num_terms, int const num_dims,
+                 int const elem_row_start, int const elem_row_stop,
+                 int const elem_col_start, int const elem_col_stop);
 
-template void prepare_kronmult(
-    int const *const flattened_table, double *const *const operators,
-    int const operator_lda, double *const element_x, double *const element_work,
-    double *const fx, double **const operator_ptrs, double **const work_ptrs,
-    double **const input_ptrs, double **const output_ptrs, int const degree,
-    int const num_terms, int const num_dims, int const elem_row_start,
-    int const elem_row_stop, int const elem_col_start, int const elem_col_stop);
+template void
+prepare_kronmult(int const *const flattened_table,
+                 double *const *const operators, int const operator_lda,
+                 double *const element_x, double *const fx,
+                 double **const operator_ptrs, double **const input_ptrs,
+                 double **const output_ptrs, int const degree,
+                 int const num_terms, int const num_dims,
+                 int const elem_row_start, int const elem_row_stop,
+                 int const elem_col_start, int const elem_col_stop);
 
 template void call_kronmult(int const n, float *x_ptrs[], float *output_ptrs[],
-                            float *work_ptrs[],
                             float const *const operator_ptrs[], int const lda,
                             int const num_krons, int const num_dims);
 
 template void call_kronmult(int const n, double *x_ptrs[],
-                            double *output_ptrs[], double *work_ptrs[],
+                            double *output_ptrs[],
                             double const *const operator_ptrs[], int const lda,
                             int const num_krons, int const num_dims);
 } // namespace asgard

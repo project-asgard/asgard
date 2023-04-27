@@ -159,9 +159,7 @@ public:
   }
 
   P *get_element_x() const { return element_x; }
-  P *get_element_work() const { return element_work; }
   P **get_input_ptrs() const { return input_ptrs; }
-  P **get_work_ptrs() const { return work_ptrs; }
   P **get_output_ptrs() const { return output_ptrs; }
   P **get_operator_ptrs() const { return operator_ptrs; }
 
@@ -174,10 +172,8 @@ public:
   ~kronmult_workspace()
   {
     fk::delete_device(element_x);
-    fk::delete_device(element_work);
     fk::delete_device(input_ptrs);
     fk::delete_device(operator_ptrs);
-    fk::delete_device(work_ptrs);
     fk::delete_device(output_ptrs);
   }
 
@@ -209,9 +205,7 @@ private:
     // don't memset
     bool const initialize = false;
     fk::allocate_device(element_x, workspace_size, initialize);
-    fk::allocate_device(element_work, workspace_size, initialize);
     fk::allocate_device(input_ptrs, ptrs_size, initialize);
-    fk::allocate_device(work_ptrs, ptrs_size, initialize);
     fk::allocate_device(output_ptrs, ptrs_size, initialize);
     fk::allocate_device(operator_ptrs, ptrs_size * pde.num_dims, initialize);
   }
@@ -228,10 +222,8 @@ private:
       node_out() << "  reallocating kron workspace for new size!" << '\n';
 
       fk::delete_device(element_x);
-      fk::delete_device(element_work);
       fk::delete_device(input_ptrs);
       fk::delete_device(operator_ptrs);
-      fk::delete_device(work_ptrs);
       fk::delete_device(output_ptrs);
 
       // don't memset
@@ -241,9 +233,7 @@ private:
       // elements, not sure we want to do that. but, the below code will crash
       // if we add so many elements that we spill out of device RAM
       fk::allocate_device(element_x, new_workspace_size, initialize);
-      fk::allocate_device(element_work, new_workspace_size, initialize);
       fk::allocate_device(input_ptrs, new_ptrs_size, initialize);
-      fk::allocate_device(work_ptrs, new_ptrs_size, initialize);
       fk::allocate_device(output_ptrs, new_ptrs_size, initialize);
       fk::allocate_device(operator_ptrs, new_ptrs_size * pde.num_dims,
                           initialize);
@@ -264,9 +254,7 @@ private:
   int64_t ptrs_size;
 
   P *element_x;
-  P *element_work;
   P **input_ptrs;
-  P **work_ptrs;
   P **output_ptrs;
   P **operator_ptrs;
 };
@@ -351,9 +339,8 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   // prepare lists for kronmult, on device if cuda is enabled
   tools::timer.start("kronmult_build");
   prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
-                   lda, workspace.get_element_x(), workspace.get_element_work(),
-                   fx.data(), workspace.get_operator_ptrs(),
-                   workspace.get_work_ptrs(), workspace.get_input_ptrs(),
+                   lda, workspace.get_element_x(), fx.data(),
+                   workspace.get_operator_ptrs(), workspace.get_input_ptrs(),
                    workspace.get_output_ptrs(), degree, pde.num_terms,
                    pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
                    my_subgrid.col_start, my_subgrid.col_stop);
@@ -365,8 +352,8 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
 
   tools::timer.start("kronmult");
   call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
-                workspace.get_work_ptrs(), workspace.get_operator_ptrs(), lda,
-                total_kronmults, pde.num_dims);
+                workspace.get_operator_ptrs(), lda, total_kronmults,
+                pde.num_dims);
   tools::timer.stop("kronmult", flops);
 
   return fx;
