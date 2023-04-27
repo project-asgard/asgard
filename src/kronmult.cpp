@@ -199,8 +199,8 @@ private:
                << get_MB<P>(output_size) << '\n';
     node_out() << "  element table allocation (MB): "
                << get_MB<int>(elem_table.get_active_table().size()) << '\n';
-    node_out() << "  workspace allocation (MB): "
-               << get_MB<P>(workspace_size * 2) << "\n\n";
+    node_out() << "  workspace allocation (MB): " << get_MB<P>(workspace_size)
+               << "\n\n";
 
     // don't memset
     bool const initialize = false;
