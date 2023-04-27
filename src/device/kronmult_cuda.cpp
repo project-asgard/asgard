@@ -299,20 +299,20 @@ void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[],
                    int const num_krons, int const num_dims)
 {
 #ifdef ASGARD_USE_CUDA
-  if (kronmult::is_implemented::gpu(num_dims, n))
-  {
-    // if a new kernel is available, use it and stop here
-    kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
-                             output_ptrs, num_krons);
-    auto const stat = cudaDeviceSynchronize();
-    expect(stat == cudaSuccess);
-  }
-  else
+  // if a GPU kernel is not available, thow an error
+  if (!kronmult::is_implemented::gpu(num_dims, n))
+    throw std::runtime_error("Kronmult GPU kernel not implemented for degree " +
+                             std::to_string(n) + " and dimensions " +
+                             std::to_string(num_dims));
+
+  kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs,
+                           num_krons);
+  auto const stat = cudaDeviceSynchronize();
+  expect(stat == cudaSuccess);
 #else
-  { // all new kernels are ready for the CPU
-    kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs,
-                             output_ptrs, num_krons);
-  }
+  // all new kernels are ready for the CPU
+  kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs,
+                           num_krons);
 #endif
 }
 

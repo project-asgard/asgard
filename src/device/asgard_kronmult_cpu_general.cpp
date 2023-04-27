@@ -369,7 +369,7 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
       float *pY[], int const num_batch);                                      \
   template void run_cpu_variant<double, (d)>(                                 \
       int n, double const *const pA[], int const lda,                         \
-      double const *const pX[], double *pY[], int const num_batch);
+      double const *const pX[], double *pY[], int const num_batch)
 
 asgard_kronmult_cpu_instantiate(1);
 asgard_kronmult_cpu_instantiate(2);
