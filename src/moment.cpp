@@ -94,6 +94,7 @@ template<typename P>
 void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
                                           elements::table const &hash_table)
 {
+  tools::timer.start("createMomentMatrix");
   switch (pde.num_dims)
   {
   case 2:
@@ -109,6 +110,7 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
     throw std::runtime_error(
         "unsupported number of dimensions with createMomentReducedMatrix");
   }
+  tools::timer.stop("createMomentMatrix");
 }
 
 template<typename P>

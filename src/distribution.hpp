@@ -234,8 +234,9 @@ struct message
 };
 
 // reduce the results of a subgrid row
-template<typename P>
-void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
+template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
+void reduce_results(fk::vector<P, src_mem, resrc> const &source,
+                    fk::vector<P, dst_mem, resrc> &dest,
                     distribution_plan const &plan, int const my_rank);
 
 // generate a message list for each rank for exchange_results function;
@@ -244,8 +245,9 @@ std::vector<std::vector<message>> const
 generate_messages(distribution_plan const &plan);
 
 // exchange results between subgrid rows
-template<typename P>
-void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
+template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
+void exchange_results(fk::vector<P, src_mem, resrc> const &source,
+                      fk::vector<P, dst_mem, resrc> &dest,
                       int const segment_size, distribution_plan const &plan,
                       int const my_rank);
 

@@ -495,13 +495,27 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   int const elem_size  = static_cast<int>(std::pow(degree, pde.num_dims));
   int const N_elements = std::pow(2, level);
 
-  fk::vector<P> x(x_orig);
+  fk::vector<P, mem_type::owner, imex_resrc> x;
+  fk::vector<P, mem_type::owner, imex_resrc> x_orig_dev;
+  fk::vector<P, mem_type::owner, resource::host> fx_host;
+
+  if constexpr (imex_resrc == resource::device)
+  {
+    x = x_orig.clone_onto_device();
+    x_orig_dev = x_orig.clone_onto_device();
+  }
+  else
+  {
+    x = x_orig;
+    x_orig_dev = x_orig;
+  }
+
   auto nodes = gen_realspace_nodes(degree, level, min, max);
 
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
   int const A_local_rows = elem_size * grid.nrows();
 
-  fk::vector<P> reduced_fx(A_local_rows);
+  fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -600,14 +614,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_poisson_solve)
   {
-    if constexpr (imex_resrc == resource::device)
-    {
-      do_poisson_update(x.clone_onto_device());
-    }
-    else
-    {
-      do_poisson_update(x);
-    }
+    do_poisson_update(x);
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
@@ -616,30 +623,33 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult - explicit");
-  fk::vector<P, mem_type::owner, resource::host> fx(x.size());
-  operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
-                                                       fx.data());
 
+  fk::vector<P, mem_type::owner, imex_resrc> fx(x.size());
+  if constexpr (imex_resrc == resource::device)
+  {
+    fx_host = x.clone_onto_host();
+    operator_matrices[matrix_entry::imex_explicit].apply(
+        1.0, x.clone_onto_host().data(), 0.0, fx_host.data());
+    // fx = fx_host.clone_onto_device();
+    fx.transfer_from(fx_host);
+  }
+  else
+  {
+    operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
+                                                         fx.data());
+  }
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  fk::vector<P> f_2s(x_orig.size());
+  fk::vector<P, mem_type::owner, resource::device> f_2s(x_orig.size());
   exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
   fm::axpy(f_2s, x, dt); // x here is f(1)
 
   tools::timer.stop("explicit_1");
   tools::timer.start("implicit_1");
 
-  fk::vector<P, mem_type::owner, imex_resrc> x_dev;
-  if constexpr (imex_resrc == resource::device)
-  {
-    x_dev = x.clone_onto_device();
-  }
-  else
-  {
-    x_dev = fk::vector(x);
-  }
+  fk::vector<P, mem_type::owner, imex_resrc> x_dev = x;
   // Create rho_2s
   fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
   fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), x_dev, mom0);
@@ -728,7 +738,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
-  fk::vector<P> f_2(x);
+  fk::vector<P, mem_type::owner, imex_resrc> f_2(x);
 
   if (pde.do_collision_operator)
   {
@@ -739,9 +749,21 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-        restart, max_iter, tolerance);
+    if constexpr (imex_resrc == resource::device)
+    {
+      fk::vector<P, mem_type::owner, resource::host> f_2_host;
+      f_2_host             = x.clone_onto_host();
+      pde.gmres_outputs[0] = solver::simple_gmres_euler(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_2_host, x.clone_onto_host(), restart, max_iter, tolerance);
+      f_2.transfer_from(f_2_host);
+    }
+    else
+    {
+      pde.gmres_outputs[0] = solver::simple_gmres_euler(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
+          restart, max_iter, tolerance);
+    }
   }
   else
   {
@@ -754,31 +776,34 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // --------------------------------
   // Third Stage
   // --------------------------------
-  fm::copy(x_orig, x); // x here is now f0
+  fm::copy(x_orig_dev, x); // x here is now f0
 
   if (pde.do_poisson_solve)
   {
-    if constexpr (imex_resrc == resource::device)
-    {
-      do_poisson_update(f_2.clone_onto_device());
-    }
-    else
-    {
-      do_poisson_update(f_2);
-    }
+    do_poisson_update(f_2);
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
                                        adaptive_grid, program_opts);
 
   tools::timer.start(apply_id);
-  operator_matrices[matrix_entry::imex_explicit].apply(1.0, f_2.data(), 0.0,
-                                                       fx.data());
+  if constexpr (imex_resrc == resource::device)
+  {
+    //fk::vector<P, mem_type::owner, resource::host> fx_host(x.size());
+    operator_matrices[matrix_entry::imex_explicit].apply(
+        1.0, x.clone_onto_host().data(), 0.0, fx_host.data());
+    fx.transfer_from(fx_host);
+  }
+  else
+  {
+    operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
+                                                         fx.data());
+  }
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  fk::vector<P> t_f2(x_orig.size());
+  fk::vector<P, mem_type::owner, resource::device> t_f2(x_orig.size());
   exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
   fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
 
@@ -792,14 +817,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.start("implicit_2_mom");
   // Create rho_3s
   // TODO: refactor into more generic function
-  if constexpr (imex_resrc == resource::device)
-  {
-    x_dev.transfer_from(x);
-  }
-  else
-  {
-    x_dev = x;
-  }
+  x_dev = fk::vector<P, mem_type::owner, imex_resrc>(x);
   fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), x_dev, mom0);
   mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
@@ -891,22 +909,39 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     // Final stage f3
     tools::timer.start("implicit_2_solve");
-    fk::vector<P> f_3(x);
 
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    pde.gmres_outputs[1] = solver::simple_gmres_euler(
-        P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_3, x, restart, max_iter, tolerance);
-
+    fk::vector<P, mem_type::owner, resource::host> f_3;
+    if constexpr (imex_resrc == resource::device)
+    {
+      f_3                  = x.clone_onto_host();
+      pde.gmres_outputs[1] = solver::simple_gmres_euler(
+          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_3, x.clone_onto_host(), restart, max_iter, tolerance);
+    }
+    else
+    {
+      f_3                  = x;
+      pde.gmres_outputs[1] = solver::simple_gmres_euler(
+          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_3, x, restart, max_iter, tolerance);
+    }
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     return f_3;
   }
   else
   {
-    return x;
+    if constexpr (imex_resrc == resource::device)
+    {
+      return x.clone_onto_host();
+    }
+    else
+    {
+      return x;
+    }
   }
 }
 
