@@ -202,9 +202,8 @@ prepare_kronmult_kernel(int const *const flattened_table,
 
     int constexpr max_dims = 6;
     expect(num_dims <= max_dims);
-    src / solver_tests.cpp
-          // calculate and store operator row indices for this element
-          int operator_row[max_dims];
+    // calculate and store operator row indices for this element
+    int operator_row[max_dims];
     int const *const row_coords = flattened_table + coord_size * row;
     get_indices(row_coords, operator_row, degree, num_dims);
 
