@@ -1,6 +1,7 @@
 #include "lib_dispatch.hpp"
 #include "build_info.hpp"
 #include "distribution.hpp"
+#include "sparse.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"
 
@@ -79,6 +80,7 @@ extern "C"
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+#include <cusparse.h>
 #endif
 
 #ifdef ASGARD_USE_SCALAPACK
@@ -117,6 +119,9 @@ struct device_handler
 
     success = cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
     expect(success == CUBLAS_STATUS_SUCCESS);
+
+    auto const cusparse_success = cusparseCreate(&sp_handle);
+    expect(cusparse_success == CUSPARSE_STATUS_SUCCESS);
 #endif
   }
 
@@ -134,12 +139,17 @@ struct device_handler
     {
       auto const cublas_success = cublasDestroy(handle);
       expect(cublas_success == CUBLAS_STATUS_SUCCESS);
+
+      auto const cusparse_success = cusparseDestroy(sp_handle);
+      expect(cusparse_success == CUSPARSE_STATUS_SUCCESS);
     }
 
     success = cudaSetDevice(local_rank);
     expect(success == cudaSuccess);
     auto const cublas_success = cublasCreate(&handle);
     expect(cublas_success == CUBLAS_STATUS_SUCCESS);
+    auto const cusparse_success = cusparseCreate(&sp_handle);
+    expect(cusparse_success == CUSPARSE_STATUS_SUCCESS);
 
 #else
     asgard::ignore(local_rank);
@@ -148,17 +158,20 @@ struct device_handler
 
 #ifdef ASGARD_USE_CUDA
   cublasHandle_t const &get_handle() const { return handle; }
+  cusparseHandle_t const &get_sp_handle() const { return sp_handle; }
 #endif
   ~device_handler()
   {
 #ifdef ASGARD_USE_CUDA
     cublasDestroy(handle);
+    cusparseDestroy(sp_handle);
 #endif
   }
 
 private:
 #ifdef ASGARD_USE_CUDA
   cublasHandle_t handle;
+  cusparseHandle_t sp_handle;
 #endif
 };
 static device_handler device;
@@ -173,6 +186,18 @@ inline cublasOperation_t cublas_trans(char trans)
   else
   {
     return CUBLAS_OP_T;
+  }
+}
+
+inline cusparseOperation_t cusparse_trans(char trans)
+{
+  if (trans == 'N' || trans == 'n')
+  {
+    return CUSPARSE_OPERATION_NON_TRANSPOSE;
+  }
+  else
+  {
+    return CUSPARSE_OPERATION_TRANSPOSE;
   }
 }
 #endif
@@ -1196,6 +1221,85 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
 }
 #endif
 
+template<typename P>
+void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
+                 const int *offsets, const int *columns, const P *A, P *alpha,
+                 const P *x, P *beta, const P *y, resource const resrc)
+{
+  expect(offsets);
+  expect(columns);
+  expect(alpha);
+  expect(A);
+  expect(x);
+  expect(beta);
+  expect(y);
+  expect(rows && *rows >= 0);
+  expect(cols && *cols >= 0);
+  expect(nnz && *nnz >= 0);
+  expect(trans && (*trans == 't' || *trans == 'n'));
+
+  if (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    // no non-fp blas on device
+    expect(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      // create cuSPARSE descriptors
+      cusparseSpMatDescr_t mat;
+      cusparseDnVecDescr_t vecX, vecY;
+      auto status = cusparseCreateCsr(
+          &mat, *rows, *cols, *nnz, const_cast<int *>(offsets),
+          const_cast<int *>(columns), const_cast<P *>(A), CUSPARSE_INDEX_32I,
+          CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+      expect(status == 0);
+
+      status =
+          cusparseCreateDnVec(&vecX, *cols, const_cast<P *>(x), CUDA_R_64F);
+      expect(status == 0);
+
+      status =
+          cusparseCreateDnVec(&vecY, *rows, const_cast<P *>(y), CUDA_R_64F);
+      expect(status == 0);
+
+      // find tmp buffer size if needed
+      size_t buffer_size = 0;
+      status             = cusparseSpMV_bufferSize(
+          device.get_sp_handle(), cusparse_trans(*trans), alpha, mat, vecX,
+          beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG2, &buffer_size);
+      expect(status == 0);
+
+      void *sp_buffer = NULL;
+      auto success    = cudaMalloc(&sp_buffer, buffer_size);
+      expect(success == 0);
+
+      // call the sparse grid dense vector multiply
+      // using CSR_ALG2 since it provides deterministic bit-wise results for
+      // each run
+      status = cusparseSpMV(device.get_sp_handle(), cusparse_trans(*trans),
+                            alpha, mat, vecX, beta, vecY, CUDA_R_64F,
+                            CUSPARSE_SPMV_CSR_ALG2, sp_buffer);
+      expect(status == 0);
+
+      success = cudaFree(sp_buffer);
+      expect(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      throw std::runtime_error("TODO for float");
+    }
+#endif
+    return;
+  }
+  else
+  {
+    throw std::runtime_error("sparse gemv not implemented on CPU");
+  }
+}
+
 #ifdef ASGARD_ENABLE_FLOAT
 template void rot<resource::host, float>(const int n, float *x, const int incx,
                                          float *y, const int incy,
@@ -1344,6 +1448,11 @@ template void tpsv<resource::device, float>(const char uplo, const char trans,
                                             const char diag, const int n,
                                             const float *ap, float *x,
                                             const int incx);
+
+template void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
+                          const int *offsets, const int *columns,
+                          const float *A, float *alpha, const float *x,
+                          float *beta, const float *y, resource const resrc);
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -1389,6 +1498,11 @@ template void tpsv<resource::device, double>(const char uplo, const char trans,
                                              const double *ap, double *x,
                                              const int incx);
 
+template void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
+                          const int *offsets, const int *columns,
+                          const double *A, double *alpha, const double *x,
+                          double *beta, const double *y, resource const resrc);
+
 #endif
 #endif
 
@@ -1409,4 +1523,5 @@ template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
                               int *descB, int *info);
 #endif
 #endif
+
 } // namespace asgard::lib_dispatch

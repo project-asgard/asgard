@@ -1,6 +1,8 @@
 #include "moment.hpp"
 #include "basis.hpp"
 #include "elements.hpp"
+#include "sparse.hpp"
+#include "tools.hpp"
 #include "transformations.hpp"
 
 namespace asgard
@@ -143,7 +145,10 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
       static_cast<int>(std::pow(2, pde.get_dimensions()[x_dim].get_level())) *
       pde.get_dimensions()[x_dim].get_degree();
 
-  this->moment_matrix.clear_and_resize(rows, n);
+  if (this->moment_matrix.size() != rows * n)
+  {
+    this->moment_matrix.clear_and_resize(rows, n);
+  }
 
   int const deg = pde.get_dimensions()[v_dim_1].get_degree();
 
@@ -200,6 +205,13 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
       }
     }
   }
+
+  // create a sparse version of this matrix and put it on the GPU
+  this->sparse_mat =
+      fk::sparse<P, mem_type::owner, resource::host>(this->moment_matrix)
+          .clone_onto_device();
+  std::cout << this->moment_matrix.size() << "\n";
+  std::cout << this->sparse_mat.sp_size() << "\n";
 }
 
 template<typename P>
@@ -210,6 +222,21 @@ fk::vector<P> &moment<P>::create_realspace_moment(
 {
   this->realspace.resize(wave.size());
   wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
+                          this->realspace);
+  return this->realspace;
+}
+
+template<typename P>
+fk::vector<P> &moment<P>::create_realspace_moment(
+    PDE<P> const &pde_1d,
+    fk::vector<P, mem_type::owner, resource::device> &wave,
+    elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace)
+{
+  fk::vector<P> wave_host = wave.clone_onto_host();
+  this->realspace.resize(wave_host.size());
+  wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,
                           this->realspace);
   return this->realspace;
 }

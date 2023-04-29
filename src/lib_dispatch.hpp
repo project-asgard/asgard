@@ -85,5 +85,11 @@ template<typename P>
 void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
                      int const *ipiv, P *b, int *descB, int *info);
 #endif
+
+template<typename P>
+void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
+                 const int *offsets, const int *columns, const P *A, P *alpha, const P *x, P *beta,
+                 const P *y, resource const resrc = resource::device);
+
 } // namespace lib_dispatch
 } // namespace asgard

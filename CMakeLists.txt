@@ -375,6 +375,7 @@ if (ASGARD_USE_CUDA)
                            PUBLIC
                            CUDA::cudart
                            CUDA::cublas
+                           CUDA::cusparse
     )
 endif ()
 
