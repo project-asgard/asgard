@@ -91,18 +91,14 @@ void test_kronmult_build(PDE<P> &pde)
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
   P *element_x;
-  P *element_work;
   auto const workspace_size = my_subgrid.size() * deg_to_dim * pde.num_terms;
   fk::allocate_device(element_x, workspace_size);
-  fk::allocate_device(element_work, workspace_size);
 
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
   P **input_ptrs;
-  P **work_ptrs;
   P **output_ptrs;
   P **operator_ptrs;
   fk::allocate_device(input_ptrs, total_kronmults);
-  fk::allocate_device(work_ptrs, total_kronmults);
   fk::allocate_device(output_ptrs, total_kronmults);
   fk::allocate_device(operator_ptrs, total_kronmults * pde.num_dims);
 
@@ -128,18 +124,16 @@ void test_kronmult_build(PDE<P> &pde)
   fk::vector<P, mem_type::owner, resource::device> fx(my_subgrid.nrows() *
                                                       deg_to_dim);
   prepare_kronmult(table.get_active_table().data(), operators_d.data(), lda,
-                   element_x, element_work, fx.data(), operator_ptrs, work_ptrs,
-                   input_ptrs, output_ptrs, degree, pde.num_terms, pde.num_dims,
-                   my_subgrid.row_start, my_subgrid.row_stop,
-                   my_subgrid.col_start, my_subgrid.col_stop);
+                   element_x, fx.data(), operator_ptrs, input_ptrs, output_ptrs,
+                   degree, pde.num_terms, pde.num_dims, my_subgrid.row_start,
+                   my_subgrid.row_stop, my_subgrid.col_start,
+                   my_subgrid.col_stop);
 
   P **const input_ptrs_h    = new P *[total_kronmults];
-  P **const work_ptrs_h     = new P *[total_kronmults];
   P **const output_ptrs_h   = new P *[total_kronmults];
   P **const operator_ptrs_h = new P *[total_kronmults * pde.num_dims];
 
   fk::copy_to_host(input_ptrs_h, input_ptrs, total_kronmults);
-  fk::copy_to_host(work_ptrs_h, work_ptrs, total_kronmults);
   fk::copy_to_host(output_ptrs_h, output_ptrs, total_kronmults);
   fk::copy_to_host(operator_ptrs_h, operator_ptrs,
                    total_kronmults * pde.num_dims);
@@ -160,8 +154,6 @@ void test_kronmult_build(PDE<P> &pde)
 
         REQUIRE(in_range(input_ptrs_h[num_kron], element_x,
                          element_x + workspace_size - 1));
-        REQUIRE(in_range(work_ptrs_h[num_kron], element_work,
-                         element_work + workspace_size - 1));
         REQUIRE(in_range(output_ptrs_h[num_kron], fx.data(),
                          fx.data() + fx.size() - 1));
 
@@ -178,15 +170,12 @@ void test_kronmult_build(PDE<P> &pde)
   }
 
   fk::delete_device(element_x);
-  fk::delete_device(element_work);
 
   fk::delete_device(input_ptrs);
-  fk::delete_device(work_ptrs);
   fk::delete_device(output_ptrs);
   fk::delete_device(operator_ptrs);
 
   delete[] input_ptrs_h;
-  delete[] work_ptrs_h;
   delete[] output_ptrs_h;
   delete[] operator_ptrs_h;
 }

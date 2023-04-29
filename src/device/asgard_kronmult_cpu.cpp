@@ -348,12 +348,12 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
       int const);                                                          \
   template void run_cpu_variant<double, (d), (n)>(                         \
       double const *const[], int const, double const *const[], double *[], \
-      int const);
+      int const)
 
 #define asgard_kronmult_cpu_instantiate_n234_d(d) \
   asgard_kronmult_cpu_instantiate((d), 2);        \
   asgard_kronmult_cpu_instantiate((d), 3);        \
-  asgard_kronmult_cpu_instantiate((d), 4);
+  asgard_kronmult_cpu_instantiate((d), 4)
 
 asgard_kronmult_cpu_instantiate_n234_d(1);
 asgard_kronmult_cpu_instantiate_n234_d(2);

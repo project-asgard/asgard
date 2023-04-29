@@ -26,7 +26,6 @@ public:
   std::string const start(std::string const &identifier)
   {
     expect(!identifier.empty());
-    expect(id_to_start_.count(identifier) == 0);
     id_to_start_[identifier] = std::chrono::high_resolution_clock::now();
     return identifier;
   }
