@@ -88,17 +88,21 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
         }
         else if constexpr (n >= 3)
         {
-          T W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
+          T W[n][n] = {{{0}}};
+          T Y[n][n] = {{{0}}};
           for (int j = 0; j < n; j++)
-            for (int k = 0; k < n; k++)
-              for (int s = 0; s < n; s++)
+            for (int s = 0; s < n; s++)
+#pragma omp simd
+              for (int k = 0; k < n; k++)
                 W[s][k] += pX[i][n * j + k] * pA[2 * i][j * lda + s];
-          for (int j = 0; j < n; j++)
-            for (int k = 0; k < n; k++)
+          for (int k = 0; k < n; k++)
+            for (int j = 0; j < n; j++)
+#pragma omp simd
               for (int s = 0; s < n; s++)
                 Y[k][s] += pA[2 * i + 1][j * lda + s] * W[k][j];
           for (int j = 0; j < n; j++)
           {
+#pragma omp simd
             for (int k = 0; k < n; k++)
             {
               pY[i][n * j + k] += Y[j][k];
@@ -110,64 +114,66 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
       {
         T W[n][n][n] = {{{{0}}}}, Y[n][n][n] = {{{{0}}}};
         for (int j = 0; j < n; j++)
-          for (int l = 0; l < n; l++)
-            for (int k = 0; k < n; k++)
-              for (int s = 0; s < n; s++)
+          for (int s = 0; s < n; s++)
+            for (int l = 0; l < n; l++)
+#pragma omp simd
+              for (int k = 0; k < n; k++)
                 Y[s][l][k] +=
                     pX[i][n * n * j + n * l + k] * pA[3 * i][j * lda + s];
-        for (int j = 0; j < n; j++)
-          for (int l = 0; l < n; l++)
-            for (int k = 0; k < n; k++)
-              for (int s = 0; s < n; s++)
+        for (int l = 0; l < n; l++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+#pragma omp simd
+              for (int k = 0; k < n; k++)
                 W[l][s][k] += Y[l][j][k] * pA[3 * i + 1][j * lda + s];
         std::fill(&Y[0][0][0], &Y[0][0][0] + sizeof(W) / sizeof(T), T{0.});
-        for (int j = 0; j < n; j++)
-          for (int l = 0; l < n; l++)
-            for (int k = 0; k < n; k++)
+        for (int l = 0; l < n; l++)
+          for (int k = 0; k < n; k++)
+            for (int j = 0; j < n; j++)
+#pragma omp simd
               for (int s = 0; s < n; s++)
                 Y[l][k][s] += pA[3 * i + 2][j * lda + s] * W[l][k][j];
         for (int j = 0; j < n; j++)
-        {
           for (int l = 0; l < n; l++)
-          {
+#pragma omp simd
             for (int k = 0; k < n; k++)
-            {
               pY[i][n * n * j + n * l + k] += Y[j][l][k];
-            }
-          }
-        }
       }
       else if constexpr (dimensions == 4)
       {
         T W[n][n][n][n] = {{{{{0}}}}}, Y[n][n][n][n] = {{{{{0}}}}};
         for (int j = 0; j < n; j++)
-          for (int p = 0; p < n; p++)
-            for (int l = 0; l < n; l++)
-              for (int k = 0; k < n; k++)
-                for (int s = 0; s < n; s++)
+          for (int s = 0; s < n; s++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+#pragma omp simd
+                for (int k = 0; k < n; k++)
                   W[s][p][l][k] +=
                       pX[i][n * n * n * j + n * n * p + n * l + k] *
                       pA[4 * i][j * lda + s];
-        for (int j = 0; j < n; j++)
-          for (int p = 0; p < n; p++)
-            for (int l = 0; l < n; l++)
-              for (int k = 0; k < n; k++)
-                for (int s = 0; s < n; s++)
+        for (int p = 0; p < n; p++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              for (int l = 0; l < n; l++)
+#pragma omp simd
+                for (int k = 0; k < n; k++)
                   Y[p][s][l][k] += W[p][j][l][k] * pA[4 * i + 1][j * lda + s];
         std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(T),
                   T{0.});
-        for (int j = 0; j < n; j++)
-          for (int p = 0; p < n; p++)
-            for (int l = 0; l < n; l++)
-              for (int k = 0; k < n; k++)
-                for (int s = 0; s < n; s++)
+        for (int p = 0; p < n; p++)
+          for (int l = 0; l < n; l++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
+#pragma omp simd
+                for (int k = 0; k < n; k++)
                   W[p][l][s][k] += Y[p][l][j][k] * pA[4 * i + 2][j * lda + s];
         std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(T),
                   T{0.});
-        for (int j = 0; j < n; j++)
-          for (int p = 0; p < n; p++)
-            for (int l = 0; l < n; l++)
-              for (int k = 0; k < n; k++)
+        for (int p = 0; p < n; p++)
+          for (int l = 0; l < n; l++)
+            for (int k = 0; k < n; k++)
+              for (int j = 0; j < n; j++)
+#pragma omp simd
                 for (int s = 0; s < n; s++)
                   Y[p][l][k][s] += pA[4 * i + 3][j * lda + s] * W[p][l][k][j];
         for (int j = 0; j < n; j++)
@@ -176,6 +182,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
           {
             for (int l = 0; l < n; l++)
             {
+#pragma omp simd
               for (int k = 0; k < n; k++)
               {
                 pY[i][n * n * n * j + n * n * p + n * l + k] += Y[j][p][l][k];
@@ -188,50 +195,55 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
       {
         T W[n][n][n][n][n] = {{{{{{0}}}}}}, Y[n][n][n][n][n] = {{{{{{0}}}}}};
         for (int j = 0; j < n; j++)
-          for (int v = 0; v < n; v++)
-            for (int p = 0; p < n; p++)
-              for (int l = 0; l < n; l++)
-                for (int k = 0; k < n; k++)
-                  for (int s = 0; s < n; s++)
+          for (int s = 0; s < n; s++)
+            for (int v = 0; v < n; v++)
+              for (int p = 0; p < n; p++)
+                for (int l = 0; l < n; l++)
+#pragma omp simd
+                  for (int k = 0; k < n; k++)
                     Y[s][v][p][l][k] +=
                         pX[i][n * n * n * n * j + n * n * n * v + n * n * p +
                               n * l + k] *
                         pA[5 * i][j * lda + s];
-        for (int j = 0; j < n; j++)
-          for (int v = 0; v < n; v++)
-            for (int p = 0; p < n; p++)
-              for (int l = 0; l < n; l++)
-                for (int k = 0; k < n; k++)
-                  for (int s = 0; s < n; s++)
+        for (int v = 0; v < n; v++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              for (int p = 0; p < n; p++)
+                for (int l = 0; l < n; l++)
+#pragma omp simd
+                  for (int k = 0; k < n; k++)
                     W[v][s][p][l][k] +=
                         Y[v][j][p][l][k] * pA[5 * i + 1][j * lda + s];
         std::fill(&Y[0][0][0][0][0], &Y[0][0][0][0][0] + sizeof(W) / sizeof(T),
                   T{0.});
-        for (int j = 0; j < n; j++)
-          for (int v = 0; v < n; v++)
-            for (int p = 0; p < n; p++)
-              for (int l = 0; l < n; l++)
-                for (int k = 0; k < n; k++)
-                  for (int s = 0; s < n; s++)
+        for (int v = 0; v < n; v++)
+          for (int p = 0; p < n; p++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
+                for (int l = 0; l < n; l++)
+#pragma omp simd
+                  for (int k = 0; k < n; k++)
                     Y[v][p][s][l][k] +=
                         W[v][p][j][l][k] * pA[5 * i + 2][j * lda + s];
         std::fill(&W[0][0][0][0][0], &W[0][0][0][0][0] + sizeof(W) / sizeof(T),
                   T{0.});
-        for (int j = 0; j < n; j++)
-          for (int v = 0; v < n; v++)
-            for (int p = 0; p < n; p++)
-              for (int l = 0; l < n; l++)
-                for (int k = 0; k < n; k++)
-                  for (int s = 0; s < n; s++)
+        for (int v = 0; v < n; v++)
+          for (int p = 0; p < n; p++)
+            for (int l = 0; l < n; l++)
+              for (int j = 0; j < n; j++)
+                for (int s = 0; s < n; s++)
+#pragma omp simd
+                  for (int k = 0; k < n; k++)
                     W[v][p][l][s][k] +=
                         Y[v][p][l][j][k] * pA[5 * i + 3][j * lda + s];
         std::fill(&Y[0][0][0][0][0], &Y[0][0][0][0][0] + sizeof(W) / sizeof(T),
                   T{0.});
-        for (int j = 0; j < n; j++)
-          for (int v = 0; v < n; v++)
-            for (int p = 0; p < n; p++)
-              for (int l = 0; l < n; l++)
-                for (int k = 0; k < n; k++)
+        for (int v = 0; v < n; v++)
+          for (int p = 0; p < n; p++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                for (int j = 0; j < n; j++)
+#pragma omp simd
                   for (int s = 0; s < n; s++)
                     Y[v][p][l][k][s] +=
                         pA[5 * i + 4][j * lda + s] * W[v][p][l][k][j];
@@ -243,6 +255,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
             {
               for (int l = 0; l < n; l++)
               {
+#pragma omp simd
                 for (int k = 0; k < n; k++)
                 {
                   pY[i][n * n * n * n * j + n * n * n * v + n * n * p + n * l +
@@ -258,90 +271,85 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
         T W[n][n][n][n][n][n] = {{{{{{{0}}}}}}},
           Y[n][n][n][n][n][n] = {{{{{{{0}}}}}}};
         for (int j = 0; j < n; j++)
-          for (int w = 0; w < n; w++)
-            for (int v = 0; v < n; v++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
-                  for (int k = 0; k < n; k++)
-                    for (int s = 0; s < n; s++)
+          for (int s = 0; s < n; s++)
+            for (int w = 0; w < n; w++)
+              for (int v = 0; v < n; v++)
+                for (int p = 0; p < n; p++)
+                  for (int l = 0; l < n; l++)
+#pragma omp simd
+                    for (int k = 0; k < n; k++)
                       W[s][w][v][p][l][k] +=
                           pX[i][n * n * n * n * n * j + n * n * n * n * w +
                                 n * n * n * v + n * n * p + n * l + k] *
                           pA[6 * i][j * lda + s];
-        for (int j = 0; j < n; j++)
-          for (int w = 0; w < n; w++)
-            for (int v = 0; v < n; v++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
-                  for (int k = 0; k < n; k++)
-                    for (int s = 0; s < n; s++)
+        for (int w = 0; w < n; w++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              for (int v = 0; v < n; v++)
+                for (int p = 0; p < n; p++)
+                  for (int l = 0; l < n; l++)
+#pragma omp simd
+                    for (int k = 0; k < n; k++)
                       Y[w][s][v][p][l][k] +=
                           W[w][j][v][p][l][k] * pA[6 * i + 1][j * lda + s];
         std::fill(&W[0][0][0][0][0][0],
                   &W[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
-        for (int j = 0; j < n; j++)
-          for (int w = 0; w < n; w++)
-            for (int v = 0; v < n; v++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
-                  for (int k = 0; k < n; k++)
-                    for (int s = 0; s < n; s++)
+        for (int w = 0; w < n; w++)
+          for (int v = 0; v < n; v++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
+                for (int p = 0; p < n; p++)
+                  for (int l = 0; l < n; l++)
+#pragma omp simd
+                    for (int k = 0; k < n; k++)
                       W[w][v][s][p][l][k] +=
                           Y[w][v][j][p][l][k] * pA[6 * i + 2][j * lda + s];
         std::fill(&Y[0][0][0][0][0][0],
                   &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
-        for (int j = 0; j < n; j++)
-          for (int w = 0; w < n; w++)
-            for (int v = 0; v < n; v++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
-                  for (int k = 0; k < n; k++)
-                    for (int s = 0; s < n; s++)
+        for (int w = 0; w < n; w++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int j = 0; j < n; j++)
+                for (int s = 0; s < n; s++)
+                  for (int l = 0; l < n; l++)
+#pragma omp simd
+                    for (int k = 0; k < n; k++)
                       Y[w][v][p][s][l][k] +=
                           W[w][v][p][j][l][k] * pA[6 * i + 3][j * lda + s];
         std::fill(&W[0][0][0][0][0][0],
                   &W[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
-        for (int j = 0; j < n; j++)
-          for (int w = 0; w < n; w++)
-            for (int v = 0; v < n; v++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
-                  for (int k = 0; k < n; k++)
-                    for (int s = 0; s < n; s++)
+        for (int w = 0; w < n; w++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+                for (int j = 0; j < n; j++)
+                  for (int s = 0; s < n; s++)
+#pragma omp simd
+                    for (int k = 0; k < n; k++)
                       W[w][v][p][l][s][k] +=
                           Y[w][v][p][l][j][k] * pA[6 * i + 4][j * lda + s];
         std::fill(&Y[0][0][0][0][0][0],
                   &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
-        for (int j = 0; j < n; j++)
-          for (int w = 0; w < n; w++)
-            for (int v = 0; v < n; v++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
-                  for (int k = 0; k < n; k++)
+        for (int w = 0; w < n; w++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+                for (int k = 0; k < n; k++)
+                  for (int j = 0; j < n; j++)
+#pragma omp simd
                     for (int s = 0; s < n; s++)
                       Y[w][v][p][l][k][s] +=
                           pA[6 * i + 5][j * lda + s] * W[w][v][p][l][k][j];
         for (int j = 0; j < n; j++)
-        {
           for (int w = 0; w < n; w++)
-          {
             for (int v = 0; v < n; v++)
-            {
               for (int p = 0; p < n; p++)
-              {
                 for (int l = 0; l < n; l++)
-                {
+#pragma omp simd
                   for (int k = 0; k < n; k++)
-                  {
                     pY[i][n * n * n * n * n * j + n * n * n * n * w +
                           n * n * n * v + n * n * p + n * l + k] +=
                         Y[j][w][v][p][l][k];
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     } // for output-length
   }   // for loop
