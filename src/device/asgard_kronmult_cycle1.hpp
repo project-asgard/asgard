@@ -147,7 +147,7 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
  */
 template<typename T, int dims, int n, int team_size, int num_teams>
 __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
-                       T *pY[], int const num_batch)
+                       T *pY[], int const num_batch, int const segmet_size)
 {
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
@@ -164,7 +164,7 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
   __shared__ T X[num_teams][team_size];
   __shared__ T A[num_teams][team_size];
 
-  int i = threadIdx.y + blockIdx.x * blockDim.y;
+  int i = segmet_size * (threadIdx.y + blockIdx.x * blockDim.y);
 
   int const matj = threadIdx.x % n + lda * (threadIdx.x / n);
 
@@ -209,112 +209,114 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
 
   while (i < num_batch)
   {
-    X[threadIdx.y][threadIdx.x] = pX[i][threadIdx.x];
-
-    if constexpr (dims >= 6)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 6][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix5 + k * int_pow<n, 5>()] *
-               A[threadIdx.y][ia5 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 5)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 5][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix4 + k * int_pow<n, 4>()] *
-               A[threadIdx.y][ia4 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 4)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 4][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix3 + k * int_pow<n, 3>()] *
-               A[threadIdx.y][ia3 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 3)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 3][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix2 + k * int_pow<n, 2>()] *
-               A[threadIdx.y][ia2 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 2)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 2][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix1 + k * n] * A[threadIdx.y][ia1 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if (threadIdx.x < n * n)
-      A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 1][matj];
-    if constexpr (sync_mode == manual_sync::enable)
-      __syncthreads();
-
     T yinc = 0;
-    for (int k = 0; k < n; k++)
-      yinc += A[threadIdx.y][ia0 + k * n] * X[threadIdx.y][ix0 + k];
+    for(int idx=i; idx<i+segmet_size; idx++){
+      X[threadIdx.y][threadIdx.x] = pX[idx][threadIdx.x];
+
+      if constexpr (dims >= 6)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = pA[dims * idx + dims - 6][matj];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix5 + k * int_pow<n, 5>()] *
+                A[threadIdx.y][ia5 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 5)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = pA[dims * idx + dims - 5][matj];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix4 + k * int_pow<n, 4>()] *
+                A[threadIdx.y][ia4 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 4)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = pA[dims * idx + dims - 4][matj];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix3 + k * int_pow<n, 3>()] *
+                A[threadIdx.y][ia3 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 3)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = pA[dims * idx + dims - 3][matj];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix2 + k * int_pow<n, 2>()] *
+                A[threadIdx.y][ia2 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 2)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = pA[dims * idx + dims - 2][matj];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix1 + k * n] * A[threadIdx.y][ia1 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if (threadIdx.x < n * n)
+        A[threadIdx.y][threadIdx.x] = pA[dims * idx + dims - 1][matj];
+      if constexpr (sync_mode == manual_sync::enable)
+        __syncthreads();
+
+      for (int k = 0; k < n; k++)
+        yinc += A[threadIdx.y][ia0 + k * n] * X[threadIdx.y][ix0 + k];
+
+      if constexpr (sync_mode == manual_sync::enable)
+        __syncthreads();
+    }
 
     atomicAdd(&pY[i][threadIdx.x], yinc);
 
-    i += gridDim.x * blockDim.y;
-
-    if constexpr (sync_mode == manual_sync::enable)
-      __syncthreads();
+    i += segmet_size * (gridDim.x * blockDim.y);
   }
 }
 

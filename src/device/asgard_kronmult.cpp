@@ -101,7 +101,7 @@ void run_kernel(precision const *const pA[], int const lda,
   else
   {
     kernel::cycle1<precision, dims, n, team_size, num_teams>
-        <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+        <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch, 768);
   }
 }
 
