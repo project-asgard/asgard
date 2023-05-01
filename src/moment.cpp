@@ -145,10 +145,7 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
       static_cast<int>(std::pow(2, pde.get_dimensions()[x_dim].get_level())) *
       pde.get_dimensions()[x_dim].get_degree();
 
-  if (this->moment_matrix.size() != rows * n)
-  {
-    this->moment_matrix.clear_and_resize(rows, n);
-  }
+  std::multimap<int, dense_item<P>> moment_mat;
 
   int const deg = pde.get_dimensions()[v_dim_1].get_degree();
 
@@ -168,8 +165,9 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
         {
           // "2D" case (v_dim = 1)
           int const ind_j = i * static_cast<int>(std::pow(deg, 2)) + j * deg;
-          moment_matrix(ind_i, ind_j + vdeg1) =
-              g_vec_1(elem_indices(1) * deg + vdeg1);
+          moment_mat.insert(
+              {ind_i, dense_item<P>{ind_i, ind_j + vdeg1,
+                                    g_vec_1(elem_indices(1) * deg + vdeg1)}});
         }
         else
         {
@@ -206,11 +204,16 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
     }
   }
 
+  std::cout << " -- moment_mat map size = " << moment_mat.size() << "\n";
+
   // create a sparse version of this matrix and put it on the GPU
+  //this->sparse_mat =
+  //    fk::sparse<P, mem_type::owner, resource::host>(this->moment_matrix)
+  //        .clone_onto_device();
+
   this->sparse_mat =
-      fk::sparse<P, mem_type::owner, resource::host>(this->moment_matrix)
+      fk::sparse<P, mem_type::owner, resource::host>(moment_mat, n, rows)
           .clone_onto_device();
-  std::cout << this->moment_matrix.size() << "\n";
   std::cout << this->sparse_mat.sp_size() << "\n";
 }
 

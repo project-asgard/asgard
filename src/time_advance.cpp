@@ -495,12 +495,13 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // function in x
   if (first_time || update_system)
   {
+    asgard::tools::timer.start("update_system");
     std::cout << " dim0 lev = " << level << "\n";
     std::cout << " dim1 lev = " << pde.get_dimensions()[1].get_level() << "\n";
     for (auto &m : pde.moments)
     {
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
-      expect(m.get_moment_matrix().nrows() > 0);
+      // expect(m.get_moment_matrix().nrows() > 0);
     }
 
     if (pde.do_poisson_solve)
@@ -515,6 +516,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     pde.E_source.resize(dense_size);
 
     first_time = false;
+    asgard::tools::timer.stop("update_system");
   }
 
   auto do_poisson_update = [&](fk::vector<P> const &f_in) {

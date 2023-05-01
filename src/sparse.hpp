@@ -18,6 +18,15 @@
 
 namespace asgard
 {
+
+template<typename P>
+struct dense_item
+{
+  int row;
+  int col;
+  P data;
+};
+
 namespace fk
 {
 template<typename P, mem_type mem, resource resrc>
@@ -84,6 +93,48 @@ public:
     nnz_    = values_.size();
 
     expect(m.size() == values_.size() + nz_);
+  }
+
+  // create sparse matrix from multimap
+  sparse(std::multimap<int, dense_item<P>> &items, int ncols, int nrows)
+  {
+    P constexpr tol = 1.0e-10;
+    // P constexpr tol = 2.0 * std::numeric_limits<P>::epsilon();
+
+    ncols_ = ncols;
+    nrows_ = nrows;
+    nz_    = 0;
+
+    row_offsets_.resize(nrows_ + 1);
+    row_offsets_[0] = 0;
+
+    std::vector<P> values;
+    std::vector<int> col_indices_tmp;
+
+    values.reserve(nrows_);
+    for (int row = 0; row < nrows_; row++)
+    {
+      size_t n_start = values.size();
+      auto range     = items.equal_range(row);
+      for (auto col = range.first; col != range.second; ++col)
+      {
+        if (std::abs(col->second.data) > tol)
+        {
+          col_indices_tmp.push_back(col->second.col);
+          values.push_back(col->second.data);
+        }
+      }
+      size_t n_end = values.size();
+
+      row_offsets_[row + 1] = row_offsets_[row] + (n_end - n_start);
+    }
+
+    col_indices_ = fk::vector<int, mem, resrc>(col_indices_tmp);
+
+    values_ = fk::vector<P>(values);
+    nnz_    = values_.size();
+
+    expect(col_indices_tmp.size() == values_.size());
   }
 
   explicit sparse(sparse<P, mem, resrc> const &a)
