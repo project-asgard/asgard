@@ -18,7 +18,7 @@ using namespace asgard::kronmult;
 template<typename T>
 struct kronmult_intputs
 {
-  int num_batch;
+  int num_batch, output_size;
 
   std::vector<T> matrices;
   std::vector<T> input_x;
@@ -128,9 +128,9 @@ void reference_kronmult(int dimensions, int n, T const *const pA[],
  */
 template<typename T, bool compute_reference = true>
 std::unique_ptr<kronmult_intputs<T>>
-make_kronmult_data(int dimensions, int n, int num_batch, int num_matrices,
-                   int num_y)
+make_kronmult_data(int dimensions, int n, int num_y, int output_length, int num_matrices)
 {
+  int num_batch = num_y * output_length;
   std::minstd_rand park_miller(42);
   std::uniform_real_distribution<T> unif(-1.0, 1.0);
   std::uniform_real_distribution<T> uniy(0, num_y - 1);
@@ -144,6 +144,7 @@ make_kronmult_data(int dimensions, int n, int num_batch, int num_matrices,
 
   auto result         = std::make_unique<kronmult_intputs<T>>();
   result->num_batch   = num_batch;
+  result->output_size = output_length;
   result->matrices    = std::vector<T>(n * n * num_matrices);
   result->input_x     = std::vector<T>(num_data * num_y);
   result->output_y    = std::vector<T>(num_data * num_y);
@@ -157,12 +158,14 @@ make_kronmult_data(int dimensions, int n, int num_batch, int num_matrices,
   // the next d entries are the matrices
   // the final entry is the output y
   auto ip = pointer_map.begin();
+  int iy = -1;
   for (int i = 0; i < num_batch; i++)
   {
+    if (i % output_length == 0) iy++;
     *ip++ = uniy(park_miller);
     for (int j = 0; j < dimensions; j++)
       *ip++ = unim(park_miller);
-    *ip++ = uniy(park_miller);
+    *ip++ = iy;
   }
 
 #pragma omp parallel for

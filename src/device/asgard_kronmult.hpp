@@ -16,7 +16,7 @@ namespace asgard::kronmult
  */
 template<typename T>
 void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch);
+                 T *pX[], T *pY[], int const num_batch, int const output_length = -1);
 #endif
 
 /*!
@@ -49,7 +49,7 @@ struct is_implemented
  */
 template<typename T>
 void run_cpu_variant0(int dimensions, T const *const pA[], T const *const pX[],
-                      T *pY[], int const num_batch);
+                      T *pY[], int const num_batch, int const output_length);
 
 /*!
  * \brief Baseline kronmult algorithm on the CPU.
@@ -68,7 +68,7 @@ void run_cpu_variant0(int dimensions, T const *const pA[], T const *const pX[],
  */
 template<typename T, int dimensions, int n>
 void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
-                     T *pY[], int const num_batch);
+                     T *pY[], int const num_batch, int const output_length);
 
 /*!
  * \brief Kronmult algorithm that allows for arbitrary n.
@@ -106,6 +106,6 @@ void run_cpu_variant(int n, T const *const pA[], int const lda,
  */
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const *const pX[], T *pY[], int const num_batch);
+                 T const *const pX[], T *pY[], int const num_batch, int const output_length = -1);
 
 } // namespace asgard::kronmult

@@ -74,7 +74,7 @@ constexpr int compute_team_size()
 template<typename precision, int dims, int n>
 void run_kernel(precision const *const pA[], int const lda,
                 precision const *const pX[], precision *pY[],
-                int const num_batch)
+                int const num_batch, int const per_output_tensor = 1)
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -100,8 +100,28 @@ void run_kernel(precision const *const pA[], int const lda,
   }
   else
   {
-    kernel::cycle1<precision, dims, n, team_size, num_teams>
-        <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch, 768);
+    if constexpr( (dims == 2 and n == 4)
+               or (dims == 2 and n == 3)
+               or (dims == 3 and n == 3)
+                )
+    {
+      if (per_output_tensor % 32 == 0){
+        //std::cout << " calling segment = 32\n";
+        kernel::cycle1<precision, dims, n, team_size, num_teams>
+            <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch, 32);
+      }else if (per_output_tensor % 40 == 0){
+        //std::cout << " calling segment = 40\n";
+        kernel::cycle1<precision, dims, n, team_size, num_teams>
+            <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch, 40);
+      }else{
+        //std::cout << " calling segment = 1\n";
+        kernel::cycle1<precision, dims, n, team_size, num_teams>
+            <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+      }
+    }else{
+      kernel::cycle1<precision, dims, n, team_size, num_teams>
+          <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+    }
   }
 }
 
@@ -113,7 +133,7 @@ void run_kernel(precision const *const pA[], int const lda,
 template<typename precision, int dims, int n>
 void run_kernel2(precision const *const pA[], int const lda,
                  precision const *const pX[], precision *pY[],
-                 int const num_batch)
+                 int const num_batch, int const output_length = -1)
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -126,8 +146,22 @@ void run_kernel2(precision const *const pA[], int const lda,
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
-  kernel::cycle2<precision, dims, n, team_size, num_teams>
-      <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+//  if constexpr( (dims == 3 and n == -2)
+//             or (dims == 3 and n == 3)
+//             or (dims == 3 and n == 4)
+//                )
+//  {
+    if (output_length == -1){
+      kernel::cycle2<precision, dims, n, team_size, num_teams>
+          <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+    }else{
+      kernel::cycle2<precision, dims, n, team_size, num_teams, 32>
+          <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch, output_length);
+    }
+  //}else{
+  //  kernel::cycle2<precision, dims, n, team_size, num_teams>
+  //      <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
+  //}
 }
 
 /*!
@@ -159,8 +193,9 @@ void run_kernelx(precision const *const pA[], int const lda,
 
 template<typename T>
 void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch)
+                 T *pX[], T *pY[], int const num_batch, int const output_length)
 {
+  //std::cerr << " num_batch = " << num_batch << " output_length = " << output_length << "\n";
   switch (dimensions)
   {
   case 1:
@@ -210,9 +245,11 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel<T, 2, 2>(pA, lda, pX, pY, num_batch);
       break;
     case 3:
+      //std::cerr << " per_output_tensor = " << per_output_tensor << "\n";
       run_kernel<T, 2, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
+      //std::cerr << " per_output_tensor = " << per_output_tensor << "\n";
       run_kernel<T, 2, 4>(pA, lda, pX, pY, num_batch);
       break;
     case 5:
@@ -310,13 +347,13 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel<T, 3, 1>(pA, lda, pX, pY, num_batch);
       break;
     case 2:
-      run_kernel2<T, 3, 2>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 3, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
       run_kernel<T, 3, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      run_kernel2<T, 3, 4>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 3, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 5:
       run_kernel<T, 3, 5>(pA, lda, pX, pY, num_batch);
@@ -408,15 +445,15 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_gpu<float>(int, int, float const *const[], int const,
-                                 float *[], float *[], int const);
+                                 float *[], float *[], int const, int const);
 template void execute_gpu<double>(int, int, double const *const[], int const,
-                                  double *[], double *[], int const);
+                                  double *[], double *[], int const, int const);
 
 #endif
 
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const *const pX[], T *pY[], int const num_batch)
+                 T const *const pX[], T *pY[], int const num_batch, int const output_length)
 {
   switch (dimensions)
   {
@@ -424,16 +461,16 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_length);
       break;
     case 2:
-      run_cpu_variant<T, 1, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
-      run_cpu_variant<T, 1, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 3>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 4:
-      run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
       run_cpu_variant<T, 1>(n, pA, lda, pX, pY, num_batch);
@@ -443,16 +480,16 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_length);
       break;
     case 2:
-      run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
-      run_cpu_variant<T, 2, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 3>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 4:
-      run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
       run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch);
@@ -462,16 +499,16 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_length);
       break;
     case 2:
-      run_cpu_variant<T, 3, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
-      run_cpu_variant<T, 3, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3, 3>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 4:
-      run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
       run_cpu_variant<T, 3>(n, pA, lda, pX, pY, num_batch);
@@ -481,16 +518,16 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_length);
       break;
     case 2:
-      run_cpu_variant<T, 4, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
-      run_cpu_variant<T, 4, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4, 3>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 4:
-      run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
       run_cpu_variant<T, 4>(n, pA, lda, pX, pY, num_batch);
@@ -500,16 +537,16 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_length);
       break;
     case 2:
-      run_cpu_variant<T, 5, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
-      run_cpu_variant<T, 5, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5, 3>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 4:
-      run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
       run_cpu_variant<T, 5>(n, pA, lda, pX, pY, num_batch);
@@ -519,16 +556,16 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_length);
       break;
     case 2:
-      run_cpu_variant<T, 6, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6, 2>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 3:
-      run_cpu_variant<T, 6, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6, 3>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 4:
-      run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
       run_cpu_variant<T, 6>(n, pA, lda, pX, pY, num_batch);
@@ -541,8 +578,8 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_cpu<float>(int, int, float const *const[], int const,
-                                 float const *const[], float *[], int const);
+                                 float const *const[], float *[], int const, int const);
 template void execute_cpu<double>(int, int, double const *const[], int const,
-                                  double const *const[], double *[], int const);
+                                  double const *const[], double *[], int const, int const);
 
 } // namespace asgard::kronmult
