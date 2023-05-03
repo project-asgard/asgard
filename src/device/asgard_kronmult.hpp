@@ -80,7 +80,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
  */
 template<typename T, int dimensions>
 void run_cpu_variant(int n, T const *const pA[], int const lda,
-                     T const *const pX[], T *pY[], int const num_batch);
+                     T const *const pX[], T *pY[], int const num_batch,
+                     int const output_length);
 
 /*!
  * \brief Performs a batch of kronmult operations using the CPU.

@@ -473,7 +473,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
-      run_cpu_variant<T, 1>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1>(n, pA, lda, pX, pY, num_batch, output_length);
     }
     break;
   case 2:
@@ -492,7 +492,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
-      run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_length);
     }
     break;
   case 3:
@@ -511,7 +511,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
-      run_cpu_variant<T, 3>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3>(n, pA, lda, pX, pY, num_batch, output_length);
     }
     break;
   case 4:
@@ -530,7 +530,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
-      run_cpu_variant<T, 4>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4>(n, pA, lda, pX, pY, num_batch, output_length);
     }
     break;
   case 5:
@@ -549,7 +549,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
-      run_cpu_variant<T, 5>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5>(n, pA, lda, pX, pY, num_batch, output_length);
     }
     break;
   case 6:
@@ -568,7 +568,7 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
       run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     default:
-      run_cpu_variant<T, 6>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6>(n, pA, lda, pX, pY, num_batch, output_length);
     }
     break;
   default:
