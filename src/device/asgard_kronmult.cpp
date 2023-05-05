@@ -86,6 +86,10 @@ void run_kernel(precision const *const pA[], int const lda,
 
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
+  int conc = num_blocks * num_teams;
+  int yblocks = num_batch / per_output_tensor;
+  std::cout << ((yblocks >= conc) ? "ok" : "suboptimal") << "  " << conc << "  " << yblocks << "\n";
+
   dim3 grid(team_size, num_teams);
   if constexpr (dims == 1)
   {
@@ -140,28 +144,27 @@ void run_kernel2(precision const *const pA[], int const lda,
   constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
   constexpr int num_teams   = max_threads / team_size;
 
+  constexpr int segment_size = n * n;
+
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
 
-  int num_blocks = blocks(num_batch, num_teams, max_blocks);
-
   dim3 grid(team_size, num_teams);
-//  if constexpr( (dims == 3 and n == -2)
-//             or (dims == 3 and n == 3)
-//             or (dims == 3 and n == 4)
-//                )
-//  {
-    if (output_length == -1){
+  if (output_length == -1){
+      int num_blocks = blocks(num_batch, num_teams, max_blocks);
+        int conc = num_blocks * num_teams;
+        int yblocks = num_batch / output_length;
+        std::cout << ((yblocks >= conc) ? "ok" : "suboptimal") << "  " << conc << "  " << yblocks << "\n";
       kernel::cycle2<precision, dims, n, team_size, num_teams>
           <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
-    }else{
-      kernel::cycle2<precision, dims, n, team_size, num_teams, 32>
+  }else{
+      int num_blocks = blocks(num_batch, segment_size * team_size, max_blocks);
+        int conc = num_blocks * num_teams;
+        int yblocks = num_batch / output_length;
+        std::cout << ((yblocks >= conc) ? "ok" : "suboptimal") << "  " << conc << "  " << yblocks << "\n";
+      kernel::cycle2<precision, dims, n, team_size, num_teams, segment_size>
           <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch, output_length);
-    }
-  //}else{
-  //  kernel::cycle2<precision, dims, n, team_size, num_teams>
-  //      <<<num_blocks, grid>>>(pA, lda, pX, pY, num_batch);
-  //}
+  }
 }
 
 /*!
@@ -185,6 +188,10 @@ void run_kernelx(precision const *const pA[], int const lda,
                 "tensor size must be less than the max number of threads");
 
   int num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  //int conc = num_blocks * num_teams;
+  //int yblocks = num_batch / output_length;
+  //std::cout << ((yblocks <= conc) ? "ok" : "suboptimal") << "  " << conc << "  " << yblocks << "\n";
 
   dim3 grid(team_size, num_teams);
   kernel::cyclex<precision, dims, n, team_size, num_teams, num_cycles>
@@ -390,7 +397,7 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
       run_kernel2<T, 4, 3>(pA, lda, pX, pY, num_batch);
       break;
     case 4:
-      run_kernel2<T, 4, 4>(pA, lda, pX, pY, num_batch);
+      run_kernel2<T, 4, 4>(pA, lda, pX, pY, num_batch, output_length);
       break;
     case 5:
       run_kernel2<T, 4, 5>(pA, lda, pX, pY, num_batch);

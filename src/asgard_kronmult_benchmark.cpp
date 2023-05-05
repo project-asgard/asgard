@@ -20,9 +20,9 @@ int main(int argc, char **argv)
 
   int dimensions    = std::stoi(argv[1]);
   int n             = std::stoi(argv[2]);
-  int num_y         = std::stoi(argv[5]);
-  int operator_size = std::stoi(argv[3]);
-  int num_matrices  = std::stoi(argv[4]);
+  int num_y         = std::stoi(argv[3]);
+  int operator_size = std::stoi(argv[4]);
+  int num_matrices  = std::stoi(argv[5]);
 
 
   std::cout << "benchmarking:\n"

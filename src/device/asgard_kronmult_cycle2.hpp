@@ -324,7 +324,7 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
   }
 }
 
-template<typename T, int dims, int n, int team_size, int num_teams, int output_stride>
+template<typename T, int dims, int n, int team_size, int num_teams, int output_segment>
 __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
                        T *pY[], int const num_batch, int const output_length)
 {
@@ -348,7 +348,7 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
   __shared__ T X[num_teams][2 * team_size];
   __shared__ T A[num_teams][team_size];
 
-  int const num_segments = (output_length + output_stride -1) / output_stride;
+  int const num_segments = (output_length + output_segment -1) / output_segment;
 
   int t = threadIdx.y + blockIdx.x * blockDim.y;
 
@@ -435,12 +435,12 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
   int const ix01 = n * ((threadIdx.x + team_size) / n);
   int const ia01 = (threadIdx.x + team_size) % n;
 
-  int i = output_length * (t / num_segments) + output_stride * (t % num_segments);
+  int i = output_length * (t / num_segments) + output_segment * (t % num_segments);
 
   while (i < num_batch)
   {
-    int const iend = (output_stride * (t % num_segments) + output_stride < output_length) ?
-                     (i + output_stride) : (output_length * (t / num_segments) + output_length);
+    int const iend = (output_segment * (t % num_segments) + output_segment < output_length) ?
+                     (i + output_segment) : (output_length * (t / num_segments) + output_length);
     T yinc0 = 0, yinc1 = 0;
     for(int idx=i; idx<iend; idx++){
 
@@ -638,7 +638,7 @@ __global__ void cycle2(T const *const pA[], int const lda, T const *const pX[],
     }
 
     t += gridDim.x * blockDim.y;
-    i = output_length * (t / num_segments) + output_stride * (t % num_segments);
+    i = output_length * (t / num_segments) + output_segment * (t % num_segments);
 
     if constexpr (sync_mode == manual_sync::enable)
       __syncthreads();
