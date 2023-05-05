@@ -349,15 +349,12 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
   auto const total_kronmults = my_subgrid.size() * pde.num_terms;
   auto const flops = pde.num_dims * 2.0 * (std::pow(degree, pde.num_dims + 1)) *
                      total_kronmults;
-  int const per_output_tensor = my_subgrid.ncols() * pde.num_terms;
-
-  std::cout << "numy = " << total_kronmults / per_output_tensor 
-            << "  conc = " << 300 * (1024 / (int) std::pow(degree, pde.num_dims)) << "\n";
+  int const output_stride = my_subgrid.ncols() * pde.num_terms;
 
   tools::timer.start("kronmult");
   call_kronmult(degree, workspace.get_input_ptrs(), workspace.get_output_ptrs(),
                 workspace.get_operator_ptrs(), lda, total_kronmults,
-                pde.num_dims, per_output_tensor);
+                pde.num_dims, output_stride);
   tools::timer.stop("kronmult", flops);
 
   return fx;

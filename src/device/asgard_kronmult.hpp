@@ -16,7 +16,7 @@ namespace asgard::kronmult
  */
 template<typename T>
 void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch, int const output_length = -1);
+                 T *pX[], T *pY[], int const num_batch, int const output_stride);
 #endif
 
 /*!
@@ -104,9 +104,10 @@ void run_cpu_variant(int n, T const *const pA[], int const lda,
  * \param pX is the pointer to the input tensors
  * \param pY is the pointer to the output tensors
  * \param num_batch is the number of kron entries in this batch
+ * \param output_stride number of consecutive outputs in pY
  */
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const *const pX[], T *pY[], int const num_batch, int const output_length = -1);
+                 T const *const pX[], T *pY[], int const num_batch, int const output_stride);
 
 } // namespace asgard::kronmult

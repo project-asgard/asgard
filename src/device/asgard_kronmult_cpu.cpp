@@ -10,17 +10,17 @@ namespace asgard::kronmult
 template<typename T>
 void run_cpu_variant0(int const dimensions, T const *const pA[],
                       T const *const pX[], T *pY[], int const num_batch,
-                      int const output_length)
+                      int const output_stride)
 {
 
-  int const num_y = num_batch / output_length;
+  int const num_y = num_batch / output_stride;
 
 #pragma omp parallel for
   for (int iy = 0; iy < num_y; iy++)
   {
-    for(int output_stride = 0; output_stride < output_length; output_stride ++)
+    for(int stride = 0; stride < output_stride; stride ++)
     {
-      int const i = iy * output_length + output_stride;
+      int const i = iy * output_stride + stride;
       T totalA = 1;
       for (int j = 0; j < dimensions; j++)
       {
@@ -40,21 +40,21 @@ template void run_cpu_variant0<double>(int const, double const *const[],
 
 template<typename T, int dimensions, int n>
 void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
-                     T *pY[], int const num_batch, int const output_length)
+                     T *pY[], int const num_batch, int const output_stride)
 {
   static_assert(1 <= dimensions and dimensions <= 6);
   static_assert(n > 1, "n must be positive and n==1 is a special case handled "
                        "by another method");
 
-  int const num_y = num_batch / output_length;
+  int const num_y = num_batch / output_stride;
 
 // always use one thread per kron-product
 #pragma omp parallel for
   for (int iy = 0; iy < num_y; iy++)
   {
-    for(int output_stride = 0; output_stride < output_length; output_stride ++)
+    for(int stride = 0; stride < output_stride; stride ++)
     {
-      int const i = iy * output_length + output_stride;
+      int const i = iy * output_stride + stride;
       if constexpr (dimensions == 1)
       {
         T Y[n] = {{0}};

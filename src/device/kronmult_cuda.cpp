@@ -295,19 +295,18 @@ void prepare_kronmult(int const *const flattened_table,
 template<typename P>
 void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[],
                    P const *const operator_ptrs[], int const lda,
-                   int const num_krons, int const num_dims, int const output_length)
+                   int const num_krons, int const num_dims, int const output_stride)
 {
-    //std::cout << num_krons <<"  " << output_length << "\n";
 #ifdef ASGARD_USE_CUDA
   // if a GPU kernel is not available, thow an error
   kronmult::execute_gpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                           num_krons, output_length);
+                           num_krons, output_stride);
   auto const stat = cudaDeviceSynchronize();
   expect(stat == cudaSuccess);
 #else
   // all new kernels are ready for the CPU
   kronmult::execute_cpu<P>(num_dims, n, operator_ptrs, lda, x_ptrs, output_ptrs,
-                           num_krons, output_length);
+                           num_krons, output_stride);
 #endif
 }
 

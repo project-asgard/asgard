@@ -72,9 +72,9 @@ private:
 template<typename T, int dimensions>
 void run_cpu_variant(int const n, T const *const pA[], int const lda,
                      T const *const pX[], T *pY[], int const num_batch,
-                     int const output_length)
+                     int const output_stride)
 {
-  int const num_y = num_batch / output_length;
+  int const num_y = num_batch / output_stride;
 
 #pragma omp parallel
   {
@@ -83,9 +83,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
 #pragma omp for
     for (int iy = 0; iy < num_y; iy++)
     {
-      for(int output_stride = 0; output_stride < output_length; output_stride ++)
+      for(int stride = 0; stride < output_stride; stride ++)
       {
-        int const i = iy * output_length + output_stride;
+        int const i = iy * output_stride + stride;
         if constexpr (dimensions == 1)
         {
           Y.zero();
