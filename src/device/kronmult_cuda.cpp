@@ -295,7 +295,8 @@ void prepare_kronmult(int const *const flattened_table,
 template<typename P>
 void call_kronmult(int const n, P *x_ptrs[], P *output_ptrs[],
                    P const *const operator_ptrs[], int const lda,
-                   int const num_krons, int const num_dims, int const output_stride)
+                   int const num_krons, int const num_dims,
+                   int const output_stride)
 {
 #ifdef ASGARD_USE_CUDA
   // if a GPU kernel is not available, thow an error

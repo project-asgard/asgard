@@ -12,16 +12,15 @@ void run_cpu_variant0(int const dimensions, T const *const pA[],
                       T const *const pX[], T *pY[], int const num_batch,
                       int const output_stride)
 {
-
   int const num_y = num_batch / output_stride;
 
 #pragma omp parallel for
   for (int iy = 0; iy < num_y; iy++)
   {
-    for(int stride = 0; stride < output_stride; stride ++)
+    for (int stride = 0; stride < output_stride; stride++)
     {
       int const i = iy * output_stride + stride;
-      T totalA = 1;
+      T totalA    = 1;
       for (int j = 0; j < dimensions; j++)
       {
         totalA *= pA[dimensions * i + j][0];
@@ -52,7 +51,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
 #pragma omp parallel for
   for (int iy = 0; iy < num_y; iy++)
   {
-    for(int stride = 0; stride < output_stride; stride ++)
+    for (int stride = 0; stride < output_stride; stride++)
     {
       int const i = iy * output_stride + stride;
       if constexpr (dimensions == 1)
@@ -146,22 +145,25 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
-                  W[s][p][l][k] += pX[i][n * n * n * j + n * n * p + n * l + k] *
-                                   pA[4 * i][j * lda + s];
+                  W[s][p][l][k] +=
+                      pX[i][n * n * n * j + n * n * p + n * l + k] *
+                      pA[4 * i][j * lda + s];
         for (int j = 0; j < n; j++)
           for (int p = 0; p < n; p++)
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
                   Y[p][s][l][k] += W[p][j][l][k] * pA[4 * i + 1][j * lda + s];
-        std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
+        std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(T),
+                  T{0.});
         for (int j = 0; j < n; j++)
           for (int p = 0; p < n; p++)
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
                   W[p][l][s][k] += Y[p][l][j][k] * pA[4 * i + 2][j * lda + s];
-        std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
+        std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(T),
+                  T{0.});
         for (int j = 0; j < n; j++)
           for (int p = 0; p < n; p++)
             for (int l = 0; l < n; l++)
@@ -191,9 +193,10 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   for (int s = 0; s < n; s++)
-                    Y[s][v][p][l][k] += pX[i][n * n * n * n * j + n * n * n * v +
-                                              n * n * p + n * l + k] *
-                                        pA[5 * i][j * lda + s];
+                    Y[s][v][p][l][k] +=
+                        pX[i][n * n * n * n * j + n * n * n * v + n * n * p +
+                              n * l + k] *
+                        pA[5 * i][j * lda + s];
         for (int j = 0; j < n; j++)
           for (int v = 0; v < n; v++)
             for (int p = 0; p < n; p++)
@@ -341,7 +344,7 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
         }
       }
     } // for output-length
-  } // for loop
+  }   // for loop
 }
 
 // explicit instantiation for n=2, 3, 4 and up to 6D

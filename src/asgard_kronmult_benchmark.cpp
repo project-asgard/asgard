@@ -24,11 +24,9 @@ int main(int argc, char **argv)
   int operator_size = std::stoi(argv[4]);
   int num_matrices  = std::stoi(argv[5]);
 
-
   std::cout << "benchmarking:\n"
             << "dimensions: " << dimensions << "  n: " << n
-            << "  num_y: " << num_y
-            << "  operator_size: " << operator_size
+            << "  num_y: " << num_y << "  operator_size: " << operator_size
             << "  num_matrices: " << num_matrices << "\n";
 
   constexpr bool compute_refrence_solution = false;

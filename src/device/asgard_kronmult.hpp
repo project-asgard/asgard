@@ -16,7 +16,8 @@ namespace asgard::kronmult
  */
 template<typename T>
 void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch, int const output_stride);
+                 T *pX[], T *pY[], int const num_batch,
+                 int const output_stride);
 #endif
 
 /*!
@@ -108,6 +109,7 @@ void run_cpu_variant(int n, T const *const pA[], int const lda,
  */
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const *const pX[], T *pY[], int const num_batch, int const output_stride);
+                 T const *const pX[], T *pY[], int const num_batch,
+                 int const output_stride);
 
 } // namespace asgard::kronmult

@@ -542,8 +542,10 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_cpu<float>(int, int, float const *const[], int const,
-                                 float const *const[], float *[], int const, int const);
+                                 float const *const[], float *[], int const,
+                                 int const);
 template void execute_cpu<double>(int, int, double const *const[], int const,
-                                  double const *const[], double *[], int const, int const);
+                                  double const *const[], double *[], int const,
+                                  int const);
 
 } // namespace asgard::kronmult

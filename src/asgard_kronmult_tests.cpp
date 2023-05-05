@@ -12,7 +12,8 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
 }
 
 template<typename T>
-void test_kronmult_cpu(int dimensions, int n, int num_y, int output_length, int num_matrices)
+void test_kronmult_cpu(int dimensions, int n, int num_y, int output_length,
+                       int num_matrices)
 {
   auto data =
       make_kronmult_data<T>(dimensions, n, num_y, output_length, num_matrices);
@@ -96,7 +97,8 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
 #ifdef ASGARD_USE_CUDA
 
 template<typename T>
-void test_kronmult_gpu(int dimensions, int n, int num_y, int output_length, int num_matrices)
+void test_kronmult_gpu(int dimensions, int n, int num_y, int output_length,
+                       int num_matrices)
 {
   auto data =
       make_kronmult_data<T>(dimensions, n, num_y, output_length, num_matrices);

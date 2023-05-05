@@ -7,7 +7,6 @@
 
 namespace asgard::kronmult
 {
-
 template<typename T, int dimensions>
 class tensor
 {
@@ -83,7 +82,7 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
 #pragma omp for
     for (int iy = 0; iy < num_y; iy++)
     {
-      for(int stride = 0; stride < output_stride; stride ++)
+      for (int stride = 0; stride < output_stride; stride++)
       {
         int const i = iy * output_stride + stride;
         if constexpr (dimensions == 1)
@@ -259,8 +258,8 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                 {
                   for (int k = 0; k < n; k++)
                   {
-                    pY[i][n * n * n * n * j + n * n * n * v + n * n * p + n * l +
-                          k] += Y(j, v, p, l, k);
+                    pY[i][n * n * n * n * j + n * n * n * v + n * n * p +
+                          n * l + k] += Y(j, v, p, l, k);
                   }
                 }
               }
@@ -361,7 +360,7 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
 #define asgard_kronmult_cpu_instantiate(d)                                    \
   template void run_cpu_variant<float, (d)>(                                  \
       int n, float const *const pA[], int const lda, float const *const pX[], \
-      float *pY[], int const num_batch, int const);                                      \
+      float *pY[], int const num_batch, int const);                           \
   template void run_cpu_variant<double, (d)>(                                 \
       int n, double const *const pA[], int const lda,                         \
       double const *const pX[], double *pY[], int const num_batch, int const)
