@@ -204,7 +204,7 @@ if (ASGARD_USE_CUDA)
         if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES AND "$ENV{CUDAARCHS}" STREQUAL "")
             message(FATAL_ERROR
 "If using CMake prior to 3.24 the user must specify either \
-CMAKE_CUDA_ARCHITECTURES or environment variable CUDAARCH \
+CMAKE_CUDA_ARCHITECTURES or environment variable CUDAARCHS \
 and the architecture has to be set to 60 or newer, \
 which is the minimum that enables double precision atomic operations. \
 CMAKE_CUDA_ARCHITECTURES could be specified as empty or 'False', \

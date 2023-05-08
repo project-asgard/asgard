@@ -120,10 +120,10 @@ void run_kernel2(precision const *const pA[], int const lda,
   constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
   constexpr int num_teams   = max_threads / team_size;
 
+  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
+
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
-
-  int num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   kernel::cycle2<precision, dims, n, team_size, num_teams>
@@ -150,7 +150,7 @@ void run_kernelx(precision const *const pA[], int const lda,
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
 
-  int num_blocks = blocks(num_batch, num_teams, max_blocks);
+  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   kernel::cyclex<precision, dims, n, team_size, num_teams, num_cycles>
@@ -159,7 +159,7 @@ void run_kernelx(precision const *const pA[], int const lda,
 
 template<typename T>
 void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch)
+                 T *pX[], T *pY[], int const num_batch, int const)
 {
   switch (dimensions)
   {
@@ -408,15 +408,16 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_gpu<float>(int, int, float const *const[], int const,
-                                 float *[], float *[], int const);
+                                 float *[], float *[], int const, int const);
 template void execute_gpu<double>(int, int, double const *const[], int const,
-                                  double *[], double *[], int const);
+                                  double *[], double *[], int const, int const);
 
 #endif
 
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const *const pX[], T *pY[], int const num_batch)
+                 T const *const pX[], T *pY[], int const num_batch,
+                 int const output_stride)
 {
   switch (dimensions)
   {
@@ -424,114 +425,114 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_stride);
       break;
     case 2:
-      run_cpu_variant<T, 1, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 2>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 3:
-      run_cpu_variant<T, 1, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 3>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 4:
-      run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     default:
-      run_cpu_variant<T, 1>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 1>(n, pA, lda, pX, pY, num_batch, output_stride);
     }
     break;
   case 2:
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_stride);
       break;
     case 2:
-      run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 3:
-      run_cpu_variant<T, 2, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 3>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 4:
-      run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     default:
-      run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_stride);
     }
     break;
   case 3:
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_stride);
       break;
     case 2:
-      run_cpu_variant<T, 3, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3, 2>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 3:
-      run_cpu_variant<T, 3, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3, 3>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 4:
-      run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3, 4>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     default:
-      run_cpu_variant<T, 3>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 3>(n, pA, lda, pX, pY, num_batch, output_stride);
     }
     break;
   case 4:
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_stride);
       break;
     case 2:
-      run_cpu_variant<T, 4, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4, 2>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 3:
-      run_cpu_variant<T, 4, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4, 3>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 4:
-      run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4, 4>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     default:
-      run_cpu_variant<T, 4>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 4>(n, pA, lda, pX, pY, num_batch, output_stride);
     }
     break;
   case 5:
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_stride);
       break;
     case 2:
-      run_cpu_variant<T, 5, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5, 2>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 3:
-      run_cpu_variant<T, 5, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5, 3>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 4:
-      run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5, 4>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     default:
-      run_cpu_variant<T, 5>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 5>(n, pA, lda, pX, pY, num_batch, output_stride);
     }
     break;
   case 6:
     switch (n)
     {
     case 1:
-      run_cpu_variant0(dimensions, pA, pX, pY, num_batch);
+      run_cpu_variant0(dimensions, pA, pX, pY, num_batch, output_stride);
       break;
     case 2:
-      run_cpu_variant<T, 6, 2>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6, 2>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 3:
-      run_cpu_variant<T, 6, 3>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6, 3>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     case 4:
-      run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6, 4>(pA, lda, pX, pY, num_batch, output_stride);
       break;
     default:
-      run_cpu_variant<T, 6>(n, pA, lda, pX, pY, num_batch);
+      run_cpu_variant<T, 6>(n, pA, lda, pX, pY, num_batch, output_stride);
     }
     break;
   default:
@@ -541,8 +542,10 @@ void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
 }
 
 template void execute_cpu<float>(int, int, float const *const[], int const,
-                                 float const *const[], float *[], int const);
+                                 float const *const[], float *[], int const,
+                                 int const);
 template void execute_cpu<double>(int, int, double const *const[], int const,
-                                  double const *const[], double *[], int const);
+                                  double const *const[], double *[], int const,
+                                  int const);
 
 } // namespace asgard::kronmult

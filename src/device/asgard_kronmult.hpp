@@ -16,27 +16,9 @@ namespace asgard::kronmult
  */
 template<typename T>
 void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch);
+                 T *pX[], T *pY[], int const num_batch,
+                 int const output_stride);
 #endif
-
-/*!
- * \brief Indicates whether specific kernel has been implemented.
- *
- * Will be removed when we switch to only one kronmult implementation.
- */
-struct is_implemented
-{
-  static bool gpu(int dimensions, int n)
-  {
-    std::set<int> available(
-        {201,  301,  401,  501,  601,  701,  801,  901,  1001, 202,  302,  402,
-         502,  602,  702,  802,  902,  1002, 1102, 1202, 1302, 1402, 1502, 1602,
-         1702, 1802, 1902, 2002, 2102, 2202, 2302, 2402, 2502, 2602, 2702, 2802,
-         2902, 3002, 3102, 3202, 203,  303,  403,  503,  603,  703,  803,  903,
-         1003, 204,  304,  404,  504,  205,  305,  405,  206,  306,  406});
-    return (available.find(100 * n + dimensions) != available.end());
-  }
-};
 
 /*!
  * \brief Handles the special case of n=1
@@ -49,7 +31,7 @@ struct is_implemented
  */
 template<typename T>
 void run_cpu_variant0(int dimensions, T const *const pA[], T const *const pX[],
-                      T *pY[], int const num_batch);
+                      T *pY[], int const num_batch, int const output_length);
 
 /*!
  * \brief Baseline kronmult algorithm on the CPU.
@@ -68,7 +50,7 @@ void run_cpu_variant0(int dimensions, T const *const pA[], T const *const pX[],
  */
 template<typename T, int dimensions, int n>
 void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
-                     T *pY[], int const num_batch);
+                     T *pY[], int const num_batch, int const output_length);
 
 /*!
  * \brief Kronmult algorithm that allows for arbitrary n.
@@ -80,7 +62,8 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
  */
 template<typename T, int dimensions>
 void run_cpu_variant(int n, T const *const pA[], int const lda,
-                     T const *const pX[], T *pY[], int const num_batch);
+                     T const *const pX[], T *pY[], int const num_batch,
+                     int const output_length);
 
 /*!
  * \brief Performs a batch of kronmult operations using the CPU.
@@ -103,9 +86,11 @@ void run_cpu_variant(int n, T const *const pA[], int const lda,
  * \param pX is the pointer to the input tensors
  * \param pY is the pointer to the output tensors
  * \param num_batch is the number of kron entries in this batch
+ * \param output_stride number of consecutive outputs in pY
  */
 template<typename T>
 void execute_cpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T const *const pX[], T *pY[], int const num_batch);
+                 T const *const pX[], T *pY[], int const num_batch,
+                 int const output_stride);
 
 } // namespace asgard::kronmult
