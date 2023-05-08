@@ -102,12 +102,12 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     case 2:
       cpu_dense<T, 1, 2>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
       break;
-    //case 3:
-    //  run_cpu_variant<T, 1, 3>(pA, lda, pX, pY, num_batch, output_stride);
-    //  break;
-    //case 4:
-    //  run_cpu_variant<T, 1, 4>(pA, lda, pX, pY, num_batch, output_stride);
-    //  break;
+    case 3:
+      cpu_dense<T, 1, 3>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 4:
+      cpu_dense<T, 1, 4>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
     default:
       throw std::runtime_error("unimplemented");
     }
@@ -118,21 +118,40 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     case 1:
       cpu_n0(dimensions, num_rows, num_terms, iA, vA, alpha, x, beta, y);
       break;
-    //case 2:
-    //  run_cpu_variant<T, 2, 2>(pA, lda, pX, pY, num_batch, output_stride);
-    //  break;
-    //case 3:
-    //  run_cpu_variant<T, 2, 3>(pA, lda, pX, pY, num_batch, output_stride);
-    //  break;
-    //case 4:
-    //  run_cpu_variant<T, 2, 4>(pA, lda, pX, pY, num_batch, output_stride);
-    //  break;
+    case 2:
+      cpu_dense<T, 2, 2>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 3:
+      cpu_dense<T, 2, 3>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 4:
+      cpu_dense<T, 2, 4>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
     default:
       //run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_stride);
       throw std::runtime_error("unimplemented");
     }
     break;
-
+  case 3:
+    switch (n)
+    {
+    case 1:
+      cpu_n0(dimensions, num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 2:
+      cpu_dense<T, 3, 2>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 3:
+      cpu_dense<T, 3, 3>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 4:
+      cpu_dense<T, 3, 4>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    default:
+      //run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_stride);
+      throw std::runtime_error("unimplemented");
+    }
+    break;
   default:
     throw std::runtime_error(
         "kronmult unimplemented number of dimensions for the cpu");

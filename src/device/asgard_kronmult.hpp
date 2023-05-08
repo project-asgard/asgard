@@ -4,6 +4,7 @@
 #include <set>
 
 #include "asgard_kronmult_common.hpp"
+#include "asgard_kronmult_v2.hpp"
 
 namespace asgard::kronmult
 {

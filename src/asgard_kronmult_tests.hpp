@@ -2,6 +2,7 @@
 #pragma once
 
 #include "./device/asgard_kronmult.hpp"
+#include "./kronmult.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
@@ -19,6 +20,8 @@ template<typename T>
 struct kronmult_intputs
 {
   int num_batch, output_size;
+
+  std::vector<int> pointer_map;
 
   std::vector<T> matrices;
   std::vector<T> input_x;
@@ -126,7 +129,7 @@ void reference_kronmult(int dimensions, int n, T const *const pA[],
  *          the pA, pX and pY pointer arrays
  *
  */
-template<typename T, bool compute_reference = true>
+template<typename T, bool compute_reference = true, bool randomx = true>
 std::unique_ptr<kronmult_intputs<T>>
 make_kronmult_data(int dimensions, int n, int num_y, int output_length,
                    int num_matrices)
@@ -141,11 +144,10 @@ make_kronmult_data(int dimensions, int n, int num_y, int output_length,
   for (int i = 0; i < dimensions; i++)
     num_data *= n;
 
-  std::vector<int> pointer_map((dimensions + 2) * num_batch);
-
   auto result         = std::make_unique<kronmult_intputs<T>>();
   result->num_batch   = num_batch;
   result->output_size = output_length;
+  result->pointer_map = std::vector<int>((dimensions + 2) * num_batch);
   result->matrices    = std::vector<T>(n * n * num_matrices);
   result->input_x     = std::vector<T>(num_data * num_y);
   result->output_y    = std::vector<T>(num_data * num_y);
@@ -158,13 +160,13 @@ make_kronmult_data(int dimensions, int n, int num_y, int output_length,
   // the first entry of each strip is the input x
   // the next d entries are the matrices
   // the final entry is the output y
-  auto ip = pointer_map.begin();
+  auto ip = result->pointer_map.begin();
   int iy  = -1;
   for (int i = 0; i < num_batch; i++)
   {
     if (i % output_length == 0)
       iy++;
-    *ip++ = uniy(park_miller);
+    *ip++ = (randomx) ? uniy(park_miller) : i % output_length;
     for (int j = 0; j < dimensions; j++)
       *ip++ = unim(park_miller);
     *ip++ = iy;
@@ -184,7 +186,7 @@ make_kronmult_data(int dimensions, int n, int num_y, int output_length,
 
   result->reference_y = result->output_y;
 
-  ip = pointer_map.begin();
+  ip = result->pointer_map.begin();
   for (int i = 0; i < num_batch; i++)
   {
     result->pX[i] = &(result->input_x[*ip++ * num_data]);
@@ -197,7 +199,7 @@ make_kronmult_data(int dimensions, int n, int num_y, int output_length,
     reference_kronmult(dimensions, n, result->pA.data(), result->pX.data(),
                        result->pY.data(), result->num_batch);
 
-  ip = pointer_map.begin();
+  ip = result->pointer_map.begin();
   for (int i = 0; i < num_batch; i++)
   {
     ip += dimensions + 1;
@@ -214,7 +216,7 @@ make_kronmult_data(int dimensions, int n, int num_y, int output_length,
   std::vector<T *> pY(result->pY.size());
   std::vector<T *> pA(result->pA.size());
 
-  ip = pointer_map.begin();
+  ip = result->pointer_map.begin();
   for (int i = 0; i < num_batch; i++)
   {
     pX[i] = result->gpux.begin() + *ip++ * num_data;

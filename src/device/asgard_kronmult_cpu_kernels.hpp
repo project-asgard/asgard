@@ -82,10 +82,12 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
         {
           T const *A = &(vA[iA[ma++]]);
           T Y[n] = {{0}};
+#pragma omp simd collapse(2)
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
-              Y[k] += A[j * n + k] * x[tj + k];
+              Y[j] += A[j * n + k] * x[tj + k];
 
+#pragma omp simd
           for (int j = 0; j < n; j++)
             if constexpr(alpha_case == scalar_case::one)
               y[ti + j] += Y[j];
@@ -93,6 +95,59 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
               y[ti + j] -= Y[j];
             else
               y[ti + j] += alpha * Y[j];
+        }
+        else if constexpr (dimensions == 2)
+        {
+          T const *A1 = &(vA[iA[ma++]]);
+          T W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
+#pragma omp simd collapse(3)
+          for (int s = 0; s < n; s++)
+            for (int j = 0; j < n; j++)
+              for (int k = 0; k < n; k++)
+                W[s][k] += x[tj + n * j + k] * A1[j + s * n];
+          T const *A0 = &(vA[iA[ma++]]);
+#pragma omp simd collapse(3)
+          for (int s = 0; s < n; s++)
+            for (int k = 0; k < n; k++)
+              for (int j = 0; j < n; j++)
+                Y[k][s] += A0[j + s * n] * W[k][j];
+#pragma omp simd collapse(2)
+          for (int j = 0; j < n; j++)
+            for (int k = 0; k < n; k++)
+              y[ti + n * j + k] += Y[j][k];
+        }
+        else if constexpr (dimensions == 3)
+        {
+          T const *A2 = &(vA[iA[ma++]]);
+          T W[n][n][n] = {{{{0}}}}, Y[n][n][n] = {{{{0}}}};
+          for (int j = 0; j < n; j++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                for (int s = 0; s < n; s++)
+                  Y[s][l][k] +=
+                      x[tj + n * n * j + n * l + k] * A2[s * n + j];
+          T const *A1 = &(vA[iA[ma++]]);
+          for (int j = 0; j < n; j++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                for (int s = 0; s < n; s++)
+                  W[l][s][k] += Y[l][j][k] * A1[s * n + j];
+          std::fill(&Y[0][0][0], &Y[0][0][0] + sizeof(W) / sizeof(T), T{0.});
+          T const *A0 = &(vA[iA[ma++]]);
+          for (int j = 0; j < n; j++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                for (int s = 0; s < n; s++)
+                  Y[l][k][s] += A0[s * n + j] * W[l][k][j];
+          for (int j = 0; j < n; j++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                if constexpr(alpha_case == scalar_case::one)
+                  y[ti + n * n * j + n * l + k] += Y[j][l][k];
+                else if constexpr(alpha_case == scalar_case::neg_one)
+                  y[ti + n * n * j + n * l + k] -= Y[j][l][k];
+                else
+                  y[ti + n * n * j + n * l + k] += alpha * Y[j][l][k];
         }
       }
     }
@@ -103,57 +158,7 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
 //    {
 //      int const i = iy * output_stride + stride;
 //      if constexpr (dimensions == 1)
-//      {
-//        T Y[n] = {{0}};
-//        for (int j = 0; j < n; j++)
-//        {
-//          for (int k = 0; k < n; k++)
-//          {
-//            Y[k] += pA[i][j * lda + k] * pX[i][j];
-//          }
-//        }
-//        for (int j = 0; j < n; j++)
-//        {
-//          pY[i][j] += Y[j];
-//        }
-//      }
 //      else if constexpr (dimensions == 2)
-//      {
-//        if constexpr (n == 2)
-//        {
-//          T w0 = pX[i][0] * pA[2 * i][0] + pX[i][2] * pA[2 * i][lda];
-//          T w1 = pX[i][1] * pA[2 * i][0] + pX[i][3] * pA[2 * i][lda];
-//          T w2 = pX[i][0] * pA[2 * i][1] + pX[i][2] * pA[2 * i][lda + 1];
-//          T w3 = pX[i][1] * pA[2 * i][1] + pX[i][3] * pA[2 * i][lda + 1];
-//          T y0 = pA[2 * i + 1][0] * w0 + pA[2 * i + 1][lda] * w1;
-//          T y1 = pA[2 * i + 1][1] * w0 + pA[2 * i + 1][lda + 1] * w1;
-//          T y2 = pA[2 * i + 1][0] * w2 + pA[2 * i + 1][lda] * w3;
-//          T y3 = pA[2 * i + 1][1] * w2 + pA[2 * i + 1][lda + 1] * w3;
-//          pY[i][0] += y0;
-//          pY[i][1] += y1;
-//          pY[i][2] += y2;
-//          pY[i][3] += y3;
-//        }
-//        else if constexpr (n >= 3)
-//        {
-//          T W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
-//          for (int j = 0; j < n; j++)
-//            for (int k = 0; k < n; k++)
-//              for (int s = 0; s < n; s++)
-//                W[s][k] += pX[i][n * j + k] * pA[2 * i][j * lda + s];
-//          for (int j = 0; j < n; j++)
-//            for (int k = 0; k < n; k++)
-//              for (int s = 0; s < n; s++)
-//                Y[k][s] += pA[2 * i + 1][j * lda + s] * W[k][j];
-//          for (int j = 0; j < n; j++)
-//          {
-//            for (int k = 0; k < n; k++)
-//            {
-//              pY[i][n * j + k] += Y[j][k];
-//            }
-//          }
-//        }
-//      }
 //      else if constexpr (dimensions == 3)
 //      {
 //        T W[n][n][n] = {{{{0}}}}, Y[n][n][n] = {{{{0}}}};

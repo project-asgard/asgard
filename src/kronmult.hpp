@@ -6,6 +6,8 @@
 #include "pde.hpp"
 #include "tensors.hpp"
 
+#include "./device/asgard_kronmult.hpp"
+
 // this interface between the low level kernels in src/device
 // and the higher level data-structures
 
@@ -49,9 +51,10 @@ class kronmult_matrix
 public:
   kronmult_matrix(int num_dimensions_, int kron_size_, int num_rows_, int num_columns_,
                   fk::vector<int, mem_type::const_view, resource::host> const &index_A,
-                  fk::vector<int, mem_type::const_view, resource::host> const &values_A)
+                  fk::vector<precision, mem_type::const_view, resource::host> const &values_A)
     : num_dimensions(num_dimensions_), kron_size(kron_size_), num_rows(num_rows_),
-      num_columns(num_columns_), num_terms(num_columns / num_rows)
+      num_columns(num_columns_), num_terms(num_columns / num_rows),
+      iA(index_A.size()), vA(values_A.size())
   {
     if constexpr (data_mode == resource::host){
         iA = index_A;
@@ -63,7 +66,7 @@ public:
   }
   kronmult_matrix(int num_dimensions_, int kron_size_, int num_rows_, int num_columns_,
                   fk::vector<int, mem_type::owner, resource::host> &&index_A,
-                  fk::vector<int, mem_type::owner, resource::host> &&values_A,
+                  fk::vector<precision, mem_type::owner, resource::host> &&values_A,
                   std::enable_if_t<data_mode == resource::host>* = nullptr)
     : num_dimensions(num_dimensions_), kron_size(kron_size_), num_rows(num_rows_),
       num_columns(num_columns_), num_terms(num_columns / num_rows),
@@ -71,8 +74,8 @@ public:
   {}
 
   //! \brief Computes y = alpha * kronmult_matrix + beta * y
-  void apply(precision alpha, fk::vector<precision, mem_type::const_view, data_mode> const &x,
-             precision beta, fk::vector<precision, mem_type::view, data_mode> *y){
+  void apply(precision alpha, precision const x[], precision beta, precision y[]){
+    kronmult::cpu_dense(num_dimensions, kron_size, num_rows, 1, iA.data(), vA.data(), alpha, x, beta, y);
   }
 
 private:
