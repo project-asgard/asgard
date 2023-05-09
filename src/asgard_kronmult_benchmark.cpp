@@ -31,9 +31,9 @@ int main(int argc, char **argv)
 
   constexpr bool compute_refrence_solution = false;
   auto time_start                          = std::chrono::system_clock::now();
-  auto fdata = make_kronmult_data<float, compute_refrence_solution>(
+  auto fdata = make_kronmult_data<float, compute_refrence_solution, false>(
       dimensions, n, num_y, operator_size, num_matrices);
-  auto ddata = make_kronmult_data<double, compute_refrence_solution>(
+  auto ddata = make_kronmult_data<double, compute_refrence_solution, false>(
       dimensions, n, num_y, operator_size, num_matrices);
   auto time_end = std::chrono::system_clock::now();
   double elapsed =
@@ -51,14 +51,47 @@ int main(int argc, char **argv)
       1.E-6; // Gflops is flops * 1.E-9, milliseconds is seconds * 1.E+3
   constexpr int num_tests = 100;
 
+  asgard::fk::vector<float> fvA(num_matrices * n * n);
+  asgard::fk::vector<double> dvA(num_matrices * n * n);
+  for (int k=0; k<num_matrices; k++)
+    for (int i=0; i<n; i++)
+      for (int j=0; j<n; j++){
+        fvA(k * n * n + i * n + j) = fdata->matrices[k * n * n + j * n + i];
+        dvA(k * n * n + i * n + j) = ddata->matrices[k * n * n + j * n + i];
+      }
+
+  asgard::fk::vector<int> fiA(fdata->num_batch * dimensions);
+  asgard::fk::vector<int> diA(ddata->num_batch * dimensions);
+  auto ip = fdata->pointer_map.begin();
+  for (int i = 0; i < fdata->num_batch; i++)
+  {
+    ip++;
+    for (int j = 0; j < dimensions; j++)
+    {
+      fiA(i*dimensions + j) = n * n * (*ip);
+      diA(i*dimensions + j) = n * n * (*ip++);
+    }
+    ip++;
+  }
+
+  asgard::kronmult_matrix<float, asgard::resource::host>
+    fmat(dimensions, n, num_y, operator_size,
+         asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
+         asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
+  asgard::kronmult_matrix<double, asgard::resource::host>
+    dmat(dimensions, n, num_y, operator_size,
+         asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
+         asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
+
 // dry run to wake up the devices
 #ifdef ASGARD_USE_CUDA
   execute_gpu(dimensions, n, fdata->gpupA.data(), n, fdata->gpupX.data(),
               fdata->gpupY.data(), fdata->num_batch, fdata->output_size);
   cudaDeviceSynchronize();
 #else
-  execute_cpu(dimensions, n, fdata->pA.data(), n, fdata->pX.data(),
-              fdata->pY.data(), fdata->num_batch, fdata->output_size);
+  //execute_cpu(dimensions, n, fdata->pA.data(), n, fdata->pX.data(),
+  //            fdata->pY.data(), fdata->num_batch, fdata->output_size);
+  fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
 #endif
 
   time_start = std::chrono::system_clock::now();
@@ -69,8 +102,9 @@ int main(int argc, char **argv)
                 fdata->gpupY.data(), fdata->num_batch, fdata->output_size);
     cudaDeviceSynchronize();
 #else
-    execute_cpu(dimensions, n, fdata->pA.data(), n, fdata->pX.data(),
-                fdata->pY.data(), fdata->num_batch, fdata->output_size);
+    //execute_cpu(dimensions, n, fdata->pA.data(), n, fdata->pX.data(),
+    //            fdata->pY.data(), fdata->num_batch, fdata->output_size);
+    fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
 #endif
   }
   time_end = std::chrono::system_clock::now();
@@ -97,8 +131,9 @@ int main(int argc, char **argv)
               ddata->gpupY.data(), ddata->num_batch, ddata->output_size);
   cudaDeviceSynchronize();
 #else
-  execute_cpu(dimensions, n, ddata->pA.data(), n, ddata->pX.data(),
-              ddata->pY.data(), ddata->num_batch, ddata->output_size);
+  //execute_cpu(dimensions, n, ddata->pA.data(), n, ddata->pX.data(),
+  //            ddata->pY.data(), ddata->num_batch, ddata->output_size);
+  dmat.apply(1.0, ddata->input_x.data(), 1.0, ddata->output_y.data());
 #endif
 
   time_start = std::chrono::system_clock::now();
@@ -109,8 +144,9 @@ int main(int argc, char **argv)
                 ddata->gpupY.data(), ddata->num_batch, ddata->output_size);
     cudaDeviceSynchronize();
 #else
-    execute_cpu(dimensions, n, ddata->pA.data(), n, ddata->pX.data(),
-                ddata->pY.data(), ddata->num_batch, ddata->output_size);
+    //execute_cpu(dimensions, n, ddata->pA.data(), n, ddata->pX.data(),
+    //            ddata->pY.data(), ddata->num_batch, ddata->output_size);
+    dmat.apply(1.0, ddata->input_x.data(), 1.0, ddata->output_y.data());
 #endif
   }
   time_end = std::chrono::system_clock::now();

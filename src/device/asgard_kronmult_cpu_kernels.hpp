@@ -107,10 +107,10 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                 W[s][k] += x[tj + n * j + k] * A1[j + s * n];
           T const *A0 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(3)
-          for (int s = 0; s < n; s++)
-            for (int k = 0; k < n; k++)
-              for (int j = 0; j < n; j++)
-                Y[k][s] += A0[j + s * n] * W[k][j];
+          for (int k = 0; k < n; k++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
+                Y[k][s] += A0[s + j * n] * W[k][j]; // TODO: row-vs-column
 #pragma omp simd collapse(2)
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
