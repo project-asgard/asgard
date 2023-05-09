@@ -152,6 +152,66 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
       throw std::runtime_error("unimplemented");
     }
     break;
+  case 4:
+    switch (n)
+    {
+    case 1:
+      cpu_n0(dimensions, num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 2:
+      cpu_dense<T, 4, 2>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 3:
+      cpu_dense<T, 4, 3>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 4:
+      cpu_dense<T, 4, 4>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    default:
+      //run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_stride);
+      throw std::runtime_error("unimplemented");
+    }
+    break;
+  case 5:
+    switch (n)
+    {
+    case 1:
+      cpu_n0(dimensions, num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 2:
+      cpu_dense<T, 5, 2>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 3:
+      cpu_dense<T, 5, 3>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 4:
+      cpu_dense<T, 5, 4>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    default:
+      //run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_stride);
+      throw std::runtime_error("unimplemented");
+    }
+    break;
+  case 6:
+    switch (n)
+    {
+    case 1:
+      cpu_n0(dimensions, num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 2:
+      cpu_dense<T, 6, 2>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 3:
+      cpu_dense<T, 6, 3>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    case 4:
+      cpu_dense<T, 6, 4>(num_rows, num_terms, iA, vA, alpha, x, beta, y);
+      break;
+    default:
+      //run_cpu_variant<T, 2>(n, pA, lda, pX, pY, num_batch, output_stride);
+      throw std::runtime_error("unimplemented");
+    }
+    break;
   default:
     throw std::runtime_error(
         "kronmult unimplemented number of dimensions for the cpu");
