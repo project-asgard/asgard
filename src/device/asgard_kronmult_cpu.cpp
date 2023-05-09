@@ -58,16 +58,10 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
       {
         T Y[n] = {{0}};
         for (int j = 0; j < n; j++)
-        {
           for (int k = 0; k < n; k++)
-          {
             Y[k] += pA[i][j * lda + k] * pX[i][j];
-          }
-        }
         for (int j = 0; j < n; j++)
-        {
           pY[i][j] += Y[j];
-        }
       }
       else if constexpr (dimensions == 2)
       {
@@ -177,19 +171,11 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                 for (int s = 0; s < n; s++)
                   Y[p][l][k][s] += pA[4 * i + 3][j * lda + s] * W[p][l][k][j];
         for (int j = 0; j < n; j++)
-        {
           for (int p = 0; p < n; p++)
-          {
             for (int l = 0; l < n; l++)
-            {
 #pragma omp simd
               for (int k = 0; k < n; k++)
-              {
                 pY[i][n * n * n * j + n * n * p + n * l + k] += Y[j][p][l][k];
-              }
-            }
-          }
-        }
       }
       else if constexpr (dimensions == 5)
       {
@@ -248,23 +234,13 @@ void run_cpu_variant(T const *const pA[], int const lda, T const *const pX[],
                     Y[v][p][l][k][s] +=
                         pA[5 * i + 4][j * lda + s] * W[v][p][l][k][j];
         for (int j = 0; j < n; j++)
-        {
           for (int v = 0; v < n; v++)
-          {
             for (int p = 0; p < n; p++)
-            {
               for (int l = 0; l < n; l++)
-              {
 #pragma omp simd
                 for (int k = 0; k < n; k++)
-                {
                   pY[i][n * n * n * n * j + n * n * n * v + n * n * p + n * l +
                         k] += Y[j][v][p][l][k];
-                }
-              }
-            }
-          }
-        }
       }
       else if constexpr (dimensions == 6)
       {
