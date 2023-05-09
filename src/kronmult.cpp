@@ -416,4 +416,31 @@ execute(PDE<double> const &pde, elements::table const &elem_table,
         fk::vector<double, mem_type::owner, resource::host> const &x,
         imex_flag const imex);
 
+template<typename P, resource data_mode>
+kronmult_matrix<P, data_mode>
+make_kronmult_dense(PDE<P> const &pde, elements::table const &elem_table,
+                    options const &program_options, imex_flag const imex){
+
+  // convert pde to kronmult dense matrix
+
+
+
+}
+
+template kronmult_matrix<float, resource::host>
+make_kronmult_dense<float, resource::host>
+(PDE<float> const&, elements::table const&, options const&, imex_flag const);
+template kronmult_matrix<double, resource::host>
+make_kronmult_dense<double, resource::host>
+(PDE<double> const&, elements::table const&, options const&, imex_flag const);
+
+#ifdef ASGARD_USE_CUDA
+template kronmult_matrix<float, resource::device>
+make_kronmult_dense<float, resource::device>
+(PDE<float> const&, elements::table const&, options const&, imex_flag const);
+template kronmult_matrix<double, resource::device>
+make_kronmult_dense<double, resource::device>
+(PDE<double> const&, elements::table const&, options const&, imex_flag const);
+#endif
+
 } // namespace asgard::kronmult

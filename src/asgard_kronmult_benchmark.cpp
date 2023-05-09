@@ -53,12 +53,11 @@ int main(int argc, char **argv)
 
   asgard::fk::vector<float> fvA(num_matrices * n * n);
   asgard::fk::vector<double> dvA(num_matrices * n * n);
-  for (int k=0; k<num_matrices; k++)
-    for (int i=0; i<n; i++)
-      for (int j=0; j<n; j++){
-        fvA(k * n * n + i * n + j) = fdata->matrices[k * n * n + j * n + i];
-        dvA(k * n * n + i * n + j) = ddata->matrices[k * n * n + j * n + i];
-      }
+  for (int k=0; k<num_matrices * n * n; k++)
+  {
+    fvA(k) = fdata->matrices[k];
+    dvA(k) = ddata->matrices[k];
+  }
 
   asgard::fk::vector<int> fiA(fdata->num_batch * dimensions);
   asgard::fk::vector<int> diA(ddata->num_batch * dimensions);
@@ -74,11 +73,17 @@ int main(int argc, char **argv)
     ip++;
   }
 
-  asgard::kronmult_matrix<float, asgard::resource::host>
+#ifdef ASGARD_USE_CUDA
+  constexpr asgard::resource data_mode = asgard::resource::device;
+#else
+  constexpr asgard::resource data_mode = asgard::resource::host;
+#endif
+
+  asgard::kronmult_matrix<float, data_mode>
     fmat(dimensions, n, num_y, operator_size,
          asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
          asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
-  asgard::kronmult_matrix<double, asgard::resource::host>
+  asgard::kronmult_matrix<double, data_mode>
     dmat(dimensions, n, num_y, operator_size,
          asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
          asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));

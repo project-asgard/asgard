@@ -35,10 +35,8 @@ void test_kronmult_cpu_v2(int dimensions, int n, int num_y, int output_length,
       make_kronmult_data<T, precompute, randomx>(dimensions, n, num_y, output_length, num_matrices);
 
   asgard::fk::vector<T> vA(num_matrices * n * n);
-  for (int k=0; k<num_matrices; k++)
-    for (int i=0; i<n; i++)
-      for (int j=0; j<n; j++)
-        vA(k * n * n + i * n + j) = data->matrices[k * n * n + j * n + i];
+  for (int k=0; k<num_matrices * n * n; k++)
+    vA(k) = data->matrices[k];
 
   asgard::fk::vector<int> iA(data->num_batch * dimensions);
   auto ip = data->pointer_map.begin();

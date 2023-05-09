@@ -91,4 +91,10 @@ private:
   fk::vector<precision, mem_type::owner, data_mode> vA;
 };
 
+template<typename P, resource data_mode>
+kronmult_matrix<P, data_mode>
+make_kronmult_dense(PDE<P> const &pde, elements::table const &elem_table,
+                    options const &program_options,
+                    imex_flag const imex = imex_flag::unspecified);
+
 } // namespace asgard
