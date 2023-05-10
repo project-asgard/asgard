@@ -416,14 +416,61 @@ execute(PDE<double> const &pde, elements::table const &elem_table,
         fk::vector<double, mem_type::owner, resource::host> const &x,
         imex_flag const imex);
 
-template<typename P, resource data_mode>
-kronmult_matrix<P, data_mode>
-make_kronmult_dense(PDE<P> const &pde, elements::table const &elem_table,
-                    options const &program_options, imex_flag const imex){
+} // namespace asgard::kronmult
 
+namespace asgard
+{
+
+template<typename precision, resource data_mode>
+kronmult_matrix<precision, data_mode>
+make_kronmult_dense(PDE<precision> const &pde, elements::table const &elem_table,
+                    options const &program_options, element_subgrid const &grid,
+                    imex_flag const imex)
+{
   // convert pde to kronmult dense matrix
+  int const num_dimensions = pde.num_dims;
+  int const degree         = pde.get_dimensions()[0].get_degree();
+  int const num_terms      = pde.num_terms;
+  int const num_rows       = grid.row_end - grid.row_start + 1;
+  int const num_cols       = num_rows * num_terms;
 
+  int lda = degree;
+  // Calculate the leading dimension of coefficient matrices
+  // When adaptivity is enabled, we use the maximum adaptivity level specified
+  // with -m Without adaptivity, this uses the PDE's max level (max level over
+  // all dimensions)
+  lda *= fm::two_raised_to((program_opts.do_adapt_levels) ? program_opts.max_level : pde.max_level);
 
+  fk::vector<int, mem_type::const_view, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
+  fk::vector<precision, mem_type::const_view, resource::host> vA(pde.num_terms * pde.num_dims * degree * degree);
+  //kronmult_matrix<P, data_mode> mat
+  //(pde.num_dims);
+
+#ifdef ASGARD_USE_CUDA
+#else
+  for (int t = 0; t < pde.num_terms; t++)
+  {
+    for (int d = 0; d < pde.num_dims; d++)
+    {
+      if (!program_opts.use_imex_stepping ||
+          (program_opts.use_imex_stepping &&
+           pde.get_terms()[t][d].flag == imex))
+      {
+        //builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
+        precision const* A = pde.get_coefficients(i, j).data();
+        for (int i=0; i<degree; i++)
+          for (int j=0; j<degree; j++)
+            Av((t * pde.num_dims + d) * degree * degree + i * degree + j)
+                = A[i*lda + j];
+      } else {
+        for (int i=0; i<degree*degree; i++)
+          Av((t * pde.num_dims + d) * degree * degree + i) = 0;
+      }
+    }
+  }
+#endif
+
+  // compute Ai
 
 }
 
@@ -443,4 +490,47 @@ make_kronmult_dense<double, resource::device>
 (PDE<double> const&, elements::table const&, options const&, imex_flag const);
 #endif
 
-} // namespace asgard::kronmult
+namespace kronmult
+{
+template<typename P, resource data_mode>
+fk::vector<P, mem_type::owner, resource::host>
+execute(kronmult_matrix<P, data_mode> const &mat,
+        fk::vector<P, mem_type::owner, resource::host> const &x)
+{
+  // execute
+  if constexpr (data_mode == resource::host)
+  {
+    fk::vector<P, mem_type::owner, resource::host> fx(mat.input_size());
+    mat.apply(1.0, x.data(), 0.0, fx.data());
+    return fx;
+  }
+  else
+  {
+#ifdef ASGARD_USE_CUDA
+    fk::vector<P, mem_type::owner, resource::device> fx(mat.input_size());
+    auto x_dev = x.clone_onto_device();
+    mat.apply(1.0, x_dev.data(), 0.0, fx.data());
+    return fx.clone_onto_host();
+#endif
+  }
+}
+
+template fk::vector<float, mem_type::owner, resource::host>
+execute<float, resource::host>(kronmult_matrix<float, resource::host> const&,
+fk::vector<float, mem_type::owner, resource::host> const &);
+template fk::vector<double, mem_type::owner, resource::host>
+execute<double, resource::host>(kronmult_matrix<double, resource::host> const&,
+fk::vector<double, mem_type::owner, resource::host> const &);
+
+#ifdef ASGARD_USE_CUDA
+template fk::vector<float, mem_type::owner, resource::device>
+execute<float, resource::host>(kronmult_matrix<float, resource::device> const&,
+fk::vector<float, mem_type::owner, resource::host> const &);
+template fk::vector<double, mem_type::owner, resource::device>
+execute<double, resource::host>(kronmult_matrix<double, resource::device> const&,
+fk::vector<double, mem_type::owner, resource::host> const &);
+#endif
+
+}
+
+}
