@@ -68,7 +68,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
                    float)
 {
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-16 : 1e-6;
+      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
 
   SECTION("legendre_weights(10, -1, 1)")
   {

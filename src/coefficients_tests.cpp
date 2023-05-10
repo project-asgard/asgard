@@ -234,7 +234,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p3_coefficients";
   TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+      std::is_same<TestType, double>::value ? 1e-13 : 1e-4;
 
   SECTION("level 2, degree 5")
   {

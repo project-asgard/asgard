@@ -106,12 +106,16 @@ option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 if (${ASGARD_USE_PCH})
   set (USE_PCH ON CACHE BOOL "Turn on kronmult precompiled header support" FORCE)
-endif()
+endif ()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
-  string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wpedantic -Wshadow")
-endif()
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
+  # Improves CPU knonmult performance but adds additional compilation time.
+  if (NOT ASGARD_USE_CUDA)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
+  endif ()
+endif ()
 
 # add scripts directory location
 set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")

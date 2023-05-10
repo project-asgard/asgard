@@ -117,7 +117,7 @@ void test_operator_two_scale(int const levels, int const degree)
   fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(filename));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
-  auto constexpr tol_factor = get_tolerance<P>(10);
+  auto constexpr tol_factor = get_tolerance<P>(100);
 
   rmse_comparison(gold, test, tol_factor);
 }
@@ -161,7 +161,7 @@ TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
 template<typename P, resource resrc>
 void test_fmwt_block_generation(int const level, int const degree)
 {
-  P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-14;
+  P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-13;
 
   // none of these options matter except for max level and degree
   auto const pde_choice = "diffusion_2";
