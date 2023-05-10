@@ -110,23 +110,11 @@ endif ()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
-  set (RECOMMENDED_WARNINGS -Wall -Wextra -Wpedantic -Wshadow)
-  set (RECOMMENDED_ARCHS -march=native -mtune=native)
-  # RECOMMENDED_ARCHS improves CPU knonmult performance but adds additional compilation time.
-  if (ASGARD_USE_CUDA)
-    foreach (CXX_FLAG IN LISTS RECOMMENDED_ARCHS)
-      if (CMAKE_CXX_FLAGS MATCHES "${CXX_FLAG}")
-        string(REPLACE "${CXX_FLAG}" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
-      endif ()
-    endforeach ()
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
+  # Improves CPU knonmult performance but adds additional compilation time.
+  if (NOT ASGARD_USE_CUDA)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
   endif ()
-  foreach (CXX_FLAG IN LISTS RECOMMENDED_WARNINGS $<$<BOOL:${ASGARD_USE_CUDA}>:RECOMMENDED_ARCHS:>)
-    if (NOT CMAKE_CXX_FLAGS MATCHES "${CXX_FLAG}")
-      set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAG}")
-    endif ()
-  endforeach ()
-  string (STRIP ${CMAKE_CXX_FLAGS} CMAKE_CXX_FLAGS)
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "compiler flags" FORCE)
 endif ()
 
 # add scripts directory location
