@@ -429,20 +429,20 @@ make_kronmult_dense(PDE<precision> const &pde, elements::table const &elem_table
 {
   // convert pde to kronmult dense matrix
   int const num_dimensions = pde.num_dims;
-  int const degree         = pde.get_dimensions()[0].get_degree();
+  int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_terms      = pde.num_terms;
-  int const num_rows       = grid.row_end - grid.row_start + 1;
+  int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = num_rows * num_terms;
 
-  int lda = degree;
+  int lda = kron_size;
   // Calculate the leading dimension of coefficient matrices
   // When adaptivity is enabled, we use the maximum adaptivity level specified
   // with -m Without adaptivity, this uses the PDE's max level (max level over
   // all dimensions)
-  lda *= fm::two_raised_to((program_opts.do_adapt_levels) ? program_opts.max_level : pde.max_level);
+  lda *= fm::two_raised_to((program_options.do_adapt_levels) ? program_options.max_level : pde.max_level);
 
-  fk::vector<int, mem_type::const_view, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
-  fk::vector<precision, mem_type::const_view, resource::host> vA(pde.num_terms * pde.num_dims * degree * degree);
+  fk::vector<int, mem_type::owner, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
+  fk::vector<precision, mem_type::owner, resource::host> vA(pde.num_terms * pde.num_dims * kron_size * kron_size);
   //kronmult_matrix<P, data_mode> mat
   //(pde.num_dims);
 
@@ -452,42 +452,101 @@ make_kronmult_dense(PDE<precision> const &pde, elements::table const &elem_table
   {
     for (int d = 0; d < pde.num_dims; d++)
     {
-      if (!program_opts.use_imex_stepping ||
-          (program_opts.use_imex_stepping &&
+      if (!program_options.use_imex_stepping ||
+          (program_options.use_imex_stepping &&
            pde.get_terms()[t][d].flag == imex))
       {
-        //builder(i * pde.num_dims + j) = pde.get_coefficients(i, j).data();
-        precision const* A = pde.get_coefficients(i, j).data();
-        for (int i=0; i<degree; i++)
-          for (int j=0; j<degree; j++)
-            Av((t * pde.num_dims + d) * degree * degree + i * degree + j)
-                = A[i*lda + j];
+        precision const* A = pde.get_coefficients(t, d).data();
+        precision *pA = vA.data() + (t * pde.num_dims + d) * kron_size * kron_size;
+        for (int i=0; i<kron_size; i++)
+          for (int j=0; j<kron_size; j++)
+            pA[i * kron_size + j] = A[i*lda + j];
       } else {
-        for (int i=0; i<degree*degree; i++)
-          Av((t * pde.num_dims + d) * degree * degree + i) = 0;
+        for (int i=0; i<kron_size*kron_size; i++)
+          vA((t * pde.num_dims + d) * kron_size * kron_size + i) = 0;
       }
     }
   }
 #endif
 
   // compute Ai
+  int const *const flattened_table = elem_table.get_active_table().data();
+  std::vector<int> oprow(num_dimensions);
+  std::vector<int> opcol(num_dimensions);
+  int c = 0; // index of iA
+  for (int64_t row=grid.row_start; row < grid.row_stop+1; row++)
+  {
+    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+    for(int i=0; i<num_dimensions; i++)
+      oprow[i] = ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]) * kron_size;
 
+    for (int64_t col=grid.col_start; col < grid.col_stop+1; col++)
+    {
+      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
+      for(int i=0; i<num_dimensions; i++)
+        opcol[i] = ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]) * kron_size;
+
+      for (int t = 0; t < pde.num_terms; t++)
+      {
+        for (int d = 0; d < pde.num_dims; d++)
+        {
+
+        }
+      }
+    }
+  }
 }
+
+// prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
+//                  lda, workspace.get_element_x(), fx.data(),
+//                  workspace.get_operator_ptrs(), workspace.get_input_ptrs(),
+//                  workspace.get_output_ptrs(), degree, pde.num_terms,
+//                  pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
+//                  my_subgrid.col_start, my_subgrid.col_stop);
+//
+//prepare_kronmult_kernel(int const *const flattened_table,
+//                        P *const *const operators, int const operator_lda,
+//                        P *const element_x, P *const fx,
+//                        P **const operator_ptrs, P **const input_ptrs,
+//                        P **const output_ptrs, int const degree,
+//                        int const num_terms, int const num_dims,
+//                        int const elem_row_start, int const elem_row_stop,
+//                        int const elem_col_start, int const elem_col_stop)
+//{
+//    for (auto t = 0; t < num_terms; ++t)
+//    {
+//      // get preallocated vector position for this kronmult
+//      auto const num_kron = (row - elem_row_start) * num_cols * num_terms +
+//                            (col - elem_col_start) * num_terms + t;
+//
+//      // point to operators
+//      auto const operator_start = num_kron * num_dims;
+//      for (auto d = 0; d < num_dims; ++d)
+//      {
+//        P *const coeff = operators[t * num_dims + d];
+//        operator_ptrs[operator_start + d] =
+//            coeff + operator_row[d] + operator_col[d] * operator_lda;
+//      }
+//    }
+//  }
+//}
+
+
 
 template kronmult_matrix<float, resource::host>
 make_kronmult_dense<float, resource::host>
-(PDE<float> const&, elements::table const&, options const&, imex_flag const);
+(PDE<float> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
 template kronmult_matrix<double, resource::host>
 make_kronmult_dense<double, resource::host>
-(PDE<double> const&, elements::table const&, options const&, imex_flag const);
+(PDE<double> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
 
 #ifdef ASGARD_USE_CUDA
 template kronmult_matrix<float, resource::device>
 make_kronmult_dense<float, resource::device>
-(PDE<float> const&, elements::table const&, options const&, imex_flag const);
+(PDE<float> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
 template kronmult_matrix<double, resource::device>
 make_kronmult_dense<double, resource::device>
-(PDE<double> const&, elements::table const&, options const&, imex_flag const);
+(PDE<double> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
 #endif
 
 namespace kronmult
