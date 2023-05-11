@@ -423,31 +423,44 @@ namespace asgard
 
 template<typename precision, resource data_mode>
 kronmult_matrix<precision, data_mode>
-make_kronmult_dense(PDE<precision> const &pde, elements::table const &elem_table,
-                    options const &program_options, element_subgrid const &grid,
+make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision> const &discretization,
+                    options const &program_options,
                     imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
+  auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_terms      = pde.num_terms;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = num_rows * num_terms;
 
-  int lda = kron_size;
+  int64_t lda = kron_size;
   // Calculate the leading dimension of coefficient matrices
   // When adaptivity is enabled, we use the maximum adaptivity level specified
   // with -m Without adaptivity, this uses the PDE's max level (max level over
   // all dimensions)
-  lda *= fm::two_raised_to((program_options.do_adapt_levels) ? program_options.max_level : pde.max_level);
+  int64_t const num_operators = fm::two_raised_to((program_options.do_adapt_levels) ? program_options.max_level : pde.max_level);
+  lda *= num_operators;
+
+  int64_t osize = 0;
+  std::vector<int64_t> dim_term_offset(pde.num_terms * pde.num_dims + 1);
+  for (int t = 0; t < pde.num_terms; t++)
+  {
+    for (int d = 0; d < pde.num_dims; d++)
+    {
+      dim_term_offset[t * pde.num_dims + d] = osize;
+      osize += pde.get_coefficients(t, d).size();
+    }
+  }
 
   fk::vector<int, mem_type::owner, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
-  fk::vector<precision, mem_type::owner, resource::host> vA(pde.num_terms * pde.num_dims * kron_size * kron_size);
-  //kronmult_matrix<P, data_mode> mat
-  //(pde.num_dims);
+  fk::vector<precision, mem_type::owner, resource::host> vA(osize);
+
 
 #ifdef ASGARD_USE_CUDA
 #else
+  precision *pA = vA.data();
   for (int t = 0; t < pde.num_terms; t++)
   {
     for (int d = 0; d < pde.num_dims; d++)
@@ -456,41 +469,51 @@ make_kronmult_dense(PDE<precision> const &pde, elements::table const &elem_table
           (program_options.use_imex_stepping &&
            pde.get_terms()[t][d].flag == imex))
       {
-        precision const* A = pde.get_coefficients(t, d).data();
-        precision *pA = vA.data() + (t * pde.num_dims + d) * kron_size * kron_size;
-        for (int i=0; i<kron_size; i++)
-          for (int j=0; j<kron_size; j++)
-            pA[i * kron_size + j] = A[i*lda + j];
-      } else {
-        for (int i=0; i<kron_size*kron_size; i++)
-          vA((t * pde.num_dims + d) * kron_size * kron_size + i) = 0;
+        std::cout << " pde.get_coefficients(t, d) = " << pde.get_coefficients(t, d).size() << "\n";
+        std::cout << " rows = " << pde.get_coefficients(t, d).nrows() << "\n";
+        std::cout << " cols = " << pde.get_coefficients(t, d).ncols() << "\n";
+        auto const &ops = pde.get_coefficients(t, d); // this is a fk::matrix
+        int const num_ops = ops.nrows() / kron_size;
+
+        // the matrices of the kron products are organized into blocks
+        // of a large matrix, the matrix is square with size num-ops by kron-size
+        // rearrange in a sequential way (by columns) to avoid the lda
+        for (int ocol = 0; ocol < num_ops; ocol++)
+          for (int orow = 0; orow < num_ops; orow++)
+            for (int i=0; i<kron_size; i++)
+              pA = std::copy_n(ops.data() + kron_size * orow + lda * (kron_size * ocol + i), kron_size, pA);
+      }
+      else
+      {
+        pA = std::fill_n(pA, pde.get_coefficients(t, d).size(), 0);
       }
     }
   }
 #endif
 
-  // compute Ai
-  int const *const flattened_table = elem_table.get_active_table().data();
+  // compute iA
+  int const *const flattened_table = discretization.get_table().get_active_table().data();
   std::vector<int> oprow(num_dimensions);
   std::vector<int> opcol(num_dimensions);
-  int c = 0; // index of iA
+  auto ia = iA.begin();
   for (int64_t row=grid.row_start; row < grid.row_stop+1; row++)
   {
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     for(int i=0; i<num_dimensions; i++)
-      oprow[i] = ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]) * kron_size;
+      oprow[i] = ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]);
 
     for (int64_t col=grid.col_start; col < grid.col_stop+1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       for(int i=0; i<num_dimensions; i++)
-        opcol[i] = ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]) * kron_size;
+        opcol[i] = ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]);
 
       for (int t = 0; t < pde.num_terms; t++)
       {
         for (int d = 0; d < pde.num_dims; d++)
         {
-
+          int64_t const num_ops = pde.get_coefficients(t, d).nrows() / kron_size;
+          *ia++ = (oprow[d] + opcol[d] * num_ops) * kron_size * kron_size;
         }
       }
     }
@@ -535,18 +558,18 @@ make_kronmult_dense(PDE<precision> const &pde, elements::table const &elem_table
 
 template kronmult_matrix<float, resource::host>
 make_kronmult_dense<float, resource::host>
-(PDE<float> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
+(PDE<float> const&, adapt::distributed_grid<float> const&, options const&, imex_flag const);
 template kronmult_matrix<double, resource::host>
 make_kronmult_dense<double, resource::host>
-(PDE<double> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
+(PDE<double> const&, adapt::distributed_grid<double> const&, options const&, imex_flag const);
 
 #ifdef ASGARD_USE_CUDA
 template kronmult_matrix<float, resource::device>
 make_kronmult_dense<float, resource::device>
-(PDE<float> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
+(PDE<float> const&, adapt::distributed_grid<float> const&, options const&, imex_flag const);
 template kronmult_matrix<double, resource::device>
 make_kronmult_dense<double, resource::device>
-(PDE<double> const&, elements::table const&, options const&, element_subgrid const&, imex_flag const);
+(PDE<double> const&, adapt::distributed_grid<double> const&, options const&, imex_flag const);
 #endif
 
 namespace kronmult

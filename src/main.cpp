@@ -231,6 +231,9 @@ int main(int argc, char **argv)
   asgard::fk::vector<prec> f_val(initial_condition);
   asgard::node_out() << "--- begin time loop w/ dt " << pde->get_dt()
                      << " ---\n";
+
+  auto opetator = asgard::make_kronmult_dense<prec, asgard::resource::host>(*pde, adaptive_grid, opts);
+
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
     // take a time advance step

@@ -5,6 +5,7 @@
 #include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
+#include "adapt.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
@@ -106,7 +107,7 @@ private:
 
 template<typename P, resource data_mode>
 kronmult_matrix<P, data_mode>
-make_kronmult_dense(PDE<P> const &pde, elements::table const &elem_table,
+make_kronmult_dense(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                     options const &program_options,
                     imex_flag const imex = imex_flag::unspecified);
 
