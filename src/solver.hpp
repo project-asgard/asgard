@@ -3,6 +3,7 @@
 #include "batch.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
+#include "kronmult.hpp"
 
 namespace asgard::solver
 {
@@ -27,6 +28,13 @@ simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
              int const restart, int const max_iter, P const tolerance,
              imex_flag const imex = imex_flag::unspecified,
              const P dt_factor    = 1.0);
+
+// solves ( I - dt * mat ) * x = b
+template<typename P>
+gmres_info<P>
+simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
+                   fk::vector<P> &x, fk::vector<P> const &b,
+                   int const restart, int const max_iter, P const tolerance);
 
 template<typename P>
 void setup_poisson(const int N_nodes, P const x_min, P const x_max,

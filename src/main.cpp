@@ -232,7 +232,17 @@ int main(int argc, char **argv)
   asgard::node_out() << "--- begin time loop w/ dt " << pde->get_dt()
                      << " ---\n";
 
-  auto opetator = asgard::make_kronmult_dense<prec, asgard::resource::host>(*pde, adaptive_grid, opts);
+//  asgard::fk::vector<prec> test_x(f_val.size());
+//  for(int i=0; i<test_x.size(); i++) test_x[i] = static_cast<prec>(i);
+  asgard::kronmult_matrix<prec> operator_matrix;
+//
+//  asgard::fk::vector<prec> fx_new = test_x;
+//  operator_matrix.apply(1.0, test_x.data(), 0.0, fx_new.data());
+//  auto fx_old          = asgard::kronmult::execute(*pde, adaptive_grid.get_table(), opts, adaptive_grid.get_subgrid(asgard::get_rank()), test_x);
+//
+//    for(int i=0; i<fx_new.size(); i++){
+//        std::cout << fx_new[i] << "    " << fx_old[i] << "\n";
+//    }
 
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
@@ -251,7 +261,7 @@ int main(int argc, char **argv)
                                       : "explicit_time_advance");
     const std::string time_id = asgard::tools::timer.start(time_str);
     auto const sol            = asgard::time_advance::adaptive_advance(
-        method, *pde, adaptive_grid, transformer, opts, f_val, time,
+        method, *pde, operator_matrix, adaptive_grid, transformer, opts, f_val, time,
         update_system);
     f_val.resize(sol.size()) = sol;
     asgard::tools::timer.stop(time_id);

@@ -19,6 +19,7 @@ enum class method
 template<typename P>
 fk::vector<P>
 adaptive_advance(method const step_method, PDE<P> &pde,
+                 kronmult_matrix<P> &operator_matrix,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts, fk::vector<P> const &x,
@@ -30,6 +31,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 template<typename P>
 fk::vector<P>
 explicit_advance(PDE<P> const &pde,
+                 kronmult_matrix<P> &operator_matrix,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -39,7 +41,8 @@ explicit_advance(PDE<P> const &pde,
 
 template<typename P>
 fk::vector<P>
-implicit_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
+implicit_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
+                 adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
@@ -49,7 +52,8 @@ implicit_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
 
 template<typename P>
 fk::vector<P>
-imex_advance(PDE<P> &pde, adapt::distributed_grid<P> const &adaptive_grid,
+imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
+             adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const

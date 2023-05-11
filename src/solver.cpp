@@ -1,7 +1,6 @@
 #include "solver.hpp"
 #include "distribution.hpp"
 #include "fast_math.hpp"
-#include "kronmult.hpp"
 #include "quadrature.hpp"
 #include "tools.hpp"
 #include <algorithm>
@@ -42,6 +41,19 @@ simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
     y        = tmp * alpha + y * beta;
   };
   return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
+}
+
+template<typename P>
+gmres_info<P>
+simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
+                   fk::vector<P> &x, fk::vector<P> const &b,
+                   int const restart, int const max_iter, P const tolerance)
+{
+  return
+  simple_gmres([&](fk::vector<P> const &x_in, fk::vector<P> &y, P const alpha, P const beta)->void{
+      y = x_in * alpha + y * beta;
+      mat.apply(-dt * alpha, x_in.data(), 1.0, y.data());
+  }, x, b, fk::matrix<P>(), restart, max_iter, tolerance);
 }
 
 /*! Generates a default number inner iterations when no use input is given
@@ -382,6 +394,15 @@ simple_gmres(PDE<double> const &pde, elements::table const &elem_table,
              fk::matrix<double> const &M, int const restart, int const max_iter,
              double const tolerance, imex_flag const imex,
              const double dt_factor);
+
+template gmres_info<float>
+simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
+                   fk::vector<float> &x, fk::vector<float> const &b,
+                   int const restart, int const max_iter, float const tolerance);
+template gmres_info<double>
+simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
+                   fk::vector<double> &x, fk::vector<double> const &b,
+                   int const restart, int const max_iter, double const tolerance);
 
 template void setup_poisson(const int N_elements, float const x_min,
                             float const x_max, fk::vector<float> &diag,

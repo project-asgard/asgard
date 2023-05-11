@@ -46,10 +46,14 @@ execute(PDE<P> const &pde, elements::table const &elem_table,
  * operator terms times the number of rows.
  * Each row/column entry corresponds to a Kronecker product.
  */
-template<typename precision, resource data_mode>
+template<typename precision>
 class kronmult_matrix
 {
 public:
+  kronmult_matrix()
+    : num_dimensions_(0), kron_size_(0), num_rows_(0),
+      num_columns_(0), num_terms_(0), input_size_(0)
+  {}
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_columns,
                   fk::vector<int, mem_type::const_view, resource::host> const &index_A,
                   fk::vector<precision, mem_type::const_view, resource::host> const &values_A)
@@ -68,14 +72,19 @@ public:
         vA = index_A.clone_onto_device();
     }
   }
+  template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_columns,
-                  fk::vector<int, mem_type::owner, resource::host> &&index_A,
-                  fk::vector<precision, mem_type::owner, resource::host> &&values_A,
-                  std::enable_if_t<data_mode == resource::host>* = nullptr)
+                  fk::vector<int, mem_type::owner, input_mode> &&index_A,
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
     : num_dimensions_(num_dimensions), kron_size_(kron_size), num_rows_(num_rows),
       num_columns_(num_columns), num_terms_(num_columns / num_rows), input_size_(1),
       iA(std::move(index_A)), vA(std::move(values_A))
   {
+#ifdef ASGARD_USE_CUDA
+    static_assert(input_mode == resource::device, "the GPU is enabled, so r-value inputs must have resource::device");
+#else
+    static_assert(input_mode == resource::host, "the GPU is disabled, so r-value inputs must have resource::host");
+#endif
     for(int d=0; d<num_dimensions_; d++)
       input_size_ *= kron_size_;
   }
@@ -83,7 +92,10 @@ public:
   //! \brief Computes y = alpha * kronmult_matrix * x + beta * y
   void apply(precision alpha, precision const x[], precision beta, precision y[]) const
   {
+#ifdef ASGARD_USE_CUDA
+#else
     kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+#endif
   }
 
   int input_size() const
@@ -91,7 +103,11 @@ public:
     return input_size_;
   }
 
-private:
+  operator bool () const
+  {
+      return (num_dimensions_ > 0);
+  }
+
   int num_dimensions_;
   int kron_size_; // i.e., n - size of the matrices
   int num_rows_;
@@ -99,25 +115,22 @@ private:
   int num_terms_;
   int input_size_;
 
+private:
+#ifdef ASGARD_USE_CUDA
+  static constexpr resource data_mode = resource::device;
+#else
+  static constexpr resource data_mode = resource::host;
+#endif
   // index of the matrices for each kronmult product
   fk::vector<int, mem_type::owner, data_mode> iA;
   // list of the operators
   fk::vector<precision, mem_type::owner, data_mode> vA;
 };
 
-template<typename P, resource data_mode>
-kronmult_matrix<P, data_mode>
+template<typename P>
+kronmult_matrix<P>
 make_kronmult_dense(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                     options const &program_options,
                     imex_flag const imex = imex_flag::unspecified);
-
-namespace kronmult{
-// using the dense matrix
-template<typename P, resource data_mode>
-fk::vector<P, mem_type::owner, resource::host>
-execute(kronmult_matrix<P, data_mode> const mat,
-        fk::vector<P, mem_type::owner, resource::host> const &x);
-
-} // namespace kronmult
 
 } // namespace asgard

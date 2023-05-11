@@ -10,6 +10,7 @@ void cpu_n0(int const dimensions, int const num_rows, int const num_terms,
             int const iA[], T const vA[], T const alpha, T const x[],
             T const beta, T y[])
 {
+
 #pragma omp parallel for
   for (int iy = 0; iy < num_rows; iy++)
   {
@@ -114,7 +115,12 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
 #pragma omp simd collapse(2)
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
-              y[ti + n * j + k] += Y[j][k];
+              if constexpr(alpha_case == scalar_case::one)
+                y[ti + n * j + k] += Y[j][k];
+              else if constexpr(alpha_case == scalar_case::neg_one)
+                y[ti + n * j + k] -= Y[j][k];
+              else
+                y[ti + n * j + k] += alpha * Y[j][k];
         }
         else if constexpr (dimensions == 3)
         {

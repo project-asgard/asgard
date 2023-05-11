@@ -73,17 +73,11 @@ int main(int argc, char **argv)
     ip++;
   }
 
-#ifdef ASGARD_USE_CUDA
-  constexpr asgard::resource data_mode = asgard::resource::device;
-#else
-  constexpr asgard::resource data_mode = asgard::resource::host;
-#endif
-
-  asgard::kronmult_matrix<float, data_mode>
+  asgard::kronmult_matrix<float>
     fmat(dimensions, n, num_y, operator_size,
          asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
          asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
-  asgard::kronmult_matrix<double, data_mode>
+  asgard::kronmult_matrix<double>
     dmat(dimensions, n, num_y, operator_size,
          asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
          asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));

@@ -73,6 +73,8 @@ void time_advance_test(parser const &parse,
 
   fk::vector<P> f_val(initial_condition);
 
+  auto operator_matrix = asgard::make_kronmult_dense<P>(*pde, adaptive_grid, opts);
+
   // -- time loop
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
@@ -82,7 +84,7 @@ void time_advance_test(parser const &parse,
     auto const method = opts.use_implicit_stepping ? time_advance::method::imp
                                                    : time_advance::method::exp;
     auto const sol =
-        time_advance::adaptive_advance(method, *pde, adaptive_grid, transformer,
+        time_advance::adaptive_advance(method, *pde, operator_matrix, adaptive_grid, transformer,
                                        opts, f_val, time, update_system);
 
     f_val.resize(sol.size()) = sol;

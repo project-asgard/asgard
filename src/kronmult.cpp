@@ -421,11 +421,10 @@ execute(PDE<double> const &pde, elements::table const &elem_table,
 namespace asgard
 {
 
-template<typename precision, resource data_mode>
-kronmult_matrix<precision, data_mode>
+template<typename precision>
+kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision> const &discretization,
-                    options const &program_options,
-                    imex_flag const imex)
+                    options const &program_options, imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -444,12 +443,12 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
   lda *= num_operators;
 
   int64_t osize = 0;
-  std::vector<int64_t> dim_term_offset(pde.num_terms * pde.num_dims + 1);
-  for (int t = 0; t < pde.num_terms; t++)
+  std::vector<int64_t> dim_term_offset(num_terms * pde.num_dims + 1);
+  for (int t = 0; t < num_terms; t++)
   {
-    for (int d = 0; d < pde.num_dims; d++)
+    for (int d = 0; d < num_dimensions; d++)
     {
-      dim_term_offset[t * pde.num_dims + d] = osize;
+      dim_term_offset[t * num_dimensions + d] = osize;
       osize += pde.get_coefficients(t, d).size();
     }
   }
@@ -461,18 +460,18 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
 #ifdef ASGARD_USE_CUDA
 #else
   precision *pA = vA.data();
-  for (int t = 0; t < pde.num_terms; t++)
+  for (int t = 0; t < num_terms; t++)
   {
-    for (int d = 0; d < pde.num_dims; d++)
+    for (int d = 0; d < num_dimensions; d++)
     {
       if (!program_options.use_imex_stepping ||
           (program_options.use_imex_stepping &&
            pde.get_terms()[t][d].flag == imex))
       {
-        std::cout << " pde.get_coefficients(t, d) = " << pde.get_coefficients(t, d).size() << "\n";
-        std::cout << " rows = " << pde.get_coefficients(t, d).nrows() << "\n";
-        std::cout << " cols = " << pde.get_coefficients(t, d).ncols() << "\n";
-        auto const &ops = pde.get_coefficients(t, d); // this is a fk::matrix
+        // std::cout << " pde.get_coefficients(t, d) = " << pde.get_coefficients(t, d).size() << "\n";
+        // std::cout << " rows = " << pde.get_coefficients(t, d).nrows() << "\n";
+        // std::cout << " cols = " << pde.get_coefficients(t, d).ncols() << "\n";
+        auto const &ops = pde.get_coefficients(t, d); // this is an fk::matrix
         int const num_ops = ops.nrows() / kron_size;
 
         // the matrices of the kron products are organized into blocks
@@ -500,119 +499,37 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
   {
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     for(int i=0; i<num_dimensions; i++)
-      oprow[i] = ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]);
+      oprow[i] = (row_coords[i] == 0) ? 0 : ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]);
+
+    //std::cout << oprow[0] << "   " << oprow[1] << "\n";
 
     for (int64_t col=grid.col_start; col < grid.col_stop+1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       for(int i=0; i<num_dimensions; i++)
-        opcol[i] = ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]);
+        opcol[i] = (col_coords[i] == 0) ? 0 : ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]);
 
-      for (int t = 0; t < pde.num_terms; t++)
+      //std::cout << opcol[0] << "   " << opcol[1] << "\n";
+
+      for (int t = 0; t < num_terms; t++)
       {
-        for (int d = 0; d < pde.num_dims; d++)
+        for (int d = 0; d < num_dimensions; d++)
         {
           int64_t const num_ops = pde.get_coefficients(t, d).nrows() / kron_size;
-          *ia++ = (oprow[d] + opcol[d] * num_ops) * kron_size * kron_size;
+          *ia++ = dim_term_offset[t * num_dimensions + d] + (oprow[d] + opcol[d] * num_ops) * kron_size * kron_size;
         }
       }
     }
   }
+
+  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, std::move(iA), std::move(vA));
 }
 
-// prepare_kronmult(elem_table.get_active_table().data(), operators_d.data(),
-//                  lda, workspace.get_element_x(), fx.data(),
-//                  workspace.get_operator_ptrs(), workspace.get_input_ptrs(),
-//                  workspace.get_output_ptrs(), degree, pde.num_terms,
-//                  pde.num_dims, my_subgrid.row_start, my_subgrid.row_stop,
-//                  my_subgrid.col_start, my_subgrid.col_stop);
-//
-//prepare_kronmult_kernel(int const *const flattened_table,
-//                        P *const *const operators, int const operator_lda,
-//                        P *const element_x, P *const fx,
-//                        P **const operator_ptrs, P **const input_ptrs,
-//                        P **const output_ptrs, int const degree,
-//                        int const num_terms, int const num_dims,
-//                        int const elem_row_start, int const elem_row_stop,
-//                        int const elem_col_start, int const elem_col_stop)
-//{
-//    for (auto t = 0; t < num_terms; ++t)
-//    {
-//      // get preallocated vector position for this kronmult
-//      auto const num_kron = (row - elem_row_start) * num_cols * num_terms +
-//                            (col - elem_col_start) * num_terms + t;
-//
-//      // point to operators
-//      auto const operator_start = num_kron * num_dims;
-//      for (auto d = 0; d < num_dims; ++d)
-//      {
-//        P *const coeff = operators[t * num_dims + d];
-//        operator_ptrs[operator_start + d] =
-//            coeff + operator_row[d] + operator_col[d] * operator_lda;
-//      }
-//    }
-//  }
-//}
-
-
-
-template kronmult_matrix<float, resource::host>
-make_kronmult_dense<float, resource::host>
+template kronmult_matrix<float>
+make_kronmult_dense<float>
 (PDE<float> const&, adapt::distributed_grid<float> const&, options const&, imex_flag const);
-template kronmult_matrix<double, resource::host>
-make_kronmult_dense<double, resource::host>
+template kronmult_matrix<double>
+make_kronmult_dense<double>
 (PDE<double> const&, adapt::distributed_grid<double> const&, options const&, imex_flag const);
-
-#ifdef ASGARD_USE_CUDA
-template kronmult_matrix<float, resource::device>
-make_kronmult_dense<float, resource::device>
-(PDE<float> const&, adapt::distributed_grid<float> const&, options const&, imex_flag const);
-template kronmult_matrix<double, resource::device>
-make_kronmult_dense<double, resource::device>
-(PDE<double> const&, adapt::distributed_grid<double> const&, options const&, imex_flag const);
-#endif
-
-namespace kronmult
-{
-template<typename P, resource data_mode>
-fk::vector<P, mem_type::owner, resource::host>
-execute(kronmult_matrix<P, data_mode> const &mat,
-        fk::vector<P, mem_type::owner, resource::host> const &x)
-{
-  // execute
-  if constexpr (data_mode == resource::host)
-  {
-    fk::vector<P, mem_type::owner, resource::host> fx(mat.input_size());
-    mat.apply(1.0, x.data(), 0.0, fx.data());
-    return fx;
-  }
-  else
-  {
-#ifdef ASGARD_USE_CUDA
-    fk::vector<P, mem_type::owner, resource::device> fx(mat.input_size());
-    auto x_dev = x.clone_onto_device();
-    mat.apply(1.0, x_dev.data(), 0.0, fx.data());
-    return fx.clone_onto_host();
-#endif
-  }
-}
-
-template fk::vector<float, mem_type::owner, resource::host>
-execute<float, resource::host>(kronmult_matrix<float, resource::host> const&,
-fk::vector<float, mem_type::owner, resource::host> const &);
-template fk::vector<double, mem_type::owner, resource::host>
-execute<double, resource::host>(kronmult_matrix<double, resource::host> const&,
-fk::vector<double, mem_type::owner, resource::host> const &);
-
-#ifdef ASGARD_USE_CUDA
-template fk::vector<float, mem_type::owner, resource::device>
-execute<float, resource::host>(kronmult_matrix<float, resource::device> const&,
-fk::vector<float, mem_type::owner, resource::host> const &);
-template fk::vector<double, mem_type::owner, resource::device>
-execute<double, resource::host>(kronmult_matrix<double, resource::device> const&,
-fk::vector<double, mem_type::owner, resource::host> const &);
-#endif
-
-}
 
 }

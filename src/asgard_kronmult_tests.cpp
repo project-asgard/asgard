@@ -48,7 +48,7 @@ void test_kronmult_cpu_v2(int dimensions, int n, int num_y, int output_length,
     ip++;
   }
 
-  asgard::kronmult_matrix<T, asgard::resource::host>
+  asgard::kronmult_matrix<T>
     kmat(dimensions, n, num_y, output_length,
          asgard::fk::vector<int, asgard::mem_type::const_view>(iA),
          asgard::fk::vector<T, asgard::mem_type::const_view>(vA));

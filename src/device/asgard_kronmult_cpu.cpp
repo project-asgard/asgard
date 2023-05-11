@@ -22,9 +22,8 @@ void run_cpu_variant0(int const dimensions, T const *const pA[],
       int const i = iy * output_stride + stride;
       T totalA    = 1;
       for (int j = 0; j < dimensions; j++)
-      {
         totalA *= pA[dimensions * i + j][0];
-      }
+
       pY[i][0] += totalA * pX[i][0];
     }
   }
