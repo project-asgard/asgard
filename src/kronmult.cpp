@@ -460,9 +460,6 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
   fk::vector<int, mem_type::owner, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
 
-
-#ifdef ASGARD_USE_CUDA
-#else
   precision *pA = vA.data();
   for (int t = 0; t < num_terms; t++)
   {
@@ -489,7 +486,6 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
       }
     }
   }
-#endif
 
   // compute iA
   int const *const flattened_table = discretization.get_table().get_active_table().data();
@@ -519,7 +515,11 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
     }
   }
 
+#ifdef ASGARD_USE_CUDA
+  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, iA.clone_onto_device(), vA.clone_onto_device());
+#else
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, std::move(iA), std::move(vA));
+#endif
 }
 
 template kronmult_matrix<float>

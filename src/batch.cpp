@@ -552,7 +552,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
     for (int d = 0; d < pde.num_dims; d++)
     {
       coef_cache.emplace(key_type(k, d),
-                         pde.get_coefficients(k, d).clone_onto_host());
+                         pde.get_coefficients(k, d));
     }
   }
 

@@ -270,7 +270,7 @@ public:
   {
     this->coefficients_.clear_and_resize(new_coefficients.nrows(),
                                          new_coefficients.ncols()) =
-        new_coefficients.clone_onto_device();
+        new_coefficients;
   }
 
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm,
@@ -311,8 +311,7 @@ public:
     partial_terms_[pterm].set_mass(std::move(mass));
   }
 
-  fk::matrix<P, mem_type::owner, resource::device> const &
-  get_coefficients() const
+  fk::matrix<P> const &get_coefficients() const
   {
     return coefficients_;
   }
@@ -344,9 +343,7 @@ public:
                                   // these device-side after construction.
     }
 
-    fk::matrix<P, mem_type::view, resource::device>(coefficients_, 0,
-                                                    new_dof - 1, 0, new_dof - 1)
-        .transfer_from(new_coeffs);
+    fk::matrix<P, mem_type::view>(coefficients_, 0, new_dof - 1, 0, new_dof - 1) = new_coeffs;
   }
 
   // public but const data. no getters
@@ -359,7 +356,7 @@ private:
   std::vector<partial_term<P>> partial_terms_;
 
   // operator matrix for this term at a single dimension
-  fk::matrix<P, mem_type::owner, resource::device> coefficients_;
+  fk::matrix<P> coefficients_;
 };
 
 // ---------------------------------------------------------------------------
@@ -694,7 +691,7 @@ public:
   term_set<P> const &get_terms() const { return terms_; }
   term_set<P> &get_terms() { return terms_; }
 
-  fk::matrix<P, mem_type::owner, resource::device> const &
+  fk::matrix<P> const &
   get_coefficients(int const term, int const dim) const
   {
     expect(term >= 0);
