@@ -52,7 +52,7 @@ class kronmult_matrix
 public:
   kronmult_matrix()
     : num_dimensions_(0), kron_size_(0), num_rows_(0),
-      num_columns_(0), num_terms_(0), input_size_(0)
+      num_columns_(0), num_terms_(0), input_size_(0), flops_(0)
   {}
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_columns,
                   fk::vector<int, mem_type::const_view, resource::host> const &index_A,
@@ -71,6 +71,8 @@ public:
         iA = index_A.clone_onto_device();
         vA = index_A.clone_onto_device();
     }
+
+    compute_flops();
   }
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_columns,
@@ -87,6 +89,8 @@ public:
 #endif
     for(int d=0; d<num_dimensions_; d++)
       input_size_ *= kron_size_;
+
+    compute_flops();
   }
 
   //! \brief Computes y = alpha * kronmult_matrix * x + beta * y
@@ -108,14 +112,29 @@ public:
       return (num_dimensions_ > 0);
   }
 
+  int64_t flops() const
+  {
+    return flops_;
+  }
+
+protected:
+  void compute_flops()
+  {
+    flops_ = kron_size_;
+    for(int i=0; i<num_dimensions_; i++)
+      flops_ *= kron_size_;
+    flops_ *= 2 * num_dimensions_ * num_rows_ * num_rows_ * num_terms_;
+  }
+
+private:
   int num_dimensions_;
   int kron_size_; // i.e., n - size of the matrices
   int num_rows_;
   int num_columns_;
   int num_terms_;
   int input_size_;
+  int64_t flops_;
 
-private:
 #ifdef ASGARD_USE_CUDA
   static constexpr resource data_mode = resource::device;
 #else

@@ -186,12 +186,11 @@ explicit_advance(PDE<P> const &pde,
 
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
-  auto const apply_id = tools::timer.start("kronmult_setup");
-  //auto fx             = kronmult::execute(pde, table, program_opts, grid, x);
+  auto const apply_id = tools::timer.start("kronmult");
   fk::vector<P, mem_type::owner, resource::host> fx(x.size());
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
 
-  tools::timer.stop(apply_id);
+  tools::timer.stop(apply_id, operator_matrix.flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources > 0)
@@ -213,9 +212,8 @@ explicit_advance(PDE<P> const &pde,
 
   // -- RK step 2
   tools::timer.start(apply_id);
-  //fx = kronmult::execute(pde, table, program_opts, grid, x);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id);
+  tools::timer.stop(apply_id, operator_matrix.flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources > 0)
@@ -242,9 +240,8 @@ explicit_advance(PDE<P> const &pde,
 
   // -- RK step 3
   tools::timer.start(apply_id);
-  //fx = kronmult::execute(pde, table, program_opts, grid, x);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id);
+  tools::timer.stop(apply_id, operator_matrix.flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources > 0)
@@ -449,7 +446,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
                        fk::vector<P, mem_type::view, resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
 
-  auto const &table    = adaptive_grid.get_table();
+  //auto const &table    = adaptive_grid.get_table();
   auto const &plan     = adaptive_grid.get_distrib_plan();
   auto const dt        = pde.get_dt();
   int const degree     = pde.get_dimensions()[0].get_degree();
@@ -558,13 +555,13 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
 
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
-  auto const apply_id = tools::timer.start("kronmult_setup");
+  auto const apply_id = tools::timer.start("kronmult - explicit");
   //auto fx             = kronmult::execute(pde, table, program_opts, grid, x,
   //                            imex_flag::imex_explicit);
   fk::vector<P, mem_type::owner, resource::host> fx(x.size());
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
 
-  tools::timer.stop(apply_id);
+  tools::timer.stop(apply_id, operator_matrix.flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   fk::vector<P> f_2s(x_orig.size());
@@ -619,9 +616,12 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   if (pde.do_collision_operator)
   {
     // f2 now
-    pde.gmres_outputs[0] = solver::simple_gmres(
-        pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
-        max_iter, tolerance, imex_flag::imex_implicit);
+    //pde.gmres_outputs[0] = solver::simple_gmres(
+    //    pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
+    //    max_iter, tolerance, imex_flag::imex_implicit);
+    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
+    pde.gmres_outputs[0] =
+        solver::simple_gmres_euler(pde.get_dt(), operator_matrix, f_2, x, restart, max_iter, tolerance);
   }
   else
   {
@@ -641,11 +641,11 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     do_poisson_update(f_2);
   }
 
-  tools::timer.start("kronmult_setup");
+  tools::timer.start(apply_id);
   //fx = kronmult::execute(pde, table, program_opts, grid, f_2,
   //                       imex_flag::imex_explicit);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id);
+  tools::timer.stop(apply_id, operator_matrix.flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   fk::vector<P> t_f2(x_orig.size());
@@ -701,9 +701,13 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    pde.gmres_outputs[1] = solver::simple_gmres(
-        pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
-        max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
+    //pde.gmres_outputs[1] = solver::simple_gmres(
+    //    pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
+    //    max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
+    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
+    pde.gmres_outputs[1] =
+        solver::simple_gmres_euler(P{0.5}*pde.get_dt(), operator_matrix, f_3, x, restart, max_iter, tolerance);
+
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     return f_3;

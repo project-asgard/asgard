@@ -453,6 +453,9 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
     }
   }
 
+  // std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " << kron_size
+  //           << " " << num_rows << " " << num_rows * num_terms << " " << osize << " \n";
+
   fk::vector<int, mem_type::owner, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
 
@@ -468,9 +471,6 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
           (program_options.use_imex_stepping &&
            pde.get_terms()[t][d].flag == imex))
       {
-        // std::cout << " pde.get_coefficients(t, d) = " << pde.get_coefficients(t, d).size() << "\n";
-        // std::cout << " rows = " << pde.get_coefficients(t, d).nrows() << "\n";
-        // std::cout << " cols = " << pde.get_coefficients(t, d).ncols() << "\n";
         auto const &ops = pde.get_coefficients(t, d); // this is an fk::matrix
         int const num_ops = ops.nrows() / kron_size;
 
@@ -501,15 +501,11 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
     for(int i=0; i<num_dimensions; i++)
       oprow[i] = (row_coords[i] == 0) ? 0 : ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]);
 
-    //std::cout << oprow[0] << "   " << oprow[1] << "\n";
-
     for (int64_t col=grid.col_start; col < grid.col_stop+1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       for(int i=0; i<num_dimensions; i++)
         opcol[i] = (col_coords[i] == 0) ? 0 : ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]);
-
-      //std::cout << opcol[0] << "   " << opcol[1] << "\n";
 
       for (int t = 0; t < num_terms; t++)
       {
