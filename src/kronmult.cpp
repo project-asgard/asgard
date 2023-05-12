@@ -453,8 +453,9 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
     }
   }
 
-  // std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " << kron_size
-  //           << " " << num_rows << " " << num_rows * num_terms << " " << osize << " \n";
+  //std::cout << "./asgard-kronmult-benchmark " << num_dimensions << " " << kron_size
+  //          << " " << num_rows << " " << num_rows * num_terms
+  //          << " " << osize / (kron_size * kron_size) << " \n";
 
   fk::vector<int, mem_type::owner, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
