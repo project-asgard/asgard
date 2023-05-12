@@ -87,9 +87,6 @@ public:
       num_columns_(num_columns), num_terms_(num_columns / num_rows), input_size_(1),
       iA(index_A.size()), vA(values_A.size())
   {
-    for(int d=0; d<num_dimensions_; d++)
-      input_size_ *= kron_size_;
-
     if constexpr (data_mode == resource::host){
         iA = index_A;
         vA = values_A;
@@ -98,7 +95,7 @@ public:
         vA = values_A.clone_onto_device();
     }
 
-    compute_flops();
+    finalize_variables();
   }
   /*!
    *\brief Creates a new matrix and accepts the data as a r-values.
@@ -119,18 +116,23 @@ public:
 #else
     static_assert(input_mode == resource::host, "the GPU is disabled, so r-value inputs must have resource::host");
 #endif
-    for(int d=0; d<num_dimensions_; d++)
-      input_size_ *= kron_size_;
 
-    compute_flops();
+    finalize_variables();
   }
 
-  //! \brief Computes y = alpha * kronmult_matrix * x + beta * y
+  /*!
+   * \brief Computes y = alpha * kronmult_matrix * x + beta * y
+   *
+   * This method is not thread-safe!
+   */
   void apply(precision alpha, precision const x[], precision beta, precision y[]) const
   {
 #ifdef ASGARD_USE_CUDA
-    std::cerr << " should be calling the GPU here \n";
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+    if (beta != 0)
+      fk::copy_to_device(ydev.data(), y, ydev.size());
+    fk::copy_to_device(xdev.data(), x, xdev.size());
+    kronmult::gpu_dense(num_dimensions_, kron_size_, total_size(), num_rows_, num_terms_, iA.data(), vA.data(), alpha, xdev.data(), beta, ydev.data());
+    fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
     kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
 #endif
@@ -140,6 +142,12 @@ public:
   int input_size() const
   {
     return input_size_;
+  }
+
+  //! \brief Returns the total size of the input and output vectors, i.e., num_rows * input_size()
+  int total_size() const
+  {
+    return input_size_ * num_rows_;
   }
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
@@ -155,13 +163,21 @@ public:
   }
 
 protected:
-  //! \brief After dimensions and sizes have been initialized, initializes the flop-count.
-  void compute_flops()
+  //! \brief After dimensions and sizes have been initialized, set flop count and temporaries.
+  void finalize_variables()
   {
+    for(int d=0; d<num_dimensions_; d++)
+      input_size_ *= kron_size_;
+
     flops_ = kron_size_;
     for(int i=0; i<num_dimensions_; i++)
       flops_ *= kron_size_;
     flops_ *= 2 * num_dimensions_ * num_rows_ * num_rows_ * num_terms_;
+
+#ifdef ASGARD_USE_CUDA
+    xdev = fk::vector<precision, mem_type::owner, data_mode>(input_size_ * num_rows_);
+    ydev = fk::vector<precision, mem_type::owner, data_mode>(input_size_ * num_rows_);
+#endif
   }
 
 private:
@@ -175,6 +191,7 @@ private:
 
 #ifdef ASGARD_USE_CUDA
   static constexpr resource data_mode = resource::device;
+  mutable fk::vector<precision, mem_type::owner, data_mode> xdev, ydev;
 #else
   static constexpr resource data_mode = resource::host;
 #endif

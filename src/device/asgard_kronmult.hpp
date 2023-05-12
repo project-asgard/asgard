@@ -7,6 +7,29 @@
 
 namespace asgard::kronmult
 {
+
+/*!
+ * \internal
+ * \brief (internal use only) Indicates how to interpret the alpha/beta scalars.
+ *
+ * Matrix operations include scalar parameters, e.g., \b beta \b y.
+ * Flops can be saved in special cases and those are in turn
+ * handled with template parameters and if-constexpr clauses.
+ * \endinternal
+ */
+enum class scalar_case
+{
+  //! \brief Overwrite the existing output
+  zero,
+  //! \brief Ignore \b beta and just add to the existing output
+  one,
+  //! \brief Ignore \b beta and subtract from the existing output
+  neg_one,
+  //! \brief Scale by \b beta and add the values
+  other
+};
+
+
 #ifdef ASGARD_USE_CUDA
 
 /*!
@@ -133,5 +156,20 @@ template<typename T>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
                int const num_terms, int const iA[], T const vA[], T const alpha,
                T const x[], T const beta, T y[]);
+
+#ifdef ASGARD_USE_CUDA
+/*!
+ * \brief Performs a batch of kronmult operations using a dense GPU matrix.
+ *
+ * The arrays iA, vA, x and y are stored on the GPU device.
+ * The indexes and scalars alpha and beta are stored on the CPU.
+ *
+ * \b total_size is the total size of x and y, i.e., num_rows * n^dimensions
+ */
+template<typename T>
+void gpu_dense(int const dimensions, int const n, int const total_size,
+               int const num_rows, int const num_terms, int const iA[],
+               T const vA[], T const alpha, T const x[], T const beta, T y[]);
+#endif
 
 } // namespace asgard::kronmult

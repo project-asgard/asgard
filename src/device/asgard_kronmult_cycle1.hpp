@@ -44,11 +44,38 @@ __device__ constexpr int int_pow()
 }
 
 /*!
+ * \brief Kernel to scale a vector, i.e., y = beta * y
+ *
+ * \tparam T is float or double
+ * \tparam beta_case reflect whether beta is 0, 1, -1, or something else
+ *
+ * \param num is the size of y
+ * \param beta is the scalar
+ * \param y is array to be scaled
+ */
+template<typename T, scalar_case beta_case>
+__global__ void scale(int const num, T const beta, T y[])
+{
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < num)
+  {
+    if constexpr (beta_case == scalar_case::zero)
+      y[i] = 0;
+    else if constexpr (beta_case == scalar_case::neg_one)
+      y[i] = -y[i];
+    else if constexpr (beta_case == scalar_case::other)
+      y[i] *= beta;
+
+    i += gridDim.x * blockDim.x;
+  }
+}
+
+/*!
  * \brief Kernel for the n==1 case.
  *
  * The algorithm for n==1, all tensors and matrices are in fact scalars.
  */
-template<typename T, int dims, int num_threads>
+template<typename T, int dims>
 __global__ void case1N(T const *const pA[], int const lda, T const *const pX[],
                        T *pY[], int const num_batch)
 {
@@ -62,6 +89,43 @@ __global__ void case1N(T const *const pA[], int const lda, T const *const pX[],
       x *= pA[dims * i + d][0];
 
     atomicAdd(pY[i], x);
+
+    i += gridDim.x * blockDim.x;
+  }
+}
+
+/*!
+ * \brief Kernel for the n==1 case.
+ *
+ * The algorithm for n==1, all tensors and matrices are in fact scalars.
+ */
+template<typename T, int dims, scalar_case alpha_case>
+__global__ void case_n1(int const num_batch, int const num_rows, int const num_terms,
+                        int const iA[], T const vA[], T const alpha, T const x[], T y[])
+{
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  while (i < num_batch)
+  {
+    T X = x[i % num_rows];
+
+    T sum = 0;
+    int ma = i * num_terms * dims;
+
+    for(int t = 0; t < num_terms; t++)
+    {
+      T totalA = vA[iA[ma++]];
+      for (int d = 1; d < dims; d++)
+        totalA = vA[iA[ma++]];
+      sum += totalA * X;
+    }
+
+    if constexpr(alpha_case == scalar_case::one)
+      atomicAdd(&y[i / num_rows], sum);
+    else if constexpr(alpha_case == scalar_case::neg_one)
+      atomicAdd(&y[i / num_rows], -sum);
+    else
+      atomicAdd(&y[i / num_rows], alpha * sum);
 
     i += gridDim.x * blockDim.x;
   }

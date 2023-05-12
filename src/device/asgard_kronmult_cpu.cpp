@@ -348,26 +348,6 @@ asgard_kronmult_cpu_instantiate_n234_d(5);
 asgard_kronmult_cpu_instantiate_n234_d(6);
 
 
-
-/*!
- * \brief Indicates how to interpret the beta parameter.
- *
- * Matrix operations include scalar parameters, e.g., \b beta \b y.
- * Flops can be saved in special cases and those are in turn
- * handled with template parameters and if-constexpr clauses.
- */
-enum class scalar_case
-{
-  //! \brief Overwrite the existing output
-  zero,
-  //! \brief Ignore \b beta and just add to the existing output
-  one,
-  //! \brief Ignore \b beta and subtract from the existing output
-  neg_one,
-  //! \brief Scale by \b beta and add the values
-  other
-};
-
 /*!
  * \brief Handles the special case of n=1
  *
