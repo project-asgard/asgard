@@ -36,8 +36,8 @@ class kronmult_matrix
 public:
   //! \brief Creates uninitialized matrix cannot be used except to be reinitialized.
   kronmult_matrix()
-    : num_dimensions_(0), kron_size_(0), num_rows_(0),
-      num_columns_(0), num_terms_(0), input_size_(0), flops_(0)
+    : num_dimensions_(0), kron_size_(0), num_rows_(0), num_terms_(0),
+      input_size_(0), flops_(0)
   {}
   /*!
    *\brief Creates a new matrix and copies the data into internal structures.
@@ -65,11 +65,11 @@ public:
    *   T const *A_0 = &( values_A[ index_A[idx + num_dimensions-1] ] );
    * \endcode
    */
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_columns,
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_terms,
                   fk::vector<int, mem_type::const_view, resource::host> const &index_A,
                   fk::vector<precision, mem_type::const_view, resource::host> const &values_A)
     : num_dimensions_(num_dimensions), kron_size_(kron_size), num_rows_(num_rows),
-      num_columns_(num_columns), num_terms_(num_columns / num_rows), input_size_(1),
+      num_terms_(num_terms), input_size_(1),
       iA(index_A.size()), vA(values_A.size())
   {
     if constexpr (data_mode == resource::host){
@@ -89,11 +89,11 @@ public:
    * have been enabled and resource::host when running only on the CPU.
    */
   template<resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_columns,
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_terms,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
     : num_dimensions_(num_dimensions), kron_size_(kron_size), num_rows_(num_rows),
-      num_columns_(num_columns), num_terms_(num_columns / num_rows), input_size_(1),
+      num_terms_(num_terms), input_size_(1),
       iA(std::move(index_A)), vA(std::move(values_A))
   {
 #ifdef ASGARD_USE_CUDA
@@ -119,7 +119,7 @@ public:
     kronmult::gpu_dense(num_dimensions_, kron_size_, total_size(), num_rows_, num_terms_, iA.data(), vA.data(), alpha, xdev.data(), beta, ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+  kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
 #endif
   }
 
@@ -169,7 +169,6 @@ private:
   int num_dimensions_;
   int kron_size_; // i.e., n - size of the matrices
   int num_rows_;
-  int num_columns_;
   int num_terms_;
   int input_size_;
   int64_t flops_;

@@ -30,7 +30,6 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_terms      = pde.num_terms;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
-  int const num_cols       = num_rows * num_terms;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels) ? program_options.max_level : pde.max_level);
 
@@ -45,12 +44,17 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
     }
   }
 
-  //std::cout << "./asgard-kronmult-benchmark " << num_dimensions << " " << kron_size
-  //          << " " << num_rows << " " << num_rows * num_terms
-  //          << " " << osize / (kron_size * kron_size) << " \n";
-
   fk::vector<int, mem_type::owner, resource::host> iA(num_rows * num_rows * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
+
+#ifdef ASGARD_USE_CUDA
+  std::cout << "  kronmult dense matrix allocation (MB): "
+            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) << "\n";
+#endif
+  // will print the command to use for performance testing
+  //std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " << kron_size
+  //          << " " << num_rows << " " << num_terms
+  //          << " " << osize / (kron_size * kron_size) << "\n";
 
   // load the matrices into a contiguous data-structure
   // keep the column major format
@@ -112,10 +116,10 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
 
 #ifdef ASGARD_USE_CUDA
   // if using CUDA, copy the matrices onto the GPU
-  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, iA.clone_onto_device(), vA.clone_onto_device());
+  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_terms, iA.clone_onto_device(), vA.clone_onto_device());
 #else
   // if using the CPU, move the vectors into the matrix structure
-  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, std::move(iA), std::move(vA));
+  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_terms, std::move(iA), std::move(vA));
 #endif
 }
 

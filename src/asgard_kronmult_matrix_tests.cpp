@@ -12,22 +12,21 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
 }
 
 template<typename T>
-void test_kronmult(int dimensions, int n, int num_y, int output_length,
-                      int num_matrices)
+void test_kronmult(int dimensions, int n, int num_rows, int num_terms, int num_matrices)
 {
   constexpr bool precompute = true;
-  constexpr bool randomx = false;
 
   auto data =
-      make_kronmult_data<T, precompute, randomx>(dimensions, n, num_y, output_length, num_matrices);
+      make_kronmult_data<T, precompute>(dimensions, n, num_rows, num_terms, num_matrices);
+
+  const int num_batch = num_rows * num_rows * num_terms;
 
   asgard::fk::vector<T> vA(num_matrices * n * n);
-  for (int k=0; k<num_matrices * n * n; k++)
-    vA(k) = data->matrices[k];
+  std::copy(data->matrices.begin(), data->matrices.end(), vA.begin());
 
-  asgard::fk::vector<int> iA(data->num_batch * dimensions);
+  asgard::fk::vector<int> iA(num_batch * dimensions);
   auto ip = data->pointer_map.begin();
-  for (int i = 0; i < data->num_batch; i++)
+  for (int i = 0; i < num_batch; i++)
   {
     ip++;
     for (int j = 0; j < dimensions; j++)
@@ -36,11 +35,11 @@ void test_kronmult(int dimensions, int n, int num_y, int output_length,
   }
 
 #ifdef ASGARD_USE_CUDA
-  asgard::kronmult_matrix<T> kmat(dimensions, n, num_y, output_length,
+  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_terms,
                                   asgard::fk::vector<int, asgard::mem_type::const_view, asgard::resource::host>(iA),
                                   asgard::fk::vector<T, asgard::mem_type::const_view, asgard::resource::host>(vA));
 #else
-  asgard::kronmult_matrix<T> kmat(dimensions, n, num_y, output_length, std::move(iA), std::move(vA));
+  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_terms, std::move(iA), std::move(vA));
 #endif
 
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
@@ -125,39 +124,39 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
 TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  test_kronmult<TestType>(1, n, 9, 9, 7);
+  test_kronmult<TestType>(1, n, 11, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
                    18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
-  test_kronmult<TestType>(2, n, 9, 9, 7);
+  test_kronmult<TestType>(2, n, 13, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  test_kronmult<TestType>(3, n, 9, 9, 7);
+  test_kronmult<TestType>(3, n, 17, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[execute_gpu 4d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType>(4, n, 9, 9, 7);
+  test_kronmult<TestType>(4, n, 10, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4);
-  test_kronmult<TestType>(5, n, 9, 9, 7);
+  test_kronmult<TestType>(5, n, 10, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4);
   if (n <= 3)
-    test_kronmult<TestType>(6, n, 9, 9, 7);
+    test_kronmult<TestType>(6, n, 8, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu general", "[execute_gpu]", float,

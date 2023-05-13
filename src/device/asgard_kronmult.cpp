@@ -781,9 +781,6 @@ void gpu_dense(int const dimensions, int const n, int const total_size, int cons
         "kronmult unimplemented number of dimensions for the gpu " +
         std::to_string(dimensions));
   }
-  auto const stat = cudaDeviceSynchronize();
-  if (stat != cudaSuccess)
-    throw std::runtime_error("failed to synchronize after the kernel");
 }
 
 template void gpu_dense<float>(int const, int const, int const, int const, int const,
