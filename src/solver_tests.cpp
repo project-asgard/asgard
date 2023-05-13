@@ -90,21 +90,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     return x;
   }();
 
-  // perform gmres with kron product
-  fk::vector<P> const gmres_matrix_free = [&pde, &table, &my_subgrid, &gold, &b,
-                                           elem_size, &opts]() {
-    auto const system_size = elem_size * table.size();
-    fk::vector<P> x(gold);
-    int const restart  = system_size;
-    int const max_iter = system_size;
-    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::simple_gmres(*pde, table, opts, my_subgrid, x, b, fk::matrix<P>(),
-                         restart, max_iter, tolerance);
-    return x;
-  }();
-
   rmse_comparison(gold, gmres, tol_factor);
-  rmse_comparison(gold, gmres_matrix_free, tol_factor);
 }
 
 TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)

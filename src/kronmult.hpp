@@ -15,21 +15,6 @@
 namespace asgard
 {
 
-template<typename P, mem_type mem, resource resrc>
-using vector = fk::vector<P, mem, resrc>;
-
-namespace kronmult{
-// execute one subgrid by breaking into smaller subgrids to
-// fit workspace limit MB
-template<typename P>
-fk::vector<P, mem_type::owner, resource::host>
-execute(PDE<P> const &pde, elements::table const &elem_table,
-        options const &program_options, element_subgrid const &my_subgrid,
-        fk::vector<P, mem_type::owner, resource::host> const &x,
-        imex_flag const imex = imex_flag::unspecified);
-
-} // namespace kronmult
-
 /*!
  * \brief Contains persistent data for a kronmult operation.
  *
