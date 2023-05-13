@@ -122,21 +122,6 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
 
 #ifdef ASGARD_USE_CUDA
 
-template<typename T>
-void test_kronmult_gpu(int dimensions, int n, int num_y, int output_length,
-                       int num_matrices)
-{
-  auto data =
-      make_kronmult_data<T>(dimensions, n, num_y, output_length, num_matrices);
-
-  execute_gpu(dimensions, n, data->gpupA.data(), n, data->gpupX.data(),
-              data->gpupY.data(), data->num_batch, data->output_size);
-
-  rmse_comparison<T>(data->gpuy.clone_onto_host(),
-                     asgard::fk::vector<T>(data->reference_y),
-                     get_tolerance<T>(100));
-}
-
 TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);

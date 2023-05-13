@@ -292,10 +292,7 @@ foreach (component IN LISTS components)
                                $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
     )
 endforeach ()
-target_sources (asgard_obj
-                PRIVATE
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp>
-)
+
 target_sources (asgard_obj
                 PRIVATE
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp>
@@ -345,8 +342,7 @@ target_compile_definitions (asgard_obj
 
 if (ASGARD_USE_CUDA)
 
-    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/kronmult_cuda.cpp
-                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
+    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
 #  Turn on GPU support in kronmult.
@@ -508,23 +504,6 @@ if (ASGARD_BUILD_TESTS)
     set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
   endforeach ()
 
-  add_executable (kronmult_cuda-tests)
-  target_sources (kronmult_cuda-tests
-                  PRIVATE
-                  $<BUILD_INTERFACE:src/device/kronmult_cuda_tests.cpp>)
-  target_include_directories (kronmult_cuda-tests
-                              PRIVATE
-                              ${CMAKE_SOURCE_DIR}/testing
-                              ${CMAKE_BINARY_DIR}
-  )
-  target_link_libraries (kronmult_cuda-tests PUBLIC tests_general_main)
-  if (${ASGARD_USE_PCH})
-    target_precompile_headers (kronmult_cuda-tests REUSE_FROM tests_general_main)
-  endif ()
-  add_test (NAME kronmult_cuda-test
-            COMMAND kronmult_cuda-tests
-            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-  set_tests_properties (kronmult_cuda-test PROPERTIES ENVIRONMENT OMP_NUM_THREADS=1)
 else ()
   message (WARNING "warning: tests will not be built.")
 endif ()
