@@ -639,6 +639,9 @@ __global__ void cycle1(int const num_batch, int const num_rows, int const num_te
 
       for (int k = 0; k < n; k++)
         yinc += A[threadIdx.y][ia0 + k * n] * X[threadIdx.y][ix0 + k];
+
+      if constexpr (sync_mode == manual_sync::enable)
+        __syncthreads();
     }
 
     if constexpr(alpha_case == scalar_case::one)
@@ -649,9 +652,6 @@ __global__ void cycle1(int const num_batch, int const num_rows, int const num_te
       atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x], alpha * yinc);
 
     i += gridDim.x * blockDim.y;
-
-    if constexpr (sync_mode == manual_sync::enable)
-      __syncthreads();
   }
 }
 

@@ -426,8 +426,6 @@ kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision> const &discretization,
                     options const &program_options, imex_flag const imex)
 {
-  std::cerr << " making matrix\n";
-
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
@@ -489,8 +487,6 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
     }
   }
 
-  std::cerr << " making iA \n";
-
   // compute iA
   int const *const flattened_table = discretization.get_table().get_active_table().data();
   std::vector<int> oprow(num_dimensions);
@@ -498,14 +494,12 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
   auto ia = iA.begin();
   for (int64_t row=grid.row_start; row < grid.row_stop+1; row++)
   {
-    std::cerr << " row = " << row << "\n";
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     for(int i=0; i<num_dimensions; i++)
       oprow[i] = (row_coords[i] == 0) ? 0 : ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]);
 
     for (int64_t col=grid.col_start; col < grid.col_stop+1; col++)
     {
-      std::cerr << " col = " << col << "\n";
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       for(int i=0; i<num_dimensions; i++)
         opcol[i] = (col_coords[i] == 0) ? 0 : ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]);
@@ -520,8 +514,6 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
       }
     }
   }
-
-  std::cerr << " loading matrix\n";
 
 #ifdef ASGARD_USE_CUDA
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, iA.clone_onto_device(), vA.clone_onto_device());

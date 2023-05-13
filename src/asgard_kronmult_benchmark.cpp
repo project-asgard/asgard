@@ -82,29 +82,13 @@ int main(int argc, char **argv)
          asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
          asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
 
-// dry run to wake up the devices
-#ifdef ASGARD_USE_CUDA
-  execute_gpu(dimensions, n, fdata->gpupA.data(), n, fdata->gpupX.data(),
-              fdata->gpupY.data(), fdata->num_batch, fdata->output_size);
-  cudaDeviceSynchronize();
-#else
-  //execute_cpu(dimensions, n, fdata->pA.data(), n, fdata->pX.data(),
-  //            fdata->pY.data(), fdata->num_batch, fdata->output_size);
+  // dry run to wake up the devices
   fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
-#endif
 
   time_start = std::chrono::system_clock::now();
   for (int i = 0; i < num_tests; i++)
   {
-#ifdef ASGARD_USE_CUDA
-    execute_gpu(dimensions, n, fdata->gpupA.data(), n, fdata->gpupX.data(),
-                fdata->gpupY.data(), fdata->num_batch, fdata->output_size);
-    cudaDeviceSynchronize();
-#else
-    //execute_cpu(dimensions, n, fdata->pA.data(), n, fdata->pX.data(),
-    //            fdata->pY.data(), fdata->num_batch, fdata->output_size);
     fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
-#endif
   }
   time_end = std::chrono::system_clock::now();
   double felapsed =
@@ -125,28 +109,12 @@ int main(int argc, char **argv)
               << " Gflops / second.\n";
   }
 
-#ifdef ASGARD_USE_CUDA
-  execute_gpu(dimensions, n, ddata->gpupA.data(), n, ddata->gpupX.data(),
-              ddata->gpupY.data(), ddata->num_batch, ddata->output_size);
-  cudaDeviceSynchronize();
-#else
-  //execute_cpu(dimensions, n, ddata->pA.data(), n, ddata->pX.data(),
-  //            ddata->pY.data(), ddata->num_batch, ddata->output_size);
   dmat.apply(1.0, ddata->input_x.data(), 1.0, ddata->output_y.data());
-#endif
 
   time_start = std::chrono::system_clock::now();
   for (int i = 0; i < num_tests; i++)
   {
-#ifdef ASGARD_USE_CUDA
-    execute_gpu(dimensions, n, ddata->gpupA.data(), n, ddata->gpupX.data(),
-                ddata->gpupY.data(), ddata->num_batch, ddata->output_size);
-    cudaDeviceSynchronize();
-#else
-    //execute_cpu(dimensions, n, ddata->pA.data(), n, ddata->pX.data(),
-    //            ddata->pY.data(), ddata->num_batch, ddata->output_size);
     dmat.apply(1.0, ddata->input_x.data(), 1.0, ddata->output_y.data());
-#endif
   }
   time_end = std::chrono::system_clock::now();
   double delapsed =

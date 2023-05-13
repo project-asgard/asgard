@@ -583,7 +583,6 @@ void gpu_dense(int const dimensions, int const n, int const total_size, int cons
       case_n1<T, 2>(num_rows, num_terms, iA, vA, alpha, x, y);
       break;
     case 2:
-      std::cerr << " calling here\n";
       case_cycle1<T, 2, 2>(num_rows, num_terms, iA, vA, alpha, x, y);
       break;
     case 3:
@@ -782,6 +781,9 @@ void gpu_dense(int const dimensions, int const n, int const total_size, int cons
         "kronmult unimplemented number of dimensions for the gpu " +
         std::to_string(dimensions));
   }
+  auto const stat = cudaDeviceSynchronize();
+  if (stat != cudaSuccess)
+    throw std::runtime_error("failed to synchronize after the kernel");
 }
 
 template void gpu_dense<float>(int const, int const, int const, int const, int const,

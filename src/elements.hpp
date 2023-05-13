@@ -95,8 +95,7 @@ public:
   get_child_elements(int64_t const index, options const &opts) const;
 
   // get flattened element table for device
-  fk::vector<int, mem_type::owner, resource::device> const &
-  get_active_table() const
+  fk::vector<int> const &get_active_table() const
   {
     return active_table_d_;
   }
@@ -121,7 +120,7 @@ private:
   std::unordered_map<int64_t, fk::vector<int>> id_to_coords_;
 
   // table of active elements staged for on-device kron list building
-  fk::vector<int, mem_type::owner, resource::device> active_table_d_;
+  fk::vector<int> active_table_d_;
 };
 
 } // end namespace asgard::elements

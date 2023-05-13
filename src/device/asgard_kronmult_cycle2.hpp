@@ -630,6 +630,9 @@ __global__ void cycle2(int const num_batch, int const num_rows, int const num_te
 
       for (int k = 0; k < n; k++)
         yinc1 += A[threadIdx.y][ia01 + k * n] * X[threadIdx.y][ix01 + k];
+
+      if constexpr (sync_mode == manual_sync::enable)
+        __syncthreads();
     }
 
     if constexpr(alpha_case == scalar_case::one)
@@ -673,9 +676,6 @@ __global__ void cycle2(int const num_batch, int const num_rows, int const num_te
     }
 
     i += gridDim.x * blockDim.y;
-
-    if constexpr (sync_mode == manual_sync::enable)
-      __syncthreads();
   }
 }
 

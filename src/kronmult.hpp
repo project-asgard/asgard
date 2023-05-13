@@ -127,7 +127,6 @@ public:
    */
   void apply(precision alpha, precision const x[], precision beta, precision y[]) const
   {
-    std::cerr << " applying\n";
 #ifdef ASGARD_USE_CUDA
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());

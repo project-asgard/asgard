@@ -73,7 +73,7 @@ void time_advance_test(parser const &parse,
 
   fk::vector<P> f_val(initial_condition);
 
-  auto operator_matrix = asgard::make_kronmult_dense<P>(*pde, adaptive_grid, opts);
+  asgard::kronmult_matrix<P> operator_matrix;
 
   // -- time loop
   for (auto i = 0; i < opts.num_time_steps; ++i)
