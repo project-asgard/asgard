@@ -1,6 +1,6 @@
 #include "batch.hpp"
 #include "coefficients.cpp"
-#include "kronmult.hpp"
+#include "asgard_kronmult_matrix.hpp"
 #include "tests_general.hpp"
 
 using namespace asgard;

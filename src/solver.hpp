@@ -3,7 +3,7 @@
 #include "batch.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
-#include "kronmult.hpp"
+#include "asgard_kronmult_matrix.hpp"
 
 namespace asgard::solver
 {

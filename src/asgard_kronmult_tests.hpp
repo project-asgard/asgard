@@ -2,7 +2,7 @@
 #pragma once
 
 #include "./device/asgard_kronmult.hpp"
-#include "./kronmult.hpp"
+#include "./asgard_kronmult_matrix.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 

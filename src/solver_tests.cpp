@@ -1,6 +1,5 @@
 #include "batch.hpp"
 #include "coefficients.cpp"
-#include "kronmult.hpp"
 #include "quadrature.hpp"
 #include "solver.hpp"
 #include "tests_general.hpp"

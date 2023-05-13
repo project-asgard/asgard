@@ -1,7 +1,7 @@
 #pragma once
 #include "adapt.hpp"
 #include "boundary_conditions.hpp"
-#include "kronmult.hpp"
+#include "asgard_kronmult_matrix.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 

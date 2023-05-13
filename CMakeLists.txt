@@ -251,7 +251,6 @@ set (components
      distribution
      elements
      fast_math
-     kronmult
      lib_dispatch
      matlab_utilities
      moment
@@ -268,6 +267,7 @@ set (components
      asgard_dimension
      asgard_discretization
      asgard_pde_system
+     asgard_kronmult_matrix
 )
 
 if (ASGARD_IO_HIGHFIVE)

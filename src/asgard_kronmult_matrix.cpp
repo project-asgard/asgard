@@ -1,4 +1,4 @@
-#include "kronmult.hpp"
+#include "asgard_kronmult_matrix.hpp"
 #include "batch.hpp"
 #include "device/kronmult_cuda.hpp"
 #include "lib_dispatch.hpp"
