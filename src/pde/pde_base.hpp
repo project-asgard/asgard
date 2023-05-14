@@ -268,9 +268,8 @@ public:
 
   void set_coefficients(fk::matrix<P> const &new_coefficients)
   {
-    this->coefficients_.clear_and_resize(new_coefficients.nrows(),
-                                         new_coefficients.ncols()) =
-        new_coefficients;
+    this->coefficients_.clear_and_resize(
+        new_coefficients.nrows(), new_coefficients.ncols()) = new_coefficients;
   }
 
   void set_partial_coefficients(fk::matrix<P> const &coeffs, int const pterm,
@@ -311,10 +310,7 @@ public:
     partial_terms_[pterm].set_mass(std::move(mass));
   }
 
-  fk::matrix<P> const &get_coefficients() const
-  {
-    return coefficients_;
-  }
+  fk::matrix<P> const &get_coefficients() const { return coefficients_; }
 
   std::vector<partial_term<P>> const &get_partial_terms() const
   {
@@ -343,7 +339,8 @@ public:
                                   // these device-side after construction.
     }
 
-    fk::matrix<P, mem_type::view>(coefficients_, 0, new_dof - 1, 0, new_dof - 1) = new_coeffs;
+    fk::matrix<P, mem_type::view>(coefficients_, 0, new_dof - 1, 0,
+                                  new_dof - 1) = new_coeffs;
   }
 
   // public but const data. no getters
@@ -691,8 +688,7 @@ public:
   term_set<P> const &get_terms() const { return terms_; }
   term_set<P> &get_terms() { return terms_; }
 
-  fk::matrix<P> const &
-  get_coefficients(int const term, int const dim) const
+  fk::matrix<P> const &get_coefficients(int const term, int const dim) const
   {
     expect(term >= 0);
     expect(term < num_terms);
