@@ -52,9 +52,9 @@ make_kronmult_dense(PDE<precision> const &pde, adapt::distributed_grid<precision
             << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) << "\n";
 #endif
   // will print the command to use for performance testing
-  //std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " << kron_size
-  //          << " " << num_rows << " " << num_terms
-  //          << " " << osize / (kron_size * kron_size) << "\n";
+  std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " << kron_size
+            << " " << num_rows << " " << num_terms
+            << " " << osize / (kron_size * kron_size) << "\n";
 
   // load the matrices into a contiguous data-structure
   // keep the column major format
