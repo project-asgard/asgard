@@ -1227,11 +1227,11 @@ template double dot(int *n, double const *x, int *incx, double *y, int *incy,
 template int
 dot(int *n, int const *x, int *incx, int *y, int *incy, resource const resrc);
 
-template void axpy(int *n, float const *alpha, float const *x, int *incx, float *y,
-                   int *incy, resource const resrc);
-template void axpy(int *n, double const  *alpha, double const *x, int *incx, double *y,
-                   int *incy, resource const resrc);
-template void axpy(int *n, int const  *alpha, int const *x, int *incx, int *y,
+template void axpy(int *n, float const *alpha, float const *x, int *incx,
+                   float *y, int *incy, resource const resrc);
+template void axpy(int *n, double const *alpha, double const *x, int *incx,
+                   double *y, int *incy, resource const resrc);
+template void axpy(int *n, int const *alpha, int const *x, int *incx, int *y,
                    int *incy, resource const resrc);
 
 template void

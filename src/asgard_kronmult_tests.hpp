@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include "./device/asgard_kronmult.hpp"
 #include "./asgard_kronmult_matrix.hpp"
+#include "./device/asgard_kronmult.hpp"
 #include "lib_dispatch.hpp"
 #include "tensors.hpp"
 
@@ -149,7 +149,7 @@ make_kronmult_data(int dimensions, int n, int num_rows, int num_terms,
     if (i % num_rows == 0)
       iy++;
     int const ix = i % num_rows;
-    for(int t = 0; t < num_terms; t++)
+    for (int t = 0; t < num_terms; t++)
     {
       *ip++ = ix;
       for (int j = 0; j < dimensions; j++)

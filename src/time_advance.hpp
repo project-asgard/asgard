@@ -1,7 +1,7 @@
 #pragma once
 #include "adapt.hpp"
-#include "boundary_conditions.hpp"
 #include "asgard_kronmult_matrix.hpp"
+#include "boundary_conditions.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
 
@@ -30,8 +30,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 // on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_advance(PDE<P> const &pde,
-                 kronmult_matrix<P> &operator_matrix,
+explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,

@@ -76,8 +76,9 @@ __global__ void scale(int const num, T const beta, T y[])
  * The algorithm for n==1, all tensors and matrices are in fact scalars.
  */
 template<typename T, int dims, scalar_case alpha_case>
-__global__ void case_n1(int const num_batch, int const num_rows, int const num_terms,
-                        int const iA[], T const vA[], T const alpha, T const x[], T y[])
+__global__ void
+case_n1(int const num_batch, int const num_rows, int const num_terms,
+        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -85,10 +86,10 @@ __global__ void case_n1(int const num_batch, int const num_rows, int const num_t
   {
     T X = x[i % num_rows];
 
-    T sum = 0;
+    T sum  = 0;
     int ma = i * num_terms * dims;
 
-    for(int t = 0; t < num_terms; t++)
+    for (int t = 0; t < num_terms; t++)
     {
       T totalA = vA[iA[ma++]];
       for (int d = 1; d < dims; d++)
@@ -96,9 +97,9 @@ __global__ void case_n1(int const num_batch, int const num_rows, int const num_t
       sum += totalA * X;
     }
 
-    if constexpr(alpha_case == scalar_case::one)
+    if constexpr (alpha_case == scalar_case::one)
       atomicAdd(&y[i / num_rows], sum);
-    else if constexpr(alpha_case == scalar_case::neg_one)
+    else if constexpr (alpha_case == scalar_case::neg_one)
       atomicAdd(&y[i / num_rows], -sum);
     else
       atomicAdd(&y[i / num_rows], alpha * sum);
@@ -115,9 +116,11 @@ __global__ void case_n1(int const num_batch, int const num_rows, int const num_t
  * There is no reuse of the matrix entries,
  * so they are not stored in __shared__ memory.
  */
-template<typename T, int n, int team_size, int num_teams, scalar_case alpha_case>
-__global__ void case_d1(int const num_batch, int const num_rows, int const num_terms,
-                        int const iA[], T const vA[], T const alpha, T const x[], T y[])
+template<typename T, int n, int team_size, int num_teams,
+         scalar_case alpha_case>
+__global__ void
+case_d1(int const num_batch, int const num_rows, int const num_terms,
+        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
@@ -127,7 +130,8 @@ __global__ void case_d1(int const num_batch, int const num_rows, int const num_t
 
   constexpr int effective_team_size = n;
 
-  static_assert(team_size <= n,
+  static_assert(
+      team_size <= n,
       "team is too small, size must equal the size of the matrices (n)");
 
   __shared__ T X[num_teams][team_size];
@@ -149,16 +153,16 @@ __global__ void case_d1(int const num_batch, int const num_rows, int const num_t
     int ma = i * num_terms;
 
     T yinc = 0;
-    for(int t = 0; t < num_terms; t++)
+    for (int t = 0; t < num_terms; t++)
     {
       T const *A = &vA[iA[ma++]];
       for (int k = 0; k < n; k++)
         yinc += A[k * n + threadIdx.x] * X[threadIdx.y][k];
     }
 
-    if constexpr(alpha_case == scalar_case::one)
+    if constexpr (alpha_case == scalar_case::one)
       atomicAdd(&y[n * (i / num_rows) + threadIdx.x], yinc);
-    else if constexpr(alpha_case == scalar_case::neg_one)
+    else if constexpr (alpha_case == scalar_case::neg_one)
       atomicAdd(&y[n * (i / num_rows) + threadIdx.x], -yinc);
     else
       atomicAdd(&y[n * (i / num_rows) + threadIdx.x], alpha * yinc);
@@ -198,9 +202,11 @@ __global__ void case_d1(int const num_batch, int const num_rows, int const num_t
  *    responsible for multiple tensor entries and computations will be
  *    done in more than one cycle.
  */
-template<typename T, int dims, int n, int team_size, int num_teams, scalar_case alpha_case>
-__global__ void cycle1(int const num_batch, int const num_rows, int const num_terms,
-                       int const iA[], T const vA[], T const alpha, T const x[], T y[])
+template<typename T, int dims, int n, int team_size, int num_teams,
+         scalar_case alpha_case>
+__global__ void
+cycle1(int const num_batch, int const num_rows, int const num_terms,
+       int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
@@ -264,7 +270,7 @@ __global__ void cycle1(int const num_batch, int const num_rows, int const num_te
     T yinc = 0;
     T rawx = x[int_pow<n, dims>() * (i % num_rows) + threadIdx.x];
 
-    for(int t = 0; t < num_terms; t++)
+    for (int t = 0; t < num_terms; t++)
     {
       X[threadIdx.y][threadIdx.x] = rawx;
 
@@ -369,12 +375,13 @@ __global__ void cycle1(int const num_batch, int const num_rows, int const num_te
         __syncthreads();
     }
 
-    if constexpr(alpha_case == scalar_case::one)
+    if constexpr (alpha_case == scalar_case::one)
       atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x], yinc);
-    else if constexpr(alpha_case == scalar_case::neg_one)
+    else if constexpr (alpha_case == scalar_case::neg_one)
       atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x], -yinc);
     else
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x], alpha * yinc);
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x],
+                alpha * yinc);
 
     i += gridDim.x * blockDim.y;
   }

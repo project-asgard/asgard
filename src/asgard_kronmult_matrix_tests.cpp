@@ -12,12 +12,13 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
 }
 
 template<typename T>
-void test_kronmult(int dimensions, int n, int num_rows, int num_terms, int num_matrices)
+void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
+                   int num_matrices)
 {
   constexpr bool precompute = true;
 
-  auto data =
-      make_kronmult_data<T, precompute>(dimensions, n, num_rows, num_terms, num_matrices);
+  auto data = make_kronmult_data<T, precompute>(dimensions, n, num_rows,
+                                                num_terms, num_matrices);
 
   const int num_batch = num_rows * num_rows * num_terms;
 
@@ -30,16 +31,20 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms, int num_m
   {
     ip++;
     for (int j = 0; j < dimensions; j++)
-      iA(i*dimensions + j) = n * n * (*ip++);
+      iA(i * dimensions + j) = n * n * (*ip++);
     ip++;
   }
 
 #ifdef ASGARD_USE_CUDA
-  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_terms,
-                                  asgard::fk::vector<int, asgard::mem_type::const_view, asgard::resource::host>(iA),
-                                  asgard::fk::vector<T, asgard::mem_type::const_view, asgard::resource::host>(vA));
+  asgard::kronmult_matrix<T> kmat(
+      dimensions, n, num_rows, num_terms,
+      asgard::fk::vector<int, asgard::mem_type::const_view,
+                         asgard::resource::host>(iA),
+      asgard::fk::vector<T, asgard::mem_type::const_view,
+                         asgard::resource::host>(vA));
 #else
-  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_terms, std::move(iA), std::move(vA));
+  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_terms,
+                                  std::move(iA), std::move(vA));
 #endif
 
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
@@ -114,7 +119,7 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", float, double)
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
                    double)
 {
-  //test_kronmult<TestType>(6, 5, 9, 2, 2);
+  // test_kronmult<TestType>(6, 5, 9, 2, 2);
 }
 
 #endif

@@ -56,15 +56,18 @@ void scale(int const num, T const beta, T y[])
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
 
-  int num_blocks = std::min(max_blocks, (num + max_threads-1)  / max_threads);
+  int num_blocks = std::min(max_blocks, (num + max_threads - 1) / max_threads);
   if (beta == 0)
-    kernel::scale<T, scalar_case::zero><<<num_blocks, max_threads>>>(num, beta, y);
+    kernel::scale<T, scalar_case::zero>
+        <<<num_blocks, max_threads>>>(num, beta, y);
   else if (beta == 1)
     return;
   else if (beta == -1)
-    kernel::scale<T, scalar_case::neg_one><<<num_blocks, max_threads>>>(num, beta, y);
+    kernel::scale<T, scalar_case::neg_one>
+        <<<num_blocks, max_threads>>>(num, beta, y);
   else
-    kernel::scale<T, scalar_case::other><<<num_blocks, max_threads>>>(num, beta, y);
+    kernel::scale<T, scalar_case::other>
+        <<<num_blocks, max_threads>>>(num, beta, y);
 }
 //! \brief Helper to instantiate and call the kernel for n=1.
 template<typename T, int dims>
@@ -75,17 +78,17 @@ void case_n1(int const num_rows, int const num_terms, int const iA[],
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
 
   int const num_batch = num_rows * num_rows;
-  int num_blocks = blocks(num_batch, max_threads, max_blocks);
+  int num_blocks      = blocks(num_batch, max_threads, max_blocks);
 
   if (alpha == 1)
-    kernel::case_n1<T, dims, scalar_case::one>
-        <<<num_blocks, max_threads>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+    kernel::case_n1<T, dims, scalar_case::one><<<num_blocks, max_threads>>>(
+        num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
   else if (alpha == -1)
-    kernel::case_n1<T, dims, scalar_case::neg_one>
-        <<<num_blocks, max_threads>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+    kernel::case_n1<T, dims, scalar_case::neg_one><<<num_blocks, max_threads>>>(
+        num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
   else
-    kernel::case_n1<T, dims, scalar_case::other>
-        <<<num_blocks, max_threads>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+    kernel::case_n1<T, dims, scalar_case::other><<<num_blocks, max_threads>>>(
+        num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
 }
 //! \brief Helper to instantiate and call the kernel for d=1.
 template<typename T, int n>
@@ -98,18 +101,21 @@ void case_d1(int const num_rows, int const num_terms, int const iA[],
   constexpr int num_teams   = max_threads / team_size;
 
   int const num_batch = num_rows * num_rows;
-  int num_blocks = blocks(num_batch, num_teams, max_blocks);
+  int num_blocks      = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   if (alpha == 1)
     kernel::case_d1<T, n, team_size, num_teams, scalar_case::one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
   else if (alpha == -1)
     kernel::case_d1<T, n, team_size, num_teams, scalar_case::neg_one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
   else
     kernel::case_d1<T, n, team_size, num_teams, scalar_case::other>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
 }
 //! \brief Helper to instantiate and call the kernel for cycle1.
 template<typename T, int dims, int n>
@@ -124,19 +130,22 @@ void case_cycle1(int const num_rows, int const num_terms, int const iA[],
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
 
-  int const num_batch = num_rows * num_rows;
+  int const num_batch  = num_rows * num_rows;
   int const num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   if (alpha == 1)
     kernel::cycle1<T, dims, n, team_size, num_teams, scalar_case::one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
   else if (alpha == -1)
     kernel::cycle1<T, dims, n, team_size, num_teams, scalar_case::neg_one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
   else
     kernel::cycle1<T, dims, n, team_size, num_teams, scalar_case::other>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
 }
 //! \brief Helper to instantiate and call the kernel for cycle2.
 template<typename T, int dims, int n>
@@ -151,19 +160,22 @@ void case_cycle2(int const num_rows, int const num_terms, int const iA[],
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
 
-  int const num_batch = num_rows * num_rows;
+  int const num_batch  = num_rows * num_rows;
   int const num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   if (alpha == 1)
     kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
   else if (alpha == -1)
     kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::neg_one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
   else
     kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::other>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x,
+                               y);
 }
 /*!
  * \brief Helper to instantiate and call the kernel for cyclex.
@@ -180,26 +192,28 @@ void case_cyclex(int const num_rows, int const num_terms, int const iA[],
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
 
-  int const num_batch = num_rows * num_rows;
+  int const num_batch  = num_rows * num_rows;
   int const num_blocks = blocks(num_batch, num_teams, max_blocks);
 
   dim3 grid(team_size, num_teams);
   if (alpha == 1)
-    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles, scalar_case::one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles,
+                   scalar_case::one><<<num_blocks, grid>>>(
+        num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
   else if (alpha == -1)
-    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles, scalar_case::neg_one>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles,
+                   scalar_case::neg_one><<<num_blocks, grid>>>(
+        num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
   else
-    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles, scalar_case::other>
-        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles,
+                   scalar_case::other><<<num_blocks, grid>>>(
+        num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
 }
 
-
 template<typename T>
-void gpu_dense(int const dimensions, int const n, int const total_size, int const num_rows,
-               int const num_terms, int const iA[], T const vA[], T const alpha,
-               T const x[], T const beta, T y[])
+void gpu_dense(int const dimensions, int const n, int const total_size,
+               int const num_rows, int const num_terms, int const iA[],
+               T const vA[], T const alpha, T const x[], T const beta, T y[])
 {
   // apply the scaling to y and assume beta == 1 for the other kernels
   scale(total_size, beta, y);
@@ -450,12 +464,14 @@ void gpu_dense(int const dimensions, int const n, int const total_size, int cons
   }
 }
 
-template void gpu_dense<float>(int const, int const, int const, int const, int const,
-                               int const[], float const[], float const, float const[],
-                               float const, float[]);
-template void gpu_dense<double>(int const, int const, int const, int const, int const,
-                                int const[], double const[], double const, double const[],
-                                double const, double[]);
+template void gpu_dense<float>(int const, int const, int const, int const,
+                               int const, int const[], float const[],
+                               float const, float const[], float const,
+                               float[]);
+template void gpu_dense<double>(int const, int const, int const, int const,
+                                int const, int const[], double const[],
+                                double const, double const[], double const,
+                                double[]);
 
 #endif
 

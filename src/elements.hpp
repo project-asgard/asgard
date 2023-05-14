@@ -95,10 +95,7 @@ public:
   get_child_elements(int64_t const index, options const &opts) const;
 
   // get flattened element table for device
-  fk::vector<int> const &get_active_table() const
-  {
-    return active_table_d_;
-  }
+  fk::vector<int> const &get_active_table() const { return active_table_d_; }
 
   // returns the number of (active) elements in table
   int64_t size() const

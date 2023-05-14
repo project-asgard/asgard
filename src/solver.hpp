@@ -1,9 +1,9 @@
 #pragma once
 
+#include "asgard_kronmult_matrix.hpp"
 #include "batch.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
-#include "asgard_kronmult_matrix.hpp"
 
 namespace asgard::solver
 {
@@ -23,9 +23,9 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 // solves ( I - dt * mat ) * x = b
 template<typename P>
 gmres_info<P>
-simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
-                   fk::vector<P> &x, fk::vector<P> const &b,
-                   int const restart, int const max_iter, P const tolerance);
+simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat, fk::vector<P> &x,
+                   fk::vector<P> const &b, int const restart,
+                   int const max_iter, P const tolerance);
 
 template<typename P>
 void setup_poisson(const int N_nodes, P const x_min, P const x_max,

@@ -20,8 +20,9 @@ __device__ constexpr int int_pow(int p)
 
 template<typename T, int dims, int n, int team_size, int num_teams,
          int num_cycles, scalar_case alpha_case>
-__global__ void cyclex(int const num_batch, int const num_rows, int const num_terms,
-                       int const iA[], T const vA[], T const alpha, T const x[], T y[])
+__global__ void
+cyclex(int const num_batch, int const num_rows, int const num_terms,
+       int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
   static_assert(num_cycles <= 4, "supporting up to 4 cycles");
@@ -58,49 +59,43 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
     rawx0 = x[xoffset + threadIdx.x];
     if constexpr (num_cycles >= 2)
       if constexpr (num_cycles == 2 and num_last_cycle == team_size)
-          rawx1 = x[xoffset + threadIdx.x + team_size];
-        else
-          if (threadIdx.x < num_last_cycle)
-            rawx1 = x[xoffset + threadIdx.x + team_size];
+        rawx1 = x[xoffset + threadIdx.x + team_size];
+      else if (threadIdx.x < num_last_cycle)
+        rawx1 = x[xoffset + threadIdx.x + team_size];
     if constexpr (num_cycles >= 3)
       if constexpr (num_cycles == 3 and num_last_cycle == team_size)
-          rawx2 = x[xoffset + threadIdx.x + 2 * team_size];
-        else
-          if (threadIdx.x < num_last_cycle)
-            rawx2 = x[xoffset + threadIdx.x + 2 * team_size];
+        rawx2 = x[xoffset + threadIdx.x + 2 * team_size];
+      else if (threadIdx.x < num_last_cycle)
+        rawx2 = x[xoffset + threadIdx.x + 2 * team_size];
     if constexpr (num_cycles >= 4)
       if constexpr (num_cycles == 4 and num_last_cycle == team_size)
-          rawx3 = x[xoffset + threadIdx.x + 3 * team_size];
-        else
-          if (threadIdx.x < num_last_cycle)
-            rawx3 = x[xoffset + threadIdx.x + 3 * team_size];
+        rawx3 = x[xoffset + threadIdx.x + 3 * team_size];
+      else if (threadIdx.x < num_last_cycle)
+        rawx3 = x[xoffset + threadIdx.x + 3 * team_size];
 
     T yinc0 = 0, yinc1 = 0, yinc2 = 0, yinc3 = 0;
 
-    for(int t = 0; t < num_terms; t++)
+    for (int t = 0; t < num_terms; t++)
     {
       X[threadIdx.y][threadIdx.x] = rawx0;
 
       if constexpr (num_cycles >= 2)
         if constexpr (num_cycles == 2 and num_last_cycle == team_size)
           X[threadIdx.y][threadIdx.x + team_size] = rawx1;
-        else
-          if (threadIdx.x < num_last_cycle)
-            X[threadIdx.y][threadIdx.x + team_size] = rawx1;
+        else if (threadIdx.x < num_last_cycle)
+          X[threadIdx.y][threadIdx.x + team_size] = rawx1;
 
       if constexpr (num_cycles >= 3)
         if constexpr (num_cycles == 3 and num_last_cycle == team_size)
           X[threadIdx.y][threadIdx.x + 2 * team_size] = rawx2;
-        else
-          if (threadIdx.x < num_last_cycle)
-            X[threadIdx.y][threadIdx.x + 2 * team_size] = rawx2;
+        else if (threadIdx.x < num_last_cycle)
+          X[threadIdx.y][threadIdx.x + 2 * team_size] = rawx2;
 
       if constexpr (num_cycles >= 4)
         if constexpr (num_cycles == 4 and num_last_cycle == team_size)
           X[threadIdx.y][threadIdx.x + 3 * team_size] = rawx3;
-        else
-          if (threadIdx.x < num_last_cycle)
-            X[threadIdx.y][threadIdx.x + 3 * team_size] = rawx3;
+        else if (threadIdx.x < num_last_cycle)
+          X[threadIdx.y][threadIdx.x + 3 * team_size] = rawx3;
 
       for (int s = dims - 1; s > 0; s--)
       { // stages
@@ -116,8 +111,8 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
 
         T sum0 = 0, sum1 = 0, sum2 = 0, sum3 = 0;
         for (int k = 0; k < n; k++)
-          sum0 +=
-              X[threadIdx.y][ix + k * int_pow<n>(s)] * A[threadIdx.y][ia + k * n];
+          sum0 += X[threadIdx.y][ix + k * int_pow<n>(s)] *
+                  A[threadIdx.y][ia + k * n];
 
         if constexpr (num_cycles >= 2)
         {
@@ -272,17 +267,16 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
         {
           if (threadIdx.x < num_last_cycle)
           {
-            ix   = n * ((threadIdx.x + team_size) / n);
-            ia   = (threadIdx.x + team_size) % n;
+            ix = n * ((threadIdx.x + team_size) / n);
+            ia = (threadIdx.x + team_size) % n;
             for (int k = 0; k < n; k++)
               yinc1 += A[threadIdx.y][ia + k * n] * X[threadIdx.y][ix + k];
-
           }
         }
         else
         {
-          ix   = n * ((threadIdx.x + team_size) / n);
-          ia   = (threadIdx.x + team_size) % n;
+          ix = n * ((threadIdx.x + team_size) / n);
+          ia = (threadIdx.x + team_size) % n;
           for (int k = 0; k < n; k++)
             yinc1 += A[threadIdx.y][ia + k * n] * X[threadIdx.y][ix + k];
         }
@@ -292,16 +286,16 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
         {
           if (threadIdx.x < num_last_cycle)
           {
-            ix   = n * ((threadIdx.x + 2 * team_size) / n);
-            ia   = (threadIdx.x + 2 * team_size) % n;
+            ix = n * ((threadIdx.x + 2 * team_size) / n);
+            ia = (threadIdx.x + 2 * team_size) % n;
             for (int k = 0; k < n; k++)
               yinc2 += A[threadIdx.y][ia + k * n] * X[threadIdx.y][ix + k];
           }
         }
         else
         {
-          ix   = n * ((threadIdx.x + 2 * team_size) / n);
-          ia   = (threadIdx.x + 2 * team_size) % n;
+          ix = n * ((threadIdx.x + 2 * team_size) / n);
+          ia = (threadIdx.x + 2 * team_size) % n;
           for (int k = 0; k < n; k++)
             yinc2 += A[threadIdx.y][ia + k * n] * X[threadIdx.y][ix + k];
         }
@@ -311,16 +305,16 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
         {
           if (threadIdx.x < num_last_cycle)
           {
-            ix   = n * ((threadIdx.x + 3 * team_size) / n);
-            ia   = (threadIdx.x + 3 * team_size) % n;
+            ix = n * ((threadIdx.x + 3 * team_size) / n);
+            ia = (threadIdx.x + 3 * team_size) % n;
             for (int k = 0; k < n; k++)
               yinc3 += A[threadIdx.y][ia + k * n] * X[threadIdx.y][ix + k];
           }
         }
         else
         {
-          ix   = n * ((threadIdx.x + 3 * team_size) / n);
-          ia   = (threadIdx.x + 3 * team_size) % n;
+          ix = n * ((threadIdx.x + 3 * team_size) / n);
+          ia = (threadIdx.x + 3 * team_size) % n;
           for (int k = 0; k < n; k++)
             yinc3 += A[threadIdx.y][ia + k * n] * X[threadIdx.y][ix + k];
         }
@@ -331,55 +325,49 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
 
     const int yoffset = int_pow<n, dims>() * (i / num_rows);
 
-    if constexpr(alpha_case == scalar_case::one)
+    if constexpr (alpha_case == scalar_case::one)
     {
       atomicAdd(&y[yoffset + threadIdx.x], yinc0);
 
       if constexpr (num_cycles >= 2)
         if constexpr (num_cycles == 2 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + team_size], yinc1);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + team_size], yinc1);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + team_size], yinc1);
 
       if constexpr (num_cycles >= 3)
         if constexpr (num_cycles == 3 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], yinc2);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], yinc2);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], yinc2);
 
       if constexpr (num_cycles >= 4)
         if constexpr (num_cycles == 4 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], yinc3);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], yinc3);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], yinc3);
     }
-    else if constexpr(alpha_case == scalar_case::neg_one)
+    else if constexpr (alpha_case == scalar_case::neg_one)
     {
       atomicAdd(&y[yoffset + threadIdx.x], -yinc0);
 
       if constexpr (num_cycles >= 2)
         if constexpr (num_cycles == 2 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + team_size], -yinc1);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + team_size], -yinc1);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + team_size], -yinc1);
 
       if constexpr (num_cycles >= 3)
         if constexpr (num_cycles == 3 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], -yinc2);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], -yinc2);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], -yinc2);
 
       if constexpr (num_cycles >= 4)
         if constexpr (num_cycles == 4 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], -yinc3);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], -yinc3);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], -yinc3);
     }
     else
     {
@@ -388,23 +376,20 @@ __global__ void cyclex(int const num_batch, int const num_rows, int const num_te
       if constexpr (num_cycles >= 2)
         if constexpr (num_cycles == 2 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + team_size], alpha * yinc1);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + team_size], alpha * yinc1);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + team_size], alpha * yinc1);
 
       if constexpr (num_cycles >= 3)
         if constexpr (num_cycles == 3 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], alpha * yinc2);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], alpha * yinc2);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + 2 * team_size], alpha * yinc2);
 
       if constexpr (num_cycles >= 4)
         if constexpr (num_cycles == 4 and num_last_cycle == team_size)
           atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], alpha * yinc3);
-        else
-          if (threadIdx.x < num_last_cycle)
-            atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], alpha * yinc3);
+        else if (threadIdx.x < num_last_cycle)
+          atomicAdd(&y[yoffset + threadIdx.x + 3 * team_size], alpha * yinc3);
     }
 
     i += gridDim.x * blockDim.y;

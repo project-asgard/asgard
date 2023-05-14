@@ -54,7 +54,10 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   if (!program_opts.do_adapt_levels)
   {
     if (not operator_matrix)
-      operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts, (step_method == method::imex) ? imex_flag::imex_explicit : imex_flag::unspecified);
+      operator_matrix = asgard::make_kronmult_dense<P>(
+          pde, adaptive_grid, program_opts,
+          (step_method == method::imex) ? imex_flag::imex_explicit
+                                        : imex_flag::unspecified);
 
     auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
     auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
@@ -63,15 +66,16 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     switch (step_method)
     {
     case (method::exp):
-      return explicit_advance(pde, operator_matrix, adaptive_grid, transformer, program_opts,
-                              unscaled_parts, x_orig, time);
+      return explicit_advance(pde, operator_matrix, adaptive_grid, transformer,
+                              program_opts, unscaled_parts, x_orig, time);
     case (method::imp):
-      return implicit_advance(pde, operator_matrix, adaptive_grid, transformer, program_opts,
-                              unscaled_parts, x_orig, time, update_system);
+      return implicit_advance(pde, operator_matrix, adaptive_grid, transformer,
+                              program_opts, unscaled_parts, x_orig, time,
+                              update_system);
     case (method::imex):
-      return imex_advance(pde, operator_matrix, adaptive_grid, transformer, program_opts,
-                          unscaled_parts, x_orig, time, program_opts.solver,
-                          update_system);
+      return imex_advance(pde, operator_matrix, adaptive_grid, transformer,
+                          program_opts, unscaled_parts, x_orig, time,
+                          program_opts.solver, update_system);
     };
   }
 
@@ -85,7 +89,10 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   auto refining = true;
   while (refining)
   {
-    operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts, (step_method == method::imex) ? imex_flag::imex_explicit : imex_flag::unspecified);
+    operator_matrix = asgard::make_kronmult_dense<P>(
+        pde, adaptive_grid, program_opts,
+        (step_method == method::imex) ? imex_flag::imex_explicit
+                                      : imex_flag::unspecified);
 
     // update boundary conditions
     auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
@@ -98,15 +105,17 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       switch (step_method)
       {
       case (method::exp):
-        return explicit_advance(pde, operator_matrix, adaptive_grid, transformer, program_opts,
-                                unscaled_parts, y, time);
+        return explicit_advance(pde, operator_matrix, adaptive_grid,
+                                transformer, program_opts, unscaled_parts, y,
+                                time);
       case (method::imp):
-        return implicit_advance(pde, operator_matrix, adaptive_grid, transformer, program_opts,
-                                unscaled_parts, y, time, refining);
+        return implicit_advance(pde, operator_matrix, adaptive_grid,
+                                transformer, program_opts, unscaled_parts, y,
+                                time, refining);
       case (method::imex):
-        return imex_advance(pde, operator_matrix, adaptive_grid, transformer, program_opts,
-                            unscaled_parts, y, time, program_opts.solver,
-                            refining);
+        return imex_advance(pde, operator_matrix, adaptive_grid, transformer,
+                            program_opts, unscaled_parts, y, time,
+                            program_opts.solver, refining);
       default:
         return fk::vector<P>();
       };
@@ -142,8 +151,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_advance(PDE<P> const &pde,
-                 kronmult_matrix<P> &operator_matrix,
+explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -162,7 +170,8 @@ explicit_advance(PDE<P> const &pde,
   expect(row_size < INT_MAX);
 
   if (not operator_matrix)
-    operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts);
+    operator_matrix =
+        asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts);
 
   // time advance working vectors
   // input vector for apply_A
@@ -397,14 +406,15 @@ implicit_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   else if (solver == solve_opts::gmres)
   {
     if (not operator_matrix)
-      operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts);
+      operator_matrix =
+          asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts);
     P const tolerance  = program_opts.gmres_tolerance;
     int const restart  = program_opts.gmres_inner_iterations;
     int const max_iter = program_opts.gmres_outer_iterations;
     fk::vector<P> fx(x);
     // TODO: do something better to save gmres output to pde
-    pde.gmres_outputs[0] =
-        solver::simple_gmres_euler(pde.get_dt(), operator_matrix, fx, x, restart, max_iter, tolerance);
+    pde.gmres_outputs[0] = solver::simple_gmres_euler(
+        pde.get_dt(), operator_matrix, fx, x, restart, max_iter, tolerance);
     return fx;
   }
   return x;
@@ -446,7 +456,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
                        fk::vector<P, mem_type::view, resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
 
-  //auto const &table    = adaptive_grid.get_table();
+  // auto const &table    = adaptive_grid.get_table();
   auto const &plan     = adaptive_grid.get_distrib_plan();
   auto const dt        = pde.get_dt();
   int const degree     = pde.get_dimensions()[0].get_degree();
@@ -556,7 +566,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult - explicit");
-  //auto fx             = kronmult::execute(pde, table, program_opts, grid, x,
+  // auto fx             = kronmult::execute(pde, table, program_opts, grid, x,
   //                            imex_flag::imex_explicit);
   fk::vector<P, mem_type::owner, resource::host> fx(x.size());
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
@@ -616,12 +626,13 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   if (pde.do_collision_operator)
   {
     // f2 now
-    //pde.gmres_outputs[0] = solver::simple_gmres(
+    // pde.gmres_outputs[0] = solver::simple_gmres(
     //    pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
     //    max_iter, tolerance, imex_flag::imex_implicit);
-    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
-    pde.gmres_outputs[0] =
-        solver::simple_gmres_euler(pde.get_dt(), operator_matrix, f_2, x, restart, max_iter, tolerance);
+    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(
+        pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
+    pde.gmres_outputs[0] = solver::simple_gmres_euler(
+        pde.get_dt(), operator_matrix, f_2, x, restart, max_iter, tolerance);
   }
   else
   {
@@ -642,7 +653,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   }
 
   tools::timer.start(apply_id);
-  //fx = kronmult::execute(pde, table, program_opts, grid, f_2,
+  // fx = kronmult::execute(pde, table, program_opts, grid, f_2,
   //                       imex_flag::imex_explicit);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
   tools::timer.stop(apply_id, operator_matrix.flops());
@@ -701,12 +712,14 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    //pde.gmres_outputs[1] = solver::simple_gmres(
+    // pde.gmres_outputs[1] = solver::simple_gmres(
     //    pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
     //    max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
-    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
+    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(
+        pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[1] =
-        solver::simple_gmres_euler(P{0.5}*pde.get_dt(), operator_matrix, f_3, x, restart, max_iter, tolerance);
+        solver::simple_gmres_euler(P{0.5} * pde.get_dt(), operator_matrix, f_3,
+                                   x, restart, max_iter, tolerance);
 
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
@@ -735,8 +748,7 @@ template fk::vector<float> adaptive_advance(
     bool const update_system);
 
 template fk::vector<double> explicit_advance(
-    PDE<double> const &pde,
-    kronmult_matrix<double> &operator_matrix,
+    PDE<double> const &pde, kronmult_matrix<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,

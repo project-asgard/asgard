@@ -31,7 +31,7 @@ void test_element_table(PDE_opts const pde_choice,
   REQUIRE(elem_table.size() == gold_table.nrows());
   REQUIRE(elem_table.size() == gold_ids.size());
 
-  auto const& flat_table = elem_table.get_active_table();
+  auto const &flat_table = elem_table.get_active_table();
 
   for (int64_t i = 0; i < elem_table.size(); ++i)
   {
@@ -218,8 +218,8 @@ void test_element_deletion(PDE_opts const pde_choice,
   // check that table shrank appropriately
   REQUIRE(elem_table.size() ==
           old_size - static_cast<int>(indices_to_delete.size()));
-  auto const& flat_table = elem_table.get_active_table();
-  auto const coord_size = pde->num_dims * 2;
+  auto const &flat_table = elem_table.get_active_table();
+  auto const coord_size  = pde->num_dims * 2;
   REQUIRE(flat_table.size() / coord_size == elem_table.size());
 
   // check that deleted ids are not present in table

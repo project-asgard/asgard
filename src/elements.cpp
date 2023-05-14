@@ -132,7 +132,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
   }();
 
   // form new active table from retained elements in old table
-  auto const coord_size     = static_cast<int64_t>(get_coords(0).size());
+  auto const coord_size = static_cast<int64_t>(get_coords(0).size());
   auto const new_table_size =
       active_table_d_.size() - coord_size * to_delete.size();
   expect(new_table_size > 0);

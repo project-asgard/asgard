@@ -7,7 +7,6 @@
 
 namespace asgard::kronmult
 {
-
 /*!
  * \internal
  * \brief (internal use only) Indicates how to interpret the alpha/beta scalars.

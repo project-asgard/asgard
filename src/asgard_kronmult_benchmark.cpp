@@ -55,12 +55,12 @@ int main(int argc, char **argv)
     flops *= n;
   flops *= 2.0 * dimensions * num_batch;
   // Gflops is flops * 1.E-9, milliseconds is seconds * 1.E+3
-  double unit_scale = 1.E-6;
+  double unit_scale       = 1.E-6;
   constexpr int num_tests = 100;
 
   asgard::fk::vector<float> fvA(num_matrices * n * n);
   asgard::fk::vector<double> dvA(num_matrices * n * n);
-  for (int k=0; k<num_matrices * n * n; k++)
+  for (int k = 0; k < num_matrices * n * n; k++)
   {
     fvA(k) = fdata->matrices[k];
     dvA(k) = ddata->matrices[k];
@@ -74,20 +74,20 @@ int main(int argc, char **argv)
     ip++;
     for (int j = 0; j < dimensions; j++)
     {
-      fiA(i*dimensions + j) = n * n * (*ip);
-      diA(i*dimensions + j) = n * n * (*ip++);
+      fiA(i * dimensions + j) = n * n * (*ip);
+      diA(i * dimensions + j) = n * n * (*ip++);
     }
     ip++;
   }
 
-  asgard::kronmult_matrix<float>
-    fmat(dimensions, n, num_rows, num_terms,
-         asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
-         asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
-  asgard::kronmult_matrix<double>
-    dmat(dimensions, n, num_rows, num_terms,
-         asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
-         asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
+  asgard::kronmult_matrix<float> fmat(
+      dimensions, n, num_rows, num_terms,
+      asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
+      asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
+  asgard::kronmult_matrix<double> dmat(
+      dimensions, n, num_rows, num_terms,
+      asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
+      asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
 
   // dry run to wake up the devices
   fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
