@@ -528,6 +528,36 @@ void case_cycle2(int const num_rows, int const num_terms, int const iA[],
     kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::other>
         <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
 }
+/*!
+ * \brief Helper to instantiate and call the kernel for cyclex.
+ */
+template<typename T, int dims, int n, int num_cycles>
+void case_cyclex(int const num_rows, int const num_terms, int const iA[],
+                 T const vA[], T const alpha, T const x[], T y[])
+{
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / num_cycles;
+  constexpr int num_teams   = max_threads / team_size;
+
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
+
+  int const num_batch = num_rows * num_rows;
+  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  if (alpha == 1)
+    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles, scalar_case::one>
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+  else if (alpha == -1)
+    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles, scalar_case::neg_one>
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+  else
+    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles, scalar_case::other>
+        <<<num_blocks, grid>>>(num_batch, num_rows, num_terms, iA, vA, alpha, x, y);
+}
+
 
 template<typename T>
 void gpu_dense(int const dimensions, int const n, int const total_size, int const num_rows,
@@ -769,9 +799,9 @@ void gpu_dense(int const dimensions, int const n, int const total_size, int cons
     case 3:
       case_cycle2<T, 6, 3>(num_rows, num_terms, iA, vA, alpha, x, y);
       break;
-    //case 4:
-    //  run_kernelx<T, 6, 4, 4>(pA, lda, pX, pY, num_batch);
-    //  break;
+    case 4:
+      case_cyclex<T, 6, 4, 4>(num_rows, num_terms, iA, vA, alpha, x, y);
+      break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
     }

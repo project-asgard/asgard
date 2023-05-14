@@ -155,28 +155,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", float, double)
 TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4);
-  if (n <= 3)
-    test_kronmult<TestType>(6, n, 8, 2, 7);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu general", "[execute_gpu]", float,
-                   double)
-{
-  test_kronmult<TestType>(1, 2, 1, 1, 1);
-  //test_kronmult_gpu<TestType>(1, 2, 10, 1, 1);
-  //test_kronmult_gpu<TestType>(1, 2, 10, 5, 1);
-  //test_kronmult_gpu<TestType>(1, 2, 10, 1, 5);
-  //test_kronmult_gpu<TestType>(1, 2, 10, 10, 8);
-  //
-  //test_kronmult_gpu<TestType>(1, 2, 9, 10, 7);
-  //test_kronmult_gpu<TestType>(1, 3, 9, 10, 7);
-  //test_kronmult_gpu<TestType>(1, 4, 9, 10, 7);
-  //
-  //test_kronmult_gpu<TestType>(3, 2, 9, 20, 7);
-  //test_kronmult_gpu<TestType>(3, 3, 9, 20, 7);
-  //test_kronmult_gpu<TestType>(3, 4, 9, 20, 7);
-  //
-  //test_kronmult_gpu<TestType>(4, 2, 5, 30, 3);
+  test_kronmult<TestType>(6, n, 8, 2, 7);
 }
 
 #endif
