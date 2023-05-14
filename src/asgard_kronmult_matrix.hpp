@@ -72,13 +72,17 @@ public:
   {
     if constexpr (data_mode == resource::host)
     {
+#ifndef ASGARD_USE_CUDA // workaround clang and c++-17
       iA = index_A;
       vA = values_A;
+#endif
     }
     else
     {
+#ifdef ASGARD_USE_CUDA // workaround clang and c++-17
       iA = index_A.clone_onto_device();
       vA = values_A.clone_onto_device();
+#endif
     }
 
     finalize_variables();
