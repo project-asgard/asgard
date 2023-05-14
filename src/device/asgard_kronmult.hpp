@@ -29,20 +29,6 @@ enum class scalar_case
   other
 };
 
-
-#ifdef ASGARD_USE_CUDA
-
-/*!
- * \brief Performs a batch of kronmult operations using the GPU.
- *
- * See execute_cpu() for details.
- */
-template<typename T>
-void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
-                 T *pX[], T *pY[], int const num_batch,
-                 int const output_stride);
-#endif
-
 /*!
  * \brief Performs a batch of kronmult operations using a dense CPU matrix.
  *
@@ -68,8 +54,8 @@ void execute_gpu(int dimensions, int n, T const *const pA[], int const lda,
  * both go from 0 to num_rows - 1
  * k indexes the operator terms (0 to T - 1)
  * and iA is the index of the small matrices of size n * n
- * all such matrices are stored in row-major format and stacked in columns
- * inside vA
+ * all such matrices are stored in column-major format and stacked by
+ * rows inside vA (i.e., there is one row of matrices)
  *
  * \tparam T is float or double
  *

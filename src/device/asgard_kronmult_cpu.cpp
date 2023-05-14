@@ -119,9 +119,9 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
           T const *A = &(vA[iA[ma++]]);
           T Y[n] = {{0}};
 #pragma omp simd collapse(2)
-          for (int k = 0; k < n; k++)
-            for (int j = 0; j < n; j++)
-              Y[j] += A[k * n + j] * x[tj + k];
+          for (int j = 0; j < n; j++)
+            for (int k = 0; k < n; k++)
+              Y[k] += A[j * n + k] * x[tj + j];
 
 #pragma omp simd
           for (int j = 0; j < n; j++)
@@ -143,10 +143,10 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                 W[s][k] += x[tj + n * j + k] * A1[j * n + s];
           T const *A0 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(3)
-          for (int j = 0; j < n; j++)
-            for (int k = 0; k < n; k++)
+          for (int k = 0; k < n; k++)
+            for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
-                Y[k][s] += A0[s + j * n] * W[k][j];
+                Y[k][s] += A0[j * n + s] * W[k][j];
 #pragma omp simd collapse(2)
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
@@ -179,8 +179,8 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
           T const *A0 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(4)
           for (int l = 0; l < n; l++)
-            for (int j = 0; j < n; j++)
-              for (int k = 0; k < n; k++)
+            for (int k = 0; k < n; k++)
+              for (int j = 0; j < n; j++)
                 for (int s = 0; s < n; s++)
                   Y[l][k][s] += A0[j * n + s] * W[l][k][j];
 #pragma omp simd collapse(3)
@@ -219,20 +219,20 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     T{0.});
           T const *A1 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(5)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int p = 0; p < n; p++)
-                for (int l = 0; l < n; l++)
+          for (int p = 0; p < n; p++)
+            for (int l = 0; l < n; l++)
+              for (int j = 0; j < n; j++)
+                for (int s = 0; s < n; s++)
                   for (int k = 0; k < n; k++)
                     W[p][l][s][k] += Y[p][l][j][k] * A1[j * n + s];
           std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(T),
                     T{0.});
           T const *A0 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(5)
-          for (int j = 0; j < n; j++)
-            for (int p = 0; p < n; p++)
-              for (int l = 0; l < n; l++)
-                for (int k = 0; k < n; k++)
+          for (int p = 0; p < n; p++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                for (int j = 0; j < n; j++)
                   for (int s = 0; s < n; s++)
                     Y[p][l][k][s] += A0[j * n + s] * W[p][l][k][j];
 #pragma omp simd collapse(4)
@@ -264,9 +264,9 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                           A4[j * n + s];
           T const *A3 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(6)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int v = 0; v < n; v++)
+          for (int v = 0; v < n; v++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
                 for (int p = 0; p < n; p++)
                   for (int l = 0; l < n; l++)
                     for (int k = 0; k < n; k++)
@@ -276,10 +276,10 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     T{0.});
           T const *A2 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(6)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int v = 0; v < n; v++)
-                for (int p = 0; p < n; p++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int j = 0; j < n; j++)
+                for (int s = 0; s < n; s++)
                   for (int l = 0; l < n; l++)
                     for (int k = 0; k < n; k++)
                       Y[v][p][s][l][k] +=
@@ -288,11 +288,11 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     T{0.});
           T const *A1 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(6)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int v = 0; v < n; v++)
-                for (int p = 0; p < n; p++)
-                  for (int l = 0; l < n; l++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+                for (int j = 0; j < n; j++)
+                  for (int s = 0; s < n; s++)
                     for (int k = 0; k < n; k++)
                       W[v][p][l][s][k] +=
                           Y[v][p][l][j][k] * A1[j * n + s];
@@ -300,12 +300,12 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     T{0.});
           T const *A0 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(6)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int v = 0; v < n; v++)
-                for (int p = 0; p < n; p++)
-                  for (int l = 0; l < n; l++)
-                    for (int k = 0; k < n; k++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+                for (int k = 0; k < n; k++)
+                  for (int j = 0; j < n; j++)
+                    for (int s = 0; s < n; s++)
                       Y[v][p][l][k][s] +=
                           A0[j * n + s] * W[v][p][l][k][j];
 #pragma omp simd collapse(5)
@@ -343,9 +343,9 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                             A5[j * n + s];
           T const *A4 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(7)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int w = 0; w < n; w++)
+          for (int w = 0; w < n; w++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
                 for (int v = 0; v < n; v++)
                   for (int p = 0; p < n; p++)
                     for (int l = 0; l < n; l++)
@@ -355,10 +355,10 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
           std::fill(&W[0][0][0][0][0][0],
                     &W[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
           T const *A3 = &(vA[iA[ma++]]);
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int w = 0; w < n; w++)
-                for (int v = 0; v < n; v++)
+          for (int w = 0; w < n; w++)
+            for (int v = 0; v < n; v++)
+              for (int j = 0; j < n; j++)
+                for (int s = 0; s < n; s++)
                   for (int p = 0; p < n; p++)
                     for (int l = 0; l < n; l++)
                       for (int k = 0; k < n; k++)
@@ -368,11 +368,11 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
           T const *A2 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(7)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int w = 0; w < n; w++)
-                for (int v = 0; v < n; v++)
-                  for (int p = 0; p < n; p++)
+          for (int w = 0; w < n; w++)
+            for (int v = 0; v < n; v++)
+              for (int p = 0; p < n; p++)
+                for (int j = 0; j < n; j++)
+                  for (int s = 0; s < n; s++)
                     for (int l = 0; l < n; l++)
                       for (int k = 0; k < n; k++)
                         Y[w][v][p][s][l][k] +=
@@ -381,12 +381,12 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     &W[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
           T const *A1 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(7)
-          for (int j = 0; j < n; j++)
-            for (int s = 0; s < n; s++)
-              for (int w = 0; w < n; w++)
-                for (int v = 0; v < n; v++)
-                  for (int p = 0; p < n; p++)
-                    for (int l = 0; l < n; l++)
+          for (int w = 0; w < n; w++)
+            for (int v = 0; v < n; v++)
+              for (int p = 0; p < n; p++)
+                for (int l = 0; l < n; l++)
+                  for (int j = 0; j < n; j++)
+                    for (int s = 0; s < n; s++)
                       for (int k = 0; k < n; k++)
                         W[w][v][p][l][s][k] +=
                             Y[w][v][p][l][j][k] * A1[j * n + s];
@@ -394,12 +394,12 @@ void cpu_dense(int const num_rows, int const num_terms, int const iA[],
                     &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(T), T{0.});
           T const *A0 = &(vA[iA[ma++]]);
 #pragma omp simd collapse(7)
-          for (int j = 0; j < n; j++)
-            for (int w = 0; w < n; w++)
-              for (int v = 0; v < n; v++)
-                for (int p = 0; p < n; p++)
-                  for (int l = 0; l < n; l++)
-                    for (int k = 0; k < n; k++)
+          for (int w = 0; w < n; w++)
+            for (int v = 0; v < n; v++)
+              for (int p = 0; p < n; p++)
+                for (int l = 0; l < n; l++)
+                  for (int k = 0; k < n; k++)
+                    for (int j = 0; j < n; j++)
                       for (int s = 0; s < n; s++)
                         Y[w][v][p][l][k][s] +=
                             A0[j * n + s] * W[w][v][p][l][k][j];

@@ -24,25 +24,6 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                       tolerance);
 }
 
-//template<typename P>
-//gmres_info<P>
-//simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
-//             options const &program_options, element_subgrid const &my_subgrid,
-//             fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
-//             int const restart, int const max_iter, P const tolerance,
-//             imex_flag const imex, P const dt_factor)
-//{
-//  auto euler_operator = [&pde, &elem_table, &program_options, &my_subgrid, imex,
-//                         dt_factor](fk::vector<P> const &x_in, fk::vector<P> &y,
-//                                    P const alpha = 1.0, P const beta = 0.0) {
-//    auto tmp = kronmult::execute(pde, elem_table, program_options, my_subgrid,
-//                                 x_in, imex);
-//    tmp      = x_in - tmp * pde.get_dt() * dt_factor;
-//    y        = tmp * alpha + y * beta;
-//  };
-//  return simple_gmres(euler_operator, x, b, M, restart, max_iter, tolerance);
-//}
-
 template<typename P>
 gmres_info<P>
 simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
@@ -51,8 +32,9 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
 {
   return
   simple_gmres([&](fk::vector<P> const &x_in, fk::vector<P> &y, P const alpha, P const beta)->void{
-      y = x_in * alpha + y * beta;
-      mat.apply(-dt * alpha, x_in.data(), 1.0, y.data());
+      mat.apply(-dt * alpha, x_in.data(), beta, y.data());
+      int one = 1, n = y.size();
+      lib_dispatch::axpy(&n, &alpha, x_in.data(), &one, y.data(), &one);
   }, x, b, fk::matrix<P>(), restart, max_iter, tolerance);
 }
 

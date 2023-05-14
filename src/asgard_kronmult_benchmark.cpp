@@ -11,8 +11,8 @@ int main(int argc, char **argv)
     std::cout
         << "\n Usage:\n"
         << "./asgard_kronmult_benchmark <dimensions> <n> <num_rows> "
-           "<num_terms> <num_matrices>\n"
-        << "\n e.g., ./asgard_kronmult_benchmark 3 2 688  3 36864\n"
+           "<num_terms> <num_matrices>\n\n"
+        << " e.g., ./asgard_kronmult_benchmark 3 2 688  3 36864\n"
         << "       ./asgard_kronmult_benchmark 3 2 4096 3 589824\n"
         << "       ./asgard_kronmult_benchmark 2 2 256  2 16384\n"
         << "       ./asgard_kronmult_benchmark 2 2 1280 2 262144\n"
