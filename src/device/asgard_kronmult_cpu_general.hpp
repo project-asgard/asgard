@@ -7,6 +7,7 @@
 
 namespace asgard::kronmult
 {
+
 template<typename T, int dimensions>
 class tensor
 {
@@ -62,147 +63,176 @@ public:
     for (auto &s : serialized)
       s = 0;
   }
+  size_t size() const
+  {
+    return serialized.size();
+  }
 
 private:
   int const n5, n4, n3, n2, n;
   std::vector<T> serialized;
 };
 
-template<typename T, int dimensions>
-void run_cpu_variant(int const n, T const *const pA[], int const lda,
-                     T const *const pX[], T *pY[], int const num_batch,
-                     int const output_stride)
+template<typename T, int dimensions, scalar_case alpha_case, scalar_case beta_case>
+void cpu_dense(int const n, int const num_rows, int const num_terms,
+               int const iA[], T const vA[], T const alpha, T const x[],
+               T const beta, T y[])
 {
-  int const num_y = num_batch / output_stride;
-
 #pragma omp parallel
   {
     tensor<T, dimensions> Y(n), W(n);
 
+// always use one thread per kron-product
 #pragma omp for
-    for (int iy = 0; iy < num_y; iy++)
+  for (int iy = 0; iy < num_rows; iy++)
+  {
+    // tensor i (ti) is the first index of this tensor in y
+    int const ti = iy * Y.size();
+    if constexpr(beta_case == scalar_case::zero)
+      for (size_t j=0; j<Y.size(); j++)
+        y[ti + j] = 0;
+    else if constexpr(beta_case == scalar_case::neg_one)
+      for (size_t j=0; j<Y.size(); j++)
+        y[ti + j] = -y[ti + j];
+    else if constexpr(beta_case == scalar_case::other)
+      for (size_t j=0; j<Y.size(); j++)
+        y[ti + j] *= beta;
+
+    // ma is the starting index of the operators for this y
+    int ma = iy * num_rows * num_terms * dimensions;
+
+    for (int jx = 0; jx < num_rows; jx++)
     {
-      for (int stride = 0; stride < output_stride; stride++)
+      // tensor i (ti) is the first index of this tensor in x
+      int const tj = jx * Y.size();
+      for (int t = 0; t < num_terms; t++)
       {
-        int const i = iy * output_stride + stride;
         if constexpr (dimensions == 1)
         {
           Y.zero();
+          T const *A = &(vA[iA[ma++]]);
+//#pragma omp simd collapse(2)
           for (int j = 0; j < n; j++)
-          {
             for (int k = 0; k < n; k++)
-            {
-              Y(k) += pA[i][j * lda + k] * pX[i][j];
-            }
-          }
+              Y(k) += A[j * n + k] * x[tj + j];
+
+//#pragma omp simd
           for (int j = 0; j < n; j++)
-          {
-            pY[i][j] += Y(j);
-          }
+            if constexpr(alpha_case == scalar_case::one)
+              y[ti + j] += Y(j);
+            else if constexpr(alpha_case == scalar_case::neg_one)
+              y[ti + j] -= Y(j);
+            else
+              y[ti + j] += alpha * Y(j);
         }
         else if constexpr (dimensions == 2)
         {
           Y.zero();
           W.zero();
+          T const *A1 = &(vA[iA[ma++]]);
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              for (int k = 0; k < n; k++)
+                W(s, k) += x[tj + n * j + k] * A1[j * n + s];
+          T const *A0 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
               for (int s = 0; s < n; s++)
-                W(s, k) += pX[i][n * j + k] * pA[2 * i][j * lda + s];
-          Y.zero();
+                Y(k, s) += A0[j * n + s] * W(k, j);
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
-              for (int s = 0; s < n; s++)
-                Y(k, s) += pA[2 * i + 1][j * lda + s] * W(k, j);
-          for (int j = 0; j < n; j++)
-          {
-            for (int k = 0; k < n; k++)
-            {
-              pY[i][n * j + k] += Y(j, k);
-            }
-          }
+              if constexpr(alpha_case == scalar_case::one)
+                y[ti + n * j + k] += Y(j, k);
+              else if constexpr(alpha_case == scalar_case::neg_one)
+                y[ti + n * j + k] -= Y(j, k);
+              else
+                y[ti + n * j + k] += alpha * Y(j, k);
         }
         else if constexpr (dimensions == 3)
         {
           Y.zero();
           W.zero();
+          T const *A2 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
                   Y(s, l, k) +=
-                      pX[i][n * n * j + n * l + k] * pA[3 * i][j * lda + s];
+                      x[tj + n * n * j + n * l + k] * A2[j * n + s];
+          T const *A1 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
-                  W(l, s, k) += Y(l, j, k) * pA[3 * i + 1][j * lda + s];
+                  W(l, s, k) += Y(l, j, k) * A1[j * n + s];
           Y.zero();
+          T const *A0 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
-                  Y(l, k, s) += pA[3 * i + 2][j * lda + s] * W(l, k, j);
+                  Y(l, k, s) += A0[j * n + s] * W(l, k, j);
           for (int j = 0; j < n; j++)
-          {
             for (int l = 0; l < n; l++)
-            {
               for (int k = 0; k < n; k++)
-              {
-                pY[i][n * n * j + n * l + k] += Y(j, l, k);
-              }
-            }
-          }
+                if constexpr(alpha_case == scalar_case::one)
+                  y[ti + n * n * j + n * l + k] += Y(j, l, k);
+                else if constexpr(alpha_case == scalar_case::neg_one)
+                  y[ti + n * n * j + n * l + k] -= Y(j, l, k);
+                else
+                  y[ti + n * n * j + n * l + k] += alpha * Y(j, l, k);
         }
         else if constexpr (dimensions == 4)
         {
           Y.zero();
           W.zero();
+          T const *A3 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   for (int s = 0; s < n; s++)
                     W(s, p, l, k) +=
-                        pX[i][n * n * n * j + n * n * p + n * l + k] *
-                        pA[4 * i][j * lda + s];
+                        x[tj + n * n * n * j + n * n * p + n * l + k] * A3[j * n + s];
+          T const *A2 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   for (int s = 0; s < n; s++)
-                    Y(p, s, l, k) += W(p, j, l, k) * pA[4 * i + 1][j * lda + s];
+                    Y(p, s, l, k) += W(p, j, l, k) * A2[j * n + s];
           W.zero();
+          T const *A1 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   for (int s = 0; s < n; s++)
-                    W(p, l, s, k) += Y(p, l, j, k) * pA[4 * i + 2][j * lda + s];
+                    W(p, l, s, k) += Y(p, l, j, k) * A1[j * n + s];
           Y.zero();
+          T const *A0 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   for (int s = 0; s < n; s++)
-                    Y(p, l, k, s) += pA[4 * i + 3][j * lda + s] * W(p, l, k, j);
+                    Y(p, l, k, s) += A0[j * n + s] * W(p, l, k, j);
           for (int j = 0; j < n; j++)
-          {
             for (int p = 0; p < n; p++)
-            {
               for (int l = 0; l < n; l++)
-              {
                 for (int k = 0; k < n; k++)
-                {
-                  pY[i][n * n * n * j + n * n * p + n * l + k] += Y(j, p, l, k);
-                }
-              }
-            }
-          }
+                  if constexpr(alpha_case == scalar_case::one)
+                    y[ti + n * n * n * j + n * n * p + n * l + k] += Y(j, p, l, k);
+                  else if constexpr(alpha_case == scalar_case::neg_one)
+                    y[ti + n * n * n * j + n * n * p + n * l + k] -= Y(j, p, l, k);
+                  else
+                    y[ti + n * n * n * j + n * n * p + n * l + k] += alpha * Y(j, p, l, k);
         }
         else if constexpr (dimensions == 5)
         {
           Y.zero();
           W.zero();
+          T const *A4 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
@@ -210,9 +240,10 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                   for (int k = 0; k < n; k++)
                     for (int s = 0; s < n; s++)
                       Y(s, v, p, l, k) +=
-                          pX[i][n * n * n * n * j + n * n * n * v + n * n * p +
+                          x[tj + n * n * n * n * j + n * n * n * v + n * n * p +
                                 n * l + k] *
-                          pA[5 * i][j * lda + s];
+                          A4[j * n + s];
+          T const *A3 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
@@ -220,8 +251,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                   for (int k = 0; k < n; k++)
                     for (int s = 0; s < n; s++)
                       W(v, s, p, l, k) +=
-                          Y(v, j, p, l, k) * pA[5 * i + 1][j * lda + s];
+                          Y(v, j, p, l, k) * A3[j * n + s];
           Y.zero();
+          T const *A2 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
@@ -229,8 +261,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                   for (int k = 0; k < n; k++)
                     for (int s = 0; s < n; s++)
                       Y(v, p, s, l, k) +=
-                          W(v, p, j, l, k) * pA[5 * i + 2][j * lda + s];
+                          W(v, p, j, l, k) * A2[j * n + s];
           W.zero();
+          T const *A1 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
@@ -238,8 +271,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                   for (int k = 0; k < n; k++)
                     for (int s = 0; s < n; s++)
                       W(v, p, l, s, k) +=
-                          Y(v, p, l, j, k) * pA[5 * i + 3][j * lda + s];
+                          Y(v, p, l, j, k) * A1[j * n + s];
           Y.zero();
+          T const *A0 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
@@ -247,28 +281,23 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                   for (int k = 0; k < n; k++)
                     for (int s = 0; s < n; s++)
                       Y(v, p, l, k, s) +=
-                          pA[5 * i + 4][j * lda + s] * W(v, p, l, k, j);
+                          A0[j * n + s] * W(v, p, l, k, j);
           for (int j = 0; j < n; j++)
-          {
             for (int v = 0; v < n; v++)
-            {
               for (int p = 0; p < n; p++)
-              {
                 for (int l = 0; l < n; l++)
-                {
                   for (int k = 0; k < n; k++)
-                  {
-                    pY[i][n * n * n * n * j + n * n * n * v + n * n * p +
-                          n * l + k] += Y(j, v, p, l, k);
-                  }
-                }
-              }
-            }
-          }
+                    if constexpr(alpha_case == scalar_case::one)
+                      y[ti + n * n * n * n * j + n * n * n * v + n * n * p + n * l + k] += Y(j, v, p, l, k);
+                    else if constexpr(alpha_case == scalar_case::neg_one)
+                      y[ti + n * n * n * n * j + n * n * n * v + n * n * p + n * l + k] -= Y(j, v, p, l, k);
+                    else
+                      y[ti + n * n * n * n * j + n * n * n * v + n * n * p + n * l + k] += alpha * Y(j, v, p, l, k);
         }
         else if constexpr (dimensions == 6)
         {
           W.zero();
+          T const *A5 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
@@ -277,10 +306,11 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                     for (int k = 0; k < n; k++)
                       for (int s = 0; s < n; s++)
                         W(s, w, v, p, l, k) +=
-                            pX[i][n * n * n * n * n * j + n * n * n * n * w +
+                            x[tj + n * n * n * n * n * j + n * n * n * n * w +
                                   n * n * n * v + n * n * p + n * l + k] *
-                            pA[6 * i][j * lda + s];
+                            A5[j * n + s];
           Y.zero();
+          T const *A4 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
@@ -289,8 +319,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                     for (int k = 0; k < n; k++)
                       for (int s = 0; s < n; s++)
                         Y(w, s, v, p, l, k) +=
-                            W(w, j, v, p, l, k) * pA[6 * i + 1][j * lda + s];
+                            W(w, j, v, p, l, k) * A4[j * n + s];
           W.zero();
+          T const *A3 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
@@ -299,8 +330,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                     for (int k = 0; k < n; k++)
                       for (int s = 0; s < n; s++)
                         W(w, v, s, p, l, k) +=
-                            Y(w, v, j, p, l, k) * pA[6 * i + 2][j * lda + s];
+                            Y(w, v, j, p, l, k) * A3[j * n + s];
           Y.zero();
+          T const *A2 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
@@ -309,8 +341,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                     for (int k = 0; k < n; k++)
                       for (int s = 0; s < n; s++)
                         Y(w, v, p, s, l, k) +=
-                            W(w, v, p, j, l, k) * pA[6 * i + 3][j * lda + s];
+                            W(w, v, p, j, l, k) * A2[j * n + s];
           W.zero();
+          T const *A1 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
@@ -319,8 +352,9 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                     for (int k = 0; k < n; k++)
                       for (int s = 0; s < n; s++)
                         W(w, v, p, l, s, k) +=
-                            Y(w, v, p, l, j, k) * pA[6 * i + 4][j * lda + s];
+                            Y(w, v, p, l, j, k) * A1[j * n + s];
           Y.zero();
+          T const *A0 = &(vA[iA[ma++]]);
           for (int j = 0; j < n; j++)
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
@@ -329,47 +363,31 @@ void run_cpu_variant(int const n, T const *const pA[], int const lda,
                     for (int k = 0; k < n; k++)
                       for (int s = 0; s < n; s++)
                         Y(w, v, p, l, k, s) +=
-                            pA[6 * i + 5][j * lda + s] * W(w, v, p, l, k, j);
+                            A0[j * n + s] * W(w, v, p, l, k, j);
           for (int j = 0; j < n; j++)
-          {
             for (int w = 0; w < n; w++)
-            {
               for (int v = 0; v < n; v++)
-              {
                 for (int p = 0; p < n; p++)
-                {
                   for (int l = 0; l < n; l++)
-                  {
                     for (int k = 0; k < n; k++)
-                    {
-                      pY[i][n * n * n * n * n * j + n * n * n * n * w +
-                            n * n * n * v + n * n * p + n * l + k] +=
-                          Y(j, w, v, p, l, k);
-                    }
-                  }
-                }
-              }
-            }
+                      if constexpr(alpha_case == scalar_case::one)
+                        y[ti + n * n * n * n * n * j + n * n * n * n * w +
+                              n * n * n * v + n * n * p + n * l + k] +=
+                            Y(j, w, v, p, l, k);
+                      else if constexpr(alpha_case == scalar_case::neg_one)
+                        y[ti + n * n * n * n * n * j + n * n * n * n * w +
+                              n * n * n * v + n * n * p + n * l + k] -=
+                            Y(j, w, v, p, l, k);
+                      else
+                        y[ti + n * n * n * n * n * j + n * n * n * n * w +
+                              n * n * n * v + n * n * p + n * l + k] +=
+                            alpha * Y(j, w, v, p, l, k);
+
           }
         }
       }
     }
   }
 }
-
-#define asgard_kronmult_cpu_instantiate(d)                                    \
-  template void run_cpu_variant<float, (d)>(                                  \
-      int n, float const *const pA[], int const lda, float const *const pX[], \
-      float *pY[], int const num_batch, int const);                           \
-  template void run_cpu_variant<double, (d)>(                                 \
-      int n, double const *const pA[], int const lda,                         \
-      double const *const pX[], double *pY[], int const num_batch, int const)
-
-asgard_kronmult_cpu_instantiate(1);
-asgard_kronmult_cpu_instantiate(2);
-asgard_kronmult_cpu_instantiate(3);
-asgard_kronmult_cpu_instantiate(4);
-asgard_kronmult_cpu_instantiate(5);
-asgard_kronmult_cpu_instantiate(6);
 
 } // namespace asgard::kronmult

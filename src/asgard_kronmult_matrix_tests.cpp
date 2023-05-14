@@ -71,50 +71,50 @@ TEMPLATE_TEST_CASE("testing kronmult cpu general", "[execute_cpu]", float,
 {
   test_kronmult<TestType>(1, 2, 1, 1, 1);
   test_kronmult<TestType>(1, 2, 1, 1, 5);
-  test_kronmult<TestType>(1, 2, 10, 10, 3);
-  test_kronmult<TestType>(1, 2, 10, 10, 7);
+  test_kronmult<TestType>(1, 2, 1, 2, 3);
+  test_kronmult<TestType>(1, 2, 10, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[execute_cpu 1d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6);
-  if (n <= 4)
-    test_kronmult<TestType>(1, n, 9, 9, 7);
+  test_kronmult<TestType>(1, n, 11, 2, 7);
 }
+
 TEMPLATE_TEST_CASE("testing kronmult cpu 2d", "[execute_cpu 2d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  if (n <= 4)
-    test_kronmult<TestType>(2, n, 12, 12, 7);
+  test_kronmult<TestType>(2, n, 12, 3, 7);
 }
+
 TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[execute_cpu 3d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  if (n <= 4)
-    test_kronmult<TestType>(3, n, 12, 12, 7);
+  test_kronmult<TestType>(3, n, 12, 2, 7);
 }
+
 TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[execute_cpu 4d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  if (n <= 4)
-    test_kronmult<TestType>(4, n, 12, 12, 7);
+  test_kronmult<TestType>(4, n, 9, 2, 7);
 }
+
 TEMPLATE_TEST_CASE("testing kronmult cpu 5d", "[execute_cpu 5d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  if (n <= 4)
-    test_kronmult<TestType>(5, n, 10, 10, 7);
+  test_kronmult<TestType>(5, n, 11, 3, 7);
 }
+
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", float, double)
 {
   int n = GENERATE(1, 2, 3, 4);
-  if (n <= 4)
-    test_kronmult<TestType>(6, n, 9, 9, 7);
+  test_kronmult<TestType>(6, n, 9, 2, 7);
 }
+
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
                    double)
 {
-  //test_kronmult<TestType>(6, 5, 2, 2, 2);
+  //test_kronmult<TestType>(6, 5, 9, 2, 2);
 }
 
 #endif
