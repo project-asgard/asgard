@@ -566,8 +566,6 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult - explicit");
-  // auto fx             = kronmult::execute(pde, table, program_opts, grid, x,
-  //                            imex_flag::imex_explicit);
   fk::vector<P, mem_type::owner, resource::host> fx(x.size());
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
 
@@ -653,8 +651,6 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   }
 
   tools::timer.start(apply_id);
-  // fx = kronmult::execute(pde, table, program_opts, grid, f_2,
-  //                       imex_flag::imex_explicit);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
   tools::timer.stop(apply_id, operator_matrix.flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
