@@ -36,7 +36,7 @@ public:
   //! \brief Creates uninitialized matrix cannot be used except to be reinitialized.
   kronmult_matrix()
       : num_dimensions_(0), kron_size_(0), num_rows_(0), num_terms_(0),
-        input_size_(0), flops_(0)
+        input_size_(0), row_offset_(0), col_offset_(0), flops_(0)
   {}
   /*!
    *\brief Creates a new matrix and copies the data into internal structures.
@@ -63,11 +63,13 @@ public:
    */
   kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_terms,
+      int row_offset, int col_offset,
       fk::vector<int, mem_type::const_view, resource::host> const &index_A,
       fk::vector<precision, mem_type::const_view, resource::host> const
           &values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_terms_(num_terms), input_size_(1),
+        row_offset_(row_offset), col_offset_(col_offset),
         iA(index_A.size()), vA(values_A.size())
   {
     if constexpr (data_mode == resource::host)
@@ -95,11 +97,12 @@ public:
    */
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows,
-                  int num_terms,
+                  int num_terms, int row_offset, int col_offset,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_terms_(num_terms), input_size_(1),
+        row_offset_(row_offset), col_offset_(col_offset),
         iA(std::move(index_A)), vA(std::move(values_A))
   {
 #ifdef ASGARD_USE_CUDA
@@ -127,13 +130,10 @@ public:
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
-    kronmult::gpu_dense(num_dimensions_, kron_size_, total_size(), num_rows_,
-                        num_terms_, iA.data(), vA.data(), alpha, xdev.data(),
-                        beta, ydev.data());
+    kronmult::gpu_dense(num_dimensions_, kron_size_, total_size(), num_rows_, num_terms_, iA.data(), vA.data(), alpha, xdev.data() + col_offset_, beta, ydev.data() + row_offset_);
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_,
-                        iA.data(), vA.data(), alpha, x, beta, y);
+    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_terms_, iA.data(), vA.data(), alpha, x + col_offset_, beta, y + row_offset_);
 #endif
   }
 
@@ -175,6 +175,8 @@ private:
   int num_rows_;
   int num_terms_;
   int input_size_;
+  int row_offset_;
+  int col_offset_;
   int64_t flops_;
 
 #ifdef ASGARD_USE_CUDA
