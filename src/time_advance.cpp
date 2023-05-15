@@ -627,10 +627,10 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // pde.gmres_outputs[0] = solver::simple_gmres(
     //    pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
     //    max_iter, tolerance, imex_flag::imex_implicit);
-    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(
+    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_dense<P>(
         pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrix, f_2, x, restart, max_iter, tolerance);
+        pde.get_dt(), collision_matrix, f_2, x, restart, max_iter, tolerance);
   }
   else
   {
@@ -711,10 +711,10 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // pde.gmres_outputs[1] = solver::simple_gmres(
     //    pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
     //    max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
-    kronmult_matrix<P> operator_matrix = asgard::make_kronmult_dense<P>(
+    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_dense<P>(
         pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[1] =
-        solver::simple_gmres_euler(P{0.5} * pde.get_dt(), operator_matrix, f_3,
+        solver::simple_gmres_euler(P{0.5} * pde.get_dt(), collision_matrix, f_3,
                                    x, restart, max_iter, tolerance);
 
     tools::timer.stop("implicit_2_solve");
