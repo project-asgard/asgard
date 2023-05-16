@@ -77,14 +77,14 @@ __global__ void scale(int const num, T const beta, T y[])
  */
 template<typename T, int dims, scalar_case alpha_case>
 __global__ void
-case_n1(int const num_batch, int const num_rows, int const num_terms,
+case_n1(int const num_batch, int const num_cols, int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
   while (i < num_batch)
   {
-    T X = x[i % num_rows];
+    T X = x[i % num_cols];
 
     T sum  = 0;
     int ma = i * num_terms * dims;
@@ -98,11 +98,11 @@ case_n1(int const num_batch, int const num_rows, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[i / num_rows], sum);
+      atomicAdd(&y[i / num_cols], sum);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[i / num_rows], -sum);
+      atomicAdd(&y[i / num_cols], -sum);
     else
-      atomicAdd(&y[i / num_rows], alpha * sum);
+      atomicAdd(&y[i / num_cols], alpha * sum);
 
     i += gridDim.x * blockDim.x;
   }
@@ -119,7 +119,7 @@ case_n1(int const num_batch, int const num_rows, int const num_terms,
 template<typename T, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-case_d1(int const num_batch, int const num_rows, int const num_terms,
+case_d1(int const num_batch, int const num_cols, int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   // if thread teams span more than one warp, we must synchronize
@@ -146,7 +146,7 @@ case_d1(int const num_batch, int const num_rows, int const num_terms,
 
   while (i < num_batch)
   {
-    X[threadIdx.y][threadIdx.x] = x[n * (i % num_rows) + threadIdx.x];
+    X[threadIdx.y][threadIdx.x] = x[n * (i % num_cols) + threadIdx.x];
     if constexpr (sync_mode == manual_sync::enable)
       __syncthreads();
 
@@ -161,11 +161,11 @@ case_d1(int const num_batch, int const num_rows, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[n * (i / num_rows) + threadIdx.x], yinc);
+      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], yinc);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[n * (i / num_rows) + threadIdx.x], -yinc);
+      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], -yinc);
     else
-      atomicAdd(&y[n * (i / num_rows) + threadIdx.x], alpha * yinc);
+      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], alpha * yinc);
 
     i += gridDim.x * blockDim.y;
 
@@ -187,7 +187,7 @@ case_d1(int const num_batch, int const num_rows, int const num_terms,
  *         in a single thread block; num_teams * team_size = num_threads
  *
  * \param num_batch kronmult input
- * \param num_rows kronmult input
+ * \param num_cols kronmult input
  * \param num_terms kronmult input
  * \param iA kronmult input
  * \param vA kronmult input
@@ -205,7 +205,7 @@ case_d1(int const num_batch, int const num_rows, int const num_terms,
 template<typename T, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-cycle1(int const num_batch, int const num_rows, int const num_terms,
+cycle1(int const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   // if thread teams span more than one warp, we must synchronize
@@ -268,7 +268,7 @@ cycle1(int const num_batch, int const num_rows, int const num_terms,
   {
     int ma = i * num_terms * dims;
     T yinc = 0;
-    T rawx = x[int_pow<n, dims>() * (i % num_rows) + threadIdx.x];
+    T rawx = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x];
 
     for (int t = 0; t < num_terms; t++)
     {
@@ -376,11 +376,11 @@ cycle1(int const num_batch, int const num_rows, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x], yinc);
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], yinc);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x], -yinc);
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], -yinc);
     else
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_rows) + threadIdx.x],
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x],
                 alpha * yinc);
 
     i += gridDim.x * blockDim.y;

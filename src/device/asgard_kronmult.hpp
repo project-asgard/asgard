@@ -66,8 +66,9 @@ enum class scalar_case
  */
 template<typename T>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
-               int const num_terms, int const iA[], T const vA[], T const alpha,
-               T const x[], T const beta, T y[]);
+               int const num_cols, int const num_terms,
+               int const iA[], T const vA[], T const alpha, T const x[],
+               T const beta, T y[]);
 
 #ifdef ASGARD_USE_CUDA
 /*!
@@ -76,12 +77,13 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
  * The arrays iA, vA, x and y are stored on the GPU device.
  * The indexes and scalars alpha and beta are stored on the CPU.
  *
- * \b total_size is the total size of x and y, i.e., num_rows * n^dimensions
+ * \b output_size is the total size of y, i.e., num_rows * n^dimensions
  */
 template<typename T>
-void gpu_dense(int const dimensions, int const n, int const total_size,
-               int const num_rows, int const num_terms, int const iA[],
-               T const vA[], T const alpha, T const x[], T const beta, T y[]);
+void gpu_dense(int const dimensions, int const n, int const output_size,
+               int const num_batch, int const num_cols, int const num_terms,
+               int const iA[], T const vA[], T const alpha, T const x[],
+               T const beta, T y[]);
 #endif
 
 } // namespace asgard::kronmult

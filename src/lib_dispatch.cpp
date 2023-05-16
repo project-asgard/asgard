@@ -180,7 +180,10 @@ void initialize_libraries(int const local_rank)
 {
 #ifdef ASGARD_USE_CUDA
   expect(local_rank >= 0);
-  device.set_device(local_rank);
+  int num_devices;
+  if (cudaGetDeviceCount(&num_devices) != cudaSuccess)
+    throw std::runtime_error("cannot read the number of GPUs");
+  device.set_device(local_rank % num_devices);
 #else
   asgard::ignore(local_rank);
 #endif

@@ -196,7 +196,7 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   auto const apply_id = tools::timer.start("kronmult");
-  fk::vector<P, mem_type::owner, resource::host> fx(row_size);
+  fk::vector<P> fx(row_size);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
 
   tools::timer.stop(apply_id, operator_matrix.flops());

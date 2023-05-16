@@ -37,14 +37,14 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
 
 #ifdef ASGARD_USE_CUDA
   asgard::kronmult_matrix<T> kmat(
-      dimensions, n, num_rows, num_terms, 0, 0,
+      dimensions, n, num_rows, num_rows, num_terms,
       asgard::fk::vector<int, asgard::mem_type::const_view,
                          asgard::resource::host>(iA),
       asgard::fk::vector<T, asgard::mem_type::const_view,
                          asgard::resource::host>(vA));
 #else
-  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_terms,
-                                  0, 0, std::move(iA), std::move(vA));
+  asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_rows, num_terms,
+                                  std::move(iA), std::move(vA));
 #endif
 
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());

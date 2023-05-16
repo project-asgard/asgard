@@ -81,11 +81,11 @@ int main(int argc, char **argv)
   }
 
   asgard::kronmult_matrix<float> fmat(
-      dimensions, n, num_rows, num_terms, 0, 0,
+      dimensions, n, num_rows, num_rows, num_terms,
       asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
       asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
   asgard::kronmult_matrix<double> dmat(
-      dimensions, n, num_rows, num_terms, 0, 0,
+      dimensions, n, num_rows, num_rows, num_terms,
       asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
       asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
 
