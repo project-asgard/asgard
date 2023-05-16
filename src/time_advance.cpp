@@ -624,9 +624,6 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   if (pde.do_collision_operator)
   {
     // f2 now
-    // pde.gmres_outputs[0] = solver::simple_gmres(
-    //    pde, table, program_opts, grid, f_2, x, fk::matrix<P>(), restart,
-    //    max_iter, tolerance, imex_flag::imex_implicit);
     kronmult_matrix<P> collision_matrix = asgard::make_kronmult_dense<P>(
         pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
@@ -708,9 +705,6 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    // pde.gmres_outputs[1] = solver::simple_gmres(
-    //    pde, table, program_opts, grid, f_3, x, fk::matrix<P>(), restart,
-    //    max_iter, tolerance, imex_flag::imex_implicit, static_cast<P>(0.5));
     kronmult_matrix<P> collision_matrix = asgard::make_kronmult_dense<P>(
         pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[1] =
