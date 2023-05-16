@@ -88,7 +88,7 @@ make_kronmult_dense(PDE<precision> const &pde,
       }
       else
       {
-        pA = std::fill_n(pA, pde.get_coefficients(t, d).size(), 0);
+        pA = std::fill_n(pA, pde.get_coefficients(t, d).size(), precision{0});
       }
     }
   }
