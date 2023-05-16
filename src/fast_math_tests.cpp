@@ -38,6 +38,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::vector: owner, device")
   {
     fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
@@ -47,6 +48,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm, norm);
   }
+#endif
 
   SECTION("fk::vector: const view, host")
   {
@@ -58,6 +60,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::vector: const view, device")
   {
     fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
@@ -70,6 +73,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm, norm);
   }
+#endif
 
   SECTION("fk::vector: view, host")
   {
@@ -80,6 +84,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::vector: view, device")
   {
     fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
@@ -92,6 +97,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm, norm);
   }
+#endif
 
   /* matrix Frobenius norm tests */
   fk::matrix<TestType, mem_type::owner, resource::host> m = {
@@ -110,6 +116,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::matrix: owner, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> const m_owner_dev =
@@ -119,6 +126,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm, norm);
   }
+#endif
 
   SECTION("fk::matrix: view, host")
   {
@@ -129,6 +137,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::matrix: view, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> m_owner_dev =
@@ -141,6 +150,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm, norm);
   }
+#endif
 
   SECTION("fk::matrix submatrix: view, host")
   {
@@ -152,6 +162,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm_submatrix, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::matrix submatrix: view, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> m_owner_dev =
@@ -163,6 +174,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm_submatrix, norm);
   }
+#endif
 
   SECTION("fk::matrix: const view, host")
   {
@@ -173,6 +185,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::matrix: const view, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> m_owner_dev =
@@ -185,6 +198,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm, norm);
   }
+#endif
 
   SECTION("fk::matrix submatrix: const view, host")
   {
@@ -196,6 +210,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm_submatrix, norm);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("fk::matrix submatrix: const view, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> m_owner_dev =
@@ -207,6 +222,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm_submatrix, norm);
   }
+#endif
 }
 
 TEST_CASE("fm::two_raised_to", "[fast_math]")
@@ -252,6 +268,8 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     fm::gemm(in1, in2, result);
     REQUIRE(result == ans);
   }
+
+#ifdef ASGARD_USE_CUDA
   SECTION("no transpose, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -263,6 +281,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("transpose a")
   {
@@ -273,6 +292,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     REQUIRE(result == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("transpose a, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -288,6 +308,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("transpose b")
   {
@@ -299,6 +320,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     REQUIRE(result == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("transpose b, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -315,6 +337,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("both transpose")
   {
@@ -327,6 +350,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     REQUIRE(result == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("both transpose, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -346,6 +370,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("test scaling")
   {
@@ -370,6 +395,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     REQUIRE(result == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("test scaling, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -398,6 +424,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       REQUIRE(result == gold);
     }
   }
+#endif
 
   // test the case where lda doesn't equal the number of rows in
   // arguments - this often occurs when using views.
@@ -423,6 +450,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     REQUIRE(result_view == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("lda =/= nrows, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -451,6 +479,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
@@ -483,6 +512,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
     REQUIRE(result == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("no transpose, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -494,6 +524,8 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
+
   SECTION("transpose A")
   {
     fk::matrix<TestType> const A_trans = fk::matrix<TestType>(A).transpose();
@@ -503,6 +535,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
     REQUIRE(result == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("transpose A, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -519,6 +552,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("test scaling")
   {
@@ -542,6 +576,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
     REQUIRE(result == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("test scaling, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -569,6 +604,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
       REQUIRE(result == gold);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
@@ -599,6 +635,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     REQUIRE(test_own == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("vector scale and accumulate (fm::axpy), device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -640,6 +677,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("vector copy (fm::copy)")
   {
@@ -660,6 +698,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     REQUIRE(test_own == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("vector copy (fm::copy), device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -696,6 +735,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       REQUIRE(answer == gold);
     }
   }
+#endif
 
   SECTION("vector scale (fm::scal)")
   {
@@ -721,6 +761,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     REQUIRE(test_own == zeros);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("vector scale (fm::scal), device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -760,6 +801,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       REQUIRE(result == zeros);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)

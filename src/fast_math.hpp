@@ -26,9 +26,11 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
   {
     return 0.0;
   };
-  int n     = x.size();
-  int inc_x = 1;
-  return lib_dispatch::nrm2(&n, x.data(), &inc_x, resrc);
+
+  if constexpr (resrc == resource::device)
+    return lib_dispatch::nrm2_device(x.size(), x.data(), 1);
+  else
+    return lib_dispatch::nrm2_host(x.size(), x.data(), 1);
 }
 
 /* Frobenius norm of owner matrix */
@@ -42,9 +44,10 @@ P frobenius(fk::matrix<P, mem_type::owner, resrc> const &m)
 
   else if constexpr (std::is_floating_point<P>::value)
   {
-    int n     = m.size();
-    int inc_x = 1;
-    return lib_dispatch::nrm2(&n, m.data(), &inc_x, resrc);
+    if constexpr (resrc == resource::device)
+      return lib_dispatch::nrm2_device(m.size(), m.data(), 1);
+    else
+      return lib_dispatch::nrm2_host(m.size(), m.data(), 1);
   }
 
   /* create a view of the matrix and pass it to the non-owner overload of the

@@ -224,54 +224,45 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   }
 }
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
-P nrm2(int *n, P *x, int *incx, resource const resrc)
+P nrm2_device(int n, P const *x, int incx)
 {
   expect(x);
-  expect(incx && *incx >= 0);
-  expect(n && *n >= 0);
+  expect(incx >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
+  P norm;
+  // function instantiated for these two fp types
+  if constexpr (std::is_same<P, double>::value)
   {
-    // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-    P norm;
-    // function instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
-    {
-      auto const success =
-          cublasDnrm2(device.get_handle(), *n, x, *incx, &norm);
-      expect(success == 0);
-    }
-    else if constexpr (std::is_same<P, float>::value)
-    {
-      auto const success =
-          cublasSnrm2(device.get_handle(), *n, x, *incx, &norm);
-      expect(success == 0);
-    }
-    return norm;
-#endif
+    auto const success = cublasDnrm2(device.get_handle(), n, x, incx, &norm);
+    expect(success == 0);
   }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    auto const success = cublasSnrm2(device.get_handle(), n, x, incx, &norm);
+    expect(success == 0);
+  }
+  return norm;
+}
+#endif
+
+template<typename P>
+P nrm2_host(int n, P const *x, int incx)
+{
+  expect(x);
+  expect(incx >= 0);
+  expect(n >= 0);
 
   // default execution on the host for any resource
   if constexpr (std::is_same<P, double>::value)
   {
-    return cblas_dnrm2(*n, x, *incx);
+    return cblas_dnrm2(n, x, incx);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    return cblas_snrm2(*n, x, *incx);
-  }
-  else
-  {
-    auto sum_square = 0.0;
-    for (int i = 0; i < *n; ++i)
-    {
-      sum_square += std::pow(x[i * (*incx)], 2);
-    }
-    return std::sqrt(sum_square);
+    return cblas_snrm2(n, x, incx);
   }
 }
 
@@ -1210,8 +1201,12 @@ template void rotg(float *, float *, float *, float *, resource const resrc);
 template void
 rotg(double *, double *, double *, double *, resource const resrc);
 
-template float nrm2(int *n, float *x, int *incx, resource const resrc);
-template double nrm2(int *n, double *x, int *incx, resource const resrc);
+template float nrm2_host(int n, float const *x, int incx);
+template double nrm2_host(int n, double const *x, int incx);
+#ifdef ASGARD_USE_CUDA
+template float nrm2_device(int n, float const *x, int incx);
+template double nrm2_device(int n, double const *x, int incx);
+#endif
 
 template void copy(int *n, float const *x, int *incx, float *y, int *incy,
                    resource const resrc);

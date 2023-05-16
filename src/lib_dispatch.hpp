@@ -1,4 +1,5 @@
 #pragma once
+
 namespace asgard
 {
 enum class resource
@@ -16,7 +17,10 @@ template<typename P>
 void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
 
 template<typename P>
-P nrm2(int *n, P *x, int *incx, resource const resrc = resource::host);
+P nrm2_device(int n, P const *x, int incx);
+
+template<typename P>
+P nrm2_host(int n, P const *x, int incx);
 
 template<typename P>
 void copy(int *n, P const *x, int *incx, P *y, int *incy,
