@@ -107,7 +107,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
           if constexpr (dimensions == 1)
           {
             Y.zero();
-            T const * const A = &(vA[iA[ma++]]);
+            T const *const A = &(vA[iA[ma++]]);
 #pragma omp simd collapse(2)
             for (int j = 0; j < n; j++)
               for (int k = 0; k < n; k++)

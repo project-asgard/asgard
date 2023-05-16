@@ -132,7 +132,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         }
         else if constexpr (dimensions == 2)
         {
-          T const * A = &(vA[iA[ma++]]); // A1
+          T const *A = &(vA[iA[ma++]]); // A1
           T W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
 #pragma omp simd collapse(3)
           for (int j = 0; j < n; j++)
@@ -157,7 +157,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         }
         else if constexpr (dimensions == 3)
         {
-          T const *A  = &(vA[iA[ma++]]); // A2
+          T const *A   = &(vA[iA[ma++]]); // A2
           T W[n][n][n] = {{{{0}}}}, Y[n][n][n] = {{{{0}}}};
 #pragma omp simd collapse(4)
           for (int j = 0; j < n; j++)
