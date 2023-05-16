@@ -132,15 +132,14 @@ make_kronmult_dense(PDE<precision> const &pde,
 
 #ifdef ASGARD_USE_CUDA
   // if using CUDA, copy the matrices onto the GPU
-  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols,
-                                    num_terms,
-                                    iA.clone_onto_device(),
+  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                    num_cols, num_terms, iA.clone_onto_device(),
                                     vA.clone_onto_device());
 #else
   // if using the CPU, move the vectors into the matrix structure
-  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols,
-                                    num_terms,
-                                    std::move(iA), std::move(vA));
+  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                    num_cols, num_terms, std::move(iA),
+                                    std::move(vA));
 #endif
 }
 

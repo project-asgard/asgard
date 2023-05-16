@@ -128,10 +128,13 @@ public:
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
-    kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(), num_cols_, num_terms_, iA.data(), vA.data(), alpha, xdev.data(), beta, ydev.data());
+    kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(),
+                        num_cols_, num_terms_, iA.data(), vA.data(), alpha,
+                        xdev.data(), beta, ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_, num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
+                        num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
 #endif
   }
 

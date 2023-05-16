@@ -66,9 +66,8 @@ enum class scalar_case
  */
 template<typename T>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
-               int const num_cols, int const num_terms,
-               int const iA[], T const vA[], T const alpha, T const x[],
-               T const beta, T y[]);
+               int const num_cols, int const num_terms, int const iA[],
+               T const vA[], T const alpha, T const x[], T const beta, T y[]);
 
 #ifdef ASGARD_USE_CUDA
 /*!
