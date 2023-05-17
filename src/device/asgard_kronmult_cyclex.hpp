@@ -24,6 +24,7 @@ __global__ void
 cyclex(int const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
   static_assert(num_cycles <= 4, "supporting up to 4 cycles");
   static_assert(num_cycles >= 1,

@@ -18,6 +18,7 @@ __global__ void
 cycle2(int const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
   static_assert(
       2 * team_size >= int_pow<n, dims>(),

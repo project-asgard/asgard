@@ -26,6 +26,8 @@ void cpu_n0(int const dimensions, int const num_rows, int const num_cols,
             int const num_terms, int const iA[], T const vA[], T const alpha,
             T const x[], T const beta, T y[])
 {
+  (void)alpha;
+  (void)beta;
 #pragma omp parallel for
   for (int iy = 0; iy < num_rows; iy++)
   {

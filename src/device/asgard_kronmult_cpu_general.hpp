@@ -75,6 +75,9 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                int const num_terms, int const iA[], T const vA[], T const alpha,
                T const x[], T const beta, T y[])
 {
+  (void)alpha;
+  (void)beta;
+
 #pragma omp parallel
   {
     tensor<T, dimensions> Y(n), W(n);

@@ -56,6 +56,7 @@ __device__ constexpr int int_pow()
 template<typename T, scalar_case beta_case>
 __global__ void scale(int const num, T const beta, T y[])
 {
+  (void)beta;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < num)
   {
@@ -80,6 +81,7 @@ __global__ void
 case_n1(int const num_batch, int const num_cols, int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
   while (i < num_batch)
@@ -122,6 +124,7 @@ __global__ void
 case_d1(int const num_batch, int const num_cols, int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
                                      ASGARD_GPU_WARP_SIZE % team_size != 0)
@@ -208,6 +211,7 @@ __global__ void
 cycle1(int const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
                                      ASGARD_GPU_WARP_SIZE % team_size != 0)
