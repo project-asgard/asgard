@@ -1248,12 +1248,18 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
   int const degree            = 3;
   static int constexpr nsteps = 100;
 
+  TestType constexpr gmres_tol =
+      std::is_same<TestType, double>::value ? 1.0e-8 : 1.0e-6;
+  TestType constexpr tolerance =
+      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 0.019634954084936);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
 
   auto const pde = make_PDE<TestType>(parse);
 
@@ -1365,6 +1371,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    REQUIRE(E_relative <= 1.0e-9);
+    REQUIRE(E_relative <= tolerance);
   }
 }
