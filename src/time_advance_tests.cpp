@@ -1234,3 +1234,137 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 #endif
   }
 }
+
+TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
+                   double)
+{
+  if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "landau";
+  fk::vector<int> const levels{4, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 100;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 0.019634954084936);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  options const opts(parse);
+  elements::table const check(opts, *pde);
+
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                       *pde);
+
+  // -- compute dimension mass matrices
+  generate_dimension_mass_mat(*pde, transformer);
+
+  // -- set coeffs
+  generate_all_coefficients(*pde, transformer);
+
+  // -- generate moments
+  for (auto &m : pde->moments)
+  {
+    m.createFlist(*pde, opts);
+    expect(m.get_fList().size() > 0);
+
+    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    expect(m.get_vector().size() > 0);
+  }
+
+  // -- generate initial condition vector.
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  generate_dimension_mass_mat(*pde, transformer);
+
+  fk::vector<TestType> f_val(initial_condition);
+  asgard::kronmult_matrix<TestType> operator_matrix;
+
+  TestType E_pot_initial = 0.0;
+  TestType E_kin_initial = 0.0;
+
+  // -- time loop
+  for (auto i = 0; i < opts.num_time_steps; ++i)
+  {
+    std::cout.setstate(std::ios_base::failbit);
+    auto const time          = i * pde->get_dt();
+    auto const update_system = i == 0;
+    auto const method =
+        opts.use_implicit_stepping
+            ? asgard::time_advance::method::imp
+            : (opts.use_imex_stepping ? asgard::time_advance::method::imex
+                                      : asgard::time_advance::method::exp);
+    auto const sol = time_advance::adaptive_advance(
+        method, *pde, operator_matrix, adaptive_grid, transformer, opts, f_val,
+        time, update_system);
+
+    f_val.resize(sol.size()) = sol;
+    std::cout.clear();
+
+    auto calculate_integral =
+        [&](fk::vector<TestType> const &input) -> TestType {
+      auto const &dim = pde->get_dimensions()[0];
+      auto const legendre_values =
+          legendre_weights<TestType>(dim.get_degree(), -1.0, 1.0, true);
+      auto const num_cells = input.size();
+
+      auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;
+
+      fk::matrix<TestType> coefficients(num_cells, degree);
+      fk::vector<TestType> half_input(input);
+      fm::scal(TestType{0.5}, half_input);
+      for (int d = 0; d < degree; d++)
+      {
+        coefficients.update_col(d, half_input);
+      }
+
+      fk::matrix<TestType> w(1, degree);
+      w.update_row(0, legendre_values[1]);
+
+      fk::matrix<TestType> input_weighted(num_cells, degree);
+      fm::gemm(coefficients, w, input_weighted);
+      fm::scal(TestType{0.5}, input_weighted);
+
+      TestType sum = 0.0;
+      for (int elem = 0; elem < num_cells; elem++)
+      {
+        for (int d = 0; d < degree; d++)
+        {
+          sum += input_weighted(elem, d);
+        }
+      }
+
+      TestType integral = grid_spacing * sum;
+
+      return integral;
+    };
+
+    // compute the E potential and kinetic energy
+    fk::vector<TestType> E_field_sq(pde->E_field);
+    for (auto &e : E_field_sq)
+    {
+      e = e * e;
+    }
+    TestType E_pot = calculate_integral(E_field_sq);
+    TestType E_kin = calculate_integral(pde->moments[2].get_realspace_moment());
+    if (i == 0)
+    {
+      E_pot_initial = E_pot;
+      E_kin_initial = E_kin;
+    }
+
+    // calculate the absolute relative total energy
+    TestType E_relative =
+        std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
+    REQUIRE(E_relative <= 1.0e-9);
+  }
+}
