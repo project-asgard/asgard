@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asgard_kronmult_matrix.hpp"
 #include "batch.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
@@ -19,14 +20,12 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
              fk::matrix<P> const &M, int const restart, int const max_iter,
              P const tolerance);
 
+// solves ( I - dt * mat ) * x = b
 template<typename P>
 gmres_info<P>
-simple_gmres(PDE<P> const &pde, elements::table const &elem_table,
-             options const &program_options, element_subgrid const &my_subgrid,
-             fk::vector<P> &x, fk::vector<P> const &b, fk::matrix<P> const &M,
-             int const restart, int const max_iter, P const tolerance,
-             imex_flag const imex = imex_flag::unspecified,
-             const P dt_factor    = 1.0);
+simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat, fk::vector<P> &x,
+                   fk::vector<P> const &b, int const restart,
+                   int const max_iter, P const tolerance);
 
 template<typename P>
 void setup_poisson(const int N_nodes, P const x_min, P const x_max,

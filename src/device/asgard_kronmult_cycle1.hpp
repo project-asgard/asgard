@@ -44,24 +44,67 @@ __device__ constexpr int int_pow()
 }
 
 /*!
+ * \brief Kernel to scale a vector, i.e., y = beta * y
+ *
+ * \tparam T is float or double
+ * \tparam beta_case reflect whether beta is 0, 1, -1, or something else
+ *
+ * \param num is the size of y
+ * \param beta is the scalar
+ * \param y is array to be scaled
+ */
+template<typename T, scalar_case beta_case>
+__global__ void scale(int const num, T const beta, T y[])
+{
+  (void)beta;
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < num)
+  {
+    if constexpr (beta_case == scalar_case::zero)
+      y[i] = 0;
+    else if constexpr (beta_case == scalar_case::neg_one)
+      y[i] = -y[i];
+    else if constexpr (beta_case == scalar_case::other)
+      y[i] *= beta;
+
+    i += gridDim.x * blockDim.x;
+  }
+}
+
+/*!
  * \brief Kernel for the n==1 case.
  *
  * The algorithm for n==1, all tensors and matrices are in fact scalars.
  */
-template<typename T, int dims, int num_threads>
-__global__ void case1N(T const *const pA[], int const lda, T const *const pX[],
-                       T *pY[], int const num_batch)
+template<typename T, int dims, scalar_case alpha_case>
+__global__ void
+case_n1(int const num_batch, int const num_cols, int const num_terms,
+        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
   while (i < num_batch)
   {
-    T x = pX[i][0];
+    T X = x[i % num_cols];
 
-    for (int d = 0; d < dims; d++)
-      x *= pA[dims * i + d][0];
+    T sum  = 0;
+    int ma = i * num_terms * dims;
 
-    atomicAdd(pY[i], x);
+    for (int t = 0; t < num_terms; t++)
+    {
+      T totalA = vA[iA[ma++]];
+      for (int d = 1; d < dims; d++)
+        totalA *= vA[iA[ma++]];
+      sum += totalA * X;
+    }
+
+    if constexpr (alpha_case == scalar_case::one)
+      atomicAdd(&y[i / num_cols], sum);
+    else if constexpr (alpha_case == scalar_case::neg_one)
+      atomicAdd(&y[i / num_cols], -sum);
+    else
+      atomicAdd(&y[i / num_cols], alpha * sum);
 
     i += gridDim.x * blockDim.x;
   }
@@ -75,10 +118,13 @@ __global__ void case1N(T const *const pA[], int const lda, T const *const pX[],
  * There is no reuse of the matrix entries,
  * so they are not stored in __shared__ memory.
  */
-template<typename T, int n, int team_size, int num_teams>
-__global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
-                       T *pY[], int const num_batch)
+template<typename T, int n, int team_size, int num_teams,
+         scalar_case alpha_case>
+__global__ void
+case_d1(int const num_batch, int const num_cols, int const num_terms,
+        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
                                      ASGARD_GPU_WARP_SIZE % team_size != 0)
@@ -88,7 +134,7 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
   constexpr int effective_team_size = n;
 
   static_assert(
-      effective_team_size <= n,
+      team_size <= n,
       "team is too small, size must equal the size of the matrices (n)");
 
   __shared__ T X[num_teams][team_size];
@@ -103,15 +149,26 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
 
   while (i < num_batch)
   {
-    X[threadIdx.y][threadIdx.x] = pX[i][threadIdx.x];
+    X[threadIdx.y][threadIdx.x] = x[n * (i % num_cols) + threadIdx.x];
     if constexpr (sync_mode == manual_sync::enable)
       __syncthreads();
 
-    T yinc = 0;
-    for (int k = 0; k < n; k++)
-      yinc += pA[i][threadIdx.x + k * lda] * X[threadIdx.y][k];
+    int ma = i * num_terms;
 
-    atomicAdd(&pY[i][threadIdx.x], yinc);
+    T yinc = 0;
+    for (int t = 0; t < num_terms; t++)
+    {
+      T const *A = &vA[iA[ma++]];
+      for (int k = 0; k < n; k++)
+        yinc += A[k * n + threadIdx.x] * X[threadIdx.y][k];
+    }
+
+    if constexpr (alpha_case == scalar_case::one)
+      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], yinc);
+    else if constexpr (alpha_case == scalar_case::neg_one)
+      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], -yinc);
+    else
+      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], alpha * yinc);
 
     i += gridDim.x * blockDim.y;
 
@@ -132,11 +189,14 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
  * \tparam num_teams indicates the number of thread teams that will work
  *         in a single thread block; num_teams * team_size = num_threads
  *
- * \param pA kronmult input
- * \param lda kronmult input
- * \param pX kronmult input
- * \param pY kronmult input
  * \param num_batch kronmult input
+ * \param num_cols kronmult input
+ * \param num_terms kronmult input
+ * \param iA kronmult input
+ * \param vA kronmult input
+ * \param alpha kronmult input
+ * \param x kronmult input
+ * \param y kronmult input
  *
  * \b note: This kernel requires that the thread team is at least as
  *    large as the size of tensors (n^dims) and the maximum number
@@ -145,10 +205,13 @@ __global__ void case1D(T const *const pA[], int const lda, T const *const pX[],
  *    responsible for multiple tensor entries and computations will be
  *    done in more than one cycle.
  */
-template<typename T, int dims, int n, int team_size, int num_teams>
-__global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
-                       T *pY[], int const num_batch)
+template<typename T, int dims, int n, int team_size, int num_teams,
+         scalar_case alpha_case>
+__global__ void
+cycle1(int const num_batch, int const num_cols, int const num_terms,
+       int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
+  (void)alpha;
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
                                      ASGARD_GPU_WARP_SIZE % team_size != 0)
@@ -165,8 +228,6 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
   __shared__ T A[num_teams][team_size];
 
   int i = threadIdx.y + blockIdx.x * blockDim.y;
-
-  int const matj = threadIdx.x % n + lda * (threadIdx.x / n);
 
   int const ix5 =
       threadIdx.x % int_pow<n, 5>() +
@@ -209,112 +270,124 @@ __global__ void cycle1(T const *const pA[], int const lda, T const *const pX[],
 
   while (i < num_batch)
   {
-    X[threadIdx.y][threadIdx.x] = pX[i][threadIdx.x];
-
-    if constexpr (dims >= 6)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 6][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix5 + k * int_pow<n, 5>()] *
-               A[threadIdx.y][ia5 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 5)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 5][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix4 + k * int_pow<n, 4>()] *
-               A[threadIdx.y][ia4 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 4)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 4][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix3 + k * int_pow<n, 3>()] *
-               A[threadIdx.y][ia3 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 3)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 3][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix2 + k * int_pow<n, 2>()] *
-               A[threadIdx.y][ia2 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if constexpr (dims >= 2)
-    {
-      if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 2][matj];
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      T sum = 0;
-      for (int k = 0; k < n; k++)
-        sum += X[threadIdx.y][ix1 + k * n] * A[threadIdx.y][ia1 + k * n];
-
-      if constexpr (sync_mode == manual_sync::enable)
-        __syncthreads();
-
-      X[threadIdx.y][threadIdx.x] = sum;
-    }
-
-    if (threadIdx.x < n * n)
-      A[threadIdx.y][threadIdx.x] = pA[dims * i + dims - 1][matj];
-    if constexpr (sync_mode == manual_sync::enable)
-      __syncthreads();
-
+    int ma = i * num_terms * dims;
     T yinc = 0;
-    for (int k = 0; k < n; k++)
-      yinc += A[threadIdx.y][ia0 + k * n] * X[threadIdx.y][ix0 + k];
+    T rawx = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x];
 
-    atomicAdd(&pY[i][threadIdx.x], yinc);
+    for (int t = 0; t < num_terms; t++)
+    {
+      X[threadIdx.y][threadIdx.x] = rawx;
+
+      if constexpr (dims >= 6)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix5 + k * int_pow<n, 5>()] *
+                 A[threadIdx.y][ia5 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 5)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix4 + k * int_pow<n, 4>()] *
+                 A[threadIdx.y][ia4 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 4)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix3 + k * int_pow<n, 3>()] *
+                 A[threadIdx.y][ia3 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 3)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix2 + k * int_pow<n, 2>()] *
+                 A[threadIdx.y][ia2 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if constexpr (dims >= 2)
+      {
+        if (threadIdx.x < n * n)
+          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        T sum = 0;
+        for (int k = 0; k < n; k++)
+          sum += X[threadIdx.y][ix1 + k * n] * A[threadIdx.y][ia1 + k * n];
+
+        if constexpr (sync_mode == manual_sync::enable)
+          __syncthreads();
+
+        X[threadIdx.y][threadIdx.x] = sum;
+      }
+
+      if (threadIdx.x < n * n)
+        A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+      if constexpr (sync_mode == manual_sync::enable)
+        __syncthreads();
+
+      for (int k = 0; k < n; k++)
+        yinc += A[threadIdx.y][ia0 + k * n] * X[threadIdx.y][ix0 + k];
+
+      if constexpr (sync_mode == manual_sync::enable)
+        __syncthreads();
+    }
+
+    if constexpr (alpha_case == scalar_case::one)
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], yinc);
+    else if constexpr (alpha_case == scalar_case::neg_one)
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], -yinc);
+    else
+      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x],
+                alpha * yinc);
 
     i += gridDim.x * blockDim.y;
-
-    if constexpr (sync_mode == manual_sync::enable)
-      __syncthreads();
   }
 }
 

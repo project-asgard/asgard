@@ -74,7 +74,7 @@ static std::vector<int>
 get_levels(elements::table const &adapted_table, int const num_dims)
 {
   assert(num_dims > 0);
-  auto const flat_table = adapted_table.get_active_table().clone_onto_host();
+  auto const flat_table = adapted_table.get_active_table();
   auto const coord_size = num_dims * 2;
   std::vector<int> max_levels(num_dims, 0);
   for (int64_t element = 0; element < adapted_table.size(); ++element)

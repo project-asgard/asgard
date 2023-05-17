@@ -40,7 +40,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
                             std::to_string(d + 1) + ".dat";
       auto const gold = fk::matrix<P>(read_matrix_from_txt_file(filename));
 
-      auto const full_coeff = pde->get_coefficients(t, d).clone_onto_host();
+      auto const full_coeff = pde->get_coefficients(t, d);
 
       auto const &dim = pde->get_dimensions()[d];
       auto const degrees_freedom_1d =

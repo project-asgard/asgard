@@ -27,7 +27,7 @@ P dot(int *n, P const *x, int *incx, P *y, int *incy,
       resource const resrc = resource::host);
 
 template<typename P>
-void axpy(int *n, P *alpha, P const *x, int *incx, P *y, int *incy,
+void axpy(int *n, P const *alpha, P const *x, int *incx, P *y, int *incy,
           resource const resrc = resource::host);
 
 template<typename P>

@@ -132,10 +132,9 @@ void table::remove_elements(std::vector<int64_t> const &indices)
   }();
 
   // form new active table from retained elements in old table
-  auto const active_table_h = active_table_d_.clone_onto_host();
-  auto const coord_size     = static_cast<int64_t>(get_coords(0).size());
+  auto const coord_size = static_cast<int64_t>(get_coords(0).size());
   auto const new_table_size =
-      active_table_h.size() - coord_size * to_delete.size();
+      active_table_.size() - coord_size * to_delete.size();
   expect(new_table_size > 0);
   auto new_active_table = fk::vector<int>(new_table_size);
 
@@ -148,7 +147,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
       continue;
     }
     fk::vector<int, mem_type::const_view> const retained_coords(
-        active_table_h, i * coord_size, (i + 1) * coord_size - 1);
+        active_table_, i * coord_size, (i + 1) * coord_size - 1);
     auto const dest_stop = dest_start + coord_size - 1;
     fk::vector<int, mem_type::view> dest_for_coords(new_active_table,
                                                     dest_start, dest_stop);
@@ -162,8 +161,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
     id_to_coords_.erase(id);
   }
 
-  active_table_d_.resize(new_active_table.size())
-      .transfer_from(new_active_table);
+  active_table_.resize(new_active_table.size()) = new_active_table;
 
   active_element_ids_ = new_active_ids;
 
@@ -177,7 +175,7 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
   expect(max_level > 0);
   std::unordered_set<int64_t> const child_ids(ids.begin(), ids.end());
 
-  auto active_table_h = active_table_d_.clone_onto_host();
+  auto active_table_update = active_table_;
 
   expect(size() > 0);
   auto const coord_size = get_coords(0).size();
@@ -201,12 +199,11 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
     id_to_coords_[id].resize(coord_size) = coords;
     // TODO we know a priori how many coords we are adding
     // so this could be optimized away if it's slow
-    active_table_h.concat(coords);
+    active_table_update.concat(coords);
     added++;
   }
   expect(active_element_ids_.size() == id_to_coords_.size());
-  active_table_d_.resize(active_table_h.size()) =
-      active_table_h.clone_onto_device();
+  active_table_.resize(active_table_update.size()) = active_table_update;
   return added;
 }
 
@@ -300,8 +297,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   }
 
   expect(active_element_ids_.size() == id_to_coords_.size());
-  active_table_d_.resize(dev_table_builder.size())
-      .transfer_from(dev_table_builder);
+  active_table_.resize(dev_table_builder.size()) = dev_table_builder;
 }
 
 // static construction helper
