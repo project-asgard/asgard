@@ -88,7 +88,8 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
   static_assert(1 <= dimensions and dimensions <= 6);
   static_assert(n > 1, "n must be positive and n==1 is a special case handled "
                        "by another method");
-
+  (void)alpha;
+  (void)beta;
 // always use one thread per kron-product
 #pragma omp parallel for
   for (int iy = 0; iy < num_rows; iy++)
