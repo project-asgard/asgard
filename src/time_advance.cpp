@@ -563,6 +563,9 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     do_poisson_update(x);
   }
 
+  operator_matrix = asgard::make_kronmult_dense<P>(
+      pde, adaptive_grid, program_opts, imex_flag::imex_explicit);
+
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult - explicit");
@@ -646,6 +649,9 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   {
     do_poisson_update(f_2);
   }
+
+  operator_matrix = asgard::make_kronmult_dense<P>(
+      pde, adaptive_grid, program_opts, imex_flag::imex_explicit);
 
   tools::timer.start(apply_id);
   operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
