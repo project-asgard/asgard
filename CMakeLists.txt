@@ -55,8 +55,6 @@ endforeach()
 ###############################################################################
 ## Set up the compiler and general global build options
 ###############################################################################
-#set (CMAKE_CXX_STANDARD 17)
-#set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set a default build type if none was specified
 # https://blog.kitware.com/cmake-and-the-default-build-type/
@@ -146,15 +144,6 @@ set(ASGARD_USE_MKL FALSE)
 if(FOUND_MKL GREATER_EQUAL 0)
   set(ASGARD_USE_MKL TRUE)
 endif()
-
-#if (ASGARD_USE_SLATE)
-#  find_package(slate)
-#  set(blaspp_DIR /opt/slate/lib/blaspp/)
-#  # Without at least find_package(lapackpp), we get a linking error cannot find "`-llpackpp -llblaspp"
-#  find_package(blaspp)
-#  set(lapackpp_DIR /opt/slate/lib/lapackpp/)
-#  find_package(lapackpp)
-#endif ()
 
 if(ASGARD_USE_OPENMP OR ASGARD_RECOMMENDED_DEFAULTS)
   find_package(OpenMP)
@@ -343,9 +332,6 @@ if (ASGARD_USE_CUDA)
 
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
-
-#  Turn on GPU support in kronmult.
-    set (USE_GPU ON CACHE BOOL "Turn on kronmult gpu support" FORCE)
 
     target_compile_options (asgard_obj
                             PUBLIC
