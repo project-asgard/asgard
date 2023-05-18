@@ -272,10 +272,13 @@ if (ASGARD_USE_MATLAB)
 endif ()
 
 foreach (component IN LISTS components)
-    target_sources (asgard_obj
-                    PRIVATE
-                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp>
-    )
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp)
+        # some components don't have .cpp files
+        target_sources (asgard_obj
+                        PRIVATE
+                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp>
+        )
+    endif()
     target_precompile_headers (asgard_obj
                                PUBLIC
                                $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
