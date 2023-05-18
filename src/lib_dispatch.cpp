@@ -227,8 +227,9 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
   }
 }
 
-template<resource resrc = resource::host, typename P>
-P nrm2(int n, P const x[], int incx){
+template<resource resrc, typename P>
+P nrm2(int n, P const x[], int incx)
+{
   expect(x);
   expect(incx >= 0);
   expect(n >= 0);
@@ -240,14 +241,12 @@ P nrm2(int n, P const x[], int incx){
     P norm;
     if constexpr (std::is_same_v<P, double>)
     {
-      auto const success =
-          cublasDnrm2(device.get_handle(), n, x, incx, &norm);
+      auto const success = cublasDnrm2(device.get_handle(), n, x, incx, &norm);
       expect(success == 0);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
-      auto const success =
-          cublasSnrm2(device.get_handle(), n, x, incx, &norm);
+      auto const success = cublasSnrm2(device.get_handle(), n, x, incx, &norm);
       expect(success == 0);
     }
     return norm;
@@ -1202,7 +1201,8 @@ rotg(double *, double *, double *, double *, resource const resrc);
 template float nrm2<resource::host, float>(int n, float const x[], int incx);
 template double nrm2<resource::host, double>(int n, double const x[], int incx);
 template float nrm2<resource::device, float>(int n, float const x[], int incx);
-template double nrm2<resource::device, double>(int n, double const x[], int incx);
+template double
+nrm2<resource::device, double>(int n, double const x[], int incx);
 
 template void copy(int *n, float const *x, int *incx, float *y, int *incy,
                    resource const resrc);
