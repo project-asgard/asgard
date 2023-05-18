@@ -15,8 +15,8 @@ void initialize_libraries(int const local_rank);
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
 
-template<typename P>
-P nrm2(int *n, P *x, int *incx, resource const resrc = resource::host);
+template<resource resrc = resource::host, typename P>
+P nrm2(int n, P const x[], int incx);
 
 template<typename P>
 void copy(int *n, P const *x, int *incx, P *y, int *incy,
