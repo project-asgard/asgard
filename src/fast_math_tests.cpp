@@ -38,16 +38,6 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
-  SECTION("fk::vector: owner, device")
-  {
-    fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
-        v.clone_onto_device();
-
-    TestType norm = fm::nrm2(v_owner_dev);
-
-    relaxed_fp_comparison(gold_norm, norm);
-  }
-
   SECTION("fk::vector: const view, host")
   {
     fk::vector<TestType, mem_type::const_view, resource::host> const
@@ -58,37 +48,11 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
-  SECTION("fk::vector: const view, device")
-  {
-    fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
-        v.clone_onto_device();
-
-    fk::vector<TestType, mem_type::const_view, resource::device> const
-        v_view_dev(v_owner_dev);
-
-    TestType norm = fm::nrm2(v_view_dev);
-
-    relaxed_fp_comparison(gold_norm, norm);
-  }
-
   SECTION("fk::vector: view, host")
   {
     fk::vector<TestType, mem_type::view, resource::host> const v_view_host(v);
 
     TestType norm = fm::nrm2(v_view_host);
-
-    relaxed_fp_comparison(gold_norm, norm);
-  }
-
-  SECTION("fk::vector: view, device")
-  {
-    fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
-        v.clone_onto_device();
-
-    fk::vector<TestType, mem_type::view, resource::device> const v_view_dev(
-        v_owner_dev);
-
-    TestType norm = fm::nrm2(v_view_dev);
 
     relaxed_fp_comparison(gold_norm, norm);
   }
@@ -110,21 +74,87 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
+  SECTION("fk::matrix: view, host")
+  {
+    fk::matrix<TestType, mem_type::view, resource::host> m_view_host(m);
+
+    TestType norm = fm::frobenius(m_view_host);
+
+    relaxed_fp_comparison(gold_norm, norm);
+  }
+
+  SECTION("fk::matrix submatrix: view, host")
+  {
+    fk::matrix<TestType, mem_type::view, resource::host> const m_view(m, 2, 3,
+                                                                      1, 2);
+
+    TestType norm = fm::frobenius(m_view);
+
+    relaxed_fp_comparison(gold_norm_submatrix, norm);
+  }
+
+  SECTION("fk::matrix: const view, host")
+  {
+    fk::matrix<TestType, mem_type::const_view, resource::host> m_view_host(m);
+
+    TestType norm = fm::frobenius(m_view_host);
+
+    relaxed_fp_comparison(gold_norm, norm);
+  }
+
+  SECTION("fk::matrix submatrix: const view, host")
+  {
+    fk::matrix<TestType, mem_type::const_view, resource::host> const m_view(
+        m, 2, 3, 1, 2);
+
+    TestType norm = fm::frobenius(m_view);
+
+    relaxed_fp_comparison(gold_norm_submatrix, norm);
+  }
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("fk::vector: owner, device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
+        v.clone_onto_device();
+
+    TestType norm = fm::nrm2(v_owner_dev);
+
+    relaxed_fp_comparison(gold_norm, norm);
+  }
+
+  SECTION("fk::vector: const view, device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
+        v.clone_onto_device();
+
+    fk::vector<TestType, mem_type::const_view, resource::device> const
+        v_view_dev(v_owner_dev);
+
+    TestType norm = fm::nrm2(v_view_dev);
+
+    relaxed_fp_comparison(gold_norm, norm);
+  }
+
+  SECTION("fk::vector: view, device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> v_owner_dev =
+        v.clone_onto_device();
+
+    fk::vector<TestType, mem_type::view, resource::device> const v_view_dev(
+        v_owner_dev);
+
+    TestType norm = fm::nrm2(v_view_dev);
+
+    relaxed_fp_comparison(gold_norm, norm);
+  }
+
   SECTION("fk::matrix: owner, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> const m_owner_dev =
         m.clone_onto_device();
 
     TestType norm = fm::frobenius(m_owner_dev);
-
-    relaxed_fp_comparison(gold_norm, norm);
-  }
-
-  SECTION("fk::matrix: view, host")
-  {
-    fk::matrix<TestType, mem_type::view, resource::host> m_view_host(m);
-
-    TestType norm = fm::frobenius(m_view_host);
 
     relaxed_fp_comparison(gold_norm, norm);
   }
@@ -142,16 +172,6 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
-  SECTION("fk::matrix submatrix: view, host")
-  {
-    fk::matrix<TestType, mem_type::view, resource::host> const m_view(m, 2, 3,
-                                                                      1, 2);
-
-    TestType norm = fm::frobenius(m_view);
-
-    relaxed_fp_comparison(gold_norm_submatrix, norm);
-  }
-
   SECTION("fk::matrix submatrix: view, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> m_owner_dev =
@@ -162,15 +182,6 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     TestType norm = fm::frobenius(m_view_dev);
 
     relaxed_fp_comparison(gold_norm_submatrix, norm);
-  }
-
-  SECTION("fk::matrix: const view, host")
-  {
-    fk::matrix<TestType, mem_type::const_view, resource::host> m_view_host(m);
-
-    TestType norm = fm::frobenius(m_view_host);
-
-    relaxed_fp_comparison(gold_norm, norm);
   }
 
   SECTION("fk::matrix: const view, device")
@@ -186,16 +197,6 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
     relaxed_fp_comparison(gold_norm, norm);
   }
 
-  SECTION("fk::matrix submatrix: const view, host")
-  {
-    fk::matrix<TestType, mem_type::const_view, resource::host> const m_view(
-        m, 2, 3, 1, 2);
-
-    TestType norm = fm::frobenius(m_view);
-
-    relaxed_fp_comparison(gold_norm_submatrix, norm);
-  }
-
   SECTION("fk::matrix submatrix: const view, device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> m_owner_dev =
@@ -207,6 +208,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
 
     relaxed_fp_comparison(gold_norm_submatrix, norm);
   }
+#endif
 }
 
 TEST_CASE("fm::two_raised_to", "[fast_math]")
@@ -231,7 +233,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
     fk::matrix<TestType> const in1{
         {3, 4,  5,  6,  7},
         {8, 9, 10, 11, 12},
-    }; 
+    };
     fk::matrix<TestType> const in2{
         {12, 22, 32},
 	{13, 23, 33},

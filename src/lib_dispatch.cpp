@@ -235,9 +235,9 @@ P nrm2(int n, P const x[], int incx)
   expect(n >= 0);
   static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
 
-#ifdef ASGARD_USE_CUDA
   if constexpr (resrc == resource::device)
   {
+#ifdef ASGARD_USE_CUDA
     P norm;
     if constexpr (std::is_same_v<P, double>)
     {
@@ -250,16 +250,18 @@ P nrm2(int n, P const x[], int incx)
       expect(success == 0);
     }
     return norm;
-  }
 #endif
-
-  if constexpr (std::is_same_v<P, double>)
-  {
-    return cblas_dnrm2(n, x, incx);
   }
-  else if constexpr (std::is_same_v<P, float>)
+  else if constexpr (resrc == resource::host)
   {
-    return cblas_snrm2(n, x, incx);
+    if constexpr (std::is_same_v<P, double>)
+    {
+      return cblas_dnrm2(n, x, incx);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      return cblas_snrm2(n, x, incx);
+    }
   }
 }
 
@@ -1198,11 +1200,12 @@ template void rotg(float *, float *, float *, float *, resource const resrc);
 template void
 rotg(double *, double *, double *, double *, resource const resrc);
 
-template float nrm2<resource::host, float>(int n, float const x[], int incx);
-template double nrm2<resource::host, double>(int n, double const x[], int incx);
-template float nrm2<resource::device, float>(int n, float const x[], int incx);
-template double
-nrm2<resource::device, double>(int n, double const x[], int incx);
+template float nrm2<resource::host, float>(int, float const[], int);
+template double nrm2<resource::host, double>(int, double const[], int);
+#ifdef ASGARD_USE_CUDA
+template float nrm2<resource::device, float>(int, float const[], int);
+template double nrm2<resource::device, double>(int, double const[], int);
+#endif
 
 template void copy(int *n, float const *x, int *incx, float *y, int *incy,
                    resource const resrc);

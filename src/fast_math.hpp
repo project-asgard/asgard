@@ -22,6 +22,9 @@ inline T two_raised_to(T const exponent)
 template<typename P, mem_type mem, resource resrc>
 P nrm2(fk::vector<P, mem, resrc> const &x)
 {
+#ifndef ASGARD_USE_CUDA
+  static_assert(resrc == resource::host);
+#endif
   if (x.size() == 0)
     return 0.0;
   return lib_dispatch::nrm2<resrc>(x.size(), x.data(), 1);
