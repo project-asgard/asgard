@@ -37,11 +37,18 @@ function (register_project name dir url default_tag)
 endfunction ()
 
 #  Catch two testing framework.
-register_project (Catch2
-                  CATCH2
-                  https://github.com/catchorg/Catch2.git
-                  v3.1.0
-)
+#  The default behavior is to build catch together with ASGarD,
+#  but if Catch2_ROOT is explicitly provided then search
+#  for an existing installation.
+if (Catch2_ROOT)
+  find_package(Catch2 REQUIRED)
+else()
+  register_project (Catch2
+                    CATCH2
+                    https://github.com/catchorg/Catch2.git
+                    v3.1.0
+  )
+endif()
 
 #Mark CATCH variables as advanced.
 get_cmake_property(_variableNames VARIABLES)
