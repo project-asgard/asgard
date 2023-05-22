@@ -131,9 +131,28 @@ make_kronmult_dense(PDE<precision> const &pde,
   }
 
 #ifdef ASGARD_USE_CUDA
+  int tensor_size = kron_size;
+  for(int d=1; d<num_dimensions; d++)
+    tensor_size *= kron_size;
+
+  fk::vector<int> row_indx(num_rows * num_cols);
+  fk::vector<int> col_indx(num_rows * num_cols);
+
+  for(int i=0; i<num_rows; i++)
+  {
+    for(int j=0; j<num_cols; j++)
+    {
+      row_indx[i * num_cols + j] = i * tensor_size;
+      col_indx[i * num_cols + j] = j * tensor_size;
+    }
+  }
+
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms, iA.clone_onto_device(),
+                                    num_cols, num_terms,
+                                    row_indx.clone_onto_device(),
+                                    col_indx.clone_onto_device(),
+                                    iA.clone_onto_device(),
                                     vA.clone_onto_device());
 #else
   fk::vector<int> pntr(num_rows + 1);
@@ -149,8 +168,9 @@ make_kronmult_dense(PDE<precision> const &pde,
 
   // if using the CPU, move the vectors into the matrix structure
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms, std::move(iA),
-                                    std::move(vA), std::move(pntr), std::move(indx));
+                                    num_cols, num_terms, std::move(pntr),
+                                    std::move(indx), std::move(iA),
+                                    std::move(vA));
 #endif
 }
 

@@ -78,37 +78,53 @@ int main(int argc, char **argv)
     ip++;
   }
 
-  asgard::fk::vector<int> fpntr(num_rows + 1);
-  asgard::fk::vector<int> dpntr(num_rows + 1);
-  asgard::fk::vector<int> findx(num_rows * num_rows);
-  asgard::fk::vector<int> dindx(num_rows * num_rows);
+  asgard::fk::vector<int> frow_indx(num_rows * num_rows);
+  asgard::fk::vector<int> drow_indx(num_rows * num_rows);
+  asgard::fk::vector<int> fcol_indx(num_rows * num_rows);
+  asgard::fk::vector<int> dcol_indx(num_rows * num_rows);
+
+#ifdef ASGARD_USE_CUDA
+  int tensor_size = n;
+  for(int d=1; d<dimensions; d++)
+    tensor_size *= n;
 
   for(int i=0; i<num_rows; i++)
   {
-    fpntr[i] = i * num_rows;
-    dpntr[i] = i * num_rows;
     for(int j=0; j<num_rows; j++)
     {
-      findx[fpntr[i] + j]= j;
-      dindx[dpntr[i] + j]= j;
+      frow_indx[i * num_rows + j] = i * tensor_size;
+      drow_indx[i * num_rows + j] = i * tensor_size;
+      fcol_indx[i * num_rows + j] = j * tensor_size;
+      dcol_indx[i * num_rows + j] = j * tensor_size;
     }
   }
-  fpntr[num_rows] = findx.size();
-  dpntr[num_rows] = dindx.size();
-
+#else
+  for(int i=0; i<num_rows; i++)
+  {
+    frow_indx[i] = i * num_rows;
+    drow_indx[i] = i * num_rows;
+    for(int j=0; j<num_rows; j++)
+    {
+      fcol_indx[frow_indx[i] + j]= j;
+      dcol_indx[drow_indx[i] + j]= j;
+    }
+  }
+  frow_indx[num_rows] = fcol_indx.size();
+  drow_indx[num_rows] = dcol_indx.size();
+#endif
 
   asgard::kronmult_matrix<float> fmat(
       dimensions, n, num_rows, num_rows, num_terms,
+      asgard::fk::vector<int, asgard::mem_type::const_view>(frow_indx),
+      asgard::fk::vector<int, asgard::mem_type::const_view>(fcol_indx),
       asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
-      asgard::fk::vector<float, asgard::mem_type::const_view>(fvA),
-      asgard::fk::vector<int, asgard::mem_type::const_view>(fpntr),
-      asgard::fk::vector<int, asgard::mem_type::const_view>(findx));
+      asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
   asgard::kronmult_matrix<double> dmat(
       dimensions, n, num_rows, num_rows, num_terms,
+      asgard::fk::vector<int, asgard::mem_type::const_view>(drow_indx),
+      asgard::fk::vector<int, asgard::mem_type::const_view>(dcol_indx),
       asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
-      asgard::fk::vector<double, asgard::mem_type::const_view>(dvA),
-      asgard::fk::vector<int, asgard::mem_type::const_view>(dpntr),
-      asgard::fk::vector<int, asgard::mem_type::const_view>(dindx));
+      asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
 
   // dry run to wake up the devices
   fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());

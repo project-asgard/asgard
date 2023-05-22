@@ -21,7 +21,7 @@ __device__ constexpr int int_pow(int p)
 template<typename T, int dims, int n, int team_size, int num_teams,
          int num_cycles, scalar_case alpha_case>
 __global__ void
-cyclex(int const num_batch, int const num_cols, int const num_terms,
+cyclex(int const num_batch, int const ix[], int const iy[], int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   (void)alpha;
@@ -55,7 +55,7 @@ cyclex(int const num_batch, int const num_cols, int const num_terms,
   {
     int ma = i * num_terms * dims;
 
-    const int xoffset = int_pow<n, dims>() * (i % num_cols);
+    const int xoffset = ix[i];
     T rawx0, rawx1, rawx2, rawx3;
     rawx0 = x[xoffset + threadIdx.x];
     if constexpr (num_cycles >= 2)
@@ -324,7 +324,7 @@ cyclex(int const num_batch, int const num_cols, int const num_terms,
         __syncthreads();
     } // end terms
 
-    const int yoffset = int_pow<n, dims>() * (i / num_cols);
+    const int yoffset = iy[i];
 
     if constexpr (alpha_case == scalar_case::one)
     {

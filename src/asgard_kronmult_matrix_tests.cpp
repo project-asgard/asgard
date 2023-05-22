@@ -35,6 +35,34 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
     ip++;
   }
 
+#ifdef ASGARD_USE_CUDA
+  int tensor_size = n;
+  for(int d=1; d<dimensions; d++)
+    tensor_size *= n;
+
+  asgard::fk::vector<int> row_indx(num_rows * num_rows);
+  asgard::fk::vector<int> col_indx(num_rows * num_rows);
+
+  for(int i=0; i<num_rows; i++)
+  {
+    for(int j=0; j<num_rows; j++)
+    {
+      row_indx[i * num_rows + j] = i * tensor_size;
+      col_indx[i * num_rows + j] = j * tensor_size;
+    }
+  }
+
+  asgard::kronmult_matrix<T> kmat(
+      dimensions, n, num_rows, num_rows, num_terms,
+      asgard::fk::vector<int, asgard::mem_type::const_view,
+                         asgard::resource::host>(row_indx),
+      asgard::fk::vector<int, asgard::mem_type::const_view,
+                         asgard::resource::host>(col_indx),
+      asgard::fk::vector<int, asgard::mem_type::const_view,
+                         asgard::resource::host>(iA),
+      asgard::fk::vector<T, asgard::mem_type::const_view,
+                         asgard::resource::host>(vA));
+#else
   asgard::fk::vector<int> pntr(num_rows + 1);
   asgard::fk::vector<int> indx(num_rows * num_rows);
 
@@ -46,17 +74,9 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
   }
   pntr[num_rows] = indx.size();
 
-#ifdef ASGARD_USE_CUDA
-  asgard::kronmult_matrix<T> kmat(
-      dimensions, n, num_rows, num_rows, num_terms,
-      asgard::fk::vector<int, asgard::mem_type::const_view,
-                         asgard::resource::host>(iA),
-      asgard::fk::vector<T, asgard::mem_type::const_view,
-                         asgard::resource::host>(vA));
-#else
   asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_rows, num_terms,
-                                  std::move(iA), std::move(vA), std::move(pntr),
-                                  std::move(indx));
+                                  std::move(pntr), std::move(indx),
+                                  std::move(iA), std::move(vA));
 #endif
 
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());

@@ -78,7 +78,7 @@ __global__ void scale(int const num, T const beta, T y[])
  */
 template<typename T, int dims, scalar_case alpha_case>
 __global__ void
-case_n1(int const num_batch, int const num_cols, int const num_terms,
+case_n1(int const num_batch, int const ix[], int const iy[], int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   (void)alpha;
@@ -86,7 +86,7 @@ case_n1(int const num_batch, int const num_cols, int const num_terms,
 
   while (i < num_batch)
   {
-    T X = x[i % num_cols];
+    T X = x[ix[i]];
 
     T sum  = 0;
     int ma = i * num_terms * dims;
@@ -100,11 +100,11 @@ case_n1(int const num_batch, int const num_cols, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[i / num_cols], sum);
+      atomicAdd(&y[iy[i]], sum);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[i / num_cols], -sum);
+      atomicAdd(&y[iy[i]], -sum);
     else
-      atomicAdd(&y[i / num_cols], alpha * sum);
+      atomicAdd(&y[iy[i]], alpha * sum);
 
     i += gridDim.x * blockDim.x;
   }
@@ -121,7 +121,7 @@ case_n1(int const num_batch, int const num_cols, int const num_terms,
 template<typename T, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-case_d1(int const num_batch, int const num_cols, int const num_terms,
+case_d1(int const num_batch, int const ix[], int const iy[], int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   (void)alpha;
@@ -149,7 +149,7 @@ case_d1(int const num_batch, int const num_cols, int const num_terms,
 
   while (i < num_batch)
   {
-    X[threadIdx.y][threadIdx.x] = x[n * (i % num_cols) + threadIdx.x];
+    X[threadIdx.y][threadIdx.x] = x[ix[i] + threadIdx.x];
     if constexpr (sync_mode == manual_sync::enable)
       __syncthreads();
 
@@ -164,11 +164,11 @@ case_d1(int const num_batch, int const num_cols, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], yinc);
+      atomicAdd(&y[iy[i] + threadIdx.x], yinc);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], -yinc);
+      atomicAdd(&y[iy[i] + threadIdx.x], -yinc);
     else
-      atomicAdd(&y[n * (i / num_cols) + threadIdx.x], alpha * yinc);
+      atomicAdd(&y[iy[i] + threadIdx.x], alpha * yinc);
 
     i += gridDim.x * blockDim.y;
 
@@ -208,7 +208,7 @@ case_d1(int const num_batch, int const num_cols, int const num_terms,
 template<typename T, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-cycle1(int const num_batch, int const num_cols, int const num_terms,
+cycle1(int const num_batch, int const ix[], int const iy[], int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   (void)alpha;
@@ -272,7 +272,7 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
   {
     int ma = i * num_terms * dims;
     T yinc = 0;
-    T rawx = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x];
+    T rawx = x[ix[i] + threadIdx.x];
 
     for (int t = 0; t < num_terms; t++)
     {
@@ -380,12 +380,11 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], yinc);
+      atomicAdd(&y[iy[i] + threadIdx.x], yinc);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], -yinc);
+      atomicAdd(&y[iy[i] + threadIdx.x], -yinc);
     else
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x],
-                alpha * yinc);
+      atomicAdd(&y[iy[i] + threadIdx.x], alpha * yinc);
 
     i += gridDim.x * blockDim.y;
   }

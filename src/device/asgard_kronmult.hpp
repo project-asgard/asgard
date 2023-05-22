@@ -81,9 +81,9 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
  */
 template<typename T>
 void gpu_dense(int const dimensions, int const n, int const output_size,
-               int const num_batch, int const num_cols, int const num_terms,
-               int const iA[], T const vA[], T const alpha, T const x[],
-               T const beta, T y[]);
+               int const num_batch, int const ix[], int const iy[],
+               int const num_terms, int const iA[], T const vA[], T const alpha,
+               T const x[], T const beta, T y[]);
 #endif
 
 } // namespace asgard::kronmult
