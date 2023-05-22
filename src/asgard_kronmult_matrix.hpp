@@ -66,16 +66,21 @@ public:
       int num_terms,
       fk::vector<int, mem_type::const_view, resource::host> const &index_A,
       fk::vector<precision, mem_type::const_view, resource::host> const
-          &values_A)
+          &values_A,
+      fk::vector<int, mem_type::const_view, resource::host> const &ipntr,
+      fk::vector<int, mem_type::const_view, resource::host> const &iindx)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), iA(index_A.size()), vA(values_A.size())
+        tensor_size_(1), iA(index_A.size()), vA(values_A.size()),
+        pntr(ipntr.size()), indx(iindx.size())
   {
     if constexpr (data_mode == resource::host)
     {
 #ifndef ASGARD_USE_CUDA // workaround clang and c++-17
       iA = index_A;
       vA = values_A;
+      pntr = ipntr;
+      indx = iindx;
 #endif
     }
     else
@@ -83,6 +88,8 @@ public:
 #ifdef ASGARD_USE_CUDA // workaround clang and c++-17
       iA = index_A.clone_onto_device();
       vA = values_A.clone_onto_device();
+      pntr = ipntr.clone_onto_device();
+      indx = iindx.clone_onto_device();
 #endif
     }
 
@@ -98,10 +105,13 @@ public:
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A,
+                  fk::vector<int, mem_type::owner, resource::host> const &&ipntr,
+                  fk::vector<int, mem_type::owner, resource::host> const &&iindx)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), iA(std::move(index_A)), vA(std::move(values_A))
+        tensor_size_(1), iA(std::move(index_A)), vA(std::move(values_A)),
+        pntr(std::move(ipntr)), indx(std::move(iindx))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -133,8 +143,9 @@ public:
                         xdev.data(), beta, ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
-                        num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, pntr.data(),
+                        indx.data(), num_terms_, iA.data(), vA.data(),
+                        alpha, x, beta, y);
 #endif
   }
 
@@ -195,6 +206,9 @@ private:
   fk::vector<int, mem_type::owner, data_mode> iA;
   // list of the operators
   fk::vector<precision, mem_type::owner, data_mode> vA;
+  // pointer and indexes for the sparsity
+  fk::vector<int, mem_type::owner, data_mode> pntr;
+  fk::vector<int, mem_type::owner, data_mode> indx;
 };
 
 /*!
