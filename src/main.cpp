@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 
   // -- generate and store coefficient matrices.
   asgard::node_out() << "  generating: coefficient matrices..." << '\n';
-  asgard::generate_all_coefficients<prec>(*pde, transformer);
+  asgard::generate_all_coefficients_max_level<prec>(*pde, transformer);
 
   // -- initialize moments of the PDE
   asgard::node_out() << "  generating: moment vectors..." << '\n';

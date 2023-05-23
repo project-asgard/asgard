@@ -174,7 +174,7 @@ public:
   fk::matrix<P> const get_coefficients(int const level) const
   {
     // returns precomputed inv(mass) * coeff for this level
-    expect(static_cast<int>(coefficients_.size()) >= level);
+    expect(static_cast<int>(coefficients_.size()) > level);
     expect(level >= 0);
     return coefficients_[level];
   }
@@ -610,10 +610,12 @@ public:
     // initialize mass matrices to a default value
     for (auto i = 0; i < num_dims; ++i)
     {
-      auto const max_dof =
-          fm::two_raised_to(static_cast<int64_t>(max_level)) * degree;
-      expect(max_dof < INT_MAX);
-      update_dimension_mass_mat(i, eye<P>(max_dof));
+      for (int level = 0; level <= max_level; ++level)
+      {
+        auto const dof = fm::two_raised_to(level) * degree;
+        expect(dof < INT_MAX);
+        update_dimension_mass_mat(i, eye<P>(dof), level);
+      }
     }
 
     // check all sources
@@ -808,12 +810,13 @@ public:
     }
   }
 
-  void update_dimension_mass_mat(int const dim_index, fk::matrix<P> const &mass)
+  void update_dimension_mass_mat(int const dim_index, fk::matrix<P> const &mass,
+                                 int const level)
   {
     assert(dim_index >= 0);
     assert(dim_index < num_dims);
 
-    dimensions_[dim_index].set_mass_matrix(mass);
+    dimensions_[dim_index].set_mass_matrix(std::move(mass), level);
   }
 
   P get_dt() const { return dt_; };

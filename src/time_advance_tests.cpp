@@ -63,7 +63,14 @@ void time_advance_test(parser const &parse,
   generate_dimension_mass_mat(*pde, transformer);
 
   // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
+  if (parse.do_adapt_levels())
+  {
+    generate_all_coefficients_max_level(*pde, transformer);
+  }
+  else
+  {
+    generate_all_coefficients(*pde, transformer);
+  }
 
   // -- generate initial condition vector.
   auto const initial_condition =

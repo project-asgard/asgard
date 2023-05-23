@@ -11,6 +11,11 @@ void generate_all_coefficients(
     P const time = 0.0, bool const rotate = true);
 
 template<typename P>
+void generate_all_coefficients_max_level(
+    PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
+    P const time = 0.0, bool const rotate = true);
+
+template<typename P>
 void generate_dimension_mass_mat(
     PDE<P> &pde,
     basis::wavelet_transform<P, resource::host> const &transformer);

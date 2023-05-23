@@ -298,6 +298,13 @@ struct dimension
   {
     set_level(level);
     set_degree(degree);
+
+    for (int i = 0; i <= level_; ++i)
+    {
+      auto const max_dof = fm::two_raised_to(i) * degree_;
+      expect(max_dof < INT_MAX);
+      this->mass_.push_back(eye<P>(max_dof));
+    }
   }
   dimension(dimension_description<P> const desc)
       : domain_min(desc.d_min), domain_max(desc.d_max),
@@ -309,15 +316,27 @@ struct dimension
         volume_jacobian_dV(desc.jacobian), name(desc.name), level_(desc.level),
         degree_(desc.degree)
   {
-    auto const max_dof =
-        fm::two_raised_to(static_cast<int64_t>(level_)) * degree_;
-    expect(max_dof < INT_MAX);
-    this->mass_.clear_and_resize(max_dof, max_dof) = eye<P>(max_dof);
+    for (int i = 0; i <= level_; ++i)
+    {
+      auto const max_dof = fm::two_raised_to(i) * degree_;
+      expect(max_dof < INT_MAX);
+      this->mass_.push_back(eye<P>(max_dof));
+    }
   }
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
-  fk::matrix<P> const &get_mass_matrix() const { return mass_; }
+  fk::matrix<P> const &get_mass_matrix() const
+  {
+    // default behavior is to get the mass matrix for the current level
+    expect(level_ < static_cast<int>(this->mass_.size()));
+    return mass_[level_];
+  }
+  fk::matrix<P> const &get_mass_matrix(int level) const
+  {
+    expect(level < static_cast<int>(this->mass_.size()));
+    return mass_[level];
+  }
 
   void set_level(int const level)
   {
@@ -331,14 +350,27 @@ struct dimension
     degree_ = degree;
   }
 
-  void set_mass_matrix(fk::matrix<P> const &new_mass)
+  void set_mass_matrix(fk::matrix<P> const &new_mass, int level)
   {
-    this->mass_.clear_and_resize(new_mass.nrows(), new_mass.ncols()) = new_mass;
+    expect(level >= 0);
+
+    if (level >= static_cast<int>(this->mass_.size()))
+    {
+      this->mass_.resize(level + 1);
+    }
+    this->mass_[level].clear_and_resize(new_mass.nrows(), new_mass.ncols());
+    expect(this->mass_[level].nrows() == new_mass.nrows());
+    this->mass_[level] = std::move(new_mass);
+  }
+
+  void set_mass_matrix(std::vector<fk::matrix<P>> const &new_mass)
+  {
+    this->mass_ = std::move(new_mass);
   }
 
   int level_;
   int degree_;
-  fk::matrix<P> mass_;
+  std::vector<fk::matrix<P>> mass_;
 };
 
 } // namespace asgard
