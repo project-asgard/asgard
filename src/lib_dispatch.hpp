@@ -12,15 +12,14 @@ namespace lib_dispatch
 {
 void initialize_libraries(int const local_rank);
 
-template<typename P>
-void rotg(P *a, P *b, P *c, P *s, resource const resrc = resource::host);
+template<resource const resrc = resource::host, typename P>
+void rotg(P *a, P *b, P *c, P *s);
 
 template<resource resrc = resource::host, typename P>
 P nrm2(int n, P const x[], int incx);
 
-template<typename P>
-void copy(int *n, P const *x, int *incx, P *y, int *incy,
-          resource const resrc = resource::host);
+template<resource resrc = resource::host, typename P>
+void copy(int n, P const *x, int incx, P *y, int incy);
 
 template<typename P>
 P dot(int *n, P const *x, int *incx, P *y, int *incy,

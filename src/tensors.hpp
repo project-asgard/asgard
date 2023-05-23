@@ -2599,7 +2599,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
   int one{1};
   int stride = 1;
 
-  lib_dispatch::copy(&n, v.data(), &one, data(0, col_idx), &stride);
+  lib_dispatch::copy<resrc>(n, v.data(), one, data(0, col_idx), stride);
 
   return *this;
 }
@@ -2620,7 +2620,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
   int one{1};
   int stride = 1;
 
-  lib_dispatch::copy(&n, v.data(), &one, data(0, col_idx), &stride);
+  lib_dispatch::copy<resrc>(n, v.data(), one, data(0, col_idx), stride);
 
   return *this;
 }
@@ -2642,7 +2642,7 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
   int one{1};
   int lda = stride();
 
-  lib_dispatch::copy(&n, v.data(), &one, data(row_idx, 0), &lda);
+  lib_dispatch::copy<resrc>(n, v.data(), one, data(row_idx, 0), lda);
 
   return *this;
 }
@@ -2663,7 +2663,7 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
   int one{1};
   int lda = stride();
 
-  lib_dispatch::copy(&n, v.data(), &one, data(row_idx, 0), &lda);
+  lib_dispatch::copy<resrc>(n, v.data(), one, data(row_idx, 0), lda);
 
   return *this;
 }

@@ -189,15 +189,16 @@ void initialize_libraries(int const local_rank)
 #endif
 }
 
-template<typename P>
-void rotg(P *a, P *b, P *c, P *s, resource const resrc)
+template<resource resrc, typename P>
+void rotg(P *a, P *b, P *c, P *s)
 {
-  expect(a && b && c && s);
+  expect(a);
+  expect(b);
+  expect(c);
+  expect(s);
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
 
-  // function doesn't make sense outside of FP context
-  expect(std::is_floating_point_v<P>);
-
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
@@ -215,15 +216,17 @@ void rotg(P *a, P *b, P *c, P *s, resource const resrc)
     return;
 #endif
   }
-
   // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    cblas_drotg(a, b, c, s);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    cblas_srotg(a, b, c, s);
+    if constexpr (std::is_same<P, double>::value)
+    {
+      cblas_drotg(a, b, c, s);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      cblas_srotg(a, b, c, s);
+    }
   }
 }
 
@@ -238,6 +241,7 @@ P nrm2(int n, P const x[], int incx)
   if constexpr (resrc == resource::device)
   {
 #ifdef ASGARD_USE_CUDA
+
     P norm;
     if constexpr (std::is_same_v<P, double>)
     {
@@ -265,53 +269,54 @@ P nrm2(int n, P const x[], int incx)
   }
 }
 
-template<typename P>
-void copy(int *n, P const *x, int *incx, P *y, int *incy, resource const resrc)
+template<resource resrc, typename P>
+void copy(int n, P const *x, int incx, P *y, int incy)
 {
   expect(x);
   expect(y);
-  expect(incx && *incx >= 0);
-  expect(incy && *incy >= 0);
-  expect(n && *n >= 0);
+  expect(incx >= 0);
+  expect(incy >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
+    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     // function instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDcopy(device.get_handle(), *n, x, *incx, y, *incy);
+          cublasDcopy(device.get_handle(), n, x, incx, y, incy);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasScopy(device.get_handle(), *n, x, *incx, y, *incy);
+          cublasScopy(device.get_handle(), n, x, incx, y, incy);
       expect(success == 0);
     }
     return;
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    cblas_dcopy(*n, x, *incx, y, *incy);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    cblas_scopy(*n, x, *incx, y, *incy);
-  }
-  else
-  {
-    for (int i = 0; i < *n; ++i)
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
     {
-      y[i * (*incy)] = x[i * (*incx)];
+      cblas_dcopy(n, x, incx, y, incy);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      cblas_scopy(n, x, incx, y, incy);
+    }
+    else
+    {
+      for (int i = 0; i < n; ++i)
+      {
+        y[i * incy] = x[i * incx];
+      }
     }
   }
 }
@@ -1196,23 +1201,33 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
 }
 #endif
 
-template void rotg(float *, float *, float *, float *, resource const resrc);
+template void rotg<resource::host, float>(float *, float *, float *, float *);
 template void
-rotg(double *, double *, double *, double *, resource const resrc);
+rotg<resource::host, double>(double *, double *, double *, double *);
 
 template float nrm2<resource::host, float>(int, float const[], int);
 template double nrm2<resource::host, double>(int, double const[], int);
+
+template void copy<resource::host, float>(int n, float const *x, int incx,
+                                          float *y, int incy);
+template void copy<resource::host, double>(int n, double const *x, int incx,
+                                           double *y, int incyc);
+template void
+copy<resource::host, int>(int n, int const *x, int incx, int *y, int incyc);
+
 #ifdef ASGARD_USE_CUDA
 template float nrm2<resource::device, float>(int, float const[], int);
 template double nrm2<resource::device, double>(int, double const[], int);
-#endif
 
-template void copy(int *n, float const *x, int *incx, float *y, int *incy,
-                   resource const resrc);
-template void copy(int *n, double const *x, int *incx, double *y, int *incy,
-                   resource const resrc);
+template void rotg<resource::device, float>(float *, float *, float *, float *);
 template void
-copy(int *n, int const *x, int *incx, int *y, int *incy, resource const resrc);
+rotg<resource::device, double>(double *, double *, double *, double *);
+
+template void copy<resource::device, float>(int n, float const *x, int incx,
+                                            float *y, int incy);
+template void copy<resource::device, double>(int n, double const *x, int incx,
+                                             double *y, int incyc);
+#endif
 
 template float dot(int *n, float const *x, int *incx, float *y, int *incy,
                    resource const resrc);
