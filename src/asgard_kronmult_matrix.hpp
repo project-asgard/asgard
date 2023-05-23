@@ -233,4 +233,16 @@ make_kronmult_dense(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                     options const &program_options,
                     imex_flag const imex = imex_flag::unspecified);
 
+/*!
+ * \brief Given the PDE an the discretization, creates a new kronmult matrix.
+ *
+ * The method is similar to the dense variant, but the resulting matrix
+ * will have a sparse format.
+ */
+template<typename P>
+kronmult_matrix<P>
+make_kronmult_sparse(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+                     options const &program_options,
+                     imex_flag const imex = imex_flag::unspecified);
+
 } // namespace asgard

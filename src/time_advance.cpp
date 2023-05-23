@@ -54,7 +54,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   if (!program_opts.do_adapt_levels)
   {
     if (not operator_matrix)
-      operator_matrix = asgard::make_kronmult_dense<P>(
+      operator_matrix = asgard::make_kronmult_sparse<P>(
           pde, adaptive_grid, program_opts,
           (step_method == method::imex) ? imex_flag::imex_explicit
                                         : imex_flag::unspecified);
