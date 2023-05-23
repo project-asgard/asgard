@@ -130,7 +130,7 @@ int main(int argc, char **argv)
                               .count());
 
   std::cout << "double precision: ";
-  if (felapsed == 0)
+  if (delapsed == 0)
   {
     std::cout
         << " test finished too fast to be accurately timed, use larger sizes\n";
