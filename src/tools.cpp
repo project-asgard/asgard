@@ -14,7 +14,7 @@ std::string simple_timer::report()
   std::ostringstream report;
   report << "\nperformance report, all times in ms...\n\n";
   char const *fmt =
-      "%s - avg: %.4f min: %.3f max: %.3f med: %.4f %s calls: %d \n";
+      "%s - avg: %.7f min: %.7f max: %.7f med: %.7f %s calls: %d \n";
   for (auto [id, times] : id_to_times_)
   {
     auto const avg =
