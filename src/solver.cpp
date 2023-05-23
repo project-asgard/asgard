@@ -220,9 +220,9 @@ simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
     x = x + (fk::matrix<P, mem_type::view>(basis, 0, basis.nrows() - 1, 0,
                                            restart - 1) *
              s_view);
-    P const norm_r_outer                               = compute_residual();
-    krylov_sol(std::min(krylov_sol.size() - 1, i + 1)) = norm_r_outer;
-    error                                              = norm_r_outer / norm_b;
+    P const norm_r_outer = compute_residual();
+    krylov_sol(std::min(krylov_sol.size() - 1, int64_t{i + 1})) = norm_r_outer;
+    error = norm_r_outer / norm_b;
 
     if (error <= tolerance)
     {

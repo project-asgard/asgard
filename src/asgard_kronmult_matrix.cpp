@@ -48,7 +48,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   }
 
   fk::vector<int, mem_type::owner, resource::host> iA(
-      num_rows * num_cols * num_terms * num_dimensions);
+      int64_t{num_rows} * num_cols * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
 
 #ifdef ASGARD_USE_CUDA

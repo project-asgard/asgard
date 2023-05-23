@@ -9,6 +9,7 @@
 #include "tools.hpp"
 
 #include <filesystem>
+#include <limits.h>
 #include <memory>
 #include <new>
 #include <string>
@@ -118,7 +119,7 @@ public:
    * \param size size of newly constructed vector.
    */
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  explicit vector(int const size);
+  explicit vector(int64_t const size);
   /*! constructor
    * \param list initial values of vector.
    */
@@ -399,7 +400,7 @@ public:
   /*! size of container
    * \return number of elements in the container
    */
-  int size() const { return size_; }
+  int64_t size() const { return size_; }
 
   /*! just get a pointer. cannot deref/assign. for e.g. blas
    *  Use subscript operators for general purpose access
@@ -538,7 +539,7 @@ private:
   //! pointer to elements
   P *data_;
   //! size of container
-  int size_;
+  int64_t size_;
   //! reference counter of owners
   std::shared_ptr<int> ref_count_ = nullptr;
 };
@@ -881,7 +882,7 @@ inline void delete_device(P *const ptr)
 
 template<typename P>
 inline void
-copy_on_device(P *const dest, P const *const source, int const num_elems)
+copy_on_device(P *const dest, P const *const source, int64_t const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto const success =
@@ -894,7 +895,7 @@ copy_on_device(P *const dest, P const *const source, int const num_elems)
 
 template<typename P>
 inline void
-copy_to_device(P *const dest, P const *const source, int const num_elems)
+copy_to_device(P *const dest, P const *const source, int64_t const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto const success =
@@ -907,7 +908,7 @@ copy_to_device(P *const dest, P const *const source, int const num_elems)
 
 template<typename P>
 inline void
-copy_to_host(P *const dest, P const *const source, int const num_elems)
+copy_to_host(P *const dest, P const *const source, int64_t const num_elems)
 {
 #ifdef ASGARD_USE_CUDA
   auto const success =
@@ -1006,7 +1007,7 @@ fk::vector<P, mem, resrc>::vector()
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(int const size)
+fk::vector<P, mem, resrc>::vector(int64_t const size)
     : size_{size}, ref_count_{std::make_shared<int>(0)}
 {
   expect(size >= 0);
@@ -1102,14 +1103,14 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &vec,
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &a)
-    : vector(a, 0, std::max(0, a.size() - 1), true)
+    : vector(a, 0, std::max(int64_t{0}, a.size() - 1), true)
 {}
 
 // modifiable view version
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> &a)
-    : vector(a, 0, std::max(0, a.size() - 1), true)
+    : vector(a, 0, std::max(int64_t{0}, a.size() - 1), true)
 {}
 
 // create vector view of an existing matrix
@@ -2594,8 +2595,9 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
 {
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
+  expect(v.size() < INT_MAX);
 
-  int n{v.size()};
+  int n{static_cast<int>(v.size())};
   int one{1};
   int stride = 1;
 
@@ -2615,6 +2617,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
 {
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
+  expect(v.size() < INT_MAX);
 
   int n{static_cast<int>(v.size())};
   int one{1};
@@ -2637,8 +2640,9 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
 {
   expect(ncols() == v.size());
   expect(row_idx < nrows());
+  expect(v.size() < INT_MAX);
 
-  int n{v.size()};
+  int n{static_cast<int>(v.size())};
   int one{1};
   int lda = stride();
 
@@ -2658,6 +2662,7 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
 {
   expect(ncols() == static_cast<int>(v.size()));
   expect(row_idx < nrows());
+  expect(v.size() < INT_MAX);
 
   int n{static_cast<int>(v.size())};
   int one{1};
