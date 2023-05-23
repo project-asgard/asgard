@@ -21,9 +21,8 @@ P nrm2(int n, P const x[], int incx);
 template<resource resrc = resource::host, typename P>
 void copy(int n, P const *x, int incx, P *y, int incy);
 
-template<typename P>
-P dot(int *n, P const *x, int *incx, P *y, int *incy,
-      resource const resrc = resource::host);
+template<resource resrc = resource::host, typename P>
+P dot(int n, P const *x, int incx, P const *y, int incy);
 
 template<typename P>
 void axpy(int *n, P const *alpha, P const *x, int *incx, P *y, int *incy,

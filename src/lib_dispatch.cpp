@@ -320,57 +320,58 @@ void copy(int n, P const *x, int incx, P *y, int incy)
   }
 }
 
-template<typename P>
-P dot(int *n, P const *x, int *incx, P *y, int *incy, resource const resrc)
+template<resource resrc, typename P>
+P dot(int n, P const *x, int incx, P const *y, int incy)
 {
   expect(x);
   expect(y);
-  expect(incx && *incx >= 0);
-  expect(incy && *incy >= 0);
-  expect(n && *n >= 0);
+  expect(incx >= 0);
+  expect(incy >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
+    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     P result = 0.;
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
+          cublasDdot(device.get_handle(), n, x, incx, y, incy, &result);
       expect(success == 0);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSdot(device.get_handle(), *n, x, *incx, y, *incy, &result);
+          cublasSdot(device.get_handle(), n, x, incx, y, incy, &result);
       expect(success == 0);
     }
     return result;
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    return cblas_ddot(*n, x, *incx, y, *incy);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    return cblas_sdot(*n, x, *incx, y, *incy);
-  }
-  else
-  {
-    P ans = 0.0;
-    for (int i = 0; i < *n; ++i)
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
     {
-      ans += x[i * (*incx)] * y[i * (*incy)];
+      return cblas_ddot(n, x, incx, y, incy);
     }
-    return ans;
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      return cblas_sdot(n, x, incx, y, incy);
+    }
+    else
+    {
+      P ans = 0.0;
+      for (int i = 0; i < n; ++i)
+      {
+        ans += x[i * incx] * y[i * incy];
+      }
+      return ans;
+    }
   }
 }
 
@@ -1210,9 +1211,16 @@ template double nrm2<resource::host, double>(int, double const[], int);
 template void copy<resource::host, float>(int n, float const *x, int incx,
                                           float *y, int incy);
 template void copy<resource::host, double>(int n, double const *x, int incx,
-                                           double *y, int incyc);
+                                           double *y, int incy);
 template void
-copy<resource::host, int>(int n, int const *x, int incx, int *y, int incyc);
+copy<resource::host, int>(int n, int const *x, int incx, int *y, int incy);
+
+template float dot<resource::host, float>(int n, float const *x, int incx,
+                                          float const *y, int incy);
+template double dot<resource::host, double>(int n, double const *x, int incx,
+                                            double const *y, int incy);
+template int
+dot<resource::host, int>(int n, int const *x, int incx, int const *y, int incy);
 
 #ifdef ASGARD_USE_CUDA
 template float nrm2<resource::device, float>(int, float const[], int);
@@ -1226,14 +1234,11 @@ template void copy<resource::device, float>(int n, float const *x, int incx,
                                             float *y, int incy);
 template void copy<resource::device, double>(int n, double const *x, int incx,
                                              double *y, int incyc);
+template float dot<resource::device, float>(int n, float const *x, int incx,
+                                            float const *y, int incy);
+template double dot<resource::device, double>(int n, double const *x, int incx,
+                                              double const *y, int incy);
 #endif
-
-template float dot(int *n, float const *x, int *incx, float *y, int *incy,
-                   resource const resrc);
-template double dot(int *n, double const *x, int *incx, double *y, int *incy,
-                    resource const resrc);
-template int
-dot(int *n, int const *x, int *incx, int *y, int *incy, resource const resrc);
 
 template void axpy(int *n, float const *alpha, float const *x, int *incx,
                    float *y, int *incy, resource const resrc);

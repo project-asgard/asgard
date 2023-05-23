@@ -1447,7 +1447,7 @@ P fk::vector<P, mem, resrc>::operator*(vector<P, omem> const &right) const
   int one         = 1;
   vector const &X = (*this);
 
-  return lib_dispatch::dot(&n, X.data(), &one, right.data(), &one);
+  return lib_dispatch::dot(n, X.data(), one, right.data(), one);
 }
 
 //

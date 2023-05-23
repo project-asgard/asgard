@@ -750,20 +750,24 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
   {
     int n              = x.size();
     int inc            = 1;
-    TestType const ans = lib_dispatch::dot(&n, x.data(), &inc, y.data(), &inc);
+    TestType const ans = lib_dispatch::dot(n, x.data(), inc, y.data(), inc);
     REQUIRE(ans == gold);
   }
+
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::dot - inc = 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
     {
       int n              = x.size();
       int inc            = 1;
-      TestType const ans = lib_dispatch::dot(&n, x_d.data(), &inc, y_d.data(),
-                                             &inc, resource::device);
+      TestType const ans = lib_dispatch::dot<resource::device>(
+          n, x_d.data(), inc, y_d.data(), inc);
       REQUIRE(ans == gold);
     }
   }
+#endif
+
   SECTION("lib_dispatch::dot - inc =/= 1")
   {
     fk::vector<TestType> const x_extended = {1, 0, 2, 0, 3, 0, 4, 0, 5};
@@ -773,10 +777,12 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
     int n                                 = x.size();
     int incx                              = 2;
     int incy                              = 3;
-    TestType const ans = lib_dispatch::dot(&n, x_extended.data(), &incx,
-                                           y_extended.data(), &incy);
+    TestType const ans =
+        lib_dispatch::dot(n, x_extended.data(), incx, y_extended.data(), incy);
     REQUIRE(ans == gold);
   }
+
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::dot - inc =/= 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -787,15 +793,15 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
       fk::vector<TestType, mem_type::owner, resource::device> const
           y_extended_d = {2, 0, 0, 4, 0, 0, 6, 0, 0, 8, 0, 0, 10};
 
-      int n    = x.size();
-      int incx = 2;
-      int incy = 3;
-      TestType const ans =
-          lib_dispatch::dot(&n, x_extended_d.data(), &incx, y_extended_d.data(),
-                            &incy, resource::device);
+      int n              = x.size();
+      int incx           = 2;
+      int incy           = 3;
+      TestType const ans = lib_dispatch::dot<resource::device>(
+          n, x_extended_d.data(), incx, y_extended_d.data(), incy);
       REQUIRE(ans == gold);
     }
   }
+#endif
 }
 
 // this test is cublas specific - out of place inversion
