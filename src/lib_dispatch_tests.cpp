@@ -590,6 +590,7 @@ TEMPLATE_TEST_CASE(
       REQUIRE(test_h == gold);
     }
   }
+
   SECTION("lib_dispatch::copy - inc = 1")
   {
     fk::vector<TestType> const x_test(x);
@@ -599,6 +600,8 @@ TEMPLATE_TEST_CASE(
     lib_dispatch::copy(n, x_test.data(), inc, y_test.data(), inc);
     REQUIRE(y_test == x);
   }
+
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::copy - inc = 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -617,6 +620,8 @@ TEMPLATE_TEST_CASE(
       REQUIRE(y == x);
     }
   }
+#endif
+
   SECTION("lib_dispatch::copy - inc =/= 1")
   {
     fk::vector<TestType> x_test{1, 0, 2, 0, 3, 0, 4, 0, 5};
@@ -630,6 +635,7 @@ TEMPLATE_TEST_CASE(
     REQUIRE(y_test == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::copy - inc =/= 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -649,6 +655,7 @@ TEMPLATE_TEST_CASE(
       REQUIRE(y_h == gold);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
