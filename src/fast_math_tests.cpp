@@ -662,6 +662,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     REQUIRE(test_own == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("vector copy (fm::copy), device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -698,6 +699,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       REQUIRE(answer == gold);
     }
   }
+#endif
 
   SECTION("vector scale (fm::scal)")
   {

@@ -590,15 +590,18 @@ TEMPLATE_TEST_CASE(
       REQUIRE(test_h == gold);
     }
   }
+
   SECTION("lib_dispatch::copy - inc = 1")
   {
     fk::vector<TestType> const x_test(x);
     fk::vector<TestType> y_test(x.size());
     int n   = x.size();
     int inc = 1;
-    lib_dispatch::copy(&n, x_test.data(), &inc, y_test.data(), &inc);
+    lib_dispatch::copy(n, x_test.data(), inc, y_test.data(), inc);
     REQUIRE(y_test == x);
   }
+
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::copy - inc = 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -609,14 +612,16 @@ TEMPLATE_TEST_CASE(
       int n   = x.size();
       int inc = 1;
 
-      lib_dispatch::copy(&n, x_test.data(), &inc, y_test.data(), &inc,
-                         resource::device);
+      lib_dispatch::copy<resource::device>(n, x_test.data(), inc, y_test.data(),
+                                           inc);
 
       fk::vector<TestType, mem_type::owner, resource::host> const y(
           y_test.clone_onto_host());
       REQUIRE(y == x);
     }
   }
+#endif
+
   SECTION("lib_dispatch::copy - inc =/= 1")
   {
     fk::vector<TestType> x_test{1, 0, 2, 0, 3, 0, 4, 0, 5};
@@ -626,10 +631,11 @@ TEMPLATE_TEST_CASE(
     int n    = x.size();
     int incx = 2;
     int incy = 3;
-    lib_dispatch::copy(&n, x_test.data(), &incx, y_test.data(), &incy);
+    lib_dispatch::copy(n, x_test.data(), incx, y_test.data(), incy);
     REQUIRE(y_test == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::copy - inc =/= 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -643,12 +649,13 @@ TEMPLATE_TEST_CASE(
       int n    = x.size();
       int incx = 2;
       int incy = 3;
-      lib_dispatch::copy(&n, x_d.data(), &incx, y_d.data(), &incy,
-                         resource::device);
+      lib_dispatch::copy<resource::device>(n, x_d.data(), incx, y_d.data(),
+                                           incy);
       fk::vector<TestType> const y_h(y_d.clone_onto_host());
       REQUIRE(y_h == gold);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
