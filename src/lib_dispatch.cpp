@@ -241,7 +241,6 @@ P nrm2(int n, P const x[], int incx)
   if constexpr (resrc == resource::device)
   {
 #ifdef ASGARD_USE_CUDA
-
     P norm;
     if constexpr (std::is_same_v<P, double>)
     {
