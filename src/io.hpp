@@ -130,8 +130,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
                  dims[dim].domain_max);
   }
 
-  H5Easy::dump(file, "elements",
-               hash_table.get_active_table().clone_onto_host().to_std());
+  H5Easy::dump(file, "elements", hash_table.get_active_table().to_std());
 
   H5Easy::dump(file, "soln", vec.to_std(), opts);
 
