@@ -336,7 +336,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       if (check_connected(num_dimensions, row_coords, col_coords))
-        ccount[row]++;
+        ccount[row - grid.row_start]++;
 
       //for(int j=0; j<num_dimensions; j++)
       //  std::cout << " checking: " << row_coords[j] << "  " << row_coords[j + num_dimensions] << "  " << col_coords[j] << "  " << col_coords[j + num_dimensions] << "\n";
