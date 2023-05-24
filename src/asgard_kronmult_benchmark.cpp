@@ -44,9 +44,7 @@ int main(int argc, char **argv)
 
   auto time_end = std::chrono::system_clock::now();
   double elapsed =
-      static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                              time_end - time_start)
-                              .count());
+      std::chrono::duration<double, std::milli>(time_end - time_start).count();
 
   std::cout << "benchmark setup time: " << elapsed / 1000 << " seconds.\n";
 
@@ -99,9 +97,7 @@ int main(int argc, char **argv)
   }
   time_end = std::chrono::system_clock::now();
   double felapsed =
-      static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                              time_end - time_start)
-                              .count());
+      std::chrono::duration<double, std::milli>(time_end - time_start).count();
 
   std::cout << std::fixed << std::setprecision(4);
   std::cout << "single precision: ";
@@ -125,9 +121,7 @@ int main(int argc, char **argv)
   }
   time_end = std::chrono::system_clock::now();
   double delapsed =
-      static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                              time_end - time_start)
-                              .count());
+      std::chrono::duration<double, std::milli>(time_end - time_start).count();
 
   std::cout << "double precision: ";
   if (delapsed == 0)

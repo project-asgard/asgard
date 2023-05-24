@@ -36,12 +36,11 @@ public:
     expect(id_to_start_.count(identifier) == 1);
     auto const beg = id_to_start_[identifier];
     auto const end = std::chrono::high_resolution_clock::now();
-    auto const dur =
-        std::chrono::duration_cast<std::chrono::microseconds>(end - beg)
-            .count();
+    double const dur =
+        std::chrono::duration<double, std::milli>(end - beg).count();
 
     id_to_start_.erase(identifier);
-    insert(id_to_times_, identifier, dur * 1e-3); // to ms
+    insert(id_to_times_, identifier, dur);
 
     if (flops != -1)
     {
@@ -49,9 +48,7 @@ public:
       auto const gflops = flops / 1e9;
       expect(dur >= 0.0);
 
-      auto const gflops_per_sec =
-          dur == 0.0 ? std::numeric_limits<double>::infinity()
-                     : gflops / (static_cast<double>(dur) * 1e-6); // to seconds
+      auto const gflops_per_sec = gflops / (dur * 1e-3); // to seconds
 
       insert(id_to_flops_, identifier, gflops_per_sec);
       expect(id_to_times_.count(identifier) == id_to_flops_.count(identifier));
