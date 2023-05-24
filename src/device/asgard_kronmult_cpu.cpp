@@ -81,7 +81,7 @@ void cpu_n0(int const dimensions, int const num_rows, int const pntr[], int cons
  */
 template<typename T, int dimensions, int n, scalar_case alpha_case,
          scalar_case beta_case>
-void cpu_dense(int const num_rows, int const pntr[], int const indx[],
+void cpu_sparse(int const num_rows, int const pntr[], int const indx[],
                int const num_terms, int const iA[], T const vA[], T const alpha,
                T const x[], T const beta, T y[])
 {
@@ -489,56 +489,56 @@ void cpu_n0(int const d, int const rows, int const pntr[], int const indx[],
  * \brief Helper method that instantiates correct kernel based on alpha and beta.
  */
 template<typename T, int d, int n>
-void cpu_dense(int const rows, int const pntr[], int const indx[],
+void cpu_sparse(int const rows, int const pntr[], int const indx[],
                int const terms, int const iA[], T const vA[], T const alpha,
                T const x[], T const beta, T y[])
 {
   if (beta == 0)
   {
     if (alpha == 1)
-      cpu_dense<T, d, n, scalar_case::one, scalar_case::zero>(
+      cpu_sparse<T, d, n, scalar_case::one, scalar_case::zero>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, n, scalar_case::neg_one, scalar_case::zero>(
+      cpu_sparse<T, d, n, scalar_case::neg_one, scalar_case::zero>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, n, scalar_case::other, scalar_case::zero>(
+      cpu_sparse<T, d, n, scalar_case::other, scalar_case::zero>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else if (beta == 1)
   {
     if (alpha == 1)
-      cpu_dense<T, d, n, scalar_case::one, scalar_case::one>(
+      cpu_sparse<T, d, n, scalar_case::one, scalar_case::one>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, n, scalar_case::neg_one, scalar_case::one>(
+      cpu_sparse<T, d, n, scalar_case::neg_one, scalar_case::one>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, n, scalar_case::other, scalar_case::one>(
+      cpu_sparse<T, d, n, scalar_case::other, scalar_case::one>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else if (beta == -1)
   {
     if (alpha == 1)
-      cpu_dense<T, d, n, scalar_case::one, scalar_case::neg_one>(
+      cpu_sparse<T, d, n, scalar_case::one, scalar_case::neg_one>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, n, scalar_case::neg_one, scalar_case::neg_one>(
+      cpu_sparse<T, d, n, scalar_case::neg_one, scalar_case::neg_one>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, n, scalar_case::other, scalar_case::neg_one>(
+      cpu_sparse<T, d, n, scalar_case::other, scalar_case::neg_one>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else
   {
     if (alpha == 1)
-      cpu_dense<T, d, n, scalar_case::one, scalar_case::other>(
+      cpu_sparse<T, d, n, scalar_case::one, scalar_case::other>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, n, scalar_case::neg_one, scalar_case::other>(
+      cpu_sparse<T, d, n, scalar_case::neg_one, scalar_case::other>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, n, scalar_case::other, scalar_case::other>(
+      cpu_sparse<T, d, n, scalar_case::other, scalar_case::other>(
           rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
 }
@@ -547,62 +547,62 @@ void cpu_dense(int const rows, int const pntr[], int const indx[],
  * \brief Helper method that instantiates correct kernel based on alpha and beta.
  */
 template<typename T, int d>
-void cpu_dense(int const n, int const rows, int const pntr[], int const indx[],
+void cpu_sparse(int const n, int const rows, int const pntr[], int const indx[],
                int const terms, int const iA[], T const vA[], T const alpha,
                T const x[], T const beta, T y[])
 {
   if (beta == 0)
   {
     if (alpha == 1)
-      cpu_dense<T, d, scalar_case::one, scalar_case::zero>(
+      cpu_sparse<T, d, scalar_case::one, scalar_case::zero>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, scalar_case::neg_one, scalar_case::zero>(
+      cpu_sparse<T, d, scalar_case::neg_one, scalar_case::zero>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, scalar_case::other, scalar_case::zero>(
+      cpu_sparse<T, d, scalar_case::other, scalar_case::zero>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else if (beta == 1)
   {
     if (alpha == 1)
-      cpu_dense<T, d, scalar_case::one, scalar_case::one>(
+      cpu_sparse<T, d, scalar_case::one, scalar_case::one>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, scalar_case::neg_one, scalar_case::one>(
+      cpu_sparse<T, d, scalar_case::neg_one, scalar_case::one>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, scalar_case::other, scalar_case::one>(
+      cpu_sparse<T, d, scalar_case::other, scalar_case::one>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else if (beta == -1)
   {
     if (alpha == 1)
-      cpu_dense<T, d, scalar_case::one, scalar_case::neg_one>(
+      cpu_sparse<T, d, scalar_case::one, scalar_case::neg_one>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, scalar_case::neg_one, scalar_case::neg_one>(
+      cpu_sparse<T, d, scalar_case::neg_one, scalar_case::neg_one>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, scalar_case::other, scalar_case::neg_one>(
+      cpu_sparse<T, d, scalar_case::other, scalar_case::neg_one>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else
   {
     if (alpha == 1)
-      cpu_dense<T, d, scalar_case::one, scalar_case::other>(
+      cpu_sparse<T, d, scalar_case::one, scalar_case::other>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
-      cpu_dense<T, d, scalar_case::neg_one, scalar_case::other>(
+      cpu_sparse<T, d, scalar_case::neg_one, scalar_case::other>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_dense<T, d, scalar_case::other, scalar_case::other>(
+      cpu_sparse<T, d, scalar_case::other, scalar_case::other>(
           n, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
 }
 
 template<typename T>
-void cpu_dense(int const dimensions, int const n, int const num_rows,
+void cpu_sparse(int const dimensions, int const n, int const num_rows,
                int const pntr[], int const indx[], int const num_terms,
                int const iA[], T const vA[], T const alpha, T const x[],
                T const beta, T y[])
@@ -617,19 +617,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
              beta, y);
       break;
     case 2:
-      cpu_dense<T, 1, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 1, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 3:
-      cpu_dense<T, 1, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 1, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 4:
-      cpu_dense<T, 1, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 1, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     default:
-      cpu_dense<T, 1>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 1>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                       y);
       break;
     }
@@ -642,19 +642,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
              y);
       break;
     case 2:
-      cpu_dense<T, 2, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 2, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 3:
-      cpu_dense<T, 2, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 2, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 4:
-      cpu_dense<T, 2, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 2, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     default:
-      cpu_dense<T, 2>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 2>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                       y);
       break;
     }
@@ -667,19 +667,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
              y);
       break;
     case 2:
-      cpu_dense<T, 3, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 3, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 3:
-      cpu_dense<T, 3, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 3, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 4:
-      cpu_dense<T, 3, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 3, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     default:
-      cpu_dense<T, 3>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 3>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                       y);
       break;
     }
@@ -692,19 +692,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
              y);
       break;
     case 2:
-      cpu_dense<T, 4, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 4, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 3:
-      cpu_dense<T, 4, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 4, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 4:
-      cpu_dense<T, 4, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 4, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     default:
-      cpu_dense<T, 4>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 4>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                       y);
       break;
     }
@@ -717,19 +717,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
              y);
       break;
     case 2:
-      cpu_dense<T, 5, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 5, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 3:
-      cpu_dense<T, 5, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 5, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 4:
-      cpu_dense<T, 5, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 5, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     default:
-      cpu_dense<T, 5>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 5>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                       y);
       break;
     }
@@ -742,19 +742,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
              y);
       break;
     case 2:
-      cpu_dense<T, 6, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 6, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 3:
-      cpu_dense<T, 6, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 6, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     case 4:
-      cpu_dense<T, 6, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 6, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                          y);
       break;
     default:
-      cpu_dense<T, 6>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
+      cpu_sparse<T, 6>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
                       y);
       break;
     }
@@ -765,13 +765,13 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
   }
 }
 
-template void cpu_dense<float>(int const, int const, int const, int const[],
-                               int const[], int const, int const[],
-                               float const[], float const, float const[],
-                               float const, float[]);
-template void cpu_dense<double>(int const, int const, int const, int const[],
+template void cpu_sparse<float>(int const, int const, int const, int const[],
                                 int const[], int const, int const[],
-                                double const[], double const, double const[],
-                                double const, double[]);
+                                float const[], float const, float const[],
+                                float const, float[]);
+template void cpu_sparse<double>(int const, int const, int const, int const[],
+                                 int const[], int const, int const[],
+                                 double const[], double const, double const[],
+                                 double const, double[]);
 
 } // namespace asgard::kronmult

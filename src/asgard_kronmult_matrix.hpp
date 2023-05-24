@@ -139,15 +139,15 @@ public:
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
-    kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
-                        col_indx_.data(), row_indx_.data(), num_terms_,
-                        iA.data(), vA.data(), alpha, xdev.data(), beta,
-                        ydev.data());
+    kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
+                         col_indx_.data(), row_indx_.data(), num_terms_,
+                         iA.data(), vA.data(), alpha, xdev.data(), beta,
+                         ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_,
-                        row_indx_.data(), col_indx_.data(), num_terms_,
-                        iA.data(), vA.data(), alpha, x, beta, y);
+    kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
+                         row_indx_.data(), col_indx_.data(), num_terms_,
+                         iA.data(), vA.data(), alpha, x, beta, y);
 #endif
   }
 
@@ -179,7 +179,7 @@ protected:
     flops_ = kron_size_;
     for (int i = 0; i < num_dimensions_; i++)
       flops_ *= kron_size_;
-    flops_ *= 2 * num_dimensions_ * num_rows_ * num_cols_ * num_terms_;
+    flops_ *= 2 * iA.size();
 
 #ifdef ASGARD_USE_CUDA
     xdev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *

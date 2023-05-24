@@ -209,10 +209,10 @@ void case_cyclex(int const num_batch, int const ix[], int const iy[], int const 
 }
 
 template<typename T>
-void gpu_dense(int const dimensions, int const n, int const output_size,
-               int const num_batch, int const ix[], int const iy[], int const num_terms,
-               int const iA[], T const vA[], T const alpha, T const x[],
-               T const beta, T y[])
+void gpu_sparse(int const dimensions, int const n, int const output_size,
+                int const num_batch, int const ix[], int const iy[], int const num_terms,
+                int const iA[], T const vA[], T const alpha, T const x[],
+                T const beta, T y[])
 {
   // apply the scaling to y and assume beta == 1 for the other kernels
   scale(output_size, beta, y);
@@ -488,14 +488,14 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
   }
 }
 
-template void gpu_dense<float>(int const, int const, int const, int const,
-                               int const[], int const[], int const, int const[],
-                               float const[], float const, float const[],
-                               float const, float[]);
-template void gpu_dense<double>(int const, int const, int const, int const,
-                                int const[], int const[], int const, int const[],
-                                double const[], double const, double const[],
-                                double const, double[]);
+template void gpu_sparse<float>(int const, int const, int const, int const,
+                                int const[], int const[], int const,
+                                int const[], float const[], float const,
+                                float const[], float const, float[]);
+template void gpu_sparse<double>(int const, int const, int const, int const,
+                                 int const[], int const[], int const,
+                                 int const[], double const[], double const,
+                                 double const[], double const, double[]);
 
 #endif
 

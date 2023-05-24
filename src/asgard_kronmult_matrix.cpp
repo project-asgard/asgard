@@ -147,16 +147,16 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  for(int i=0; i<row_indx.size(); i++){
-    std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
-    int im = i * num_dimensions * num_terms;
-    for(int j=0; j<num_dimensions * num_terms; j++){
-      precision const * const A = &vA[iA[im++]];
-      for(int k=0; k<kron_size * kron_size; k++)
-        std::cout << A[k] << "  ";
-      std::cout << "\n";
-    }
-  }
+  //for(int i=0; i<row_indx.size(); i++){
+  //  std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
+  //  int im = i * num_dimensions * num_terms;
+  //  for(int j=0; j<num_dimensions * num_terms; j++){
+  //    precision const * const A = &vA[iA[im++]];
+  //    for(int k=0; k<kron_size * kron_size; k++)
+  //      std::cout << A[k] << "  ";
+  //    std::cout << "\n";
+  //  }
+  //}
 
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
@@ -215,16 +215,32 @@ inline bool check_connected(int L1, int p1, int L2, int p2)
   if (L1 == L2)
     return std::abs(p1 - p2) <= 1;
 
+  // At this point, we know that the two points live at different levels
+  //   and we since we require that L1 <= L2 we know that L1 < L2.
+  // Now we look for the cells that connect to (L2, p2) and live at level L1.
+  // The "parent" cell is obtained by recursively decreasing the level
+  //   and dividing p2 by 2, when we reach L1 we will have the parent with
+  //   overlapping support.
+  // However, if the original point (L2, p2) lives at the edge of the parent
+  //   support, it should also connect to the parent neighbor (left or right).
+  // Left of the support means p2 % 2 == 0 and right means p2 % 2 == 1,
+  //   while the neighbor is at -1 or +1 respectively.
+  // (L2, p2) is at the left/right side of the parent, iff the entire ancestry
+  //   is consistently at the left/right.
+  // side here is initialized with dummy values and will be checked every time
+  //   the level is decremented. When side ends up as -1, it means the cell is
+  //   is at the left edge, +1 means right edge, 0 means not at the edge.
   int side = (p2 % 2 == 0) ? -1 : 1;
   while(L2 > L1)
   {
-    L2--;
-    p2 /= 2;
     // check is the elements on the edge of the ancestry block
     if (p2 % 2 == 0)
       side = (side == -1) ? -1 : 0;
     else
       side = (side == 1) ? 1 : 0;
+
+    L2--;
+    p2 /= 2;
   }
   // p2 == p1, then (L1, p1) is ancestor of (L2, p2) and support overlaps
   // p2 + side == p1, then the elements share a side
@@ -286,6 +302,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      options const &program_options, imex_flag const imex)
 {
+  auto const form_id = tools::timer.start("kronmult-sparse-matrix-construct");
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
@@ -329,7 +346,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   // num_connect is number of non-zeros of the sparse matrix
   int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
-  std::cout << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
 
   std::vector<precision> vA; // dynamically copy the matrices
   fk::vector<int> iA(num_connect * num_dimensions * num_terms);
@@ -361,9 +377,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-      std::cout << "(L,p) = " << row_coords[0] << "   " << row_coords[num_dimensions] << "  "
-                << col_coords[0] << "  " << col_coords[num_dimensions] << "  "
-                << ((check_connected(num_dimensions, row_coords, col_coords)) ? "+" : "-") << "\n";
+      //std::cout << "(L,p) = " << row_coords[0] << "  " << row_coords[num_dimensions] << "    "
+      //          << col_coords[0] << "  " << col_coords[num_dimensions] << "  "
+      //          << ((check_connected(num_dimensions, row_coords, col_coords)) ? "+" : "-") << "\n";
 
       if (check_connected(num_dimensions, row_coords, col_coords))
       {
@@ -426,18 +442,25 @@ make_kronmult_sparse(PDE<precision> const &pde,
     }
   }
 
+  tools::timer.stop(form_id);
+
+  std::cout << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
+
 #ifdef ASGARD_USE_CUDA
-  std::cout << " sparse case\n";
-  for(int i=0; i<row_indx.size(); i++){
-    std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
-    int im = i * num_dimensions * num_terms;
-    for(int j=0; j<num_dimensions * num_terms; j++){
-      precision const * const A = &vA[iA[im++]];
-      for(int k=0; k<kron_size * kron_size; k++)
-        std::cout << A[k] << "  ";
-      std::cout << "\n";
-    }
-  }
+  std::cout << "  kronmult sparse matrix allocation (MB): "
+            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size())
+               + get_MB<int>(2*row_indx.size()) << "\n";
+  //std::cout << " sparse case\n";
+  //for(int i=0; i<row_indx.size(); i++){
+  //  std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
+  //  int im = i * num_dimensions * num_terms;
+  //  for(int j=0; j<num_dimensions * num_terms; j++){
+  //    precision const * const A = &vA[iA[im++]];
+  //    for(int k=0; k<kron_size * kron_size; k++)
+  //      std::cout << A[k] << "  ";
+  //    std::cout << "\n";
+  //  }
+  //}
 
   fk::vector<precision> valsA(vA); // copy should not be needed here, but it is
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
