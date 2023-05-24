@@ -147,6 +147,17 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
+  for(int i=0; i<row_indx.size(); i++){
+    std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
+    int im = i * num_dimensions * num_terms;
+    for(int j=0; j<num_dimensions * num_terms; j++){
+      precision const * const A = &vA[iA[im++]];
+      for(int k=0; k<kron_size * kron_size; k++)
+        std::cout << A[k] << "  ";
+      std::cout << "\n";
+    }
+  }
+
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms,
@@ -192,6 +203,17 @@ make_kronmult_dense<double>(PDE<double> const &,
 inline bool check_connected(int L1, int p1, int L2, int p2)
 {
   expect(L1 <= L2);
+
+  // periodic boundary conditions
+  // if these are left-most and right-most cells in respective levels
+  //std::cout << " p2 = " << p2 << "  " << ((1 << (L2-1)) -1) << "\n";
+  if ((p1 == 0 and p2 == ((1 << (L2-1)) -1))
+    or (p2 == 0 and p1 == ((1 << (L1-1)) -1)))
+    return true;
+
+  // same level, either same cell or neighbors
+  if (L1 == L2)
+    return std::abs(p1 - p2) <= 1;
 
   int side = (p2 % 2 == 0) ? -1 : 1;
   while(L2 > L1)
@@ -298,6 +320,10 @@ make_kronmult_sparse(PDE<precision> const &pde,
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       if (check_connected(num_dimensions, row_coords, col_coords))
         ccount[row]++;
+
+      //for(int j=0; j<num_dimensions; j++)
+      //  std::cout << " checking: " << row_coords[j] << "  " << row_coords[j + num_dimensions] << "  " << col_coords[j] << "  " << col_coords[j + num_dimensions] << "\n";
+      //std::cout << ( (check_connected(num_dimensions, row_coords, col_coords)) ? "connected" : "disconnected" ) << "\n";
     }
   }
 
@@ -335,8 +361,13 @@ make_kronmult_sparse(PDE<precision> const &pde,
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
+      std::cout << "(L,p) = " << row_coords[0] << "   " << row_coords[num_dimensions] << "  "
+                << col_coords[0] << "  " << col_coords[num_dimensions] << "  "
+                << ((check_connected(num_dimensions, row_coords, col_coords)) ? "+" : "-") << "\n";
+
       if (check_connected(num_dimensions, row_coords, col_coords))
       {
+
 #ifdef ASGARD_USE_CUDA
         row_indx[c] = (row - grid.row_start) * tensor_size;
         col_indx[c] = (col - grid.col_start) * tensor_size;
@@ -378,9 +409,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
                    pde.get_terms()[t][d].flag == imex))
               {
                 auto pA = &vA[offset];
-                for (int j = 0; j < num_dimensions; j++)
+                for (int j = 0; j < kron_size; j++)
                   pA = std::copy_n(ops.data() + kron_size * oprow[d] +
-                                       lda * (kron_size * opcol[j] + j),
+                                       lda * (kron_size * opcol[d] + j),
                                    kron_size, pA);
               }
               // else, do not include due to imex flags, already padded with 0
@@ -396,6 +427,18 @@ make_kronmult_sparse(PDE<precision> const &pde,
   }
 
 #ifdef ASGARD_USE_CUDA
+  std::cout << " sparse case\n";
+  for(int i=0; i<row_indx.size(); i++){
+    std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
+    int im = i * num_dimensions * num_terms;
+    for(int j=0; j<num_dimensions * num_terms; j++){
+      precision const * const A = &vA[iA[im++]];
+      for(int k=0; k<kron_size * kron_size; k++)
+        std::cout << A[k] << "  ";
+      std::cout << "\n";
+    }
+  }
+
   fk::vector<precision> valsA(vA); // copy should not be needed here, but it is
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms,
