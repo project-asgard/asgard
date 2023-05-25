@@ -727,20 +727,13 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   }
 }
 
+#ifdef ASGARD_USE_DOUBLE_PREC
 template fk::vector<double> adaptive_advance(
     method const step_method, PDE<double> &pde,
     kronmult_matrix<double> &operator_matrix,
     adapt::distributed_grid<double> &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts, fk::vector<double> const &x, double const time,
-    bool const update_system);
-
-template fk::vector<float> adaptive_advance(
-    method const step_method, PDE<float> &pde,
-    kronmult_matrix<float> &operator_matrix,
-    adapt::distributed_grid<float> &adaptive_grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    options const &program_opts, fk::vector<float> const &x, float const time,
     bool const update_system);
 
 template fk::vector<double> explicit_advance(
@@ -752,15 +745,6 @@ template fk::vector<double> explicit_advance(
         &unscaled_parts,
     fk::vector<double> const &x, double const time);
 
-template fk::vector<float> explicit_advance(
-    PDE<float> const &pde, kronmult_matrix<float> &operator_matrix,
-    adapt::distributed_grid<float> const &adaptive_grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    options const &program_opts,
-    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
-        &unscaled_parts,
-    fk::vector<float> const &x, float const time);
-
 template fk::vector<double> implicit_advance(
     PDE<double> &pde, kronmult_matrix<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
@@ -770,15 +754,6 @@ template fk::vector<double> implicit_advance(
         &unscaled_parts,
     fk::vector<double> const &host_space, double const time,
     bool const update_system);
-
-template fk::vector<float> implicit_advance(
-    PDE<float> &pde, kronmult_matrix<float> &operator_matrix,
-    adapt::distributed_grid<float> const &adaptive_grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    options const &program_opts,
-    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
-        &unscaled_parts,
-    fk::vector<float> const &x, float const time, bool const update_system);
 
 template fk::vector<double> imex_advance(
     PDE<double> &pde, kronmult_matrix<double> &operator_matrix,
@@ -790,6 +765,34 @@ template fk::vector<double> imex_advance(
     fk::vector<double> const &x_orig, double const time,
     solve_opts const solver, bool const update_system);
 
+#else
+
+template fk::vector<float> adaptive_advance(
+    method const step_method, PDE<float> &pde,
+    kronmult_matrix<float> &operator_matrix,
+    adapt::distributed_grid<float> &adaptive_grid,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    options const &program_opts, fk::vector<float> const &x, float const time,
+    bool const update_system);
+
+template fk::vector<float> explicit_advance(
+    PDE<float> const &pde, kronmult_matrix<float> &operator_matrix,
+    adapt::distributed_grid<float> const &adaptive_grid,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    options const &program_opts,
+    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
+        &unscaled_parts,
+    fk::vector<float> const &x, float const time);
+
+template fk::vector<float> implicit_advance(
+    PDE<float> &pde, kronmult_matrix<float> &operator_matrix,
+    adapt::distributed_grid<float> const &adaptive_grid,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    options const &program_opts,
+    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
+        &unscaled_parts,
+    fk::vector<float> const &x, float const time, bool const update_system);
+
 template fk::vector<float>
 imex_advance(PDE<float> &pde, kronmult_matrix<float> &operator_matrix,
              adapt::distributed_grid<float> const &adaptive_grid,
@@ -799,5 +802,6 @@ imex_advance(PDE<float> &pde, kronmult_matrix<float> &operator_matrix,
                  &unscaled_parts,
              fk::vector<float> const &x_orig, float const time,
              solve_opts const solver, bool const update_system);
+#endif
 
 } // namespace asgard::time_advance

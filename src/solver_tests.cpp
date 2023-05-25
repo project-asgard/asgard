@@ -4,6 +4,12 @@
 #include "solver.hpp"
 #include "tests_general.hpp"
 
+#ifdef ASGARD_USE_DOUBLE_PREC
+#define prec double
+#else
+#define prec float
+#endif
+
 using namespace asgard;
 
 struct distribution_test_init
@@ -92,7 +98,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   rmse_comparison(gold, gmres, tol_factor);
 }
 
-TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
+TEMPLATE_TEST_CASE("simple GMRES", "[solver]", prec)
 {
   fk::matrix<TestType> const A_gold{
       {3.383861628748717e+00, 1.113343240310116e-02, 2.920740795411032e+00},
@@ -166,7 +172,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
+TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", prec)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -225,7 +231,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
+TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", prec)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -263,7 +269,7 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", float, double)
+TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", prec)
 {
   SECTION("simple test case")
   {

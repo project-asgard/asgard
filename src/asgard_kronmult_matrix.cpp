@@ -185,15 +185,6 @@ make_kronmult_dense(PDE<precision> const &pde,
 #endif
 }
 
-template kronmult_matrix<float>
-make_kronmult_dense<float>(PDE<float> const &,
-                           adapt::distributed_grid<float> const &,
-                           options const &, imex_flag const);
-template kronmult_matrix<double>
-make_kronmult_dense<double>(PDE<double> const &,
-                            adapt::distributed_grid<double> const &,
-                            options const &, imex_flag const);
-
 /*!
  * \bried Returns true if the 1D elements are connected
  *
@@ -516,7 +507,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
 
   // holds the 1D sparsity structure for the coefficient matrices
-  connect_1d cells1d(pde.max_level);
+  //connect_1d cells1d(pde.max_level);
 
   std::vector<precision> vA; // dynamically copy the matrices
   fk::vector<int> iA(num_connect * num_dimensions * num_terms);
@@ -649,13 +640,31 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
 }
 
-template kronmult_matrix<float>
-make_kronmult_sparse<float>(PDE<float> const &,
-                            adapt::distributed_grid<float> const &,
+
+
+
+#ifdef ASGARD_USE_DOUBLE_PREC
+template kronmult_matrix<double>
+make_kronmult_dense<double>(PDE<double> const &,
+                            adapt::distributed_grid<double> const &,
                             options const &, imex_flag const);
+
 template kronmult_matrix<double>
 make_kronmult_sparse<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, imex_flag const);
+
+#else
+
+template kronmult_matrix<float>
+make_kronmult_sparse<float>(PDE<float> const &,
+                            adapt::distributed_grid<float> const &,
+                            options const &, imex_flag const);
+
+template kronmult_matrix<float>
+make_kronmult_dense<float>(PDE<float> const &,
+                           adapt::distributed_grid<float> const &,
+                           options const &, imex_flag const);
+#endif
 
 } // namespace asgard

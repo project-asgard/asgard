@@ -765,13 +765,18 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
   }
 }
 
-template void cpu_sparse<float>(int const, int const, int const, int const[],
-                                int const[], int const, int const[],
-                                float const[], float const, float const[],
-                                float const, float[]);
+#ifndef ASGARD_USE_CUDA // no need to compile for the CPU if CUDA is on
+#ifdef ASGARD_USE_DOUBLE_PREC
 template void cpu_sparse<double>(int const, int const, int const, int const[],
                                  int const[], int const, int const[],
                                  double const[], double const, double const[],
                                  double const, double[]);
+#else
+template void cpu_sparse<float>(int const, int const, int const, int const[],
+                                int const[], int const, int const[],
+                                float const[], float const, float const[],
+                                float const, float[]);
+#endif
+#endif
 
 } // namespace asgard::kronmult

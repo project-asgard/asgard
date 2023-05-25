@@ -3,6 +3,12 @@
 
 #include "asgard_kronmult_tests.hpp"
 
+#ifdef ASGARD_USE_DOUBLE_PREC
+#define prec double
+#else
+#define prec float
+#endif
+
 template<typename T>
 void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
                        int scale = 10)
@@ -84,7 +90,7 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
 
-TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", float, double)
+TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", prec)
 {
   std::vector<TestType> A    = {1, 2, 3, 4};
   std::vector<TestType> B    = {10, 20, 30, 40};
@@ -103,8 +109,7 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", float, double)
 
 #ifndef ASGARD_USE_CUDA // test CPU kronmult only when CUDA is not enabled
 
-TEMPLATE_TEST_CASE("testing kronmult cpu general", "[execute_cpu]", float,
-                   double)
+TEMPLATE_TEST_CASE("testing kronmult cpu general", "[execute_cpu]", prec)
 {
   test_kronmult<TestType>(1, 2, 1, 1, 1);
   test_kronmult<TestType>(1, 2, 1, 1, 5);
@@ -112,44 +117,43 @@ TEMPLATE_TEST_CASE("testing kronmult cpu general", "[execute_cpu]", float,
   test_kronmult<TestType>(1, 2, 10, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[execute_cpu 1d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[execute_cpu 1d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6);
   test_kronmult<TestType>(1, n, 11, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 2d", "[execute_cpu 2d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 2d", "[execute_cpu 2d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
   test_kronmult<TestType>(2, n, 12, 3, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[execute_cpu 3d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[execute_cpu 3d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
   test_kronmult<TestType>(3, n, 12, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[execute_cpu 4d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[execute_cpu 4d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
   test_kronmult<TestType>(4, n, 9, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 5d", "[execute_cpu 5d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 5d", "[execute_cpu 5d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
   test_kronmult<TestType>(5, n, 11, 3, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
   test_kronmult<TestType>(6, n, 9, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
-                   double)
+TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", prec)
 {
   // test_kronmult<TestType>(6, 5, 9, 2, 2);
 }
@@ -158,38 +162,38 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", float,
 
 #ifdef ASGARD_USE_CUDA
 
-TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   test_kronmult<TestType>(1, n, 11, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
                    18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
   test_kronmult<TestType>(2, n, 13, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   test_kronmult<TestType>(3, n, 17, 3, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[execute_gpu 4d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[execute_gpu 4d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
   test_kronmult<TestType>(4, n, 10, 3, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
   test_kronmult<TestType>(5, n, 10, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", float, double)
+TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
   test_kronmult<TestType>(6, n, 8, 2, 7);
