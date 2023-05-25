@@ -33,7 +33,7 @@ public:
   void stop(std::string const &identifier, double const flops = -1)
   {
     expect(!identifier.empty());
-    expect(id_to_start_.count(identifier) == 1);
+    //expect(id_to_start_.count(identifier) == 1);
     auto const beg = id_to_start_[identifier];
     auto const end = std::chrono::high_resolution_clock::now();
     double const dur =
