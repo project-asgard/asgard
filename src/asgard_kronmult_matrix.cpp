@@ -188,7 +188,7 @@ make_kronmult_dense(PDE<precision> const &pde,
 /*!
  * \bried Returns true if the 1D elements are connected
  *
- * The two elements are defined by (level L, index within the level p),
+ * The two elements are defined by (level L, index within the level is p),
  * the first point is (L1, p1) and we assume that L1 <= L2.
  */
 inline bool check_connected(int L1, int p1, int L2, int p2)
@@ -197,7 +197,7 @@ inline bool check_connected(int L1, int p1, int L2, int p2)
 
   // periodic boundary conditions
   // if these are left-most and right-most cells in respective levels
-  //std::cout << " p2 = " << p2 << "  " << ((1 << (L2-1)) -1) << "\n";
+  // assume connected due to the periodic boundary conditions
   if ((p1 == 0 and p2 == ((1 << (L2-1)) -1))
     or (p2 == 0 and p1 == ((1 << (L1-1)) -1)))
     return true;
@@ -207,13 +207,13 @@ inline bool check_connected(int L1, int p1, int L2, int p2)
     return std::abs(p1 - p2) <= 1;
 
   // At this point, we know that the two points live at different levels
-  //   and we since we require that L1 <= L2 we know that L1 < L2.
+  //   and since we require that L1 <= L2 we know that L1 < L2.
   // Now we look for the cells that connect to (L2, p2) and live at level L1.
   // The "parent" cell is obtained by recursively decreasing the level
   //   and dividing p2 by 2, when we reach L1 we will have the parent with
   //   overlapping support.
-  // However, if the original point (L2, p2) lives at the edge of the parent
-  //   support, it should also connect to the parent neighbor (left or right).
+  // However, if the original point (L2, p2) lives at the edge of the support
+  //   of the parent, it is also connect to the parent neighbor (left or right).
   // Left of the support means p2 % 2 == 0 and right means p2 % 2 == 1,
   //   while the neighbor is at -1 or +1 respectively.
   // (L2, p2) is at the left/right side of the parent, iff the entire ancestry
@@ -238,6 +238,7 @@ inline bool check_connected(int L1, int p1, int L2, int p2)
   return (p2 == p1) or (p2 + side == p1);
 }
 
+//! \brief Processes two multi-index and returns true if they are connected for all dimensions.
 inline bool check_connected(int const num_dimensions, int const *const row, int const *const col)
 {
   for(int j=0; j<num_dimensions; j++)
@@ -256,39 +257,6 @@ inline bool check_connected(int const num_dimensions, int const *const row, int 
 }
 
 /*!
- * \brief Maps four integers to an integer.
- */
-class quad2int_map
-{
-public:
-  quad2int_map() = default;
-
-  int find(int term, int dim, int prow, int pcol)
-  {
-    auto res = indexes.find(std::array<int, 4>{term, dim, prow, pcol});
-    return (res != indexes.end()) ? res->second : -1;
-  }
-
-  void add(int term, int dim, int prow, int pcol, int idx)
-  {
-    indexes[std::array<int, 4>{term, dim, prow, pcol}] = idx;
-  }
-
-private:
-  struct lex_less{
-    bool operator() (std::array<int, 4> const &lhs, std::array<int, 4> const &rhs) const
-    {
-      for(int i=0; i<4; i++)
-        if (lhs[i] < rhs[i])
-          return true;
-      return false;
-    }
-  };
-  std::map<std::array<int, 4>, int, lex_less> indexes;
-  // -fsanitize=address
-};
-
-/*!
  * \brief Keeps track of the connectivity of the elements in the 1d hierarchy.
  *
  * Constructs a sparse matrix-like structure with row-compressed format and
@@ -305,62 +273,69 @@ private:
 class connect_1d
 {
 public:
-  /*! \brief Constructor, makes the connectivity up to and including the given
+  /*!
+   *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
    */
-  connect_1d(int const max_level) : levels(max_level), num_cells(1 << levels),
-    pntr(num_cells + 1), indx(2 * num_cells)
+  connect_1d(int const max_level) : levels(max_level), cells(1 << levels),
+    pntr(cells + 1, 0), indx(2 * cells)
   {
     std::vector<int> cell_per_level(levels+2, 1);
     for(int l=2; l<levels+2; l++)
       cell_per_level[l] = 2 * cell_per_level[l-1];
 
     // first two cells are connected to everything
-    pntr[1] = num_cells;
-    pntr[2] = 2 * num_cells;
-    for(int i=0; i<num_cells; i++)
+    pntr[1] = cells;
+    pntr[2] = 2 * cells;
+    for(int i=0; i<cells; i++)
       indx[i] = i;
-    for(int i=0; i<num_cells; i++)
-      indx[i + num_cells] = i;
+    for(int i=0; i<cells; i++)
+      indx[i + cells] = i;
 
+    // for the remaining, loop level by level, cell by cell
     for(int l=2; l<levels+1; l++)
     {
       int level_size = cell_per_level[l]; // number of cells in this level
 
-      // for each cell in the level, look at all cell connected
+      // for each cell in this level, look at all cells connected
       // look at previous levels, this level, follow on levels
 
       // start with the first cell, on the left edge
       int i = level_size; // index of the first cell
-      // all connected to cells 0 and 1
+      // always connected to cells 0 and 1
       indx.push_back(0);
       indx.push_back(1);
-      // look at cell above
+      // look at cells above
       for(int upl = 2; upl < l; upl++)
       {
-        // left edge cell is connected to both edge cells on each dimension
+        // edge cell is connected to both edge cells on each level
         indx.push_back(cell_per_level[upl]);
         indx.push_back(cell_per_level[upl+1]-1);
       }
-      // at this level
+      // look at this level
       indx.push_back(i);
       indx.push_back(i+1);
-      if (l > 2)
+      // connect also to the right-most cell (periodic boundary)
+      if (l > 2) // at level l = 2, i+1 is the right-most cell
         indx.push_back(cell_per_level[l+1]-1);
       // look at follow on levels
       for(int downl=l+1; downl < levels+1; downl++)
       {
+        // connect to the first bunch of cell, i.e., with overlapping support
+        // going on by 2, 4, 8 ... and one more for touching boundary
+        // also connect to the right-most cell
         int lstart = cell_per_level[downl];
         for(int downp=0; downp<cell_per_level[downl-l+1]+1; downp++)
           indx.push_back(lstart + downp);
         indx.push_back(cell_per_level[downl+1]-1);
       }
-      pntr[i+1] = static_cast<int>(indx.size());
+      pntr[i+1] = static_cast<int>(indx.size()); // done with point
 
       // handle middle cells
       for(int p=1; p<level_size-1; p++)
       {
         i++;
+        // always connected to the first two cells
         indx.push_back(0);
         indx.push_back(1);
         // ancestors on previous levels
@@ -369,11 +344,11 @@ public:
           int segment_size = cell_per_level[l - upl + 1];
           int ancestor = p / segment_size;
           int edge = p - ancestor * segment_size; // p % segment_size
-          // on the left edge of the ancestor
+          // if on the left edge of the ancestor
           if (edge == 0)
             indx.push_back(cell_per_level[upl] + ancestor-1);
           indx.push_back(cell_per_level[upl] + ancestor);
-          // on the right edge of the ancestor
+          // if on the right edge of the ancestor
           if (edge == segment_size-1)
             indx.push_back(cell_per_level[upl] + ancestor+1);
         }
@@ -382,7 +357,7 @@ public:
         indx.push_back(i);
         indx.push_back(i+1);
         // kids on further levels
-        int left_kid = p;
+        int left_kid = p; // initialize, will be updated on first iteration
         int num_kids = 1;
         for(int downl=l+1; downl < levels+1; downl++)
         {
@@ -391,43 +366,48 @@ public:
           for(int j=left_kid-1; j < left_kid + num_kids + 1; j++)
             indx.push_back(cell_per_level[downl] + j);
         }
-        pntr[i+1] = static_cast<int>(indx.size());
+        pntr[i+1] = static_cast<int>(indx.size()); // done with cell i
       }
 
       // right edge cell
       i++;
+      // always connected to 0 and 1
       indx.push_back(0);
       indx.push_back(1);
       for(int upl = 2; upl < l; upl++)
       {
-        // right edge cell is connected to both edge cells on each dimension
+        // edge cell is connected to both edge cells on each level
         indx.push_back(cell_per_level[upl]);
         indx.push_back(cell_per_level[upl+1]-1);
       }
       // at this level
-      if (l > 2)
+      // connect also to the left-most cell (periodic boundary)
+      if (l > 2) // at level l = 2, left-most cell is i-1, don't double add
         indx.push_back(cell_per_level[l]);
       indx.push_back(i-1);
       indx.push_back(i);
       // look at follow on levels
       for(int downl=l+1; downl < levels+1; downl++)
       {
+        // left edge on the level
         indx.push_back(cell_per_level[downl]);
+        // get the last bunch of cells at the level
         int lend = cell_per_level[downl+1]-1;
         for(int downp=cell_per_level[downl-l+1]; downp>-1; downp--)
           indx.push_back(lend - downp);
 
       }
-      pntr[i+1] = static_cast<int>(indx.size());
-    }
-  }
+      pntr[i+1] = static_cast<int>(indx.size()); // done with the right edge
+    } // done with level, move to the next level
+  } // close the constructor
 
   int get_offset(int row, int col) const
   {
+    // first two levels are large and trivial, no need to search
     if (row == 0)
       return col;
     else if (row == 1)
-      return num_cells + col;
+      return cells + col;
     // if not on the first or second row, do binary search
     int sstart = pntr[row], send = pntr[row+1] - 1;
     int current = (sstart + send) / 2;
@@ -449,9 +429,29 @@ public:
     return static_cast<int>(indx.size());
   }
 
+  int num_cells() const
+  {
+    return cells;
+  }
+
+  int row_begin(int row) const
+  {
+    return pntr[row];
+  }
+
+  int row_end(int row) const
+  {
+    return pntr[row+1];
+  }
+
+  int operator[] (int j) const
+  {
+    return indx[j];
+  }
+
 private:
   int levels;
-  int num_cells;
+  int cells;
   std::vector<int> pntr;
   std::vector<int> indx;
 };
@@ -462,8 +462,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      options const &program_options, imex_flag const imex)
 {
-  std::cerr << " making sparse " << std::endl;
-
   //auto const form_id = tools::timer.start("kronmult-sparse-matrix-construct");
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -477,6 +475,47 @@ make_kronmult_sparse(PDE<precision> const &pde,
                                                   ? program_options.max_level
                                                   : pde.max_level);
 
+  // size of the small kron matrices
+  int const kron_squared = kron_size * kron_size;
+
+  // holds the 1D sparsity structure for the coefficient matrices
+  connect_1d cells1d(pde.max_level);
+  int const num_1d = cells1d.num_connections();
+
+  // storing the 1D operator matrices by 1D row and column
+  // each connected pair of 1D cells will be associated with a block
+  //  of operator coefficients
+  int const block1D_size = num_dimensions * num_terms * kron_squared;
+  fk::vector<precision> vA(num_1d * block1D_size);
+  auto pA = vA.begin();
+  for(int row=0; row<cells1d.num_cells(); row++)
+  {
+    for(int j=cells1d.row_begin(row); j<cells1d.row_end(row); j++)
+    {
+      int col = cells1d[j];
+      for (int t = 0; t < num_terms; t++)
+      {
+        for (int d = 0; d < num_dimensions; d++)
+        {
+          precision const* const ops = pde.get_coefficients(t, d).data();
+          if (!program_options.use_imex_stepping ||
+              (program_options.use_imex_stepping &&
+               pde.get_terms()[t][d].flag == imex))
+          {
+            for (int k = 0; k < kron_size; k++)
+              pA = std::copy_n(ops + kron_size * row +
+                                   lda * (kron_size * col + k),
+                               kron_size, pA);
+          }
+          else
+          {
+            pA = std::fill_n(pA, kron_squared, precision{0});
+          }
+        }
+      }
+    }
+  }
+
   int const *const flattened_table =
       discretization.get_table().get_active_table().data();
 
@@ -485,14 +524,16 @@ make_kronmult_sparse(PDE<precision> const &pde,
 // graph hierarchy and avoid doing so many comparisons, but that requires messy
 // work with the way the indexes are stored in memory.
 // To do this properly, I need a fast map from a multi-index to the matrix row
-// associated with the multi-index (or the no-row if it's missing).
-// The unordered_map does not provide this functionality and addition of
+// associated with the multi-index (or indicate if it's missing).
+// The unordered_map does not provide this functionality and the addition of
 // the flattened table in element.hpp is not a good answer.
 // Will fix in a future PR ...
+
+// the algorithm use two stages, counts the non-zeros in the global matrix,
+// then fills in the associated indexes for the rows, columns and iA
   std::vector<int> ccount(num_rows, 0); // counts the connections
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
-    std::cerr << row << "/" << num_rows << std::endl;
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
@@ -500,29 +541,19 @@ make_kronmult_sparse(PDE<precision> const &pde,
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
       if (check_connected(num_dimensions, row_coords, col_coords))
         ccount[row - grid.row_start]++;
-
-      //for(int j=0; j<num_dimensions; j++)
-      //  std::cout << " checking: " << row_coords[j] << "  " << row_coords[j + num_dimensions] << "  " << col_coords[j] << "  " << col_coords[j + num_dimensions] << "\n";
-      //std::cout << ( (check_connected(num_dimensions, row_coords, col_coords)) ? "connected" : "disconnected" ) << "\n";
     }
   }
 
   // num_connect is number of non-zeros of the sparse matrix
   int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
-  std::cerr << " num_connect = " << num_connect << std::endl;
 
-  // holds the 1D sparsity structure for the coefficient matrices
-  //connect_1d cells1d(pde.max_level);
-
-  std::vector<precision> vA; // dynamically copy the matrices
   fk::vector<int> iA(num_connect * num_dimensions * num_terms);
-  quad2int_map indexes;
 
+#ifdef ASGARD_USE_CUDA
   int tensor_size = kron_size;
   for(int d=1; d<num_dimensions; d++)
     tensor_size *= kron_size;
 
-#ifdef ASGARD_USE_CUDA
   fk::vector<int> row_indx(num_connect);
   fk::vector<int> col_indx(num_connect);
 #else
@@ -534,8 +565,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
 
   int c = 0; // index over row_indx/col_indx
-  std::vector<int> oprow(num_dimensions); // keeps serial point indexes
-  std::vector<int> opcol(num_dimensions);
+  std::vector<int> offsets(num_dimensions); // find the 1D offsets
 
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
@@ -544,9 +574,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-      //std::cout << "(L,p) = " << row_coords[0] << "  " << row_coords[num_dimensions] << "    "
-      //          << col_coords[0] << "  " << col_coords[num_dimensions] << "  "
-      //          << ((check_connected(num_dimensions, row_coords, col_coords)) ? "+" : "-") << "\n";
 
       if (check_connected(num_dimensions, row_coords, col_coords))
       {
@@ -561,48 +588,25 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
         for (int j = 0; j < num_dimensions; j++)
         {
-          oprow[j] =
+          int const oprow =
               (row_coords[j] == 0)
                   ? 0
                   : ((1 << (row_coords[j] - 1))
                      + row_coords[j + num_dimensions]);
-          opcol[j] =
+          int const opcol =
               (col_coords[j] == 0)
                   ? 0
                   : ((1 << (col_coords[j] - 1))
                      + col_coords[j + num_dimensions]);
+
+          offsets[j] = cells1d.get_offset(oprow, opcol);
         }
 
         for (int t = 0; t < num_terms; t++)
         {
           for (int d = 0; d < num_dimensions; d++)
           {
-            auto const &ops   = pde.get_coefficients(t, d); // this is an fk::matrix
-
-            int offset = indexes.find(t, d, oprow[d], opcol[d]);
-            if (offset == -1)
-            {
-              // matrix missing, insert into the back of vA
-              offset = static_cast<int>(vA.size());
-              iA[ia++] = offset;
-              indexes.add(t, d, oprow[d], opcol[d], offset);
-              vA.resize(vA.size() + kron_size * kron_size, 0);
-              if (!program_options.use_imex_stepping ||
-                  (program_options.use_imex_stepping &&
-                   pde.get_terms()[t][d].flag == imex))
-              {
-                auto pA = &vA[offset];
-                for (int j = 0; j < kron_size; j++)
-                  pA = std::copy_n(ops.data() + kron_size * oprow[d] +
-                                       lda * (kron_size * opcol[d] + j),
-                                   kron_size, pA);
-              }
-              // else, do not include due to imex flags, already padded with 0
-            }
-            else
-            {
-              iA[ia++] = offset;
-            }
+            iA[ia++] = offsets[d] * block1D_size + (t * num_dimensions + d) * kron_squared;
           }
         }
       }
@@ -611,39 +615,31 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   //tools::timer.stop(form_id);
 
+  int64_t flops = kron_size;
+  for (int i = 0; i < num_dimensions; i++)
+    flops *= kron_size;
+  flops *= 2 * iA.size();
+
   std::cout << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
-  std::cerr << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
+  std::cout << "        flops per application: " << flops << "%\n";
 
 #ifdef ASGARD_USE_CUDA
   std::cout << "  kronmult sparse matrix allocation (MB): "
             << get_MB<int>(iA.size()) + get_MB<precision>(vA.size())
                + get_MB<int>(2*row_indx.size()) << "\n";
-  //std::cout << " sparse case\n";
-  //for(int i=0; i<row_indx.size(); i++){
-  //  std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
-  //  int im = i * num_dimensions * num_terms;
-  //  for(int j=0; j<num_dimensions * num_terms; j++){
-  //    precision const * const A = &vA[iA[im++]];
-  //    for(int k=0; k<kron_size * kron_size; k++)
-  //      std::cout << A[k] << "  ";
-  //    std::cout << "\n";
-  //  }
-  //}
 
-  fk::vector<precision> valsA(vA); // copy should not be needed here, but it is
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms,
                                     row_indx.clone_onto_device(),
                                     col_indx.clone_onto_device(),
                                     iA.clone_onto_device(),
-                                    valsA.clone_onto_device());
+                                    vA.clone_onto_device());
 #else
   // if using the CPU, move the vectors into the matrix structure
-  std::cerr << " no cuda " << std::endl;
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms, std::move(pntr),
                                     std::move(indx), std::move(iA),
-                                    fk::vector<precision>(vA));
+                                    std::move(vA));
 #endif
 }
 
