@@ -65,6 +65,17 @@ enum class PDE_case_opts
   // FIXME will need to add the user supplied PDE cases choice
 };
 
+/*!
+ * \brief Indicates whether we should be using sparse or dense kronmult.
+ */
+enum class kronmult_mode
+{
+  //! \brief Using a dense matrix (assumes everything is connected).
+  dense,
+  //! \brief Using a sparse matrix (checks for connectivity).
+  sparse
+};
+
 class PDE_descriptor
 {
 public:
@@ -184,9 +195,11 @@ public:
   static auto constexpr DEFAULT_SOLVER_STR        = std::string_view("direct");
   static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;
   static auto constexpr DEFAULT_MEMORY_LIMIT_MB   = 10000;
+  static auto constexpr DEFAULT_KRONMULT_MODE     = kronmult_mode::dense;
   static auto constexpr DEFAULT_GMRES_TOLERANCE   = NO_USER_VALUE_FP;
   static auto constexpr DEFAULT_GMRES_INNER_ITERATIONS = NO_USER_VALUE;
   static auto constexpr DEFAULT_GMRES_OUTER_ITERATIONS = NO_USER_VALUE;
+
 
   // construct from command line
   explicit parser(int argc, char const *const *argv);
@@ -205,6 +218,7 @@ public:
       std::string_view const solver_str_in = DEFAULT_SOLVER_STR,
       bool const use_imex                  = DEFAULT_USE_IMEX,
       int const memory_limit_in            = DEFAULT_MEMORY_LIMIT_MB,
+      kronmult_mode const kmode_in         = DEFAULT_KRONMULT_MODE,
       double const gmres_tolerance_in      = DEFAULT_GMRES_TOLERANCE,
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS)
@@ -215,7 +229,8 @@ public:
         cfl(cfl_in), adapt_threshold(adapt_threshold_in),
         pde_choice(pde_choice_in), solver_str(solver_str_in),
         solver(solver_mapping.at(solver_str_in)), use_imex_stepping(use_imex),
-        memory_limit(memory_limit_in), gmres_tolerance(gmres_tolerance_in),
+        memory_limit(memory_limit_in), kmode(kmode_in),
+        gmres_tolerance(gmres_tolerance_in),
         gmres_inner_iterations(gmres_inner_iterations_in),
         gmres_outer_iterations(gmres_outer_iterations_in){};
 
@@ -232,6 +247,7 @@ public:
       std::string_view const solver_str_in = DEFAULT_SOLVER_STR,
       bool const use_imex                  = DEFAULT_USE_IMEX,
       int const memory_limit_in            = DEFAULT_MEMORY_LIMIT_MB,
+      kronmult_mode const kmode_in         = DEFAULT_KRONMULT_MODE,
       double const gmres_tolerance_in      = DEFAULT_GMRES_TOLERANCE,
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS)
@@ -239,7 +255,7 @@ public:
                degree_in, cfl_in, use_full_grid_in, max_level_in,
                mixed_grid_group_in, num_steps, use_implicit, do_adapt_levels,
                adapt_threshold_in, solver_str_in, use_imex, memory_limit_in,
-               gmres_tolerance_in, gmres_inner_iterations_in,
+               kmode_in, gmres_tolerance_in, gmres_inner_iterations_in,
                gmres_outer_iterations_in){};
   /*!
    * \brief Simple utility to modify private members of the parser.
@@ -265,6 +281,8 @@ public:
 
   int get_wavelet_output_freq() const;
   int get_realspace_output_freq() const;
+
+  kronmult_mode get_kmode() const;
 
   double get_dt() const;
   double get_cfl() const;
@@ -368,6 +386,8 @@ private:
   bool use_imex_stepping = DEFAULT_USE_IMEX;
 
   int memory_limit = DEFAULT_MEMORY_LIMIT_MB;
+
+  kronmult_mode kmode = DEFAULT_KRONMULT_MODE;
 
   // gmres solver parameters
   double gmres_tolerance     = DEFAULT_GMRES_TOLERANCE;
