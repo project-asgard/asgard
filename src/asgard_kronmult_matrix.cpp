@@ -285,6 +285,7 @@ private:
     }
   };
   std::map<std::array<int, 4>, int, lex_less> indexes;
+  // -fsanitize=address
 };
 
 /*!
@@ -461,6 +462,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      options const &program_options, imex_flag const imex)
 {
+  std::cerr << " making sparse " << std::endl;
+
   //auto const form_id = tools::timer.start("kronmult-sparse-matrix-construct");
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -489,6 +492,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   std::vector<int> ccount(num_rows, 0); // counts the connections
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
+    std::cerr << row << "/" << num_rows << std::endl;
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
@@ -505,6 +509,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   // num_connect is number of non-zeros of the sparse matrix
   int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
+  std::cerr << " num_connect = " << num_connect << std::endl;
 
   // holds the 1D sparsity structure for the coefficient matrices
   //connect_1d cells1d(pde.max_level);
@@ -607,6 +612,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   //tools::timer.stop(form_id);
 
   std::cout << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
+  std::cerr << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
 
 #ifdef ASGARD_USE_CUDA
   std::cout << "  kronmult sparse matrix allocation (MB): "
@@ -633,6 +639,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                                     valsA.clone_onto_device());
 #else
   // if using the CPU, move the vectors into the matrix structure
+  std::cerr << " no cuda " << std::endl;
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms, std::move(pntr),
                                     std::move(indx), std::move(iA),

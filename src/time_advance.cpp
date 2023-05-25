@@ -53,6 +53,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 {
   if (!program_opts.do_adapt_levels)
   {
+    std::cout << " adaptive_advance - making sparse " << std::endl;
     if (not operator_matrix)
       operator_matrix = asgard::make_kronmult_sparse<P>(
           pde, adaptive_grid, program_opts,
