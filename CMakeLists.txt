@@ -109,10 +109,6 @@ set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to 
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
-if (${ASGARD_USE_PCH})
-  set (USE_PCH ON CACHE BOOL "Turn on kronmult precompiled header support" FORCE)
-endif ()
-
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
