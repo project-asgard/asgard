@@ -50,31 +50,30 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
 
   if (matrix_mode == sparse_mode)
   {
-    int tensor_size = asgard::kronmult_matrix<T>::compute_tensor_size(dimensions, n);
+    int tensor_size =
+        asgard::kronmult_matrix<T>::compute_tensor_size(dimensions, n);
 
     asgard::fk::vector<int> row_indx(num_rows * num_rows);
-    asgard::fk::vector<int> col_indx (num_rows * num_rows);
+    asgard::fk::vector<int> col_indx(num_rows * num_rows);
 
-    for(int i=0; i<num_rows; i++)
+    for (int i = 0; i < num_rows; i++)
     {
-      for(int j=0; j<num_rows; j++)
+      for (int j = 0; j < num_rows; j++)
       {
         row_indx[i * num_rows + j] = i * tensor_size;
         col_indx[i * num_rows + j] = j * tensor_size;
       }
     }
     kmat = asgard::kronmult_matrix<T>(
-      dimensions, n, num_rows, num_rows, num_terms,
-      row_indx.clone_onto_device(), col_indx.clone_onto_device(),
-      iA.clone_onto_device(), vA.clone_onto_device()
-      );
+        dimensions, n, num_rows, num_rows, num_terms,
+        row_indx.clone_onto_device(), col_indx.clone_onto_device(),
+        iA.clone_onto_device(), vA.clone_onto_device());
   }
   else
   {
-    kmat = asgard::kronmult_matrix<T>(
-      dimensions, n, num_rows, num_rows, num_terms, iA.clone_onto_device(),
-      vA.clone_onto_device()
-      );
+    kmat = asgard::kronmult_matrix<T>(dimensions, n, num_rows, num_rows,
+                                      num_terms, iA.clone_onto_device(),
+                                      vA.clone_onto_device());
   }
 
 #else
@@ -84,18 +83,17 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
     asgard::fk::vector<int> pntr(num_rows + 1);
     asgard::fk::vector<int> indx(num_rows * num_rows);
 
-    for(int i=0; i<num_rows; i++)
+    for (int i = 0; i < num_rows; i++)
     {
       pntr[i] = i * num_rows;
-      for(int j=0; j<num_rows; j++)
-        indx[pntr[i] + j]= j;
+      for (int j = 0; j < num_rows; j++)
+        indx[pntr[i] + j] = j;
     }
     pntr[num_rows] = indx.size();
 
-    kmat = asgard::kronmult_matrix<T>(dimensions, n, num_rows, num_rows,
-                                      num_terms,
-                                      std::move(pntr), std::move(indx),
-                                      std::move(iA), std::move(vA));
+    kmat = asgard::kronmult_matrix<T>(
+        dimensions, n, num_rows, num_rows, num_terms, std::move(pntr),
+        std::move(indx), std::move(iA), std::move(vA));
   }
   else
   {

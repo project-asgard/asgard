@@ -97,8 +97,7 @@ public:
                   fk::vector<int, mem_type::owner, input_mode> const &&row_indx,
                   fk::vector<int, mem_type::owner, input_mode> const &&col_indx,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A
-                  )
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
@@ -115,8 +114,8 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect((row_indx_.size() == 0 and col_indx_.size() == 0)
-           or (row_indx_.size() > 0 and col_indx_.size() > 0));
+    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
+           (row_indx_.size() > 0 and col_indx_.size() > 0));
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
@@ -149,12 +148,12 @@ public:
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A
-                  )
-    : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols, num_terms,
-                      fk::vector<int, mem_type::owner, input_mode>(),
-                      fk::vector<int, mem_type::owner, input_mode>(),
-                      std::move(index_A), std::move(values_A))
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
+                        num_terms,
+                        fk::vector<int, mem_type::owner, input_mode>(),
+                        fk::vector<int, mem_type::owner, input_mode>(),
+                        std::move(index_A), std::move(values_A))
   {}
 
   /*!
@@ -170,21 +169,19 @@ public:
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
     if (row_indx_.size() == 0)
-      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(),
-                          num_cols_, num_terms_,
-                          iA.data(), vA.data(), alpha, xdev.data(), beta,
-                          ydev.data());
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                          num_batch(), num_cols_, num_terms_, iA.data(),
+                          vA.data(), alpha, xdev.data(), beta, ydev.data());
     else
-      kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
-                           col_indx_.data(), row_indx_.data(), num_terms_,
-                           iA.data(), vA.data(), alpha, xdev.data(), beta,
-                           ydev.data());
+      kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
+                           col_indx_.size(), col_indx_.data(), row_indx_.data(),
+                           num_terms_, iA.data(), vA.data(), alpha, xdev.data(),
+                           beta, ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
     if (row_indx_.size() == 0)
-      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_,
-                          num_cols_, num_terms_,
-                          iA.data(), vA.data(), alpha, x, beta, y);
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
+                          num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
     else
       kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
                            row_indx_.data(), col_indx_.data(), num_terms_,
@@ -214,7 +211,7 @@ public:
   static int compute_tensor_size(int const num_dimensions, int const kron_size)
   {
     int tensor_size = kron_size;
-    for(int d=1; d<num_dimensions; d++)
+    for (int d = 1; d < num_dimensions; d++)
       tensor_size *= kron_size;
     return tensor_size;
   }
@@ -222,8 +219,8 @@ public:
   static int64_t compute_flops(int const num_dimensions, int const kron_size,
                                int const num_terms, int const num_batch)
   {
-    return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size
-           * num_dimensions * num_terms * num_batch;
+    return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
+           num_dimensions * num_terms * num_batch;
   }
 
 private:

@@ -200,7 +200,6 @@ public:
   static auto constexpr DEFAULT_GMRES_INNER_ITERATIONS = NO_USER_VALUE;
   static auto constexpr DEFAULT_GMRES_OUTER_ITERATIONS = NO_USER_VALUE;
 
-
   // construct from command line
   explicit parser(int argc, char const *const *argv);
 

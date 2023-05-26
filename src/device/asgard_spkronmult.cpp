@@ -71,8 +71,9 @@ void scale(int const num, T const beta, T y[])
 }
 //! \brief Helper to instantiate and call the kernel for n=1.
 template<typename T, int dims>
-void case_n1(int const num_batch, int const ix[], int const iy[], int const num_terms,
-             int const iA[], T const vA[], T const alpha, T const x[], T y[])
+void case_n1(int const num_batch, int const ix[], int const iy[],
+             int const num_terms, int const iA[], T const vA[], T const alpha,
+             T const x[], T y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -91,8 +92,9 @@ void case_n1(int const num_batch, int const ix[], int const iy[], int const num_
 }
 //! \brief Helper to instantiate and call the kernel for d=1.
 template<typename T, int n>
-void case_d1(int const num_batch, int const ix[], int const iy[], int const num_terms,
-             int const iA[], T const vA[], T const alpha, T const x[], T y[])
+void case_d1(int const num_batch, int const ix[], int const iy[],
+             int const num_terms, int const iA[], T const vA[], T const alpha,
+             T const x[], T y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -147,9 +149,9 @@ void case_cycle1(int const num_batch, int const ix[], int const iy[],
 }
 //! \brief Helper to instantiate and call the kernel for cycle2.
 template<typename T, int dims, int n>
-void case_cycle2(int const num_batch, int const ix[], int const iy[], int const num_terms,
-                 int const iA[], T const vA[], T const alpha, T const x[],
-                 T y[])
+void case_cycle2(int const num_batch, int const ix[], int const iy[],
+                 int const num_terms, int const iA[], T const vA[],
+                 T const alpha, T const x[], T y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -179,9 +181,9 @@ void case_cycle2(int const num_batch, int const ix[], int const iy[], int const 
  * \brief Helper to instantiate and call the kernel for cyclex.
  */
 template<typename T, int dims, int n, int num_cycles>
-void case_cyclex(int const num_batch, int const ix[], int const iy[], int const num_terms,
-                 int const iA[], T const vA[], T const alpha, T const x[],
-                 T y[])
+void case_cyclex(int const num_batch, int const ix[], int const iy[],
+                 int const num_terms, int const iA[], T const vA[],
+                 T const alpha, T const x[], T y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -210,9 +212,9 @@ void case_cyclex(int const num_batch, int const ix[], int const iy[], int const 
 
 template<typename T>
 void gpu_sparse(int const dimensions, int const n, int const output_size,
-                int const num_batch, int const ix[], int const iy[], int const num_terms,
-                int const iA[], T const vA[], T const alpha, T const x[],
-                T const beta, T y[])
+                int const num_batch, int const ix[], int const iy[],
+                int const num_terms, int const iA[], T const vA[],
+                T const alpha, T const x[], T const beta, T y[])
 {
   // apply the scaling to y and assume beta == 1 for the other kernels
   scale(output_size, beta, y);
@@ -287,96 +289,73 @@ void gpu_sparse(int const dimensions, int const n, int const output_size,
       case_cycle1<T, 2, 9>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 10:
-      case_cycle1<T, 2, 10>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 10>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 11:
-      case_cycle1<T, 2, 11>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 11>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 12:
-      case_cycle1<T, 2, 12>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 12>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 13:
-      case_cycle1<T, 2, 13>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 13>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 14:
-      case_cycle1<T, 2, 14>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 14>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 15:
-      case_cycle1<T, 2, 15>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 15>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 16:
-      case_cycle1<T, 2, 16>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 16>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 17:
-      case_cycle1<T, 2, 17>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 17>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 18:
-      case_cycle1<T, 2, 18>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 18>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 19:
-      case_cycle1<T, 2, 19>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 19>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 20:
-      case_cycle1<T, 2, 20>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 20>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 21:
-      case_cycle1<T, 2, 21>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 21>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 22:
-      case_cycle1<T, 2, 22>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 22>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 23:
-      case_cycle1<T, 2, 23>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 23>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 24:
-      case_cycle1<T, 2, 24>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 24>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 25:
-      case_cycle1<T, 2, 25>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 25>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 26:
-      case_cycle1<T, 2, 26>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 26>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 27:
-      case_cycle1<T, 2, 27>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 27>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 28:
-      case_cycle1<T, 2, 28>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 28>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 29:
-      case_cycle1<T, 2, 29>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 29>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 30:
-      case_cycle1<T, 2, 30>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 30>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 31:
-      case_cycle1<T, 2, 31>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 31>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 32:
-      case_cycle1<T, 2, 32>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 2, 32>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -413,8 +392,7 @@ void gpu_sparse(int const dimensions, int const n, int const output_size,
       case_cycle1<T, 3, 9>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     case 10:
-      case_cycle1<T, 3, 10>(num_batch, ix, iy, num_terms, iA, vA, alpha, x,
-                            y);
+      case_cycle1<T, 3, 10>(num_batch, ix, iy, num_terms, iA, vA, alpha, x, y);
       break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
@@ -499,7 +477,6 @@ template void gpu_sparse<float>(int const, int const, int const, int const,
                                 int const[], float const[], float const,
                                 float const[], float const, float[]);
 #endif
-
 
 #endif
 

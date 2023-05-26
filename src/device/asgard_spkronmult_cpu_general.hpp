@@ -71,9 +71,9 @@ private:
 
 template<typename T, int dimensions, scalar_case alpha_case,
          scalar_case beta_case>
-void cpu_sparse(int const n, int const num_rows, int const pntr[], int const indx[],
-                int const num_terms, int const iA[], T const vA[], T const alpha,
-                T const x[], T const beta, T y[])
+void cpu_sparse(int const n, int const num_rows, int const pntr[],
+                int const indx[], int const num_terms, int const iA[],
+                T const vA[], T const alpha, T const x[], T const beta, T y[])
 {
   (void)alpha;
   (void)beta;
@@ -101,7 +101,7 @@ void cpu_sparse(int const n, int const num_rows, int const pntr[], int const ind
       // ma is the starting index of the operators for this y
       int ma = pntr[iy] * num_terms * dimensions;
 
-      for (int jx = pntr[iy]; jx < pntr[iy+1]; jx++)
+      for (int jx = pntr[iy]; jx < pntr[iy + 1]; jx++)
       {
         // tensor i (ti) is the first index of this tensor in x
         int const tj = indx[jx] * Y.size();

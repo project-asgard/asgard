@@ -77,9 +77,9 @@ __global__ void scale(int const num, T const beta, T y[])
  * The algorithm for n==1, all tensors and matrices are in fact scalars.
  */
 template<typename T, int dims, scalar_case alpha_case>
-__global__ void
-case_n1(int const num_batch, int const ix[], int const iy[], int const num_terms,
-        int const iA[], T const vA[], T const alpha, T const x[], T y[])
+__global__ void case_n1(int const num_batch, int const ix[], int const iy[],
+                        int const num_terms, int const iA[], T const vA[],
+                        T const alpha, T const x[], T y[])
 {
   (void)alpha;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -120,9 +120,9 @@ case_n1(int const num_batch, int const ix[], int const iy[], int const num_terms
  */
 template<typename T, int n, int team_size, int num_teams,
          scalar_case alpha_case>
-__global__ void
-case_d1(int const num_batch, int const ix[], int const iy[], int const num_terms,
-        int const iA[], T const vA[], T const alpha, T const x[], T y[])
+__global__ void case_d1(int const num_batch, int const ix[], int const iy[],
+                        int const num_terms, int const iA[], T const vA[],
+                        T const alpha, T const x[], T y[])
 {
   (void)alpha;
   // if thread teams span more than one warp, we must synchronize

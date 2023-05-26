@@ -137,8 +137,7 @@ cycle2(int const num_batch, int const ix[], int const iy[], int const num_terms,
     else
     {
       if (threadIdx.x < num_second_cycle)
-        rawx1 =
-            x[ix[i] + threadIdx.x + team_size];
+        rawx1 = x[ix[i] + threadIdx.x + team_size];
     }
 
     for (int t = 0; t < num_terms; t++)
@@ -324,16 +323,12 @@ cycle2(int const num_batch, int const ix[], int const iy[], int const num_terms,
       atomicAdd(&y[iy[i] + threadIdx.x], yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[iy[i] + threadIdx.x + team_size],
-            yinc1);
+        atomicAdd(&y[iy[i] + threadIdx.x + team_size], yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[iy[i] + threadIdx.x + team_size],
-              yinc1);
+          atomicAdd(&y[iy[i] + threadIdx.x + team_size], yinc1);
       }
     }
     else if constexpr (alpha_case == scalar_case::neg_one)

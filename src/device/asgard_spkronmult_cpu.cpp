@@ -22,9 +22,9 @@ namespace asgard::kronmult
  *       matrix-matrix implementation.
  */
 template<typename T, scalar_case alpha_case, scalar_case beta_case>
-void cpu_n0(int const dimensions, int const num_rows, int const pntr[], int const indx[],
-            int const num_terms, int const iA[], T const vA[], T const alpha,
-            T const x[], T const beta, T y[])
+void cpu_n0(int const dimensions, int const num_rows, int const pntr[],
+            int const indx[], int const num_terms, int const iA[], T const vA[],
+            T const alpha, T const x[], T const beta, T y[])
 {
   (void)alpha;
   (void)beta;
@@ -41,7 +41,7 @@ void cpu_n0(int const dimensions, int const num_rows, int const pntr[], int cons
     // ma is the starting index of the operators for this y
     int ma = pntr[iy] * num_terms * dimensions;
 
-    for (int jx = pntr[iy]; jx < pntr[iy+1]; jx++)
+    for (int jx = pntr[iy]; jx < pntr[iy + 1]; jx++)
     {
       for (int t = 0; t < num_terms; t++)
       {
@@ -82,8 +82,8 @@ void cpu_n0(int const dimensions, int const num_rows, int const pntr[], int cons
 template<typename T, int dimensions, int n, scalar_case alpha_case,
          scalar_case beta_case>
 void cpu_sparse(int const num_rows, int const pntr[], int const indx[],
-               int const num_terms, int const iA[], T const vA[], T const alpha,
-               T const x[], T const beta, T y[])
+                int const num_terms, int const iA[], T const vA[],
+                T const alpha, T const x[], T const beta, T y[])
 {
   static_assert(1 <= dimensions and dimensions <= 6);
   static_assert(n > 1, "n must be positive and n==1 is a special case handled "
@@ -438,26 +438,26 @@ void cpu_n0(int const d, int const rows, int const pntr[], int const indx[],
   if (beta == 0)
   {
     if (alpha == 1)
-      cpu_n0<T, scalar_case::one, scalar_case::zero>(d, rows, pntr, indx, terms, iA,
-                                                     vA, alpha, x, beta, y);
+      cpu_n0<T, scalar_case::one, scalar_case::zero>(d, rows, pntr, indx, terms,
+                                                     iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<T, scalar_case::neg_one, scalar_case::zero>(
           d, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_n0<T, scalar_case::other, scalar_case::zero>(d, rows, pntr, indx, terms, iA,
-                                                       vA, alpha, x, beta, y);
+      cpu_n0<T, scalar_case::other, scalar_case::zero>(
+          d, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else if (beta == 1)
   {
     if (alpha == 1)
-      cpu_n0<T, scalar_case::one, scalar_case::one>(d, rows, pntr, indx, terms, iA,
-                                                    vA, alpha, x, beta, y);
+      cpu_n0<T, scalar_case::one, scalar_case::one>(d, rows, pntr, indx, terms,
+                                                    iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<T, scalar_case::neg_one, scalar_case::one>(
           d, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else
-      cpu_n0<T, scalar_case::other, scalar_case::one>(d, rows, pntr, indx, terms, iA,
-                                                      vA, alpha, x, beta, y);
+      cpu_n0<T, scalar_case::other, scalar_case::one>(
+          d, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
   }
   else if (beta == -1)
   {
@@ -474,8 +474,8 @@ void cpu_n0(int const d, int const rows, int const pntr[], int const indx[],
   else
   {
     if (alpha == 1)
-      cpu_n0<T, scalar_case::one, scalar_case::other>(d, rows, pntr, indx, terms, iA,
-                                                      vA, alpha, x, beta, y);
+      cpu_n0<T, scalar_case::one, scalar_case::other>(
+          d, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<T, scalar_case::neg_one, scalar_case::other>(
           d, rows, pntr, indx, terms, iA, vA, alpha, x, beta, y);
@@ -490,8 +490,8 @@ void cpu_n0(int const d, int const rows, int const pntr[], int const indx[],
  */
 template<typename T, int d, int n>
 void cpu_sparse(int const rows, int const pntr[], int const indx[],
-               int const terms, int const iA[], T const vA[], T const alpha,
-               T const x[], T const beta, T y[])
+                int const terms, int const iA[], T const vA[], T const alpha,
+                T const x[], T const beta, T y[])
 {
   if (beta == 0)
   {
@@ -548,8 +548,8 @@ void cpu_sparse(int const rows, int const pntr[], int const indx[],
  */
 template<typename T, int d>
 void cpu_sparse(int const n, int const rows, int const pntr[], int const indx[],
-               int const terms, int const iA[], T const vA[], T const alpha,
-               T const x[], T const beta, T y[])
+                int const terms, int const iA[], T const vA[], T const alpha,
+                T const x[], T const beta, T y[])
 {
   if (beta == 0)
   {
@@ -603,9 +603,9 @@ void cpu_sparse(int const n, int const rows, int const pntr[], int const indx[],
 
 template<typename T>
 void cpu_sparse(int const dimensions, int const n, int const num_rows,
-               int const pntr[], int const indx[], int const num_terms,
-               int const iA[], T const vA[], T const alpha, T const x[],
-               T const beta, T y[])
+                int const pntr[], int const indx[], int const num_terms,
+                int const iA[], T const vA[], T const alpha, T const x[],
+                T const beta, T y[])
 {
   switch (dimensions)
   {
@@ -617,20 +617,20 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
              beta, y);
       break;
     case 2:
-      cpu_sparse<T, 1, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 1, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 3:
-      cpu_sparse<T, 1, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 1, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 4:
-      cpu_sparse<T, 1, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 1, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     default:
-      cpu_sparse<T, 1>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                      y);
+      cpu_sparse<T, 1>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                       beta, y);
       break;
     }
     break;
@@ -638,24 +638,24 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-             y);
+      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+             beta, y);
       break;
     case 2:
-      cpu_sparse<T, 2, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 2, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 3:
-      cpu_sparse<T, 2, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 2, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 4:
-      cpu_sparse<T, 2, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 2, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     default:
-      cpu_sparse<T, 2>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                      y);
+      cpu_sparse<T, 2>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                       beta, y);
       break;
     }
     break;
@@ -663,24 +663,24 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-             y);
+      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+             beta, y);
       break;
     case 2:
-      cpu_sparse<T, 3, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 3, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 3:
-      cpu_sparse<T, 3, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 3, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 4:
-      cpu_sparse<T, 3, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 3, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     default:
-      cpu_sparse<T, 3>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                      y);
+      cpu_sparse<T, 3>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                       beta, y);
       break;
     }
     break;
@@ -688,24 +688,24 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-             y);
+      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+             beta, y);
       break;
     case 2:
-      cpu_sparse<T, 4, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 4, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 3:
-      cpu_sparse<T, 4, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 4, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 4:
-      cpu_sparse<T, 4, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 4, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     default:
-      cpu_sparse<T, 4>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                      y);
+      cpu_sparse<T, 4>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                       beta, y);
       break;
     }
     break;
@@ -713,24 +713,24 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-             y);
+      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+             beta, y);
       break;
     case 2:
-      cpu_sparse<T, 5, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 5, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 3:
-      cpu_sparse<T, 5, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 5, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 4:
-      cpu_sparse<T, 5, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 5, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     default:
-      cpu_sparse<T, 5>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                      y);
+      cpu_sparse<T, 5>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                       beta, y);
       break;
     }
     break;
@@ -738,24 +738,24 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-             y);
+      cpu_n0(dimensions, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+             beta, y);
       break;
     case 2:
-      cpu_sparse<T, 6, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 6, 2>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 3:
-      cpu_sparse<T, 6, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 6, 3>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     case 4:
-      cpu_sparse<T, 6, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                         y);
+      cpu_sparse<T, 6, 4>(num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                          beta, y);
       break;
     default:
-      cpu_sparse<T, 6>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x, beta,
-                      y);
+      cpu_sparse<T, 6>(n, num_rows, pntr, indx, num_terms, iA, vA, alpha, x,
+                       beta, y);
       break;
     }
     break;

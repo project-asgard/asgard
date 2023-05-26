@@ -14,8 +14,8 @@ namespace asgard
 {
 parser::parser(int argc, char const *const *argv)
 {
-  bool show_help = false;
-  bool show_pdes = false;
+  bool show_help        = false;
+  bool show_pdes        = false;
   std::string kmode_str = "dense";
   // Parsing...
   auto cli =
@@ -335,8 +335,8 @@ parser::parser(int argc, char const *const *argv)
   }
   else
   {
-    std::cerr << "kron_mode is set to: '" << kmode_str << " but it must"
-                 " be either 'dense' or 'sparse'\n";
+    std::cerr << "kron_mode is set to: '" << kmode_str
+              << " but it must be either 'dense' or 'sparse'\n";
     valid = false;
   }
 

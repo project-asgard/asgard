@@ -696,8 +696,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
-                   prec)
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]", prec)
 {
   if (!is_active())
   {
