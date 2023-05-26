@@ -16,7 +16,7 @@ parser::parser(int argc, char const *const *argv)
 {
   bool show_help = false;
   bool show_pdes = false;
-  std::string kmode_str;
+  std::string kmode_str = "dense";
   // Parsing...
   auto cli =
       clara::detail::Help(show_help) |
@@ -74,7 +74,7 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(memory_limit, "size > 0")["--memory"](
           "Maximum workspace size in MB that will be resident on an "
           "accelerator") |
-      clara::detail::Opt(kmode_str, "<sparse/dense>")["--kron_mode"](
+      clara::detail::Opt(kmode_str, "<sparse/dense>")["--kron-mode"](
           "Select sparse or dense mode for the kronmult operations") |
       clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
           "Tolerance used to determine convergence in gmres solver") |
@@ -335,7 +335,8 @@ parser::parser(int argc, char const *const *argv)
   }
   else
   {
-    std::cerr << "kron_mode must be either 'dense' or 'sparse'\n";
+    std::cerr << "kron_mode is set to: '" << kmode_str << " but it must"
+                 " be either 'dense' or 'sparse'\n";
     valid = false;
   }
 

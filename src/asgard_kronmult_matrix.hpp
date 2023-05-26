@@ -218,30 +218,25 @@ private:
 /*!
  * \brief Given the PDE an the discretization, creates a new kronmult matrix.
  *
- * This method will copy out the coefficient data from the PDE terms
- * into structures index_A and values_A, so the method should be called only
- * when the operator terms change, e.g., due to refinement update.
  * The main purpose of the method is to "glue" the data-structures together
- * and work-around the excessive leading dimension which breaks each matrix
- * into small block scattered across memory (and hard to cache).
- * If the PDE data-structures are updated, then only this method needs to
- * change.
- */
-template<typename P>
-kronmult_matrix<P>
-make_kronmult_dense(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                    options const &program_options,
-                    imex_flag const imex = imex_flag::unspecified);
-
-/*!
- * \brief Given the PDE an the discretization, creates a new kronmult matrix.
+ * from the definition of the PDE to the format used by the Kronecker product.
  *
- * The method is similar to the dense variant, but the resulting matrix
- * will have a sparse format.
+ * This method will copy out the coefficient data from the PDE terms
+ * into the matrix structure, so the method should be called only
+ * when the operator terms change, e.g., due to refinement update.
+ *
+ * The format of the matrix will be either dense or sparse, depending on
+ * the selected program options.
+ *
+ * \tparam P is either float or double
+ *
+ * \param grid is the current sparse grid for the discretization
+ * \param program_options are the input options passed in by the user
+ * \param imex indicates whether this is part of an imex time stepping scheme
  */
 template<typename P>
 kronmult_matrix<P>
-make_kronmult_sparse(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
                      imex_flag const imex = imex_flag::unspecified);
 

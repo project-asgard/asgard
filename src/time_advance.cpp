@@ -53,9 +53,8 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 {
   if (!program_opts.do_adapt_levels)
   {
-    std::cout << " adaptive_advance - making sparse " << std::endl;
     if (not operator_matrix)
-      operator_matrix = asgard::make_kronmult_sparse<P>(
+      operator_matrix = asgard::make_kronmult_matrix<P>(
           pde, adaptive_grid, program_opts,
           (step_method == method::imex) ? imex_flag::imex_explicit
                                         : imex_flag::unspecified);
@@ -90,7 +89,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   auto refining = true;
   while (refining)
   {
-    operator_matrix = asgard::make_kronmult_sparse<P>(
+    operator_matrix = asgard::make_kronmult_matrix<P>(
         pde, adaptive_grid, program_opts,
         (step_method == method::imex) ? imex_flag::imex_explicit
                                       : imex_flag::unspecified);
@@ -172,7 +171,7 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
 
   if (not operator_matrix)
     operator_matrix =
-        asgard::make_kronmult_sparse<P>(pde, adaptive_grid, program_opts);
+        asgard::make_kronmult_matrix<P>(pde, adaptive_grid, program_opts);
 
   // time advance working vectors
   // input vector for apply_A
@@ -408,7 +407,7 @@ implicit_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   {
     if (not operator_matrix)
       operator_matrix =
-          asgard::make_kronmult_sparse<P>(pde, adaptive_grid, program_opts);
+          asgard::make_kronmult_matrix<P>(pde, adaptive_grid, program_opts);
     P const tolerance  = program_opts.gmres_tolerance;
     int const restart  = program_opts.gmres_inner_iterations;
     int const max_iter = program_opts.gmres_outer_iterations;
@@ -564,7 +563,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     do_poisson_update(x);
   }
 
-  operator_matrix = asgard::make_kronmult_sparse<P>(
+  operator_matrix = asgard::make_kronmult_matrix<P>(
       pde, adaptive_grid, program_opts, imex_flag::imex_explicit);
 
   // Explicit step (f_2s)
@@ -628,7 +627,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   if (pde.do_collision_operator)
   {
     // f2 now
-    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_sparse<P>(
+    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_matrix<P>(
         pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), collision_matrix, f_2, x, restart, max_iter, tolerance);
@@ -651,7 +650,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     do_poisson_update(f_2);
   }
 
-  operator_matrix = asgard::make_kronmult_sparse<P>(
+  operator_matrix = asgard::make_kronmult_matrix<P>(
       pde, adaptive_grid, program_opts, imex_flag::imex_explicit);
 
   tools::timer.start(apply_id);
@@ -712,7 +711,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_sparse<P>(
+    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_matrix<P>(
         pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
     pde.gmres_outputs[1] =
         solver::simple_gmres_euler(P{0.5} * pde.get_dt(), collision_matrix, f_3,

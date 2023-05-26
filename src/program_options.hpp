@@ -449,6 +449,7 @@ public:
         realspace_output_freq(user_vals.get_realspace_output_freq()),
         plot_freq(user_vals.get_plot_freq()),
         memory_limit(user_vals.get_memory_limit()),
+        kmode(user_vals.get_kmode()),
         gmres_inner_iterations(user_vals.get_gmres_inner_iterations()),
         gmres_outer_iterations(user_vals.get_gmres_outer_iterations()),
         use_implicit_stepping(user_vals.using_implicit()),
@@ -474,6 +475,7 @@ public:
   int const realspace_output_freq;
   int const plot_freq;
   int const memory_limit;
+  kronmult_mode const kmode;
   int const gmres_inner_iterations;
   int const gmres_outer_iterations;
 

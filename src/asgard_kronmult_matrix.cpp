@@ -130,6 +130,13 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
+  int64_t flops = kron_size;
+  for (int i = 0; i < num_dimensions; i++)
+    flops *= kron_size;
+  flops *= 2 * iA.size();
+
+  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+
 #ifdef ASGARD_USE_CUDA
   int tensor_size = kron_size;
   for(int d=1; d<num_dimensions; d++)
@@ -146,17 +153,6 @@ make_kronmult_dense(PDE<precision> const &pde,
       col_indx[i * num_cols + j] = j * tensor_size;
     }
   }
-
-  //for(int i=0; i<row_indx.size(); i++){
-  //  std::cout << " row_indx = " << row_indx[i] << "   " << col_indx[i] << "\n";
-  //  int im = i * num_dimensions * num_terms;
-  //  for(int j=0; j<num_dimensions * num_terms; j++){
-  //    precision const * const A = &vA[iA[im++]];
-  //    for(int k=0; k<kron_size * kron_size; k++)
-  //      std::cout << A[k] << "  ";
-  //    std::cout << "\n";
-  //  }
-  //}
 
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
@@ -621,7 +617,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   flops *= 2 * iA.size();
 
   std::cout << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
-  std::cout << "        flops per application: " << flops << "%\n";
+  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
 
 #ifdef ASGARD_USE_CUDA
   std::cout << "  kronmult sparse matrix allocation (MB): "
@@ -643,31 +639,35 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
 }
 
-
+template<typename P>
+kronmult_matrix<P>
+make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+                     options const &cli_opts, imex_flag const imex)
+{
+  if (cli_opts.kmode == kronmult_mode::dense)
+  {
+    return make_kronmult_dense<P>(pde, grid, cli_opts, imex);
+  }
+  else
+  {
+    return make_kronmult_sparse<P>(pde, grid, cli_opts, imex);
+  }
+}
 
 
 #ifdef ASGARD_USE_DOUBLE_PREC
 template kronmult_matrix<double>
-make_kronmult_dense<double>(PDE<double> const &,
-                            adapt::distributed_grid<double> const &,
-                            options const &, imex_flag const);
-
-template kronmult_matrix<double>
-make_kronmult_sparse<double>(PDE<double> const &,
+make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, imex_flag const);
 
 #else
 
 template kronmult_matrix<float>
-make_kronmult_sparse<float>(PDE<float> const &,
+make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, imex_flag const);
 
-template kronmult_matrix<float>
-make_kronmult_dense<float>(PDE<float> const &,
-                           adapt::distributed_grid<float> const &,
-                           options const &, imex_flag const);
 #endif
 
 } // namespace asgard
