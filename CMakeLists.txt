@@ -498,6 +498,20 @@ if (ASGARD_BUILD_TESTS)
     set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
   endforeach ()
 
+# assuming testing makes us into a stand-alone project, so be more verbose
+# helps keep track of flags and options and whether things we enabled correctly
+  message(STATUS "")
+  message(STATUS "ASGarD build options (summary):")
+  foreach(_opt CMAKE_CXX_COMPILER CMAKE_BUILD_TYPE CMAKE_CXX_FLAGS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB)
+    message(STATUS "  ${_opt}=${${_opt}}")
+  endforeach()
+  if (ASGARD_USE_CUDA)
+  foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS)
+    message(STATUS "  ${_opt}=${${_opt}}")
+  endforeach()
+  endif()
+  message(STATUS "")
+
 else ()
   message (WARNING "warning: tests will not be built.")
 endif ()
