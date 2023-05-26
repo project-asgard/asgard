@@ -140,7 +140,7 @@ public:
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
     if (row_indx_.size() == 0)
-      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(),
                           num_cols_, num_terms_,
                           iA.data(), vA.data(), alpha, xdev.data(), beta,
                           ydev.data());

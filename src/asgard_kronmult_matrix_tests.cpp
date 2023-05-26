@@ -29,14 +29,14 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
   auto data = make_kronmult_data<T, precompute>(dimensions, n, num_rows,
                                                 num_terms, num_matrices);
 
-  const int num_batch = num_rows * num_rows * num_terms;
+  const int num_batch = num_rows * num_rows;
 
   asgard::fk::vector<T> vA(num_matrices * n * n);
   std::copy(data->matrices.begin(), data->matrices.end(), vA.begin());
 
-  asgard::fk::vector<int> iA(num_batch * dimensions);
+  asgard::fk::vector<int> iA(num_batch * num_terms * dimensions);
   auto ip = data->pointer_map.begin();
-  for (int i = 0; i < num_batch; i++)
+  for (int i = 0; i < num_batch * num_terms; i++)
   {
     ip++;
     for (int j = 0; j < dimensions; j++)
@@ -84,11 +84,11 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
 
   if (matrix_mode == sparse_mode)
   {
+    pntr = asgard::fk::vector<int>(num_rows + 1);
+    indx = asgard::fk::vector<int>(num_rows * num_rows);
+
     for(int i=0; i<num_rows; i++)
     {
-      pntr = asgard::fk::vector<int>(num_rows + 1);
-      indx = asgard::fk::vector<int>(num_rows * num_rows);
-
       pntr[i] = i * num_rows;
       for(int j=0; j<num_rows; j++)
         indx[pntr[i] + j]= j;
@@ -125,59 +125,72 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", prec)
 
 #ifndef ASGARD_USE_CUDA // test CPU kronmult only when CUDA is not enabled
 
-TEMPLATE_TEST_CASE("testing kronmult cpu general", "[execute_cpu]", prec)
+TEMPLATE_TEST_CASE("testing kronmult cpu core dense", "[execute_cpu]", prec)
 {
-  test_kronmult<TestType>(1, 2, 1, 1, 1);
-  test_kronmult<TestType>(1, 2, 1, 1, 5);
-  test_kronmult<TestType>(1, 2, 1, 2, 3);
-  test_kronmult<TestType>(1, 2, 10, 2, 7);
+  test_kronmult<TestType, dense_mode>(1, 2, 1, 1, 1);
+  test_kronmult<TestType, dense_mode>(1, 2, 1, 1, 5);
+  test_kronmult<TestType, dense_mode>(1, 2, 1, 2, 3);
+  test_kronmult<TestType, dense_mode>(1, 2, 10, 2, 7);
+}
+TEMPLATE_TEST_CASE("testing kronmult cpu core sparse", "[execute_cpu]", prec)
+{
+  test_kronmult<TestType, sparse_mode>(1, 2, 1, 1, 1);
+  test_kronmult<TestType, sparse_mode>(1, 2, 1, 1, 5);
+  test_kronmult<TestType, sparse_mode>(1, 2, 1, 2, 3);
+  test_kronmult<TestType, sparse_mode>(1, 2, 10, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[execute_cpu 1d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6);
-  test_kronmult<TestType, sparse_mode>(1, n, 11, 2, 7);
   test_kronmult<TestType, dense_mode>(1, n, 11, 2, 7);
+  test_kronmult<TestType, sparse_mode>(1, n, 11, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 2d", "[execute_cpu 2d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType, sparse_mode>(2, n, 12, 3, 7);
   test_kronmult<TestType, dense_mode>(2, n, 12, 3, 7);
+  test_kronmult<TestType, sparse_mode>(2, n, 12, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[execute_cpu 3d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType, sparse_mode>(3, n, 12, 2, 7);
   test_kronmult<TestType, dense_mode>(3, n, 12, 2, 7);
+  test_kronmult<TestType, sparse_mode>(3, n, 12, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[execute_cpu 4d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType, sparse_mode>(4, n, 9, 2, 7);
   test_kronmult<TestType, dense_mode>(4, n, 9, 2, 7);
+  test_kronmult<TestType, sparse_mode>(4, n, 9, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 5d", "[execute_cpu 5d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType, sparse_mode>(5, n, 11, 3, 7);
   test_kronmult<TestType, dense_mode>(5, n, 11, 3, 7);
+  test_kronmult<TestType, sparse_mode>(5, n, 11, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
-  test_kronmult<TestType, sparse_mode>(6, n, 9, 2, 7);
   test_kronmult<TestType, dense_mode>(6, n, 9, 2, 7);
+  test_kronmult<TestType, sparse_mode>(6, n, 9, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", prec)
 {
-  // test_kronmult<TestType>(6, 5, 9, 2, 2);
+  // this is technically supported, but it takes too long
+  // the Kronecker products actually suffer from the curse of dimensionality
+  // and for 6D with n = 5, tensor size is 15,625 flops per product is 468,750,
+  // mops per reference Kronecker products is 244,140,625
+  // computing a reference solution becomes an issue, so the test is so small
+  test_kronmult<TestType, dense_mode>(6, 5, 2, 1, 2);
+  test_kronmult<TestType, sparse_mode>(6, 5, 2, 1, 2);
 }
 
 #endif
@@ -195,31 +208,36 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
                    18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
-  test_kronmult<TestType>(2, n, 13, 2, 7);
+  test_kronmult<TestType, dense_mode>(2, n, 13, 2, 7);
+  test_kronmult<TestType, sparse_mode>(2, n, 13, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  test_kronmult<TestType>(3, n, 17, 3, 7);
+  test_kronmult<TestType, dense_mode>(3, n, 17, 3, 7);
+  test_kronmult<TestType, sparse_mode>(3, n, 17, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[execute_gpu 4d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType>(4, n, 10, 3, 7);
+  test_kronmult<TestType, dense_mode>(4, n, 10, 3, 7);
+  test_kronmult<TestType, sparse_mode>(4, n, 10, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
-  test_kronmult<TestType>(5, n, 10, 2, 7);
+  test_kronmult<TestType, dense_mode>(5, n, 10, 2, 7);
+  test_kronmult<TestType, sparse_mode>(5, n, 10, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
-  test_kronmult<TestType>(6, n, 8, 2, 7);
+  test_kronmult<TestType, dense_mode>(6, n, 8, 2, 7);
+  test_kronmult<TestType, sparse_mode>(6, n, 8, 2, 7);
 }
 
 #endif

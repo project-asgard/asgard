@@ -148,10 +148,9 @@ make_kronmult_dense(PDE<precision> const &pde,
 #else
   // if using the CPU, move the vectors into the matrix structure
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms,
-                                    fk::vector<int, mem_type::owner, resource::host>(),
-                                    fk::vector<int, mem_type::owner, resource::host>(),
-                                    std::move(iA), std::move(vA));
+                                    num_cols, num_terms, fk::vector<int>(),
+                                    fk::vector<int>(), std::move(iA),
+                                    std::move(vA));
 #endif
 }
 
