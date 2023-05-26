@@ -69,14 +69,11 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
 
   asgard::kronmult_matrix<T> kmat(
       dimensions, n, num_rows, num_rows, num_terms,
-      asgard::fk::vector<int, asgard::mem_type::const_view,
-                         asgard::resource::host>(row_indx),
-      asgard::fk::vector<int, asgard::mem_type::const_view,
-                         asgard::resource::host>(col_indx),
-      asgard::fk::vector<int, asgard::mem_type::const_view,
-                         asgard::resource::host>(iA),
-      asgard::fk::vector<T, asgard::mem_type::const_view,
-                         asgard::resource::host>(vA));
+      row_indx.clone_onto_device(),
+      col_indx.clone_onto_device(),
+      iA.clone_onto_device(),
+      vA.clone_onto_device()
+      );
 #else
 
   asgard::fk::vector<int> pntr;

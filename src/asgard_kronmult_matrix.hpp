@@ -61,40 +61,40 @@ public:
    *   T const *A_0 = &( values_A[ index_A[idx + num_dimensions-1] ] );
    * \endcode
    */
-  kronmult_matrix(
-      int num_dimensions, int kron_size, int num_rows, int num_cols,
-      int num_terms,
-      fk::vector<int, mem_type::const_view, resource::host> const &row_indx,
-      fk::vector<int, mem_type::const_view, resource::host> const &col_indx,
-      fk::vector<int, mem_type::const_view, resource::host> const &index_A,
-      fk::vector<precision, mem_type::const_view, resource::host> const
-          &values_A)
-      : num_dimensions_(num_dimensions), kron_size_(kron_size),
-        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), row_indx_(row_indx.size()), col_indx_(col_indx.size()),
-        iA(index_A.size()), vA(values_A.size())
-  {
-    if constexpr (data_mode == resource::host)
-    {
-#ifndef ASGARD_USE_CUDA // workaround clang and c++-17
-      iA = index_A;
-      vA = values_A;
-      row_indx_ = row_indx;
-      col_indx_ = col_indx;
-#endif
-    }
-    else
-    {
-#ifdef ASGARD_USE_CUDA // workaround clang and c++-17
-      iA = index_A.clone_onto_device();
-      vA = values_A.clone_onto_device();
-      row_indx_ = row_indx.clone_onto_device();
-      col_indx_ = col_indx.clone_onto_device();
-#endif
-    }
-
-    finalize_variables();
-  }
+//  kronmult_matrix(
+//      int num_dimensions, int kron_size, int num_rows, int num_cols,
+//      int num_terms,
+//      fk::vector<int, mem_type::const_view, resource::host> const &row_indx,
+//      fk::vector<int, mem_type::const_view, resource::host> const &col_indx,
+//      fk::vector<int, mem_type::const_view, resource::host> const &index_A,
+//      fk::vector<precision, mem_type::const_view, resource::host> const
+//          &values_A)
+//      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+//        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
+//        tensor_size_(1), row_indx_(row_indx.size()), col_indx_(col_indx.size()),
+//        iA(index_A.size()), vA(values_A.size())
+//  {
+//    if constexpr (data_mode == resource::host)
+//    {
+//#ifndef ASGARD_USE_CUDA // workaround clang and c++-17
+//      iA = index_A;
+//      vA = values_A;
+//      row_indx_ = row_indx;
+//      col_indx_ = col_indx;
+//#endif
+//    }
+//    else
+//    {
+//#ifdef ASGARD_USE_CUDA // workaround clang and c++-17
+//      iA = index_A.clone_onto_device();
+//      vA = values_A.clone_onto_device();
+//      row_indx_ = row_indx.clone_onto_device();
+//      col_indx_ = col_indx.clone_onto_device();
+//#endif
+//    }
+//
+//    finalize_variables();
+//  }
   /*!
    *\brief Creates a new matrix and accepts the data as a r-values.
    *
