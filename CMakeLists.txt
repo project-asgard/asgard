@@ -342,10 +342,6 @@ if (ASGARD_USE_CUDA)
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
-    target_compile_options (asgard_obj
-                            PUBLIC
-                            $<$<COMPILE_LANGUAGE:CUDA>:-g -lineinfo --ptxas-options=-O3>
-    )
     target_compile_features (asgard_obj PUBLIC cuda_std_14)
     target_link_options (asgard_obj
                          PUBLIC
