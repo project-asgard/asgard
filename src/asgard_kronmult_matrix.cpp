@@ -130,26 +130,20 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  int64_t flops = kron_size;
-  for (int i = 0; i < num_dimensions; i++)
-    flops *= kron_size;
-  flops *= 2 * iA.size();
+  int64_t flops = kronmult_matrix<precision>::compute_flops(num_dimensions, kron_size, num_terms, num_rows * num_cols);
 
-  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+  std::cout << "  kronmult dense matrix: " << num_rows << " by " << num_cols << "\n";
+  std::cout << "        Gflops per call: " << flops * 1.E-9 << "\n";
 
 #ifdef ASGARD_USE_CUDA
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms,
-                                    fk::vector<int, mem_type::owner, resource::device>(),
-                                    fk::vector<int, mem_type::owner, resource::device>(),
-                                    iA.clone_onto_device(),
+                                    num_cols, num_terms, iA.clone_onto_device(),
                                     vA.clone_onto_device());
 #else
   // if using the CPU, move the vectors into the matrix structure
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms, fk::vector<int>(),
-                                    fk::vector<int>(), std::move(iA),
+                                    num_cols, num_terms, std::move(iA),
                                     std::move(vA));
 #endif
 }
@@ -519,9 +513,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   fk::vector<int> iA(num_connect * num_dimensions * num_terms);
 
 #ifdef ASGARD_USE_CUDA
-  int tensor_size = kron_size;
-  for(int d=1; d<num_dimensions; d++)
-    tensor_size *= kron_size;
+  int tensor_size = kronmult_matrix<precision>::compute_tensor_size(num_dimensions, kron_size);
 
   fk::vector<int> row_indx(num_connect);
   fk::vector<int> col_indx(num_connect);
@@ -584,15 +576,12 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   //tools::timer.stop(form_id);
 
-  int64_t flops = kron_size;
-  for (int i = 0; i < num_dimensions; i++)
-    flops *= kron_size;
-  flops *= 2 * iA.size();
-
   std::cout << "  kronmult sparse matrix fill: " << 100.0 * double(num_connect) / (double(num_rows) * double(num_cols)) << "%\n";
-  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+
 
 #ifdef ASGARD_USE_CUDA
+  int64_t flops = kronmult_matrix<precision>::compute_flops(num_dimensions, kron_size, num_terms, col_indx.size());
+  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
   std::cout << "  kronmult sparse matrix allocation (MB): "
             << get_MB<int>(iA.size()) + get_MB<precision>(vA.size())
                + get_MB<int>(2*row_indx.size()) << "\n";
@@ -604,6 +593,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
                                     iA.clone_onto_device(),
                                     vA.clone_onto_device());
 #else
+  int64_t flops = kronmult_matrix<precision>::compute_flops(num_dimensions, kron_size, num_terms, indx.size());
+  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+
   // if using the CPU, move the vectors into the matrix structure
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms, std::move(pntr),

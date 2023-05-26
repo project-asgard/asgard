@@ -74,8 +74,8 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(memory_limit, "size > 0")["--memory"](
           "Maximum workspace size in MB that will be resident on an "
           "accelerator") |
-      clara::detail::Opt(kmode_str, "<sparse/dense>")["--kron-mode"](
-          "Select sparse or dense mode for the kronmult operations") |
+      clara::detail::Opt(kmode_str, "dense/sparse")["--kron-mode"](
+          "Select dense (default) or sparse mode for the kronmult operations") |
       clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
           "Tolerance used to determine convergence in gmres solver") |
       clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
