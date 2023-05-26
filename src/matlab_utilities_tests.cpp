@@ -9,7 +9,7 @@ static auto const matlab_utilities_base_dir =
 using namespace asgard;
 
 TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
-                   float, double)
+                   test_precs)
 {
   SECTION("linspace(0,1) returns 100 elements")
   {
@@ -47,8 +47,8 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
 
 // using widening conversions for golden data in order to test integers
 // FIXME look for another way
-TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]", float,
-                   double, int)
+TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]",
+                   test_precs, int)
 {
   SECTION("eye()")
   {
@@ -108,7 +108,7 @@ TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
+TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", test_precs,
                    int)
 {
   SECTION("polyval(p = [3,2,1], x = [5,7,9])")
@@ -137,7 +137,7 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
   }
 }
 
-TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", float, double,
+TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", test_precs,
                    int)
 {
   // clang-format off
@@ -184,7 +184,7 @@ TEST_CASE("meshgrid", "[matlab]")
   }
 }
 
-TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
+TEMPLATE_TEST_CASE("find function", "[matlab]", test_precs, int)
 {
   fk::vector<TestType> haystack{2, 3, 4, 5, 6};
 
@@ -219,7 +219,7 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
   }
 }
 
-TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", float, double)
+TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", test_precs)
 {
   SECTION("zeros -- vector")
   {
@@ -236,7 +236,7 @@ TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", float, double)
+TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", test_precs)
 {
   SECTION("zeros -- vector")
   {
@@ -318,7 +318,7 @@ TEST_CASE("read_scalar_from_txt_file returns expected value", "[matlab]")
 
 TEMPLATE_TEST_CASE(
     "reshape() matches matlab implementation for 2d matrices ony", "[matlab]",
-    float, double, int)
+    test_precs, int)
 {
   SECTION("reshape 2x2 to 1x4")
   {
@@ -342,7 +342,7 @@ TEMPLATE_TEST_CASE(
   }
 }
 
-TEMPLATE_TEST_CASE("interp1", "[matlab]", float, double)
+TEMPLATE_TEST_CASE("interp1", "[matlab]", test_precs)
 {
   SECTION("basic")
   {

@@ -430,46 +430,22 @@ fk::vector<P> sum_separable_funcs(
   return combined;
 }
 
-/* explicit instantiations */
+#ifdef ASGARD_ENABLE_DOUBLE
 template fk::matrix<double>
 recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
                int const index);
-
-template fk::matrix<float>
-recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
-               int const index);
-
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer);
-
-template std::vector<fk::matrix<float>> gen_realspace_transform(
-    PDE<float> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
-
-template fk::vector<float> gen_realspace_nodes(int const degree,
-                                               int const level, float const min,
-                                               float const max);
 template fk::vector<double>
 gen_realspace_nodes(int const degree, int const level, double const min,
                     double const max);
-
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     std::vector<dimension<double>> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer);
-
-template std::vector<fk::matrix<float>> gen_realspace_transform(
-    std::vector<dimension<float>> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
-
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     std::vector<dimension_description<double>> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer);
-
-template std::vector<fk::matrix<float>> gen_realspace_transform(
-    std::vector<dimension_description<float>> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
-
 template void wavelet_to_realspace(
     PDE<double> const &pde, fk::vector<double> const &wave_space,
     elements::table const &table,
@@ -478,12 +454,6 @@ template void wavelet_to_realspace(
         &workspace,
     fk::vector<double> &real_space);
 template void wavelet_to_realspace(
-    PDE<float> const &pde, fk::vector<float> const &wave_space,
-    elements::table const &table,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space);
-template void wavelet_to_realspace(
     std::vector<dimension<double>> const &pde,
     fk::vector<double> const &wave_space, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -491,52 +461,74 @@ template void wavelet_to_realspace(
         &workspace,
     fk::vector<double> &real_space);
 template void wavelet_to_realspace(
-    std::vector<dimension<float>> const &pde,
-    fk::vector<float> const &wave_space, elements::table const &table,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space);
-template void wavelet_to_realspace(
     std::vector<dimension_description<double>> const &pde,
     fk::vector<double> const &wave_space, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
     fk::vector<double> &real_space);
-template void wavelet_to_realspace(
-    std::vector<dimension_description<float>> const &pde,
-    fk::vector<float> const &wave_space, elements::table const &table,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space);
-
 template fk::vector<double>
 combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
-template fk::vector<float>
-combine_dimensions(int const, elements::table const &, int const, int const,
-                   std::vector<fk::vector<float>> const &, float const = 1.0);
-
-template void
-combine_dimensions<float>(int const, elements::table const &, int const,
-                          int const, std::vector<fk::vector<float>> const &,
-                          float const, fk::vector<float, mem_type::view>);
 template void
 combine_dimensions<double>(int const, elements::table const &, int const,
                            int const, std::vector<fk::vector<double>> const &,
                            double const, fk::vector<double, mem_type::view>);
-
-template fk::vector<float> sum_separable_funcs(
-    std::vector<md_func_type<float>> const &funcs,
-    std::vector<dimension<float>> const &dims,
-    adapt::distributed_grid<float> const &grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    int const degree, float const time);
-
 template fk::vector<double> sum_separable_funcs(
     std::vector<md_func_type<double>> const &funcs,
     std::vector<dimension<double>> const &dims,
     adapt::distributed_grid<double> const &grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const degree, double const time);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template fk::matrix<float>
+recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
+               int const index);
+template std::vector<fk::matrix<float>> gen_realspace_transform(
+    PDE<float> const &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
+template fk::vector<float> gen_realspace_nodes(int const degree,
+                                               int const level, float const min,
+                                               float const max);
+template std::vector<fk::matrix<float>> gen_realspace_transform(
+    std::vector<dimension<float>> const &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
+template std::vector<fk::matrix<float>> gen_realspace_transform(
+    std::vector<dimension_description<float>> const &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
+template void wavelet_to_realspace(
+    PDE<float> const &pde, fk::vector<float> const &wave_space,
+    elements::table const &table,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<float> &real_space);
+template void wavelet_to_realspace(
+    std::vector<dimension<float>> const &pde,
+    fk::vector<float> const &wave_space, elements::table const &table,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<float> &real_space);
+template void wavelet_to_realspace(
+    std::vector<dimension_description<float>> const &pde,
+    fk::vector<float> const &wave_space, elements::table const &table,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
+    fk::vector<float> &real_space);
+template fk::vector<float>
+combine_dimensions(int const, elements::table const &, int const, int const,
+                   std::vector<fk::vector<float>> const &, float const = 1.0);
+template void
+combine_dimensions<float>(int const, elements::table const &, int const,
+                          int const, std::vector<fk::vector<float>> const &,
+                          float const, fk::vector<float, mem_type::view>);
+template fk::vector<float> sum_separable_funcs(
+    std::vector<md_func_type<float>> const &funcs,
+    std::vector<dimension<float>> const &dims,
+    adapt::distributed_grid<float> const &grid,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    int const degree, float const time);
+#endif
+
 } // namespace asgard

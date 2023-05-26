@@ -8,7 +8,8 @@ static auto const quadrature_base_dir = gold_base_dir / "quadrature";
 
 using namespace asgard;
 
-TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", test_precs)
+TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
+                   test_precs)
 {
   SECTION("legendre(-1,0)")
   {
@@ -63,8 +64,8 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]", test_pre
   }
 }
 
-TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]", double,
-                   float)
+TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
+                   test_precs)
 {
   TestType const tol_factor =
       std::is_same<TestType, double>::value ? 1e-15 : 1e-6;

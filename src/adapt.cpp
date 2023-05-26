@@ -398,7 +398,11 @@ fk::vector<P> distributed_grid<P>::remove_elements(
   return y;
 }
 
-template class distributed_grid<float>;
+#ifdef ASGARD_ENABLE_DOUBLE
 template class distributed_grid<double>;
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
+template class distributed_grid<float>;
+#endif
 
 } // namespace asgard::adapt

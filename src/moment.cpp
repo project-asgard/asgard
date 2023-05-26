@@ -214,7 +214,12 @@ fk::vector<P> &moment<P>::create_realspace_moment(
   return this->realspace;
 }
 
-template class moment<float>;
+#ifdef ASGARD_ENABLE_DOUBLE
 template class moment<double>;
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
+template class moment<float>;
+#endif
+
 
 } // namespace asgard

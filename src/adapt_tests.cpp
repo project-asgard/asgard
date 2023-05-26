@@ -111,8 +111,8 @@ void test_adapt(parser const &problem, std::filesystem::path gold_base)
   REQUIRE(test_coarse == my_gold_coarse);
 }
 
-TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
-                   float)
+TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]",
+                   test_precs)
 {
   if (!is_active())
   {
@@ -130,7 +130,7 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]", double,
   test_adapt<TestType>(parse, adapt_base_dir / "continuity1_l4_d3_");
 }
 
-TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
+TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", test_precs)
 {
   if (!is_active())
   {
@@ -147,12 +147,12 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", double, float)
   // temporarily disable test for MPI due to table elements < num ranks
   if (get_num_ranks() == 1)
   {
-    test_adapt<double>(parse, adapt_base_dir / "continuity2_l5_d2_");
+    test_adapt<default_precision>(parse, adapt_base_dir / "continuity2_l5_d2_");
   }
 }
 
 TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
-                   double, float)
+                   test_precs)
 {
   if (!is_active())
   {
@@ -203,7 +203,7 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
   rmse_comparison(my_gold, test, tol_factor);
 }
 
-TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
+TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", test_precs)
 {
   auto const degree     = 4;
   auto const level      = 3;
@@ -222,7 +222,7 @@ TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", double, float)
+TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", test_precs)
 {
   if (!is_active())
   {

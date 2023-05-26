@@ -162,7 +162,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
 
     elements::table const table(o, *pde);
 
@@ -185,7 +185,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks  = 2;
@@ -216,7 +216,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_3, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks  = 4;
@@ -263,7 +263,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_6, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_6, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 9;
@@ -302,7 +302,7 @@ TEST_CASE("distribution plan function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 1;
@@ -319,7 +319,7 @@ TEST_CASE("distribution plan function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 2;
@@ -348,7 +348,7 @@ TEST_CASE("distribution plan function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<double>(PDE_opts::continuity_2, level, degree);
+    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 20;
@@ -360,8 +360,8 @@ TEST_CASE("distribution plan function", "[distribution]")
   }
 }
 
-TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]", float,
-                   double)
+TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
+                   test_precs)
 {
   if (!is_active())
   {
@@ -642,7 +642,7 @@ TEST_CASE("generate messages tests", "[distribution]")
   }
 }
 
-TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
+TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
 {
   if (!is_active())
   {
@@ -713,7 +713,7 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
+TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
 {
   if (!is_active())
   {
@@ -784,7 +784,7 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", float, double)
+TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", test_precs)
 {
   if (!is_active())
   {
@@ -1046,7 +1046,7 @@ void redistribute_vector_test(distribution_plan const &old_plan,
 }
 
 TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
-                   "[distribution]", float, double)
+                   "[distribution]", test_precs)
 {
   if (!is_active())
   {
@@ -1253,7 +1253,7 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 
 #ifdef ASGARD_USE_SCALAPACK
 
-TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", double, float)
+TEMPLATE_TEST_CASE("row_to_col_major", "[scalapack]", test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {

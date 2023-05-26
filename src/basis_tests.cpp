@@ -6,6 +6,16 @@
 #include <numeric>
 #include <random>
 
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+#define mtest_precs (double, resource::host), (double, resource::device), (float, resource::host), (float, resource::device)
+#else
+#define mtest_precs (double, resource::host), (double, resource::device)
+#endif
+#else
+#define mtest_precs (float, resource::host), (float, resource::device)
+#endif
+
 static auto const transformations_base_dir = gold_base_dir / "transformations";
 
 using namespace asgard;
@@ -79,7 +89,7 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
   rmse_comparison(scale_co, m_scale_co, tol_factor);
 }
 
-TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
+TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
@@ -123,7 +133,7 @@ void test_operator_two_scale(int const levels, int const degree)
 }
 
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
-                   "[transformations]", double)
+                   "[transformations]", test_precs)
 {
   SECTION("operator_two_scale(2, 2)")
   {
@@ -201,8 +211,7 @@ void test_fmwt_block_generation(int const level, int const degree)
 TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
 
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (double, resource::device),
-                       (float, resource::host), (float, resource::device))
+                       mtest_precs)
 {
   SECTION("level 2 degree 2")
   {
@@ -369,8 +378,7 @@ void test_fmwt_application(int const level, int const degree)
 TEMPLATE_TEST_CASE_SIG("wavelet transform", "[basis]",
 
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (double, resource::device),
-                       (float, resource::host), (float, resource::device))
+                       mtest_precs)
 {
   SECTION("level 2 degree 2")
   {

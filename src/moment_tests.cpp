@@ -18,7 +18,7 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
+TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
 {
   std::string const pde_choice = "diffusion_2";
   fk::vector<int> const levels{5, 5};
@@ -51,7 +51,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
   SECTION("Constructor") { moment<TestType> mymoment({md_func}); }
 }
 
-TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
+TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
 {
   std::string const pde_choice = "vlasov";
   fk::vector<int> const levels{4, 3};
