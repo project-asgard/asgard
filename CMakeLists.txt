@@ -365,16 +365,17 @@ if (ASGARD_USE_MATLAB)
 endif()
 
 #-------------------------------------------------------------------------------
-#  Define a asgard executable library.
+#  Define a asgard executable target.
 #-------------------------------------------------------------------------------
-add_executable (asgard)
-target_sources (asgard
+add_executable (asgard_exe)
+set_target_properties(asgard_exe PROPERTIES OUTPUT_NAME "asgard")
+target_sources (asgard_exe
                 PRIVATE
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp>
 )
-target_link_libraries (asgard PRIVATE libasgard)
+target_link_libraries (asgard_exe PRIVATE libasgard)
 if (${ASGARD_USE_PCH})
-    target_precompile_headers (asgard REUSE_FROM libasgard)
+    target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
 #-------------------------------------------------------------------------------
