@@ -53,7 +53,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
   }
 }
 
-TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", test_precs)
 {
   auto const pde_choice     = PDE_opts::diffusion_2;
   auto const gold_path      = coefficients_base_dir / "diffusion2_coefficients";
@@ -76,7 +76,7 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
 {
   auto const pde_choice     = PDE_opts::diffusion_1;
   auto const gold_path      = coefficients_base_dir / "diffusion1_coefficients";
@@ -91,8 +91,7 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
-                   float)
+TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", test_precs)
 {
   auto const pde_choice = PDE_opts::continuity_1;
   auto const gold_path  = coefficients_base_dir / "continuity1_coefficients";
@@ -107,7 +106,7 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", test_precs)
 {
   auto const pde_choice = PDE_opts::continuity_2;
   auto const gold_path  = coefficients_base_dir / "continuity2_coefficients";
@@ -130,7 +129,7 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", test_precs)
 {
   auto const gold_path  = coefficients_base_dir / "continuity3_coefficients";
   auto const pde_choice = PDE_opts::continuity_3;
@@ -153,7 +152,7 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", test_precs)
 {
   auto const gold_path  = coefficients_base_dir / "continuity6_coefficients";
   auto const pde_choice = PDE_opts::continuity_6;
@@ -177,7 +176,7 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", double, float)
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
-                   double, float)
+                   test_precs)
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case1;
   auto const gold_path =
@@ -194,7 +193,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case2 terms", "[coefficients]",
-                   double, float)
+                   test_precs)
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case2;
   auto const gold_path =
@@ -210,8 +209,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case2 terms", "[coefficients]",
   }
 }
 
-TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", double,
-                   float)
+TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", test_precs)
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_C;
   auto const gold_path =
@@ -228,7 +226,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", test_precs)
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_4p3;
   auto const gold_path =
@@ -245,7 +243,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", test_precs)
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_4p4;
   auto const gold_path =
@@ -262,7 +260,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", test_precs)
 {
   auto const pde_choice = PDE_opts::fokkerplanck_1d_4p5;
   auto const gold_path =
@@ -280,7 +278,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", double, float)
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
-                   double, float)
+                   test_precs)
 {
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck2_complete_coefficients";
@@ -364,7 +362,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
   }
 }
 
-TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", test_precs)
 {
   auto const gold_path =
       coefficients_base_dir / "vlasov_lb_full_f_coefficients";
@@ -394,7 +392,7 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", double, float)
   }
 }
 
-TEMPLATE_TEST_CASE("penalty check", "[coefficients]", double, float)
+TEMPLATE_TEST_CASE("penalty check", "[coefficients]", test_precs)
 {
   vector_func<TestType> ic = {partial_term<TestType>::null_vector_func};
   g_func_type<TestType> gfunc;

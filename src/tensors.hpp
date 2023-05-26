@@ -16,6 +16,16 @@
 
 namespace asgard
 {
+/*!
+ * \brief Default precision to use, double if enabled and float otherwise.
+ */
+#ifdef ASGARD_ENABLE_DOUBLE
+using default_precision = double;
+#else
+using default_precision = float;
+#endif
+
+
 /* tolerance for answer comparisons */
 #define TOL std::numeric_limits<P>::epsilon() * 2
 

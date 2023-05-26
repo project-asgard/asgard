@@ -137,8 +137,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
   return;
 }
 
-TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
-                   float)
+TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 {
   /* intead of recalculating the boundary condition vectors at each timestep,
      calculate for the
@@ -247,7 +246,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 }
 
 TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
-                   double, float)
+                   test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -294,8 +293,8 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
   }
 }
 
-TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
-                   float)
+TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
+                   test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 

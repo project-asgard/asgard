@@ -15,7 +15,7 @@ using namespace asgard;
 // FIXME look for another way to do this
 
 TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
-                   float, double, int)
+                   test_precs, int)
 {
   // set up the golden vector
   // orthogonality warnings: all of the tests depend on
@@ -454,7 +454,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   }
 } // end fk::vector constructors, copy/move
 
-TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
 
@@ -769,7 +769,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   }
 } // end fk::vector operators
 
-TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
   fk::vector<TestType> gold_copy(gold);
@@ -1022,8 +1022,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   }
 } // end fk::vector utilities
 
-TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
-                   int)
+TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold = {1, 3, 5, 7, 9};
 
@@ -1565,7 +1564,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 }
 
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
-                   double, float, int)
+                   test_precs, int)
 {
   // set up the golden matrix
   // clang-format off
@@ -1979,7 +1978,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
 
 } // end fk::matrix constructors, copy/move
 
-TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
 {
   // set up the golden matrix
   // clang-format off
@@ -2527,7 +2526,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   }
 } // end fk::matrix operators
 
-TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
 {
   // set up the golden matrix
   // clang-format off
@@ -3029,8 +3028,8 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   }
 } // end fk::matrix utilities
 
-TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
-                   float, int)
+TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
+                   test_precs, int)
 {
   // clang-format off
   fk::matrix<TestType> const gold = {{ 1,  3,  5,  7,  9},
@@ -3571,7 +3570,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", double, float)
+TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", test_precs)
 {
   fk::matrix<TestType> const m_0 = {{0, 4, 8, 12, 16, 20, 24, 28},
                                     {1, 5, 9, 13, 17, 21, 25, 29},

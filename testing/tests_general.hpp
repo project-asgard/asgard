@@ -23,6 +23,19 @@
  * Helper functions to facilitate testing.
  */
 
+/*!
+ * \brief Macro that expands to the compiled precisions
+ */
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+#define test_precs double, float
+#else
+#define test_precs double
+#endif
+#else
+#define test_precs float
+#endif
+
 static inline const std::filesystem::path gold_base_dir{ASGARD_GOLD_BASE_DIR};
 
 template<typename P>

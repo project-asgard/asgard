@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
   return result;
 }
 
-TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", float, double)
+TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 {
   /* vector 2-norm tests */
   fk::vector<TestType, mem_type::owner, resource::host> v = {

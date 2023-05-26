@@ -25,11 +25,7 @@
 #include "transformations.hpp"
 #include <numeric>
 
-#ifdef ASGARD_USE_DOUBLE_PREC
-using prec = double;
-#else
-using prec = float;
-#endif
+using prec = asgard::default_precision;
 
 int main(int argc, char **argv)
 {

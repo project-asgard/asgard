@@ -34,7 +34,7 @@ struct initial
 };
 
 TEMPLATE_TEST_CASE("testing construction of a basic field_description",
-                   "[field]", float, double)
+                   "[field]", test_precs)
 {
   parser const cli_input = make_empty_parser();
 
