@@ -65,6 +65,20 @@ enum class scalar_case
  * \param num_rows is the number of rows of the matrix with
  */
 template<typename T>
+void cpu_dense(int const dimensions, int const n, int const num_rows,
+               int const num_cols, int const num_terms, int const iA[],
+               T const vA[], T const alpha, T const x[], T const beta, T y[]);
+
+/*!
+ * \brief Sparse variant for the CPU.
+ *
+ * The inputs are the same with the exception of the pntr and indx
+ * that describe a standard sparse matrix in row-compressed format.
+ * The indexes cover the tensor, i.e., for the pair i, indx[pntr[i]]
+ * the Y offset is i * tensor-size and the X one is indx[pntr[i]] * tensor-size
+ * The length of pntr is num_rows+1 and indx is pntr[num_rows]
+ */
+template<typename T>
 void cpu_sparse(int const dimensions, int const n, int const num_rows,
                 int const pntr[], int const indx[], int const num_terms,
                 int const iA[], T const vA[], T const alpha, T const x[],
@@ -78,6 +92,21 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
  * The indexes and scalars alpha and beta are stored on the CPU.
  *
  * \b output_size is the total size of y, i.e., num_rows * n^dimensions
+ */
+template<typename T>
+void gpu_dense(int const dimensions, int const n, int const output_size,
+               int const num_batch, int const num_cols, int const num_terms,
+               int const iA[], T const vA[], T const alpha, T const x[],
+               T const beta, T y[]);
+
+/*!
+ * \brief Sparse variant for the GPU.
+ *
+ * The inputs are the same with the exception of the ix and iy that hold the
+ * offsets of the tensors for each product in the batch.
+ * The tensors for the i-th product are at ix[i] and iy[i] and there no need
+ * for multiplication by the tensor-size, also the length of ix[] and iy[]
+ * matches and equals num_batch.
  */
 template<typename T>
 void gpu_sparse(int const dimensions, int const n, int const output_size,

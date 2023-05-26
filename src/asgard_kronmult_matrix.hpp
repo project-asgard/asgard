@@ -139,15 +139,26 @@ public:
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
-    kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
-                         col_indx_.data(), row_indx_.data(), num_terms_,
-                         iA.data(), vA.data(), alpha, xdev.data(), beta,
-                         ydev.data());
+    if (row_indx_.size() == 0)
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
+                          num_cols_, num_terms_,
+                          iA.data(), vA.data(), alpha, xdev.data(), beta,
+                          ydev.data());
+    else
+      kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(), col_indx_.size(),
+                           col_indx_.data(), row_indx_.data(), num_terms_,
+                           iA.data(), vA.data(), alpha, xdev.data(), beta,
+                           ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
-                         row_indx_.data(), col_indx_.data(), num_terms_,
-                         iA.data(), vA.data(), alpha, x, beta, y);
+    if (row_indx_.size() == 0)
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_,
+                          num_cols_, num_terms_,
+                          iA.data(), vA.data(), alpha, x, beta, y);
+    else
+      kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
+                           row_indx_.data(), col_indx_.data(), num_terms_,
+                           iA.data(), vA.data(), alpha, x, beta, y);
 #endif
   }
 

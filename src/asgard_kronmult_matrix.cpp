@@ -138,46 +138,20 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
 
 #ifdef ASGARD_USE_CUDA
-  int tensor_size = kron_size;
-  for(int d=1; d<num_dimensions; d++)
-    tensor_size *= kron_size;
-
-  fk::vector<int> row_indx(num_rows * num_cols);
-  fk::vector<int> col_indx(num_rows * num_cols);
-
-  for(int i=0; i<num_rows; i++)
-  {
-    for(int j=0; j<num_cols; j++)
-    {
-      row_indx[i * num_cols + j] = i * tensor_size;
-      col_indx[i * num_cols + j] = j * tensor_size;
-    }
-  }
-
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms,
-                                    row_indx.clone_onto_device(),
-                                    col_indx.clone_onto_device(),
+                                    fk::vector<int, mem_type::owner, resource::device>(),
+                                    fk::vector<int, mem_type::owner, resource::device>(),
                                     iA.clone_onto_device(),
                                     vA.clone_onto_device());
 #else
-  fk::vector<int> pntr(num_rows + 1);
-  fk::vector<int> indx(num_rows * num_cols);
-
-  for(int i=0; i<num_rows; i++)
-  {
-    pntr[i] = i * num_cols;
-    for(int j=0; j<num_cols; j++)
-      indx[pntr[i] + j]= j;
-  }
-  pntr[num_rows] = indx.size();
-
   // if using the CPU, move the vectors into the matrix structure
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms, std::move(pntr),
-                                    std::move(indx), std::move(iA),
-                                    std::move(vA));
+                                    num_cols, num_terms,
+                                    fk::vector<int, mem_type::owner, resource::host>(),
+                                    fk::vector<int, mem_type::owner, resource::host>(),
+                                    std::move(iA), std::move(vA));
 #endif
 }
 

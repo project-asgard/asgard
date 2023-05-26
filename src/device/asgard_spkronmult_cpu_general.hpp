@@ -71,9 +71,9 @@ private:
 
 template<typename T, int dimensions, scalar_case alpha_case,
          scalar_case beta_case>
-void cpu_dense(int const n, int const num_rows, int const num_cols,
-               int const num_terms, int const iA[], T const vA[], T const alpha,
-               T const x[], T const beta, T y[])
+void cpu_sparse(int const n, int const num_rows, int const pntr[], int const indx[],
+                int const num_terms, int const iA[], T const vA[], T const alpha,
+                T const x[], T const beta, T y[])
 {
   (void)alpha;
   (void)beta;
@@ -99,12 +99,12 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
           y[ti + j] *= beta;
 
       // ma is the starting index of the operators for this y
-      int ma = iy * num_cols * num_terms * dimensions;
+      int ma = pntr[iy] * num_terms * dimensions;
 
-      for (int jx = 0; jx < num_cols; jx++)
+      for (int jx = pntr[iy]; jx < pntr[iy+1]; jx++)
       {
         // tensor i (ti) is the first index of this tensor in x
-        int const tj = jx * Y.size();
+        int const tj = indx[jx] * Y.size();
         for (int t = 0; t < num_terms; t++)
         {
           if constexpr (dimensions == 1)

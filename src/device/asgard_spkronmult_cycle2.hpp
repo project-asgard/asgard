@@ -15,7 +15,7 @@ namespace asgard::kronmult::kernel
 template<typename T, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-cycle2(int const num_batch, int const num_cols, int const num_terms,
+cycle2(int const num_batch, int const ix[], int const iy[], int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
   (void)alpha;
@@ -128,17 +128,17 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
     T yinc1 = 0;
     int ma  = i * num_terms * dims;
 
-    T rawx0 = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x];
+    T rawx0 = x[ix[i] + threadIdx.x];
     T rawx1 = 0;
     if constexpr (num_second_cycle == team_size)
     {
-      rawx1 = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x + team_size];
+      rawx1 = x[ix[i] + threadIdx.x + team_size];
     }
     else
     {
       if (threadIdx.x < num_second_cycle)
         rawx1 =
-            x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x + team_size];
+            x[ix[i] + threadIdx.x + team_size];
     }
 
     for (int t = 0; t < num_terms; t++)
@@ -321,54 +321,45 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
 
     if constexpr (alpha_case == scalar_case::one)
     {
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], yinc0);
+      atomicAdd(&y[iy[i] + threadIdx.x], yinc0);
       if constexpr (num_second_cycle == team_size)
       {
         atomicAdd(
-            &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
+            &y[iy[i] + threadIdx.x + team_size],
             yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
           atomicAdd(
-              &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
+              &y[iy[i] + threadIdx.x + team_size],
               yinc1);
       }
     }
     else if constexpr (alpha_case == scalar_case::neg_one)
     {
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], -yinc0);
+      atomicAdd(&y[iy[i] + threadIdx.x], -yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-            -yinc1);
+        atomicAdd(&y[iy[i] + threadIdx.x + team_size], -yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-              -yinc1);
+          atomicAdd(&y[iy[i] + threadIdx.x + team_size], -yinc1);
       }
     }
     else
     {
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x],
-                alpha * yinc0);
+      atomicAdd(&y[iy[i] + threadIdx.x], alpha * yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-            alpha * yinc1);
+        atomicAdd(&y[iy[i] + threadIdx.x + team_size], alpha * yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-              alpha * yinc1);
+          atomicAdd(&y[iy[i] + threadIdx.x + team_size], alpha * yinc1);
       }
     }
 
