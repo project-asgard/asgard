@@ -343,6 +343,7 @@ target_compile_definitions (asgard_obj
 if (ASGARD_USE_CUDA)
 
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
     target_compile_options (asgard_obj

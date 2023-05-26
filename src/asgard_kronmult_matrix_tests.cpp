@@ -17,7 +17,10 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
                      get_tolerance<T>(scale));
 }
 
-template<typename T>
+constexpr bool sparse_mode = true;
+constexpr bool dense_mode  = false;
+
+template<typename T, bool matrix_mode = sparse_mode>
 void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
                    int num_matrices)
 {
@@ -46,15 +49,21 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
   for(int d=1; d<dimensions; d++)
     tensor_size *= n;
 
-  asgard::fk::vector<int> row_indx(num_rows * num_rows);
-  asgard::fk::vector<int> col_indx(num_rows * num_rows);
+  asgard::fk::vector<int> row_indx;
+  asgard::fk::vector<int> col_indx;
 
-  for(int i=0; i<num_rows; i++)
+  if (matrix_mode == sparse_mode)
   {
-    for(int j=0; j<num_rows; j++)
+     row_indx = asgard::fk::vector<int> (num_rows * num_rows);
+     col_indx = asgard::fk::vector<int> (num_rows * num_rows);
+
+    for(int i=0; i<num_rows; i++)
     {
-      row_indx[i * num_rows + j] = i * tensor_size;
-      col_indx[i * num_rows + j] = j * tensor_size;
+      for(int j=0; j<num_rows; j++)
+      {
+        row_indx[i * num_rows + j] = i * tensor_size;
+        col_indx[i * num_rows + j] = j * tensor_size;
+      }
     }
   }
 
@@ -69,16 +78,23 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
       asgard::fk::vector<T, asgard::mem_type::const_view,
                          asgard::resource::host>(vA));
 #else
-  asgard::fk::vector<int> pntr(num_rows + 1);
-  asgard::fk::vector<int> indx(num_rows * num_rows);
 
-  for(int i=0; i<num_rows; i++)
+  asgard::fk::vector<int> pntr;
+  asgard::fk::vector<int> indx;
+
+  if (matrix_mode == sparse_mode)
   {
-    pntr[i] = i * num_rows;
-    for(int j=0; j<num_rows; j++)
-      indx[pntr[i] + j]= j;
+    for(int i=0; i<num_rows; i++)
+    {
+      pntr = asgard::fk::vector<int>(num_rows + 1);
+      indx = asgard::fk::vector<int>(num_rows * num_rows);
+
+      pntr[i] = i * num_rows;
+      for(int j=0; j<num_rows; j++)
+        indx[pntr[i] + j]= j;
+    }
+    pntr[num_rows] = indx.size();
   }
-  pntr[num_rows] = indx.size();
 
   asgard::kronmult_matrix<T> kmat(dimensions, n, num_rows, num_rows, num_terms,
                                   std::move(pntr), std::move(indx),
@@ -120,37 +136,43 @@ TEMPLATE_TEST_CASE("testing kronmult cpu general", "[execute_cpu]", prec)
 TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[execute_cpu 1d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6);
-  test_kronmult<TestType>(1, n, 11, 2, 7);
+  test_kronmult<TestType, sparse_mode>(1, n, 11, 2, 7);
+  test_kronmult<TestType, dense_mode>(1, n, 11, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 2d", "[execute_cpu 2d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType>(2, n, 12, 3, 7);
+  test_kronmult<TestType, sparse_mode>(2, n, 12, 3, 7);
+  test_kronmult<TestType, dense_mode>(2, n, 12, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[execute_cpu 3d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType>(3, n, 12, 2, 7);
+  test_kronmult<TestType, sparse_mode>(3, n, 12, 2, 7);
+  test_kronmult<TestType, dense_mode>(3, n, 12, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[execute_cpu 4d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType>(4, n, 9, 2, 7);
+  test_kronmult<TestType, sparse_mode>(4, n, 9, 2, 7);
+  test_kronmult<TestType, dense_mode>(4, n, 9, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 5d", "[execute_cpu 5d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult<TestType>(5, n, 11, 3, 7);
+  test_kronmult<TestType, sparse_mode>(5, n, 11, 3, 7);
+  test_kronmult<TestType, dense_mode>(5, n, 11, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4);
-  test_kronmult<TestType>(6, n, 9, 2, 7);
+  test_kronmult<TestType, sparse_mode>(6, n, 9, 2, 7);
+  test_kronmult<TestType, dense_mode>(6, n, 9, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", prec)
@@ -165,7 +187,8 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", prec)
 TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", prec)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  test_kronmult<TestType>(1, n, 11, 2, 7);
+  test_kronmult<TestType, dense_mode>(1, n, 11, 2, 7);
+  test_kronmult<TestType, sparse_mode>(1, n, 11, 2, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", prec)
