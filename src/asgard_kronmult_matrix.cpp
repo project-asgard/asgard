@@ -51,10 +51,6 @@ make_kronmult_dense(PDE<precision> const &pde,
       num_rows * num_cols * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
 
-#ifdef ASGARD_USE_CUDA
-  std::cout << "  kronmult dense matrix allocation (MB): "
-            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) << "\n";
-#endif
   // will print the command to use for performance testing
   // std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " <<
   // kron_size
@@ -136,6 +132,9 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::cout << "        Gflops per call: " << flops * 1.E-9 << "\n";
 
 #ifdef ASGARD_USE_CUDA
+  std::cout << "  kronmult dense matrix allocation (MB): "
+            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) << "\n";
+
   // if using CUDA, copy the matrices onto the GPU
   return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                     num_cols, num_terms, iA.clone_onto_device(),
