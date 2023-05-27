@@ -209,7 +209,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", test_precs)
+TEMPLATE_TEST_CASE("testing continuity 3 implementations", "[pde]", test_precs)
 {
   auto const level  = 5;
   auto const degree = 4;
@@ -243,7 +243,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", test_precs)
+TEMPLATE_TEST_CASE("testing continuity 6 implementations", "[pde]", test_precs)
 {
   auto const level    = 3;
   auto const pde      = make_PDE<TestType>(PDE_opts::continuity_6, level);
@@ -403,7 +403,7 @@ TEST_CASE("testing pde term selection", "[pde]")
   std::string const active_terms = "1 1 0 1 0 1";
 
   parser const parse = make_parser({"-p", pde_choice, "--terms", active_terms});
-  auto const pde     = make_PDE<float>(parse);
+  auto const pde     = make_PDE<default_precision>(parse);
 
   REQUIRE(pde->num_terms == 4);
   REQUIRE(pde->get_terms().size() == 4);
