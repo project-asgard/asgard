@@ -763,13 +763,13 @@ P get_global_max(no_deduce<P> const my_max, distribution_plan const &plan)
   // split into rows
   MPI_Comm row_communicator;
   MPI_Comm const global_communicator = distro_handle.get_global_comm();
-  auto const num_cols                = get_num_subgrid_cols(plan.size());
-  auto const my_rank                 = get_rank();
-  auto const my_row                  = my_rank / num_cols;
-  auto const my_col                  = my_rank % num_cols;
-  auto success =
+  int const num_cols                 = get_num_subgrid_cols(plan.size());
+  int const my_rank                  = get_rank();
+  int const my_row                   = my_rank / num_cols;
+  int const my_col                   = my_rank % num_cols;
+  int success =
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
 
   // get max
   MPI_Datatype const mpi_type = []()->MPI_Datatype
@@ -787,9 +787,9 @@ P get_global_max(no_deduce<P> const my_max, distribution_plan const &plan)
   P global_max;
   success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_MAX,
                           row_communicator);
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
   success = MPI_Comm_free(&row_communicator);
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
 
 #else
   expect(plan.size() == 1);
@@ -810,7 +810,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 #ifdef ASGARD_USE_MPI
   // determine size of everyone's messages
-  auto const my_rank      = get_rank();
+  int const my_rank      = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
     std::vector<int> output(plan.size());
     expect(my_changes.size() < INT_MAX);
@@ -818,9 +818,9 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
     expect(plan.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(plan.size()); ++i)
     {
-      auto const success = MPI_Bcast(output.data() + i, 1, MPI_INT, i,
-                                     distro_handle.get_global_comm());
-      expect(success == 0);
+      int const success = MPI_Bcast(output.data() + i, 1, MPI_INT, i,
+                                    distro_handle.get_global_comm());
+      expect(success == MPI_SUCCESS);
     }
     return output;
   }();
@@ -848,7 +848,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
       all_changes.data(), num_messages.data(), displacements.data(),
       MPI_INT64_T, distro_handle.get_global_comm());
 
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
 
   return all_changes;
 
