@@ -257,22 +257,6 @@ public:
            typename = disable_for_const_view<m_>>
   vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
 
-  // converting constructor/assignment overloads
-  /*! copy constructor creates owner from views
-   * \param other view used to create new owner
-   */
-  //template<typename PP, mem_type omem, mem_type m_ = mem,
-  //         typename = enable_for_owner<m_>, resource r_ = resrc,
-  //         typename = enable_for_host<r_>>
-  //explicit vector(vector<PP, omem> const &);
-  /*! copy assignment creates owner from views
-   * \param other view used to create new owner
-   */
-  template<typename PP, mem_type omem, mem_type m_ = mem,
-           typename = disable_for_const_view<m_>, resource r_ = resrc,
-           typename = enable_for_host<r_>>
-  vector<P, mem> &operator=(vector<PP, omem> const &);
-
   /*! Copy from host memory to device memory
    *  \return new device vector
    */
@@ -1203,27 +1187,6 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> &&a)
   P *const temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
-  return *this;
-}
-
-//
-// converting vector assignment overload
-// this can probably be optimized better. see:
-// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
-//
-template<typename P, mem_type mem, resource resrc>
-template<typename PP, mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem> &
-fk::vector<P, mem, resrc>::operator=(vector<PP, omem> const &a)
-{
-  expect(size() == a.size());
-
-  size_ = a.size();
-  for (auto i = 0; i < a.size(); ++i)
-  {
-    (*this)(i) = static_cast<P>(a(i));
-  }
-
   return *this;
 }
 
