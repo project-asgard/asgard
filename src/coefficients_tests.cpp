@@ -38,7 +38,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
     {
       auto const filename = filename_base + std::to_string(t + 1) + "_" +
                             std::to_string(d + 1) + ".dat";
-      auto const gold = fk::matrix<P>(read_matrix_from_txt_file(filename));
+      fk::matrix<P> const gold = read_matrix_from_txt_file<P>(filename);
 
       auto const full_coeff = pde->get_coefficients(t, d);
 
@@ -320,8 +320,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
 
   SECTION("pterm lhs mass")
   {
-    auto const gold = fk::matrix<TestType>(
-        read_matrix_from_txt_file(std::string(gold_path) + "_lhsmass.dat"));
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file<TestType>(std::string(gold_path) + "_lhsmass.dat");
 
     auto const levels = fk::vector<int>{4, 4};
     int const degree  = 4;

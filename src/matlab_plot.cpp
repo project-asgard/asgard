@@ -209,8 +209,8 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   // TODO: fully implement the output_grid options from matlab (this is just
   // the 'else' case)
-  auto const lgwt  = legendre_weights(degree, -1.0, 1.0, true);
-  auto const roots = lgwt[0];
+  fk::vector<T> const lgwt = legendre_weights<T>(degree, -1.0, 1.0, true);
+  T const roots = lgwt[0];
 
   unsigned int const dof = roots.size();
 
@@ -218,7 +218,7 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   for (int i = 0; i < n; i++)
   {
-    auto p_val = legendre(roots, degree, legendre_normalization::lin);
+    fk::vector<T> p_val = legendre(roots, degree, legendre_normalization::lin);
 
     p_val[0] = p_val[0] * sqrt(1.0 / h);
 
@@ -692,16 +692,9 @@ inline int matlab_plot::get_soln_size(PDE<P> const &pde, int const dim) const
 }
 
 /* explicit instantiations */
-template void matlab_plot::push(std::string const &name,
-                                fk::vector<float> const &data,
-                                ml_wksp_type const type);
-
+#ifdef ASGARD_ENABLE_DOUBLE
 template void matlab_plot::push(std::string const &name,
                                 fk::vector<double> const &data,
-                                ml_wksp_type const type);
-
-template void matlab_plot::push(std::string const &name,
-                                fk::matrix<float> const &data,
                                 ml_wksp_type const type);
 
 template void matlab_plot::push(std::string const &name,
@@ -712,50 +705,23 @@ template fk::vector<double>
 matlab_plot::generate_nodes(int const degree, int const level, double const min,
                             double const max) const;
 
-template fk::vector<float>
-matlab_plot::generate_nodes(int const degree, int const level, float const min,
-                            float const max) const;
-
 template fk::vector<double>
 matlab_plot::gen_elem_coords(PDE<double> const &pde,
-                             elements::table const &table) const;
-
-template fk::vector<float>
-matlab_plot::gen_elem_coords(PDE<float> const &pde,
                              elements::table const &table) const;
 
 template fk::vector<double>
 matlab_plot::gen_elem_coords(std::vector<dimension<double>> const &pde,
                              elements::table const &table) const;
 
-template fk::vector<float>
-matlab_plot::gen_elem_coords(std::vector<dimension<float>> const &pde,
-                             elements::table const &table) const;
-
 template fk::vector<double> matlab_plot::gen_elem_coords(
     std::vector<dimension_description<double>> const &pde,
-    elements::table const &table) const;
-
-template fk::vector<float> matlab_plot::gen_elem_coords(
-    std::vector<dimension_description<float>> const &pde,
     elements::table const &table) const;
 
 template void matlab_plot::init_plotting(PDE<double> const &pde,
                                          elements::table const &table);
 
 template void
-matlab_plot::init_plotting(PDE<float> const &pde, elements::table const &table);
-
-template void
-matlab_plot::init_plotting(std::vector<dimension<float>> const &pde,
-                           elements::table const &table);
-
-template void
 matlab_plot::init_plotting(std::vector<dimension<double>> const &pde,
-                           elements::table const &table);
-
-template void
-matlab_plot::init_plotting(std::vector<dimension_description<float>> const &pde,
                            elements::table const &table);
 
 template void matlab_plot::init_plotting(
@@ -767,20 +733,10 @@ template void matlab_plot::plot_fval(PDE<double> const &pde,
                                      fk::vector<double> const &f_val,
                                      fk::vector<double> const &analytic_soln);
 
-template void matlab_plot::plot_fval(PDE<float> const &pde,
-                                     elements::table const &table,
-                                     fk::vector<float> const &f_val,
-                                     fk::vector<float> const &analytic_soln);
-
 template void matlab_plot::plot_fval(std::vector<dimension<double>> const &dims,
                                      elements::table const &table,
                                      fk::vector<double> const &f_val,
                                      fk::vector<double> const &analytic_soln);
-
-template void matlab_plot::plot_fval(std::vector<dimension<float>> const &pde,
-                                     elements::table const &table,
-                                     fk::vector<float> const &f_val,
-                                     fk::vector<float> const &analytic_soln);
 
 template void
 matlab_plot::plot_fval(std::vector<dimension_description<double>> const &dims,
@@ -789,6 +745,63 @@ matlab_plot::plot_fval(std::vector<dimension_description<double>> const &dims,
                        fk::vector<double> const &analytic_soln);
 
 template void
+matlab_plot::copy_pde(PDE<double> const &pde, std::string const name);
+
+template matlab::data::StructArray
+matlab_plot::make_term(term<double> const &term, int const max_lev);
+
+
+template matlab::data::StructArray
+matlab_plot::make_partial_term(partial_term<double> const &pterm,
+                               int const max_lev);
+
+template matlab::data::StructArray
+matlab_plot::make_dimension(dimension<double> const &dim);
+
+template fk::vector<double>
+matlab_plot::col_slice(fk::vector<double> const &vec, int const n,
+                       int const col) const;
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template void matlab_plot::push(std::string const &name,
+                                fk::vector<float> const &data,
+                                ml_wksp_type const type);
+template void matlab_plot::push(std::string const &name,
+                                fk::matrix<float> const &data,
+                                ml_wksp_type const type);
+template fk::vector<float>
+matlab_plot::generate_nodes(int const degree, int const level, float const min,
+                            float const max) const;
+template fk::vector<float>
+matlab_plot::gen_elem_coords(PDE<float> const &pde,
+                             elements::table const &table) const;
+template fk::vector<float>
+matlab_plot::gen_elem_coords(std::vector<dimension<float>> const &pde,
+                             elements::table const &table) const;
+
+template fk::vector<float> matlab_plot::gen_elem_coords(
+    std::vector<dimension_description<float>> const &pde,
+    elements::table const &table) const;
+
+template void
+matlab_plot::init_plotting(PDE<float> const &pde, elements::table const &table);
+
+template void
+matlab_plot::init_plotting(std::vector<dimension<float>> const &pde,
+                           elements::table const &table);
+template void
+matlab_plot::init_plotting(std::vector<dimension_description<float>> const &pde,
+                           elements::table const &table);
+template void matlab_plot::plot_fval(PDE<float> const &pde,
+                                     elements::table const &table,
+                                     fk::vector<float> const &f_val,
+                                     fk::vector<float> const &analytic_soln);
+template void matlab_plot::plot_fval(std::vector<dimension<float>> const &pde,
+                                     elements::table const &table,
+                                     fk::vector<float> const &f_val,
+                                     fk::vector<float> const &analytic_soln);
+template void
 matlab_plot::plot_fval(std::vector<dimension_description<float>> const &pde,
                        elements::table const &table,
                        fk::vector<float> const &f_val,
@@ -796,32 +809,20 @@ matlab_plot::plot_fval(std::vector<dimension_description<float>> const &pde,
 
 template void
 matlab_plot::copy_pde(PDE<float> const &pde, std::string const name);
-template void
-matlab_plot::copy_pde(PDE<double> const &pde, std::string const name);
 
 template matlab::data::StructArray
 matlab_plot::make_term(term<float> const &term, int const max_lev);
-template matlab::data::StructArray
-matlab_plot::make_term(term<double> const &term, int const max_lev);
 
 template matlab::data::StructArray
 matlab_plot::make_partial_term(partial_term<float> const &pterm,
                                int const max_lev);
-template matlab::data::StructArray
-matlab_plot::make_partial_term(partial_term<double> const &pterm,
-                               int const max_lev);
 
 template matlab::data::StructArray
 matlab_plot::make_dimension(dimension<float> const &dim);
-template matlab::data::StructArray
-matlab_plot::make_dimension(dimension<double> const &dim);
-
-template fk::vector<double>
-matlab_plot::col_slice(fk::vector<double> const &vec, int const n,
-                       int const col) const;
 
 template fk::vector<float> matlab_plot::col_slice(fk::vector<float> const &vec,
                                                   int const n,
                                                   int const col) const;
+#endif
 
 } // namespace asgard::ml

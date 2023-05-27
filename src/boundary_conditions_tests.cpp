@@ -43,8 +43,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
       unscaled_parts[0], unscaled_parts[1], pde, start_element, stop_element,
       test_time);
 
-  fk::vector<P> const gold_bc_vector =
-      fk::vector<P>(read_vector_from_txt_file(gold_filename));
+  fk::vector<P> const gold_bc_vector = read_vector_from_txt_file<P>(gold_filename);
 
   rmse_comparison(gold_bc_vector, bc_advanced, tol_factor);
 
@@ -110,7 +109,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
           /* compare to gold left bc */
           fk::vector<P> const gold_left_bc_vector =
-              fk::vector<P>(read_vector_from_txt_file(gold_filename));
+              read_vector_from_txt_file<P>(gold_filename);
           rmse_comparison(gold_left_bc_vector, left_bc, tol_factor);
         }
 
@@ -127,7 +126,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
           std::string const gold_right_filename =
               std::regex_replace(gold_filename, std::regex("bcL"), "bcR");
           fk::vector<P> const gold_right_bc_vector =
-              fk::vector<P>(read_vector_from_txt_file(gold_right_filename));
+              read_vector_from_txt_file<P>(gold_right_filename);
           rmse_comparison(gold_right_bc_vector, right_bc, tol_factor);
         }
       }

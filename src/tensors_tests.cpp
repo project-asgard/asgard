@@ -237,56 +237,6 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     test_v = gold_v;
     REQUIRE(test_v == gold);
   }
-  SECTION("converting construction (from owners)")
-  {
-    fk::vector<int> testi(gold);
-    // fk::vector<int, mem_type::view> testi_v(gold); // disabled
-    REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(gold);
-    // fk::vector<float, mem_type::view> testf_v(gold);
-    REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
-    fk::vector<double> testd(gold);
-    // fk::vector<double, mem_type::view> testd_v(gold);
-    REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting construction (from views")
-  {
-    fk::vector<TestType> gold_copy(gold);
-    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
-    fk::vector<int> testi(gold_v);
-    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
-    REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(gold_v);
-    // fk::vector<float, mem_type::view> testf_v(gold_v);
-    REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
-    fk::vector<double> testd(gold_v);
-    // fk::vector<double, mem_type::view> testd_v(gold_v);
-    REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting construction (from const views)")
-  {
-    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
-    fk::vector<int> testi(gold_v);
-    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
-    REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(gold_v);
-    // fk::vector<float, mem_type::view> testf_v(gold_v);
-    REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
-    fk::vector<double> testd(gold_v);
-    // fk::vector<double, mem_type::view> testd_v(gold_v);
-    REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
-  }
 
   SECTION("converting assignment (from owners)")
   {

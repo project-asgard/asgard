@@ -412,15 +412,19 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
+#ifdef ASGARD_ENABLE_DOUBLE
 template std::array<fk::matrix<double>, 6>
 generate_multi_wavelets(int const degree);
-template std::array<fk::matrix<float>, 6>
-generate_multi_wavelets(int const degree);
-
 template fk::matrix<double>
 operator_two_scale(int const degree, int const num_levels);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template std::array<fk::matrix<float>, 6>
+generate_multi_wavelets(int const degree);
 template fk::matrix<float>
 operator_two_scale(int const degree, int const num_levels);
+#endif
 
 namespace basis
 {

@@ -125,15 +125,15 @@ gen_realspace_nodes(int const degree, int const level, P const min, P const max)
   int const n        = pow(2, level);
   int const mat_dims = degree * n;
   P const h          = (max - min) / n;
-  auto const lgwt    = legendre_weights(degree, -1.0, 1.0, true);
-  auto const roots   = lgwt[0];
+  auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, true);
+  auto const roots = lgwt[0];
 
   unsigned int const dof = roots.size();
 
   fk::vector<P> nodes(mat_dims);
   for (int i = 0; i < n; i++)
   {
-    auto p_val = legendre(roots, degree, legendre_normalization::lin);
+    auto p_val = legendre<P>(roots, degree, legendre_normalization::lin);
 
     p_val[0] = p_val[0] * sqrt(1.0 / h);
 

@@ -22,10 +22,9 @@ void test_element_table(PDE_opts const pde_choice,
   auto const pde = make_PDE<default_precision>(cli_mock);
   elements::table const elem_table(opts, *pde);
 
-  auto const gold_table =
-      fk::matrix<int>(read_matrix_from_txt_file(gold_filename));
-  auto const gold_ids = fk::vector<double>(read_vector_from_txt_file(
-      std::regex_replace(gold_filename, std::regex("table_"), "ids_")));
+  fk::matrix<int> const gold_table = read_matrix_from_txt_file<int>(gold_filename);
+  fk::vector<int> const gold_ids = read_vector_from_txt_file<int>(
+      std::regex_replace(gold_filename, std::regex("table_"), "ids_"));
 
   // test size
   REQUIRE(elem_table.size() == gold_table.nrows());
@@ -75,8 +74,8 @@ void test_child_discovery(PDE_opts const pde_choice,
   auto const pde = make_PDE<default_precision>(cli_mock);
   elements::table const elem_table(opts, *pde);
 
-  auto const gold_child_vect =
-      fk::vector<int>(read_vector_from_txt_file(gold_filename));
+  fk::vector<int> const gold_child_vect =
+      read_vector_from_txt_file<int>(gold_filename);
   std::list<int64_t> gold_child_ids(gold_child_vect.begin(),
                                     gold_child_vect.end());
 

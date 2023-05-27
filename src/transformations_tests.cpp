@@ -49,8 +49,8 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   }
   distribution_plan const plan = get_plan(num_ranks, t);
 
-  fk::vector<P> const gold = fk::vector<P>(
-      read_vector_from_txt_file(transformations_base_dir / filename));
+  fk::vector<P> const gold =
+      read_vector_from_txt_file<P>(transformations_base_dir / filename);
   fk::vector<P> test(gold.size());
   for (auto const &[rank, grid] : plan)
   {
@@ -128,10 +128,10 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
 
-    auto const gold = fk::vector<TestType>(read_vector_from_txt_file(
+    auto const gold = read_vector_from_txt_file<TestType>(
         transformations_base_dir /
         ("forward_transform_" + std::to_string(degree) + "_" +
-         std::to_string(levels) + "_neg1_pos1_double.dat")));
+         std::to_string(levels) + "_neg1_pos1_double.dat"));
 
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_it, tenth_func, transformer);
@@ -162,10 +162,10 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
                                                                          *pde);
 
     fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(
+        read_vector_from_txt_file<TestType>(
             transformations_base_dir /
             ("forward_transform_" + std::to_string(degree) + "_" +
-             std::to_string(levels) + "_neg2_pos2_doubleplus.dat")));
+             std::to_string(levels) + "_neg2_pos2_doubleplus.dat"));
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus, tenth_func, transformer);
 
@@ -216,7 +216,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   wavelet_to_realspace<P>(pde, wave_space, table, transformer, tmp_workspace,
                           real_space);
 
-  auto const gold = fk::vector<P>(read_vector_from_txt_file(gold_filename));
+  auto const gold = read_vector_from_txt_file<P>(gold_filename);
 
   rmse_comparison(gold, real_space, tol_factor);
 }
@@ -277,8 +277,8 @@ void test_gen_realspace_transform(PDE<P> const &pde,
 
   for (int i = 0; i < static_cast<int>(transforms.size()); ++i)
   {
-    fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(
-        gold_directory / (gold_filename + std::to_string(i) + ".dat")));
+    fk::matrix<P> const gold = read_matrix_from_txt_file<P>(
+        gold_directory / (gold_filename + std::to_string(i) + ".dat"));
     rmse_comparison(gold, transforms[i], tol_factor);
   }
 }

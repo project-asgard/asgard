@@ -63,15 +63,15 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
     else
     {
       fk::matrix<P> const h0_out =
-          fk::matrix<P>(read_matrix_from_txt_file(h0_string));
+          read_matrix_from_txt_file<P>(h0_string);
       fk::matrix<P> const h1_out =
-          fk::matrix<P>(read_matrix_from_txt_file(h1_string));
+          read_matrix_from_txt_file<P>(h1_string);
       fk::matrix<P> const g0_out =
-          fk::matrix<P>(read_matrix_from_txt_file(g0_string));
+          read_matrix_from_txt_file<P>(g0_string);
       fk::matrix<P> const g1_out =
-          fk::matrix<P>(read_matrix_from_txt_file(g1_string));
+          read_matrix_from_txt_file<P>(g1_string);
       fk::matrix<P> const scale_co_out =
-          fk::matrix<P>(read_matrix_from_txt_file(scale_string));
+          read_matrix_from_txt_file<P>(scale_string);
       return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out,
                                           scale_co_out};
     }
@@ -79,7 +79,7 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
 
   std::string const phi_string = out_base + "phi_co.dat";
   fk::matrix<P> const phi_co   = fk::matrix<P>(
-      read_matrix_from_txt_file(transformations_base_dir / phi_string));
+      read_matrix_from_txt_file<P>(transformations_base_dir / phi_string));
 
   rmse_comparison(h0, m_h0, tol_factor);
   rmse_comparison(h1, m_h1, tol_factor);
@@ -124,7 +124,7 @@ void test_operator_two_scale(int const levels, int const degree)
   auto filename = transformations_base_dir /
                   ("operator_two_scale_" + std::to_string(degree) + "_" +
                    std::to_string(levels) + ".dat");
-  fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file(filename));
+  fk::matrix<P> const gold = fk::matrix<P>(read_matrix_from_txt_file<P>(filename));
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
 
   auto constexpr tol_factor = get_tolerance<P>(100);
@@ -194,8 +194,7 @@ void test_fmwt_block_generation(int const level, int const degree)
     std::string const gold_str = "transform_blocks_l" + std::to_string(level) +
                                  "_d" + std::to_string(degree) + "_" +
                                  std::to_string(++ctr) + ".dat";
-    auto const gold =
-        fk::matrix<P>(read_matrix_from_txt_file(basis_base_dir / gold_str));
+    fk::matrix<P> const gold = read_matrix_from_txt_file<P>(basis_base_dir / gold_str);
 
     if constexpr (resrc == resource::host)
     {

@@ -95,7 +95,7 @@ void time_advance_test(parser const &parse,
     auto const file_path =
         filepath.parent_path() /
         (filepath.filename().string() + std::to_string(i) + ".dat");
-    auto const gold = fk::vector<P>(read_vector_from_txt_file(file_path));
+    auto const gold = read_vector_from_txt_file<P>(file_path);
 
     // each rank generates partial answer
     auto const dof =

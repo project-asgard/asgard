@@ -5,7 +5,7 @@
 
 using namespace asgard;
 
-TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", double, float, int)
+TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", test_precs , int)
 {
   SECTION("check it writes the correct file")
   {

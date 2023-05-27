@@ -18,9 +18,8 @@ void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
   auto const filename = base_dir.filename().string();
   for (auto i = 0; i < pde.num_dims; ++i)
   {
-    auto const gold =
-        fk::vector<P>(read_vector_from_txt_file(base_dir.replace_filename(
-            filename + "initial_dim" + std::to_string(i) + ".dat")));
+    auto const gold = read_vector_from_txt_file<P>(base_dir.replace_filename(
+            filename + "initial_dim" + std::to_string(i) + ".dat"));
     auto const fx = pde.get_dimensions()[i].initial_condition[0](x, 0);
 
     auto constexpr tol_factor = get_tolerance<P>(10);
@@ -42,9 +41,8 @@ void test_exact_solution(PDE<P> const &pde, std::filesystem::path base_dir,
   auto const filename       = base_dir.filename().string();
   for (auto i = 0; i < pde.num_dims; ++i)
   {
-    auto const gold =
-        fk::vector<P>(read_vector_from_txt_file(base_dir.replace_filename(
-            filename + "exact_dim" + std::to_string(i) + ".dat")));
+    auto const gold = read_vector_from_txt_file<P>(base_dir.replace_filename(
+            filename + "exact_dim" + std::to_string(i) + ".dat"));
     auto const fx = pde.exact_vector_funcs[0][i](x, time);
     rmse_comparison(fx, gold, tol_factor);
   }
@@ -69,7 +67,7 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
     {
       auto const full_path = base_dir.replace_filename(
           source_string + "dim" + std::to_string(j) + ".dat");
-      auto const gold = fk::vector<P>(read_vector_from_txt_file(full_path));
+      auto const gold = read_vector_from_txt_file<P>(full_path);
       auto const fx   = pde.sources[i].source_funcs[j](x, time);
       rmse_comparison(fx, gold, tol_factor);
     }
@@ -314,10 +312,8 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
   SECTION("fp2 complete pterm funcs")
   {
     auto filename   = base_dir.filename().string();
-    auto const gold = fk::matrix<TestType>(
-        read_matrix_from_txt_file(pde_base_dir / (filename + "gfuncs.dat")));
-    auto const gold_dvs = fk::matrix<TestType>(
-        read_matrix_from_txt_file(pde_base_dir / (filename + "dvfuncs.dat")));
+    auto const gold = read_matrix_from_txt_file<TestType>(pde_base_dir / (filename + "gfuncs.dat"));
+    auto const gold_dvs = read_matrix_from_txt_file<TestType>(pde_base_dir / (filename + "dvfuncs.dat"));
 
     int row = 0;
     for (auto i = 0; i < pde->num_dims; ++i)

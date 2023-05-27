@@ -1219,47 +1219,26 @@ void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
 }
 #endif
 
-template void reduce_results(fk::vector<float> const &source,
-                             fk::vector<float> &dest,
-                             distribution_plan const &plan, int const my_rank);
+
+#ifdef ASGARD_ENABLE_DOUBLE
 template void reduce_results(fk::vector<double> const &source,
                              fk::vector<double> &dest,
                              distribution_plan const &plan, int const my_rank);
-
-template void exchange_results(fk::vector<float> const &source,
-                               fk::vector<float> &dest, int const segment_size,
-                               distribution_plan const &plan,
-                               int const my_rank);
 template void exchange_results(fk::vector<double> const &source,
                                fk::vector<double> &dest, int const segment_size,
                                distribution_plan const &plan,
                                int const my_rank);
 
-template std::array<fk::vector<float>, 2>
-gather_errors(float const root_mean_squared, float const relative);
-
 template std::array<fk::vector<double>, 2>
 gather_errors(double const root_mean_squared, double const relative);
 
-template std::vector<float> gather_results(fk::vector<float> const &my_results,
-                                           distribution_plan const &plan,
-                                           int const my_rank,
-                                           int const element_segment_size);
 template std::vector<double>
 gather_results(fk::vector<double> const &my_results,
                distribution_plan const &plan, int const my_rank,
                int const element_segment_size);
 
-template float
-get_global_max(float const my_max, distribution_plan const &plan);
 template double
 get_global_max(double const my_max, distribution_plan const &plan);
-
-template fk::vector<float>
-redistribute_vector(fk::vector<float> const &old_x,
-                    distribution_plan const &old_plan,
-                    distribution_plan const &new_plan,
-                    std::map<int64_t, grid_limits> const &elem_remap);
 
 template fk::vector<double>
 redistribute_vector(fk::vector<double> const &old_x,
@@ -1267,23 +1246,58 @@ redistribute_vector(fk::vector<double> const &old_x,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap);
 
-template fk::vector<float>
-row_to_col_major(fk::vector<float> const &x, int size_r);
 template fk::vector<double>
 row_to_col_major(fk::vector<double> const &x, int size_r);
 
-template fk::vector<float>
-col_to_row_major(fk::vector<float> const &x, int size_r);
 template fk::vector<double>
 col_to_row_major(fk::vector<double> const &x, int size_r);
+
+#ifdef ASGARD_USE_SCALAPACK
+template void
+gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
+template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
+                                     int *descA_distr);
+#endif
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template void reduce_results(fk::vector<float> const &source,
+                             fk::vector<float> &dest,
+                             distribution_plan const &plan, int const my_rank);
+template void exchange_results(fk::vector<float> const &source,
+                               fk::vector<float> &dest, int const segment_size,
+                               distribution_plan const &plan,
+                               int const my_rank);
+
+template std::array<fk::vector<float>, 2>
+gather_errors(float const root_mean_squared, float const relative);
+
+template std::vector<float> gather_results(fk::vector<float> const &my_results,
+                                           distribution_plan const &plan,
+                                           int const my_rank,
+                                           int const element_segment_size);
+
+template float
+get_global_max(float const my_max, distribution_plan const &plan);
+
+template fk::vector<float>
+redistribute_vector(fk::vector<float> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap);
+
+template fk::vector<float>
+row_to_col_major(fk::vector<float> const &x, int size_r);
+
+template fk::vector<float>
+col_to_row_major(fk::vector<float> const &x, int size_r);
+
 #ifdef ASGARD_USE_SCALAPACK
 template void
 gather_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
 template void
-gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
-template void
 scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
-template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
-                                     int *descA_distr);
 #endif
+#endif
+
 } // namespace asgard
