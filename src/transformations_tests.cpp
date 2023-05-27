@@ -68,7 +68,7 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   REQUIRE(test == gold);
 }
 
-TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
+TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", test_precs)
 {
   SECTION("combine dimensions, dim = 2, deg = 2, lev = 3, 1 rank")
   {
@@ -102,7 +102,7 @@ TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", double, float)
 }
 
 TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
-                   double, float)
+                   test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -221,7 +221,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
   rmse_comparison(gold, real_space, tol_factor);
 }
 
-TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", double, float)
+TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", test_precs)
 {
   SECTION("wavelet_to_realspace_1")
   {
@@ -283,8 +283,7 @@ void test_gen_realspace_transform(PDE<P> const &pde,
   }
 }
 
-TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", double,
-                   float)
+TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", test_precs)
 {
   SECTION("gen_realspace_transform_1")
   {

@@ -19,7 +19,7 @@ void test_element_table(PDE_opts const pde_choice,
   auto const cfl    = parser::DEFAULT_CFL;
   parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
   options const opts(cli_mock);
-  auto const pde = make_PDE<double>(cli_mock);
+  auto const pde = make_PDE<default_precision>(cli_mock);
   elements::table const elem_table(opts, *pde);
 
   auto const gold_table =
@@ -72,7 +72,7 @@ void test_child_discovery(PDE_opts const pde_choice,
   auto const cfl    = parser::DEFAULT_CFL;
   parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
   options const opts(cli_mock);
-  auto const pde = make_PDE<double>(cli_mock);
+  auto const pde = make_PDE<default_precision>(cli_mock);
   elements::table const elem_table(opts, *pde);
 
   auto const gold_child_vect =
@@ -101,7 +101,7 @@ void test_element_addition(PDE_opts const pde_choice,
   auto const cfl    = parser::DEFAULT_CFL;
   parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
   options const opts(cli_mock);
-  auto const pde = make_PDE<double>(cli_mock);
+  auto const pde = make_PDE<default_precision>(cli_mock);
   elements::table elem_table(opts, *pde);
 
   // store existing ids
@@ -168,7 +168,7 @@ void test_element_deletion(PDE_opts const pde_choice,
   auto const cfl    = parser::DEFAULT_CFL;
   parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
   options const opts(cli_mock);
-  auto const pde = make_PDE<double>(cli_mock);
+  auto const pde = make_PDE<default_precision>(cli_mock);
   elements::table elem_table(opts, *pde);
 
   // delete every nth element,
@@ -332,7 +332,7 @@ TEST_CASE("static helper - cell builder", "[element_table]")
   auto const levels = 3;
   auto const degree = 2;
 
-  auto const pde = make_PDE<double>(PDE_opts::continuity_1, levels, degree);
+  auto const pde = make_PDE<default_precision>(PDE_opts::continuity_1, levels, degree);
   elements::table const t(make_options({"-l", std::to_string(levels), "-d",
                                         std::to_string(degree)}),
                           *pde);

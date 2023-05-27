@@ -80,8 +80,7 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
   }
 }
 
-TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
 {
   auto const level  = 3;
   auto const degree = 2;
@@ -110,8 +109,7 @@ TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
 {
   auto const level  = 3;
   auto const degree = 2;
@@ -145,8 +143,7 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", test_precs)
 {
   auto const pde               = make_PDE<TestType>(PDE_opts::continuity_1);
   auto const base_dir          = pde_base_dir / "continuity_1_";
@@ -178,7 +175,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
   }
 }
 TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
-                   "[pde]", double, float)
+                   "[pde]", test_precs)
 {
   auto const level  = 5;
   auto const degree = 4;
@@ -212,8 +209,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", test_precs)
 {
   auto const level  = 5;
   auto const degree = 4;
@@ -247,8 +243,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", test_precs)
 {
   auto const level    = 3;
   auto const pde      = make_PDE<TestType>(PDE_opts::continuity_6, level);
@@ -282,7 +277,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
 }
 
 TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
-                   "[pde]", double, float)
+                   "[pde]", test_precs)
 {
   int const level  = 5;
   int const degree = 4;
@@ -376,8 +371,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
   }
 }
 
-TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", test_precs)
 {
   std::string const pde_choice = "vlasov";
   fk::vector<int> const levels{4, 3};
