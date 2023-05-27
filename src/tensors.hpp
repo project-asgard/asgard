@@ -500,9 +500,9 @@ private:
   // to this private constructor, also with a dummy variable
   template<mem_type omem, mem_type m_ = mem,
            typename = enable_for_all_views<m_>>
-  explicit vector(fk::matrix<P, omem, resrc> const &source,
-                  int dummy, int const column_index,
-                  int const row_start, int const row_stop);
+  explicit vector(fk::matrix<P, omem, resrc> const &source, int dummy,
+                  int const column_index, int const row_start,
+                  int const row_stop);
 
   //! pointer to elements
   P *data_;
@@ -763,9 +763,9 @@ private:
   // to this private constructor, also with a dummy variable
   template<mem_type omem, mem_type m_ = mem,
            typename = enable_for_all_views<m_>>
-  explicit matrix(fk::vector<P, omem, resrc> const &source,
-                  int dummy, int const num_rows,
-                  int const num_cols, int const start_index);
+  explicit matrix(fk::vector<P, omem, resrc> const &source, int dummy,
+                  int const num_rows, int const num_cols,
+                  int const start_index);
 
   P *data_;    //< pointer to elements
   int nrows_;  //< row dimension
@@ -947,15 +947,13 @@ namespace asgard
 //-----------------------------------------------------------------------------
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector()
-    : data_{nullptr}, size_{0}
+fk::vector<P, mem, resrc>::vector() : data_{nullptr}, size_{0}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(int const size)
-    : size_{size}
+fk::vector<P, mem, resrc>::vector(int const size) : size_{size}
 {
   expect(size >= 0);
 
@@ -1066,8 +1064,7 @@ template<mem_type, typename, mem_type omem>
 fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
                                   int const column_index, int const row_start,
                                   int const row_stop)
-    : vector(source, 0, column_index, row_start,
-             row_stop)
+    : vector(source, 0, column_index, row_start, row_stop)
 {}
 
 // modifiable view version - delegates to private constructor
@@ -1076,8 +1073,7 @@ template<mem_type, typename, mem_type omem, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
                                   int const column_index, int const row_start,
                                   int const row_stop)
-    : vector(source, 0, column_index, row_start,
-             row_stop)
+    : vector(source, 0, column_index, row_start, row_stop)
 {}
 
 template<typename P, mem_type mem, resource resrc>
@@ -1122,7 +1118,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
   }
   else
   {
-    data_      = a.data();
+    data_ = a.data();
   }
 }
 
@@ -1181,7 +1177,7 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> &&a)
   if (&a == this)
     return *this;
 
-  size_      = a.size_;
+  size_ = a.size_;
   P *const temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
@@ -1766,9 +1762,8 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(
     std::initializer_list<std::initializer_list<P>> llist)
-    : nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
-                                                  llist.begin()->size())},
-      stride_{nrows_}
+    : nrows_{static_cast<int>(llist.size())},
+      ncols_{static_cast<int>(llist.begin()->size())}, stride_{nrows_}
 {
   if constexpr (resrc == resource::host)
   {
@@ -1894,7 +1889,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_      = a.data();
+    data_ = a.data();
   }
 }
 
@@ -1928,7 +1923,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_      = a.data();
+    data_ = a.data();
   }
 
   return *this;

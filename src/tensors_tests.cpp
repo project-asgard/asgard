@@ -810,9 +810,8 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
     std::string golden_string, golden_string_v, golden_string_cv;
     if constexpr (std::is_floating_point<TestType>::value)
     {
-      golden_string =
-          "golden vector(owner)\n  2.0000e+00  3.0000e+00  "
-          "4.0000e+00  5.0000e+00  6.0000e+00\n";
+      golden_string = "golden vector(owner)\n  2.0000e+00  3.0000e+00  "
+                      "4.0000e+00  5.0000e+00  6.0000e+00\n";
       golden_string_v = "golden vector(view)\n  2.0000e+00  3.0000e+00  "
                         "4.0000e+00  5.0000e+00  6.0000e+00\n";
       golden_string_cv = "golden vector(const view)\n  2.0000e+00  3.0000e+00  "
