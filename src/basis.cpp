@@ -110,8 +110,8 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   fk::matrix<P> phi_co(degree * 2, degree);
   for (int i = 0; i < degree; ++i)
   {
-    phi_co(degree -i -1, i)   = -1;
-    phi_co(2*degree -i -1, i) = 1;
+    phi_co(degree - i - 1, i)     = -1;
+    phi_co(2 * degree - i - 1, i) = 1;
   }
 
   scalet_coefficients.set_submatrix(
