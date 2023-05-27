@@ -756,7 +756,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
 }
 
 template<typename P>
-P get_global_max(P const my_max, distribution_plan const &plan)
+P get_global_max(no_deduce<P> const my_max, distribution_plan const &plan)
 {
 #ifdef ASGARD_USE_MPI
 
@@ -772,8 +772,17 @@ P get_global_max(P const my_max, distribution_plan const &plan)
   expect(success == 0);
 
   // get max
-  MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+  MPI_Datatype const mpi_type = []()->MPI_Datatype
+    {
+      if constexpr (std::is_same<P, double>::value)
+        return MPI_DOUBLE;
+      else if constexpr (std::is_same<P, float>::value)
+        return MPI_FLOAT;
+      else if constexpr (std::is_same<P, int>::value)
+        return MPI_INT;
+      else
+        static_assert(std::is_same<P, double>::value, "The value of P must be double, float, or int");
+    }();
 
   P global_max;
   success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_MAX,
@@ -1299,5 +1308,8 @@ template void
 scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
 #endif
 #endif
+
+template int
+get_global_max(int const my_max, distribution_plan const &plan);
 
 } // namespace asgard

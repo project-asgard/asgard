@@ -274,7 +274,7 @@ double get_MB(int64_t const num_elems)
 
 // find maximum element in plan using each rank's local max
 template<typename P>
-P get_global_max(P const my_max, distribution_plan const &plan);
+P get_global_max(no_deduce<P> const my_max, distribution_plan const &plan);
 
 // merge my element table additions/deletions with other nodes
 std::vector<int64_t>
