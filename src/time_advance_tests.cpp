@@ -1333,7 +1333,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
         coefficients.update_col(d, half_input);
       }
 
-      fk::matrix<TestType> w(1, degree);
+      fk::matrix<TestType> w(degree, degree);
       w.update_row(0, legendre_values[1]);
 
       fk::matrix<TestType> input_weighted(num_cells, degree);
