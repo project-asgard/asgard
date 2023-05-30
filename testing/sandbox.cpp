@@ -21,6 +21,8 @@
 #include "transformations.hpp"
 #include <numeric>
 
+using namespace asgard;
+
 #ifdef ASGARD_USE_DOUBLE_PREC
 using prec = double;
 #else

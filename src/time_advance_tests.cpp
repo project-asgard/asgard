@@ -9,6 +9,12 @@
 #include <random>
 #include <sstream>
 
+#ifdef ASGARD_USE_DOUBLE_PREC
+#define prec double
+#else
+#define prec float
+#endif
+
 using namespace asgard;
 
 int main(int argc, char *argv[])
@@ -177,8 +183,7 @@ parser make_basic_parser(std::string const &pde_choice,
   return parse;
 }
 
-TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", double,
-                   float)
+TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -393,8 +398,7 @@ TEST_CASE("adaptive time advance")
     time_advance_test(parse, gold_base, tol_factor);
   }
 }
-TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
-                   float)
+TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -436,8 +440,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
-                   double)
+TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -495,8 +498,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
-                   double)
+TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -566,8 +568,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
-                   double)
+TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -624,8 +625,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
-                   double)
+TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -668,7 +668,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", float,
 }
 
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
-                   float, double)
+                   prec)
 {
   if (!is_active())
   {
@@ -696,8 +696,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
-                   float, double)
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -727,7 +726,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
-                   "[time_advance]", float, double)
+                   "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -756,7 +755,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
 }
 
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
-                   "[time_advance]", float, double)
+                   "[time_advance]", prec)
 {
   if (!is_active())
   {
@@ -786,7 +785,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
 
 // explicit time advance is not a fruitful approach to this problem
 TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
-                   "[time_advance]", float, double)
+                   "[time_advance]", prec)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -900,7 +899,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
-                   double, float)
+                   prec)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -939,7 +938,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
-                   double, float)
+                   prec)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -1046,7 +1045,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
-                   double)
+                   prec)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -1131,7 +1130,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
-                   float, double)
+                   prec)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {

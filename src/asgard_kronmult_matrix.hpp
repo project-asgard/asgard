@@ -39,82 +39,122 @@ public:
         num_terms_(0), tensor_size_(0), flops_(0)
   {}
   /*!
-   *\brief Creates a new matrix and copies the data into internal structures.
+   * \brief Creates a new matrix and moves the data into internal structures.
+   *
+   * The constructor can be called directly but in most cases the matrix should
+   * be constructed through the factory method make_kronmult_matrix().
+   * The input parameters must reflect the PDE being used as well as the user
+   * desired sparse or dense mode and whether the CPU or GPU are being used.
    *
    * \param num_dimensions is the number of dimensions
    * \param kron_size is the size of the matrices in the kron-product
    *        i.e., called n in the compute routines and tied to the polynomial
-   *degree kron_size = 1 for constants, 2 for linears, 3 for quadratics and so
-   *on \param num_rows is the number of output blocks \param num_columns is the
-   *number of kron-products for each output block, namely num_columns = num_rows
-   ** num_terms, where num_terms is the number of operator terms in the PDE
+   *        degree kron_size = 1 for constants, 2 for linears, 3 for quadratics
+   *        and so on
+   * \param num_rows is the number of output blocks
+   * \param num_columns is the number of kron-products for each output block,
+   *        namely num_columns = num_rows num_terms, where num_terms is the
+   *        number of operator terms in the PDE
+   * \param row_indx is either empty, which indicates dense mode, or contains
+   *        the row-indexes for the sparse matrix (see below)
+   * \param col_indx is either empty, which indicates dense mode, or contains
+   *        the column-indexes for the sparse matrix (see below)
    * \param values_A is the set of matrices for the kron-products, each matrix
-   *is is stored in column-major format in kron_size^2 consecutive entries
+   *        is is stored in column-major format in kron_size^2 consecutive
+   *        entries
    * \param index_A is the index offset of the matrices for the different
-   *kron-product, namely kron-product for output i with column j uses matrices
-   *at index index_A[num_dimensions * (i * num_columns + j) ... num_dimensions *
-   *(i * num_columns + j) + num_dimensions-1] \code int idx = num_dimensions *
-   *(i * num_columns + j); T const *A_d = &( values_A[ index_A[idx] ] );
-   *   ...
-   *   T const *A_2 = &( values_A[ index_A[idx + num_dimensions-3] ] );
-   *   T const *A_1 = &( values_A[ index_A[idx + num_dimensions-2] ] );
-   *   T const *A_0 = &( values_A[ index_A[idx + num_dimensions-1] ] );
+   *         kron-product, namely kron-product for output i with column j uses
+   *         matrices that start at index
+   *         index_A[num_terms * num_dimensions * (i * num_columns + j)]
+   *         and continue for num_terms * num_dimensions entries
+   *
+   * \code
+   *   int idx = num_dimensions * (i * num_columns + j);
+   *   for(int term = 0; term < num_terms; term++)
+   *   {
+   *     T const *A_d = &( values_A[ index_A[idx++] ] );
+   *     ...
+   *     T const *A_2 = &( values_A[ index_A[idx++] ] );
+   *     T const *A_1 = &( values_A[ index_A[idx++] ] );
+   *     T const *A_0 = &( values_A[ index_A[idx++] ] );
+   *     ...
+   *   }
    * \endcode
+   *
+   * \par Sparse matrix format
+   * There are two formats that allow for better utilization of parallelism
+   * when running on the CPU and GPU respectively. The CPU format uses standard
+   * row-compressed sparse matrix format, where row_indx is size num_rows + 1
+   * and the non-zeros for row i are stored in col_indx between entries
+   * row_indx[i] and row_indx[i+1]. The actual tensors are offset at
+   * i * tensor-size and col_indx[row_indx[i]] * tensor-size.
+   * The GPU format row_indx.size() == col_indx.size() and each Kronecker
+   * product uses tensors at row_indx[i] and col_indx[i].
    */
-  kronmult_matrix(
-      int num_dimensions, int kron_size, int num_rows, int num_cols,
-      int num_terms,
-      fk::vector<int, mem_type::const_view, resource::host> const &index_A,
-      fk::vector<precision, mem_type::const_view, resource::host> const
-          &values_A)
+  template<resource input_mode>
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
+                  int num_terms,
+                  fk::vector<int, mem_type::owner, input_mode> const &&row_indx,
+                  fk::vector<int, mem_type::owner, input_mode> const &&col_indx,
+                  fk::vector<int, mem_type::owner, input_mode> &&index_A,
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), iA(index_A.size()), vA(values_A.size())
+        tensor_size_(1), row_indx_(std::move(row_indx)),
+        col_indx_(std::move(col_indx)), iA(std::move(index_A)),
+        vA(std::move(values_A))
   {
-    if constexpr (data_mode == resource::host)
-    {
-#ifndef ASGARD_USE_CUDA // workaround clang and c++-17
-      iA = index_A;
-      vA = values_A;
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
 #endif
-    }
-    else
+
+    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
+           (row_indx_.size() > 0 and col_indx_.size() > 0));
+
+    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+
+    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+
+#ifdef ASGARD_USE_CUDA
+    if (row_indx_.size() > 0)
     {
-#ifdef ASGARD_USE_CUDA // workaround clang and c++-17
-      iA = index_A.clone_onto_device();
-      vA = values_A.clone_onto_device();
-#endif
+      expect(row_indx_.size() == col_indx_.size());
+      expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
     }
 
-    finalize_variables();
+    xdev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *
+                                                             num_cols_);
+    ydev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *
+                                                             num_rows_);
+#else
+    if (row_indx_.size() > 0)
+    {
+      expect(row_indx_.size() == num_rows_ + 1);
+      expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
+    }
+#endif
   }
+
   /*!
-   *\brief Creates a new matrix and accepts the data as a r-values.
-   *
-   * The template parameter has to be resource::device when the GPU capabilities
-   * have been enabled and resource::host when running only on the CPU.
+   * \brief Creates a new dense matrix by skipping row_indx and col_indx.
    */
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : num_dimensions_(num_dimensions), kron_size_(kron_size),
-        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), iA(std::move(index_A)), vA(std::move(values_A))
-  {
-#ifdef ASGARD_USE_CUDA
-    static_assert(
-        input_mode == resource::device,
-        "the GPU is enabled, so r-value inputs must have resource::device");
-#else
-    static_assert(
-        input_mode == resource::host,
-        "the GPU is disabled, so r-value inputs must have resource::host");
-#endif
-
-    finalize_variables();
-  }
+      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
+                        num_terms,
+                        fk::vector<int, mem_type::owner, input_mode>(),
+                        fk::vector<int, mem_type::owner, input_mode>(),
+                        std::move(index_A), std::move(values_A))
+  {}
 
   /*!
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
@@ -128,13 +168,24 @@ public:
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
-    kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(),
-                        num_cols_, num_terms_, iA.data(), vA.data(), alpha,
-                        xdev.data(), beta, ydev.data());
+    if (row_indx_.size() == 0)
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                          num_batch(), num_cols_, num_terms_, iA.data(),
+                          vA.data(), alpha, xdev.data(), beta, ydev.data());
+    else
+      kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
+                           col_indx_.size(), col_indx_.data(), row_indx_.data(),
+                           num_terms_, iA.data(), vA.data(), alpha, xdev.data(),
+                           beta, ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
-                        num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+    if (row_indx_.size() == 0)
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
+                          num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+    else
+      kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
+                           row_indx_.data(), col_indx_.data(), num_terms_,
+                           iA.data(), vA.data(), alpha, x, beta, y);
 #endif
   }
 
@@ -156,24 +207,20 @@ public:
   //! \brief Returns the number of flops in a single call to apply()
   int64_t flops() const { return flops_; }
 
-protected:
-  //! \brief After dimensions and sizes have been initialized, set flop count and temporaries.
-  void finalize_variables()
+  //! \brief Helper, computes the size of a tensor for the given parameters.
+  static int compute_tensor_size(int const num_dimensions, int const kron_size)
   {
-    for (int d = 0; d < num_dimensions_; d++)
-      tensor_size_ *= kron_size_;
-
-    flops_ = kron_size_;
-    for (int i = 0; i < num_dimensions_; i++)
-      flops_ *= kron_size_;
-    flops_ *= 2 * num_dimensions_ * num_rows_ * num_cols_ * num_terms_;
-
-#ifdef ASGARD_USE_CUDA
-    xdev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *
-                                                             num_cols_);
-    ydev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *
-                                                             num_rows_);
-#endif
+    int tensor_size = kron_size;
+    for (int d = 1; d < num_dimensions; d++)
+      tensor_size *= kron_size;
+    return tensor_size;
+  }
+  //! \brief Helper, computes the number of flops for each call to apply.
+  static int64_t compute_flops(int const num_dimensions, int const kron_size,
+                               int const num_terms, int const num_batch)
+  {
+    return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
+           num_dimensions * num_terms * num_batch;
   }
 
 private:
@@ -191,28 +238,41 @@ private:
 #else
   static constexpr resource data_mode = resource::host;
 #endif
+
+  fk::vector<int, mem_type::owner, data_mode> row_indx_;
+  fk::vector<int, mem_type::owner, data_mode> col_indx_;
+
   // index of the matrices for each kronmult product
   fk::vector<int, mem_type::owner, data_mode> iA;
   // list of the operators
   fk::vector<precision, mem_type::owner, data_mode> vA;
+  // pointer and indexes for the sparsity
 };
 
 /*!
  * \brief Given the PDE an the discretization, creates a new kronmult matrix.
  *
- * This method will copy out the coefficient data from the PDE terms
- * into structures index_A and values_A, so the method should be called only
- * when the operator terms change, e.g., due to refinement update.
  * The main purpose of the method is to "glue" the data-structures together
- * and work-around the excessive leading dimension which breaks each matrix
- * into small block scattered across memory (and hard to cache).
- * If the PDE data-structures are updated, then only this method needs to
- * change.
+ * from the definition of the PDE to the format used by the Kronecker product.
+ *
+ * This method will copy out the coefficient data from the PDE terms
+ * into the matrix structure, so the method should be called only
+ * when the operator terms change, e.g., due to refinement update.
+ *
+ * The format of the matrix will be either dense or sparse, depending on
+ * the selected program options.
+ *
+ * \tparam P is either float or double
+ *
+ * \param pde is the instance of the PDE being simulated
+ * \param grid is the current sparse grid for the discretization
+ * \param program_options are the input options passed in by the user
+ * \param imex indicates whether this is part of an imex time stepping scheme
  */
 template<typename P>
 kronmult_matrix<P>
-make_kronmult_dense(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                    options const &program_options,
-                    imex_flag const imex = imex_flag::unspecified);
+make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+                     options const &program_options,
+                     imex_flag const imex = imex_flag::unspecified);
 
 } // namespace asgard

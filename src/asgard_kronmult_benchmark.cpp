@@ -4,11 +4,27 @@
 
 #include "asgard_kronmult_tests.hpp"
 
+#ifdef ASGARD_USE_DOUBLE_PREC
+using precision = double;
+#else
+using precision = float;
+#endif
+
 int main(int argc, char **argv)
 {
   if (argc < 6)
   {
     std::cout
+#ifdef ASGARD_USE_DOUBLE_PREC
+        << "\n build for double precision"
+#else
+        << "\n build for single precision"
+#endif
+#ifdef ASGARD_USE_CUDA
+        << " using CUDA backend\n"
+#else
+        << " using CPU backend\n"
+#endif
         << "\n Usage:\n"
         << "./asgard_kronmult_benchmark <dimensions> <n> <num_rows> "
            "<num_terms> <num_matrices>\n\n"
@@ -37,9 +53,7 @@ int main(int argc, char **argv)
   int const num_batch = num_rows * num_rows * num_terms;
   auto time_start     = std::chrono::system_clock::now();
 
-  auto fdata = make_kronmult_data<float, compute_refrence_solution>(
-      dimensions, n, num_rows, num_terms, num_matrices);
-  auto ddata = make_kronmult_data<double, compute_refrence_solution>(
+  auto data = make_kronmult_data<precision, compute_refrence_solution>(
       dimensions, n, num_rows, num_terms, num_matrices);
 
   auto time_end = std::chrono::system_clock::now();
@@ -56,51 +70,77 @@ int main(int argc, char **argv)
   double unit_scale       = 1.E-6;
   constexpr int num_tests = 100;
 
-  asgard::fk::vector<float> fvA(num_matrices * n * n);
-  asgard::fk::vector<double> dvA(num_matrices * n * n);
+  asgard::fk::vector<precision> vA(num_matrices * n * n);
   for (int k = 0; k < num_matrices * n * n; k++)
-  {
-    fvA(k) = fdata->matrices[k];
-    dvA(k) = ddata->matrices[k];
-  }
+    vA(k) = data->matrices[k];
 
-  asgard::fk::vector<int> fiA(num_batch * dimensions);
-  asgard::fk::vector<int> diA(num_batch * dimensions);
-  auto ip = fdata->pointer_map.begin();
+  asgard::fk::vector<int> iA(num_batch * dimensions);
+  auto ip = data->pointer_map.begin();
   for (int i = 0; i < num_batch; i++)
   {
     ip++;
     for (int j = 0; j < dimensions; j++)
     {
-      fiA(i * dimensions + j) = n * n * (*ip);
-      diA(i * dimensions + j) = n * n * (*ip++);
+      iA(i * dimensions + j) = n * n * (*ip);
     }
     ip++;
   }
 
-  asgard::kronmult_matrix<float> fmat(
+  asgard::fk::vector<int> row_indx(num_rows * num_rows);
+  asgard::fk::vector<int> col_indx(num_rows * num_rows);
+
+  asgard::kronmult_matrix<precision> mat;
+
+#ifdef ASGARD_USE_CUDA
+  int tensor_size = n;
+  for (int d = 1; d < dimensions; d++)
+    tensor_size *= n;
+
+  for (int i = 0; i < num_rows; i++)
+  {
+    for (int j = 0; j < num_rows; j++)
+    {
+      row_indx[i * num_rows + j] = i * tensor_size;
+      col_indx[i * num_rows + j] = j * tensor_size;
+    }
+  }
+
+  mat = asgard::kronmult_matrix<precision>(
       dimensions, n, num_rows, num_rows, num_terms,
-      asgard::fk::vector<int, asgard::mem_type::const_view>(fiA),
-      asgard::fk::vector<float, asgard::mem_type::const_view>(fvA));
-  asgard::kronmult_matrix<double> dmat(
-      dimensions, n, num_rows, num_rows, num_terms,
-      asgard::fk::vector<int, asgard::mem_type::const_view>(diA),
-      asgard::fk::vector<double, asgard::mem_type::const_view>(dvA));
+      row_indx.clone_onto_device(), col_indx.clone_onto_device(),
+      iA.clone_onto_device(), vA.clone_onto_device());
+#else
+  for (int i = 0; i < num_rows; i++)
+  {
+    row_indx[i] = i * num_rows;
+    for (int j = 0; j < num_rows; j++)
+      col_indx[row_indx[i] + j] = j;
+  }
+  row_indx[num_rows] = col_indx.size();
+
+  mat = asgard::kronmult_matrix<precision>(
+      dimensions, n, num_rows, num_rows, num_terms, std::move(row_indx),
+      std::move(col_indx), std::move(iA), std::move(vA));
+#endif
 
   // dry run to wake up the devices
-  fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
+  mat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
 
   time_start = std::chrono::system_clock::now();
   for (int i = 0; i < num_tests; i++)
   {
-    fmat.apply(1.0, fdata->input_x.data(), 1.0, fdata->output_y.data());
+    mat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
   }
   time_end = std::chrono::system_clock::now();
   double felapsed =
       std::chrono::duration<double, std::milli>(time_end - time_start).count();
 
   std::cout << std::fixed << std::setprecision(4);
+#ifdef ASGARD_USE_DOUBLE_PREC
+  std::cout << "double precision: ";
+#else
   std::cout << "single precision: ";
+#endif
   if (felapsed == 0)
   {
     std::cout
@@ -109,29 +149,6 @@ int main(int argc, char **argv)
   else
   {
     std::cout << unit_scale * (num_tests * flops / felapsed)
-              << " Gflops / second.\n";
-  }
-
-  dmat.apply(1.0, ddata->input_x.data(), 1.0, ddata->output_y.data());
-
-  time_start = std::chrono::system_clock::now();
-  for (int i = 0; i < num_tests; i++)
-  {
-    dmat.apply(1.0, ddata->input_x.data(), 1.0, ddata->output_y.data());
-  }
-  time_end = std::chrono::system_clock::now();
-  double delapsed =
-      std::chrono::duration<double, std::milli>(time_end - time_start).count();
-
-  std::cout << "double precision: ";
-  if (delapsed == 0)
-  {
-    std::cout
-        << " test finished too fast to be accurately timed, use larger sizes\n";
-  }
-  else
-  {
-    std::cout << unit_scale * (num_tests * flops / delapsed)
               << " Gflops / second.\n";
   }
 

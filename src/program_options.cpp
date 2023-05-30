@@ -8,13 +8,15 @@
 #include "tools.hpp"
 
 #include <iostream>
+#include <string>
 
 namespace asgard
 {
 parser::parser(int argc, char const *const *argv)
 {
-  bool show_help = false;
-  bool show_pdes = false;
+  bool show_help        = false;
+  bool show_pdes        = false;
+  std::string kmode_str = "dense";
   // Parsing...
   auto cli =
       clara::detail::Help(show_help) |
@@ -72,6 +74,8 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(memory_limit, "size > 0")["--memory"](
           "Maximum workspace size in MB that will be resident on an "
           "accelerator") |
+      clara::detail::Opt(kmode_str, "dense/sparse")["--kron-mode"](
+          "Select dense (default) or sparse mode for the kronmult operations") |
       clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
           "Tolerance used to determine convergence in gmres solver") |
       clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
@@ -321,6 +325,21 @@ parser::parser(int argc, char const *const *argv)
     }
   }
 
+  if (kmode_str == "dense")
+  {
+    kmode = kronmult_mode::dense;
+  }
+  else if (kmode_str == "sparse")
+  {
+    kmode = kronmult_mode::sparse;
+  }
+  else
+  {
+    std::cerr << "kron_mode is set to: '" << kmode_str
+              << " but it must be either 'dense' or 'sparse'\n";
+    valid = false;
+  }
+
   if (solver != solve_opts::gmres && gmres_tolerance != NO_USER_VALUE_FP)
   {
     std::cerr << "gmres tolerance has no effect with solver = " << solver_str
@@ -371,6 +390,7 @@ int parser::get_max_level() const { return max_level; }
 int parser::get_mixed_grid_group() const { return mixed_grid_group; }
 int parser::get_time_steps() const { return num_time_steps; }
 int parser::get_memory_limit() const { return memory_limit; }
+kronmult_mode parser::get_kmode() const { return kmode; }
 int parser::get_wavelet_output_freq() const { return wavelet_output_freq; }
 int parser::get_realspace_output_freq() const { return realspace_output_freq; }
 int parser::get_gmres_inner_iterations() const

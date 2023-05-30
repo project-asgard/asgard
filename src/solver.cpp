@@ -353,33 +353,46 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   tools::timer.stop("poisson_solver");
 }
 
-template gmres_info<float>
-simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
-             fk::vector<float> const &b, fk::matrix<float> const &M,
-             int const restart, int const max_iter, float const tolerance);
+#ifdef ASGARD_USE_DOUBLE_PREC
 
 template gmres_info<double>
 simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
              fk::vector<double> const &b, fk::matrix<double> const &M,
              int const restart, int const max_iter, double const tolerance);
 
-template gmres_info<float>
-simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
-                   fk::vector<float> &x, fk::vector<float> const &b,
-                   int const restart, int const max_iter,
-                   float const tolerance);
 template gmres_info<double>
 simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    fk::vector<double> &x, fk::vector<double> const &b,
                    int const restart, int const max_iter,
                    double const tolerance);
 
-template void setup_poisson(const int N_elements, float const x_min,
-                            float const x_max, fk::vector<float> &diag,
-                            fk::vector<float> &off_diag);
 template void setup_poisson(const int N_elements, double const x_min,
                             double const x_max, fk::vector<double> &diag,
                             fk::vector<double> &off_diag);
+
+template void
+poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
+               fk::vector<double> const &A_E, fk::vector<double> &phi,
+               fk::vector<double> &E, int const degree, int const N_elements,
+               double const x_min, double const x_max, double const phi_min,
+               double const phi_max, poisson_bc const bc);
+
+#else
+
+template gmres_info<float>
+simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
+             fk::vector<float> const &b, fk::matrix<float> const &M,
+             int const restart, int const max_iter, float const tolerance);
+
+template gmres_info<float>
+simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
+                   fk::vector<float> &x, fk::vector<float> const &b,
+                   int const restart, int const max_iter,
+                   float const tolerance);
+
+template void setup_poisson(const int N_elements, float const x_min,
+                            float const x_max, fk::vector<float> &diag,
+                            fk::vector<float> &off_diag);
 
 template void
 poisson_solver(fk::vector<float> const &source, fk::vector<float> const &A_D,
@@ -387,11 +400,7 @@ poisson_solver(fk::vector<float> const &source, fk::vector<float> const &A_D,
                fk::vector<float> &E, int const degree, int const N_elements,
                float const x_min, float const x_max, float const phi_min,
                float const phi_max, poisson_bc const bc);
-template void
-poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
-               fk::vector<double> const &A_E, fk::vector<double> &phi,
-               fk::vector<double> &E, int const degree, int const N_elements,
-               double const x_min, double const x_max, double const phi_min,
-               double const phi_max, poisson_bc const bc);
+
+#endif
 
 } // namespace asgard::solver
