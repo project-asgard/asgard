@@ -535,7 +535,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #pragma omp parallel for
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
-    int c = (row == grid.row_start) ? 0 : ccount[row - grid.row_start-1];
+    int c = (row == grid.row_start) ? 0 : ccount[row - grid.row_start - 1];
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
