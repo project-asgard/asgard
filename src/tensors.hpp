@@ -408,31 +408,6 @@ public:
    */
   P *data(int const elem = 0) const { return data_ + elem; }
 
-  /*! this is to allow specific other types to access the private ref counter of
-   *  owners - specifically, we want to allow a matrix<view> to be made from a
-   *  vector<owner/view>
-   *  \param access badge limiting public access.
-   *  \return reference count of owners.
-   */
-  std::shared_ptr<int>
-  get_ref_count(access_badge<matrix<P, mem_type::view, resrc>> const access)
-  {
-    ignore(access);
-    return ref_count_;
-  }
-  /*! this is to allow specific other types to access the private ref counter of
-   *  owners - specifically, we want to allow a matrix<view> to be made from a
-   *  vector<owner/view>
-   *  \param access badge limiting public access.
-   *  \return reference count of owners.
-   */
-  std::shared_ptr<int> get_ref_count(
-      access_badge<matrix<P, mem_type::const_view, resrc>> const access) const
-  {
-    ignore(access);
-    return ref_count_;
-  }
-
   // utility functions
 
   /*! Prints out the values of a vector
@@ -513,12 +488,6 @@ public:
    */
   const_iterator end() const { return data() + size(); }
 
-  /*! number of outstanding views for an owner
-   * \return number of outstanding views for an owner
-   */
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  int get_num_views() const;
-
 private:
   // const/nonconst view constructors delegate to this private constructor
   // delegated is a dummy variable to enable resolution
@@ -531,16 +500,14 @@ private:
   // to this private constructor, also with a dummy variable
   template<mem_type omem, mem_type m_ = mem,
            typename = enable_for_all_views<m_>>
-  explicit vector(fk::matrix<P, omem, resrc> const &source,
-                  std::shared_ptr<int> source_ref_count, int const column_index,
-                  int const row_start, int const row_stop);
+  explicit vector(fk::matrix<P, omem, resrc> const &source, int dummy,
+                  int const column_index, int const row_start,
+                  int const row_stop);
 
   //! pointer to elements
   P *data_;
   //! size of container
   int size_;
-  //! reference counter of owners
-  std::shared_ptr<int> ref_count_ = nullptr;
 };
 
 template<typename P, mem_type mem, resource resrc>
@@ -758,24 +725,6 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void dump_to_octave(std::filesystem::path const &filename) const;
 
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  int get_num_views() const;
-
-  // this is to allow specific other types to access the private ref counter of
-  // owners - specifically, we want to allow a vector<view> to be made from a
-  // matrix<owner/view>
-  std::shared_ptr<int>
-  get_ref_count(access_badge<vector<P, mem_type::view, resrc>> const)
-  {
-    return ref_count_;
-  }
-
-  std::shared_ptr<int> get_ref_count(
-      access_badge<vector<P, mem_type::const_view, resrc>> const) const
-  {
-    return ref_count_;
-  }
-
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
 
@@ -814,9 +763,9 @@ private:
   // to this private constructor, also with a dummy variable
   template<mem_type omem, mem_type m_ = mem,
            typename = enable_for_all_views<m_>>
-  explicit matrix(fk::vector<P, omem, resrc> const &source,
-                  std::shared_ptr<int> source_ref_count, int const num_rows,
-                  int const num_cols, int const start_index);
+  explicit matrix(fk::vector<P, omem, resrc> const &source, int dummy,
+                  int const num_rows, int const num_cols,
+                  int const start_index);
 
   P *data_;    //< pointer to elements
   int nrows_;  //< row dimension
@@ -824,7 +773,6 @@ private:
   int stride_; //< leading dimension;
                // number of elements in memory between successive matrix
                // elements in a row
-  std::shared_ptr<int> ref_count_ = nullptr;
 };
 
 //-----------------------------------------------------------------------------
@@ -999,15 +947,13 @@ namespace asgard
 //-----------------------------------------------------------------------------
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector()
-    : data_{nullptr}, size_{0}, ref_count_{std::make_shared<int>(0)}
+fk::vector<P, mem, resrc>::vector() : data_{nullptr}, size_{0}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas
 // but this is probably slower if needing to declare in a perf. critical region
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
-fk::vector<P, mem, resrc>::vector(int const size)
-    : size_{size}, ref_count_{std::make_shared<int>(0)}
+fk::vector<P, mem, resrc>::vector(int const size) : size_{size}
 {
   expect(size >= 0);
 
@@ -1027,7 +973,7 @@ fk::vector<P, mem, resrc>::vector(int const size)
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
-    : size_{static_cast<int>(list.size())}, ref_count_{std::make_shared<int>(0)}
+    : size_{static_cast<int>(list.size())}
 {
   if constexpr (resrc == resource::host)
   {
@@ -1044,8 +990,7 @@ fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc>::vector(std::vector<P> const &v)
-    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())},
-      ref_count_{std::make_shared<int>(0)}
+    : data_{new P[v.size()]}, size_{static_cast<int>(v.size())}
 {
   std::copy(v.begin(), v.end(), data_);
 }
@@ -1058,7 +1003,7 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(
     fk::matrix<P, mem_type::owner, resrc> const &mat)
-    : data_(nullptr), size_(mat.size()), ref_count_{std::make_shared<int>(0)}
+    : data_(nullptr), size_(mat.size())
 {
   if (size_ != 0)
   {
@@ -1119,8 +1064,7 @@ template<mem_type, typename, mem_type omem>
 fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
                                   int const column_index, int const row_start,
                                   int const row_stop)
-    : vector(source, source.get_ref_count({}), column_index, row_start,
-             row_stop)
+    : vector(source, 0, column_index, row_start, row_stop)
 {}
 
 // modifiable view version - delegates to private constructor
@@ -1129,8 +1073,7 @@ template<mem_type, typename, mem_type omem, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> &source,
                                   int const column_index, int const row_start,
                                   int const row_stop)
-    : vector(source, source.get_ref_count({}), column_index, row_start,
-             row_stop)
+    : vector(source, 0, column_index, row_start, row_stop)
 {}
 
 template<typename P, mem_type mem, resource resrc>
@@ -1142,8 +1085,6 @@ fk::vector<P, mem, resrc>::~vector()
 {
   if constexpr (mem == mem_type::owner)
   {
-    expect(ref_count_.use_count() == 1);
-
     if constexpr (resrc == resource::host)
     {
       delete[] data_;
@@ -1164,8 +1105,6 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    ref_count_ = std::make_shared<int>(0);
-
     if constexpr (resrc == resource::host)
     {
       data_ = new P[a.size()];
@@ -1179,8 +1118,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
   }
   else
   {
-    data_      = a.data();
-    ref_count_ = a.ref_count_;
+    data_ = a.data();
   }
 }
 
@@ -1222,12 +1160,6 @@ template<typename P, mem_type mem, resource resrc>
 fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> &&a)
     : data_{a.data_}, size_{a.size_}
 {
-  if constexpr (mem == mem_type::owner)
-  {
-    expect(a.ref_count_.use_count() == 1);
-  }
-  ref_count_ = std::make_shared<int>(0);
-  ref_count_.swap(a.ref_count_);
   a.data_ = nullptr; // b/c a's destructor will be called
   a.size_ = 0;
 }
@@ -1245,15 +1177,7 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> &&a)
   if (&a == this)
     return *this;
 
-  if constexpr (mem == mem_type::owner)
-  {
-    expect(ref_count_.use_count() == 1);
-    expect(a.ref_count_.use_count() == 1);
-  }
-
-  size_      = a.size_;
-  ref_count_ = std::make_shared<int>(0);
-  ref_count_.swap(a.ref_count_);
+  size_ = a.size_;
   P *const temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
@@ -1266,8 +1190,7 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> &&a)
 template<typename P, mem_type mem, resource resrc>
 template<typename PP, mem_type omem, mem_type, typename, resource, typename>
 fk::vector<P, mem, resrc>::vector(vector<PP, omem> const &a)
-    : data_{new P[a.size()]}, size_{a.size()}, ref_count_{
-                                                   std::make_shared<int>(0)}
+    : data_{new P[a.size()]}, size_{a.size()}
 {
   for (auto i = 0; i < a.size(); ++i)
   {
@@ -1300,7 +1223,7 @@ fk::vector<P, mem, resrc>::operator=(vector<PP, omem> const &a)
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, mem_type, typename, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(vector<P, omem, resrc> const &a)
-    : size_(a.size()), ref_count_(std::make_shared<int>(0))
+    : size_(a.size())
 {
   if constexpr (resrc == resource::host)
   {
@@ -1620,8 +1543,7 @@ template<resource, typename>
 void fk::vector<P, mem, resrc>::print(std::string_view const label) const
 {
   if constexpr (mem == mem_type::owner)
-    std::cout << label << "(owner, ref_count = " << ref_count_.use_count()
-              << ")" << '\n';
+    std::cout << label << "(owner)" << '\n';
   else if constexpr (mem == mem_type::view)
     std::cout << label << "(view)" << '\n';
   else if constexpr (mem == mem_type::const_view)
@@ -1756,21 +1678,12 @@ fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
   return sub_vector;
 }
 
-// get number of outstanding views for an owner
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-int fk::vector<P, mem, resrc>::get_num_views() const
-{
-  return ref_count_.use_count() - 1;
-}
-
 // const/nonconst view constructors delegate to this private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename, mem_type omem>
 fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &vec,
                                   int const start_index, int const stop_index,
                                   bool const delegated)
-    : ref_count_{vec.ref_count_}
 {
   // ignore dummy argument to avoid compiler warnings
   ignore(delegated);
@@ -1791,11 +1704,9 @@ fk::vector<P, mem, resrc>::vector(fk::vector<P, omem, resrc> const &vec,
 // this private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, mem_type, typename>
-fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
-                                  std::shared_ptr<int> source_ref_count,
+fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source, int,
                                   int const column_index, int const row_start,
                                   int const row_stop)
-    : ref_count_(source_ref_count)
 {
   expect(column_index >= 0);
   expect(column_index < source.ncols());
@@ -1822,8 +1733,7 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source,
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix()
-    : data_{nullptr}, nrows_{0}, ncols_{0}, stride_{nrows_},
-      ref_count_{std::make_shared<int>(0)}
+    : data_{nullptr}, nrows_{0}, ncols_{0}, stride_{nrows_}
 
 {}
 
@@ -1832,8 +1742,7 @@ fk::matrix<P, mem, resrc>::matrix()
 template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
-    : nrows_{m}, ncols_{n}, stride_{nrows_}, ref_count_{
-                                                 std::make_shared<int>(0)}
+    : nrows_{m}, ncols_{n}, stride_{nrows_}
 
 {
   expect(m >= 0);
@@ -1853,9 +1762,8 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(
     std::initializer_list<std::initializer_list<P>> llist)
-    : nrows_{static_cast<int>(llist.size())}, ncols_{static_cast<int>(
-                                                  llist.begin()->size())},
-      stride_{nrows_}, ref_count_{std::make_shared<int>(0)}
+    : nrows_{static_cast<int>(llist.size())},
+      ncols_{static_cast<int>(llist.begin()->size())}, stride_{nrows_}
 {
   if constexpr (resrc == resource::host)
   {
@@ -1924,7 +1832,7 @@ template<mem_type, typename, mem_type omem>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : matrix(source, source.get_ref_count({}), num_rows, num_cols, start_index)
+    : matrix(source, 0, num_rows, num_cols, start_index)
 {}
 
 // create matrix view of existing vector
@@ -1934,7 +1842,7 @@ template<mem_type, typename, mem_type omem, mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> &source,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : matrix(source, source.get_ref_count({}), num_rows, num_cols, start_index)
+    : matrix(source, 0, num_rows, num_cols, start_index)
 {}
 
 // destructor
@@ -1947,7 +1855,6 @@ fk::matrix<P, mem, resrc>::~matrix()
 {
   if constexpr (mem == mem_type::owner)
   {
-    expect(ref_count_.use_count() == 1);
     if constexpr (resrc == resource::host)
     {
       delete[] data_;
@@ -1969,8 +1876,6 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    ref_count_ = std::make_shared<int>(0);
-
     if constexpr (resrc == resource::host)
     {
       data_ = new P[a.size()]();
@@ -1984,8 +1889,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_      = a.data();
-    ref_count_ = a.ref_count_;
+    data_ = a.data();
   }
 }
 
@@ -2019,8 +1923,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_      = a.data();
-    ref_count_ = a.ref_count_;
+    data_ = a.data();
   }
 
   return *this;
@@ -2031,8 +1934,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, mem_type, typename, mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(matrix<P, omem, resrc> const &a)
-    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()},
-      ref_count_{std::make_shared<int>(0)}
+    : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()}
 {
   if constexpr (resrc == resource::host)
   {
@@ -2072,7 +1974,7 @@ template<typename P, mem_type mem, resource resrc>
 template<typename PP, mem_type omem, mem_type, typename, resource, typename>
 fk::matrix<P, mem, resrc>::matrix(matrix<PP, omem> const &a)
     : data_{new P[a.size()]()}, nrows_{a.nrows()}, ncols_{a.ncols()},
-      stride_{a.nrows()}, ref_count_{std::make_shared<int>(0)}
+      stride_{a.nrows()}
 
 {
   for (auto j = 0; j < a.ncols(); ++j)
@@ -2164,14 +2066,6 @@ template<typename P, mem_type mem, resource resrc>
 fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> &&a)
     : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.stride()}
 {
-  if constexpr (mem == mem_type::owner)
-  {
-    expect(a.ref_count_.use_count() == 1);
-  }
-
-  ref_count_ = std::make_shared<int>(0);
-  ref_count_.swap(a.ref_count_);
-
   a.data_  = nullptr; // b/c a's destructor will be called
   a.nrows_ = 0;
   a.ncols_ = 0;
@@ -2192,14 +2086,6 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> &&a)
 
   expect((nrows() == a.nrows()) &&
          (ncols() == a.ncols() && stride() == a.stride()));
-
-  // check for destination orphaning; see below
-  if constexpr (mem == mem_type::owner)
-  {
-    expect(ref_count_.use_count() == 1 && a.ref_count_.use_count() == 1);
-  }
-  ref_count_ = std::make_shared<int>(0);
-  ref_count_.swap(a.ref_count_);
 
   P *temp{data_};
   // this would orphan views on the destination
@@ -2676,8 +2562,6 @@ template<mem_type, typename>
 fk::matrix<P, mem_type::owner, resrc> &
 fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
 {
-  expect(ref_count_.use_count() == 1);
-
   expect(rows >= 0);
   expect(cols >= 0);
   if (rows == 0 || cols == 0)
@@ -2762,9 +2646,7 @@ template<resource, typename>
 void fk::matrix<P, mem, resrc>::print(std::string label) const
 {
   if constexpr (mem == mem_type::owner)
-    std::cout << label << "(owner, "
-              << "outstanding views == " << std::to_string(get_num_views())
-              << ")" << '\n';
+    std::cout << label << "(owner)" << '\n';
 
   else if constexpr (mem == mem_type::view)
     std::cout << label << "(view, "
@@ -2823,14 +2705,6 @@ void fk::matrix<P, mem, resrc>::dump_to_octave(
   std::cout.rdbuf(coutbuf);
 }
 
-// get number of outstanding views for an owner
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-int fk::matrix<P, mem, resrc>::get_num_views() const
-{
-  return ref_count_.use_count() - 1;
-}
-
 // public const/nonconst view constructors delegate to this private
 // constructor
 template<typename P, mem_type mem, resource resrc>
@@ -2839,7 +2713,6 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
                                   int const start_row, int const stop_row,
                                   int const start_col, int const stop_col,
                                   bool const delegated)
-    : ref_count_(owner.ref_count_)
 {
   ignore(delegated);
   data_   = nullptr;
@@ -2868,11 +2741,9 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
 // this private constructor
 template<typename P, mem_type mem, resource resrc>
 template<mem_type omem, mem_type, typename>
-fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source,
-                                  std::shared_ptr<int> source_ref_count,
+fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source, int,
                                   int const num_rows, int const num_cols,
                                   int const start_index)
-    : ref_count_(source_ref_count)
 {
   expect(start_index >= 0);
   expect(num_rows > 0);
