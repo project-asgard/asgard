@@ -28,7 +28,6 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   fk::matrix<P> g1(degree, degree);
   fk::matrix<P> h0(degree, degree);
   fk::matrix<P> h1(degree, degree);
-  fk::matrix<P> phi_co(degree * 2, degree);
   fk::matrix<P> scalet_coefficients(degree, degree);
 
   // Set up parameters for quadrature - used for inner product evaluation
@@ -108,23 +107,16 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // phi_co is the coefficients of the polynomials
   //        f_j = |  x^(j-1) on (0,1)
   //              | -x^(j-1) on (-1,0)
-  fk::matrix<P> const norm_co = [&] {
-    fk::matrix<P> flip_identity = eye<P>(degree);
-    for (int i = 0; i < degree; ++i)
-    {
-      fk::vector<int> row = fk::vector<int>(get_row(flip_identity, i));
-      std::reverse(row.begin(), row.end());
-      flip_identity.update_row(i, fk::vector<P>(row));
-    }
-    return flip_identity;
-  }();
+  fk::matrix<P> phi_co(degree * 2, degree);
+  for (int i = 0; i < degree; ++i)
+  {
+    phi_co(degree - i - 1, i)     = -1;
+    phi_co(2 * degree - i - 1, i) = 1;
+  }
 
   scalet_coefficients.set_submatrix(
       0, 0,
       legendre.extract_submatrix(0, size_legendre - degree, degree, degree));
-
-  phi_co.set_submatrix(0, 0, norm_co * -1);
-  phi_co.set_submatrix(degree, 0, norm_co);
 
   auto const weighted_sum_products = [&](fk::vector<P> const vect_1,
                                          fk::vector<P> const vect_2,
