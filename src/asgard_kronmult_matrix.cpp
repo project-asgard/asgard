@@ -47,6 +47,14 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
+  // check if the matrix size will overflow the 'int' indexing
+  int64_t size_of_indexes =
+      int64_t{num_rows} * int64_t{num_cols} * num_terms * num_dimensions;
+  if (size_of_indexes > (int64_t{1} << 31) - 1) // 2^31 -1 is the largest 'int'
+    throw std::runtime_error(
+        "the storage required for the dense matrix is too large for the 32-bit "
+        "signed indexing, try running with '--kron-mode sparse'");
+
   fk::vector<int, mem_type::owner, resource::host> iA(
       num_rows * num_cols * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
@@ -420,8 +428,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      options const &program_options, imex_flag const imex)
 {
-  // auto const form_id =
-  // tools::timer.start("kronmult-sparse-matrix-construct");
+  auto const form_id = tools::timer.start("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
@@ -491,6 +498,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   // the algorithm use two stages, counts the non-zeros in the global matrix,
   // then fills in the associated indexes for the rows, columns and iA
   std::vector<int> ccount(num_rows, 0); // counts the connections
+#pragma omp parallel for
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
@@ -522,11 +530,12 @@ make_kronmult_sparse(PDE<precision> const &pde,
     pntr[i + 1] = pntr[i] + ccount[i];
 #endif
 
-  int c = 0;                                // index over row_indx/col_indx
   std::vector<int> offsets(num_dimensions); // find the 1D offsets
 
+#pragma omp parallel for
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
+    int c = (row == grid.row_start) ? 0 : ccount[row - grid.row_start-1];
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
@@ -569,7 +578,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
     }
   }
 
-  // tools::timer.stop(form_id);
+  tools::timer.stop(form_id);
 
   std::cout << "  kronmult sparse matrix fill: "
             << 100.0 * double(num_connect) /
