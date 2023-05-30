@@ -203,12 +203,12 @@ void rotg(P *a, P *b, P *c, P *s)
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // function instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDrotg(device.get_handle(), a, b, c, s);
       expect(success == 0);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSrotg(device.get_handle(), a, b, c, s);
       expect(success == 0);
@@ -219,11 +219,11 @@ void rotg(P *a, P *b, P *c, P *s)
   // default execution on the host for any resource
   else if constexpr (resrc == resource::host)
   {
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       cblas_drotg(a, b, c, s);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       cblas_srotg(a, b, c, s);
     }
@@ -284,13 +284,13 @@ void copy(int n, P const *x, int incx, P *y, int incy)
     // no non-fp blas on device
     static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     // function instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success =
           cublasDcopy(device.get_handle(), n, x, incx, y, incy);
       expect(success == 0);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
           cublasScopy(device.get_handle(), n, x, incx, y, incy);
@@ -302,11 +302,11 @@ void copy(int n, P const *x, int incx, P *y, int incy)
   else if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       cblas_dcopy(n, x, incx, y, incy);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       cblas_scopy(n, x, incx, y, incy);
     }
@@ -337,13 +337,13 @@ P dot(int n, P const *x, int incx, P const *y, int incy)
     static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     P result = 0.;
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success =
           cublasDdot(device.get_handle(), n, x, incx, y, incy, &result);
       expect(success == 0);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
           cublasSdot(device.get_handle(), n, x, incx, y, incy, &result);
@@ -355,11 +355,11 @@ P dot(int n, P const *x, int incx, P const *y, int incy)
   else if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       return cblas_ddot(n, x, incx, y, incy);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       return cblas_sdot(n, x, incx, y, incy);
     }
@@ -375,55 +375,47 @@ P dot(int n, P const *x, int incx, P const *y, int incy)
   }
 }
 
-template<typename P>
-void axpy(int *n, P const *alpha, const P *x, int *incx, P *y, int *incy,
-          resource const resrc)
+template<resource resrc, typename P>
+void axpy(int n, P alpha, const P *x, int incx, P *y, int incy)
 {
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
   expect(alpha);
   expect(x);
   expect(y);
-  expect(incx && *incx >= 0);
-  expect(incy && *incy >= 0);
-  expect(n && *n >= 0);
+  expect(incx >= 0);
+  expect(incy >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success =
-          cublasDaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
+          cublasDaxpy(device.get_handle(), n, &alpha, x, incx, y, incy);
       expect(success == 0);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
-          cublasSaxpy(device.get_handle(), *n, alpha, x, *incx, y, *incy);
+          cublasSaxpy(device.get_handle(), n, &alpha, x, incx, y, incy);
       expect(success == 0);
     }
     return;
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  // default execution on the host
+  else if constexpr (resrc == resource::host)
   {
-    cblas_daxpy(*n, *alpha, x, *incx, y, *incy);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    cblas_saxpy(*n, *alpha, x, *incx, y, *incy);
-  }
-  else
-  {
-    for (int i = 0; i < *n; ++i)
+    if constexpr (std::is_same_v<P, double>)
     {
-      y[i * (*incy)] = y[i * (*incy)] + x[i * (*incx)] * (*alpha);
+      cblas_daxpy(n, alpha, x, incx, y, incy);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      cblas_saxpy(n, alpha, x, incx, y, incy);
     }
   }
 }
@@ -1238,14 +1230,17 @@ template float dot<resource::device, float>(int n, float const *x, int incx,
                                             float const *y, int incy);
 template double dot<resource::device, double>(int n, double const *x, int incx,
                                               double const *y, int incy);
+template void axpy<resource::device, float>(int n, float alpha, float const *x,
+                                            int incx, float *y, int incy);
+template void axpy<resource::device, double>(int n, double alpha,
+                                             double const *x, int incx,
+                                             double *y, int incy);
 #endif
 
-template void axpy(int *n, float const *alpha, float const *x, int *incx,
-                   float *y, int *incy, resource const resrc);
-template void axpy(int *n, double const *alpha, double const *x, int *incx,
-                   double *y, int *incy, resource const resrc);
-template void axpy(int *n, int const *alpha, int const *x, int *incx, int *y,
-                   int *incy, resource const resrc);
+template void axpy<resource::host, float>(int n, float alpha, float const *x,
+                                          int incx, float *y, int incy);
+template void axpy<resource::host, double>(int n, double alpha, double const *x,
+                                           int incx, double *y, int incy);
 
 template void
 scal(int *n, float *alpha, float *x, int *incx, resource const resrc);
