@@ -359,8 +359,7 @@ void table::recreate_from_elements(std::vector<int64_t> const &element_ids,
   }
 
   expect(active_element_ids_.size() == id_to_coords_.size());
-  active_table_d_.resize(dev_table_builder.size())
-      .transfer_from(dev_table_builder);
+  active_table_.resize(dev_table_builder.size()) = dev_table_builder;
 
   std::cout << "  - after recreation: " << size() << "\n";
   expect(size() == new_table_size);
