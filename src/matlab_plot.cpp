@@ -209,8 +209,7 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   // TODO: fully implement the output_grid options from matlab (this is just
   // the 'else' case)
-  fk::vector<T> const lgwt = legendre_weights<T>(degree, -1.0, 1.0, true);
-  T const roots = lgwt[0];
+  T const roots = legendre_weights<T>(degree, -1.0, 1.0, true)[0];
 
   unsigned int const dof = roots.size();
 
@@ -749,7 +748,6 @@ matlab_plot::copy_pde(PDE<double> const &pde, std::string const name);
 
 template matlab::data::StructArray
 matlab_plot::make_term(term<double> const &term, int const max_lev);
-
 
 template matlab::data::StructArray
 matlab_plot::make_partial_term(partial_term<double> const &pterm,

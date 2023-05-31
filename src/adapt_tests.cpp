@@ -49,11 +49,11 @@ void test_adapt(parser const &problem, std::filesystem::path gold_base)
   auto const table_coarse_path = gold_base / (prefix + "coarse_table.dat");
 
   auto const fval_orig =
-      fk::vector<P>(read_vector_from_txt_file<P>(fval_orig_path));
+      read_vector_from_txt_file<P>(fval_orig_path);
   auto const gold_coarse =
       read_vector_from_txt_file<P>(fval_coarse_path);
   auto const gold_refine = [fval_refine_path]() {
-    auto gold = fk::vector<P>(read_vector_from_txt_file<P>(fval_refine_path));
+    auto gold = read_vector_from_txt_file<P>(fval_refine_path);
     for (auto i = 0; i < gold.size(); ++i)
     {
       // matlab stores new refined coefficients as 1e-15 (0 deletes from sparse
@@ -173,7 +173,7 @@ template<typename P>
 void test_initial(parser const &problem, std::string const &gold_filepath)
 {
   auto const gold = [&gold_filepath]() {
-    auto raw = fk::vector<P>(read_vector_from_txt_file<P>(gold_filepath));
+    auto raw = read_vector_from_txt_file<P>(gold_filepath);
     // matlab stores new refined coefficients as 1e-15 (0 deletes from sparse
     // vector)
     std::replace_if(

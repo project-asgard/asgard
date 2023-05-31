@@ -19,8 +19,8 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   SECTION("linspace(-1,1,9)")
   {
     fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file<TestType>(
-            matlab_utilities_base_dir / "linspace_neg1_1_9.dat"));
+        read_vector_from_txt_file<TestType>(
+            matlab_utilities_base_dir / "linspace_neg1_1_9.dat");
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
@@ -28,8 +28,8 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   SECTION("linspace(1,-1,9)")
   {
     fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file<TestType>(
-            matlab_utilities_base_dir / "linspace_1_neg1_9.dat"));
+        read_vector_from_txt_file<TestType>(
+            matlab_utilities_base_dir / "linspace_1_neg1_9.dat");
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
@@ -37,8 +37,8 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   SECTION("linspace(-1,1,8)")
   {
     fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file<TestType>(
-            matlab_utilities_base_dir / "linspace_neg1_1_8.dat"));
+        read_vector_from_txt_file<TestType>(
+            matlab_utilities_base_dir / "linspace_neg1_1_8.dat");
     REQUIRE(gold.size() == 8);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);
