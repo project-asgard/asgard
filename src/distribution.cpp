@@ -772,17 +772,17 @@ P get_global_max(P const my_max, distribution_plan const &plan)
   expect(success == MPI_SUCCESS);
 
   // get max
-  MPI_Datatype const mpi_type = []()->MPI_Datatype
-    {
-      if constexpr (std::is_same<P, double>::value)
-        return MPI_DOUBLE;
-      else if constexpr (std::is_same<P, float>::value)
-        return MPI_FLOAT;
-      else if constexpr (std::is_same<P, bool>::value)
-        return MPI_CXX_BOOL;
-      else
-        static_assert(std::is_same<P, double>::value, "The value of P must be double, float, or int");
-    }();
+  MPI_Datatype const mpi_type = []() -> MPI_Datatype {
+    if constexpr (std::is_same<P, double>::value)
+      return MPI_DOUBLE;
+    else if constexpr (std::is_same<P, float>::value)
+      return MPI_FLOAT;
+    else if constexpr (std::is_same<P, bool>::value)
+      return MPI_CXX_BOOL;
+    else
+      static_assert(std::is_same<P, double>::value,
+                    "The value of P must be double, float, or int");
+  }();
 
   P global_max;
   if constexpr (std::is_same_v<P, bool>)
@@ -814,7 +814,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 #ifdef ASGARD_USE_MPI
   // determine size of everyone's messages
-  int const my_rank      = get_rank();
+  int const my_rank       = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
     std::vector<int> output(plan.size());
     expect(my_changes.size() < INT_MAX);
@@ -1232,7 +1232,6 @@ void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
 }
 #endif
 
-
 #ifdef ASGARD_ENABLE_DOUBLE
 template void reduce_results(fk::vector<double> const &source,
                              fk::vector<double> &dest,
@@ -1313,7 +1312,6 @@ scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
 #endif
 #endif
 
-template bool
-get_global_max(bool const my_max, distribution_plan const &plan);
+template bool get_global_max(bool const my_max, distribution_plan const &plan);
 
 } // namespace asgard

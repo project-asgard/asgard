@@ -48,10 +48,8 @@ void test_adapt(parser const &problem, std::filesystem::path gold_base)
   auto const table_refine_path = gold_base / (prefix + "refine_table.dat");
   auto const table_coarse_path = gold_base / (prefix + "coarse_table.dat");
 
-  auto const fval_orig =
-      read_vector_from_txt_file<P>(fval_orig_path);
-  auto const gold_coarse =
-      read_vector_from_txt_file<P>(fval_coarse_path);
+  auto const fval_orig   = read_vector_from_txt_file<P>(fval_orig_path);
+  auto const gold_coarse = read_vector_from_txt_file<P>(fval_coarse_path);
   auto const gold_refine = [fval_refine_path]() {
     auto gold = read_vector_from_txt_file<P>(fval_refine_path);
     for (auto i = 0; i < gold.size(); ++i)

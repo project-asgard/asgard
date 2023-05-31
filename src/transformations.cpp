@@ -125,8 +125,8 @@ gen_realspace_nodes(int const degree, int const level, P const min, P const max)
   int const n        = pow(2, level);
   int const mat_dims = degree * n;
   P const h          = (max - min) / n;
-  auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, true);
-  auto const roots = lgwt[0];
+  auto const lgwt    = legendre_weights<P>(degree, -1.0, 1.0, true);
+  auto const roots   = lgwt[0];
 
   unsigned int const dof = roots.size();
 

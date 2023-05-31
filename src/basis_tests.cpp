@@ -8,7 +8,9 @@
 
 #ifdef ASGARD_ENABLE_DOUBLE
 #ifdef ASGARD_ENABLE_FLOAT
-#define mtest_precs (double, resource::host), (double, resource::device), (float, resource::host), (float, resource::device)
+#define mtest_precs                                     \
+  (double, resource::host), (double, resource::device), \
+      (float, resource::host), (float, resource::device)
 #else
 #define mtest_precs (double, resource::host), (double, resource::device)
 #endif
@@ -62,14 +64,10 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
     }
     else
     {
-      fk::matrix<P> const h0_out =
-          read_matrix_from_txt_file<P>(h0_string);
-      fk::matrix<P> const h1_out =
-          read_matrix_from_txt_file<P>(h1_string);
-      fk::matrix<P> const g0_out =
-          read_matrix_from_txt_file<P>(g0_string);
-      fk::matrix<P> const g1_out =
-          read_matrix_from_txt_file<P>(g1_string);
+      fk::matrix<P> const h0_out = read_matrix_from_txt_file<P>(h0_string);
+      fk::matrix<P> const h1_out = read_matrix_from_txt_file<P>(h1_string);
+      fk::matrix<P> const g0_out = read_matrix_from_txt_file<P>(g0_string);
+      fk::matrix<P> const g1_out = read_matrix_from_txt_file<P>(g1_string);
       fk::matrix<P> const scale_co_out =
           read_matrix_from_txt_file<P>(scale_string);
       return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out,

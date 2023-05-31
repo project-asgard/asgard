@@ -9,7 +9,9 @@
 
 #ifdef ASGARD_ENABLE_DOUBLE
 #ifdef ASGARD_ENABLE_FLOAT
-#define multi_tests (double, resource::host), (double, resource::device), (float, resource::host), (float, resource::device)
+#define multi_tests                                     \
+  (double, resource::host), (double, resource::device), \
+      (float, resource::host), (float, resource::device)
 #else
 #define multi_tests (double, resource::host), (double, resource::device)
 #endif

@@ -161,11 +161,10 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     basis::wavelet_transform<TestType, resource::host> const transformer(opts,
                                                                          *pde);
 
-    fk::vector<TestType> const gold =
-        read_vector_from_txt_file<TestType>(
-            transformations_base_dir /
-            ("forward_transform_" + std::to_string(degree) + "_" +
-             std::to_string(levels) + "_neg2_pos2_doubleplus.dat"));
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        transformations_base_dir /
+        ("forward_transform_" + std::to_string(degree) + "_" +
+         std::to_string(levels) + "_neg2_pos2_doubleplus.dat"));
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus, tenth_func, transformer);
 

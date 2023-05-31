@@ -221,5 +221,4 @@ template class moment<double>;
 template class moment<float>;
 #endif
 
-
 } // namespace asgard

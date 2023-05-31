@@ -160,8 +160,7 @@ legendre(fk::vector<P> const domain, int const degree,
 template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(int const degree, no_deduce<P> const lower_bound,
-                 no_deduce<P> const upper_bound,
-                 bool const use_degree_points)
+                 no_deduce<P> const upper_bound, bool const use_degree_points)
 {
   expect(degree > 0);
   expect(lower_bound < upper_bound);

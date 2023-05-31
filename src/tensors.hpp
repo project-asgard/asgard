@@ -29,9 +29,10 @@ using default_precision = float;
  * \brief This it the type_identity template from C++-20.
  */
 template<typename T>
-struct type_identity_c17 {
-    //! \brief Defines the same type as in the template parameter.
-    using type = T;
+struct type_identity_c17
+{
+  //! \brief Defines the same type as in the template parameter.
+  using type = T;
 };
 
 //! \brief Blocks type deduction of templates, when it can cause issues.

@@ -121,14 +121,16 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
 
 #ifndef ASGARD_USE_CUDA // test CPU kronmult only when CUDA is not enabled
 
-TEMPLATE_TEST_CASE("testing kronmult cpu core dense", "[execute_cpu]", test_precs)
+TEMPLATE_TEST_CASE("testing kronmult cpu core dense", "[execute_cpu]",
+                   test_precs)
 {
   test_kronmult<TestType, dense_mode>(1, 2, 1, 1, 1);
   test_kronmult<TestType, dense_mode>(1, 2, 1, 1, 5);
   test_kronmult<TestType, dense_mode>(1, 2, 1, 2, 3);
   test_kronmult<TestType, dense_mode>(1, 2, 10, 2, 7);
 }
-TEMPLATE_TEST_CASE("testing kronmult cpu core sparse", "[execute_cpu]", test_precs)
+TEMPLATE_TEST_CASE("testing kronmult cpu core sparse", "[execute_cpu]",
+                   test_precs)
 {
   test_kronmult<TestType, sparse_mode>(1, 2, 1, 1, 1);
   test_kronmult<TestType, sparse_mode>(1, 2, 1, 1, 5);
@@ -178,7 +180,8 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[execute_cpu 6d]", test_precs)
   test_kronmult<TestType, sparse_mode>(6, n, 9, 2, 7);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]", test_precs)
+TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[execute_cpu 6d]",
+                   test_precs)
 {
   // this is technically supported, but it takes too long
   // the Kronecker products actually suffer from the curse of dimensionality

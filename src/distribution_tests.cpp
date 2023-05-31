@@ -162,7 +162,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
 
     elements::table const table(o, *pde);
 
@@ -185,7 +186,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks  = 2;
@@ -216,7 +218,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks  = 4;
@@ -263,7 +266,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_6, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_6, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 9;
@@ -302,7 +306,8 @@ TEST_CASE("distribution plan function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 1;
@@ -319,7 +324,8 @@ TEST_CASE("distribution plan function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 2;
@@ -348,7 +354,8 @@ TEST_CASE("distribution plan function", "[distribution]")
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 20;
@@ -377,8 +384,8 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
 
     options const o = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     auto const plan = get_plan(num_ranks, table);
@@ -405,8 +412,8 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-      auto const pde = make_PDE<default_precision>(PDE_opts::continuity_3,
-                                                   level, degree);
+      auto const pde =
+          make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
       elements::table const table(o, *pde);
 
       auto const plan       = get_plan(num_ranks, table);
@@ -566,8 +573,8 @@ TEST_CASE("generate messages tests", "[distribution]")
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_1, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_1, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 1;
@@ -581,8 +588,8 @@ TEST_CASE("generate messages tests", "[distribution]")
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_3, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 1;
@@ -596,8 +603,8 @@ TEST_CASE("generate messages tests", "[distribution]")
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 9;
@@ -611,8 +618,8 @@ TEST_CASE("generate messages tests", "[distribution]")
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_3, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 36;
@@ -626,8 +633,8 @@ TEST_CASE("generate messages tests", "[distribution]")
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_1, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_1, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 20;
@@ -641,8 +648,8 @@ TEST_CASE("generate messages tests", "[distribution]")
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-    auto const pde = make_PDE<default_precision>(PDE_opts::continuity_6, level,
-                                                 degree);
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_6, level, degree);
     elements::table const table(o, *pde);
 
     int const num_ranks = 32;
@@ -682,7 +689,8 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-      auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+      auto const pde =
+          make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
       auto const segment_size =
           static_cast<int>(std::pow(degree, pde->num_dims));
 
@@ -754,7 +762,8 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
       options const o = make_options(
           {"-l", std::to_string(level), "-d", std::to_string(degree)});
 
-      auto const pde = make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+      auto const pde =
+          make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
       elements::table const table(o, *pde);
       if (table.size() < num_ranks)
       {

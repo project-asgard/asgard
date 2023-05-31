@@ -320,7 +320,8 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
 
   SECTION("pterm lhs mass")
   {
-    fk::matrix<TestType> const gold = read_matrix_from_txt_file<TestType>(std::string(gold_path) + "_lhsmass.dat");
+    fk::matrix<TestType> const gold = read_matrix_from_txt_file<TestType>(
+        std::string(gold_path) + "_lhsmass.dat");
 
     auto const levels = fk::vector<int>{4, 4};
     int const degree  = 4;

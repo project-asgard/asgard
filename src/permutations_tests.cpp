@@ -25,7 +25,7 @@ TEST_CASE("Permutations builders", "[permutations]")
                                     (ord_by_ns[i] ? one : zero);
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
-      fk::matrix<int> const gold   =
+      fk::matrix<int> const gold =
           read_matrix_from_txt_file<int>(permutations_base_dir / file_path);
       REQUIRE(permutations::get_lequal(dims[i], ns[i], ord_by_ns[i]) == gold);
     }
@@ -41,7 +41,7 @@ TEST_CASE("Permutations builders", "[permutations]")
                                     (ord_by_ns[i] ? one : zero);
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
-      fk::matrix<int> const gold   =
+      fk::matrix<int> const gold =
           read_matrix_from_txt_file<int>(permutations_base_dir / file_path);
       REQUIRE(permutations::get_max(dims[i], ns[i], ord_by_ns[i]) == gold);
     }

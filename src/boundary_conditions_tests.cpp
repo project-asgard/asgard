@@ -43,7 +43,8 @@ void test_boundary_condition_vector(PDE<P> &pde,
       unscaled_parts[0], unscaled_parts[1], pde, start_element, stop_element,
       test_time);
 
-  fk::vector<P> const gold_bc_vector = read_vector_from_txt_file<P>(gold_filename);
+  fk::vector<P> const gold_bc_vector =
+      read_vector_from_txt_file<P>(gold_filename);
 
   rmse_comparison(gold_bc_vector, bc_advanced, tol_factor);
 

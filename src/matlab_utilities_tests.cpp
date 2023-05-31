@@ -18,27 +18,24 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   }
   SECTION("linspace(-1,1,9)")
   {
-    fk::vector<TestType> const gold =
-        read_vector_from_txt_file<TestType>(
-            matlab_utilities_base_dir / "linspace_neg1_1_9.dat");
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        matlab_utilities_base_dir / "linspace_neg1_1_9.dat");
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(1,-1,9)")
   {
-    fk::vector<TestType> const gold =
-        read_vector_from_txt_file<TestType>(
-            matlab_utilities_base_dir / "linspace_1_neg1_9.dat");
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        matlab_utilities_base_dir / "linspace_1_neg1_9.dat");
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(-1,1,8)")
   {
-    fk::vector<TestType> const gold =
-        read_vector_from_txt_file<TestType>(
-            matlab_utilities_base_dir / "linspace_neg1_1_8.dat");
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        matlab_utilities_base_dir / "linspace_neg1_1_8.dat");
     REQUIRE(gold.size() == 8);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);
@@ -276,15 +273,18 @@ TEST_CASE("read_vector_from_txt_file returns expected vector", "[matlab]")
   SECTION("read_vector_from_txt_file gets 100-element row vector")
   {
     fk::vector<default_precision> gold = linspace<default_precision>(-1, 1);
-    fk::vector<default_precision> test = read_vector_from_txt_file<default_precision>(
-        matlab_utilities_base_dir / "read_vector_txt_neg1_1_100.dat");
+    fk::vector<default_precision> test =
+        read_vector_from_txt_file<default_precision>(
+            matlab_utilities_base_dir / "read_vector_txt_neg1_1_100.dat");
     REQUIRE(test == gold);
   }
   SECTION("read_vector_from_txt_file gets 100-element column vector")
   {
-    fk::vector<default_precision> const gold = linspace<default_precision>(-1, 1);
-    fk::vector<default_precision> const test = read_vector_from_txt_file<default_precision>(
-        matlab_utilities_base_dir / "read_vector_txt_neg1_1_100T.dat");
+    fk::vector<default_precision> const gold =
+        linspace<default_precision>(-1, 1);
+    fk::vector<default_precision> const test =
+        read_vector_from_txt_file<default_precision>(
+            matlab_utilities_base_dir / "read_vector_txt_neg1_1_100T.dat");
     REQUIRE(test == gold);
   }
 }
@@ -299,8 +299,9 @@ TEST_CASE("read_matrix_from_txt_file returns expected vector", "[matlab]")
       for (int j = 0; j < 5; j++)
         gold(i, j) = 17.0 / (i + 1 + j);
 
-    fk::matrix<default_precision> const test = read_matrix_from_txt_file<default_precision>(
-        matlab_utilities_base_dir / "read_matrix_txt_5x5.dat");
+    fk::matrix<default_precision> const test =
+        read_matrix_from_txt_file<default_precision>(matlab_utilities_base_dir /
+                                                     "read_matrix_txt_5x5.dat");
     REQUIRE(test == gold);
   }
 }

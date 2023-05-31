@@ -234,7 +234,7 @@ fk::vector<P> read_vector_from_bin_file(std::filesystem::path const &path)
   else
   {
     fk::vector<P> converted_values(values.size());
-    for(int i=0; i<converted_values.size(); i++)
+    for (int i = 0; i < converted_values.size(); i++)
       converted_values[i] = static_cast<P>(values[i]);
     return converted_values;
   }
@@ -526,12 +526,12 @@ fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
 
 // explicit instantiations
 #ifdef ASGARD_ENABLE_DOUBLE
-template
-fk::vector<double> read_vector_from_bin_file(std::filesystem::path const &path);
-template
-fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path);
-template
-fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path);
+template fk::vector<double>
+read_vector_from_bin_file(std::filesystem::path const &path);
+template fk::vector<double>
+read_vector_from_txt_file(std::filesystem::path const &path);
+template fk::matrix<double>
+read_matrix_from_txt_file(std::filesystem::path const &path);
 
 template fk::vector<double> linspace(double const start, double const end,
                                      unsigned int const num_elems = 100);
@@ -557,12 +557,12 @@ template fk::vector<double> interp1(fk::vector<double> const &sample,
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template
-fk::vector<float> read_vector_from_bin_file(std::filesystem::path const &);
-template
-fk::vector<float> read_vector_from_txt_file(std::filesystem::path const &);
-template
-fk::matrix<float> read_matrix_from_txt_file(std::filesystem::path const &);
+template fk::vector<float>
+read_vector_from_bin_file(std::filesystem::path const &);
+template fk::vector<float>
+read_vector_from_txt_file(std::filesystem::path const &);
+template fk::matrix<float>
+read_matrix_from_txt_file(std::filesystem::path const &);
 
 template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
@@ -582,12 +582,12 @@ template fk::vector<float> interp1(fk::vector<float> const &sample,
                                    fk::vector<float> const &coords);
 #endif
 
-template
-fk::vector<int> read_vector_from_bin_file(std::filesystem::path const &);
-template
-fk::vector<int> read_vector_from_txt_file(std::filesystem::path const &);
-template
-fk::matrix<int> read_matrix_from_txt_file(std::filesystem::path const &);
+template fk::vector<int>
+read_vector_from_bin_file(std::filesystem::path const &);
+template fk::vector<int>
+read_vector_from_txt_file(std::filesystem::path const &);
+template fk::matrix<int>
+read_matrix_from_txt_file(std::filesystem::path const &);
 
 template fk::matrix<int> eye(int const M = 1);
 template fk::matrix<int> eye(int const M, int const N);

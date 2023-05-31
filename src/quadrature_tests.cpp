@@ -25,13 +25,11 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
   }
   SECTION("legendre(-1, 2)")
   {
-    fk::matrix<TestType> const poly_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "legendre_poly_neg1_2.dat");
+    fk::matrix<TestType> const poly_gold = read_matrix_from_txt_file<TestType>(
+        quadrature_base_dir / "legendre_poly_neg1_2.dat");
 
-    fk::matrix<TestType> const deriv_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "legendre_deriv_neg1_2.dat");
+    fk::matrix<TestType> const deriv_gold = read_matrix_from_txt_file<TestType>(
+        quadrature_base_dir / "legendre_deriv_neg1_2.dat");
 
     fk::vector<TestType> const in = {-1.0};
     int const degree              = 2;
@@ -43,13 +41,11 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
 
   SECTION("legendre(linspace (-2.5, 3.0, 11), 5)")
   {
-    fk::matrix<TestType> const poly_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "legendre_poly_linspace_5.dat");
+    fk::matrix<TestType> const poly_gold = read_matrix_from_txt_file<TestType>(
+        quadrature_base_dir / "legendre_poly_linspace_5.dat");
 
-    fk::matrix<TestType> const deriv_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "legendre_deriv_linspace_5.dat");
+    fk::matrix<TestType> const deriv_gold = read_matrix_from_txt_file<TestType>(
+        quadrature_base_dir / "legendre_deriv_linspace_5.dat");
 
     fk::vector<TestType> const in = linspace<TestType>(-2.5, 3.0, 11);
 
@@ -72,13 +68,12 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
 
   SECTION("legendre_weights(10, -1, 1)")
   {
-    fk::matrix<TestType> const roots_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "lgwt_roots_10_neg1_1.dat");
+    fk::matrix<TestType> const roots_gold = read_matrix_from_txt_file<TestType>(
+        quadrature_base_dir / "lgwt_roots_10_neg1_1.dat");
 
     fk::matrix<TestType> const weights_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "lgwt_weights_10_neg1_1.dat");
+        read_matrix_from_txt_file<TestType>(quadrature_base_dir /
+                                            "lgwt_weights_10_neg1_1.dat");
 
     int const n                = 10;
     TestType const a           = -1;
@@ -93,12 +88,11 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
 
   SECTION("legendre_weights(32, -5, 2)")
   {
-    fk::matrix<TestType> const roots_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "lgwt_roots_32_neg5_2.dat");
+    fk::matrix<TestType> const roots_gold = read_matrix_from_txt_file<TestType>(
+        quadrature_base_dir / "lgwt_roots_32_neg5_2.dat");
     fk::matrix<TestType> const weights_gold =
-        read_matrix_from_txt_file<TestType>(
-            quadrature_base_dir / "lgwt_weights_32_neg5_2.dat");
+        read_matrix_from_txt_file<TestType>(quadrature_base_dir /
+                                            "lgwt_weights_32_neg5_2.dat");
 
     int const n                = 32;
     TestType const a           = -5;
