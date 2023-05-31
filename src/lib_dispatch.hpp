@@ -56,11 +56,6 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
                   resource const resrc = resource::host);
 
 template<typename P>
-void batched_gemv(P **const &a, int *lda, char const *transa, P **const &x,
-                  P **const &y, int *m, int *n, P *alpha, P *beta,
-                  int *num_batch, resource const resrc = resource::host);
-
-template<typename P>
 void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
           int *info);
 

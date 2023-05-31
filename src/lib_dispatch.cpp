@@ -904,109 +904,6 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   }
 }
 
-// resrctricted subset of gemv functionality provided by
-// calling batched gemm - no non-unit increments allowed for
-// x or y for now
-template<typename P>
-void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
-                  P **const &y, int *m, int *n, P *alpha, P *beta,
-                  int *num_batch, resource const resrc)
-{
-  expect(alpha);
-  expect(a);
-  expect(lda && *lda >= 0);
-  expect(x);
-  expect(beta);
-  expect(y);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
-
-  expect(trans && (*trans == 't' || *trans == 'n'));
-  expect(num_batch && *num_batch > 0);
-
-  if (resrc == resource::device)
-  {
-    // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-    char const transb = 'n';
-
-    int gemm_m = *trans == 't' ? *n : *m;
-    int gemm_k = *trans == 't' ? *m : *n;
-    int gemm_n = 1;
-
-    int ldb = gemm_k;
-    int ldc = gemm_m;
-
-    P const **a_d;
-    P const **x_d;
-    P **y_d;
-    size_t const list_size = *num_batch * sizeof(P *);
-
-    if (cudaMalloc((void **)&a_d, list_size) != cudaSuccess)
-    {
-      throw std::bad_alloc();
-    }
-    if (cudaMalloc((void **)&x_d, list_size) != cudaSuccess)
-    {
-      throw std::bad_alloc();
-    }
-    if (cudaMalloc((void **)&y_d, list_size) != cudaSuccess)
-    {
-      throw std::bad_alloc();
-    }
-    auto stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
-    stat = cudaMemcpy(x_d, x, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
-    stat = cudaMemcpy(y_d, y, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
-
-    // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
-    {
-      auto const success = cublasDgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
-          gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
-          *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
-      expect(success == 0);
-    }
-    else if constexpr (std::is_same<P, float>::value)
-    {
-      auto const success = cublasSgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
-          gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
-          *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
-      expect(success == 0);
-    }
-
-    stat = cudaFree(a_d);
-    expect(stat == 0);
-    stat = cudaFree(x_d);
-    expect(stat == 0);
-    stat = cudaFree(y_d);
-    expect(stat == 0);
-
-    return;
-
-#endif
-  }
-
-  // default execution on the host for any resource
-  int incx = 1;
-  int incy = 1;
-  for (int i = 0; i < *num_batch; ++i)
-  {
-    gemv(trans, m, n, alpha, a[i], lda, x[i], &incx, beta, y[i], &incy,
-         resource::host);
-  }
-}
-
 template<typename P>
 void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
           int *info)
@@ -1290,15 +1187,6 @@ template void batched_gemm(float **const &a, int *lda, char const *transa,
 template void batched_gemm(double **const &a, int *lda, char const *transa,
                            double **const &b, int *ldb, char const *transb,
                            double **const &c, int *ldc, int *m, int *n, int *k,
-                           double *alpha, double *beta, int *num_batch,
-                           resource const resrc);
-template void batched_gemv(float **const &a, int *lda, char const *transa,
-                           float **const &x, float **const &y, int *m, int *n,
-                           float *alpha, float *beta, int *num_batch,
-                           resource const resrc);
-
-template void batched_gemv(double **const &a, int *lda, char const *transa,
-                           double **const &x, double **const &y, int *m, int *n,
                            double *alpha, double *beta, int *num_batch,
                            resource const resrc);
 

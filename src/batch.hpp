@@ -75,11 +75,6 @@ template<typename P, resource resrc>
 void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
                   batch<P, resrc> const &c, P const alpha, P const beta);
 
-// execute a batched gemv given a, b, c batch lists
-template<typename P, resource resrc>
-void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
-                  batch<P, resrc> const &c, P const alpha, P const beta);
-
 // inline helper to calc workspace size for realspace batching, where dimensions
 // of matrices not uniform
 template<typename P, resource resrc>
