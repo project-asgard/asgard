@@ -1309,7 +1309,7 @@ scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
 #endif
 #endif
 
-template int
-get_global_max(int const my_max, distribution_plan const &plan);
+template bool
+get_global_max(bool const my_max, distribution_plan const &plan);
 
 } // namespace asgard
