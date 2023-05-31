@@ -33,7 +33,6 @@ public:
 
   template<mem_type mem>
   void assign_entry(fk::matrix<P, mem, resrc> const &a, int const position);
-  void assign_raw(P *const a, int const position);
   bool clear_entry(int const position);
 
   P **get_list() const;

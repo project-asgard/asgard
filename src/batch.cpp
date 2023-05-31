@@ -158,14 +158,6 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
   batch_[position] = const_cast<P*>(a.data());
 }
 
-template<typename P, resource resrc>
-void batch<P, resrc>::assign_raw(P *const a, int const position)
-{
-  expect(position >= 0);
-  expect(position < num_entries());
-  batch_[position] = a;
-}
-
 // clear one assignment
 // returns true if there was a previous assignment,
 // false if nothing was assigned
