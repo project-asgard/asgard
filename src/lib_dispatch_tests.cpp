@@ -801,7 +801,7 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
 
 // this test is cublas specific - out of place inversion
 TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
-                   "[lib_dispatch]", float, double)
+                   "[lib_dispatch]", test_precs)
 {
 #ifdef ASGARD_USE_CUDA
 

@@ -25,8 +25,8 @@ TEST_CASE("Permutations builders", "[permutations]")
                                     (ord_by_ns[i] ? one : zero);
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
-      fk::matrix<int> const gold   = fk::matrix<int>(
-          read_matrix_from_txt_file(permutations_base_dir / file_path));
+      fk::matrix<int> const gold =
+          read_matrix_from_txt_file<int>(permutations_base_dir / file_path);
       REQUIRE(permutations::get_lequal(dims[i], ns[i], ord_by_ns[i]) == gold);
     }
   }
@@ -41,8 +41,8 @@ TEST_CASE("Permutations builders", "[permutations]")
                                     (ord_by_ns[i] ? one : zero);
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
-      fk::matrix<int> const gold   = fk::matrix<int>(
-          read_matrix_from_txt_file(permutations_base_dir / file_path));
+      fk::matrix<int> const gold =
+          read_matrix_from_txt_file<int>(permutations_base_dir / file_path);
       REQUIRE(permutations::get_max(dims[i], ns[i], ord_by_ns[i]) == gold);
     }
   }
@@ -53,11 +53,11 @@ TEST_CASE("Permutations builders", "[permutations]")
     int const max_sum = 5;
     int const max_val = 3;
     // clang-format off
-    fk::matrix<int> const gold = 
-                 {{0, 0, 0, 0}, 
-	    		  {1, 0, 0, 0}, 
-				  {0, 1, 0, 0}, 
-				  {0, 0, 1, 0}, 
+    fk::matrix<int> const gold =
+                 {{0, 0, 0, 0},
+	    		  {1, 0, 0, 0},
+				  {0, 1, 0, 0},
+				  {0, 0, 1, 0},
 				  {1, 0, 1, 0}};
     // clang-format on
 
@@ -73,8 +73,8 @@ TEST_CASE("Permutations builders", "[permutations]")
     std::string const count_path = "index_leq_max_4d_10s_4m_count.dat";
 
     fk::matrix<int> const gold = [=] {
-      fk::matrix<int> indices = fk::matrix<int>(
-          read_matrix_from_txt_file(permutations_base_dir / gold_path));
+      fk::matrix<int> indices =
+          read_matrix_from_txt_file<int>(permutations_base_dir / gold_path);
 
       // output values are indices; must adjust for matlab 1-indexing
       std::transform(indices.begin(), indices.end(), indices.begin(),
@@ -85,9 +85,9 @@ TEST_CASE("Permutations builders", "[permutations]")
         read_scalar_from_txt_file(permutations_base_dir / count_path));
 
     // clang-format off
-    permutations::list_set const lists{{2, 3}, 
-	    	 {0, 1, 2, 3, 4}, 
-		   	 {0, 1, 2, 3}, 
+    permutations::list_set const lists{{2, 3},
+	    	 {0, 1, 2, 3, 4},
+		   	 {0, 1, 2, 3},
 		   	 {1, 2, 3, 4, 5}};
     // clang-format on
     int const max_sum = 10;
@@ -128,8 +128,8 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
       std::string const file_path  = file_base + ".dat";
       std::string const count_path = file_base + "_count.dat";
 
-      auto const gold = fk::matrix<int>(
-          read_matrix_from_txt_file(permutations_base_dir / file_path));
+      auto const gold =
+          read_matrix_from_txt_file<int>(permutations_base_dir / file_path);
 
       auto const max_level =
           *std::max_element(test_levels[i].begin(), test_levels[i].end());
@@ -151,8 +151,8 @@ TEST_CASE("Non-uniform level permutations builders", "[permutations]")
                                     std::to_string(test_levels[i].size()) +
                                     "_" + (sort ? one : zero) + ".dat";
 
-      auto const gold = fk::matrix<int>(
-          read_matrix_from_txt_file(permutations_base_dir / file_path));
+      auto const gold =
+          read_matrix_from_txt_file<int>(permutations_base_dir / file_path);
 
       REQUIRE(permutations::get_max_multi(test_levels[i], test_levels[i].size(),
                                           sort) == gold);

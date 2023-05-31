@@ -4,18 +4,14 @@
 
 #include "asgard_kronmult_tests.hpp"
 
-#ifdef ASGARD_USE_DOUBLE_PREC
-using precision = double;
-#else
-using precision = float;
-#endif
+using precision = asgard::default_precision;
 
 int main(int argc, char **argv)
 {
   if (argc < 6)
   {
     std::cout
-#ifdef ASGARD_USE_DOUBLE_PREC
+#ifdef ASGARD_ENABLE_DOUBLE
         << "\n build for double precision"
 #else
         << "\n build for single precision"
@@ -136,7 +132,7 @@ int main(int argc, char **argv)
       std::chrono::duration<double, std::milli>(time_end - time_start).count();
 
   std::cout << std::fixed << std::setprecision(4);
-#ifdef ASGARD_USE_DOUBLE_PREC
+#ifdef ASGARD_ENABLE_DOUBLE
   std::cout << "double precision: ";
 #else
   std::cout << "single precision: ";

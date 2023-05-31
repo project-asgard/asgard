@@ -353,7 +353,7 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   tools::timer.stop("poisson_solver");
 }
 
-#ifdef ASGARD_USE_DOUBLE_PREC
+#ifdef ASGARD_ENABLE_DOUBLE
 
 template gmres_info<double>
 simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
@@ -377,7 +377,9 @@ poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
                double const x_min, double const x_max, double const phi_min,
                double const phi_max, poisson_bc const bc);
 
-#else
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
 
 template gmres_info<float>
 simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,

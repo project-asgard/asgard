@@ -263,9 +263,9 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  auto const max_elem =
+  P const max_elem =
       std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
-  auto const global_max = get_global_max(max_elem, this->plan_);
+  P const global_max = get_global_max<P>(max_elem, this->plan_);
 
   auto const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
@@ -291,10 +291,10 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   auto const abs_compare = [](auto const a, auto const b) {
     return (std::abs(a) < std::abs(b));
   };
-  auto const max_elem =
+  P const max_elem =
       std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
-  auto const global_max       = get_global_max(max_elem, this->plan_);
-  auto const refine_threshold = cli_opts.adapt_threshold * global_max;
+  P const global_max       = get_global_max<P>(max_elem, this->plan_);
+  P const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
   {
     return x;
@@ -398,7 +398,11 @@ fk::vector<P> distributed_grid<P>::remove_elements(
   return y;
 }
 
-template class distributed_grid<float>;
+#ifdef ASGARD_ENABLE_DOUBLE
 template class distributed_grid<double>;
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
+template class distributed_grid<float>;
+#endif
 
 } // namespace asgard::adapt

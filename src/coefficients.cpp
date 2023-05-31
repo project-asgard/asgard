@@ -554,31 +554,36 @@ fk::matrix<P> generate_coefficients(
   return coefficients;
 }
 
-template fk::matrix<float> generate_coefficients<float>(
-    dimension<float> const &dim, partial_term<float> const &pterm,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    int const level, float const time, bool const rotate);
-
+#ifdef ASGARD_ENABLE_DOUBLE
 template fk::matrix<double> generate_coefficients<double>(
     dimension<double> const &dim, partial_term<double> const &pterm,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const level, double const time, bool const rotate);
-
-template void generate_all_coefficients<float>(
-    PDE<float> &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    float const time, bool const rotate);
 
 template void generate_all_coefficients<double>(
     PDE<double> &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
     double const time, bool const rotate);
 
-template void generate_dimension_mass_mat<float>(
-    PDE<float> &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
-
 template void generate_dimension_mass_mat<double>(
     PDE<double> &pde,
     basis::wavelet_transform<double, resource::host> const &transformer);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template fk::matrix<float> generate_coefficients<float>(
+    dimension<float> const &dim, partial_term<float> const &pterm,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    int const level, float const time, bool const rotate);
+
+template void generate_all_coefficients<float>(
+    PDE<float> &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    float const time, bool const rotate);
+
+template void generate_dimension_mass_mat<float>(
+    PDE<float> &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer);
+#endif
+
 } // namespace asgard

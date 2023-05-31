@@ -625,14 +625,15 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   }
 }
 
-#ifdef ASGARD_USE_DOUBLE_PREC
+#ifdef ASGARD_ENABLE_DOUBLE
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, imex_flag const);
 
-#else
+#endif
 
+#ifdef ASGARD_ENABLE_FLOAT
 template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,

@@ -763,24 +763,37 @@ P get_global_max(P const my_max, distribution_plan const &plan)
   // split into rows
   MPI_Comm row_communicator;
   MPI_Comm const global_communicator = distro_handle.get_global_comm();
-  auto const num_cols                = get_num_subgrid_cols(plan.size());
-  auto const my_rank                 = get_rank();
-  auto const my_row                  = my_rank / num_cols;
-  auto const my_col                  = my_rank % num_cols;
-  auto success =
+  int const num_cols                 = get_num_subgrid_cols(plan.size());
+  int const my_rank                  = get_rank();
+  int const my_row                   = my_rank / num_cols;
+  int const my_col                   = my_rank % num_cols;
+  int success =
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
 
   // get max
-  MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+  MPI_Datatype const mpi_type = []() -> MPI_Datatype {
+    if constexpr (std::is_same<P, double>::value)
+      return MPI_DOUBLE;
+    else if constexpr (std::is_same<P, float>::value)
+      return MPI_FLOAT;
+    else if constexpr (std::is_same<P, bool>::value)
+      return MPI_CXX_BOOL;
+    else
+      static_assert(std::is_same<P, double>::value,
+                    "The value of P must be double, float, or int");
+  }();
 
   P global_max;
-  success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_MAX,
-                          row_communicator);
-  expect(success == 0);
+  if constexpr (std::is_same_v<P, bool>)
+    success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_LOR,
+                            row_communicator);
+  else
+    success = MPI_Allreduce(&my_max, &global_max, 1, mpi_type, MPI_MAX,
+                            row_communicator);
+  expect(success == MPI_SUCCESS);
   success = MPI_Comm_free(&row_communicator);
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
 
 #else
   expect(plan.size() == 1);
@@ -801,7 +814,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
 
 #ifdef ASGARD_USE_MPI
   // determine size of everyone's messages
-  auto const my_rank      = get_rank();
+  int const my_rank       = get_rank();
   auto const num_messages = [&plan, &my_changes, my_rank]() {
     std::vector<int> output(plan.size());
     expect(my_changes.size() < INT_MAX);
@@ -809,9 +822,9 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
     expect(plan.size() < INT_MAX);
     for (auto i = 0; i < static_cast<int>(plan.size()); ++i)
     {
-      auto const success = MPI_Bcast(output.data() + i, 1, MPI_INT, i,
-                                     distro_handle.get_global_comm());
-      expect(success == 0);
+      int const success = MPI_Bcast(output.data() + i, 1, MPI_INT, i,
+                                    distro_handle.get_global_comm());
+      expect(success == MPI_SUCCESS);
     }
     return output;
   }();
@@ -839,7 +852,7 @@ distribute_table_changes(std::vector<int64_t> const &my_changes,
       all_changes.data(), num_messages.data(), displacements.data(),
       MPI_INT64_T, distro_handle.get_global_comm());
 
-  expect(success == 0);
+  expect(success == MPI_SUCCESS);
 
   return all_changes;
 
@@ -1219,47 +1232,25 @@ void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
 }
 #endif
 
-template void reduce_results(fk::vector<float> const &source,
-                             fk::vector<float> &dest,
-                             distribution_plan const &plan, int const my_rank);
+#ifdef ASGARD_ENABLE_DOUBLE
 template void reduce_results(fk::vector<double> const &source,
                              fk::vector<double> &dest,
                              distribution_plan const &plan, int const my_rank);
-
-template void exchange_results(fk::vector<float> const &source,
-                               fk::vector<float> &dest, int const segment_size,
-                               distribution_plan const &plan,
-                               int const my_rank);
 template void exchange_results(fk::vector<double> const &source,
                                fk::vector<double> &dest, int const segment_size,
                                distribution_plan const &plan,
                                int const my_rank);
 
-template std::array<fk::vector<float>, 2>
-gather_errors(float const root_mean_squared, float const relative);
-
 template std::array<fk::vector<double>, 2>
 gather_errors(double const root_mean_squared, double const relative);
 
-template std::vector<float> gather_results(fk::vector<float> const &my_results,
-                                           distribution_plan const &plan,
-                                           int const my_rank,
-                                           int const element_segment_size);
 template std::vector<double>
 gather_results(fk::vector<double> const &my_results,
                distribution_plan const &plan, int const my_rank,
                int const element_segment_size);
 
-template float
-get_global_max(float const my_max, distribution_plan const &plan);
 template double
 get_global_max(double const my_max, distribution_plan const &plan);
-
-template fk::vector<float>
-redistribute_vector(fk::vector<float> const &old_x,
-                    distribution_plan const &old_plan,
-                    distribution_plan const &new_plan,
-                    std::map<int64_t, grid_limits> const &elem_remap);
 
 template fk::vector<double>
 redistribute_vector(fk::vector<double> const &old_x,
@@ -1267,23 +1258,60 @@ redistribute_vector(fk::vector<double> const &old_x,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap);
 
-template fk::vector<float>
-row_to_col_major(fk::vector<float> const &x, int size_r);
 template fk::vector<double>
 row_to_col_major(fk::vector<double> const &x, int size_r);
 
-template fk::vector<float>
-col_to_row_major(fk::vector<float> const &x, int size_r);
 template fk::vector<double>
 col_to_row_major(fk::vector<double> const &x, int size_r);
+
+#ifdef ASGARD_USE_SCALAPACK
+template void
+gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
+template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
+                                     int *descA_distr);
+#endif
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template void reduce_results(fk::vector<float> const &source,
+                             fk::vector<float> &dest,
+                             distribution_plan const &plan, int const my_rank);
+template void exchange_results(fk::vector<float> const &source,
+                               fk::vector<float> &dest, int const segment_size,
+                               distribution_plan const &plan,
+                               int const my_rank);
+
+template std::array<fk::vector<float>, 2>
+gather_errors(float const root_mean_squared, float const relative);
+
+template std::vector<float> gather_results(fk::vector<float> const &my_results,
+                                           distribution_plan const &plan,
+                                           int const my_rank,
+                                           int const element_segment_size);
+
+template float
+get_global_max(float const my_max, distribution_plan const &plan);
+
+template fk::vector<float>
+redistribute_vector(fk::vector<float> const &old_x,
+                    distribution_plan const &old_plan,
+                    distribution_plan const &new_plan,
+                    std::map<int64_t, grid_limits> const &elem_remap);
+
+template fk::vector<float>
+row_to_col_major(fk::vector<float> const &x, int size_r);
+
+template fk::vector<float>
+col_to_row_major(fk::vector<float> const &x, int size_r);
+
 #ifdef ASGARD_USE_SCALAPACK
 template void
 gather_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
 template void
-gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
-template void
 scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
-template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
-                                     int *descA_distr);
 #endif
+#endif
+
+template bool get_global_max(bool const my_max, distribution_plan const &plan);
+
 } // namespace asgard

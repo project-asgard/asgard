@@ -357,43 +357,23 @@ std::vector<fk::vector<P>> generate_partial_bcs(
 }
 
 /* explicit instantiations */
+#ifdef ASGARD_ENABLE_DOUBLE
 template std::array<unscaled_bc_parts<double>, 2> make_unscaled_bc_parts(
     PDE<double> const &pde, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     int const start_element, int const stop_element, double const t_init = 0);
-
-template std::array<unscaled_bc_parts<float>, 2>
-boundary_conditions::make_unscaled_bc_parts(
-    PDE<float> const &pde, elements::table const &table,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    int const start_element, int const stop_element, float const t_init = 0);
-
 template fk::vector<double> boundary_conditions::generate_scaled_bc(
     unscaled_bc_parts<double> const &left_bc_parts,
     unscaled_bc_parts<double> const &right_bc_parts, PDE<double> const &pde,
     int const start_element, int const stop_element, double const time);
-template fk::vector<float> boundary_conditions::generate_scaled_bc(
-    unscaled_bc_parts<float> const &left_bc_parts,
-    unscaled_bc_parts<float> const &right_bc_parts, PDE<float> const &pde,
-    int const start_element, int const stop_element, float const time);
-
 template fk::vector<double>
 boundary_conditions::compute_left_boundary_condition(
     g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
     dimension<double> const &dim, vector_func<double> const bc_func);
-template fk::vector<float> boundary_conditions::compute_left_boundary_condition(
-    g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
-    dimension<float> const &dim, vector_func<float> const bc_func);
-
 template fk::vector<double>
 boundary_conditions::compute_right_boundary_condition(
     g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
     dimension<double> const &dim, vector_func<double> const bc_func);
-template fk::vector<float>
-boundary_conditions::compute_right_boundary_condition(
-    g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
-    dimension<float> const &dim, vector_func<float> const bc_func);
-
 template std::vector<fk::vector<double>>
 boundary_conditions::generate_partial_bcs(
     std::vector<dimension<double>> const &dimensions, int const d_index,
@@ -402,6 +382,25 @@ boundary_conditions::generate_partial_bcs(
     double const time, std::vector<term<double>> const &terms,
     std::vector<partial_term<double>> const &partial_terms, int const p_index,
     fk::vector<double> &&trace_bc);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template std::array<unscaled_bc_parts<float>, 2>
+boundary_conditions::make_unscaled_bc_parts(
+    PDE<float> const &pde, elements::table const &table,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    int const start_element, int const stop_element, float const t_init = 0);
+template fk::vector<float> boundary_conditions::generate_scaled_bc(
+    unscaled_bc_parts<float> const &left_bc_parts,
+    unscaled_bc_parts<float> const &right_bc_parts, PDE<float> const &pde,
+    int const start_element, int const stop_element, float const time);
+template fk::vector<float> boundary_conditions::compute_left_boundary_condition(
+    g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
+    dimension<float> const &dim, vector_func<float> const bc_func);
+template fk::vector<float>
+boundary_conditions::compute_right_boundary_condition(
+    g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
+    dimension<float> const &dim, vector_func<float> const bc_func);
 template std::vector<fk::vector<float>>
 boundary_conditions::generate_partial_bcs(
     std::vector<dimension<float>> const &dimensions, int const d_index,
@@ -410,4 +409,6 @@ boundary_conditions::generate_partial_bcs(
     float const time, std::vector<term<float>> const &terms,
     std::vector<partial_term<float>> const &partial_terms, int const p_index,
     fk::vector<float> &&trace_bc);
+#endif
+
 } // namespace asgard::boundary_conditions

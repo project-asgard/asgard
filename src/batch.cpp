@@ -631,20 +631,9 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
   }
 }
 
-template class batch<float>;
+#ifdef ASGARD_ENABLE_DOUBLE
 template class batch<double>;
-template class batch<float, resource::host>;
 template class batch<double, resource::host>;
-
-template void batch<float, resource::host>::assign_entry(
-    fk::matrix<float, mem_type::owner, resource::host> const &a,
-    int const position);
-template void batch<float, resource::host>::assign_entry(
-    fk::matrix<float, mem_type::view, resource::host> const &a,
-    int const position);
-template void batch<float, resource::host>::assign_entry(
-    fk::matrix<float, mem_type::const_view, resource::host> const &a,
-    int const position);
 
 template void batch<double, resource::host>::assign_entry(
     fk::matrix<double, mem_type::owner, resource::host> const &a,
@@ -654,16 +643,6 @@ template void batch<double, resource::host>::assign_entry(
     int const position);
 template void batch<double, resource::host>::assign_entry(
     fk::matrix<double, mem_type::const_view, resource::host> const &a,
-    int const position);
-
-template void batch<float, resource::device>::assign_entry(
-    fk::matrix<float, mem_type::owner, resource::device> const &a,
-    int const position);
-template void batch<float, resource::device>::assign_entry(
-    fk::matrix<float, mem_type::view, resource::device> const &a,
-    int const position);
-template void batch<float, resource::device>::assign_entry(
-    fk::matrix<float, mem_type::const_view, resource::device> const &a,
     int const position);
 
 template void batch<double, resource::device>::assign_entry(
@@ -676,33 +655,16 @@ template void batch<double, resource::device>::assign_entry(
     fk::matrix<double, mem_type::const_view, resource::device> const &a,
     int const position);
 
-template void batched_gemm(batch<float> const &a, batch<float> const &b,
-                           batch<float> const &c, float const alpha,
-                           float const beta);
 template void batched_gemm(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
                            double const beta);
-
-template void batched_gemm(batch<float, resource::host> const &a,
-                           batch<float, resource::host> const &b,
-                           batch<float, resource::host> const &c,
-                           float const alpha, float const beta);
 template void batched_gemm(batch<double, resource::host> const &a,
                            batch<double, resource::host> const &b,
                            batch<double, resource::host> const &c,
                            double const alpha, double const beta);
-
-template void batched_gemv(batch<float> const &a, batch<float> const &b,
-                           batch<float> const &c, float const alpha,
-                           float const beta);
 template void batched_gemv(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
                            double const beta);
-
-template void batched_gemv(batch<float, resource::host> const &a,
-                           batch<float, resource::host> const &b,
-                           batch<float, resource::host> const &c,
-                           float const alpha, float const beta);
 template void batched_gemv(batch<double, resource::host> const &a,
                            batch<double, resource::host> const &b,
                            batch<double, resource::host> const &c,
@@ -712,17 +674,76 @@ template void
 build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
                     fk::matrix<double> &A, element_subgrid const &grid,
                     imex_flag const imex);
+
+template class batch_chain<double, resource::device, chain_method::realspace>;
+template class batch_chain<double, resource::host, chain_method::realspace>;
+template class batch_chain<double, resource::device, chain_method::advance>;
+
+template batch_chain<double, resource::host, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<double, mem_type::const_view,
+                               resource::host>> const &matrices,
+        fk::vector<double, mem_type::const_view, resource::host> const &x,
+        std::array<fk::vector<double, mem_type::view, resource::host>, 2>
+            &workspace,
+        fk::vector<double, mem_type::view, resource::host> &final_output);
+
+template batch_chain<double, resource::device, chain_method::realspace>::
+    batch_chain(
+        std::vector<fk::matrix<double, mem_type::const_view,
+                               resource::device>> const &matrices,
+        fk::vector<double, mem_type::const_view, resource::device> const &x,
+        std::array<fk::vector<double, mem_type::view, resource::device>, 2>
+            &workspace,
+        fk::vector<double, mem_type::view, resource::device> &final_output);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template class batch<float>;
+template class batch<float, resource::host>;
+
+template void batch<float, resource::host>::assign_entry(
+    fk::matrix<float, mem_type::owner, resource::host> const &a,
+    int const position);
+template void batch<float, resource::host>::assign_entry(
+    fk::matrix<float, mem_type::view, resource::host> const &a,
+    int const position);
+template void batch<float, resource::host>::assign_entry(
+    fk::matrix<float, mem_type::const_view, resource::host> const &a,
+    int const position);
+
+template void batch<float, resource::device>::assign_entry(
+    fk::matrix<float, mem_type::owner, resource::device> const &a,
+    int const position);
+template void batch<float, resource::device>::assign_entry(
+    fk::matrix<float, mem_type::view, resource::device> const &a,
+    int const position);
+template void batch<float, resource::device>::assign_entry(
+    fk::matrix<float, mem_type::const_view, resource::device> const &a,
+    int const position);
+
+template void batched_gemm(batch<float> const &a, batch<float> const &b,
+                           batch<float> const &c, float const alpha,
+                           float const beta);
+template void batched_gemm(batch<float, resource::host> const &a,
+                           batch<float, resource::host> const &b,
+                           batch<float, resource::host> const &c,
+                           float const alpha, float const beta);
+template void batched_gemv(batch<float> const &a, batch<float> const &b,
+                           batch<float> const &c, float const alpha,
+                           float const beta);
+template void batched_gemv(batch<float, resource::host> const &a,
+                           batch<float, resource::host> const &b,
+                           batch<float, resource::host> const &c,
+                           float const alpha, float const beta);
+
 template void
 build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
                     fk::matrix<float> &A, element_subgrid const &grid,
                     imex_flag const imex);
 
-template class batch_chain<double, resource::device, chain_method::realspace>;
-template class batch_chain<double, resource::host, chain_method::realspace>;
 template class batch_chain<float, resource::device, chain_method::realspace>;
 template class batch_chain<float, resource::host, chain_method::realspace>;
-
-template class batch_chain<double, resource::device, chain_method::advance>;
 template class batch_chain<float, resource::device, chain_method::advance>;
 
 template batch_chain<float, resource::host, chain_method::realspace>::
@@ -734,15 +755,6 @@ template batch_chain<float, resource::host, chain_method::realspace>::
             &workspace,
         fk::vector<float, mem_type::view, resource::host> &final_output);
 
-template batch_chain<double, resource::host, chain_method::realspace>::
-    batch_chain(
-        std::vector<fk::matrix<double, mem_type::const_view,
-                               resource::host>> const &matrices,
-        fk::vector<double, mem_type::const_view, resource::host> const &x,
-        std::array<fk::vector<double, mem_type::view, resource::host>, 2>
-            &workspace,
-        fk::vector<double, mem_type::view, resource::host> &final_output);
-
 template batch_chain<float, resource::device, chain_method::realspace>::
     batch_chain(
         std::vector<fk::matrix<float, mem_type::const_view,
@@ -751,13 +763,6 @@ template batch_chain<float, resource::device, chain_method::realspace>::
         std::array<fk::vector<float, mem_type::view, resource::device>, 2>
             &workspace,
         fk::vector<float, mem_type::view, resource::device> &final_output);
+#endif
 
-template batch_chain<double, resource::device, chain_method::realspace>::
-    batch_chain(
-        std::vector<fk::matrix<double, mem_type::const_view,
-                               resource::device>> const &matrices,
-        fk::vector<double, mem_type::const_view, resource::device> const &x,
-        std::array<fk::vector<double, mem_type::view, resource::device>, 2>
-            &workspace,
-        fk::vector<double, mem_type::view, resource::device> &final_output);
 } // namespace asgard

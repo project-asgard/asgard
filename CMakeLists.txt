@@ -102,9 +102,11 @@ option (ASGARD_USE_OPENMP "Optional OpenMP support for asgard" OFF)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 cmake_dependent_option (ASGARD_USE_SCALAPACK "Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
 option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
-option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
+#option (ASGARD_USE_DOUBLE_PREC "enable or disable double-precision floating point" ON)
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
+
+set (ASGARD_PRECISIONS "float;double" CACHE STRING "Select floating point precision, supported values are 'float', 'double' or 'float;double'")
 
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
@@ -216,6 +218,20 @@ but then the appropriate CMAKE_CUDA_FLAGS must be set manually.")
     set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
     set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
+
+if (NOT ASGARD_PRECISIONS OR "${ASGARD_PRECISIONS}" STREQUAL "")
+    message(FATAL_ERROR "ASGARD_PRECISIONS must be defined to either 'float', 'double' or 'float;double'")
+endif()
+foreach(_prec ${ASGARD_PRECISIONS})
+    if ("${_prec}" STREQUAL "float")
+        set(ASGARD_ENABLE_FLOAT ON)
+    elseif ("${_prec}" STREQUAL "double")
+        set(ASGARD_ENABLE_DOUBLE ON)
+    else()
+        message(FATAL_ERROR "invalid precision ${_prec}, supported types are 'float' and 'double'")
+    endif()
+endforeach()
+
 
 #-------------------------------------------------------------------------------
 #  Define the asgard library.
@@ -502,7 +518,7 @@ if (ASGARD_BUILD_TESTS)
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
-  foreach(_opt CMAKE_CXX_FLAGS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB)
+  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_CUDA)

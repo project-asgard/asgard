@@ -64,10 +64,10 @@ template<typename P>
 fk::matrix<P> eye(int const M, int const N);
 
 template<typename P>
-P polyval(fk::vector<P> const p, P const x);
+P polyval(fk::vector<P> const &p, P const x);
 
 template<typename P>
-fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x);
+fk::vector<P> polyval(fk::vector<P> const &p, fk::vector<P> const &x);
 
 // norm( , 2) function, only for real vectors (2-norm)
 template<typename P>
@@ -92,7 +92,7 @@ fk::vector<int> find(fk::vector<P> const vect, Func pred)
 // find for a matrix. returns a two-column matrix
 // whose rows are (r, c) indices satisfying the predicate
 template<typename P, typename Func>
-fk::matrix<int> find(fk::matrix<P> const matrix, Func pred)
+fk::matrix<int> find(fk::matrix<P> const &matrix, Func pred)
 {
   auto iter    = matrix.begin();
   int num_rows = matrix.nrows();
@@ -120,27 +120,30 @@ fk::matrix<int> find(fk::matrix<P> const matrix, Func pred)
 
 // read a matlab vector from binary file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-fk::vector<double> read_vector_from_bin_file(std::filesystem::path const &path);
+template<typename P>
+fk::vector<P> read_vector_from_bin_file(std::filesystem::path const &path);
 
 // read an octave double from text file
 double read_scalar_from_txt_file(std::filesystem::path const &path);
 
 // read an octave vector from text file into a std::vector
 // note that fk::vector has a copy assignment overload from std::vector
-fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path);
+template<typename P>
+fk::vector<P> read_vector_from_txt_file(std::filesystem::path const &path);
 
 // read an octave matrix from text file into a fk::matrix
-fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path);
+template<typename P>
+fk::matrix<P> read_matrix_from_txt_file(std::filesystem::path const &path);
 
 // stitch matrices having equal # of rows together horizontally
 template<typename P>
-fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices);
+fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const &matrices);
 
 // limited subset of matbal meshgrid
 fk::matrix<int> meshgrid(int const start, int const length);
 
 template<typename P, mem_type mem>
-fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol);
+fk::matrix<P> reshape(fk::matrix<P, mem> &mat, int const nrow, int const ncol);
 
 template<typename P>
 fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
