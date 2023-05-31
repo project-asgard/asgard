@@ -413,7 +413,9 @@ public:
    *  \param elem offset used for views.
    *  \return pointer to private data
    */
-  P *data(int const elem = 0) const { return data_ + elem; }
+  P const *data(int const elem = 0) const { return data_ + elem; }
+  //! \brief Non-const overload.
+  P *data(int const elem = 0) { return data_ + elem; }
 
   // utility functions
 
@@ -1125,7 +1127,8 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
   }
   else
   {
-    data_ = a.data();
+    // working with view, OK to alias
+    data_ = const_cast<P*>(a.data_);
   }
 }
 
@@ -2731,7 +2734,8 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source, int,
 
   if (size > 0)
   {
-    data_   = source.data(start_index);
+    // casting for the creation of a view (OK to alias)
+    data_   = const_cast<P*>(source.data(start_index));
     nrows_  = num_rows;
     ncols_  = num_cols;
     stride_ = num_rows;

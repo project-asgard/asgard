@@ -1104,7 +1104,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
     return output;
   }();
 
-  std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> const
+  std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>>
       vectors = [=, &a_mats]() {
         // {x, y, gold}
         std::vector<std::vector<fk::vector<P, mem_type::owner, resrc>>> output(

@@ -73,7 +73,7 @@ void pttrf(int *n, P *D, P *E, int *info,
            resource const resrc = resource::host);
 
 template<typename P>
-void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
+void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
            resource const resrc = resource::host);
 
 #ifdef ASGARD_USE_SCALAPACK

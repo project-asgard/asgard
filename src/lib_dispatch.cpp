@@ -47,12 +47,13 @@ extern "C"
   void spttrf_(int *n, float *D, float *E, int *info);
 #endif
 #ifndef dpttrs_
-  void dpttrs_(int *n, int *nrhs, double *D, double *E, double *B, int *ldb,
-               int *info);
+  void dpttrs_(int *n, int *nrhs, double const *D, double const *E, double *B,
+               int *ldb, int *info);
 #endif
 #ifndef spttrs_
   void
-  spttrs_(int *n, int *nrhs, float *D, float *E, float *B, int *ldb, int *info);
+  spttrs_(int *n, int *nrhs, float const *D, float const *E, float *B, int *ldb,
+          int *info);
 #endif
 
 #ifndef ASGARD_OPENBLAS
@@ -1096,7 +1097,7 @@ void pttrf(int *n, P *D, P *E, int *info, resource const resrc)
 }
 
 template<typename P>
-void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
+void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
            resource const resrc)
 {
   expect(n);
@@ -1316,9 +1317,9 @@ pttrf(int *n, double *D, double *E, int *info, resource const resrc);
 template void
 pttrf(int *n, float *D, float *E, int *info, resource const resrc);
 
-template void pttrs(int *n, int *nrhs, double *D, double *E, double *B,
+template void pttrs(int *n, int *nrhs, double const *D, double const *E, double *B,
                     int *ldb, int *info, resource const resrc);
-template void pttrs(int *n, int *nrhs, float *D, float *E, float *B, int *ldb,
+template void pttrs(int *n, int *nrhs, float const *D, float const *E, float *B, int *ldb,
                     int *info, resource const resrc);
 #ifdef ASGARD_USE_SCALAPACK
 template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
