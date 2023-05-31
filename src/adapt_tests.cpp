@@ -79,7 +79,7 @@ void test_adapt(parser const &problem, std::filesystem::path gold_base)
   };
 
   auto const gold_coarse_table =
-      fk::matrix<int>(read_matrix_from_txt_file<int>(table_coarse_path));
+      read_matrix_from_txt_file<int>(table_coarse_path);
   auto const gold_refine_table =
       fk::matrix<int>(read_matrix_from_txt_file<int>(table_refine_path));
 
