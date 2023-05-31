@@ -16,6 +16,29 @@
 
 namespace asgard
 {
+/*!
+ * \brief Default precision to use, double if enabled and float otherwise.
+ */
+#ifdef ASGARD_ENABLE_DOUBLE
+using default_precision = double;
+#else
+using default_precision = float;
+#endif
+
+/*!
+ * \brief This it the type_identity template from C++-20.
+ */
+template<typename T>
+struct type_identity_c17
+{
+  //! \brief Defines the same type as in the template parameter.
+  using type = T;
+};
+
+//! \brief Blocks type deduction of templates, when it can cause issues.
+template<typename T>
+using no_deduce = typename type_identity_c17<T>::type;
+
 /* tolerance for answer comparisons */
 #define TOL std::numeric_limits<P>::epsilon() * 2
 
@@ -234,22 +257,6 @@ public:
   template<mem_type omem, mem_type m_ = mem,
            typename = disable_for_const_view<m_>>
   vector<P, mem, resrc> &operator=(vector<P, omem, resrc> const &);
-
-  // converting constructor/assignment overloads
-  /*! copy constructor creates owner from views
-   * \param other view used to create new owner
-   */
-  template<typename PP, mem_type omem, mem_type m_ = mem,
-           typename = enable_for_owner<m_>, resource r_ = resrc,
-           typename = enable_for_host<r_>>
-  explicit vector(vector<PP, omem> const &);
-  /*! copy assignment creates owner from views
-   * \param other view used to create new owner
-   */
-  template<typename PP, mem_type omem, mem_type m_ = mem,
-           typename = disable_for_const_view<m_>, resource r_ = resrc,
-           typename = enable_for_host<r_>>
-  vector<P, mem> &operator=(vector<PP, omem> const &);
 
   /*! Copy from host memory to device memory
    *  \return new device vector
@@ -1181,41 +1188,6 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> &&a)
   P *const temp{data_};
   data_   = a.data_;
   a.data_ = temp; // b/c a's destructor will be called
-  return *this;
-}
-
-//
-// converting vector constructor
-//
-template<typename P, mem_type mem, resource resrc>
-template<typename PP, mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem, resrc>::vector(vector<PP, omem> const &a)
-    : data_{new P[a.size()]}, size_{a.size()}
-{
-  for (auto i = 0; i < a.size(); ++i)
-  {
-    (*this)(i) = static_cast<P>(a(i));
-  }
-}
-
-//
-// converting vector assignment overload
-// this can probably be optimized better. see:
-// http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom
-//
-template<typename P, mem_type mem, resource resrc>
-template<typename PP, mem_type omem, mem_type, typename, resource, typename>
-fk::vector<P, mem> &
-fk::vector<P, mem, resrc>::operator=(vector<PP, omem> const &a)
-{
-  expect(size() == a.size());
-
-  size_ = a.size();
-  for (auto i = 0; i < a.size(); ++i)
-  {
-    (*this)(i) = static_cast<P>(a(i));
-  }
-
   return *this;
 }
 

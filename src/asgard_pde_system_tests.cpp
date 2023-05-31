@@ -50,8 +50,8 @@ int main(int argc, char *argv[])
   return result;
 }
 
-TEMPLATE_TEST_CASE("testing construction of a basic pde_system", "[pde]", float,
-                   double)
+TEMPLATE_TEST_CASE("testing construction of a basic pde_system", "[pde]",
+                   test_precs)
 {
   parser const cli_input = make_empty_parser();
 

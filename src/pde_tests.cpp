@@ -18,10 +18,9 @@ void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
   auto const filename = base_dir.filename().string();
   for (auto i = 0; i < pde.num_dims; ++i)
   {
-    auto const gold =
-        fk::vector<P>(read_vector_from_txt_file(base_dir.replace_filename(
-            filename + "initial_dim" + std::to_string(i) + ".dat")));
-    auto const fx = pde.get_dimensions()[i].initial_condition[0](x, 0);
+    auto const gold = read_vector_from_txt_file<P>(base_dir.replace_filename(
+        filename + "initial_dim" + std::to_string(i) + ".dat"));
+    auto const fx   = pde.get_dimensions()[i].initial_condition[0](x, 0);
 
     auto constexpr tol_factor = get_tolerance<P>(10);
 
@@ -42,10 +41,9 @@ void test_exact_solution(PDE<P> const &pde, std::filesystem::path base_dir,
   auto const filename       = base_dir.filename().string();
   for (auto i = 0; i < pde.num_dims; ++i)
   {
-    auto const gold =
-        fk::vector<P>(read_vector_from_txt_file(base_dir.replace_filename(
-            filename + "exact_dim" + std::to_string(i) + ".dat")));
-    auto const fx = pde.exact_vector_funcs[0][i](x, time);
+    auto const gold = read_vector_from_txt_file<P>(base_dir.replace_filename(
+        filename + "exact_dim" + std::to_string(i) + ".dat"));
+    auto const fx   = pde.exact_vector_funcs[0][i](x, time);
     rmse_comparison(fx, gold, tol_factor);
   }
 
@@ -69,7 +67,7 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
     {
       auto const full_path = base_dir.replace_filename(
           source_string + "dim" + std::to_string(j) + ".dat");
-      auto const gold = fk::vector<P>(read_vector_from_txt_file(full_path));
+      auto const gold = read_vector_from_txt_file<P>(full_path);
       auto const fx   = pde.sources[i].source_funcs[j](x, time);
       rmse_comparison(fx, gold, tol_factor);
     }
@@ -80,8 +78,7 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
   }
 }
 
-TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
 {
   auto const level  = 3;
   auto const degree = 2;
@@ -110,8 +107,7 @@ TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
 {
   auto const level  = 3;
   auto const degree = 2;
@@ -145,8 +141,7 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", test_precs)
 {
   auto const pde               = make_PDE<TestType>(PDE_opts::continuity_1);
   auto const base_dir          = pde_base_dir / "continuity_1_";
@@ -178,7 +173,7 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", double,
   }
 }
 TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
-                   "[pde]", double, float)
+                   "[pde]", test_precs)
 {
   auto const level  = 5;
   auto const degree = 4;
@@ -212,8 +207,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing continuity 3 implementations", "[pde]", test_precs)
 {
   auto const level  = 5;
   auto const degree = 4;
@@ -247,8 +241,7 @@ TEMPLATE_TEST_CASE("testing contuinity 3 implementations", "[pde]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing continuity 6 implementations", "[pde]", test_precs)
 {
   auto const level    = 3;
   auto const pde      = make_PDE<TestType>(PDE_opts::continuity_6, level);
@@ -282,7 +275,7 @@ TEMPLATE_TEST_CASE("testing contuinity 6 implementations", "[pde]", double,
 }
 
 TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
-                   "[pde]", double, float)
+                   "[pde]", test_precs)
 {
   int const level  = 5;
   int const degree = 4;
@@ -319,10 +312,10 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
   SECTION("fp2 complete pterm funcs")
   {
     auto filename   = base_dir.filename().string();
-    auto const gold = fk::matrix<TestType>(
-        read_matrix_from_txt_file(pde_base_dir / (filename + "gfuncs.dat")));
-    auto const gold_dvs = fk::matrix<TestType>(
-        read_matrix_from_txt_file(pde_base_dir / (filename + "dvfuncs.dat")));
+    auto const gold = read_matrix_from_txt_file<TestType>(
+        pde_base_dir / (filename + "gfuncs.dat"));
+    auto const gold_dvs = read_matrix_from_txt_file<TestType>(
+        pde_base_dir / (filename + "dvfuncs.dat"));
 
     int row = 0;
     for (auto i = 0; i < pde->num_dims; ++i)
@@ -376,8 +369,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
   }
 }
 
-TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", double,
-                   float)
+TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", test_precs)
 {
   std::string const pde_choice = "vlasov";
   fk::vector<int> const levels{4, 3};
@@ -409,7 +401,7 @@ TEST_CASE("testing pde term selection", "[pde]")
   std::string const active_terms = "1 1 0 1 0 1";
 
   parser const parse = make_parser({"-p", pde_choice, "--terms", active_terms});
-  auto const pde     = make_PDE<float>(parse);
+  auto const pde     = make_PDE<default_precision>(parse);
 
   REQUIRE(pde->num_terms == 4);
   REQUIRE(pde->get_terms().size() == 4);

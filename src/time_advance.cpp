@@ -86,7 +86,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
              << adaptive_grid.size() << " elems\n";
 
   // refine
-  auto refining = true;
+  bool refining = true;
   while (refining)
   {
     operator_matrix = asgard::make_kronmult_matrix<P>(
@@ -101,7 +101,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
         my_subgrid.row_stop);
 
     // take a probing refinement step
-    auto const y_stepped = [&]() {
+    fk::vector<P> const y_stepped = [&]() {
       switch (step_method)
       {
       case (method::exp):
@@ -123,11 +123,11 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
     old_size            = adaptive_grid.size();
-    auto const y_refined =
+    fk::vector<P> const y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
-    refining = static_cast<bool>(
-        get_global_max(static_cast<float>(y_stepped.size() != y_refined.size()),
-                       adaptive_grid.get_distrib_plan()));
+    // if either one of the ranks reports 1, i.e., y_stepped.size() changed
+    refining = get_global_max<bool>(y_stepped.size() != y_refined.size(),
+                                    adaptive_grid.get_distrib_plan());
 
     node_out() << " adapt -- refined grid from " << old_size << " -> "
                << adaptive_grid.size() << " elems\n";
@@ -727,7 +727,7 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   }
 }
 
-#ifdef ASGARD_USE_DOUBLE_PREC
+#ifdef ASGARD_ENABLE_DOUBLE
 template fk::vector<double> adaptive_advance(
     method const step_method, PDE<double> &pde,
     kronmult_matrix<double> &operator_matrix,
@@ -765,7 +765,9 @@ template fk::vector<double> imex_advance(
     fk::vector<double> const &x_orig, double const time,
     solve_opts const solver, bool const update_system);
 
-#else
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
 
 template fk::vector<float> adaptive_advance(
     method const step_method, PDE<float> &pde,

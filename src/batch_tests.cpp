@@ -7,6 +7,18 @@
 #include <numeric>
 #include <random>
 
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+#define multi_tests                                     \
+  (double, resource::host), (double, resource::device), \
+      (float, resource::host), (float, resource::device)
+#else
+#define multi_tests (double, resource::host), (double, resource::device)
+#endif
+#else
+#define multi_tests (float, resource::host), (float, resource::device)
+#endif
+
 using namespace asgard;
 
 // FIXME name etc.
@@ -45,7 +57,7 @@ void test_kron(
   }
 }
 
-TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
+TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 {
   SECTION("calculate_workspace_size")
   {
@@ -292,8 +304,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", double, float)
 
 TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (double, resource::device),
-                       (float, resource::host), (float, resource::device))
+                       multi_tests)
 {
   bool const do_trans = true;
 
@@ -663,8 +674,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
 TEMPLATE_TEST_CASE_SIG("batched gemm", "[batch]",
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (double, resource::device),
-                       (float, resource::host), (float, resource::device))
+                       multi_tests)
 {
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
@@ -885,8 +895,7 @@ void test_batched_gemv(int const m, int const n, int const lda,
 
 TEMPLATE_TEST_CASE_SIG("batched gemv", "[batch]",
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (double, resource::device),
-                       (float, resource::host), (float, resource::device))
+                       multi_tests)
 {
   SECTION("batched gemv: no trans, alpha = 1.0, beta = 0.0")
   {

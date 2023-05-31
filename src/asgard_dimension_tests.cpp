@@ -11,7 +11,7 @@ struct volume
 };
 
 TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
-                   "[grid]", float, double)
+                   "[grid]", test_precs)
 {
   parser const cli_input = make_empty_parser();
 

@@ -44,7 +44,7 @@ void test_boundary_condition_vector(PDE<P> &pde,
       test_time);
 
   fk::vector<P> const gold_bc_vector =
-      fk::vector<P>(read_vector_from_txt_file(gold_filename));
+      read_vector_from_txt_file<P>(gold_filename);
 
   rmse_comparison(gold_bc_vector, bc_advanced, tol_factor);
 
@@ -110,7 +110,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
           /* compare to gold left bc */
           fk::vector<P> const gold_left_bc_vector =
-              fk::vector<P>(read_vector_from_txt_file(gold_filename));
+              read_vector_from_txt_file<P>(gold_filename);
           rmse_comparison(gold_left_bc_vector, left_bc, tol_factor);
         }
 
@@ -127,7 +127,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
           std::string const gold_right_filename =
               std::regex_replace(gold_filename, std::regex("bcL"), "bcR");
           fk::vector<P> const gold_right_bc_vector =
-              fk::vector<P>(read_vector_from_txt_file(gold_right_filename));
+              read_vector_from_txt_file<P>(gold_right_filename);
           rmse_comparison(gold_right_bc_vector, right_bc, tol_factor);
         }
       }
@@ -137,8 +137,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
   return;
 }
 
-TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
-                   float)
+TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 {
   /* intead of recalculating the boundary condition vectors at each timestep,
      calculate for the
@@ -247,7 +246,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", double,
 }
 
 TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
-                   double, float)
+                   test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -294,8 +293,8 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
   }
 }
 
-TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]", double,
-                   float)
+TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
+                   test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 

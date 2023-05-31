@@ -763,20 +763,19 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
   }
 }
 
-#ifdef ASGARD_USE_DOUBLE_PREC
-
+#ifndef ASGARD_USE_CUDA // no need to compile for the CPU if CUDA is on
+#ifdef ASGARD_ENABLE_DOUBLE
 template void cpu_dense<double>(int const, int const, int const, int const,
                                 int const, int const[], double const[],
                                 double const, double const[], double const,
                                 double[]);
-
-#else
-
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
 template void cpu_dense<float>(int const, int const, int const, int const,
                                int const, int const[], float const[],
                                float const, float const[], float const,
                                float[]);
-
+#endif
 #endif
 
 } // namespace asgard::kronmult

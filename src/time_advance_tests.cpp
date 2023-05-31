@@ -9,12 +9,6 @@
 #include <random>
 #include <sstream>
 
-#ifdef ASGARD_USE_DOUBLE_PREC
-#define prec double
-#else
-#define prec float
-#endif
-
 using namespace asgard;
 
 int main(int argc, char *argv[])
@@ -33,6 +27,8 @@ static auto constexpr num_steps = 5;
 
 static auto const time_advance_base_dir = gold_base_dir / "time_advance";
 
+// NOTE: when using this template the precision is inferred from the type
+//       of the tolerance factor, make sure the type of the factor is correct
 template<typename P>
 void time_advance_test(parser const &parse,
                        std::filesystem::path const &filepath,
@@ -99,7 +95,7 @@ void time_advance_test(parser const &parse,
     auto const file_path =
         filepath.parent_path() /
         (filepath.filename().string() + std::to_string(i) + ".dat");
-    auto const gold = fk::vector<P>(read_vector_from_txt_file(file_path));
+    auto const gold = read_vector_from_txt_file<P>(file_path);
 
     // each rank generates partial answer
     auto const dof =
@@ -183,7 +179,7 @@ parser make_basic_parser(std::string const &pde_choice,
   return parse;
 }
 
-TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -268,11 +264,12 @@ TEST_CASE("adaptive time advance")
   }
 
   auto const cfl = 0.01;
+
   SECTION("diffusion 2 implicit")
   {
-    auto const tol_factor        = 1e-11;
+    auto const tol_factor        = get_tolerance<default_precision>(1000);
     std::string const pde_choice = "diffusion_2";
-    auto const degree            = 4;
+    int const degree             = 4;
     fk::vector<int> const levels{3, 3};
     auto const gold_base =
         time_advance_base_dir / "diffusion2_ad_implicit_sg_l3_d4_t";
@@ -307,7 +304,7 @@ TEST_CASE("adaptive time advance")
   }
   SECTION("diffusion 2 explicit")
   {
-    auto const tol_factor        = 1e-11;
+    auto const tol_factor        = get_tolerance<default_precision>(1000);
     std::string const pde_choice = "diffusion_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
@@ -330,7 +327,7 @@ TEST_CASE("adaptive time advance")
 
   SECTION("fokkerplanck1_pitch_E case1 explicit")
   {
-    auto constexpr tol_factor    = get_tolerance<double>(100);
+    auto constexpr tol_factor    = get_tolerance<default_precision>(100);
     std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
@@ -355,7 +352,7 @@ TEST_CASE("adaptive time advance")
 
   SECTION("fokkerplanck1_pitch_E case2 explicit")
   {
-    auto const tol_factor        = 1e-15;
+    auto const tol_factor        = get_tolerance<default_precision>(10);
     std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
     auto const degree            = 4;
     fk::vector<int> const levels{4};
@@ -380,7 +377,7 @@ TEST_CASE("adaptive time advance")
 
   SECTION("continuity 2 explicit")
   {
-    auto const tol_factor        = 1e-13;
+    auto const tol_factor        = get_tolerance<default_precision>(100);
     std::string const pde_choice = "continuity_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
@@ -398,7 +395,7 @@ TEST_CASE("adaptive time advance")
     time_advance_test(parse, gold_base, tol_factor);
   }
 }
-TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -440,7 +437,7 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", prec)
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -498,7 +495,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", prec)
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -568,7 +565,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", prec)
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -625,7 +622,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", prec)
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -668,7 +665,7 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", prec)
 }
 
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
-                   prec)
+                   test_precs)
 {
   if (!is_active())
   {
@@ -696,7 +693,8 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]", prec)
+TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
+                   test_precs)
 {
   if (!is_active())
   {
@@ -726,7 +724,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]", prec)
 }
 
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
-                   "[time_advance]", prec)
+                   "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -755,7 +753,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
 }
 
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
-                   "[time_advance]", prec)
+                   "[time_advance]", test_precs)
 {
   if (!is_active())
   {
@@ -785,7 +783,7 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
 
 // explicit time advance is not a fruitful approach to this problem
 TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
-                   "[time_advance]", prec)
+                   "[time_advance]", test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -899,7 +897,7 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
-                   prec)
+                   test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -938,7 +936,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
-                   prec)
+                   test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -1045,7 +1043,7 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
-                   prec)
+                   test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
@@ -1130,7 +1128,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 }
 
 TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
-                   prec)
+                   test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {

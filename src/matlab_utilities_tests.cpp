@@ -9,7 +9,7 @@ static auto const matlab_utilities_base_dir =
 using namespace asgard;
 
 TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
-                   float, double)
+                   test_precs)
 {
   SECTION("linspace(0,1) returns 100 elements")
   {
@@ -18,27 +18,24 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
   }
   SECTION("linspace(-1,1,9)")
   {
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(
-            matlab_utilities_base_dir / "linspace_neg1_1_9.dat"));
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        matlab_utilities_base_dir / "linspace_neg1_1_9.dat");
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(1,-1,9)")
   {
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(
-            matlab_utilities_base_dir / "linspace_1_neg1_9.dat"));
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        matlab_utilities_base_dir / "linspace_1_neg1_9.dat");
     REQUIRE(gold.size() == 9);
     fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
     REQUIRE(test == gold);
   }
   SECTION("linspace(-1,1,8)")
   {
-    fk::vector<TestType> const gold =
-        fk::vector<TestType>(read_vector_from_txt_file(
-            matlab_utilities_base_dir / "linspace_neg1_1_8.dat"));
+    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
+        matlab_utilities_base_dir / "linspace_neg1_1_8.dat");
     REQUIRE(gold.size() == 8);
     fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
     REQUIRE(test == gold);
@@ -47,8 +44,8 @@ TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
 
 // using widening conversions for golden data in order to test integers
 // FIXME look for another way
-TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]", float,
-                   double, int)
+TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]",
+                   test_precs, int)
 {
   SECTION("eye()")
   {
@@ -108,7 +105,7 @@ TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]", float,
   }
 }
 
-TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
+TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", test_precs,
                    int)
 {
   SECTION("polyval(p = [3,2,1], x = [5,7,9])")
@@ -137,7 +134,7 @@ TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", float, double,
   }
 }
 
-TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", float, double,
+TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", test_precs,
                    int)
 {
   // clang-format off
@@ -184,7 +181,7 @@ TEST_CASE("meshgrid", "[matlab]")
   }
 }
 
-TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
+TEMPLATE_TEST_CASE("find function", "[matlab]", test_precs, int)
 {
   fk::vector<TestType> haystack{2, 3, 4, 5, 6};
 
@@ -219,7 +216,7 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", float, double, int)
   }
 }
 
-TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", float, double)
+TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", test_precs)
 {
   SECTION("zeros -- vector")
   {
@@ -236,7 +233,7 @@ TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", float, double)
+TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", test_precs)
 {
   SECTION("zeros -- vector")
   {
@@ -257,15 +254,15 @@ TEST_CASE("read_vector_from_bin_file returns expected vector", "[matlab]")
 {
   SECTION("read_vector_from_bin_file gets 100-element row vector")
   {
-    fk::vector<double> const gold = linspace<double>(-1, 1);
-    fk::vector<double> const test = read_vector_from_bin_file(
+    auto const gold = linspace<default_precision>(-1, 1);
+    auto const test = read_vector_from_bin_file<default_precision>(
         matlab_utilities_base_dir / "read_vector_bin_neg1_1_100.dat");
     REQUIRE(test == gold);
   }
   SECTION("read_vector_from_bin_file gets 100-element column vector")
   {
-    fk::vector<double> const gold = linspace<double>(-1, 1);
-    fk::vector<double> const test = read_vector_from_bin_file(
+    auto const gold = linspace<default_precision>(-1, 1);
+    auto const test = read_vector_from_bin_file<default_precision>(
         matlab_utilities_base_dir / "read_vector_bin_neg1_1_100T.dat");
     REQUIRE(test == gold);
   }
@@ -275,16 +272,19 @@ TEST_CASE("read_vector_from_txt_file returns expected vector", "[matlab]")
 {
   SECTION("read_vector_from_txt_file gets 100-element row vector")
   {
-    fk::vector<double> gold = linspace<double>(-1, 1);
-    fk::vector<double> test = read_vector_from_txt_file(
-        matlab_utilities_base_dir / "read_vector_txt_neg1_1_100.dat");
+    fk::vector<default_precision> gold = linspace<default_precision>(-1, 1);
+    fk::vector<default_precision> test =
+        read_vector_from_txt_file<default_precision>(
+            matlab_utilities_base_dir / "read_vector_txt_neg1_1_100.dat");
     REQUIRE(test == gold);
   }
   SECTION("read_vector_from_txt_file gets 100-element column vector")
   {
-    fk::vector<double> const gold = linspace<double>(-1, 1);
-    fk::vector<double> const test = read_vector_from_txt_file(
-        matlab_utilities_base_dir / "read_vector_txt_neg1_1_100T.dat");
+    fk::vector<default_precision> const gold =
+        linspace<default_precision>(-1, 1);
+    fk::vector<default_precision> const test =
+        read_vector_from_txt_file<default_precision>(
+            matlab_utilities_base_dir / "read_vector_txt_neg1_1_100T.dat");
     REQUIRE(test == gold);
   }
 }
@@ -293,14 +293,15 @@ TEST_CASE("read_matrix_from_txt_file returns expected vector", "[matlab]")
 {
   SECTION("read_matrix_from_txt_file gets 5,5 matrix")
   {
-    auto gold = fk::matrix<double>(5, 5);
+    auto gold = fk::matrix<default_precision>(5, 5);
     // generate the golden matrix
     for (int i = 0; i < 5; i++)
       for (int j = 0; j < 5; j++)
         gold(i, j) = 17.0 / (i + 1 + j);
 
-    fk::matrix<double> const test = read_matrix_from_txt_file(
-        matlab_utilities_base_dir / "read_matrix_txt_5x5.dat");
+    fk::matrix<default_precision> const test =
+        read_matrix_from_txt_file<default_precision>(matlab_utilities_base_dir /
+                                                     "read_matrix_txt_5x5.dat");
     REQUIRE(test == gold);
   }
 }
@@ -318,7 +319,7 @@ TEST_CASE("read_scalar_from_txt_file returns expected value", "[matlab]")
 
 TEMPLATE_TEST_CASE(
     "reshape() matches matlab implementation for 2d matrices ony", "[matlab]",
-    float, double, int)
+    test_precs, int)
 {
   SECTION("reshape 2x2 to 1x4")
   {
@@ -342,7 +343,7 @@ TEMPLATE_TEST_CASE(
   }
 }
 
-TEMPLATE_TEST_CASE("interp1", "[matlab]", float, double)
+TEMPLATE_TEST_CASE("interp1", "[matlab]", test_precs)
 {
   SECTION("basic")
   {

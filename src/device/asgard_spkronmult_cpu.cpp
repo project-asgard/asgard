@@ -766,12 +766,14 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
 }
 
 #ifndef ASGARD_USE_CUDA // no need to compile for the CPU if CUDA is on
-#ifdef ASGARD_USE_DOUBLE_PREC
+#ifdef ASGARD_ENABLE_DOUBLE
 template void cpu_sparse<double>(int const, int const, int const, int const[],
                                  int const[], int const, int const[],
                                  double const[], double const, double const[],
                                  double const, double[]);
-#else
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
 template void cpu_sparse<float>(int const, int const, int const, int const[],
                                 int const[], int const, int const[],
                                 float const[], float const, float const[],

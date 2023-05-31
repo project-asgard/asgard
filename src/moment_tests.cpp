@@ -18,7 +18,7 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
+TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
 {
   std::string const pde_choice = "diffusion_2";
   fk::vector<int> const levels{5, 5};
@@ -51,7 +51,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", double, float)
   SECTION("Constructor") { moment<TestType> mymoment({md_func}); }
 }
 
-TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
+TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
 {
   std::string const pde_choice = "vlasov";
   fk::vector<int> const levels{4, 3};
@@ -94,7 +94,7 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", double, float)
         moment_base_dir /
         ("moment_matrix_vlasov_d3_l4_3_m" + std::to_string(i + 1) + ".dat");
     auto const gold_moment_matrix =
-        fk::matrix<TestType>(read_matrix_from_txt_file(gold_filename));
+        read_matrix_from_txt_file<TestType>(gold_filename);
 
     rmse_comparison(gold_moment_matrix, moments[i].get_moment_matrix(),
                     tol_factor);

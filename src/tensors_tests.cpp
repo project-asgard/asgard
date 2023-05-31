@@ -15,7 +15,7 @@ using namespace asgard;
 // FIXME look for another way to do this
 
 TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
-                   float, double, int)
+                   test_precs, int)
 {
   // set up the golden vector
   // orthogonality warnings: all of the tests depend on
@@ -237,141 +237,6 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     test_v = gold_v;
     REQUIRE(test_v == gold);
   }
-  SECTION("converting construction (from owners)")
-  {
-    fk::vector<int> testi(gold);
-    // fk::vector<int, mem_type::view> testi_v(gold); // disabled
-    REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(gold);
-    // fk::vector<float, mem_type::view> testf_v(gold);
-    REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
-    fk::vector<double> testd(gold);
-    // fk::vector<double, mem_type::view> testd_v(gold);
-    REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting construction (from views")
-  {
-    fk::vector<TestType> gold_copy(gold);
-    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
-    fk::vector<int> testi(gold_v);
-    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
-    REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(gold_v);
-    // fk::vector<float, mem_type::view> testf_v(gold_v);
-    REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
-    fk::vector<double> testd(gold_v);
-    // fk::vector<double, mem_type::view> testd_v(gold_v);
-    REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting construction (from const views)")
-  {
-    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
-    fk::vector<int> testi(gold_v);
-    // fk::vector<int, mem_type::view> testi_v(gold_v); // disabled
-    REQUIRE(testi == goldi);
-    // REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(gold_v);
-    // fk::vector<float, mem_type::view> testf_v(gold_v);
-    REQUIRE(testf == goldf);
-    // REQUIRE(testf_v == goldf);
-    fk::vector<double> testd(gold_v);
-    // fk::vector<double, mem_type::view> testd_v(gold_v);
-    REQUIRE(testd == goldd);
-    // REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting assignment (from owners)")
-  {
-    fk::vector<int> testi(5);
-    fk::vector<int, mem_type::view> testi_v(testi);
-    testi = gold;
-    REQUIRE(testi == goldi);
-    std::fill(testi.begin(), testi.end(), 0);
-    testi_v = gold;
-    REQUIRE(testi == goldi);
-
-    REQUIRE(testi_v == goldi);
-    fk::vector<float> testf(5);
-    fk::vector<float, mem_type::view> testf_v(testf);
-    testf = gold;
-    REQUIRE(testf == goldf);
-    std::fill(testf.begin(), testf.end(), 0.0f);
-    testf_v = gold;
-    REQUIRE(testf_v == goldf);
-
-    fk::vector<double> testd(5);
-    fk::vector<double, mem_type::view> testd_v(testd);
-    testd = gold;
-    REQUIRE(testd == goldd);
-    std::fill(testd.begin(), testd.end(), 0.0);
-    testd_v = gold;
-    REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting assignment (from views)")
-  {
-    fk::vector<TestType> gold_copy(gold);
-    fk::vector<TestType, mem_type::view> gold_v(gold_copy);
-    fk::vector<int> testi(5);
-    fk::vector<int, mem_type::view> testi_v(testi);
-    testi = gold_v;
-    REQUIRE(testi == goldi);
-    std::fill(testi.begin(), testi.end(), 0);
-    testi_v = gold_v;
-    REQUIRE(testi_v == goldi);
-
-    fk::vector<float> testf(5);
-    fk::vector<float, mem_type::view> testf_v(testf);
-    testf = gold_v;
-    REQUIRE(testf == goldf);
-    std::fill(testf.begin(), testf.end(), 0.0f);
-    testf_v = gold_v;
-    REQUIRE(testf_v == goldf);
-
-    fk::vector<double> testd(5);
-    fk::vector<double, mem_type::view> testd_v(testd);
-    testd = gold_v;
-    REQUIRE(testd == goldd);
-    std::fill(testd.begin(), testd.end(), 0.0);
-    testd_v = gold_v;
-    REQUIRE(testd_v == goldd);
-  }
-
-  SECTION("converting assignment (from const views)")
-  {
-    fk::vector<TestType, mem_type::const_view> const gold_v(gold);
-    fk::vector<int> testi(5);
-    fk::vector<int, mem_type::view> testi_v(testi);
-    testi = gold_v;
-    REQUIRE(testi == goldi);
-    std::fill(testi.begin(), testi.end(), 0);
-    testi_v = gold_v;
-    REQUIRE(testi_v == goldi);
-
-    fk::vector<float> testf(5);
-    fk::vector<float, mem_type::view> testf_v(testf);
-    testf = gold_v;
-    REQUIRE(testf == goldf);
-    std::fill(testf.begin(), testf.end(), 0.0f);
-    testf_v = gold_v;
-    REQUIRE(testf_v == goldf);
-
-    fk::vector<double> testd(5);
-    fk::vector<double, mem_type::view> testd_v(testd);
-    testd = gold_v;
-    REQUIRE(testd == goldd);
-    std::fill(testd.begin(), testd.end(), 0.0);
-    testd_v = gold_v;
-    REQUIRE(testd_v == goldd);
-  }
 
   SECTION("move construction")
   {
@@ -454,7 +319,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   }
 } // end fk::vector constructors, copy/move
 
-TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
 
@@ -769,7 +634,7 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", double, float, int)
   }
 } // end fk::vector operators
 
-TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
   fk::vector<TestType> gold_copy(gold);
@@ -1022,8 +887,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", double, float, int)
   }
 } // end fk::vector utilities
 
-TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
-                   int)
+TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold = {1, 3, 5, 7, 9};
 
@@ -1565,7 +1429,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", double, float,
 }
 
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
-                   double, float, int)
+                   test_precs, int)
 {
   // set up the golden matrix
   // clang-format off
@@ -1979,7 +1843,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
 
 } // end fk::matrix constructors, copy/move
 
-TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
 {
   // set up the golden matrix
   // clang-format off
@@ -2527,7 +2391,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", double, float, int)
   }
 } // end fk::matrix operators
 
-TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
+TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
 {
   // set up the golden matrix
   // clang-format off
@@ -3029,8 +2893,8 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", double, float, int)
   }
 } // end fk::matrix utilities
 
-TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
-                   float, int)
+TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
+                   test_precs, int)
 {
   // clang-format off
   fk::matrix<TestType> const gold = {{ 1,  3,  5,  7,  9},
@@ -3571,7 +3435,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]", double,
   }
 }
 
-TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", double, float)
+TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", test_precs)
 {
   fk::matrix<TestType> const m_0 = {{0, 4, 8, 12, 16, 20, 24, 28},
                                     {1, 5, 9, 13, 17, 21, 25, 29},

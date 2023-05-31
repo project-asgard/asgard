@@ -130,7 +130,7 @@ fk::matrix<P> eye(int const M, int const N)
 // y = p(0)*x^n + p(1)*x^(n-1) + ... + p(n-1)*x + p(n)
 //-----------------------------------------------------------------------------
 template<typename P>
-P polyval(fk::vector<P> const p, P const x)
+P polyval(fk::vector<P> const &p, P const x)
 {
   int const num_terms = p.size();
   expect(num_terms > 0);
@@ -145,7 +145,7 @@ P polyval(fk::vector<P> const p, P const x)
 }
 
 template<typename P>
-fk::vector<P> polyval(fk::vector<P> const p, fk::vector<P> const x)
+fk::vector<P> polyval(fk::vector<P> const &p, fk::vector<P> const &x)
 {
   int const num_terms = p.size();
   int const num_sols  = x.size();
@@ -198,7 +198,8 @@ P inf_norm(fk::vector<P> const &vec)
 // end
 //
 //-----------------------------------------------------------------------------
-fk::vector<double> read_vector_from_bin_file(std::filesystem::path const &path)
+template<typename P>
+fk::vector<P> read_vector_from_bin_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -226,7 +227,17 @@ fk::vector<double> read_vector_from_bin_file(std::filesystem::path const &path)
 
   infile.read(reinterpret_cast<char *>(values.data()), bytes);
 
-  return values;
+  if constexpr (std::is_same<P, double>::value)
+  {
+    return values;
+  }
+  else
+  {
+    fk::vector<P> converted_values(values.size());
+    for (int i = 0; i < converted_values.size(); i++)
+      converted_values[i] = static_cast<P>(values[i]);
+    return converted_values;
+  }
 
   // infile implicitly closed on exit
 }
@@ -282,7 +293,8 @@ double read_scalar_from_txt_file(std::filesystem::path const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path)
+template<typename P>
+fk::vector<P> read_vector_from_txt_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -327,9 +339,7 @@ fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path)
   int const num_elems = (rows >= columns) ? rows : columns;
 
   // create output vector
-  fk::vector<double> values;
-
-  values.resize(num_elems);
+  fk::vector<P> values(num_elems);
 
   for (auto i = 0; i < num_elems; ++i)
   {
@@ -349,7 +359,8 @@ fk::vector<double> read_vector_from_txt_file(std::filesystem::path const &path)
 // FIXME unsure what Matlab ascii files look like
 //
 //-----------------------------------------------------------------------------
-fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path)
+template<typename P>
+fk::matrix<P> read_matrix_from_txt_file(std::filesystem::path const &path)
 {
   // open up the file
   std::ifstream infile;
@@ -389,13 +400,13 @@ fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path)
   int columns = std::stoi(tmp_str);
 
   // create output matrix
-  fk::matrix<double> values(rows, columns);
+  fk::matrix<P> values(rows, columns);
 
   for (auto i = 0; i < rows; ++i)
     for (auto j = 0; j < columns; ++j)
     {
       infile >> tmp_str;
-      values(i, j) = std::stod(tmp_str);
+      values(i, j) = static_cast<P>(std::stod(tmp_str));
     }
 
   return values;
@@ -403,7 +414,7 @@ fk::matrix<double> read_matrix_from_txt_file(std::filesystem::path const &path)
 
 // stitch matrices together side by side (all must have same # rows)
 template<typename P>
-fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const matrices)
+fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const &matrices)
 {
   expect(matrices.size() > 0);
   auto const [nrows, ncols] = [&]() {
@@ -454,7 +465,7 @@ fk::matrix<int> meshgrid(int const start, int const length)
 }
 
 template<typename P, mem_type mem>
-fk::matrix<P> reshape(fk::matrix<P, mem> mat, int const nrow, int const ncol)
+fk::matrix<P> reshape(fk::matrix<P, mem> &mat, int const nrow, int const ncol)
 {
   expect(nrow * ncol == mat.size());
   fk::vector<P> X(mat);
@@ -514,52 +525,84 @@ fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
 }
 
 // explicit instantiations
-template fk::vector<float> linspace(float const start, float const end,
-                                    unsigned int const num_elems = 100);
+#ifdef ASGARD_ENABLE_DOUBLE
+template fk::vector<double>
+read_vector_from_bin_file(std::filesystem::path const &path);
+template fk::vector<double>
+read_vector_from_txt_file(std::filesystem::path const &path);
+template fk::matrix<double>
+read_matrix_from_txt_file(std::filesystem::path const &path);
+
 template fk::vector<double> linspace(double const start, double const end,
                                      unsigned int const num_elems = 100);
 
-template fk::matrix<int> eye(int const M = 1);
-template fk::matrix<float> eye(int const M = 1);
 template fk::matrix<double> eye(int const M = 1);
-template fk::matrix<int> eye(int const M, int const N);
-template fk::matrix<float> eye(int const M, int const N);
 template fk::matrix<double> eye(int const M, int const N);
+template double polyval(fk::vector<double> const &p, double const x);
 
-template int polyval(fk::vector<int> const p, int const x);
-template float polyval(fk::vector<float> const p, float const x);
-template double polyval(fk::vector<double> const p, double const x);
-
-template float l2_norm(fk::vector<float> const &vec);
 template double l2_norm(fk::vector<double> const &vec);
-template float inf_norm(fk::vector<float> const &vec);
 template double inf_norm(fk::vector<double> const &vec);
-
-template fk::vector<int>
-polyval(fk::vector<int> const p, fk::vector<int> const x);
-template fk::vector<float>
-polyval(fk::vector<float> const p, fk::vector<float> const x);
 template fk::vector<double>
-polyval(fk::vector<double> const p, fk::vector<double> const x);
-
-template fk::matrix<int>
-horz_matrix_concat(std::vector<fk::matrix<int>> const matrices);
-template fk::matrix<float>
-horz_matrix_concat(std::vector<fk::matrix<float>> const matrices);
-template fk::matrix<double>
-horz_matrix_concat(std::vector<fk::matrix<double>> const matrices);
+polyval(fk::vector<double> const &p, fk::vector<double> const &x);
 
 template fk::matrix<double>
-reshape(fk::matrix<double> mat, int const nrow, int const ncol);
-template fk::matrix<float>
-reshape(fk::matrix<float> mat, int const nrow, int const ncol);
-template fk::matrix<int>
-reshape(fk::matrix<int> mat, int const nrow, int const ncol);
+horz_matrix_concat(std::vector<fk::matrix<double>> const &matrices);
+
+template fk::matrix<double>
+reshape(fk::matrix<double> &mat, int const nrow, int const ncol);
 
 template fk::vector<double> interp1(fk::vector<double> const &sample,
                                     fk::vector<double> const &values,
                                     fk::vector<double> const &coords);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template fk::vector<float>
+read_vector_from_bin_file(std::filesystem::path const &);
+template fk::vector<float>
+read_vector_from_txt_file(std::filesystem::path const &);
+template fk::matrix<float>
+read_matrix_from_txt_file(std::filesystem::path const &);
+
+template fk::vector<float> linspace(float const start, float const end,
+                                    unsigned int const num_elems = 100);
+
+template fk::matrix<float> eye(int const M = 1);
+template float polyval(fk::vector<float> const &p, float const x);
+template float l2_norm(fk::vector<float> const &vec);
+template float inf_norm(fk::vector<float> const &vec);
+
+template fk::vector<float>
+polyval(fk::vector<float> const &p, fk::vector<float> const &x);
+template fk::matrix<float>
+reshape(fk::matrix<float> &mat, int const nrow, int const ncol);
+
 template fk::vector<float> interp1(fk::vector<float> const &sample,
                                    fk::vector<float> const &values,
                                    fk::vector<float> const &coords);
+#endif
+
+template fk::vector<int>
+read_vector_from_bin_file(std::filesystem::path const &);
+template fk::vector<int>
+read_vector_from_txt_file(std::filesystem::path const &);
+template fk::matrix<int>
+read_matrix_from_txt_file(std::filesystem::path const &);
+
+template fk::matrix<int> eye(int const M = 1);
+template fk::matrix<int> eye(int const M, int const N);
+template fk::matrix<float> eye(int const M, int const N);
+
+template int polyval(fk::vector<int> const &p, int const x);
+
+template fk::vector<int>
+polyval(fk::vector<int> const &p, fk::vector<int> const &x);
+
+template fk::matrix<int>
+horz_matrix_concat(std::vector<fk::matrix<int>> const &matrices);
+template fk::matrix<float>
+horz_matrix_concat(std::vector<fk::matrix<float>> const &matrices);
+template fk::matrix<int>
+reshape(fk::matrix<int> &mat, int const nrow, int const ncol);
+
 } // namespace asgard

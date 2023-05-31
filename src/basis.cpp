@@ -412,15 +412,19 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   return fmwt_comp;
 }
 
+#ifdef ASGARD_ENABLE_DOUBLE
 template std::array<fk::matrix<double>, 6>
 generate_multi_wavelets(int const degree);
-template std::array<fk::matrix<float>, 6>
-generate_multi_wavelets(int const degree);
-
 template fk::matrix<double>
 operator_two_scale(int const degree, int const num_levels);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template std::array<fk::matrix<float>, 6>
+generate_multi_wavelets(int const degree);
 template fk::matrix<float>
 operator_two_scale(int const degree, int const num_levels);
+#endif
 
 namespace basis
 {
@@ -681,98 +685,91 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
   return transformed;
 }
 
-template class wavelet_transform<float, resource::host>;
+#ifdef ASGARD_ENABLE_DOUBLE
 template class wavelet_transform<double, resource::host>;
-template class wavelet_transform<float, resource::device>;
 template class wavelet_transform<double, resource::device>;
-
-template fk::vector<float, mem_type::owner, resource::host>
-wavelet_transform<float, resource::host>::apply(
-    fk::vector<float, mem_type::owner, resource::host> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
 
 template fk::vector<double, mem_type::owner, resource::host>
 wavelet_transform<double, resource::host>::apply(
     fk::vector<double, mem_type::owner, resource::host> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-
-template fk::vector<float, mem_type::owner, resource::device>
-wavelet_transform<float, resource::device>::apply(
-    fk::vector<float, mem_type::owner, resource::device> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-
 template fk::vector<double, mem_type::owner, resource::device>
 wavelet_transform<double, resource::device>::apply(
     fk::vector<double, mem_type::owner, resource::device> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-
-template fk::vector<float, mem_type::owner, resource::host>
-wavelet_transform<float, resource::host>::apply(
-    fk::vector<float, mem_type::const_view, resource::host> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-
 template fk::vector<double, mem_type::owner, resource::host>
 wavelet_transform<double, resource::host>::apply(
     fk::vector<double, mem_type::const_view, resource::host> const
         &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-
-template fk::vector<float, mem_type::owner, resource::device>
-wavelet_transform<float, resource::device>::apply(
-    fk::vector<float, mem_type::const_view, resource::device> const
-        &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-
 template fk::matrix<double, mem_type::owner, resource::device>
 wavelet_transform<double, resource::device>::apply(
     fk::matrix<double, mem_type::const_view, resource::device> const
         &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-
-template fk::matrix<float, mem_type::owner, resource::host>
-wavelet_transform<float, resource::host>::apply(
-    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-
 template fk::matrix<double, mem_type::owner, resource::host>
 wavelet_transform<double, resource::host>::apply(
     fk::matrix<double, mem_type::owner, resource::host> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-
-template fk::matrix<float, mem_type::owner, resource::device>
-wavelet_transform<float, resource::device>::apply(
-    fk::matrix<float, mem_type::owner, resource::device> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-
 template fk::matrix<double, mem_type::owner, resource::device>
 wavelet_transform<double, resource::device>::apply(
     fk::matrix<double, mem_type::owner, resource::device> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
+#endif
 
+#ifdef ASGARD_ENABLE_FLOAT
+template class wavelet_transform<float, resource::host>;
+template class wavelet_transform<float, resource::device>;
+
+template fk::vector<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::vector<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::vector<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::vector<float, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::vector<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::vector<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::vector<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::vector<float, mem_type::const_view, resource::device> const
+        &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::matrix<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::matrix<float, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
 template fk::matrix<float, mem_type::owner, resource::host>
 wavelet_transform<float, resource::host>::apply(
     fk::matrix<float, mem_type::const_view, resource::host> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-
 template fk::matrix<float, mem_type::owner, resource::device>
 wavelet_transform<float, resource::device>::apply(
     fk::matrix<float, mem_type::const_view, resource::device> const
         &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
+#endif
 
 } // namespace basis
 } // namespace asgard

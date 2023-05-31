@@ -25,11 +25,7 @@
 #include "transformations.hpp"
 #include <numeric>
 
-#ifdef ASGARD_USE_DOUBLE_PREC
-using prec = double;
-#else
-using prec = float;
-#endif
+using prec = asgard::default_precision;
 
 int main(int argc, char **argv)
 {
@@ -277,7 +273,7 @@ int main(int argc, char **argv)
       auto const relative_error =
           RMSE / asgard::inf_norm(analytic_solution) * 100;
       auto const [rmse_errors, relative_errors] =
-          asgard::gather_errors(RMSE, relative_error);
+          asgard::gather_errors<prec>(RMSE, relative_error);
       expect(rmse_errors.size() == relative_errors.size());
       for (int j = 0; j < rmse_errors.size(); ++j)
       {
