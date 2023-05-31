@@ -111,11 +111,11 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
           {
             Y.zero();
             T const *const A = &(vA[iA[ma++]]);
-            PRAGMA_OMP_SIMD(collapse(2))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(2))
             for (int j = 0; j < n; j++)
               for (int k = 0; k < n; k++)
                 Y(k) += A[j * n + k] * x[tj + j];
-            PRAGMA_OMP_SIMD()
+            ASGARD_PRAGMA_OMP_SIMD()
             for (int j = 0; j < n; j++)
               if constexpr (alpha_case == scalar_case::one)
                 y[ti + j] += Y(j);
@@ -129,18 +129,18 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
             Y.zero();
             W.zero();
             T const *A = &(vA[iA[ma++]]); // A1
-            PRAGMA_OMP_SIMD(collapse(3))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(3))
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 for (int k = 0; k < n; k++)
                   W(s, k) += x[tj + n * j + k] * A[j * n + s];
             A = &(vA[iA[ma++]]); // A0
-            PRAGMA_OMP_SIMD(collapse(3))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(3))
             for (int j = 0; j < n; j++)
               for (int k = 0; k < n; k++)
                 for (int s = 0; s < n; s++)
                   Y(k, s) += A[j * n + s] * W(k, j);
-            PRAGMA_OMP_SIMD(collapse(2))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(2))
             for (int j = 0; j < n; j++)
               for (int k = 0; k < n; k++)
                 if constexpr (alpha_case == scalar_case::one)
@@ -155,14 +155,14 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
             Y.zero();
             W.zero();
             T const *A = &(vA[iA[ma++]]); // A2
-            PRAGMA_OMP_SIMD(collapse(4))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(4))
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 for (int l = 0; l < n; l++)
                   for (int k = 0; k < n; k++)
                     Y(s, l, k) += x[tj + n * n * j + n * l + k] * A[j * n + s];
             A = &(vA[iA[ma++]]); // A1
-            PRAGMA_OMP_SIMD(collapse(4))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(4))
             for (int l = 0; l < n; l++)
               for (int j = 0; j < n; j++)
                 for (int s = 0; s < n; s++)
@@ -170,13 +170,13 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                     W(l, s, k) += Y(l, j, k) * A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A0
-            PRAGMA_OMP_SIMD(collapse(4))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(4))
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
                 for (int j = 0; j < n; j++)
                   for (int s = 0; s < n; s++)
                     Y(l, k, s) += A[j * n + s] * W(l, k, j);
-            PRAGMA_OMP_SIMD(collapse(3))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(3))
             for (int j = 0; j < n; j++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
@@ -192,7 +192,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
             Y.zero();
             W.zero();
             T const *A = &(vA[iA[ma++]]); // A3
-            PRAGMA_OMP_SIMD(collapse(5))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(5))
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 for (int p = 0; p < n; p++)
@@ -202,7 +202,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                           x[tj + n * n * n * j + n * n * p + n * l + k] *
                           A[j * n + s];
             A = &(vA[iA[ma++]]); // A2
-            PRAGMA_OMP_SIMD(collapse(5))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(5))
             for (int p = 0; p < n; p++)
               for (int j = 0; j < n; j++)
                 for (int s = 0; s < n; s++)
@@ -211,7 +211,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                       Y(p, s, l, k) += W(p, j, l, k) * A[j * n + s];
             W.zero();
             A = &(vA[iA[ma++]]); // A1
-            PRAGMA_OMP_SIMD(collapse(5))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(5))
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int j = 0; j < n; j++)
@@ -220,14 +220,14 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                       W(p, l, s, k) += Y(p, l, j, k) * A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A0
-            PRAGMA_OMP_SIMD(collapse(5))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(5))
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   for (int j = 0; j < n; j++)
                     for (int s = 0; s < n; s++)
                       Y(p, l, k, s) += A[j * n + s] * W(p, l, k, j);
-            PRAGMA_OMP_SIMD(collapse(4))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(4))
             for (int j = 0; j < n; j++)
               for (int p = 0; p < n; p++)
                 for (int l = 0; l < n; l++)
@@ -247,7 +247,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
             Y.zero();
             W.zero();
             T const *A = &(vA[iA[ma++]]); // A4
-            PRAGMA_OMP_SIMD(collapse(6))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(6))
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 for (int v = 0; v < n; v++)
@@ -259,7 +259,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                               n * n * p + n * l + k] *
                             A[j * n + s];
             A = &(vA[iA[ma++]]); // A3
-            PRAGMA_OMP_SIMD(collapse(6))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(6))
             for (int v = 0; v < n; v++)
               for (int j = 0; j < n; j++)
                 for (int s = 0; s < n; s++)
@@ -269,7 +269,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                         W(v, s, p, l, k) += Y(v, j, p, l, k) * A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A2
-            PRAGMA_OMP_SIMD(collapse(6))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(6))
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
                 for (int j = 0; j < n; j++)
@@ -279,7 +279,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                         Y(v, p, s, l, k) += W(v, p, j, l, k) * A[j * n + s];
             W.zero();
             A = &(vA[iA[ma++]]); // A1
-            PRAGMA_OMP_SIMD(collapse(6))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(6))
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
                 for (int l = 0; l < n; l++)
@@ -289,7 +289,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                         W(v, p, l, s, k) += Y(v, p, l, j, k) * A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A0
-            PRAGMA_OMP_SIMD(collapse(6))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(6))
             for (int v = 0; v < n; v++)
               for (int p = 0; p < n; p++)
                 for (int l = 0; l < n; l++)
@@ -297,7 +297,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                     for (int j = 0; j < n; j++)
                       for (int s = 0; s < n; s++)
                         Y(v, p, l, k, s) += A[j * n + s] * W(v, p, l, k, j);
-            PRAGMA_OMP_SIMD(collapse(5))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(5))
             for (int j = 0; j < n; j++)
               for (int v = 0; v < n; v++)
                 for (int p = 0; p < n; p++)
@@ -317,7 +317,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
           {
             W.zero();
             T const *A = &(vA[iA[ma++]]); // A5
-            PRAGMA_OMP_SIMD(collapse(7))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(7))
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 for (int w = 0; w < n; w++)
@@ -331,7 +331,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                               A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A4
-            PRAGMA_OMP_SIMD(collapse(7))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(7))
             for (int w = 0; w < n; w++)
               for (int j = 0; j < n; j++)
                 for (int s = 0; s < n; s++)
@@ -343,7 +343,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                               W(w, j, v, p, l, k) * A[j * n + s];
             W.zero();
             A = &(vA[iA[ma++]]); // A3
-            PRAGMA_OMP_SIMD(collapse(7))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(7))
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
                 for (int j = 0; j < n; j++)
@@ -355,7 +355,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                               Y(w, v, j, p, l, k) * A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A2
-            PRAGMA_OMP_SIMD(collapse(7))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(7))
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
                 for (int p = 0; p < n; p++)
@@ -367,7 +367,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                               W(w, v, p, j, l, k) * A[j * n + s];
             W.zero();
             A = &(vA[iA[ma++]]); // A1
-            PRAGMA_OMP_SIMD(collapse(7))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(7))
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
                 for (int p = 0; p < n; p++)
@@ -379,7 +379,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                               Y(w, v, p, l, j, k) * A[j * n + s];
             Y.zero();
             A = &(vA[iA[ma++]]); // A0
-            PRAGMA_OMP_SIMD(collapse(7))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(7))
             for (int w = 0; w < n; w++)
               for (int v = 0; v < n; v++)
                 for (int p = 0; p < n; p++)
@@ -389,7 +389,7 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
                         for (int s = 0; s < n; s++)
                           Y(w, v, p, l, k, s) +=
                               A[j * n + s] * W(w, v, p, l, k, j);
-            PRAGMA_OMP_SIMD(collapse(6))
+            ASGARD_PRAGMA_OMP_SIMD(collapse(6))
             for (int j = 0; j < n; j++)
               for (int w = 0; w < n; w++)
                 for (int v = 0; v < n; v++)
