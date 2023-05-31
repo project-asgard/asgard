@@ -659,7 +659,7 @@ TEMPLATE_TEST_CASE(
 }
 
 TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
-                   float, double, int)
+                   float, double)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
@@ -676,27 +676,8 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
     int n          = x.size();
     TestType alpha = scale;
     int inc        = 1;
-    lib_dispatch::axpy(&n, &alpha, x.data(), &inc, y.data(), &inc);
+    lib_dispatch::axpy(n, alpha, x.data(), inc, y.data(), inc);
     REQUIRE(y == gold);
-  }
-
-  SECTION("lib_dispatch::axpy - inc = 1, device")
-  {
-    if constexpr (std::is_floating_point_v<TestType>)
-    {
-      fk::vector<TestType> y(x.size());
-      std::fill(y.begin(), y.end(), 1.0);
-
-      int n          = x.size();
-      TestType alpha = scale;
-      int inc        = 1;
-      fk::vector<TestType, mem_type::owner, resource::device> y_d(
-          y.clone_onto_device());
-      lib_dispatch::axpy(&n, &alpha, x_d.data(), &inc, y_d.data(), &inc,
-                         resource::device);
-      y.transfer_from(y_d);
-      REQUIRE(y == gold);
-    }
   }
 
   SECTION("lib_dispatch::axpy - inc =/= 1")
@@ -709,30 +690,44 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
     TestType alpha = scale;
     int incx       = 2;
     int incy       = 3;
-    lib_dispatch::axpy(&n, &alpha, x_extended.data(), &incx, y.data(), &incy);
+    lib_dispatch::axpy(n, alpha, x_extended.data(), incx, y.data(), incy);
     REQUIRE(y == ans);
   }
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("lib_dispatch::axpy - inc = 1, device")
+  {
+    fk::vector<TestType> y(x.size());
+    std::fill(y.begin(), y.end(), 1.0);
+
+    int n          = x.size();
+    TestType alpha = scale;
+    int inc        = 1;
+    fk::vector<TestType, mem_type::owner, resource::device> y_d(
+        y.clone_onto_device());
+    lib_dispatch::axpy<resource::device>(n, alpha, x_d.data(), inc, y_d.data(),
+                                         inc);
+    y.transfer_from(y_d);
+    REQUIRE(y == gold);
+  }
+
   SECTION("lib_dispatch::axpy - inc =/= 1, device")
   {
-    if constexpr (std::is_floating_point_v<TestType>)
-    {
-      fk::vector<TestType, mem_type::owner, resource::device> y_d = {
-          1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
-      fk::vector<TestType> const ans = {4, 0, 0,  7, 0, 0, 10,
-                                        0, 0, 13, 0, 0, 16};
-      fk::vector<TestType, mem_type::owner, resource::device> const x_extended =
-          {1, 0, 2, 0, 3, 0, 4, 0, 5};
-
-      int n          = x.size();
-      TestType alpha = scale;
-      int incx       = 2;
-      int incy       = 3;
-      lib_dispatch::axpy(&n, &alpha, x_extended.data(), &incx, y_d.data(),
-                         &incy, resource::device);
-      fk::vector<TestType> const y(y_d.clone_onto_host());
-      REQUIRE(y == ans);
-    }
+    fk::vector<TestType, mem_type::owner, resource::device> y_d = {
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
+    fk::vector<TestType> const ans = {4, 0, 0, 7, 0, 0, 10, 0, 0, 13, 0, 0, 16};
+    fk::vector<TestType, mem_type::owner, resource::device> const x_extended = {
+        1, 0, 2, 0, 3, 0, 4, 0, 5};
+    int n          = x.size();
+    TestType alpha = scale;
+    int incx       = 2;
+    int incy       = 3;
+    lib_dispatch::axpy<resource::device>(n, alpha, x_extended.data(), incx,
+                                         y_d.data(), incy);
+    fk::vector<TestType> const y(y_d.clone_onto_host());
+    REQUIRE(y == ans);
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,

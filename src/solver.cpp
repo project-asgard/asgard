@@ -35,7 +35,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat, fk::vector<P> &x,
           P const beta) -> void {
         mat.apply(-dt * alpha, x_in.data(), beta, y.data());
         int one = 1, n = y.size();
-        lib_dispatch::axpy(&n, &alpha, x_in.data(), &one, y.data(), &one);
+        lib_dispatch::axpy(n, alpha, x_in.data(), one, y.data(), one);
       },
       x, b, fk::matrix<P>(), restart, max_iter, tolerance);
 }

@@ -573,7 +573,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double, int)
   }
 }
 
-TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
+TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double)
 {
   fk::vector<TestType> const gold = {2, 3, 4, 5, 6};
   SECTION("vector scale and accumulate (fm::axpy)")
@@ -601,6 +601,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
     REQUIRE(test_own == ans);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("vector scale and accumulate (fm::axpy), device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -642,6 +643,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double, int)
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("vector copy (fm::copy)")
   {

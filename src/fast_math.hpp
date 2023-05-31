@@ -94,7 +94,7 @@ axpy(fk::vector<P, omem, resrc> const &x, fk::vector<P, mem, resrc> &y,
   int n    = x.size();
   int one  = 1;
   P alpha_ = alpha;
-  lib_dispatch::axpy(&n, &alpha_, x.data(), &one, y.data(), &one, resrc);
+  lib_dispatch::axpy<resrc>(n, alpha_, x.data(), one, y.data(), one);
   return y;
 }
 
