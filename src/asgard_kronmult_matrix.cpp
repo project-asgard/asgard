@@ -515,7 +515,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   // the algorithm use two stages, counts the non-zeros in the global matrix,
   // then fills in the associated indexes for the rows, columns and iA
-  std::vector<int> ccount(num_rows, 0); // counts the connections
+  std::vector<int> ccount(num_rows, 0); // first counts the connections
 #pragma omp parallel for
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
@@ -529,7 +529,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
     }
   }
 
-  // num_connect is number of non-zeros of the sparse matrix
+  // right now, ccount[row] is the number of connections for each row
+  // later we will replace ccount by cumulative count similar to pntr
+  // num_connect is the total number of non-zeros of the sparse matrix
   int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
 
   fk::vector<int> iA(num_connect * num_dimensions * num_terms);
@@ -540,6 +542,15 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   fk::vector<int> row_indx(num_connect);
   fk::vector<int> col_indx(num_connect);
+  {
+    int cumulative = 0;
+    for (int i = 0; i < num_rows; i++)
+    {
+      int current = cumulative;
+      cumulative += ccount[i];
+      ccount[i] = current;
+    }
+  }
 #else
   fk::vector<int> pntr(num_rows + 1);
   fk::vector<int> indx(num_connect);
@@ -557,7 +568,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   #pragma omp for
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
-    int c = (row == grid.row_start) ? 0 : ccount[row - grid.row_start - 1];
+    int c = ccount[row - grid.row_start];
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
