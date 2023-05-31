@@ -51,7 +51,7 @@ void test_adapt(parser const &problem, std::filesystem::path gold_base)
   auto const fval_orig =
       fk::vector<P>(read_vector_from_txt_file<P>(fval_orig_path));
   auto const gold_coarse =
-      fk::vector<P>(read_vector_from_txt_file<P>(fval_coarse_path));
+      read_vector_from_txt_file<P>(fval_coarse_path);
   auto const gold_refine = [fval_refine_path]() {
     auto gold = fk::vector<P>(read_vector_from_txt_file<P>(fval_refine_path));
     for (auto i = 0; i < gold.size(); ++i)
