@@ -336,7 +336,10 @@ struct matrix_list
 {
   //! \brief Makes a list of uninitialized matrices
   matrix_list() : matrices(3)
-  {}
+  {
+    // make sure we have defined flags for all matrices
+    expect(matrices.size() == flag_map.size());
+  }
 
   //! \brief Returns an entry indexed by the enum
   kronmult_matrix<precision>& operator [] (matrix_entry entry)
@@ -346,24 +349,24 @@ struct matrix_list
 
   //! \brief Make the matrix for the given entry
   void make(matrix_entry entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid, options const &opts,
-            imex_flag const imex = imex_flag::unspecified)
+            adapt::distributed_grid<precision> const &grid,
+            options const &opts)
   {
     if (not (*this)[entry])
-      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex);
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
   }
   /*!
    * \brief Either makes the matrix or if it exists, just updates only the
    *        coefficients
    */
   void reset_coefficients(matrix_entry entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid, options const &opts,
-            imex_flag const imex = imex_flag::unspecified)
+            adapt::distributed_grid<precision> const &grid,
+            options const &opts)
   {
     if (not (*this)[entry])
-      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex);
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
     else
-      update_kronmult_coefficients(pde, opts, imex, (*this)[entry]);
+      update_kronmult_coefficients(pde, opts, imex(entry), (*this)[entry]);
   }
 
   //! \brief Clear the specified matrix
@@ -382,6 +385,16 @@ struct matrix_list
 
   //! \brief Holds the matrices
   std::vector<kronmult_matrix<precision>> matrices;
+
+private:
+  static imex_flag imex(matrix_entry entry)
+  {
+    return flag_map[static_cast<int>(entry)];
+  }
+
+  static constexpr std::array<imex_flag, 3> flag_map = {imex_flag::unspecified,
+                                                        imex_flag::imex_explicit,
+                                                        imex_flag::imex_implicit};
 };
 
 } // namespace asgard
