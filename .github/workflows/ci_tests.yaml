@@ -9,7 +9,7 @@ jobs:
             matrix:
                 os: [macos-latest]
                 node: [Release]
-                features: [Default, MPI, ScaLAPACK]
+                features: [Default]
         runs-on: ${{matrix.os}}
         steps:
             - name: CPU Info
@@ -17,14 +17,6 @@ jobs:
                 sysctl -n machdep.cpu.brand_string
                 sysctl -n machdep.cpu.features
                 (echo "Number of Cores:"; sysctl -n machdep.cpu.core_count) |tr '\n' '\t' && echo ''
-            - name: Install MPI
-              if: ${{matrix.features == 'MPI'}}
-              working-directory: ${{runner.workspace}}
-              run: brew install open-mpi
-            - name: Install ScaLAPACK
-              if: ${{matrix.features == 'ScaLAPACK'}}
-              working-directory: ${{runner.workspace}}
-              run: brew install scalapack
             - name: Git checkout
               uses: actions/checkout@v1
             - name: Makedir
@@ -33,18 +25,10 @@ jobs:
             - name: Configure Default
               if: ${{matrix.features  == 'Default'}}
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_PCH=ON ../
-            - name: Configure MPI
-              if: ${{matrix.features == 'MPI'}}
-              working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_MPI=ON -DASGARD_USE_PCH=ON ../
-            - name: Configure ScaLAPACK
-              if: ${{matrix.features == 'ScaLAPACK'}}
-              working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_MPI=ON -DASGARD_USE_SCALAPACK=ON -DCMAKE_Fortran_COMPILER=/usr/local/opt/gfortran/bin/gfortran -DASGARD_USE_PCH=ON ../
+              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_PCH=ON -DASGARD_PRECISIONS=double ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
-              run: make VERBOSE=1
+              run: make -j VERBOSE=1
             - name: Test
               working-directory: ${{runner.workspace}}/asgard/build
               run: make test
