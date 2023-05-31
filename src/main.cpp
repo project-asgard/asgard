@@ -228,7 +228,7 @@ int main(int argc, char **argv)
   asgard::node_out() << "--- begin time loop w/ dt " << pde->get_dt()
                      << " ---\n";
 
-  asgard::matrix_entries<prec> operator_matrices;
+  asgard::matrix_list<prec> operator_matrices;
 
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {

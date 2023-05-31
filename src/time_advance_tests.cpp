@@ -75,7 +75,7 @@ void time_advance_test(parser const &parse,
 
   fk::vector<P> f_val(initial_condition);
 
-  asgard::matrix_entries<prec> operator_matrices;
+  asgard::matrix_list<P> operator_matrices;
 
   // -- time loop
   for (auto i = 0; i < opts.num_time_steps; ++i)

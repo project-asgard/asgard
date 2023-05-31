@@ -275,6 +275,17 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
                      imex_flag const imex = imex_flag::unspecified);
 
+//! \brief Expressive indexing for the matrices
+enum matrix_entry
+{
+  //! \brief Regular matrix for implicit or explicit time-stepping
+  regular = 0,
+  //! \brief IMEX explicit matrix
+  imex_explicit = 1,
+  //! \brief IMEX implicit matrix
+  imex_implicit = 2
+};
+
 /*!
  * \brief Holds a list of matrices used for time-stepping.
  *
@@ -283,47 +294,37 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
  * as a set and reduce the number of matrix making.
  */
 template<typename precision>
-struct matrix_entries
+struct matrix_list
 {
-  //! \brief Expressive indexing for the matrices
-  enum entry_types
-  {
-    //! \brief Regular matrix for implicit or explicit time-stepping
-    regular = 0,
-    //! \brief IMEX explicit matrix
-    imex_explicit = 1,
-    //! \brief IMEX implicit matrix
-    imex_implicit = 2
-  };
-
   //! \brief Makes a list of uninitialized matrices
-  matrix_entries() : matrices(3)
+  matrix_list() : matrices(3)
   {}
 
   //! \brief Returns an entry indexed by the enum
-  kronmult_matrix<precision>& operator [] (entry_types entry)
+  kronmult_matrix<precision>& operator [] (matrix_entry entry)
   {
     return matrices[static_cast<int>(entry)];
   }
 
   //! \brief Make the matrix for the given entry
-  void make(entry_types entry, PDE<precision> const &pde,
+  void make(matrix_entry entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts,
             imex_flag const imex = imex_flag::unspecified)
   {
-    if (not *this[entry])
-      *this[entry] = make_kronmult_matrix(pde, grid, opts, imex);
+    if (not (*this)[entry])
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex);
   }
   //! \brief Clear the specified matrix
-  void clear(entry_types entry)
+  void clear(matrix_entry entry)
   {
-    matrices[static_cast<int>(entry)] = kronmult_matrix<precision>();
+    if (matrices[static_cast<int>(entry)])
+      matrices[static_cast<int>(entry)] = kronmult_matrix<precision>();
   }
   //! \brief Clear all matrices
   void clear_all()
   {
     for(auto &matrix : matrices)
-      if (not matrix)
+      if (matrix)
         matrix = kronmult_matrix<precision>();
   }
 
