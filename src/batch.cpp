@@ -154,7 +154,8 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
   expect(position >= 0);
   expect(position < num_entries());
 
-  batch_[position] = a.data();
+  // just aliasing, probably bad
+  batch_[position] = const_cast<P*>(a.data());
 }
 
 template<typename P, resource resrc>

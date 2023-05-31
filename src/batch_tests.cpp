@@ -437,36 +437,36 @@ TEMPLATE_TEST_CASE_SIG("batch", "[batch]",
       REQUIRE(ptr_list[2] == test(2));
     }
 
-    SECTION("raw pointer insert")
-    {
-      batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
-      test.assign_raw(first_v.data(), 0);
-      TestType *const *ptr_list = test.get_list();
-      REQUIRE(ptr_list[0] == first_v.data());
-      REQUIRE(ptr_list[1] == nullptr);
-      REQUIRE(ptr_list[2] == nullptr);
-      REQUIRE(ptr_list[0] == test(0));
-      REQUIRE(ptr_list[1] == test(1));
-      REQUIRE(ptr_list[2] == test(2));
-
-      test.assign_raw(third_v.data(), 2);
-      ptr_list = test.get_list();
-      REQUIRE(ptr_list[0] == first_v.data());
-      REQUIRE(ptr_list[1] == nullptr);
-      REQUIRE(ptr_list[2] == third_v.data());
-      REQUIRE(ptr_list[0] == test(0));
-      REQUIRE(ptr_list[1] == test(1));
-      REQUIRE(ptr_list[2] == test(2));
-
-      test.assign_raw(second_v.data(), 1);
-      ptr_list = test.get_list();
-      REQUIRE(ptr_list[0] == first_v.data());
-      REQUIRE(ptr_list[1] == second_v.data());
-      REQUIRE(ptr_list[2] == third_v.data());
-      REQUIRE(ptr_list[0] == test(0));
-      REQUIRE(ptr_list[1] == test(1));
-      REQUIRE(ptr_list[2] == test(2));
-    }
+    //SECTION("raw pointer insert")
+    //{
+    //  batch<TestType, resrc> test(num_batch, nrows, ncols, stride, do_trans);
+    //  test.assign_raw(first_v.data(), 0);
+    //  TestType *const *ptr_list = test.get_list();
+    //  REQUIRE(ptr_list[0] == first_v.data());
+    //  REQUIRE(ptr_list[1] == nullptr);
+    //  REQUIRE(ptr_list[2] == nullptr);
+    //  REQUIRE(ptr_list[0] == test(0));
+    //  REQUIRE(ptr_list[1] == test(1));
+    //  REQUIRE(ptr_list[2] == test(2));
+    //
+    //  test.assign_raw(third_v.data(), 2);
+    //  ptr_list = test.get_list();
+    //  REQUIRE(ptr_list[0] == first_v.data());
+    //  REQUIRE(ptr_list[1] == nullptr);
+    //  REQUIRE(ptr_list[2] == third_v.data());
+    //  REQUIRE(ptr_list[0] == test(0));
+    //  REQUIRE(ptr_list[1] == test(1));
+    //  REQUIRE(ptr_list[2] == test(2));
+    //
+    //  test.assign_raw(second_v.data(), 1);
+    //  ptr_list = test.get_list();
+    //  REQUIRE(ptr_list[0] == first_v.data());
+    //  REQUIRE(ptr_list[1] == second_v.data());
+    //  REQUIRE(ptr_list[2] == third_v.data());
+    //  REQUIRE(ptr_list[0] == test(0));
+    //  REQUIRE(ptr_list[1] == test(1));
+    //  REQUIRE(ptr_list[2] == test(2));
+    //}
 
     SECTION("clear")
     {

@@ -58,14 +58,14 @@ extern "C"
 
 #ifndef ASGARD_OPENBLAS
   //  Openblas predeclares these from an include in cblas.h
-  void dgesv_(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+  void dgesv_(int *n, int *nrhs, double const *A, int *lda, int const *ipiv, double *b,
               int *ldb, int *info);
-  void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+  void sgesv_(int *n, int *nrhs, float const *A, int *lda, int const *ipiv, float *b,
               int *ldb, int *info);
-  void dgetrs_(char *trans, int *n, int *nrhs, double *A, int *lda, int *ipiv,
-               double *b, int *ldb, int *info);
-  void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
-               float *b, int *ldb, int *info);
+  void dgetrs_(char *trans, int *n, int *nrhs, double const *A, int *lda,
+               int const *ipiv, double *b, int *ldb, int *info);
+  void sgetrs_(char *trans, int *n, int *nrhs, float const *A, int *lda,
+               int const *ipiv, float *b, int *ldb, int *info);
 #endif
 }
 #endif
@@ -87,17 +87,17 @@ extern "C"
 #include "scalapack_matrix_info.hpp"
 extern "C"
 {
-  void psgesv_(int *n, int *nrhs, float *a, int *ia, int *ja, int *desca,
-               int *ipiv, float *b, int *ib, int *jb, int *descb, int *info);
-  void pdgesv_(int *n, int *nrhs, double *a, int *ia, int *ja, int *desca,
-               int *ipiv, double *b, int *ib, int *jb, int *descb, int *info);
+  void psgesv_(int *n, int *nrhs, float const *a, int *ia, int *ja, int *desca,
+               int const *ipiv, float *b, int *ib, int *jb, int *descb, int *info);
+  void pdgesv_(int *n, int *nrhs, double const *a, int *ia, int *ja, int *desca,
+               int const *ipiv, double *b, int *ib, int *jb, int *descb, int *info);
 
-  void psgetrs_(const char *trans, int *n, int *nrhs, float *a, int *ia,
-                int *ja, int *desca, int *ipiv, float *b, int *ib, int *jb,
-                int *descb, int *info);
-  void pdgetrs_(const char *trans, int *n, int *nrhs, double *a, int *ia,
-                int *ja, int *desca, int *ipiv, double *b, int *ib, int *jb,
-                int *descb, int *info);
+  void psgetrs_(const char *trans, int *n, int *nrhs, float const *a, int *ia,
+                int *ja, int *desca, int const *ipiv, float *b, int *ib,
+                int *jb, int *descb, int *info);
+  void pdgetrs_(const char *trans, int *n, int *nrhs, double const *a, int *ia,
+                int *ja, int *desca, int const *ipiv, double *b, int *ib,
+                int *jb, int *descb, int *info);
 }
 
 #endif
@@ -905,8 +905,8 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
 }
 
 template<typename P>
-void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-          int *info)
+void gesv(int *n, int *nrhs, P const *A, int *lda, int const *ipiv, P *b,
+          int *ldb, int *info)
 {
   expect(n);
   expect(nrhs);
@@ -935,8 +935,8 @@ void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
 }
 
 template<typename P>
-void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
-           int *ldb, int *info)
+void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
+           int const *ipiv, P *b, int *ldb, int *info)
 {
   expect(trans);
   expect(n);
@@ -1030,7 +1030,7 @@ void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
 #ifdef ASGARD_USE_SCALAPACK
 
 template<typename P>
-void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
+void scalapack_gesv(int *n, int *nrhs, P const *A, int *descA, int const *ipiv, P *b,
                     int *descB, int *info)
 {
   expect(n);
@@ -1059,8 +1059,8 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
 }
 
 template<typename P>
-void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
-                     int *ipiv, P *b, int *descB, int *info)
+void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
+                     int const *ipiv, P *b, int *descB, int *info)
 {
   expect(trans);
   expect(n);
@@ -1190,15 +1190,15 @@ template void batched_gemm(double **const &a, int *lda, char const *transa,
                            double *alpha, double *beta, int *num_batch,
                            resource const resrc);
 
-template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
+template void gesv(int *n, int *nrhs, double const *A, int *lda, int const *ipiv, double *b,
                    int *ldb, int *info);
-template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
+template void gesv(int *n, int *nrhs, float const *A, int *lda, int const *ipiv, float *b,
                    int *ldb, int *info);
 
-template void getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
-                    int *ipiv, double *b, int *ldb, int *info);
-template void getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
-                    int *ipiv, float *b, int *ldb, int *info);
+template void getrs(char *trans, int *n, int *nrhs, double const *A, int *lda,
+                    int const *ipiv, double *b, int *ldb, int *info);
+template void getrs(char *trans, int *n, int *nrhs, float const *A, int *lda,
+                    int const *ipiv, float *b, int *ldb, int *info);
 
 template void
 pttrf(int *n, double *D, double *E, int *info, resource const resrc);
@@ -1210,9 +1210,9 @@ template void pttrs(int *n, int *nrhs, double const *D, double const *E, double 
 template void pttrs(int *n, int *nrhs, float const *D, float const *E, float *B, int *ldb,
                     int *info, resource const resrc);
 #ifdef ASGARD_USE_SCALAPACK
-template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
-                             int *ipiv, double *b, int *descB, int *info);
-template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
+template void scalapack_gesv(int *n, int *nrhs, double const *A, int *descA,
+                             int const *ipiv, double *b, int *descB, int *info);
+template void scalapack_gesv(int *n, int *nrhs, float const *A, int *descA, int const *ipiv,
                              float *b, int *descB, int *info);
 
 template void scalapack_getrs(char *trans, int *n, int *nrhs, double *A,

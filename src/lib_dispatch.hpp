@@ -56,12 +56,12 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
                   resource const resrc = resource::host);
 
 template<typename P>
-void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-          int *info);
+void gesv(int *n, int *nrhs, P const *A, int *lda, int const *ipiv, P *b,
+          int *ldb, int *info);
 
 template<typename P>
-void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
-           int *ldb, int *info);
+void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
+           int const *ipiv, P *b, int *ldb, int *info);
 
 template<typename P>
 void pttrf(int *n, P *D, P *E, int *info,
@@ -73,7 +73,7 @@ void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
 
 #ifdef ASGARD_USE_SCALAPACK
 template<typename P>
-void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
+void scalapack_gesv(int *n, int *nrhs, P const *A, int *descA, int const *ipiv, P *b,
                     int *descB, int *info);
 
 template<typename P>

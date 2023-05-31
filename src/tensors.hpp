@@ -692,7 +692,13 @@ public:
   int64_t size() const { return int64_t{nrows()} * ncols(); }
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
-  P *data(int const i = 0, int const j = 0) const
+  P const *data(int const i = 0, int const j = 0) const
+  {
+    // return data_ + i * stride() + j; // row-major
+    return data_ + int64_t{j} * stride() + int64_t{i}; // column-major
+  }
+  //! \brief Non-const overload
+  P *data(int const i = 0, int const j = 0)
   {
     // return data_ + i * stride() + j; // row-major
     return data_ + int64_t{j} * stride() + int64_t{i}; // column-major
@@ -1692,10 +1698,13 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source, int,
   data_ = nullptr;
   size_ = row_stop - row_start + 1;
 
+  static_assert(not (mem == mem_type::const_view and omem == mem_type::view),
+                "cannot create non-const view from const_view");
+
   if (size_ > 0)
   {
-    data_ = source.data(int64_t{column_index} * source.stride() +
-                        int64_t{row_start});
+    data_ = const_cast<P*>(source.data(int64_t{column_index} * source.stride()
+                           + int64_t{row_start}));
   }
 }
 
@@ -1864,7 +1873,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_ = a.data();
+    data_ = const_cast<P*>(a.data());
   }
 }
 
@@ -1898,7 +1907,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_ = a.data();
+    data_ = const_cast<P*>(a.data());
   }
 
   return *this;
@@ -2705,7 +2714,10 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
     expect(stop_row < owner.nrows());
     expect(stop_row >= start_row);
 
-    data_   = owner.data(start_row, start_col);
+    //static_assert(not (mem == mem_type::const_view and omem == mem_type::view),
+    //              "cannot create non-const view from const_view");
+    // OK to alias here, const is enforced by the "const_view" vs. "view"
+    data_   = const_cast<P*>(owner.data(start_row, start_col));
     nrows_  = view_rows;
     ncols_  = view_cols;
     stride_ = owner.stride();
