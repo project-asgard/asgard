@@ -20,8 +20,8 @@
 #if defined(__clang__)
 #define ASGARD_PRAGMA_OMP_SIMD(x)
 #else
-#define PRAGMA(x) _Pragma(#x)
-#define ASGARD_PRAGMA_OMP_SIMD(clause) PRAGMA(omp simd clause)
+#define ASGARD_PRAGMA(x) _Pragma(#x)
+#define ASGARD_PRAGMA_OMP_SIMD(clause) ASGARD_PRAGMA(omp simd clause)
 #endif
 
 namespace asgard::kronmult
