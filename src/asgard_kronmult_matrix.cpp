@@ -765,8 +765,8 @@ make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, imex_flag const);
 template void
-update_kronmult_coefficients<float>(PDE<float> const &, options float &,
-                                    imex_flag const, kronmult_matrix<double> &);
+update_kronmult_coefficients<float>(PDE<float> const &, options const &,
+                                    imex_flag const, kronmult_matrix<float> &);
 #endif
 
 } // namespace asgard
