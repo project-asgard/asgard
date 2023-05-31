@@ -126,8 +126,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     fk::vector<P> const y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
     // if either one of the ranks reports 1, i.e., y_stepped.size() changed
-    refining = (get_global_max<int>((y_stepped.size() != y_refined.size()) ? 1 : 0,
-                            adaptive_grid.get_distrib_plan()) == 1);
+    refining = get_global_max<bool>(y_stepped.size() != y_refined.size(), adaptive_grid.get_distrib_plan());
 
     node_out() << " adapt -- refined grid from " << old_size << " -> "
                << adaptive_grid.size() << " elems\n";
