@@ -778,8 +778,8 @@ P get_global_max(no_deduce<P> const my_max, distribution_plan const &plan)
         return MPI_DOUBLE;
       else if constexpr (std::is_same<P, float>::value)
         return MPI_FLOAT;
-      else if constexpr (std::is_same<P, int>::value)
-        return MPI_INT;
+      else if constexpr (std::is_same<P, bool>::value)
+        return MPI_CXX_BOOL;
       else
         static_assert(std::is_same<P, double>::value, "The value of P must be double, float, or int");
     }();
