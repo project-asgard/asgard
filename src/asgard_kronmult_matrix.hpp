@@ -168,7 +168,7 @@ public:
     if (beta != 0)
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
-    if (row_indx_.size() == 0)
+    if (is_dense())
       kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
                           num_batch(), num_cols_, num_terms_, iA.data(),
                           vA.data(), alpha, xdev.data(), beta, ydev.data());
@@ -179,7 +179,7 @@ public:
                            beta, ydev.data());
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
-    if (row_indx_.size() == 0)
+    if (is_dense())
       kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
                           num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
     else
@@ -221,6 +221,29 @@ public:
   {
     return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
            num_dimensions * num_terms * num_batch;
+  }
+  //! \brief Defined if the matrix is dense or sparse
+  bool is_dense() const
+  {
+    return (row_indx_.size() == 0);
+  }
+
+  //! \brief Update coefficients
+  template<resource input_mode>
+  void update_stored_coefficients(fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+  {
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
+#endif
+    expect(num_dimensions_ > 0);
+    expect(values_A.size() == vA.size());
+    vA = std::move(values_A);
   }
 
 private:
@@ -275,6 +298,21 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
                      imex_flag const imex = imex_flag::unspecified);
 
+/*!
+ * \brief Update the coefficients stored in the matrix without changing the rest
+ *
+ * Used when the coefficients change but the list of indexes, i.e., the rows
+ * columns and potential sparsity pattern remains the same.
+ *
+ * Note that the number of terms and the imex flags must be the same as
+ * the ones used in the construction of the matrix.
+ * Best use the matrix_list as a helper class.
+ */
+template<typename P>
+void
+update_kronmult_coefficients(PDE<P> const &pde, options const &program_options,
+                             imex_flag const imex, kronmult_matrix<P> &mat);
+
 //! \brief Expressive indexing for the matrices
 enum matrix_entry
 {
@@ -314,6 +352,20 @@ struct matrix_list
     if (not (*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex);
   }
+  /*!
+   * \brief Either makes the matrix or if it exists, just updates only the
+   *        coefficients
+   */
+  void reset_coefficients(matrix_entry entry, PDE<precision> const &pde,
+            adapt::distributed_grid<precision> const &grid, options const &opts,
+            imex_flag const imex = imex_flag::unspecified)
+  {
+    if (not (*this)[entry])
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex);
+    else
+      update_kronmult_coefficients(pde, opts, imex, (*this)[entry]);
+  }
+
   //! \brief Clear the specified matrix
   void clear(matrix_entry entry)
   {

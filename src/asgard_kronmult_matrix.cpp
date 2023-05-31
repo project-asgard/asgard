@@ -659,12 +659,104 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   }
 }
 
+template<typename P>
+void
+update_kronmult_coefficients(PDE<P> const &pde, options const &program_options,
+                             imex_flag const imex, kronmult_matrix<P> &mat)
+{
+  auto const form_id = tools::timer.start("kronmult-update-coefficients");
+  int const num_dimensions = pde.num_dims;
+  int const kron_size      = pde.get_dimensions()[0].get_degree();
+
+  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
+                                                  ? program_options.max_level
+                                                  : pde.max_level);
+
+  // take into account the terms that will be skipped due to the imex_flag
+  std::vector<int> const used_terms = get_used_terms(pde, program_options,
+                                                     imex);
+  int const num_terms = static_cast<int>(used_terms.size());
+
+  // size of the small kron matrices
+  int const kron_squared = kron_size * kron_size;
+  fk::vector<P> vA;
+
+  if (mat.is_dense())
+  {
+    int64_t osize = 0;
+    for (int t = 0; t < num_terms; t++)
+      for (int d = 0; d < num_dimensions; d++)
+        osize += pde.get_coefficients(t, d).size();
+
+    vA = fk::vector<P>(osize);
+
+    auto pA = vA.begin();
+    for (int t : used_terms)
+    {
+      for (int d = 0; d < num_dimensions; d++)
+      {
+        auto const &ops   = pde.get_coefficients(t, d);
+        int const num_ops = ops.nrows() / kron_size;
+
+        for (int ocol = 0; ocol < num_ops; ocol++)
+          for (int orow = 0; orow < num_ops; orow++)
+            for (int i = 0; i < kron_size; i++)
+              pA = std::copy_n(ops.data() + kron_size * orow +
+                                   lda * (kron_size * ocol + i),
+                               kron_size, pA);
+      }
+    }
+  }
+  else
+  {
+    // holds the 1D sparsity structure for the coefficient matrices
+    connect_1d cells1d(pde.max_level);
+    int const num_1d = cells1d.num_connections();
+
+    // storing the 1D operator matrices by 1D row and column
+    // each connected pair of 1D cells will be associated with a block
+    //  of operator coefficients
+    int const block1D_size = num_dimensions * num_terms * kron_squared;
+    vA = fk::vector<P>(num_1d * block1D_size);
+    auto pA = vA.begin();
+    for (int row = 0; row < cells1d.num_cells(); row++)
+    {
+      for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
+      {
+        int col = cells1d[j];
+        for (int const t : used_terms)
+        {
+          for (int d = 0; d < num_dimensions; d++)
+          {
+            P const *const ops = pde.get_coefficients(t, d).data();
+            for (int k = 0; k < kron_size; k++)
+              pA = std::copy_n(ops + kron_size * row +
+                                   lda * (kron_size * col + k),
+                               kron_size, pA);
+          }
+        }
+      }
+    }
+  }
+
+#ifdef ASGARD_USE_CUDA
+  mat.update_stored_coefficients(vA.clone_onto_device());
+#else
+  mat.update_stored_coefficients(std::move(vA));
+#endif
+
+  tools::timer.stop(form_id);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, imex_flag const);
-
+template void
+update_kronmult_coefficients<double>(PDE<double> const &,
+                                     options const &, imex_flag const,
+                                     kronmult_matrix<double>&);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -672,7 +764,10 @@ template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, imex_flag const);
-
+template void
+update_kronmult_coefficients<float>(PDE<float> const &,
+                                    options float &, imex_flag const,
+                                    kronmult_matrix<double>&);
 #endif
 
 } // namespace asgard

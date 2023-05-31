@@ -559,9 +559,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     do_poisson_update(x);
   }
 
-  operator_matrices.clear(matrix_entry::imex_explicit);
-  operator_matrices.make(matrix_entry::imex_explicit, pde, adaptive_grid,
-                         program_opts, imex_flag::imex_explicit);
+  operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
+                                       adaptive_grid, program_opts,
+                                       imex_flag::imex_explicit);
 
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
@@ -626,9 +626,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   if (pde.do_collision_operator)
   {
     // f2 now
-    operator_matrices.clear(matrix_entry::imex_implicit);
-    operator_matrices.make(matrix_entry::imex_implicit, pde, adaptive_grid,
-                           program_opts, imex_flag::imex_implicit);
+    operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
+                                         adaptive_grid, program_opts,
+                                         imex_flag::imex_implicit);
 
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
@@ -652,9 +652,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     do_poisson_update(f_2);
   }
 
-  operator_matrices.clear(matrix_entry::imex_explicit);
-  operator_matrices.make(matrix_entry::imex_explicit, pde, adaptive_grid,
-                         program_opts, imex_flag::imex_explicit);
+  operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
+                                       adaptive_grid, program_opts,
+                                       imex_flag::imex_explicit);
 
   tools::timer.start(apply_id);
   operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
@@ -717,9 +717,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
 
-    operator_matrices.clear(matrix_entry::imex_implicit);
-    operator_matrices.make(matrix_entry::imex_implicit, pde, adaptive_grid,
-                           program_opts, imex_flag::imex_implicit);
+    operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
+                                         adaptive_grid, program_opts,
+                                         imex_flag::imex_implicit);
 
     pde.gmres_outputs[1] = solver::simple_gmres_euler(P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_3, x, restart, max_iter, tolerance);
 
