@@ -109,10 +109,6 @@ set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to 
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
-if (${ASGARD_USE_PCH})
-  set (USE_PCH ON CACHE BOOL "Turn on kronmult precompiled header support" FORCE)
-endif ()
-
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
@@ -191,7 +187,7 @@ if (ASGARD_USE_SCALAPACK)
 endif ()
 
 if (ASGARD_USE_CUDA)
-    # CUDA has to be enabled before asgard_obj is created
+    # CUDA has to be enabled before libasgard is created
     cmake_policy(SET CMP0104 NEW)
 
     if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
@@ -231,13 +227,16 @@ configure_file(
   ${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp
 )
 
-add_library (asgard_obj)
+add_library (libasgard)
+set_target_properties(libasgard PROPERTIES OUTPUT_NAME "asgard"
+                                           SOVERSION ${asgard_VERSION_MAJOR}
+                                           VERSION   ${PROJECT_VERSION})
 
 if (build_hdf5)
-    add_dependencies (asgard_obj hdf5-ext)
+    add_dependencies (libasgard hdf5-ext)
 endif ()
 
-target_compile_features (asgard_obj PUBLIC cxx_std_17)
+target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
      adapt
      basis
@@ -281,25 +280,25 @@ endif ()
 foreach (component IN LISTS components)
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp)
         # some components don't have .cpp files
-        target_sources (asgard_obj
+        target_sources (libasgard
                         PRIVATE
                         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp>
         )
     endif()
-    target_precompile_headers (asgard_obj
+    target_precompile_headers (libasgard
                                PUBLIC
                                $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
     )
 endforeach ()
 
-target_sources (asgard_obj
+target_sources (libasgard
                 PRIVATE
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
 )
-target_precompile_headers (asgard_obj
+target_precompile_headers (libasgard
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_base.hpp>>
@@ -318,7 +317,7 @@ target_precompile_headers (asgard_obj
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_fokkerplanck2_complete.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_vlasov_lb_full_f.hpp>>
 )
-target_link_libraries (asgard_obj
+target_link_libraries (libasgard
                        PUBLIC
                        $<$<BOOL:${scalapack_FOUND}>:scalapack>
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
@@ -330,12 +329,12 @@ target_link_libraries (asgard_obj
                        $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_ENGINE_LIBRARY}>
                        $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_DATAARRAY_LIBRARY}>
 )
-target_include_directories (asgard_obj
+target_include_directories (libasgard
                             PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
-target_compile_definitions (asgard_obj
+target_compile_definitions (libasgard
                             PUBLIC
                             $<BUILD_INTERFACE:$<$<BOOL:${ASGARD_USE_SCALAPACK}>:ASGARD_USE_SCALAPACK>>
 )
@@ -346,16 +345,12 @@ if (ASGARD_USE_CUDA)
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
-    target_compile_options (asgard_obj
-                            PUBLIC
-                            $<$<COMPILE_LANGUAGE:CUDA>:-g -lineinfo --ptxas-options=-O3>
-    )
-    target_compile_features (asgard_obj PUBLIC cuda_std_14)
-    target_link_options (asgard_obj
+    target_compile_features (libasgard PUBLIC cuda_std_14)
+    target_link_options (libasgard
                          PUBLIC
                          $<$<COMPILE_LANGUAGE:CUDA>:-Wl,-rpath,${CMAKE_BINARY_DIR}>
     )
-    target_link_libraries (asgard_obj
+    target_link_libraries (libasgard
                            PUBLIC
                            CUDA::cudart
                            CUDA::cublas
@@ -363,23 +358,24 @@ if (ASGARD_USE_CUDA)
 endif ()
 
 if (ASGARD_USE_MATLAB)
-    target_include_directories (asgard_obj
+    target_include_directories (libasgard
                                 SYSTEM PUBLIC
                                 $<BUILD_INTERFACE:${Matlab_INCLUDE_DIRS}>
     )
 endif()
 
 #-------------------------------------------------------------------------------
-#  Define a asgard executable library.
+#  Define a asgard executable target.
 #-------------------------------------------------------------------------------
-add_executable (asgard)
-target_sources (asgard
+add_executable (asgard_exe)
+set_target_properties(asgard_exe PROPERTIES OUTPUT_NAME "asgard")
+target_sources (asgard_exe
                 PRIVATE
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp>
 )
-target_link_libraries (asgard PRIVATE asgard_obj)
+target_link_libraries (asgard_exe PRIVATE libasgard)
 if (${ASGARD_USE_PCH})
-    target_precompile_headers (asgard REUSE_FROM asgard_obj)
+    target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
 #-------------------------------------------------------------------------------
@@ -400,15 +396,15 @@ if (ASGARD_BUILD_TESTS)
   # contain all the appropriate link flags and dependencies, but does nothing
   # other than play with some code
   add_executable(sandbox ./testing/sandbox.cpp)
-  target_link_libraries (sandbox PUBLIC asgard_obj Catch2::Catch2)
+  target_link_libraries (sandbox PUBLIC libasgard Catch2::Catch2)
 
   # Define ctest tests and their executables. The _main variant of these targets
   # uses the default main function from the catch two framework. The non _main
   # variant uses a custom defined main in MPI based tests.
   add_library (tests_general testing/tests_general.cpp)
   add_library (tests_general_main testing/tests_general.cpp)
-  target_link_libraries (tests_general PUBLIC asgard_obj Catch2::Catch2)
-  target_link_libraries (tests_general_main PUBLIC asgard_obj Catch2::Catch2WithMain)
+  target_link_libraries (tests_general PUBLIC libasgard Catch2::Catch2)
+  target_link_libraries (tests_general_main PUBLIC libasgard Catch2::Catch2WithMain)
   target_include_directories(tests_general
                              PRIVATE ${CMAKE_BINARY_DIR}
                              PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -416,14 +412,14 @@ if (ASGARD_BUILD_TESTS)
                              PRIVATE ${CMAKE_BINARY_DIR}
                              PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   if (${ASGARD_USE_PCH})
-    target_precompile_headers (sandbox REUSE_FROM asgard_obj)
-    target_precompile_headers (tests_general REUSE_FROM asgard_obj)
-    target_precompile_headers (tests_general_main REUSE_FROM asgard_obj)
+    target_precompile_headers (sandbox REUSE_FROM libasgard)
+    target_precompile_headers (tests_general REUSE_FROM libasgard)
+    target_precompile_headers (tests_general_main REUSE_FROM libasgard)
   endif ()
 
   # new kronmult benchmarking
   add_executable(asgard_kronmult_benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
-  target_link_libraries (asgard_kronmult_benchmark PUBLIC asgard_obj)
+  target_link_libraries (asgard_kronmult_benchmark PUBLIC libasgard)
   target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/testing)
   target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/)
 
@@ -501,6 +497,22 @@ if (ASGARD_BUILD_TESTS)
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
   endforeach ()
+
+# assuming testing makes us into a stand-alone project, so be more verbose
+# helps keep track of flags and options and whether things we enabled correctly
+  message(STATUS "")
+  message(STATUS "ASGarD build options (summary):")
+  foreach(_opt CMAKE_CXX_FLAGS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB)
+    message(STATUS "  ${_opt}=${${_opt}}")
+  endforeach()
+  if (ASGARD_USE_CUDA)
+    foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS)
+      message(STATUS "  ${_opt}=${${_opt}}")
+    endforeach()
+  else()
+    message(STATUS "  ASGARD_USE_CUDA=${ASGARD_USE_CUDA}")
+  endif()
+  message(STATUS "")
 
 else ()
   message (WARNING "warning: tests will not be built.")

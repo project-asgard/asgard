@@ -35,5 +35,5 @@ doxygen_add_docs(asgard_doxygen
 
 # asgard_doxygen is not automatically added to "all"
 # must add a depenendence to ensure
-add_dependencies(asgard asgard_doxygen)
+add_dependencies(asgard_exe asgard_doxygen)
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../html DESTINATION "share/asgard/docs")
