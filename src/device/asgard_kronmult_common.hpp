@@ -15,6 +15,15 @@
 
 #endif
 
+// As of LLVM version 16, clang does not utlize #pragma omp simd, resulting in a
+// pessimization
+#if defined(__clang__)
+#define ASGARD_PRAGMA_OMP_SIMD(x)
+#else
+#define ASGARD_PRAGMA(x) _Pragma(#x)
+#define ASGARD_PRAGMA_OMP_SIMD(clause) ASGARD_PRAGMA(omp simd clause)
+#endif
+
 namespace asgard::kronmult
 {
 /*!
