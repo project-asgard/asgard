@@ -275,4 +275,60 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
                      imex_flag const imex = imex_flag::unspecified);
 
+/*!
+ * \brief Holds a list of matrices used for time-stepping.
+ *
+ * There are multiple types of matrices based on the time-stepping and the
+ * different terms being used. Matrices are grouped in one object so they can go
+ * as a set and reduce the number of matrix making.
+ */
+template<typename precision>
+struct matrix_entries
+{
+  //! \brief Expressive indexing for the matrices
+  enum entry_types
+  {
+    //! \brief Regular matrix for implicit or explicit time-stepping
+    regular = 0,
+    //! \brief IMEX explicit matrix
+    imex_explicit = 1,
+    //! \brief IMEX implicit matrix
+    imex_implicit = 2
+  };
+
+  //! \brief Makes a list of uninitialized matrices
+  matrix_entries() : matrices(3)
+  {}
+
+  //! \brief Returns an entry indexed by the enum
+  kronmult_matrix<precision>& operator [] (entry_types entry)
+  {
+    return matrices[static_cast<int>(entry)];
+  }
+
+  //! \brief Make the matrix for the given entry
+  void make(entry_types entry, PDE<precision> const &pde,
+            adapt::distributed_grid<precision> const &grid, options const &opts,
+            imex_flag const imex = imex_flag::unspecified)
+  {
+    if (not *this[entry])
+      *this[entry] = make_kronmult_matrix(pde, grid, opts, imex);
+  }
+  //! \brief Clear the specified matrix
+  void clear(entry_types entry)
+  {
+    matrices[static_cast<int>(entry)] = kronmult_matrix<precision>();
+  }
+  //! \brief Clear all matrices
+  void clear_all()
+  {
+    for(auto &matrix : matrices)
+      if (not matrix)
+        matrix = kronmult_matrix<precision>();
+  }
+
+  //! \brief Holds the matrices
+  std::vector<kronmult_matrix<precision>> matrices;
+};
+
 } // namespace asgard
