@@ -80,12 +80,14 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   node_out() << " adapt -- coarsened grid from " << old_size << " -> "
              << adaptive_grid.size() << " elems\n";
 
+  // clear the matrices if the coarsening removed indexes
+  if (old_size != adaptive_grid.size())
+      operator_matrices.clear_all();
+
   // refine
   bool refining = true;
   while (refining)
   {
-    operator_matrices.clear_all();
-
     // update boundary conditions
     auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
     auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
@@ -130,6 +132,9 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     }
     else
     {
+      // added more indexes, matrices will have to be remade
+      operator_matrices.clear_all();
+
       auto const y1 =
           adaptive_grid.redistribute_solution(y, old_plan, old_size);
       y.resize(y1.size()) = y1;
