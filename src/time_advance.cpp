@@ -45,7 +45,7 @@ get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 template<typename P>
 fk::vector<P>
 adaptive_advance(method const step_method, PDE<P> &pde,
-                 kronmult_matrix<P> &operator_matrix,
+                 matrix_list<P> &operator_matrices,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts, fk::vector<P> const &x_orig,
@@ -53,12 +53,6 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 {
   if (!program_opts.do_adapt_levels)
   {
-    if (not operator_matrix)
-      operator_matrix = asgard::make_kronmult_matrix<P>(
-          pde, adaptive_grid, program_opts,
-          (step_method == method::imex) ? imex_flag::imex_explicit
-                                        : imex_flag::unspecified);
-
     auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
     auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
         pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
@@ -66,14 +60,15 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     switch (step_method)
     {
     case (method::exp):
-      return explicit_advance(pde, operator_matrix, adaptive_grid, transformer,
-                              program_opts, unscaled_parts, x_orig, time);
+      return explicit_advance(pde, operator_matrices, adaptive_grid,
+                              transformer, program_opts, unscaled_parts, x_orig,
+                              time);
     case (method::imp):
-      return implicit_advance(pde, operator_matrix, adaptive_grid, transformer,
-                              program_opts, unscaled_parts, x_orig, time,
-                              update_system);
+      return implicit_advance(pde, operator_matrices, adaptive_grid,
+                              transformer, program_opts, unscaled_parts, x_orig,
+                              time, update_system);
     case (method::imex):
-      return imex_advance(pde, operator_matrix, adaptive_grid, transformer,
+      return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
                           program_opts, unscaled_parts, x_orig, time,
                           program_opts.solver, update_system);
     };
@@ -85,15 +80,14 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   node_out() << " adapt -- coarsened grid from " << old_size << " -> "
              << adaptive_grid.size() << " elems\n";
 
+  // clear the matrices if the coarsening removed indexes
+  if (old_size != adaptive_grid.size())
+    operator_matrices.clear_all();
+
   // refine
   bool refining = true;
   while (refining)
   {
-    operator_matrix = asgard::make_kronmult_matrix<P>(
-        pde, adaptive_grid, program_opts,
-        (step_method == method::imex) ? imex_flag::imex_explicit
-                                      : imex_flag::unspecified);
-
     // update boundary conditions
     auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
     auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
@@ -105,15 +99,15 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       switch (step_method)
       {
       case (method::exp):
-        return explicit_advance(pde, operator_matrix, adaptive_grid,
+        return explicit_advance(pde, operator_matrices, adaptive_grid,
                                 transformer, program_opts, unscaled_parts, y,
                                 time);
       case (method::imp):
-        return implicit_advance(pde, operator_matrix, adaptive_grid,
+        return implicit_advance(pde, operator_matrices, adaptive_grid,
                                 transformer, program_opts, unscaled_parts, y,
                                 time, refining);
       case (method::imex):
-        return imex_advance(pde, operator_matrix, adaptive_grid, transformer,
+        return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
                             program_opts, unscaled_parts, y, time,
                             program_opts.solver, refining);
       default:
@@ -138,6 +132,9 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     }
     else
     {
+      // added more indexes, matrices will have to be remade
+      operator_matrices.clear_all();
+
       auto const y1 =
           adaptive_grid.redistribute_solution(y, old_plan, old_size);
       y.resize(y1.size()) = y1;
@@ -151,7 +148,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 // vector x. on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
+explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -169,9 +166,8 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
   expect(col_size < INT_MAX);
   expect(row_size < INT_MAX);
 
-  if (not operator_matrix)
-    operator_matrix =
-        asgard::make_kronmult_matrix<P>(pde, adaptive_grid, program_opts);
+  operator_matrices.make(matrix_entry::regular, pde, adaptive_grid,
+                         program_opts);
 
   // time advance working vectors
   // input vector for apply_A
@@ -197,9 +193,9 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
   // -- RK step 1
   auto const apply_id = tools::timer.start("kronmult");
   fk::vector<P> fx(row_size);
-  operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
+  operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0, fx.data());
 
-  tools::timer.stop(apply_id, operator_matrix.flops());
+  tools::timer.stop(apply_id, operator_matrices[matrix_entry::regular].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources > 0)
@@ -221,8 +217,8 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
 
   // -- RK step 2
   tools::timer.start(apply_id);
-  operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id, operator_matrix.flops());
+  operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0, fx.data());
+  tools::timer.stop(apply_id, operator_matrices[matrix_entry::regular].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources > 0)
@@ -249,8 +245,8 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
 
   // -- RK step 3
   tools::timer.start(apply_id);
-  operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id, operator_matrix.flops());
+  operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0, fx.data());
+  tools::timer.stop(apply_id, operator_matrices[matrix_entry::regular].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources > 0)
@@ -285,7 +281,7 @@ explicit_advance(PDE<P> const &pde, kronmult_matrix<P> &operator_matrix,
 // vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-implicit_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
+implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -405,16 +401,16 @@ implicit_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   }
   else if (solver == solve_opts::gmres)
   {
-    if (not operator_matrix)
-      operator_matrix =
-          asgard::make_kronmult_matrix<P>(pde, adaptive_grid, program_opts);
+    operator_matrices.make(matrix_entry::regular, pde, adaptive_grid,
+                           program_opts);
     P const tolerance  = program_opts.gmres_tolerance;
     int const restart  = program_opts.gmres_inner_iterations;
     int const max_iter = program_opts.gmres_outer_iterations;
     fk::vector<P> fx(x);
     // TODO: do something better to save gmres output to pde
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrix, fx, x, restart, max_iter, tolerance);
+        pde.get_dt(), operator_matrices[matrix_entry::regular], fx, x, restart,
+        max_iter, tolerance);
     return fx;
   }
   return x;
@@ -424,7 +420,7 @@ implicit_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
+imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
              adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
              options const &program_opts,
@@ -563,16 +559,18 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     do_poisson_update(x);
   }
 
-  operator_matrix = asgard::make_kronmult_matrix<P>(
-      pde, adaptive_grid, program_opts, imex_flag::imex_explicit);
+  operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
+                                       adaptive_grid, program_opts);
 
   // Explicit step (f_2s)
   tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult - explicit");
   fk::vector<P, mem_type::owner, resource::host> fx(x.size());
-  operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
+  operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
+                                                       fx.data());
 
-  tools::timer.stop(apply_id, operator_matrix.flops());
+  tools::timer.stop(apply_id,
+                    operator_matrices[matrix_entry::imex_explicit].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   fk::vector<P> f_2s(x_orig.size());
@@ -627,10 +625,12 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
   if (pde.do_collision_operator)
   {
     // f2 now
-    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_matrix<P>(
-        pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
+    operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
+                                         adaptive_grid, program_opts);
+
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), collision_matrix, f_2, x, restart, max_iter, tolerance);
+        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
+        restart, max_iter, tolerance);
   }
   else
   {
@@ -650,12 +650,14 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     do_poisson_update(f_2);
   }
 
-  operator_matrix = asgard::make_kronmult_matrix<P>(
-      pde, adaptive_grid, program_opts, imex_flag::imex_explicit);
+  operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
+                                       adaptive_grid, program_opts);
 
   tools::timer.start(apply_id);
-  operator_matrix.apply(1.0, x.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id, operator_matrix.flops());
+  operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
+                                                       fx.data());
+  tools::timer.stop(apply_id,
+                    operator_matrices[matrix_entry::imex_explicit].flops());
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   fk::vector<P> t_f2(x_orig.size());
@@ -711,11 +713,13 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);
-    kronmult_matrix<P> collision_matrix = asgard::make_kronmult_matrix<P>(
-        pde, adaptive_grid, program_opts, imex_flag::imex_implicit);
-    pde.gmres_outputs[1] =
-        solver::simple_gmres_euler(P{0.5} * pde.get_dt(), collision_matrix, f_3,
-                                   x, restart, max_iter, tolerance);
+
+    operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
+                                         adaptive_grid, program_opts);
+
+    pde.gmres_outputs[1] = solver::simple_gmres_euler(
+        P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+        f_3, x, restart, max_iter, tolerance);
 
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
@@ -730,14 +734,14 @@ imex_advance(PDE<P> &pde, kronmult_matrix<P> &operator_matrix,
 #ifdef ASGARD_ENABLE_DOUBLE
 template fk::vector<double> adaptive_advance(
     method const step_method, PDE<double> &pde,
-    kronmult_matrix<double> &operator_matrix,
+    matrix_list<double> &operator_matrix,
     adapt::distributed_grid<double> &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts, fk::vector<double> const &x, double const time,
     bool const update_system);
 
 template fk::vector<double> explicit_advance(
-    PDE<double> const &pde, kronmult_matrix<double> &operator_matrix,
+    PDE<double> const &pde, matrix_list<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,
@@ -746,7 +750,7 @@ template fk::vector<double> explicit_advance(
     fk::vector<double> const &x, double const time);
 
 template fk::vector<double> implicit_advance(
-    PDE<double> &pde, kronmult_matrix<double> &operator_matrix,
+    PDE<double> &pde, matrix_list<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,
@@ -756,7 +760,7 @@ template fk::vector<double> implicit_advance(
     bool const update_system);
 
 template fk::vector<double> imex_advance(
-    PDE<double> &pde, kronmult_matrix<double> &operator_matrix,
+    PDE<double> &pde, matrix_list<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
     basis::wavelet_transform<double, resource::host> const &transformer,
     options const &program_opts,
@@ -771,14 +775,14 @@ template fk::vector<double> imex_advance(
 
 template fk::vector<float> adaptive_advance(
     method const step_method, PDE<float> &pde,
-    kronmult_matrix<float> &operator_matrix,
+    matrix_list<float> &operator_matrix,
     adapt::distributed_grid<float> &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
     options const &program_opts, fk::vector<float> const &x, float const time,
     bool const update_system);
 
 template fk::vector<float> explicit_advance(
-    PDE<float> const &pde, kronmult_matrix<float> &operator_matrix,
+    PDE<float> const &pde, matrix_list<float> &operator_matrix,
     adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
     options const &program_opts,
@@ -787,7 +791,7 @@ template fk::vector<float> explicit_advance(
     fk::vector<float> const &x, float const time);
 
 template fk::vector<float> implicit_advance(
-    PDE<float> &pde, kronmult_matrix<float> &operator_matrix,
+    PDE<float> &pde, matrix_list<float> &operator_matrix,
     adapt::distributed_grid<float> const &adaptive_grid,
     basis::wavelet_transform<float, resource::host> const &transformer,
     options const &program_opts,
@@ -796,7 +800,7 @@ template fk::vector<float> implicit_advance(
     fk::vector<float> const &x, float const time, bool const update_system);
 
 template fk::vector<float>
-imex_advance(PDE<float> &pde, kronmult_matrix<float> &operator_matrix,
+imex_advance(PDE<float> &pde, matrix_list<float> &operator_matrix,
              adapt::distributed_grid<float> const &adaptive_grid,
              basis::wavelet_transform<float, resource::host> const &transformer,
              options const &program_opts,

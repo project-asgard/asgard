@@ -228,7 +228,7 @@ int main(int argc, char **argv)
   asgard::node_out() << "--- begin time loop w/ dt " << pde->get_dt()
                      << " ---\n";
 
-  asgard::kronmult_matrix<prec> operator_matrix;
+  asgard::matrix_list<prec> operator_matrices;
 
   for (auto i = 0; i < opts.num_time_steps; ++i)
   {
@@ -247,8 +247,8 @@ int main(int argc, char **argv)
                                       : "explicit_time_advance");
     const std::string time_id = asgard::tools::timer.start(time_str);
     auto const sol            = asgard::time_advance::adaptive_advance(
-        method, *pde, operator_matrix, adaptive_grid, transformer, opts, f_val,
-        time, update_system);
+        method, *pde, operator_matrices, adaptive_grid, transformer, opts,
+        f_val, time, update_system);
     f_val.resize(sol.size()) = sol;
     asgard::tools::timer.stop(time_id);
 

@@ -18,6 +18,29 @@
 
 namespace asgard
 {
+//! \brief Extract the actual set of terms based on options and imex flags
+template<typename precision>
+std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
+                                imex_flag const imex)
+{
+  if (not opts.use_imex_stepping)
+  {
+    std::vector<int> terms(pde.num_terms);
+    std::iota(terms.begin(), terms.end(), 0); // fills with 0, 1, 2, 3 ...
+    return terms;
+  }
+  else
+  {
+    std::vector<int> terms;
+    terms.reserve(pde.num_terms);
+    for (int t = 0; t < pde.num_terms; t++)
+      if (pde.get_terms()[t][0].flag == imex)
+        terms.push_back(t);
+
+    return terms;
+  }
+};
+
 template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
@@ -28,13 +51,21 @@ make_kronmult_dense(PDE<precision> const &pde,
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
   int const kron_size      = pde.get_dimensions()[0].get_degree();
-  int const num_terms      = pde.num_terms;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
                                                   ? program_options.max_level
                                                   : pde.max_level);
+
+  // take into account the terms that will be skipped due to the imex_flag
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
+  int const num_terms = static_cast<int>(used_terms.size());
+
+  if (used_terms.size() == 0)
+    throw std::runtime_error("no terms selected in the current combination of "
+                             "imex flags and options, thus must be wrong");
 
   int64_t osize = 0;
   std::vector<int64_t> dim_term_offset(num_terms * pde.num_dims + 1);
@@ -69,31 +100,22 @@ make_kronmult_dense(PDE<precision> const &pde,
   // keep the column major format
   // but stack on the columns so the new leading dimensions is kron_size
   precision *pA = vA.data();
-  for (int t = 0; t < num_terms; t++)
+  for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
-      if (!program_options.use_imex_stepping ||
-          (program_options.use_imex_stepping &&
-           pde.get_terms()[t][d].flag == imex))
-      {
-        auto const &ops   = pde.get_coefficients(t, d); // this is an fk::matrix
-        int const num_ops = ops.nrows() / kron_size;
+      auto const &ops   = pde.get_coefficients(t, d); // this is an fk::matrix
+      int const num_ops = ops.nrows() / kron_size;
 
-        // the matrices of the kron products are organized into blocks
-        // of a large matrix, the matrix is square with size num-ops by
-        // kron-size rearrange in a sequential way (by columns) to avoid the lda
-        for (int ocol = 0; ocol < num_ops; ocol++)
-          for (int orow = 0; orow < num_ops; orow++)
-            for (int i = 0; i < kron_size; i++)
-              pA = std::copy_n(ops.data() + kron_size * orow +
-                                   lda * (kron_size * ocol + i),
-                               kron_size, pA);
-      }
-      else
-      {
-        pA = std::fill_n(pA, pde.get_coefficients(t, d).size(), precision{0});
-      }
+      // the matrices of the kron products are organized into blocks
+      // of a large matrix, the matrix is square with size num-ops by
+      // kron-size rearrange in a sequential way (by columns) to avoid the lda
+      for (int ocol = 0; ocol < num_ops; ocol++)
+        for (int orow = 0; orow < num_ops; orow++)
+          for (int i = 0; i < kron_size; i++)
+            pA = std::copy_n(ops.data() + kron_size * orow +
+                                 lda * (kron_size * ocol + i),
+                             kron_size, pA);
     }
   }
 
@@ -126,7 +148,7 @@ make_kronmult_dense(PDE<precision> const &pde,
         for (int d = 0; d < num_dimensions; d++)
         {
           int64_t const num_ops =
-              pde.get_coefficients(t, d).nrows() / kron_size;
+              pde.get_coefficients(used_terms[t], d).nrows() / kron_size;
           *ia++ = dim_term_offset[t * num_dimensions + d] +
                   (oprow[d] + opcol[d] * num_ops) * kron_size * kron_size;
         }
@@ -433,13 +455,17 @@ make_kronmult_sparse(PDE<precision> const &pde,
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
   int const kron_size      = pde.get_dimensions()[0].get_degree();
-  int const num_terms      = pde.num_terms;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
                                                   ? program_options.max_level
                                                   : pde.max_level);
+
+  // take into account the terms that will be skipped due to the imex_flag
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
+  int const num_terms = static_cast<int>(used_terms.size());
 
   // size of the small kron matrices
   int const kron_squared = kron_size * kron_size;
@@ -459,24 +485,15 @@ make_kronmult_sparse(PDE<precision> const &pde,
     for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
     {
       int col = cells1d[j];
-      for (int t = 0; t < num_terms; t++)
+      for (int const t : used_terms)
       {
         for (int d = 0; d < num_dimensions; d++)
         {
           precision const *const ops = pde.get_coefficients(t, d).data();
-          if (!program_options.use_imex_stepping ||
-              (program_options.use_imex_stepping &&
-               pde.get_terms()[t][d].flag == imex))
-          {
-            for (int k = 0; k < kron_size; k++)
-              pA = std::copy_n(ops + kron_size * row +
-                                   lda * (kron_size * col + k),
-                               kron_size, pA);
-          }
-          else
-          {
-            pA = std::fill_n(pA, kron_squared, precision{0});
-          }
+          for (int k = 0; k < kron_size; k++)
+            pA =
+                std::copy_n(ops + kron_size * row + lda * (kron_size * col + k),
+                            kron_size, pA);
         }
       }
     }
@@ -497,7 +514,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   // the algorithm use two stages, counts the non-zeros in the global matrix,
   // then fills in the associated indexes for the rows, columns and iA
-  std::vector<int> ccount(num_rows, 0); // counts the connections
+  std::vector<int> ccount(num_rows, 0); // first counts the connections
 #pragma omp parallel for
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
@@ -511,7 +528,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
     }
   }
 
-  // num_connect is number of non-zeros of the sparse matrix
+  // right now, ccount[row] is the number of connections for each row
+  // later we will replace ccount by cumulative count similar to pntr
+  // num_connect is the total number of non-zeros of the sparse matrix
   int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
 
   fk::vector<int> iA(num_connect * num_dimensions * num_terms);
@@ -522,56 +541,71 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   fk::vector<int> row_indx(num_connect);
   fk::vector<int> col_indx(num_connect);
+  {
+    int cumulative = 0;
+    for (int i = 0; i < num_rows; i++)
+    {
+      int current = cumulative;
+      cumulative += ccount[i];
+      ccount[i] = current;
+    }
+  }
 #else
   fk::vector<int> pntr(num_rows + 1);
   fk::vector<int> indx(num_connect);
   pntr[0] = 0;
   for (int i = 0; i < num_rows; i++)
     pntr[i + 1] = pntr[i] + ccount[i];
+  for (int i = 0; i < num_rows; i++)
+    ccount[i] = pntr[i];
 #endif
 
-  std::vector<int> offsets(num_dimensions); // find the 1D offsets
-
-#pragma omp parallel for
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
+#pragma omp parallel
   {
-    int c = (row == grid.row_start) ? 0 : ccount[row - grid.row_start - 1];
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-    // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
-    for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+    std::vector<int> offsets(num_dimensions); // find the 1D offsets
+
+#pragma omp for
+    for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
     {
-      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-
-      if (check_connected(num_dimensions, row_coords, col_coords))
+      int c                       = ccount[row - grid.row_start];
+      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+      // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+      for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
       {
+        int const *const col_coords =
+            flattened_table + 2 * num_dimensions * col;
+
+        if (check_connected(num_dimensions, row_coords, col_coords))
+        {
 #ifdef ASGARD_USE_CUDA
-        row_indx[c] = (row - grid.row_start) * tensor_size;
-        col_indx[c] = (col - grid.col_start) * tensor_size;
+          row_indx[c] = (row - grid.row_start) * tensor_size;
+          col_indx[c] = (col - grid.col_start) * tensor_size;
 #else
-        indx[c] = col - grid.col_start;
+          indx[c] = col - grid.col_start;
 #endif
-        int ia = num_dimensions * num_terms * c++;
+          int ia = num_dimensions * num_terms * c++;
 
-        for (int j = 0; j < num_dimensions; j++)
-        {
-          int const oprow = (row_coords[j] == 0)
-                                ? 0
-                                : ((1 << (row_coords[j] - 1)) +
-                                   row_coords[j + num_dimensions]);
-          int const opcol = (col_coords[j] == 0)
-                                ? 0
-                                : ((1 << (col_coords[j] - 1)) +
-                                   col_coords[j + num_dimensions]);
-
-          offsets[j] = cells1d.get_offset(oprow, opcol);
-        }
-
-        for (int t = 0; t < num_terms; t++)
-        {
-          for (int d = 0; d < num_dimensions; d++)
+          for (int j = 0; j < num_dimensions; j++)
           {
-            iA[ia++] = offsets[d] * block1D_size +
-                       (t * num_dimensions + d) * kron_squared;
+            int const oprow = (row_coords[j] == 0)
+                                  ? 0
+                                  : ((1 << (row_coords[j] - 1)) +
+                                     row_coords[j + num_dimensions]);
+            int const opcol = (col_coords[j] == 0)
+                                  ? 0
+                                  : ((1 << (col_coords[j] - 1)) +
+                                     col_coords[j + num_dimensions]);
+
+            offsets[j] = cells1d.get_offset(oprow, opcol);
+          }
+
+          for (int t = 0; t < num_terms; t++)
+          {
+            for (int d = 0; d < num_dimensions; d++)
+            {
+              iA[ia++] = offsets[d] * block1D_size +
+                         (t * num_dimensions + d) * kron_squared;
+            }
           }
         }
       }
@@ -625,12 +659,104 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   }
 }
 
+template<typename P>
+void update_kronmult_coefficients(PDE<P> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex, kronmult_matrix<P> &mat)
+{
+  auto const form_id       = tools::timer.start("kronmult-update-coefficients");
+  int const num_dimensions = pde.num_dims;
+  int const kron_size      = pde.get_dimensions()[0].get_degree();
+
+  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
+                                                  ? program_options.max_level
+                                                  : pde.max_level);
+
+  // take into account the terms that will be skipped due to the imex_flag
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
+  int const num_terms = static_cast<int>(used_terms.size());
+
+  // size of the small kron matrices
+  int const kron_squared = kron_size * kron_size;
+  fk::vector<P> vA;
+
+  if (mat.is_dense())
+  {
+    int64_t osize = 0;
+    for (int t = 0; t < num_terms; t++)
+      for (int d = 0; d < num_dimensions; d++)
+        osize += pde.get_coefficients(t, d).size();
+
+    vA = fk::vector<P>(osize);
+
+    auto pA = vA.begin();
+    for (int t : used_terms)
+    {
+      for (int d = 0; d < num_dimensions; d++)
+      {
+        auto const &ops   = pde.get_coefficients(t, d);
+        int const num_ops = ops.nrows() / kron_size;
+
+        for (int ocol = 0; ocol < num_ops; ocol++)
+          for (int orow = 0; orow < num_ops; orow++)
+            for (int i = 0; i < kron_size; i++)
+              pA = std::copy_n(ops.data() + kron_size * orow +
+                                   lda * (kron_size * ocol + i),
+                               kron_size, pA);
+      }
+    }
+  }
+  else
+  {
+    // holds the 1D sparsity structure for the coefficient matrices
+    connect_1d cells1d(pde.max_level);
+    int const num_1d = cells1d.num_connections();
+
+    // storing the 1D operator matrices by 1D row and column
+    // each connected pair of 1D cells will be associated with a block
+    //  of operator coefficients
+    int const block1D_size = num_dimensions * num_terms * kron_squared;
+    vA                     = fk::vector<P>(num_1d * block1D_size);
+    auto pA                = vA.begin();
+    for (int row = 0; row < cells1d.num_cells(); row++)
+    {
+      for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
+      {
+        int col = cells1d[j];
+        for (int const t : used_terms)
+        {
+          for (int d = 0; d < num_dimensions; d++)
+          {
+            P const *const ops = pde.get_coefficients(t, d).data();
+            for (int k = 0; k < kron_size; k++)
+              pA = std::copy_n(ops + kron_size * row +
+                                   lda * (kron_size * col + k),
+                               kron_size, pA);
+          }
+        }
+      }
+    }
+  }
+
+#ifdef ASGARD_USE_CUDA
+  mat.update_stored_coefficients(vA.clone_onto_device());
+#else
+  mat.update_stored_coefficients(std::move(vA));
+#endif
+
+  tools::timer.stop(form_id);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, imex_flag const);
-
+template void update_kronmult_coefficients<double>(PDE<double> const &,
+                                                   options const &,
+                                                   imex_flag const,
+                                                   kronmult_matrix<double> &);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -638,7 +764,9 @@ template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, imex_flag const);
-
+template void
+update_kronmult_coefficients<float>(PDE<float> const &, options const &,
+                                    imex_flag const, kronmult_matrix<float> &);
 #endif
 
 } // namespace asgard
