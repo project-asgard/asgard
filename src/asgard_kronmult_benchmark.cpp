@@ -82,41 +82,16 @@ int main(int argc, char **argv)
     ip++;
   }
 
-  asgard::fk::vector<int> row_indx(num_rows * num_rows);
-  asgard::fk::vector<int> col_indx(num_rows * num_rows);
-
   asgard::kronmult_matrix<precision> mat;
 
 #ifdef ASGARD_USE_CUDA
-  int tensor_size = n;
-  for (int d = 1; d < dimensions; d++)
-    tensor_size *= n;
-
-  for (int i = 0; i < num_rows; i++)
-  {
-    for (int j = 0; j < num_rows; j++)
-    {
-      row_indx[i * num_rows + j] = i * tensor_size;
-      col_indx[i * num_rows + j] = j * tensor_size;
-    }
-  }
-
-  mat = asgard::kronmult_matrix<precision>(
-      dimensions, n, num_rows, num_rows, num_terms,
-      row_indx.clone_onto_device(), col_indx.clone_onto_device(),
-      iA.clone_onto_device(), vA.clone_onto_device());
+  mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
+                                           num_terms, iA.clone_onto_device(),
+                                           vA.clone_onto_device());
 #else
-  for (int i = 0; i < num_rows; i++)
-  {
-    row_indx[i] = i * num_rows;
-    for (int j = 0; j < num_rows; j++)
-      col_indx[row_indx[i] + j] = j;
-  }
-  row_indx[num_rows] = col_indx.size();
-
-  mat = asgard::kronmult_matrix<precision>(
-      dimensions, n, num_rows, num_rows, num_terms, std::move(row_indx),
-      std::move(col_indx), std::move(iA), std::move(vA));
+  mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
+                                           num_terms, std::move(iA),
+                                           std::move(vA));
 #endif
 
   // dry run to wake up the devices
