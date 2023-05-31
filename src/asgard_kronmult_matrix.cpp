@@ -37,7 +37,6 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
       if (pde.get_terms()[t][0].flag == imex)
         terms.push_back(t);
 
-    std::cerr << " terms reduced: " << pde.num_terms << " -> " << terms.size() << "\n";
     return terms;
   }
 };
@@ -60,8 +59,8 @@ make_kronmult_dense(PDE<precision> const &pde,
                                                   : pde.max_level);
 
   // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms = get_used_terms(pde, program_options,
-                                                     imex);
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
 
   if (used_terms.size() == 0)
@@ -464,8 +463,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
                                                   : pde.max_level);
 
   // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms = get_used_terms(pde, program_options,
-                                                     imex);
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
 
   // size of the small kron matrices
@@ -492,9 +491,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
         {
           precision const *const ops = pde.get_coefficients(t, d).data();
           for (int k = 0; k < kron_size; k++)
-            pA = std::copy_n(ops + kron_size * row +
-                                 lda * (kron_size * col + k),
-                             kron_size, pA);
+            pA =
+                std::copy_n(ops + kron_size * row + lda * (kron_size * col + k),
+                            kron_size, pA);
         }
       }
     }
@@ -562,55 +561,56 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
 
 #pragma omp parallel
-{
-  std::vector<int> offsets(num_dimensions); // find the 1D offsets
-
-  #pragma omp for
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
-    int c = ccount[row - grid.row_start];
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-    // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
-    for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+    std::vector<int> offsets(num_dimensions); // find the 1D offsets
+
+#pragma omp for
+    for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
     {
-      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-
-      if (check_connected(num_dimensions, row_coords, col_coords))
+      int c                       = ccount[row - grid.row_start];
+      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+      // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+      for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
       {
+        int const *const col_coords =
+            flattened_table + 2 * num_dimensions * col;
+
+        if (check_connected(num_dimensions, row_coords, col_coords))
+        {
 #ifdef ASGARD_USE_CUDA
-        row_indx[c] = (row - grid.row_start) * tensor_size;
-        col_indx[c] = (col - grid.col_start) * tensor_size;
+          row_indx[c] = (row - grid.row_start) * tensor_size;
+          col_indx[c] = (col - grid.col_start) * tensor_size;
 #else
-        indx[c] = col - grid.col_start;
+          indx[c] = col - grid.col_start;
 #endif
-        int ia = num_dimensions * num_terms * c++;
+          int ia = num_dimensions * num_terms * c++;
 
-        for (int j = 0; j < num_dimensions; j++)
-        {
-          int const oprow = (row_coords[j] == 0)
-                                ? 0
-                                : ((1 << (row_coords[j] - 1)) +
-                                   row_coords[j + num_dimensions]);
-          int const opcol = (col_coords[j] == 0)
-                                ? 0
-                                : ((1 << (col_coords[j] - 1)) +
-                                   col_coords[j + num_dimensions]);
-
-          offsets[j] = cells1d.get_offset(oprow, opcol);
-        }
-
-        for (int t = 0; t < num_terms; t++)
-        {
-          for (int d = 0; d < num_dimensions; d++)
+          for (int j = 0; j < num_dimensions; j++)
           {
-            iA[ia++] = offsets[d] * block1D_size +
-                       (t * num_dimensions + d) * kron_squared;
+            int const oprow = (row_coords[j] == 0)
+                                  ? 0
+                                  : ((1 << (row_coords[j] - 1)) +
+                                     row_coords[j + num_dimensions]);
+            int const opcol = (col_coords[j] == 0)
+                                  ? 0
+                                  : ((1 << (col_coords[j] - 1)) +
+                                     col_coords[j + num_dimensions]);
+
+            offsets[j] = cells1d.get_offset(oprow, opcol);
+          }
+
+          for (int t = 0; t < num_terms; t++)
+          {
+            for (int d = 0; d < num_dimensions; d++)
+            {
+              iA[ia++] = offsets[d] * block1D_size +
+                         (t * num_dimensions + d) * kron_squared;
+            }
           }
         }
       }
     }
   }
-}
 
   tools::timer.stop(form_id);
 
@@ -660,11 +660,11 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 }
 
 template<typename P>
-void
-update_kronmult_coefficients(PDE<P> const &pde, options const &program_options,
-                             imex_flag const imex, kronmult_matrix<P> &mat)
+void update_kronmult_coefficients(PDE<P> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex, kronmult_matrix<P> &mat)
 {
-  auto const form_id = tools::timer.start("kronmult-update-coefficients");
+  auto const form_id       = tools::timer.start("kronmult-update-coefficients");
   int const num_dimensions = pde.num_dims;
   int const kron_size      = pde.get_dimensions()[0].get_degree();
 
@@ -673,8 +673,8 @@ update_kronmult_coefficients(PDE<P> const &pde, options const &program_options,
                                                   : pde.max_level);
 
   // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms = get_used_terms(pde, program_options,
-                                                     imex);
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
 
   // size of the small kron matrices
@@ -717,8 +717,8 @@ update_kronmult_coefficients(PDE<P> const &pde, options const &program_options,
     // each connected pair of 1D cells will be associated with a block
     //  of operator coefficients
     int const block1D_size = num_dimensions * num_terms * kron_squared;
-    vA = fk::vector<P>(num_1d * block1D_size);
-    auto pA = vA.begin();
+    vA                     = fk::vector<P>(num_1d * block1D_size);
+    auto pA                = vA.begin();
     for (int row = 0; row < cells1d.num_cells(); row++)
     {
       for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
@@ -753,10 +753,10 @@ template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, imex_flag const);
-template void
-update_kronmult_coefficients<double>(PDE<double> const &,
-                                     options const &, imex_flag const,
-                                     kronmult_matrix<double>&);
+template void update_kronmult_coefficients<double>(PDE<double> const &,
+                                                   options const &,
+                                                   imex_flag const,
+                                                   kronmult_matrix<double> &);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -765,9 +765,8 @@ make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, imex_flag const);
 template void
-update_kronmult_coefficients<float>(PDE<float> const &,
-                                    options float &, imex_flag const,
-                                    kronmult_matrix<double>&);
+update_kronmult_coefficients<float>(PDE<float> const &, options float &,
+                                    imex_flag const, kronmult_matrix<double> &);
 #endif
 
 } // namespace asgard

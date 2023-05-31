@@ -64,9 +64,9 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                               transformer, program_opts, unscaled_parts, x_orig,
                               time);
     case (method::imp):
-      return implicit_advance(pde, operator_matrices, adaptive_grid, transformer,
-                              program_opts, unscaled_parts, x_orig, time,
-                              update_system);
+      return implicit_advance(pde, operator_matrices, adaptive_grid,
+                              transformer, program_opts, unscaled_parts, x_orig,
+                              time, update_system);
     case (method::imex):
       return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
                           program_opts, unscaled_parts, x_orig, time,
@@ -82,7 +82,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
   // clear the matrices if the coarsening removed indexes
   if (old_size != adaptive_grid.size())
-      operator_matrices.clear_all();
+    operator_matrices.clear_all();
 
   // refine
   bool refining = true;
@@ -717,7 +717,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    pde.gmres_outputs[1] = solver::simple_gmres_euler(P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_3, x, restart, max_iter, tolerance);
+    pde.gmres_outputs[1] = solver::simple_gmres_euler(
+        P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+        f_3, x, restart, max_iter, tolerance);
 
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");

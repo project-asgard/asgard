@@ -223,14 +223,12 @@ public:
            num_dimensions * num_terms * num_batch;
   }
   //! \brief Defined if the matrix is dense or sparse
-  bool is_dense() const
-  {
-    return (row_indx_.size() == 0);
-  }
+  bool is_dense() const { return (row_indx_.size() == 0); }
 
   //! \brief Update coefficients
   template<resource input_mode>
-  void update_stored_coefficients(fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+  void update_stored_coefficients(
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -309,9 +307,10 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
  * Best use the matrix_list as a helper class.
  */
 template<typename P>
-void
-update_kronmult_coefficients(PDE<P> const &pde, options const &program_options,
-                             imex_flag const imex, kronmult_matrix<P> &mat);
+void update_kronmult_coefficients(PDE<P> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex,
+                                  kronmult_matrix<P> &mat);
 
 //! \brief Expressive indexing for the matrices
 enum matrix_entry
@@ -342,17 +341,16 @@ struct matrix_list
   }
 
   //! \brief Returns an entry indexed by the enum
-  kronmult_matrix<precision>& operator [] (matrix_entry entry)
+  kronmult_matrix<precision> &operator[](matrix_entry entry)
   {
     return matrices[static_cast<int>(entry)];
   }
 
   //! \brief Make the matrix for the given entry
   void make(matrix_entry entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid,
-            options const &opts)
+            adapt::distributed_grid<precision> const &grid, options const &opts)
   {
-    if (not (*this)[entry])
+    if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
   }
   /*!
@@ -360,10 +358,10 @@ struct matrix_list
    *        coefficients
    */
   void reset_coefficients(matrix_entry entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid,
-            options const &opts)
+                          adapt::distributed_grid<precision> const &grid,
+                          options const &opts)
   {
-    if (not (*this)[entry])
+    if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
     else
       update_kronmult_coefficients(pde, opts, imex(entry), (*this)[entry]);
@@ -378,7 +376,7 @@ struct matrix_list
   //! \brief Clear all matrices
   void clear_all()
   {
-    for(auto &matrix : matrices)
+    for (auto &matrix : matrices)
       if (matrix)
         matrix = kronmult_matrix<precision>();
   }
@@ -392,9 +390,9 @@ private:
     return flag_map[static_cast<int>(entry)];
   }
 
-  static constexpr std::array<imex_flag, 3> flag_map = {imex_flag::unspecified,
-                                                        imex_flag::imex_explicit,
-                                                        imex_flag::imex_implicit};
+  static constexpr std::array<imex_flag, 3> flag_map = {
+      imex_flag::unspecified, imex_flag::imex_explicit,
+      imex_flag::imex_implicit};
 };
 
 } // namespace asgard
