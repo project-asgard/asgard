@@ -2050,7 +2050,7 @@ fk::matrix<P, mem, resrc> &fk::matrix<P, mem, resrc>::transfer_from(
 //
 template<typename P, mem_type mem, resource resrc>
 fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> &&a)
-    : data_{a.data()}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.stride()}
+    : data_{a.data_}, nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.stride()}
 {
   a.data_  = nullptr; // b/c a's destructor will be called
   a.nrows_ = 0;
