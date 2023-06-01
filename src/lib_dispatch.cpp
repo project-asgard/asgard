@@ -1019,11 +1019,11 @@ void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
 
   if constexpr (std::is_same<P, double>::value)
   {
-    dpttrs_(n, nrhs, D, E, B, ldb, info);
+    dpttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    spttrs_(n, nrhs, D, E, B, ldb, info);
+    spttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
   }
   else
   { // not instantiated; should never be reached
