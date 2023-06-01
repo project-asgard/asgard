@@ -414,7 +414,8 @@ public:
    *  \return pointer to private data
    */
   P const *data(int const elem = 0) const { return data_ + elem; }
-  //! \brief Non-const overload.
+  //! \brief Non-const overload
+  template<mem_type m_ = mem, typename = disable_for_const_view<m_>>
   P *data(int const elem = 0) { return data_ + elem; }
 
   // utility functions
@@ -698,6 +699,7 @@ public:
     return data_ + int64_t{j} * stride() + int64_t{i}; // column-major
   }
   //! \brief Non-const overload
+  template<mem_type m_ = mem, typename = disable_for_const_view<m_>>
   P *data(int const i = 0, int const j = 0)
   {
     // return data_ + i * stride() + j; // row-major
@@ -1697,9 +1699,6 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source, int,
 
   data_ = nullptr;
   size_ = row_stop - row_start + 1;
-
-  static_assert(not (mem == mem_type::const_view and omem == mem_type::view),
-                "cannot create non-const view from const_view");
 
   if (size_ > 0)
   {
@@ -2714,8 +2713,6 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
     expect(stop_row < owner.nrows());
     expect(stop_row >= start_row);
 
-    //static_assert(not (mem == mem_type::const_view and omem == mem_type::view),
-    //              "cannot create non-const view from const_view");
     // OK to alias here, const is enforced by the "const_view" vs. "view"
     data_   = const_cast<P*>(owner.data(start_row, start_col));
     nrows_  = view_rows;
