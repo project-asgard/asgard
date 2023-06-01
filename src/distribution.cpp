@@ -10,10 +10,13 @@
 #ifdef ASGARD_USE_SCALAPACK
 extern "C"
 {
-  void pdgeadd_(char *, int *, int *, double *, double *, int *, int *, int *,
-                double *, double *, int *, int *, int *);
-  void psgeadd_(char *, int *, int *, float *, float *, int *, int *, int *,
-                float *, float *, int *, int *, int *);
+  void pdgeadd_(char const *, int const *, int const *, double const *,
+                double const *, int const *, int const *, int const *,
+                double const *, double *, int const *, int const *,
+                int const *);
+  void psgeadd_(char const *, int const *, int const *, float const *,
+                float const *, int const *, int const *, int const *,
+                float const *, float *, int const *, int const *, int const *);
 }
 #endif
 
@@ -1183,15 +1186,13 @@ void gather_matrix(P *A, int const *descA, P const *A_distr,
   // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgeadd_(&N, &m, &n, &one, const_cast<P *>(A_distr), &i_one, &i_one,
-             const_cast<int *>(descA_distr), &zero, A, &i_one, &i_one,
-             const_cast<int *>(descA));
+    pdgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
+             &i_one, &i_one, descA);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgeadd_(&N, &m, &n, &one, const_cast<P *>(A_distr) & i_one, &i_one,
-             const_cast<int *>(descA_distr), &zero, A, &i_one, &i_one,
-             const_cast<int *>(descA));
+    psgeadd_(&N, &m, &n, &one, A_distr & i_one, &i_one, descA_distr, &zero, A,
+             &i_one, &i_one, descA);
   }
   else
   { // not instantiated; should never be reached
@@ -1220,13 +1221,13 @@ void scatter_matrix(P const *A, int const *descA, P *A_distr,
   bcast(desc, 9, 0);
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgeadd_(&N, &m, &n, &one, const_cast<P *>(A), &i_one, &i_one, desc, &zero,
-             A_distr, &i_one, &i_one, const_cast<int *>(descA_distr));
+    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
+             &i_one, descA_distr);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgeadd_(&N, &m, &n, &one, const_cast<P *>(A), &i_one, &i_one, desc, &zero,
-             A_distr, &i_one, &i_one, const_cast<int *>(descA_distr));
+    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
+             &i_one, descA_distr);
   }
   else
   { // not instantiated; should never be reached
