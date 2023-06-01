@@ -951,13 +951,17 @@ void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
   expect(*ldb >= 1);
   expect(*lda >= 1);
   expect(*n >= 0);
+
+  // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    dgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
+            ldb, info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    sgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
+            ldb, info);
   }
   else
   { // not instantiated; should never be reached
