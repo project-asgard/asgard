@@ -14,7 +14,7 @@ template<typename P>
 class PDE_vlasov_two_stream_1x2v : public PDE<P>
 {
 public:
-  PDE_vlasov_two_stream(parser const &cli_input)
+  PDE_vlasov_two_stream_1x2v(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
@@ -64,18 +64,16 @@ private:
     return fx;
   }
 
-    static fk::vector<P>
+  static fk::vector<P>
   initial_condition_dim_v_1(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
 
-    P const coefficient = 1.0 / std::sqrt(2.0*PI);
-
     fk::vector<P> fx(x.size());
-    std::transform(
-        x.begin(), x.end(), fx.begin(), [coefficient](P const x_v) -> P {
-          return coefficient * std::exp(-std::pow(x_v, 2));
-        });
+    for (int i = 0; i < x.size(); i++)
+    {
+      fx[i] = 1.0 / (4.0 * M_PI);
+    }
     return fx;
   }
 
@@ -92,7 +90,8 @@ private:
       dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
                    initial_condition_dim_v_1, nullptr, "v2");
 
-  inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1, dim_2};
+  inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1,
+                                                               dim_2};
 
   /* Define the moments */
   static fk::vector<P> moment0_f1(fk::vector<P> const &x, P const t = 0)
@@ -137,7 +136,7 @@ private:
           {{moment0_f1, moment0_f1, moment2_f1, moment0_f1}}));
 
   inline static std::vector<moment<P>> const moments_ = {
-      moment0, moment1v1, moment1v2, moment2v1, momen2v2};
+      moment0, moment1v1, moment1v2, moment2v1, moment2v2};
 
   /* Construct (n, u, theta) */
   static P n(P const &x, P const t = 0)
@@ -184,7 +183,6 @@ private:
 
   /* build the terms */
 
-
   // Constant Identity term
 
   inline static const partial_term<P> I_pterm = partial_term<P>(
@@ -192,9 +190,9 @@ private:
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const I_ex =
-      term<P>(false,  // time-dependent
-              "I", // name
-              {e1_pterm_v}, imex_flag::imex_explicit);
+      term<P>(false, // time-dependent
+              "I",   // name
+              {I_pterm}, imex_flag::imex_explicit);
 
   // Term 1
   // -v\cdot\grad_x f for v > 0
@@ -268,7 +266,7 @@ private:
 
   inline static std::vector<term<P>> const terms_2 = {term_e2x, term_e2v, I_ex};
 
-   // Term 3
+  // Term 3
   // -E\cdot\grad_v f for E > 0
   //
 
@@ -276,7 +274,7 @@ private:
   {
     auto param = param_manager.get_parameter("E");
     expect(param != nullptr);
-    return std::max(P{0.0},param->value(x, time));
+    return std::max(P{0.0}, param->value(x, time));
   }
 
   static P negOne(P const x, P const time = 0)
@@ -305,7 +303,8 @@ private:
               "",    // name
               {pterm_div_v_dn}, imex_flag::imex_explicit);
 
-  inline static std::vector<term<P>> const terms_3 = {E_mass_x_pos, div_v_dn, I_ex};
+  inline static std::vector<term<P>> const terms_3 = {E_mass_x_pos, div_v_dn,
+                                                      I_ex};
 
   // Term 4
   // E\cdot\grad_v f for E < 0
@@ -315,7 +314,7 @@ private:
   {
     auto param = param_manager.get_parameter("E");
     expect(param != nullptr);
-    return std::min(P{0.0},param->value(x, time));
+    return std::min(P{0.0}, param->value(x, time));
   }
 
   inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
@@ -337,7 +336,8 @@ private:
               "",    // name
               {pterm_div_v_up}, imex_flag::imex_explicit);
 
-  inline static std::vector<term<P>> const terms_4 = {E_mass_x_neg, div_v_up, I_ex};
+  inline static std::vector<term<P>> const terms_4 = {E_mass_x_neg, div_v_up,
+                                                      I_ex};
 
   inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4};
 
