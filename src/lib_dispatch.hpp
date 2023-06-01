@@ -77,8 +77,8 @@ void scalapack_gesv(int *n, int *nrhs, P const *A, int *descA, int const *ipiv,
                     P *b, int *descB, int *info);
 
 template<typename P>
-void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
-                     int *ipiv, P *b, int *descB, int *info);
+void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
+                     int const *ipiv, P *b, int *descB, int *info);
 #endif
 } // namespace lib_dispatch
 } // namespace asgard

@@ -1216,11 +1216,11 @@ template void scalapack_gesv(int *n, int *nrhs, double const *A, int *descA,
 template void scalapack_gesv(int *n, int *nrhs, float const *A, int *descA,
                              int const *ipiv, float *b, int *descB, int *info);
 
-template void scalapack_getrs(char *trans, int *n, int *nrhs, double *A,
-                              int *descA, int *ipiv, double *b, int *descB,
-                              int *info);
-template void scalapack_getrs(char *trans, int *n, int *nrhs, float *A,
-                              int *descA, int *ipiv, float *b, int *descB,
+template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
+                              int *descA, int const *ipiv, double *b,
+                              int *descB, int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, float const *A,
+                              int *descA, int const *ipiv, float *b, int *descB,
                               int *info);
 #endif
 } // namespace asgard::lib_dispatch
