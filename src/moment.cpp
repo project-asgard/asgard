@@ -130,10 +130,12 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   fk::vector<P> g_vec_2, g_vec_3;
   if (nvdim >= 2)
   {
-    g_vec_2 = this->fList[moment_idx][2];
+    g_vec_2.resize(this->fList[moment_idx][2].size()) =
+        this->fList[moment_idx][2];
     if (nvdim >= 3)
     {
-      g_vec_3 = this->fList[moment_idx][3];
+      g_vec_3.resize(this->fList[moment_idx][3].size()) =
+          this->fList[moment_idx][3];
     }
   }
 
