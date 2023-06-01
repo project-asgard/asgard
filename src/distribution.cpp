@@ -1171,7 +1171,8 @@ std::shared_ptr<cblacs_grid> get_grid()
 }
 
 template<typename P>
-void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
+void gather_matrix(P *A, int const *descA, P const *A_distr,
+                   int const *descA_distr)
 {
   // Useful constants
   P zero{0.0}, one{1.0};
@@ -1182,13 +1183,15 @@ void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
   // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
-             &i_one, &i_one, descA);
+    pdgeadd_(&N, &m, &n, &one, const_cast<P *>(A_distr), &i_one, &i_one,
+             const_cast<int *>(descA_distr), &zero, A, &i_one, &i_one,
+             const_cast<int *>(descA));
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
-             &i_one, &i_one, descA);
+    psgeadd_(&N, &m, &n, &one, const_cast<P *>(A_distr) & i_one, &i_one,
+             const_cast<int *>(descA_distr), &zero, A, &i_one, &i_one,
+             const_cast<int *>(descA));
   }
   else
   { // not instantiated; should never be reached
@@ -1198,7 +1201,8 @@ void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
 }
 
 template<typename P>
-void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
+void scatter_matrix(P const *A, int const *descA, P *A_distr,
+                    int const *descA_distr)
 {
   // Useful constants
   P zero{0.0}, one{1.0};
@@ -1216,13 +1220,13 @@ void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
   bcast(desc, 9, 0);
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
-             &i_one, descA_distr);
+    pdgeadd_(&N, &m, &n, &one, const_cast<P *>(A), &i_one, &i_one, desc, &zero,
+             A_distr, &i_one, &i_one, const_cast<int *>(descA_distr));
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
-             &i_one, descA_distr);
+    psgeadd_(&N, &m, &n, &one, const_cast<P *>(A), &i_one, &i_one, desc, &zero,
+             A_distr, &i_one, &i_one, const_cast<int *>(descA_distr));
   }
   else
   { // not instantiated; should never be reached
@@ -1265,10 +1269,11 @@ template fk::vector<double>
 col_to_row_major(fk::vector<double> const &x, int size_r);
 
 #ifdef ASGARD_USE_SCALAPACK
-template void
-gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
-template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
-                                     int *descA_distr);
+template void gather_matrix<double>(double *A, int const *descA,
+                                    double const *A_distr,
+                                    int const *descA_distr);
+template void scatter_matrix<double>(double const *A, int const *descA,
+                                     double *A_distr, int const *descA_distr);
 #endif
 #endif
 
@@ -1305,10 +1310,11 @@ template fk::vector<float>
 col_to_row_major(fk::vector<float> const &x, int size_r);
 
 #ifdef ASGARD_USE_SCALAPACK
-template void
-gather_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
-template void
-scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
+template void gather_matrix<float>(float *A, int const *descA,
+                                   float const *A_distr,
+                                   int const *descA_distr);
+template void scatter_matrix<float>(float const *A, int const *descA,
+                                    float *A_distr, int const *descA_distr);
 #endif
 #endif
 
