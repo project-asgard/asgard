@@ -864,8 +864,8 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   int const cols_b = trans_b ? k : n;
   expect(ldb >= rows_b);
 
-  std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>>
-      matrices = [=]() {
+  std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> matrices =
+      [=]() {
         // {a, b, c, gold}
         std::vector<std::vector<fk::matrix<P, mem_type::owner, resrc>>> output(
             4);

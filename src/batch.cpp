@@ -155,7 +155,7 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
   expect(position < num_entries());
 
   // just aliasing, probably bad
-  batch_[position] = const_cast<P*>(a.data());
+  batch_[position] = const_cast<P *>(a.data());
 }
 
 // clear one assignment

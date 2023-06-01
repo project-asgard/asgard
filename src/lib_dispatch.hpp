@@ -73,8 +73,8 @@ void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
 
 #ifdef ASGARD_USE_SCALAPACK
 template<typename P>
-void scalapack_gesv(int *n, int *nrhs, P const *A, int *descA, int const *ipiv, P *b,
-                    int *descB, int *info);
+void scalapack_gesv(int *n, int *nrhs, P const *A, int *descA, int const *ipiv,
+                    P *b, int *descB, int *info);
 
 template<typename P>
 void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,

@@ -416,7 +416,10 @@ public:
   P const *data(int const elem = 0) const { return data_ + elem; }
   //! \brief Non-const overload
   template<mem_type m_ = mem, typename = disable_for_const_view<m_>>
-  P *data(int const elem = 0) { return data_ + elem; }
+  P *data(int const elem = 0)
+  {
+    return data_ + elem;
+  }
 
   // utility functions
 
@@ -1136,7 +1139,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
   else
   {
     // working with view, OK to alias
-    data_ = const_cast<P*>(a.data_);
+    data_ = const_cast<P *>(a.data_);
   }
 }
 
@@ -1702,8 +1705,8 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source, int,
 
   if (size_ > 0)
   {
-    data_ = const_cast<P*>(source.data(int64_t{column_index} * source.stride()
-                           + int64_t{row_start}));
+    data_ = const_cast<P *>(source.data(
+        int64_t{column_index} * source.stride() + int64_t{row_start}));
   }
 }
 
@@ -1872,7 +1875,7 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_ = const_cast<P*>(a.data());
+    data_ = const_cast<P *>(a.data());
   }
 }
 
@@ -1906,7 +1909,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
   }
   else
   {
-    data_ = const_cast<P*>(a.data());
+    data_ = const_cast<P *>(a.data());
   }
 
   return *this;
@@ -2714,7 +2717,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::matrix<P, omem, resrc> const &owner,
     expect(stop_row >= start_row);
 
     // OK to alias here, const is enforced by the "const_view" vs. "view"
-    data_   = const_cast<P*>(owner.data(start_row, start_col));
+    data_   = const_cast<P *>(owner.data(start_row, start_col));
     nrows_  = view_rows;
     ncols_  = view_cols;
     stride_ = owner.stride();
@@ -2744,7 +2747,7 @@ fk::matrix<P, mem, resrc>::matrix(fk::vector<P, omem, resrc> const &source, int,
   if (size > 0)
   {
     // casting for the creation of a view (OK to alias)
-    data_   = const_cast<P*>(source.data(start_index));
+    data_   = const_cast<P *>(source.data(start_index));
     nrows_  = num_rows;
     ncols_  = num_cols;
     stride_ = num_rows;
