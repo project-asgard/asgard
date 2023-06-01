@@ -1098,7 +1098,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
 
   SECTION("gesv and getrs")
   {
-    fk::matrix<TestType> const A_copy = A_gold;
+    fk::matrix<TestType> A_copy = A_gold;
     std::vector<int> ipiv(A_copy.nrows());
     fk::vector<TestType> x = B_gold;
 
