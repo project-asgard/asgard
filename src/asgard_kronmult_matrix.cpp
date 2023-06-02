@@ -39,7 +39,7 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
 
     return terms;
   }
-};
+}
 
 template<typename precision>
 kronmult_matrix<precision>

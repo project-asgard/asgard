@@ -268,6 +268,17 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       i = num_batch;
   }
 
+#if (CUDART_VERSION < 11070)
+  (void)ix5;
+  (void)ix4;
+  (void)ix3;
+  (void)ix2;
+  (void)ia5;
+  (void)ia4;
+  (void)ia3;
+  (void)ia2;
+#endif
+
   while (i < num_batch)
   {
     int ma = i * num_terms * dims;

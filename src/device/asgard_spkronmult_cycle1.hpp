@@ -262,6 +262,17 @@ cycle1(int const num_batch, int const ix[], int const iy[], int const num_terms,
   int const ix0 = n * (threadIdx.x / n);
   int const ia0 = threadIdx.x % n;
 
+#if (CUDART_VERSION < 11070)
+  (void)ix5;
+  (void)ix4;
+  (void)ix3;
+  (void)ix2;
+  (void)ia5;
+  (void)ia4;
+  (void)ia3;
+  (void)ia2;
+#endif
+
   if constexpr (effective_team_size < team_size)
   {
     if (threadIdx.x >= effective_team_size)

@@ -43,10 +43,7 @@ constexpr int compute_team_size()
   {
     return ASGARD_GPU_WARP_SIZE;
   }
-  else
-  {
-    return ipow<n, dims>();
-  }
+  return ipow<n, dims>();
 }
 
 //! \brief Helper to instantiate and call the scaling kernel.
