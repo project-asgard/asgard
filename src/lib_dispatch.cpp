@@ -1017,6 +1017,7 @@ void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
     throw std::runtime_error("no pttrs support on cuda implemented");
   }
 
+  // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
     dpttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);

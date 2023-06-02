@@ -1191,7 +1191,7 @@ void gather_matrix(P *A, int const *descA, P const *A_distr,
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgeadd_(&N, &m, &n, &one, A_distr & i_one, &i_one, descA_distr, &zero, A,
+    psgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
              &i_one, &i_one, descA);
   }
   else
