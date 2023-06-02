@@ -124,7 +124,6 @@ __global__ void
 case_d1(int const num_batch, int const num_cols, int const num_terms,
         int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
-  (void)alpha;
   // if thread teams span more than one warp, we must synchronize
   constexpr manual_sync sync_mode = (team_size > ASGARD_GPU_WARP_SIZE or
                                      ASGARD_GPU_WARP_SIZE % team_size != 0)
@@ -267,6 +266,18 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
     if (threadIdx.x >= effective_team_size)
       i = num_batch;
   }
+
+#if (CUDART_VERSION < 11070)
+  (void)alpha;
+  (void)ix5;
+  (void)ix4;
+  (void)ix3;
+  (void)ix2;
+  (void)ia5;
+  (void)ia4;
+  (void)ia3;
+  (void)ia2;
+#endif
 
   while (i < num_batch)
   {

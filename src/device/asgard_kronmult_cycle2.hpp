@@ -18,7 +18,6 @@ __global__ void
 cycle2(int const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
-  (void)alpha;
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
   static_assert(
       2 * team_size >= int_pow<n, dims>(),
@@ -121,6 +120,26 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
 
   int const ix01 = n * ((threadIdx.x + team_size) / n);
   int const ia01 = (threadIdx.x + team_size) % n;
+
+#if (CUDART_VERSION < 11070)
+  (void)alpha;
+  (void)ix50;
+  (void)ix40;
+  (void)ix30;
+  (void)ix20;
+  (void)ia50;
+  (void)ia40;
+  (void)ia30;
+  (void)ia20;
+  (void)ix51;
+  (void)ix41;
+  (void)ix31;
+  (void)ix21;
+  (void)ia51;
+  (void)ia41;
+  (void)ia31;
+  (void)ia21;
+#endif
 
   while (i < num_batch)
   {
