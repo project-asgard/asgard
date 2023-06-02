@@ -205,6 +205,9 @@ template<typename P, mem_type amem, mem_type bmem>
 void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
           std::vector<int> &ipiv)
 {
+  static_assert(amem != mem_type::const_view,
+                "cannot factorize a const-view of a matrix");
+
   int rows_A = A.nrows();
   int cols_A = A.ncols();
 

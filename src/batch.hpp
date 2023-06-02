@@ -33,7 +33,6 @@ public:
 
   template<mem_type mem>
   void assign_entry(fk::matrix<P, mem, resrc> const &a, int const position);
-  void assign_raw(P *const a, int const position);
   bool clear_entry(int const position);
 
   P **get_list() const;
@@ -73,11 +72,6 @@ private:
 // execute a batched gemm given a, b, c batch lists
 template<typename P, resource resrc>
 void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
-                  batch<P, resrc> const &c, P const alpha, P const beta);
-
-// execute a batched gemv given a, b, c batch lists
-template<typename P, resource resrc>
-void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
                   batch<P, resrc> const &c, P const alpha, P const beta);
 
 // inline helper to calc workspace size for realspace batching, where dimensions

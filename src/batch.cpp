@@ -154,15 +154,8 @@ void batch<P, resrc>::assign_entry(fk::matrix<P, mem, resrc> const &a,
   expect(position >= 0);
   expect(position < num_entries());
 
-  batch_[position] = a.data();
-}
-
-template<typename P, resource resrc>
-void batch<P, resrc>::assign_raw(P *const a, int const position)
-{
-  expect(position >= 0);
-  expect(position < num_entries());
-  batch_[position] = a;
+  // just aliasing, probably bad
+  batch_[position] = const_cast<P *>(a.data());
 }
 
 // clear one assignment
@@ -265,45 +258,6 @@ void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
   lib_dispatch::batched_gemm(a.get_list(), &lda, &trans_a, b.get_list(), &ldb,
                              &trans_b, c.get_list(), &ldc, &m, &n, &k, &alpha_,
                              &beta_, &num_batch, resrc);
-}
-
-// execute a batched gemv given a, b, c batch lists
-// and other blas information
-template<typename P, resource resrc>
-void batched_gemv(batch<P, resrc> const &a, batch<P, resrc> const &b,
-                  batch<P, resrc> const &c, P const alpha, P const beta)
-{
-  // check cardinality of sets
-  expect(a.num_entries() == b.num_entries());
-  expect(b.num_entries() == c.num_entries());
-  int const num_entries = a.num_entries();
-
-  // our gemv will be set up for a column vector,
-  // so b cannot be transposed.
-  //
-  // we can remove either or both of these if
-  // we want to support more flexible operations
-  expect(!b.get_trans() && !c.get_trans());
-
-  // check dimensions for gemv
-  expect((a.get_trans() ? a.nrows() : a.ncols()) == b.nrows());
-  expect(b.ncols() == 1);
-  expect(c.ncols() == 1);
-
-  // setup blas args
-  int m   = a.nrows();
-  int n   = a.ncols();
-  int lda = a.get_stride();
-
-  char const transpose_a = a.get_trans() ? 't' : 'n';
-  P alpha_               = alpha;
-  P beta_                = beta;
-
-  int num_batch = num_entries;
-
-  lib_dispatch::batched_gemv(a.get_list(), &lda, &transpose_a, b.get_list(),
-                             c.get_list(), &m, &n, &alpha_, &beta_, &num_batch,
-                             resrc);
 }
 
 // Problem solved by batch_chain class:
@@ -662,13 +616,6 @@ template void batched_gemm(batch<double, resource::host> const &a,
                            batch<double, resource::host> const &b,
                            batch<double, resource::host> const &c,
                            double const alpha, double const beta);
-template void batched_gemv(batch<double> const &a, batch<double> const &b,
-                           batch<double> const &c, double const alpha,
-                           double const beta);
-template void batched_gemv(batch<double, resource::host> const &a,
-                           batch<double, resource::host> const &b,
-                           batch<double, resource::host> const &c,
-                           double const alpha, double const beta);
 
 template void
 build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
@@ -726,13 +673,6 @@ template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
                            float const beta);
 template void batched_gemm(batch<float, resource::host> const &a,
-                           batch<float, resource::host> const &b,
-                           batch<float, resource::host> const &c,
-                           float const alpha, float const beta);
-template void batched_gemv(batch<float> const &a, batch<float> const &b,
-                           batch<float> const &c, float const alpha,
-                           float const beta);
-template void batched_gemv(batch<float, resource::host> const &a,
                            batch<float, resource::host> const &b,
                            batch<float, resource::host> const &c,
                            float const alpha, float const beta);

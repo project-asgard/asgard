@@ -47,12 +47,12 @@ extern "C"
   void spttrf_(int *n, float *D, float *E, int *info);
 #endif
 #ifndef dpttrs_
-  void dpttrs_(int *n, int *nrhs, double *D, double *E, double *B, int *ldb,
-               int *info);
+  void dpttrs_(int *n, int *nrhs, double const *D, double const *E, double *B,
+               int *ldb, int *info);
 #endif
 #ifndef spttrs_
-  void
-  spttrs_(int *n, int *nrhs, float *D, float *E, float *B, int *ldb, int *info);
+  void spttrs_(int *n, int *nrhs, float const *D, float const *E, float *B,
+               int *ldb, int *info);
 #endif
 
 #ifndef ASGARD_OPENBLAS
@@ -61,10 +61,10 @@ extern "C"
               int *ldb, int *info);
   void sgesv_(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
               int *ldb, int *info);
-  void dgetrs_(char *trans, int *n, int *nrhs, double *A, int *lda, int *ipiv,
-               double *b, int *ldb, int *info);
-  void sgetrs_(char *trans, int *n, int *nrhs, float *A, int *lda, int *ipiv,
-               float *b, int *ldb, int *info);
+  void dgetrs_(char *trans, int *n, int *nrhs, double const *A, int *lda,
+               int const *ipiv, double *b, int *ldb, int *info);
+  void sgetrs_(char *trans, int *n, int *nrhs, float const *A, int *lda,
+               int const *ipiv, float *b, int *ldb, int *info);
 #endif
 }
 #endif
@@ -86,17 +86,19 @@ extern "C"
 #include "scalapack_matrix_info.hpp"
 extern "C"
 {
-  void psgesv_(int *n, int *nrhs, float *a, int *ia, int *ja, int *desca,
-               int *ipiv, float *b, int *ib, int *jb, int *descb, int *info);
-  void pdgesv_(int *n, int *nrhs, double *a, int *ia, int *ja, int *desca,
-               int *ipiv, double *b, int *ib, int *jb, int *descb, int *info);
+  void psgesv_(int *n, int *nrhs, float const *a, int *ia, int *ja, int *desca,
+               int const *ipiv, float *b, int *ib, int *jb, int *descb,
+               int *info);
+  void pdgesv_(int *n, int *nrhs, double const *a, int *ia, int *ja, int *desca,
+               int const *ipiv, double *b, int *ib, int *jb, int *descb,
+               int *info);
 
-  void psgetrs_(const char *trans, int *n, int *nrhs, float *a, int *ia,
-                int *ja, int *desca, int *ipiv, float *b, int *ib, int *jb,
-                int *descb, int *info);
-  void pdgetrs_(const char *trans, int *n, int *nrhs, double *a, int *ia,
-                int *ja, int *desca, int *ipiv, double *b, int *ib, int *jb,
-                int *descb, int *info);
+  void psgetrs_(const char *trans, int *n, int *nrhs, float const *a, int *ia,
+                int *ja, int *desca, int const *ipiv, float *b, int *ib,
+                int *jb, int *descb, int *info);
+  void pdgetrs_(const char *trans, int *n, int *nrhs, double const *a, int *ia,
+                int *ja, int *desca, int const *ipiv, double *b, int *ib,
+                int *jb, int *descb, int *info);
 }
 
 #endif
@@ -903,109 +905,6 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
   }
 }
 
-// resrctricted subset of gemv functionality provided by
-// calling batched gemm - no non-unit increments allowed for
-// x or y for now
-template<typename P>
-void batched_gemv(P **const &a, int *lda, char const *trans, P **const &x,
-                  P **const &y, int *m, int *n, P *alpha, P *beta,
-                  int *num_batch, resource const resrc)
-{
-  expect(alpha);
-  expect(a);
-  expect(lda && *lda >= 0);
-  expect(x);
-  expect(beta);
-  expect(y);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
-
-  expect(trans && (*trans == 't' || *trans == 'n'));
-  expect(num_batch && *num_batch > 0);
-
-  if (resrc == resource::device)
-  {
-    // device-specific specialization if needed
-#ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-    char const transb = 'n';
-
-    int gemm_m = *trans == 't' ? *n : *m;
-    int gemm_k = *trans == 't' ? *m : *n;
-    int gemm_n = 1;
-
-    int ldb = gemm_k;
-    int ldc = gemm_m;
-
-    P const **a_d;
-    P const **x_d;
-    P **y_d;
-    size_t const list_size = *num_batch * sizeof(P *);
-
-    if (cudaMalloc((void **)&a_d, list_size) != cudaSuccess)
-    {
-      throw std::bad_alloc();
-    }
-    if (cudaMalloc((void **)&x_d, list_size) != cudaSuccess)
-    {
-      throw std::bad_alloc();
-    }
-    if (cudaMalloc((void **)&y_d, list_size) != cudaSuccess)
-    {
-      throw std::bad_alloc();
-    }
-    auto stat = cudaMemcpy(a_d, a, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
-    stat = cudaMemcpy(x_d, x, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
-    stat = cudaMemcpy(y_d, y, list_size, cudaMemcpyHostToDevice);
-    expect(stat == 0);
-
-    // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
-    {
-      auto const success = cublasDgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
-          gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
-          *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
-      expect(success == 0);
-    }
-    else if constexpr (std::is_same<P, float>::value)
-    {
-      auto const success = cublasSgemmBatched(
-          device.get_handle(), cublas_trans(*trans), cublas_trans(transb),
-          gemm_m, gemm_n, gemm_k, alpha, a_d, *lda, x_d, ldb, beta, y_d, ldc,
-          *num_batch);
-      auto const cuda_stat = cudaDeviceSynchronize();
-      expect(cuda_stat == 0);
-      expect(success == 0);
-    }
-
-    stat = cudaFree(a_d);
-    expect(stat == 0);
-    stat = cudaFree(x_d);
-    expect(stat == 0);
-    stat = cudaFree(y_d);
-    expect(stat == 0);
-
-    return;
-
-#endif
-  }
-
-  // default execution on the host for any resource
-  int incx = 1;
-  int incy = 1;
-  for (int i = 0; i < *num_batch; ++i)
-  {
-    gemv(trans, m, n, alpha, a[i], lda, x[i], &incx, beta, y[i], &incy,
-         resource::host);
-  }
-}
-
 template<typename P>
 void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
           int *info)
@@ -1037,8 +936,8 @@ void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
 }
 
 template<typename P>
-void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
-           int *ldb, int *info)
+void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
+           int const *ipiv, P *b, int *ldb, int *info)
 {
   expect(trans);
   expect(n);
@@ -1052,13 +951,17 @@ void getrs(char *trans, int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b,
   expect(*ldb >= 1);
   expect(*lda >= 1);
   expect(*n >= 0);
+
+  // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    dgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
+            ldb, info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgetrs_(trans, n, nrhs, A, lda, ipiv, b, ldb, info);
+    sgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
+            ldb, info);
   }
   else
   { // not instantiated; should never be reached
@@ -1096,7 +999,7 @@ void pttrf(int *n, P *D, P *E, int *info, resource const resrc)
 }
 
 template<typename P>
-void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
+void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
            resource const resrc)
 {
   expect(n);
@@ -1114,13 +1017,14 @@ void pttrs(int *n, int *nrhs, P *D, P *E, P *B, int *ldb, int *info,
     throw std::runtime_error("no pttrs support on cuda implemented");
   }
 
+  // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dpttrs_(n, nrhs, D, E, B, ldb, info);
+    dpttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    spttrs_(n, nrhs, D, E, B, ldb, info);
+    spttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
   }
   else
   { // not instantiated; should never be reached
@@ -1161,8 +1065,8 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
 }
 
 template<typename P>
-void scalapack_getrs(char *trans, int *n, int *nrhs, P *A, int *descA,
-                     int *ipiv, P *b, int *descB, int *info)
+void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
+                     int const *ipiv, P *b, int *descB, int *info)
 {
   expect(trans);
   expect(n);
@@ -1291,46 +1195,37 @@ template void batched_gemm(double **const &a, int *lda, char const *transa,
                            double **const &c, int *ldc, int *m, int *n, int *k,
                            double *alpha, double *beta, int *num_batch,
                            resource const resrc);
-template void batched_gemv(float **const &a, int *lda, char const *transa,
-                           float **const &x, float **const &y, int *m, int *n,
-                           float *alpha, float *beta, int *num_batch,
-                           resource const resrc);
-
-template void batched_gemv(double **const &a, int *lda, char const *transa,
-                           double **const &x, double **const &y, int *m, int *n,
-                           double *alpha, double *beta, int *num_batch,
-                           resource const resrc);
 
 template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
                    int *ldb, int *info);
 template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
                    int *ldb, int *info);
 
-template void getrs(char *trans, int *n, int *nrhs, double *A, int *lda,
-                    int *ipiv, double *b, int *ldb, int *info);
-template void getrs(char *trans, int *n, int *nrhs, float *A, int *lda,
-                    int *ipiv, float *b, int *ldb, int *info);
+template void getrs(char *trans, int *n, int *nrhs, double const *A, int *lda,
+                    int const *ipiv, double *b, int *ldb, int *info);
+template void getrs(char *trans, int *n, int *nrhs, float const *A, int *lda,
+                    int const *ipiv, float *b, int *ldb, int *info);
 
 template void
 pttrf(int *n, double *D, double *E, int *info, resource const resrc);
 template void
 pttrf(int *n, float *D, float *E, int *info, resource const resrc);
 
-template void pttrs(int *n, int *nrhs, double *D, double *E, double *B,
+template void pttrs(int *n, int *nrhs, double const *D, double const *E,
+                    double *B, int *ldb, int *info, resource const resrc);
+template void pttrs(int *n, int *nrhs, float const *D, float const *E, float *B,
                     int *ldb, int *info, resource const resrc);
-template void pttrs(int *n, int *nrhs, float *D, float *E, float *B, int *ldb,
-                    int *info, resource const resrc);
 #ifdef ASGARD_USE_SCALAPACK
 template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
                              int *ipiv, double *b, int *descB, int *info);
 template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
                              float *b, int *descB, int *info);
 
-template void scalapack_getrs(char *trans, int *n, int *nrhs, double *A,
-                              int *descA, int *ipiv, double *b, int *descB,
-                              int *info);
-template void scalapack_getrs(char *trans, int *n, int *nrhs, float *A,
-                              int *descA, int *ipiv, float *b, int *descB,
+template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
+                              int *descA, int const *ipiv, double *b,
+                              int *descB, int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, float const *A,
+                              int *descA, int const *ipiv, float *b, int *descB,
                               int *info);
 #endif
 } // namespace asgard::lib_dispatch

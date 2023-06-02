@@ -10,10 +10,13 @@
 #ifdef ASGARD_USE_SCALAPACK
 extern "C"
 {
-  void pdgeadd_(char *, int *, int *, double *, double *, int *, int *, int *,
-                double *, double *, int *, int *, int *);
-  void psgeadd_(char *, int *, int *, float *, float *, int *, int *, int *,
-                float *, float *, int *, int *, int *);
+  void pdgeadd_(char const *, int const *, int const *, double const *,
+                double const *, int const *, int const *, int const *,
+                double const *, double *, int const *, int const *,
+                int const *);
+  void psgeadd_(char const *, int const *, int const *, float const *,
+                float const *, int const *, int const *, int const *,
+                float const *, float *, int const *, int const *, int const *);
 }
 #endif
 
@@ -1171,7 +1174,8 @@ std::shared_ptr<cblacs_grid> get_grid()
 }
 
 template<typename P>
-void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
+void gather_matrix(P *A, int const *descA, P const *A_distr,
+                   int const *descA_distr)
 {
   // Useful constants
   P zero{0.0}, one{1.0};
@@ -1198,7 +1202,8 @@ void gather_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
 }
 
 template<typename P>
-void scatter_matrix(P *A, int *descA, P *A_distr, int *descA_distr)
+void scatter_matrix(P const *A, int const *descA, P *A_distr,
+                    int const *descA_distr)
 {
   // Useful constants
   P zero{0.0}, one{1.0};
@@ -1265,10 +1270,11 @@ template fk::vector<double>
 col_to_row_major(fk::vector<double> const &x, int size_r);
 
 #ifdef ASGARD_USE_SCALAPACK
-template void
-gather_matrix<double>(double *A, int *descA, double *A_distr, int *descA_distr);
-template void scatter_matrix<double>(double *A, int *descA, double *A_distr,
-                                     int *descA_distr);
+template void gather_matrix<double>(double *A, int const *descA,
+                                    double const *A_distr,
+                                    int const *descA_distr);
+template void scatter_matrix<double>(double const *A, int const *descA,
+                                     double *A_distr, int const *descA_distr);
 #endif
 #endif
 
@@ -1305,10 +1311,11 @@ template fk::vector<float>
 col_to_row_major(fk::vector<float> const &x, int size_r);
 
 #ifdef ASGARD_USE_SCALAPACK
-template void
-gather_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
-template void
-scatter_matrix<float>(float *A, int *descA, float *A_distr, int *descA_distr);
+template void gather_matrix<float>(float *A, int const *descA,
+                                   float const *A_distr,
+                                   int const *descA_distr);
+template void scatter_matrix<float>(float const *A, int const *descA,
+                                    float *A_distr, int const *descA_distr);
 #endif
 #endif
 
