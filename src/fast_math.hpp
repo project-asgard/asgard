@@ -117,7 +117,7 @@ fk::vector<P, mem, resrc> &scal(P const alpha, fk::vector<P, mem, resrc> &x)
   int one  = 1;
   int n    = x.size();
   P alpha_ = alpha;
-  lib_dispatch::scal(&n, &alpha_, x.data(), &one, resrc);
+  lib_dispatch::scal<resrc>(n, alpha_, x.data(), one);
   return x;
 }
 
@@ -128,7 +128,7 @@ fk::matrix<P, mem, resrc> &scal(P const alpha, fk::matrix<P, mem, resrc> &x)
   int one  = 1;
   int n    = x.size();
   P alpha_ = alpha;
-  lib_dispatch::scal(&n, &alpha_, x.data(), &one, resrc);
+  lib_dispatch::scal<resrc>(n, alpha_, x.data(), one);
   return x;
 }
 
@@ -154,8 +154,8 @@ gemv(fk::matrix<P, amem, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
   int m             = A.nrows();
   int n             = A.ncols();
 
-  lib_dispatch::gemv(&transa, &m, &n, &alpha_, A.data(), &lda, x.data(), &one,
-                     &beta_, y.data(), &one, resrc);
+  lib_dispatch::gemv<resrc>(transa, m, n, alpha_, A.data(), lda, x.data(), one,
+                            beta_, y.data(), one);
 
   return y;
 }
@@ -189,8 +189,8 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
   int n             = cols_B;
   int k             = rows_B;
 
-  lib_dispatch::gemm(&transa, &transb, &m, &n, &k, &alpha_, A.data(), &lda,
-                     B.data(), &ldb, &beta_, C.data(), &ldc, resrc);
+  lib_dispatch::gemm<resrc>(transa, transb, m, n, k, alpha_, A.data(), lda,
+                            B.data(), ldb, beta_, C.data(), ldc);
 
   return C;
 }

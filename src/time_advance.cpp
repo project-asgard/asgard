@@ -664,8 +664,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
   fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
 
-  fm::axpy(f_2, x);                 // x is now f0 + f3
-  fm::scal(static_cast<P>(0.5), x); // x = 0.5 * (f0 + f3)
+  fm::axpy(f_2, x);    // x is now f0 + f3
+  fm::scal(P{0.5}, x); // x = 0.5 * (f0 + f3)
   tools::timer.stop("explicit_2");
   tools::timer.start("implicit_2");
 

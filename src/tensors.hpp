@@ -1457,8 +1457,8 @@ fk::vector<P, mem, resrc>::operator*(fk::matrix<P, omem> const &A) const
 
   P zero = 0.0;
   P one  = 1.0;
-  lib_dispatch::gemv("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero,
-                     Y.data(), &one_i);
+  lib_dispatch::gemv<resrc>('t', m, n, one, A.data(), lda, X.data(), one_i,
+                            zero, Y.data(), one_i);
   return Y;
 }
 
@@ -1474,7 +1474,7 @@ fk::vector<P> fk::vector<P, mem, resrc>::operator*(P const x) const
   int n     = a.size();
   P alpha   = x;
 
-  lib_dispatch::scal(&n, &alpha, a.data(), &one_i);
+  lib_dispatch::scal(n, alpha, a.data(), one_i);
 
   return a;
 }
@@ -1508,7 +1508,7 @@ fk::vector<P, mem> &fk::vector<P, mem, resrc>::scale(P const x)
   int n     = this->size();
   P alpha   = x;
 
-  lib_dispatch::scal(&n, &alpha, this->data(), &one_i);
+  lib_dispatch::scal(n, alpha, this->data(), one_i);
 
   return *this;
 }
@@ -2248,8 +2248,8 @@ fk::matrix<P, mem, resrc>::operator*(fk::vector<P, omem> const &right) const
 
   P one  = 1.0;
   P zero = 0.0;
-  lib_dispatch::gemv("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i,
-                     &zero, Y.data(), &one_i);
+  lib_dispatch::gemv<resrc>('n', m, n, one, A.data(), lda, right.data(), one_i,
+                            zero, Y.data(), one_i);
 
   return Y;
 }
@@ -2278,8 +2278,8 @@ fk::matrix<P, mem, resrc>::operator*(matrix<P, omem> const &B) const
 
   P one  = 1.0;
   P zero = 0.0;
-  lib_dispatch::gemm("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb,
-                     &zero, C.data(), &ldc);
+  lib_dispatch::gemm('n', 'n', m, n, k, one, A.data(), lda, B.data(), ldb, zero,
+                     C.data(), ldc);
 
   return C;
 }
