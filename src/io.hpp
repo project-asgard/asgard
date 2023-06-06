@@ -81,11 +81,14 @@ void generate_initial_moments(
       fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
                                                     dense_size * 2 - 1)};
 
+  fk::vector<P, mem_type::owner, resource::device> initial_condition_d =
+      initial_condition.clone_onto_device();
   for (size_t i = 0; i < pde.moments.size(); ++i)
   {
-    fk::vector<P> moment_vec(dense_size);
+    fk::vector<P, mem_type::owner, resource::device> moment_vec(dense_size);
     pde.moments[i].createMomentReducedMatrix(pde, adaptive_grid.get_table());
-    fm::gemv(pde.moments[i].get_moment_matrix(), initial_condition, moment_vec);
+    fm::sparse_gemv(pde.moments[i].get_moment_matrix_dev(), initial_condition_d,
+                    moment_vec);
     pde.moments[i].create_realspace_moment(pde_1d, moment_vec,
                                            adaptive_grid_1d.get_table(),
                                            transformer, tmp_workspace);
