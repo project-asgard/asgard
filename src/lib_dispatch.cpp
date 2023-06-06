@@ -635,7 +635,7 @@ void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
 }
 
 template<resource resrc, typename P>
-[[nodiscard]] int getrf(int m, int n, P *A, int lda, int *ipiv)
+int getrf(int m, int n, P *A, int lda, int *ipiv)
 {
   // instantiated for these two fp types
   static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
@@ -682,6 +682,8 @@ template<resource resrc, typename P>
     stat = cudaFree(A_d);
     expect(stat == cudaSuccess);
     stat = cudaFree(info_d);
+    expect(stat == cudaSuccess);
+
 #endif
   }
   if constexpr (resrc == resource::host)
@@ -699,40 +701,38 @@ template<resource resrc, typename P>
   return info;
 }
 
-template<typename P>
-void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
-           resource const resrc)
+template<resource resrc, typename P>
+int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork)
 {
+  // instantiated for these two fp types
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
   expect(A);
   expect(ipiv);
   expect(work);
-  expect(lwork);
-  expect(info);
-  expect(lda && *lda >= 0);
-  expect(n && *n >= 0);
-
-  if (resrc == resource::device)
+  expect(lwork == n * n);
+  expect(lda >= 0);
+  expect(n >= 0);
+  int info;
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-
     // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
-    expect(*lwork == (*n) * (*n));
-    ignore(lwork);
-
-    P const **A_d;
-    P **work_d;
+    P **A_d;
     if (cudaMalloc((void **)&A_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
+    P **work_d;
     if (cudaMalloc((void **)&work_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-
+    int *info_d;
+    if (cudaMalloc((void **)&info_d, sizeof(int)) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
     auto stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
     expect(stat == 0);
     stat = cudaMemcpy(work_d, &work, sizeof(P *), cudaMemcpyHostToDevice);
@@ -741,34 +741,40 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetriBatched(
-          device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
+      auto const success = cublasDgetriBatched(device.get_handle(), n, A_d, lda,
+                                               nullptr, work_d, n, info_d, 1);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetriBatched(
-          device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
+      auto const success = cublasSgetriBatched(device.get_handle(), n, A_d, lda,
+                                               nullptr, work_d, n, info_d, 1);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    return;
+    stat = cudaMemcpy(&info, info_d, sizeof(int), cudaMemcpyDeviceToHost);
+    expect(stat == cudaSuccess);
+
+    stat = cudaFree(A_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(work_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(info_d);
+    expect(stat == cudaSuccess);
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    dgetri_(n, A, lda, ipiv, work, lwork, info);
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
+    {
+      dgetri_(&n, A, &lda, ipiv, work, &lwork, &info);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      sgetri_(&n, A, &lda, ipiv, work, &lwork, &info);
+    }
   }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sgetri_(n, A, lda, ipiv, work, lwork, info);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getri not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
 template<resource resrc, typename P>
@@ -1149,6 +1155,11 @@ template int
 getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
 template int
 getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
+template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
+                                            float *work, int lwork);
+template int getri<resource::device, double>(int n, double *A, int lda,
+                                             int *ipiv, double *work,
+                                             int lwork);
 #endif
 
 template void gemv<resource::host, float>(char trans, int m, int n, float alpha,
@@ -1180,10 +1191,10 @@ getrf<resource::host, float>(int m, int n, float *A, int lda, int *ipiv);
 template int
 getrf<resource::host, double>(int m, int n, double *A, int lda, int *ipiv);
 
-template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
-                    int *lwork, int *info, resource const resrc);
-template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
-                    int *lwork, int *info, resource const resrc);
+template int getri<resource::host, float>(int n, float *A, int lda, int *ipiv,
+                                          float *work, int lwork);
+template int getri<resource::host, double>(int n, double *A, int lda, int *ipiv,
+                                           double *work, int lwork);
 
 template void
 batched_gemm<resource::host, float>(float **const &a, int lda, char transa,

@@ -41,9 +41,8 @@ void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
 template<resource resrc = resource::host, typename P>
 int getrf(int m, int n, P *A, int lda, int *ipiv);
 
-template<typename P>
-void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
-           resource const resrc = resource::host);
+template<resource resrc = resource::host, typename P>
+int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork);
 
 template<resource resrc = resource::host, typename P>
 void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,

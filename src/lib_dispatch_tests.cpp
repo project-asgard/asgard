@@ -824,29 +824,28 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
   fk::matrix<TestType, mem_type::owner, resource::device> test_d(
       test.clone_onto_device());
   fk::vector<int, mem_type::owner, resource::device> ipiv_d(test_d.nrows());
-  fk::vector<int, mem_type::owner, resource::device> info_d(10);
 
   int m   = test.nrows();
   int n   = test.ncols();
   int lda = test.stride();
 
-  int info = lib_dispatch::getrf<resource::device>(m, n, test_d.data(), lda,
+  int info  = lib_dispatch::getrf<resource::device>(m, n, test_d.data(), lda,
                                                    ipiv_d.data());
-  REQUIRE(info == 0);
   auto stat = cudaDeviceSynchronize();
   REQUIRE(stat == cudaSuccess);
+
+  REQUIRE(info == 0);
 
   m = test.nrows();
   n = test.ncols();
   fk::matrix<TestType, mem_type::owner, resource::device> work(2, 2);
   int size = m * n;
-  lib_dispatch::getri(&n, test_d.data(), &lda, ipiv_d.data(), work.data(),
-                      &size, info_d.data(), resource::device);
-
+  info     = lib_dispatch::getri<resource::device>(
+      n, test_d.data(), lda, ipiv_d.data(), work.data(), size);
   stat = cudaDeviceSynchronize();
   REQUIRE(stat == cudaSuccess);
-  fk::vector<int> const info_check(info_d.clone_onto_host());
-  REQUIRE(info_check(0) == 0);
+
+  REQUIRE(info == 0);
 
   fk::matrix<TestType> const test_copy(work.clone_onto_host());
 

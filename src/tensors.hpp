@@ -2397,8 +2397,8 @@ template<typename P, mem_type mem, resource resrc>
 template<typename U, typename, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::invert()
 {
-  expect(nrows() == ncols());
   static_assert(resrc == resource::host);
+  expect(nrows() == ncols());
 
   std::vector<int> ipiv(ncols());
   int lwork{static_cast<int>(size())};
@@ -2409,12 +2409,11 @@ fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::invert()
   if (info != 0)
     throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
                              std::to_string(info));
-  lib_dispatch::getri(&ncols_, data(0, 0), &lda, ipiv.data(), work.data(),
-                      &lwork, &info);
+  info = lib_dispatch::getri(ncols_, data(0, 0), lda, ipiv.data(), work.data(),
+                             lwork);
   if (info != 0)
     throw std::runtime_error("Error returned from lib_dispatch::getri: " +
                              std::to_string(info));
-
   return *this;
 }
 
