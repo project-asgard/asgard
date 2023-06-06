@@ -221,16 +221,21 @@ void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
   int lda = A.stride();
   int ldb = B.size();
 
-  int info;
-  lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
-                     &ldb, &info);
-  if (info > 0)
+  int info = lib_dispatch::gesv(rows_A, cols_B, A.data(), lda, ipiv.data(),
+                                B.data(), ldb);
+  if (info < 0)
   {
-    std::cout << "The diagonal element of the triangular factor of A,\n";
-    std::cout << "U(" << info << "," << info
-              << ") is zero, so that A is singular;\n";
-    std::cout << "the solution could not be computed.\n";
-    exit(1);
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to gesv() has an illegal value\n"));
+  }
+  else if (info > 0)
+  {
+    std::ostringstream msg;
+    msg << "The diagonal element of the triangular factor of A,\n";
+    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
+    msg << "the solution could not be computed.\n";
+    throw std::runtime_error(msg.str());
   }
 }
 
@@ -257,16 +262,21 @@ void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
   int lda = A.stride();
   int ldb = B.stride();
 
-  int info;
-  lib_dispatch::gesv(&rows_A, &cols_B, A.data(), &lda, ipiv.data(), B.data(),
-                     &ldb, &info);
-  if (info > 0)
+  int info = lib_dispatch::gesv(rows_A, cols_B, A.data(), lda, ipiv.data(),
+                                B.data(), ldb);
+  if (info < 0)
   {
-    std::cout << "The diagonal element of the triangular factor of A,\n";
-    std::cout << "U(" << info << "," << info
-              << ") is zero, so that A is singular;\n";
-    std::cout << "the solution could not be computed.\n";
-    exit(1);
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to gesv() has an illegal value\n"));
+  }
+  else if (info > 0)
+  {
+    std::ostringstream msg;
+    msg << "The diagonal element of the triangular factor of A,\n";
+    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
+    msg << "the solution could not be computed.\n";
+    throw std::runtime_error(msg.str());
   }
 }
 
@@ -290,7 +300,7 @@ void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
   int cols_B = 1;
   int info;
   lib_dispatch::scalapack_gesv(&rows_A, &cols_B, A.data(), ainfo.get_desc(),
-                               ipiv.data(), B.data(), binfo.get_desc(), &info);
+                               ipiv.data(), B.data(), binfo.get_desc());
   if (info > 0)
   {
     std::cout << "The diagonal element of the triangular factor of A,\n";
@@ -328,9 +338,8 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int lda    = A.stride();
   int ldb    = B.size();
 
-  int info;
-  lib_dispatch::getrs(&trans, &rows_A, &cols_B, A.data(), &lda, ipiv.data(),
-                      B.data(), &ldb, &info);
+  int info = lib_dispatch::getrs(trans, rows_A, cols_B, A.data(), lda,
+                                 ipiv.data(), B.data(), ldb);
   if (info < 0)
   {
     printf("Argument %d in call to getrs() has an illegal value\n", -info);
@@ -351,8 +360,7 @@ void pttrf(fk::vector<P, dmem> &D, fk::vector<P, emem> &E)
   expect(N >= 0);
   expect(E.size() == N - 1);
 
-  int info;
-  lib_dispatch::pttrf(&N, D.data(), E.data(), &info);
+  int info = lib_dispatch::pttrf(N, D.data(), E.data());
   if (info < 0)
   {
     throw std::runtime_error(
@@ -379,8 +387,7 @@ void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
   expect(nrhs >= 0);
   expect(E.size() == N - 1);
 
-  int info;
-  lib_dispatch::pttrs(&N, &nrhs, D.data(), E.data(), B.data(), &ldb, &info);
+  int info = lib_dispatch::pttrs(N, nrhs, D.data(), E.data(), B.data(), ldb);
   if (info < 0)
   {
     throw std::runtime_error(
@@ -408,8 +415,7 @@ void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
   expect(E.size() == N - 1);
   expect(ldb == N);
 
-  int info;
-  lib_dispatch::pttrs(&N, &nrhs, D.data(), E.data(), B.data(), &ldb, &info);
+  int info = lib_dispatch::pttrs(N, nrhs, D.data(), E.data(), B.data(), ldb);
   if (info < 0)
   {
     throw std::runtime_error(

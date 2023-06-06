@@ -644,6 +644,7 @@ int getrf(int m, int n, P *A, int lda, int *ipiv)
   expect(lda >= 0);
   expect(m >= 0);
   expect(n >= 0);
+
   int info{1};
   if constexpr (resrc == resource::device)
   {
@@ -712,7 +713,8 @@ int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork)
   expect(lwork == n * n);
   expect(lda >= 0);
   expect(n >= 0);
-  int info;
+
+  int info{1};
   if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
@@ -868,131 +870,92 @@ void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
 }
 
 template<typename P>
-void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-          int *info)
+int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
 {
-  expect(n);
-  expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
-  expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
-  expect(*n >= 0);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
+
+  int info{1};
   if constexpr (std::is_same<P, double>::value)
   {
-    dgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "gesv not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
 template<typename P>
-void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
-           int const *ipiv, P *b, int *ldb, int *info)
+int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
+          P *b, int ldb)
 {
-  expect(trans);
-  expect(n);
-  expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
-  expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
-  expect(*n >= 0);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
 
+  int info{1};
   // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
-            ldb, info);
+    dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+            const_cast<int *>(ipiv), b, &ldb, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
-            ldb, info);
+    sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+            const_cast<int *>(ipiv), b, &ldb, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getrs not implemented for non-floating types" << '\n';
-    assert(false);
-  }
+  return info;
 }
 
 template<typename P>
-void pttrf(int *n, P *D, P *E, int *info, resource const resrc)
+int pttrf(int n, P *D, P *E)
 {
   expect(D);
   expect(E);
-  expect(info);
-  expect(n && *n >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
-  {
-    throw std::runtime_error("no pttrf support on cuda implemented");
-  }
-
+  int info{1};
   if constexpr (std::is_same<P, double>::value)
   {
-    dpttrf_(n, D, E, info);
+    dpttrf_(&n, D, E, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    spttrf_(n, D, E, info);
+    spttrf_(&n, D, E, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "pttrf not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
 template<typename P>
-void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
-           resource const resrc)
+int pttrs(int n, int nrhs, P const *D, P const *E, P *B, int ldb)
 {
-  expect(n);
-  expect(nrhs);
   expect(D);
   expect(E);
   expect(B);
-  expect(ldb);
-  expect(info);
-  expect(*ldb >= 1);
-  expect(*n >= 0);
+  expect(ldb >= 1);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
-  {
-    throw std::runtime_error("no pttrs support on cuda implemented");
-  }
-
+  int info{1};
   // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dpttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
+    dpttrs_(&n, &nrhs, const_cast<P *>(D), const_cast<P *>(E), B, &ldb, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    spttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
+    spttrs_(&n, &nrhs, const_cast<P *>(D), const_cast<P *>(E), B, &ldb, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "spttrs not implemented for non-floating types" << '\n';
-    assert(false);
-  }
+  return info;
 }
 
 #ifdef ASGARD_USE_SCALAPACK
@@ -1019,11 +982,6 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
   {
     psgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "gesv not implemented for non-floating types" << '\n';
-    expect(false);
-  }
 }
 
 template<typename P>
@@ -1040,21 +998,15 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
   expect(*n >= 0);
 
   int mp{1}, nq{1}, i_one{1};
-  char N{'N'};
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+    pdgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
              info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+    psgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
              info);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getrs not implemented for non-floating types" << '\n';
-    expect(false);
   }
 }
 #endif
@@ -1155,6 +1107,7 @@ template int
 getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
 template int
 getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
+
 template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
                                             float *work, int lwork);
 template int getri<resource::device, double>(int n, double *A, int lda,
@@ -1210,25 +1163,24 @@ batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
                                      int k, double alpha, double beta,
                                      int num_batch);
 
-template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
-                   int *ldb, int *info);
-template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
-                   int *ldb, int *info);
+template int
+gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
+template int
+gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
 
-template void getrs(char *trans, int *n, int *nrhs, double const *A, int *lda,
-                    int const *ipiv, double *b, int *ldb, int *info);
-template void getrs(char *trans, int *n, int *nrhs, float const *A, int *lda,
-                    int const *ipiv, float *b, int *ldb, int *info);
+template int getrs(char trans, int n, int nrhs, double const *A, int lda,
+                   int const *ipiv, double *b, int ldb);
+template int getrs(char trans, int n, int nrhs, float const *A, int lda,
+                   int const *ipiv, float *b, int ldb);
 
-template void
-pttrf(int *n, double *D, double *E, int *info, resource const resrc);
-template void
-pttrf(int *n, float *D, float *E, int *info, resource const resrc);
+template int pttrf(int n, double *D, double *E);
+template int pttrf(int n, float *D, float *E);
 
-template void pttrs(int *n, int *nrhs, double const *D, double const *E,
-                    double *B, int *ldb, int *info, resource const resrc);
-template void pttrs(int *n, int *nrhs, float const *D, float const *E, float *B,
-                    int *ldb, int *info, resource const resrc);
+template int
+pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
+template int
+pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
+
 #ifdef ASGARD_USE_SCALAPACK
 template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
                              int *ipiv, double *b, int *descB, int *info);

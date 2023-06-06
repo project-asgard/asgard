@@ -1214,9 +1214,8 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
     int lda = A_copy.stride();
     int ldb = x.size();
 
-    int info;
-    lib_dispatch::gesv(&rows_A, &cols_B, A_copy.data(), &lda, ipiv.data(),
-                       x.data(), &ldb, &info);
+    int info = lib_dispatch::gesv(rows_A, cols_B, A_copy.data(), lda,
+                                  ipiv.data(), x.data(), ldb);
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -1226,8 +1225,8 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
 
     x          = B1_gold;
     char trans = 'N';
-    lib_dispatch::getrs(&trans, &rows_A, &cols_B, A_copy.data(), &lda,
-                        ipiv.data(), x.data(), &ldb, &info);
+    info       = lib_dispatch::getrs(trans, rows_A, cols_B, A_copy.data(), lda,
+                               ipiv.data(), x.data(), ldb);
 
     REQUIRE(info == 0);
     rmse_comparison(x, X1_gold, tol_factor);
